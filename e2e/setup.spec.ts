@@ -142,6 +142,9 @@ test('walks a new organization from the setup link to a branded sign-in page', a
   })
   const manifest = await (await request.get('/manifest.webmanifest')).json()
   expect(manifest.name).toBe('Acme')
+  // The served page carries the name before the app boots, on any route.
+  expect(await (await request.get('/')).text()).toContain('<title>Acme</title>')
+  expect(await (await request.get('/docs/anything')).text()).toContain('<title>Acme</title>')
 
   // The logo is served so its script can't run.
   const logo = await request.get('/api/org/assets/logo')

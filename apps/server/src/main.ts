@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
 import { createApp } from './app.js'
 import { loadConfig } from './config.js'
 import { OrgStore } from './org/store.js'
@@ -182,6 +182,17 @@ function serveWebApp(app: Hono, dir: string, productName: string): void {
     c.header('Cache-Control', 'no-cache')
     return c.body(JSON.stringify(manifest))
   })
+  // The page title before the app boots (tab, link previews, history) is the organization's too.
+  const shell = readFileSync(path.join(dir, 'index.html'), 'utf8').replace(
+    /<title>[^<]*<\/title>/,
+    `<title>${escapeHtml(productName)}</title>`,
+  )
+  const sendShell = (c: Context) => {
+    c.header('Cache-Control', 'no-cache')
+    return c.html(shell)
+  }
+  app.get('/', sendShell)
+  app.get('/index.html', sendShell)
   app.get(
     '*',
     serveStatic({
@@ -198,14 +209,11 @@ function serveWebApp(app: Hono, dir: string, productName: string): void {
   // app shell served in its place would be cached as that chunk by the service worker.
   app.get('/assets/*', (c) => c.notFound())
   app.get('/downloads/*', (c) => c.notFound())
-  app.get(
-    '*',
-    serveStatic({
-      root,
-      path: 'index.html',
-      onFound: (_file, c) => c.header('Cache-Control', 'no-cache'),
-    }),
-  )
+  app.get('*', sendShell)
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
 }
 
 main().catch((err: unknown) => {
