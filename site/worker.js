@@ -10,6 +10,7 @@ export default {
     const headers = new Headers(res.headers)
     headers.set('x-content-type-options', 'nosniff')
     headers.set('referrer-policy', 'strict-origin-when-cross-origin')
+    if (res.ok && url.pathname.startsWith('/img/')) headers.set('cache-control', 'public, max-age=86400')
     return new Response(res.body, { status: res.status, headers })
   },
 }

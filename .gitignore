@@ -14,3 +14,4 @@ test-results/
 
 # Made by scripts/deploy-fly.sh for each instance.
 fly.*.toml
+.wrangler/
