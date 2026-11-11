@@ -1,0 +1,32 @@
+# Hotsauce on your own server, with Docker.
+#
+#   cd deploy
+#   PUBLIC_URL=https://office.example.com docker compose up -d --build
+#   docker compose logs hotsauce | grep setup     # open the setup link it prints
+#
+# Put it behind a reverse proxy that terminates HTTPS (Caddy, nginx, Traefik) and forwards
+# WebSockets. Everything lives in the `hotsauce-data` volume: back it up.
+name: hotsauce
+
+services:
+  hotsauce:
+    build:
+      context: ..
+      args:
+        # The Chrome extension it offers talks to this address.
+        HEARTH_URL: ${PUBLIC_URL:-http://localhost:3000}
+    image: hotsauce:local
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # The address people open. The setup link and sign-in redirects use it.
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      # Optional: a key of your own for the keys the setup wizard saves. Without it, the server
+      # generates one and keeps it on the data volume, next to what it protects.
+      HOTSAUCE_MASTER_KEY: ${HOTSAUCE_MASTER_KEY:-}
+    volumes:
+      - hotsauce-data:/data
+
+volumes:
+  hotsauce-data:

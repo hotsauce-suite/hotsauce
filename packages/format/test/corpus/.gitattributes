@@ -1,0 +1,2 @@
+# Keep line endings and BOMs exactly as written; the corpus tests depend on them.
+* -text

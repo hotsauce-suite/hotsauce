@@ -1,0 +1,22 @@
+# Never ship secrets or local state into the image.
+.env
+.env.*
+*.local
+.clerk
+.data
+
+# Rebuilt inside the image.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+
+# Not needed to build, and changes to them shouldn't bust the install cache.
+.git
+.github
+.claude
+docs
+e2e
+coverage
+playwright-report
+test-results
+**/.DS_Store

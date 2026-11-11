@@ -1,0 +1,118 @@
+/* Hearth design tokens. Paper-warm by day, charcoal and ash by night, one ember accent.
+   Never pure black or white. Components read these through Tailwind's @theme mapping
+   (app.css) or directly as var(--…). */
+
+:root {
+  color-scheme: light;
+
+  --paper: #f2eadf;
+  --paper-raised: #faf5ee;
+  --paper-sunk: #e8ddcf;
+  --ash: #d6c7b4;
+  --ash-strong: #b9a691;
+  --ink: #2a221d;
+  --ink-soft: #5b4e44;
+  --ink-faint: #8c7c6e;
+  /* AI-written lines in a meeting note: quieter than the member's own words, still readable. */
+  --ink-ai: #75675c;
+
+  --ember: #c63d19;
+  --ember-strong: #a5300f;
+  --ember-wash: rgb(198 61 25 / 0.1);
+  --glow: #ee9a46;
+  --moss: #4a6a3a;
+  --moss-wash: rgb(74 106 58 / 0.13);
+  --rust-wash: rgb(198 61 25 / 0.11);
+
+  --code-bg: #ebe1d3;
+  --code-keyword: #a3361a;
+  --code-string: #56702b;
+  --code-number: #96570f;
+  --code-comment: #978676;
+  --code-function: #84461f;
+  --code-type: #3c6670;
+  --code-property: #6a4c2a;
+
+  --shadow-float: 0 18px 40px -18px rgb(70 34 12 / 0.35), 0 3px 8px -3px rgb(70 34 12 / 0.16);
+  --focus-ring: 0 0 0 2px var(--paper), 0 0 0 4px rgb(198 61 25 / 0.55);
+
+  --type-display: "Fraunces", ui-serif, Georgia, serif;
+  --type-ui: "IBM Plex Sans", ui-sans-serif, "Helvetica Neue", sans-serif;
+  --type-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --rail-width: 3.25rem;
+  --sidebar-width: 17.5rem;
+  --panel-width: 22rem;
+  --topbar-height: 3.25rem;
+  --measure: 46rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --paper: #1d1815;
+    --paper-raised: #28211d;
+    --paper-sunk: #161210;
+    --ash: #3b322c;
+    --ash-strong: #54483f;
+    --ink: #ede3d6;
+    --ink-soft: #c1b2a2;
+    --ink-faint: #8d7d6f;
+    --ink-ai: #a89888;
+
+    --ember: #ff6a3d;
+    --ember-strong: #ff8a62;
+    --ember-wash: rgb(255 106 61 / 0.13);
+    --glow: #ff9d4d;
+    --moss: #a9c77a;
+    --moss-wash: rgb(169 199 122 / 0.13);
+    --rust-wash: rgb(255 106 61 / 0.13);
+
+    --code-bg: #241d19;
+    --code-keyword: #ff8a5c;
+    --code-string: #b6cf7c;
+    --code-number: #f0b866;
+    --code-comment: #85766a;
+    --code-function: #f2c48d;
+    --code-type: #8ec3c9;
+    --code-property: #e2b78c;
+
+    --shadow-float: 0 18px 44px -16px rgb(0 0 0 / 0.6), 0 3px 10px -3px rgb(0 0 0 / 0.4);
+    --focus-ring: 0 0 0 2px var(--paper), 0 0 0 4px rgb(255 106 61 / 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #1d1815;
+  --paper-raised: #28211d;
+  --paper-sunk: #161210;
+  --ash: #3b322c;
+  --ash-strong: #54483f;
+  --ink: #ede3d6;
+  --ink-soft: #c1b2a2;
+  --ink-faint: #8d7d6f;
+  --ink-ai: #a89888;
+
+  --ember: #ff6a3d;
+  --ember-strong: #ff8a62;
+  --ember-wash: rgb(255 106 61 / 0.13);
+  --glow: #ff9d4d;
+  --moss: #a9c77a;
+  --moss-wash: rgb(169 199 122 / 0.13);
+  --rust-wash: rgb(255 106 61 / 0.13);
+
+  --code-bg: #241d19;
+  --code-keyword: #ff8a5c;
+  --code-string: #b6cf7c;
+  --code-number: #f0b866;
+  --code-comment: #85766a;
+  --code-function: #f2c48d;
+  --code-type: #8ec3c9;
+  --code-property: #e2b78c;
+
+  --shadow-float: 0 18px 44px -16px rgb(0 0 0 / 0.6), 0 3px 10px -3px rgb(0 0 0 / 0.4);
+  --focus-ring: 0 0 0 2px var(--paper), 0 0 0 4px rgb(255 106 61 / 0.6);
+}

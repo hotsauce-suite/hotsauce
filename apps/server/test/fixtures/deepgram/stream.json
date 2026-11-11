@@ -1,0 +1,202 @@
+[
+  {
+    "type": "SpeechStarted",
+    "channel": [0],
+    "timestamp": 0.48
+  },
+  {
+    "type": "Results",
+    "channel_index": [0, 1],
+    "duration": 1.02,
+    "start": 0.48,
+    "is_final": false,
+    "speech_final": false,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "we'd need",
+          "confidence": 0.87,
+          "words": [
+            {
+              "word": "we'd",
+              "start": 0.56,
+              "end": 0.84,
+              "confidence": 0.86,
+              "punctuated_word": "We'd"
+            },
+            {
+              "word": "need",
+              "start": 0.84,
+              "end": 1.2,
+              "confidence": 0.88,
+              "punctuated_word": "need"
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "9b0f7c43-2a5e-4f41-9f8c-5d2e0c3b7a11",
+      "model_info": { "name": "general-nova-3", "version": "2025-04-17.21547", "arch": "nova-3" },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bd5e"
+    },
+    "from_finalize": false
+  },
+  {
+    "type": "Results",
+    "channel_index": [0, 1],
+    "duration": 2.4,
+    "start": 0.48,
+    "is_final": true,
+    "speech_final": true,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "We'd need SSO before rolling out.",
+          "confidence": 0.98,
+          "words": [
+            {
+              "word": "we'd",
+              "start": 0.56,
+              "end": 0.84,
+              "confidence": 0.97,
+              "punctuated_word": "We'd"
+            },
+            {
+              "word": "need",
+              "start": 0.84,
+              "end": 1.12,
+              "confidence": 0.99,
+              "punctuated_word": "need"
+            },
+            {
+              "word": "sso",
+              "start": 1.12,
+              "end": 1.6,
+              "confidence": 0.95,
+              "punctuated_word": "SSO"
+            },
+            {
+              "word": "before",
+              "start": 1.6,
+              "end": 1.92,
+              "confidence": 0.99,
+              "punctuated_word": "before"
+            },
+            {
+              "word": "rolling",
+              "start": 1.92,
+              "end": 2.32,
+              "confidence": 0.99,
+              "punctuated_word": "rolling"
+            },
+            {
+              "word": "out",
+              "start": 2.32,
+              "end": 2.88,
+              "confidence": 0.99,
+              "punctuated_word": "out."
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "9b0f7c43-2a5e-4f41-9f8c-5d2e0c3b7a11",
+      "model_info": { "name": "general-nova-3", "version": "2025-04-17.21547", "arch": "nova-3" },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bd5e"
+    },
+    "from_finalize": false
+  },
+  {
+    "type": "Results",
+    "channel_index": [0, 1],
+    "duration": 1.1,
+    "start": 2.88,
+    "is_final": true,
+    "speech_final": false,
+    "channel": {
+      "alternatives": [{ "transcript": "", "confidence": 0, "words": [] }]
+    },
+    "metadata": {
+      "request_id": "9b0f7c43-2a5e-4f41-9f8c-5d2e0c3b7a11",
+      "model_info": { "name": "general-nova-3", "version": "2025-04-17.21547", "arch": "nova-3" },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bd5e"
+    },
+    "from_finalize": false
+  },
+  {
+    "type": "UtteranceEnd",
+    "channel": [0, 1],
+    "last_word_end": 2.88
+  },
+  {
+    "type": "Results",
+    "channel_index": [0, 1],
+    "duration": 1.5,
+    "start": 3.98,
+    "is_final": true,
+    "speech_final": true,
+    "channel": {
+      "alternatives": [
+        {
+          "transcript": "Pricing by Friday works.",
+          "confidence": 0.96,
+          "words": [
+            {
+              "word": "pricing",
+              "start": 4.0,
+              "end": 4.4,
+              "confidence": 0.97,
+              "punctuated_word": "Pricing"
+            },
+            {
+              "word": "by",
+              "start": 4.4,
+              "end": 4.56,
+              "confidence": 0.99,
+              "punctuated_word": "by"
+            },
+            {
+              "word": "friday",
+              "start": 4.56,
+              "end": 5.04,
+              "confidence": 0.98,
+              "punctuated_word": "Friday"
+            },
+            {
+              "word": "works",
+              "start": 5.04,
+              "end": 5.44,
+              "confidence": 0.95,
+              "punctuated_word": "works."
+            }
+          ]
+        }
+      ]
+    },
+    "metadata": {
+      "request_id": "9b0f7c43-2a5e-4f41-9f8c-5d2e0c3b7a11",
+      "model_info": { "name": "general-nova-3", "version": "2025-04-17.21547", "arch": "nova-3" },
+      "model_uuid": "40bd3654-e622-47c4-a111-63a61b23bd5e"
+    },
+    "from_finalize": true
+  },
+  {
+    "type": "Metadata",
+    "transaction_key": "deprecated",
+    "request_id": "9b0f7c43-2a5e-4f41-9f8c-5d2e0c3b7a11",
+    "sha256": "0b1c4a5d8f6e2e8c9a3b7d1f4e6a2c8b5d9e1f3a7c4b6d8e0f2a4c6e8b0d2f4a",
+    "created": "2026-10-08T14:03:11.204Z",
+    "duration": 5.5,
+    "channels": 1,
+    "models": ["40bd3654-e622-47c4-a111-63a61b23bd5e"],
+    "model_info": {
+      "40bd3654-e622-47c4-a111-63a61b23bd5e": {
+        "name": "general-nova-3",
+        "version": "2025-04-17.21547",
+        "arch": "nova-3"
+      }
+    }
+  }
+]

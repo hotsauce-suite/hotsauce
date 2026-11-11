@@ -1,0 +1,422 @@
+import AppKit
+import DictateCore
+import WebKit
+
+/// The app's main window: the whole web suite in a web view. The web view lives as long as the
+/// app (closing the window only hides it), so the session, an open recording and the meeting
+/// reminders' calls keep going. Its cookies and storage are the default persistent store, so a
+/// sign-in survives relaunching the app.
+@MainActor
+final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNavigationDelegate, WKUIDelegate,
+    WKDownloadDelegate, WKScriptMessageHandler
+{
+    let webView: WKWebView
+    private let window: NSWindow
+    private(set) var router: SuiteRouter
+    /// A short message for the member (a finished download); the app shows it in its overlay.
+    var showMessage: (String) -> Void = { _ in }
+    /// The app's own links (`hearth-dictate://connect`, `hearth://<path>`) found in the page.
+    var handleAppLink: (URL) -> Void = { _ in }
+    private var destinations: [ObjectIdentifier: URL] = [:]
+    private var titleObservation: NSKeyValueObservation?
+    private var historyObservations: [NSKeyValueObservation] = []
+    private var hasLoaded = false
+
+    init(server: URL) {
+        router = SuiteRouter(server: server)
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .default()
+        // Google refuses to sign in inside apps that don't look like a browser; WebKit's own
+        // user agent plus Safari's version is exactly what Safari sends.
+        configuration.applicationNameForUserAgent = "Version/18.5 Safari/605.1.15"
+        configuration.preferences.isElementFullscreenEnabled = true
+        configuration.mediaTypesRequiringUserActionForPlayback = []
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: Self.downloadLinkScript, injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 1280, height: 820), configuration: configuration)
+        webView.allowsBackForwardNavigationGestures = true
+        webView.allowsMagnification = true
+        // Safari's Web Inspector, only when turned on: `defaults write dev.hotsauce.dictate webInspector -bool true`.
+        if #available(macOS 13.3, *) { webView.isInspectable = UserDefaults.standard.bool(forKey: "webInspector") }
+
+        window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        super.init()
+        configuration.userContentController.add(WeakScriptHandler(self), name: "hearthDownload")
+        webView.navigationDelegate = self
+        webView.uiDelegate = self
+
+        window.title = Brand.name
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 640, height: 480)
+        window.delegate = self
+        window.contentView = webView
+        window.tabbingMode = .disallowed
+        let toolbar = NSToolbar(identifier: "SuiteToolbar")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        window.toolbar = toolbar
+        window.toolbarStyle = .unifiedCompact
+        window.setFrameAutosaveName("SuiteWindow")
+        if !window.setFrameUsingName("SuiteWindow") { window.center() }
+
+        titleObservation = webView.observe(\.title, options: [.new]) { [weak self] view, _ in
+            MainActor.assumeIsolated {
+                let title = view.title ?? ""
+                self?.window.title = title.isEmpty ? Brand.name : title
+            }
+        }
+        historyObservations = [
+            webView.observe(\.canGoBack) { [weak self] _, _ in MainActor.assumeIsolated { self?.window.toolbar?.validateVisibleItems() } },
+            webView.observe(\.canGoForward) { [weak self] _, _ in MainActor.assumeIsolated { self?.window.toolbar?.validateVisibleItems() } },
+        ]
+    }
+
+    var isKey: Bool { window.isKeyWindow }
+
+    /// Loads the suite if it hasn't been yet; without showing the window (a login launch).
+    func loadIfNeeded() {
+        guard !hasLoaded else { return }
+        hasLoaded = true
+        webView.load(URLRequest(url: router.server))
+    }
+
+    func show() {
+        loadIfNeeded()
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Another server (Settings): start again there.
+    func setServer(_ server: URL) {
+        guard server != router.server else { return }
+        router = SuiteRouter(server: server)
+        hasLoaded = true
+        webView.load(URLRequest(url: server))
+    }
+
+    /// Opens a path of the suite (`/meetings/start?event=x`). On a page of the suite already, it
+    /// changes route in place, as the web app's own links do, so a recording isn't reloaded.
+    func open(path: String) {
+        guard let url = router.url(forPath: path) else { return }
+        hasLoaded = true
+        if let current = webView.url, router.isSuite(current), !webView.isLoading {
+            Task {
+                do {
+                    _ = try await webView.callAsyncJavaScript(
+                        "history.pushState(null, '', path); window.dispatchEvent(new PopStateEvent('popstate', { state: null }))",
+                        arguments: ["path": path], in: nil, contentWorld: .page
+                    )
+                } catch {
+                    webView.load(URLRequest(url: url))
+                }
+            }
+        } else {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
+    func reload() {
+        if webView.url == nil || webView.url?.scheme == "about" { webView.load(URLRequest(url: router.server)) } else { webView.reload() }
+    }
+
+    func goBack() { webView.goBack() }
+    func goForward() { webView.goForward() }
+    func goHome() { webView.load(URLRequest(url: router.server)) }
+    var canGoBack: Bool { webView.canGoBack }
+    var canGoForward: Bool { webView.canGoForward }
+
+    /// GETs a suite API path from inside the signed-in page, with the page's own credentials:
+    /// Clerk's session token when there is one, the dev sign-in's header locally, and the session
+    /// cookie either way. Nil when the page isn't the suite (signed out, an error page) or the
+    /// request fails; the status code otherwise.
+    func apiGet(_ path: String) async -> (status: Int, body: Data?)? {
+        guard path.hasPrefix("/api/"), let current = webView.url, router.isSuite(current) else { return nil }
+        let script = """
+        const headers = {}
+        try { const token = await window.Clerk?.session?.getToken(); if (token) headers.Authorization = 'Bearer ' + token } catch {}
+        try { const dev = localStorage.getItem('hearth.devUser'); if (dev && !headers.Authorization) headers['x-hearth-dev-user'] = dev } catch {}
+        const response = await fetch(path, { headers, credentials: 'same-origin', cache: 'no-store' })
+        return { status: response.status, body: response.ok ? await response.text() : '' }
+        """
+        do {
+            let result = try await webView.callAsyncJavaScript(script, arguments: ["path": path], in: nil, contentWorld: .page)
+            guard let dict = result as? [String: Any], let status = dict["status"] as? Int else { return nil }
+            let body = (dict["body"] as? String).flatMap { $0.isEmpty ? nil : Data($0.utf8) }
+            return (status, body)
+        } catch {
+            return nil
+        }
+    }
+
+    // MARK: Window
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        // Hidden, not closed: the page keeps its session, its recording and its timers.
+        sender.orderOut(nil)
+        return false
+    }
+
+    // MARK: Toolbar
+
+    private static let backItem = NSToolbarItem.Identifier("back")
+    private static let forwardItem = NSToolbarItem.Identifier("forward")
+    private static let reloadItem = NSToolbarItem.Identifier("reload")
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [Self.backItem, Self.forwardItem, Self.reloadItem, .flexibleSpace]
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [Self.backItem, Self.forwardItem, Self.reloadItem, .flexibleSpace]
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = ValidatedToolbarItem(itemIdentifier: id)
+        item.isBordered = true
+        item.target = self
+        switch id {
+        case Self.backItem:
+            item.label = "Back"
+            item.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back")
+            item.action = #selector(backClicked)
+            item.isEnabledCheck = { [weak self] in self?.canGoBack ?? false }
+        case Self.forwardItem:
+            item.label = "Forward"
+            item.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward")
+            item.action = #selector(forwardClicked)
+            item.isEnabledCheck = { [weak self] in self?.canGoForward ?? false }
+        case Self.reloadItem:
+            item.label = "Reload"
+            item.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Reload")
+            item.action = #selector(reloadClicked)
+        default:
+            return nil
+        }
+        item.toolTip = item.label
+        return item
+    }
+
+    @objc private func backClicked() { goBack() }
+    @objc private func forwardClicked() { goForward() }
+    @objc private func reloadClicked() { reload() }
+
+    // MARK: Navigation
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+        if action.shouldPerformDownload { return decisionHandler(.download) }
+        guard let url = action.request.url else { return decisionHandler(.cancel) }
+        let decision = router.decide(
+            url,
+            from: webView.url,
+            isMainFrame: action.targetFrame?.isMainFrame ?? true,
+            userClicked: action.navigationType == .linkActivated,
+            newWindow: action.targetFrame == nil
+        )
+        switch decision {
+        case .allow:
+            decisionHandler(.allow)
+        case .cancel:
+            decisionHandler(.cancel)
+        case let .handleInApp(link):
+            decisionHandler(.cancel)
+            handleAppLink(link)
+        case .openExternally:
+            NSWorkspace.shared.open(url)
+            decisionHandler(.cancel)
+        case let .loadInWindow(target):
+            decisionHandler(.cancel)
+            webView.load(URLRequest(url: target))
+        }
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse, decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
+        let disposition = (response.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+        // Only the page itself: an iframe's response never starts a download.
+        if response.isForMainFrame, !response.canShowMIMEType || disposition.lowercased().hasPrefix("attachment") {
+            decisionHandler(.download)
+        } else {
+            decisionHandler(.allow)
+        }
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        showLoadError(error)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        showLoadError(error)
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        // At most once a minute, so a page that keeps crashing doesn't loop.
+        guard Date().timeIntervalSince(lastCrashReload) > 60 else { return }
+        lastCrashReload = Date()
+        reload()
+    }
+
+    private var lastCrashReload = Date.distantPast
+
+    /// Offline or the server down: a plain page that says so, with a way back.
+    private func showLoadError(_ error: Error) {
+        let nsError = error as NSError
+        // Cancelled (a new navigation started), or a response that became a download.
+        if nsError.code == NSURLErrorCancelled || (nsError.domain == "WebKitErrorDomain" && nsError.code == 102) { return }
+        let failing = (nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL) ?? router.server
+        let retry = router.isSuite(failing) ? failing : router.server
+        let html = """
+        <!doctype html><meta charset="utf-8"><title>\(escape(Brand.name))</title>
+        <style>
+        :root { color-scheme: light dark; --ink: #2A221D; --soft: #5B4E44; --paper: #F2EADF; --accent: #\(String(format: "%06X", Brand.accentLight)); }
+        @media (prefers-color-scheme: dark) { :root { --ink: #EDE3D6; --soft: #C1B2A2; --paper: #1D1815; --accent: #\(String(format: "%06X", Brand.accentDark)); } }
+        body { font: 14px -apple-system, system-ui; background: var(--paper); color: var(--ink); display: grid; place-items: center; height: 100vh; margin: 0; }
+        h1 { font: 600 22px ui-serif, Georgia, serif; margin: 0 0 8px; }
+        p { color: var(--soft); margin: 0 0 20px; max-width: 420px; }
+        a { color: white; background: var(--accent); padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+        </style>
+        <div><h1>Can’t reach \(escape(Brand.name))</h1><p>\(escape(nsError.localizedDescription))</p><a href="\(escape(retry.absoluteString))">Try again</a></div>
+        """
+        webView.loadHTMLString(html, baseURL: nil)
+    }
+
+    private func escape(_ text: String) -> String {
+        text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
+    // MARK: Windows, panels and permissions the page asks for
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        guard let url = action.request.url, url.absoluteString != "about:blank" else { return nil }
+        // WebKit only asks here on a click (scripts can't open windows on their own).
+        switch router.decide(url, from: webView.url, isMainFrame: true, userClicked: true, newWindow: true) {
+        case let .loadInWindow(target): webView.load(URLRequest(url: target))
+        case .openExternally: NSWorkspace.shared.open(url)
+        case let .handleInApp(link): handleAppLink(link)
+        case .allow, .cancel: break
+        }
+        return nil
+    }
+
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = parameters.allowsDirectories
+        panel.canChooseFiles = true
+        panel.beginSheetModal(for: window) { response in
+            completionHandler(response == .OK ? panel.urls : nil)
+        }
+    }
+
+    /// Camera and microphone for Meetings and Clips: granted to the suite's own pages (macOS
+    /// still asks once for the app); anyone else is asked about.
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping @MainActor (WKPermissionDecision) -> Void) {
+        var components = URLComponents()
+        components.scheme = origin.protocol
+        components.host = origin.host
+        if origin.port != 0 { components.port = origin.port }
+        if let url = components.url, router.isSuite(url) { decisionHandler(.grant) } else { decisionHandler(.prompt) }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        alert.beginSheetModal(for: window) { _ in completionHandler() }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { completionHandler($0 == .alertFirstButtonReturn) }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor (String?) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = prompt
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        field.stringValue = defaultText ?? ""
+        alert.accessoryView = field
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { completionHandler($0 == .alertFirstButtonReturn ? field.stringValue : nil) }
+    }
+
+    // MARK: Downloads
+
+    /// Links with a `download` attribute are downloaded by the app: WebKit ignores the attribute
+    /// on another origin's link (a clip's presigned storage URL) and would navigate away.
+    private static let downloadLinkScript = """
+    document.addEventListener('click', (event) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const link = event.target instanceof Element ? event.target.closest('a[download]') : null
+      if (!link || !/^https?:/i.test(link.href)) return
+      event.preventDefault()
+      window.webkit.messageHandlers.hearthDownload.postMessage(link.href)
+    }, true)
+    """
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        // Only the suite's own page, not an iframe or a page elsewhere.
+        guard message.name == "hearthDownload", message.frameInfo.isMainFrame,
+              let page = message.frameInfo.request.url ?? webView.url, router.isSuite(page),
+              let text = message.body as? String, let url = URL(string: text),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+        else { return }
+        webView.startDownload(using: URLRequest(url: url)) { [weak self] download in
+            download.delegate = self
+        }
+    }
+
+    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String, completionHandler: @escaping @MainActor (URL?) -> Void) {
+        let folder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
+        let destination = DownloadName.unique(suggestedFilename, in: folder)
+        destinations[ObjectIdentifier(download)] = destination
+        completionHandler(destination)
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        guard let destination = destinations.removeValue(forKey: ObjectIdentifier(download)) else { return }
+        // Bounces the Downloads stack in the Dock, as Safari's downloads do.
+        DistributedNotificationCenter.default().post(name: .init("com.apple.DownloadFileFinished"), object: destination.path)
+        showMessage("Downloaded \(destination.lastPathComponent)")
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        let destination = destinations.removeValue(forKey: ObjectIdentifier(download))
+        showMessage("Download failed\(destination.map { ": \($0.lastPathComponent)" } ?? "")")
+    }
+}
+
+/// A toolbar button that asks whether it's enabled each time the toolbar validates.
+private final class ValidatedToolbarItem: NSToolbarItem {
+    var isEnabledCheck: (() -> Bool)?
+    override func validate() {
+        isEnabled = isEnabledCheck?() ?? true
+    }
+}
+
+/// The content controller keeps its handlers alive; this keeps it from keeping the window alive.
+private final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
+    weak var target: (any WKScriptMessageHandler)?
+    init(_ target: any WKScriptMessageHandler) { self.target = target }
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(controller, didReceive: message)
+    }
+}

@@ -1,0 +1,39 @@
+# Forgejo for the Forgejo host adapter: integration tests and local dev.
+# `scripts/forgejo-init.sh` brings it up, creates the admin user, and writes an API token
+# to .data/forgejo-token. Web UI and API at http://localhost:3300.
+
+# A fixed project name so every checkout and worktree shares one container and volume.
+name: hearth
+
+services:
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:11.0.16
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      FORGEJO__database__DB_TYPE: sqlite3
+      # Skip the web installer; the admin user comes from forgejo-init.sh.
+      FORGEJO__security__INSTALL_LOCK: "true"
+      FORGEJO__server__ROOT_URL: http://localhost:3300/
+      FORGEJO__server__HTTP_PORT: "3000"
+      FORGEJO__server__DISABLE_SSH: "true"
+      FORGEJO__service__DISABLE_REGISTRATION: "true"
+      FORGEJO__repository__DEFAULT_BRANCH: main
+      # Webhooks must reach a Hearth server on the host (host.docker.internal is a private IP).
+      FORGEJO__webhook__ALLOWED_HOST_LIST: "*"
+      FORGEJO__log__LEVEL: Warn
+    extra_hosts:
+      # Docker Desktop provides this name; on Linux it needs the explicit mapping.
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3300:3000"
+    volumes:
+      - forgejo-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  forgejo-data:

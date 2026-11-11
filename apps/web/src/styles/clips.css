@@ -1,0 +1,615 @@
+/* Hearth Clips (ARCHITECTURE §10.3): the library, the recorder, the clip page and the camera
+   bubble. Tokens only; the bubble's window copies this stylesheet. */
+
+/* ------------------------------------------------------------ library */
+
+.clips-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 0.6rem;
+  background: var(--paper-sunk);
+}
+.clips-tabs button {
+  height: 1.9rem;
+  padding: 0 0.85rem;
+  border-radius: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.clips-tabs button[aria-selected="true"] {
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(70 34 12 / 0.12);
+}
+
+.clips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1.75rem 1.25rem;
+}
+
+.clip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  animation: clip-rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.clips-grid > li:nth-child(2) .clip-card {
+  animation-delay: 40ms;
+}
+.clips-grid > li:nth-child(3) .clip-card {
+  animation-delay: 80ms;
+}
+.clips-grid > li:nth-child(n + 4) .clip-card {
+  animation-delay: 120ms;
+}
+
+.clip-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 0.8rem;
+  background:
+    radial-gradient(
+      120% 90% at 0% 100%,
+      color-mix(in oklab, var(--glow) 22%, transparent),
+      transparent 60%
+    ),
+    var(--paper-sunk);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ash-strong) 50%, transparent);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+.clip-card--loading .clip-thumb {
+  animation: clip-pulse 1.4s ease-in-out infinite;
+}
+.clip-card:hover .clip-thumb {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-float);
+}
+.clip-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.clip-thumb__empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+}
+.clip-thumb__duration {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.35rem;
+  background: rgb(29 24 21 / 0.78);
+  color: #f2eadf;
+  font-family: var(--type-mono);
+  font-size: 0.72rem;
+}
+
+.clips-empty {
+  text-align: center;
+}
+.clips-empty__art {
+  position: relative;
+  width: 13rem;
+  height: 8.5rem;
+  margin: 0 auto 1.75rem;
+}
+.clips-empty__screen {
+  position: absolute;
+  inset: 0 0 0.75rem;
+  border-radius: 0.8rem;
+  background:
+    linear-gradient(var(--paper-raised), var(--paper-raised)) 1rem 1.1rem / 55% 0.5rem no-repeat,
+    linear-gradient(var(--ash), var(--ash)) 1rem 2.1rem / 70% 0.4rem no-repeat,
+    linear-gradient(var(--ash), var(--ash)) 1rem 2.9rem / 45% 0.4rem no-repeat,
+    var(--paper-sunk);
+  box-shadow: inset 0 0 0 1px var(--ash);
+}
+.clips-empty__bubble {
+  position: absolute;
+  left: -0.75rem;
+  bottom: 0;
+  width: 3.75rem;
+  height: 3.75rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 35%, var(--glow), var(--ember) 70%);
+  box-shadow:
+    0 0 0 4px var(--paper),
+    var(--shadow-float);
+  animation: clip-bob 3.2s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------ recorder */
+
+.clip-preview__screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 1rem;
+  background:
+    radial-gradient(
+      90% 70% at 100% 0%,
+      color-mix(in oklab, var(--ember) 12%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      80% 80% at 0% 100%,
+      color-mix(in oklab, var(--glow) 20%, transparent),
+      transparent 60%
+    ),
+    var(--paper-sunk);
+  box-shadow:
+    inset 0 0 0 1px var(--ash),
+    var(--shadow-float);
+}
+.clip-preview__desk {
+  position: absolute;
+  inset: 12% 10% 30% 34%;
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+}
+.clip-preview__desk span {
+  display: block;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ash-strong) 55%, transparent);
+}
+.clip-preview__desk span:nth-child(1) {
+  width: 70%;
+  height: 1rem;
+  background: var(--paper-raised);
+}
+.clip-preview__desk span:nth-child(3) {
+  width: 55%;
+}
+
+.clip-preview__cam {
+  position: absolute;
+  left: 5%;
+  bottom: 7%;
+  display: flex;
+  width: 26%;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ash);
+  color: var(--ink-faint);
+  box-shadow:
+    0 0 0 4px var(--paper-raised),
+    var(--shadow-float);
+}
+.clip-preview__cam-large {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+}
+.clip-preview__cam video,
+.clip-preview__cam-large video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.clip-preview__live {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.9rem 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: rgb(29 24 21 / 0.8);
+  color: #f2eadf;
+  backdrop-filter: blur(6px);
+}
+
+.clip-countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--type-display);
+  font-size: clamp(5rem, 16vw, 10rem);
+  font-weight: 600;
+  color: var(--ember);
+  background: color-mix(in oklab, var(--paper) 55%, transparent);
+  animation: clip-count 1s ease-out both;
+}
+
+.clip-rec-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: none;
+  border-radius: 999px;
+  background: #ff5a3c;
+  box-shadow: 0 0 0 0 rgb(255 90 60 / 0.6);
+  animation: clip-rec 1.6s ease-out infinite;
+}
+.clip-rec-dot--paused {
+  background: var(--ink-faint);
+  animation: none;
+}
+
+.clip-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.clip-mode {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--ash);
+  border-radius: 0.7rem;
+  background: var(--paper-raised);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+.clip-mode:hover {
+  border-color: var(--ash-strong);
+}
+.clip-mode:has(input:checked) {
+  border-color: var(--ember);
+  background: var(--ember-wash);
+}
+.clip-mode input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.clip-mode:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+.clip-level {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--paper-sunk);
+}
+.clip-level span {
+  display: block;
+  height: 100%;
+  background: var(--moss);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 80ms linear;
+}
+
+/* The bubble drawn in the page, where Document Picture-in-Picture isn't available. */
+.clip-page-bubble {
+  position: fixed;
+  left: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 40;
+}
+
+/* ------------------------------------------------------------ bubble */
+
+.clip-pip-body {
+  margin: 0;
+  overflow: hidden;
+  background: #1d1815;
+  background-image: none;
+}
+.clip-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  font-family: var(--type-ui);
+  color: #f2eadf;
+}
+.clip-bubble--page {
+  padding: 0;
+}
+.clip-bubble__cam {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #28211d;
+  box-shadow: 0 0 0 3px #ff6a3d;
+}
+.clip-bubble--page .clip-bubble__cam {
+  width: 168px;
+  height: 168px;
+  box-shadow:
+    0 0 0 3px var(--ember),
+    var(--shadow-float);
+}
+.clip-bubble__cam video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+.clip-bubble__count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(29 24 21 / 0.55);
+  font-family: var(--type-display);
+  font-size: 5rem;
+  font-weight: 600;
+  color: #ff8a62;
+  animation: clip-count 1s ease-out both;
+}
+.clip-bubble__count--bare {
+  position: static;
+  height: 3rem;
+  font-size: 2.6rem;
+  background: none;
+}
+.clip-bubble__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.35rem 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: #28211d;
+  box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.6);
+}
+.clip-bubble__time {
+  min-width: 3.2rem;
+  margin: 0 0.2rem 0 0.35rem;
+  font-family: var(--type-mono);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.clip-bubble__bar button {
+  display: flex;
+  width: 1.9rem;
+  height: 1.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #c1b2a2;
+}
+.clip-bubble__bar button:hover {
+  background: #3b322c;
+  color: #ede3d6;
+}
+.clip-bubble__bar .clip-bubble__stop {
+  background: #ff6a3d;
+  color: #1d1815;
+}
+.clip-bubble__bar .clip-bubble__stop:hover {
+  background: #ff8a62;
+  color: #1d1815;
+}
+.clip-bubble__bar .clip-bubble__armed {
+  background: #a5300f;
+  color: #ede3d6;
+}
+
+/* ------------------------------------------------------------ clip page */
+
+.clip-layout {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 88rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 6rem;
+}
+@media (min-width: 1024px) {
+  .clip-layout {
+    height: 100%;
+    grid-template-columns: minmax(0, 1fr) var(--panel-width);
+    padding: 1.5rem 2rem;
+  }
+  .clip-main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .clip-side {
+    min-height: 0;
+  }
+}
+
+.clip-stage {
+  overflow: hidden;
+  border-radius: 0.9rem;
+  background: #161210;
+  box-shadow: var(--shadow-float);
+  animation: clip-rise 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.clip-stage video {
+  display: block;
+  width: 100%;
+  max-height: 72vh;
+  background: #161210;
+}
+.clip-stage__placeholder {
+  display: flex;
+  aspect-ratio: 16 / 9;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  background:
+    radial-gradient(
+      70% 70% at 50% 50%,
+      color-mix(in oklab, var(--glow) 18%, transparent),
+      transparent 70%
+    ),
+    var(--paper-sunk);
+}
+
+.clip-speeds {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 0.6rem;
+  background: var(--paper-sunk);
+}
+.clip-speeds button {
+  min-width: 2.6rem;
+  height: 1.75rem;
+  padding: 0 0.45rem;
+  border-radius: 0.4rem;
+  font-family: var(--type-mono);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.clip-speeds button:hover {
+  color: var(--ink);
+}
+.clip-speeds button[aria-pressed="true"] {
+  background: var(--ember);
+  color: var(--paper-raised);
+}
+
+.clip-summary {
+  max-width: var(--measure);
+  margin-top: 1rem;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--glow);
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.clip-side {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ash);
+  border-radius: 0.9rem;
+  background: color-mix(in oklab, var(--paper-raised) 85%, transparent);
+}
+.clip-transcript {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 0.4rem;
+}
+@media (min-width: 1024px) {
+  .clip-transcript {
+    max-height: none;
+    flex: 1;
+  }
+}
+.clip-transcript button {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 3rem 1fr;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  text-align: left;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.clip-transcript button:hover {
+  background: var(--paper-sunk);
+  color: var(--ink);
+}
+.clip-transcript button[aria-current="true"] {
+  background: var(--ember-wash);
+  color: var(--ink);
+}
+.clip-transcript__time {
+  padding-top: 0.1rem;
+  font-family: var(--type-mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+.clip-transcript button[aria-current="true"] .clip-transcript__time {
+  color: var(--ember);
+}
+
+.clip-spinner {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid var(--ash);
+  border-top-color: var(--ember);
+  border-radius: 999px;
+  animation: clip-spin 0.8s linear infinite;
+}
+.clip-spinner--small {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.clip-pulse {
+  animation: clip-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes clip-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes clip-count {
+  from {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+@keyframes clip-rec {
+  70% {
+    box-shadow: 0 0 0 0.45rem rgb(255 90 60 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 90 60 / 0);
+  }
+}
+@keyframes clip-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes clip-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes clip-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clip-card,
+  .clip-stage,
+  .clip-countdown,
+  .clip-bubble__count,
+  .clips-empty__bubble,
+  .clip-rec-dot {
+    animation: none;
+  }
+}

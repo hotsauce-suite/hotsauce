@@ -1,0 +1,102 @@
+{
+  "kind": "calendar#events",
+  "etag": "\"p32of5m2kbn0o0g\"",
+  "summary": "alice@example.test",
+  "updated": "2026-10-08T12:01:22.153Z",
+  "timeZone": "America/New_York",
+  "accessRole": "owner",
+  "defaultReminders": [{ "method": "popup", "minutes": 10 }],
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"3456789012345678\"",
+      "id": "5k2m8v1q9c0acmesync",
+      "status": "confirmed",
+      "htmlLink": "https://www.google.com/calendar/event?eid=NWsybTh2",
+      "created": "2026-10-01T15:12:03.000Z",
+      "updated": "2026-10-07T09:44:10.000Z",
+      "summary": "Acme sync",
+      "description": "Agenda: SSO timeline, pricing one-pager.",
+      "creator": { "email": "alice@example.test", "self": true },
+      "organizer": { "email": "alice@example.test", "self": true },
+      "start": { "dateTime": "2026-10-08T15:00:00-04:00", "timeZone": "America/New_York" },
+      "end": { "dateTime": "2026-10-08T15:30:00-04:00", "timeZone": "America/New_York" },
+      "iCalUID": "5k2m8v1q9c0acmesync@google.com",
+      "sequence": 0,
+      "attendees": [
+        {
+          "email": "alice@example.test",
+          "organizer": true,
+          "self": true,
+          "responseStatus": "accepted"
+        },
+        { "email": "dana@acme.com", "displayName": "Dana Lee", "responseStatus": "accepted" },
+        {
+          "email": "c_1888room@resource.calendar.google.com",
+          "displayName": "NYC-4-Huddle",
+          "resource": true,
+          "responseStatus": "accepted"
+        }
+      ],
+      "hangoutLink": "https://meet.google.com/abc-defg-hij",
+      "conferenceData": {
+        "entryPoints": [
+          {
+            "entryPointType": "video",
+            "uri": "https://meet.google.com/abc-defg-hij",
+            "label": "meet.google.com/abc-defg-hij"
+          },
+          { "entryPointType": "phone", "uri": "tel:+1-555-0100", "pin": "123456789" }
+        ],
+        "conferenceSolution": { "key": { "type": "hangoutsMeet" }, "name": "Google Meet" },
+        "conferenceId": "abc-defg-hij"
+      },
+      "reminders": { "useDefault": true },
+      "eventType": "default"
+    },
+    {
+      "kind": "calendar#event",
+      "id": "holiday20261012",
+      "status": "confirmed",
+      "summary": "Office closed",
+      "start": { "date": "2026-10-12" },
+      "end": { "date": "2026-10-13" },
+      "transparency": "transparent",
+      "eventType": "default"
+    },
+    {
+      "kind": "calendar#event",
+      "id": "cancelled1",
+      "status": "cancelled",
+      "summary": "Old sync",
+      "start": { "dateTime": "2026-10-08T16:00:00-04:00" },
+      "end": { "dateTime": "2026-10-08T16:30:00-04:00" }
+    },
+    {
+      "kind": "calendar#event",
+      "id": "declined1",
+      "status": "confirmed",
+      "summary": "Vendor demo",
+      "start": { "dateTime": "2026-10-08T17:00:00-04:00" },
+      "end": { "dateTime": "2026-10-08T17:30:00-04:00" },
+      "attendees": [
+        { "email": "alice@example.test", "self": true, "responseStatus": "declined" },
+        { "email": "rep@vendor.example", "responseStatus": "accepted" }
+      ]
+    },
+    {
+      "kind": "calendar#event",
+      "id": "zoomcall1",
+      "status": "confirmed",
+      "start": { "dateTime": "2026-10-09T13:00:00Z" },
+      "end": { "dateTime": "2026-10-09T13:45:00Z" },
+      "attendees": [
+        { "email": "alice@example.test", "self": true, "responseStatus": "needsAction" },
+        { "email": "sam@partner.example", "displayName": "Sam Partner" }
+      ],
+      "conferenceData": {
+        "entryPoints": [{ "entryPointType": "video", "uri": "https://zoom.us/j/123456" }]
+      }
+    }
+  ]
+}

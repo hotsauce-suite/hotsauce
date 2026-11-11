@@ -1,0 +1,28 @@
+{
+  "name": "@hearth/format",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput"
+  },
+  "dependencies": {
+    "ulid": "^3.0.2",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "sideEffects": false
+}

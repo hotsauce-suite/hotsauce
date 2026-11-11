@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hearth Meetings</title>
+    <style>
+      :root {
+        --paper: #f2eadf;
+        --ink: #2a221d;
+        --ink-soft: #5b4e44;
+        --ash: #d6c7b4;
+        --ember: #c63d19;
+        --ember-strong: #a5300f;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #1d1815;
+          --ink: #ede3d6;
+          --ink-soft: #c1b2a2;
+          --ash: #3b322c;
+          --ember: #ff6a3d;
+          --ember-strong: #ff8a62;
+        }
+      }
+      body {
+        margin: 0;
+        width: 280px;
+        padding: 16px;
+        background: var(--paper);
+        color: var(--ink);
+        font: 14px/1.4 system-ui, sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 16px;
+      }
+      p {
+        margin: 0 0 12px;
+        color: var(--ink-soft);
+      }
+      code {
+        font-size: 12px;
+      }
+      button {
+        width: 100%;
+        padding: 9px 12px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--ember);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--ember-strong);
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      a {
+        color: var(--ember-strong);
+      }
+      .hint {
+        margin: 10px 0 0;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <section id="on-call" hidden>
+      <h1>Take notes on this call</h1>
+      <p>Hearth listens to this tab and your microphone. No bot joins. <code id="code" hidden></code></p>
+      <button id="take-notes" type="button">Take notes</button>
+      <p class="hint">Shortcut: Alt+Shift+H, then Enter.</p>
+    </section>
+    <section id="elsewhere" hidden>
+      <h1>Hearth Meetings</h1>
+      <p>Join a Google Meet call, then click this icon to take notes on it.</p>
+      <a id="open-hearth" href="http://localhost:3000/meetings" target="_blank" rel="noreferrer">Open Hearth Meetings</a>
+    </section>
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

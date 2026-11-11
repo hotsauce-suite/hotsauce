@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hotsauce, the open sauce office suite</title>
+<meta name="description" content="Docs, meeting notes, dictation and screen recordings for a small team, on a server you run. Every file is plain Markdown in git. Open source under AGPL-3.0.">
+<link rel="canonical" href="https://hotsauce.work/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Hotsauce, the open sauce office suite">
+<meta property="og:description" content="Docs, meetings, dictation and clips for your team, on your server, in plain Markdown and git.">
+<meta property="og:url" content="https://hotsauce.work/">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#c63d19">
+<style>
+:root{
+  --paper:#f7f1e8;--card:#fffaf3;--ink:#221b16;--muted:#6b5e54;--line:#e6dacb;
+  --ember:#c63d19;--ember-ink:#fff;--ember-soft:#f9e1d6;--code:#2a221d;--code-ink:#f7eadb;
+  --serif:ui-serif,"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#17120f;--card:#211a16;--ink:#f3e9df;--muted:#b3a497;--line:#3a2f28;
+  --ember:#ef6a3e;--ember-ink:#1b0f0a;--ember-soft:#3a1d12;--code:#0f0b09;--code-ink:#f3e3d2;
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--sans)}
+a{color:var(--ember)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.brand{display:flex;align-items:center;gap:10px;font:600 20px var(--serif);color:var(--ink);text-decoration:none}
+.brand svg{width:30px;height:30px}
+nav a{color:var(--muted);text-decoration:none;margin-left:22px;font-size:15px}
+nav a:hover{color:var(--ink)}
+.hero{padding:64px 0 56px}
+.eyebrow{display:inline-block;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ember);background:var(--ember-soft);padding:4px 10px;border-radius:99px}
+h1{font:600 clamp(40px,7vw,72px)/1.04 var(--serif);letter-spacing:-.02em;margin:18px 0 18px;max-width:14ch}
+.lede{font-size:clamp(18px,2.2vw,21px);color:var(--muted);max-width:40em;margin:0 0 30px}
+.ctas{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:10px;font-weight:600;text-decoration:none;font-size:16px;border:1px solid var(--line);color:var(--ink);background:var(--card)}
+.btn.primary{background:var(--ember);border-color:var(--ember);color:var(--ember-ink)}
+.btn:hover{filter:brightness(1.05)}
+section{padding:48px 0;border-top:1px solid var(--line)}
+h2{font:600 clamp(28px,4vw,38px)/1.15 var(--serif);margin:0 0 10px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 28px;max-width:40em}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card h3{margin:0 0 6px;font:600 20px var(--serif)}
+.card p{margin:0;color:var(--muted);font-size:15.5px}
+.ico{width:36px;height:36px;border-radius:9px;background:var(--ember-soft);color:var(--ember);display:grid;place-items:center;margin-bottom:14px}
+.ico svg{width:20px;height:20px}
+.why{display:grid;gap:22px 40px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.why h3{margin:0 0 4px;font-size:17px}
+.why p{margin:0;color:var(--muted);font-size:15.5px}
+.steps{counter-reset:s;display:grid;gap:14px;max-width:760px}
+.step{display:grid;grid-template-columns:34px 1fr;gap:14px;align-items:start}
+.step::before{counter-increment:s;content:counter(s);width:30px;height:30px;border-radius:50%;background:var(--ember);color:var(--ember-ink);display:grid;place-items:center;font-weight:700;font-size:14px;margin-top:2px}
+.step>div{min-width:0}
+.step p{margin:2px 0 8px}
+code{font-family:var(--mono);font-size:.9em;overflow-wrap:anywhere}
+.code{position:relative;background:var(--code);color:var(--code-ink);border-radius:10px}
+.code pre{margin:0;padding:14px 16px;font:14px/1.6 var(--mono);overflow-x:auto}
+@media (min-width:561px){.code pre{padding-right:84px}}
+@media (max-width:560px){.code pre{padding-top:44px}}
+.copy{position:absolute;top:8px;right:8px;font:600 12px var(--sans);padding:6px 10px;border-radius:7px;border:1px solid #ffffff2e;background:#ffffff14;color:var(--code-ink);cursor:pointer}
+.copy:hover{background:#ffffff26}
+.note{font-size:14.5px;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding:28px 0 48px;color:var(--muted);font-size:14.5px;display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
+footer a{color:var(--muted)}
+@media (max-width:560px){nav a:not(.gh){display:none}.hero{padding:36px 0 40px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="/" aria-label="Hotsauce home">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#c63d19"/><path d="M32 12c8 9 12.6 15.2 12.6 22.4a12.6 12.6 0 0 1-25.2 0c0-4.7 2.3-8.2 5.2-11.5.9 3.9 2.4 5.9 5.2 6.7-1.3-6.3 0-12.2 2.2-17.6z" fill="#fff6ec"/></svg>
+    Hotsauce
+  </a>
+  <nav>
+    <a href="#apps">Apps</a>
+    <a href="#run">Run it</a>
+    <a class="gh" href="https://github.com/hotsauce-suite/hotsauce">GitHub</a>
+  </nav>
+</header>
+
+<main>
+<div class="hero">
+  <span class="eyebrow">Open source · AGPL-3.0</span>
+  <h1>The open sauce office suite.</h1>
+  <p class="lede">Docs, meeting notes, dictation and screen recordings for a small team, on a server you run. Every doc and note is a plain Markdown file in git, so nothing is locked in.</p>
+  <div class="ctas">
+    <a class="btn primary" href="#run">Set it up for your team</a>
+    <a class="btn" href="https://github.com/hotsauce-suite/hotsauce">View on GitHub</a>
+  </div>
+</div>
+
+<section id="apps">
+  <h2>Four apps, one small server</h2>
+  <p class="sub">They share sign-in, search and your brand, and an MCP server lets Claude and other agents work with your docs and meetings as you.</p>
+  <div class="grid">
+    <div class="card"><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div><h3>Docs</h3><p>Markdown with a source-first editor, live collaboration through git, full history, search, and links that survive renames.</p></div>
+    <div class="card"><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg></div><h3>Meetings</h3><p>AI notes for Google Meet or any call in the browser: live transcript, notes built from your own jottings, and Ask across past meetings.</p></div>
+    <div class="card"><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div><h3>Dictate</h3><p>Hold a key on your Mac, talk, and clean punctuated text lands where your cursor is. Team word lists keep names spelled right.</p></div>
+    <div class="card"><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><circle cx="17" cy="14" r="3"/><path d="M8 21h8"/></svg></div><h3>Clips</h3><p>Screen recordings with a camera bubble, transcripts, speed control and a shared library for the team.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Why teams pick it</h2>
+  <p class="sub">The things a hosted suite can't promise.</p>
+  <div class="why">
+    <div><h3>Your files stay yours</h3><p>Docs and notes live as Markdown in a git repository on your server or in your GitHub organization. The database is only a cache.</p></div>
+    <div><h3>Your keys, your bill</h3><p>Bring your own Anthropic and Deepgram keys. A small team spends a few dollars a month on them, with no per-seat pricing.</p></div>
+    <div><h3>Your brand</h3><p>Name the workspace after your company and set your logo, colors and fonts. The whole app follows, and agents can read the brand kit.</p></div>
+    <div><h3>One small server</h3><p>One process and one disk. About $6 a month on Fly.io, or any machine that runs Docker.</p></div>
+  </div>
+</section>
+
+<section id="run">
+  <h2>Run it for your organization</h2>
+  <p class="sub">About ten minutes. A setup wizard does the rest in your browser.</p>
+  <div class="steps">
+    <div class="step"><div><p>Get the code. You need Node 22, git and pnpm (<code>corepack enable</code>).</p>
+      <div class="code" data-copy><pre>git clone https://github.com/hotsauce-suite/hotsauce
+cd hotsauce
+pnpm install</pre><button class="copy" type="button">Copy</button></div></div></div>
+    <div class="step"><div><p>Launch a server on Fly.io, named after your team.</p>
+      <div class="code" data-copy><pre>scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button">Copy</button></div>
+      <p class="note">Or on any Docker host: <code>cd deploy &amp;&amp; docker compose up -d --build</code></p></div></div>
+    <div class="step"><div><p>Open the setup link the server prints. The wizard walks you through your organization, brand, Google sign-in (with a free Clerk account), AI keys and storage, then launches.</p>
+      <p class="note">The full guide is <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">docs/self-host.md</a>.</p></div></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <span>Hotsauce is free software under <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/LICENSE">AGPL-3.0</a>. © 2026 Morgan Holland.</span>
+  <span><a href="https://github.com/hotsauce-suite/hotsauce">GitHub</a> · <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/CONTRIBUTING.md">Contributing</a> · <a href="https://github.com/hotsauce-suite/hotsauce/issues">Issues</a></span>
+</footer>
+</div>
+<script>
+for (const box of document.querySelectorAll('[data-copy]')) {
+  const btn = box.querySelector('.copy')
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(box.querySelector('pre').textContent.trim()).then(() => {
+      btn.textContent = 'Copied'
+      setTimeout(() => {
+        btn.textContent = 'Copy'
+      }, 1500)
+    })
+  })
+}
+</script>
+</body>
+</html>

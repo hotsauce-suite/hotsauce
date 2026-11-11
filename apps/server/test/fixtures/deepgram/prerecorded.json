@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "transaction_key": "deprecated",
+    "request_id": "3f2b8a0e-0000-4000-8000-000000000000",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "created": "2026-11-09T22:30:00.000Z",
+    "duration": 6.25,
+    "channels": 1,
+    "models": ["2187e11a-3532-4498-b076-81fa530bdd49"],
+    "model_info": {
+      "2187e11a-3532-4498-b076-81fa530bdd49": {
+        "name": "general-nova-3",
+        "version": "2025-01-01.0",
+        "arch": "nova-3"
+      }
+    }
+  },
+  "results": {
+    "channels": [
+      {
+        "alternatives": [
+          {
+            "transcript": "Um, so I think we should, uh, ship the Acme report on Tuesday. No wait, Wednesday.",
+            "confidence": 0.98,
+            "words": [
+              {
+                "word": "um",
+                "start": 0.08,
+                "end": 0.4,
+                "confidence": 0.9,
+                "punctuated_word": "Um,"
+              }
+            ],
+            "paragraphs": {
+              "transcript": "\nUm, so I think we should, uh, ship the Acme report on Tuesday. No wait, Wednesday.",
+              "paragraphs": []
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Every job repeats the same four setup steps on purpose: plain and greppable.
+# GitHub host tests stay skipped here: they need GITHUB_TOKEN plus
+# GITHUB_TEST_ORG, and CI sets neither.
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm biome ci .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - name: Typecheck e2e specs and root configs
+        run: pnpm exec tsc -p e2e
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Coverage is reported in the log, not gated.
+      - run: pnpm test:unit --coverage
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      forgejo:
+        image: codeberg.org/forgejo/forgejo:11
+        ports:
+          - 3300:3000
+        env:
+          FORGEJO__database__DB_TYPE: sqlite3
+          FORGEJO__security__INSTALL_LOCK: "true"
+          FORGEJO__server__ROOT_URL: http://localhost:3300/
+          FORGEJO__webhook__ALLOWED_HOST_LIST: "*"
+        options: >-
+          --add-host=host.docker.internal:host-gateway
+          --health-cmd "wget -q -O /dev/null http://localhost:3000/api/healthz || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create the Forgejo admin, token, and test org
+        shell: bash
+        env:
+          FORGEJO_CONTAINER: ${{ job.services.forgejo.id }}
+        run: |
+          set -euo pipefail
+          # The CLI must run as Forgejo's service user, "git" in this image.
+          docker exec --user git "$FORGEJO_CONTAINER" forgejo admin user create \
+            --admin --username hearth-admin --password hearth-admin-password \
+            --email admin@hearth.test --must-change-password=false
+          token=$(docker exec --user git "$FORGEJO_CONTAINER" forgejo admin user generate-access-token \
+            --username hearth-admin --token-name ci --scopes all --raw)
+          echo "::add-mask::$token"
+          curl -fsS -o /dev/null -X POST http://localhost:3300/api/v1/orgs \
+            -H "Authorization: token $token" -H 'Content-Type: application/json' \
+            -d '{"username":"hearth-test","visibility":"private"}'
+          {
+            echo "FORGEJO_URL=http://localhost:3300"
+            echo "FORGEJO_TOKEN=$token"
+            echo "FORGEJO_ORG=hearth-test"
+          } >> "$GITHUB_ENV"
+      # Hearth Clips assembles and probes video with ffmpeg (as the Docker image does).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: pnpm test:integration --coverage
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      # Hearth Clips assembles and probes video with ffmpeg (as the Docker image does).
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image (not pushed)
+        run: docker build --tag hearth:ci .
