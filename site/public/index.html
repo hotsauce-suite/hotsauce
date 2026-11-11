@@ -111,7 +111,6 @@ h2{font:600 clamp(32px,4.6vw,48px)/1.08 var(--serif);margin:0 0 14px;letter-spac
 .app li{display:flex;gap:9px;align-items:baseline}
 .app li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ember);flex:none;transform:translateY(-2px)}
 .extras{display:grid;gap:16px;grid-template-columns:repeat(3,1fr);margin-top:16px}
-.app .note{margin:14px 0 0;font-size:14px}
 :not(pre)>code{font:.88em var(--mono);background:var(--paper-2);border:1px solid var(--line);padding:1px 6px;border-radius:6px}
 .extra{border:1px dashed var(--line);border-radius:var(--radius);padding:20px 22px}
 .extra h4{margin:0 0 4px;font-size:16px}
@@ -288,7 +287,6 @@ footer.foot .brand svg{width:24px;height:24px}
       <header><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><circle cx="17" cy="14" r="3"/><path d="M8 21h8"/></svg></div><h3>Clips</h3><span class="instead">instead of a screen<br>recording service</span></header>
       <p>Record your screen with a camera bubble and share a link instead of booking a meeting.</p>
       <ul><li>Your whole screen with a camera bubble, or just a window or tab</li><li>Automatic transcript for every clip</li><li>Playback speed control for viewers</li><li>A shared library for the whole team</li></ul>
-      <p class="note">Videos are kept in your own Cloudflare R2 bucket, which you add in the setup wizard.</p>
     </article>
   </div>
   <div class="extras">
@@ -388,7 +386,7 @@ before the spring sampling season.
       <p class="sub" style="font-size:17px">You run three commands. A setup wizard in your browser does the rest, and nobody edits a config file.</p>
       <p style="margin:0 0 8px;font-weight:600;font-size:15px">The wizard covers</p>
       <ul class="wizard"><li>Your organization</li><li>Brand</li><li>Google sign-in</li><li>AI keys</li><li>Files and audio</li><li>Review and launch</li></ul>
-      <div class="needs"><b>You'll need</b> a Fly.io account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features and a Cloudflare R2 bucket for Clips. Docs works fully without them.</div>
+      <div class="needs"><b>You'll need</b> a Fly.io account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features. Docs and Clips work fully without them.</div>
     </div>
     <ol class="steps">
       <li><div><h3>Get the code</h3>
@@ -413,8 +411,8 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
     <details><summary>Who is Hotsauce for?</summary><p>Teams of roughly 5 to 50 people who want their documents and meeting notes on infrastructure they control, without paying per seat. You need one person who is comfortable running three commands. After that, everything is set up and managed in the browser.</p></details>
     <details><summary>Is it really free?</summary><p>Yes. The code is free under AGPL-3.0 and every feature is included. You pay your own hosting (about $6 a month on Fly.io) and, if you turn them on, your own Anthropic, Deepgram and Cloudflare R2 usage.</p></details>
     <details><summary>What does AGPL-3.0 mean for my company?</summary><p>You can run Hotsauce for your team, change it, and keep using it, with no fees. If you offer a modified version to people outside your organization over a network, you have to share your changes under the same license. Using it internally doesn't trigger that.</p></details>
-    <details><summary>Do I need the AI keys?</summary><p>No. Docs and search work fully without them. A Deepgram key turns on meeting transcripts and Dictate. An Anthropic key turns on AI meeting notes, Ask, and Dictate's clean-up of filler words. The app shows what each key turns on, and admins can add keys at any time in Settings.</p></details>
-    <details><summary>Where does my data go?</summary><p>Your files live on your server, or in your GitHub organization if you choose that. Audio is sent to Deepgram for transcription and text to Anthropic for notes, using your own accounts. Kept meeting audio can go to your own Cloudflare R2 bucket, or not be kept at all.</p></details>
+    <details><summary>Do I need the AI keys?</summary><p>No. Docs, search and Clips work fully without them. A Deepgram key turns on meeting transcripts and Dictate. An Anthropic key turns on AI meeting notes, Ask, and Dictate's clean-up of filler words. The app shows what each key turns on, and admins can add keys at any time in Settings.</p></details>
+    <details><summary>Where does my data go?</summary><p>Your files live on your server, or in your GitHub organization if you choose that. Audio is sent to Deepgram for transcription and text to Anthropic for notes, using your own accounts. Clips and kept meeting audio stay on your server's disk, or in your own Cloudflare R2 bucket if you want more room.</p></details>
     <details><summary>How do people sign in?</summary><p>With Google, through a free Clerk application that the wizard walks you through. The server only lets in email addresses from the domains you choose.</p></details>
     <details><summary>Does a bot join my meetings?</summary><p>No. Meetings records from your own browser tab or the Chrome extension for Google Meet, so there's no extra attendee in the call.</p></details>
     <details><summary>How do I update it?</summary><p>Pull the latest code and run the same deploy command again, with the same <code>PUBLIC_URL</code> if you set one. It's safe to rerun, and your files and settings stay on the server's disk.</p></details>
