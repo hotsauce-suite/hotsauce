@@ -6,7 +6,7 @@ import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
 // People invited from outside the allowed domains (docs/plans/2026-11-12-invited-emails.md).
-const MEMBER = 'ada@acmebiolab.com'
+const MEMBER = 'ada@acme.example'
 const INVITED = 'ada@gmail.com'
 const OUTSIDER = 'eve@gmail.com'
 
@@ -29,7 +29,7 @@ async function instance(env: Record<string, string>) {
     HOST_KIND: 'local',
     DATA_DIR: join(root, 'data'),
     LOCAL_HOST_DIR: join(root, 'remotes'),
-    ALLOWED_EMAIL_DOMAINS: 'acmebiolab.com',
+    ALLOWED_EMAIL_DOMAINS: 'acme.example',
     ...env,
   })
   const services = createServices(config)

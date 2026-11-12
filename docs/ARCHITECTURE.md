@@ -17,7 +17,7 @@ hearth/
   e2e/                        Playwright specs + fixtures
   docker-compose.yml          forgejo (for integration tests and local dev of the Forgejo adapter)
   Dockerfile                  multi-stage: build web + server → node:22-slim with git installed
-  fly.toml                    one machine, one volume mounted at /data
+  deploy/fly.example.toml     one machine, one volume mounted at /data
   .github/workflows/ci.yml    lint, typecheck, unit, integration (with Forgejo service), e2e
   .env.local                  dev secrets (gitignored). Both apps read the repo root .env.local.
   apps/server/                @hearth/server  — Hono, git, SQLite, auth, sync, API, serves the SPA
@@ -122,13 +122,13 @@ PUBLIC_URL=http://localhost:3000
 DATA_DIR=./.data                 # repos/, index.sqlite, uploads tmp
 AUTH_MODE=clerk|dev                          # default clerk (fail closed); dev is only accepted when NODE_ENV is development or test
 CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY      # when AUTH_MODE=clerk
-ALLOWED_EMAIL_DOMAINS=acmebiolab.com        # comma list; enforced server-side in both modes
+ALLOWED_EMAIL_DOMAINS=acme.example        # comma list; enforced server-side in both modes
 ALLOWED_EMAILS=                              # exact invited addresses outside those domains (optional)
 HOST_KIND=local|forgejo|github
 LOCAL_HOST_DIR=./.data/remotes               # local: bare repos as file:// remotes
 FORGEJO_URL, FORGEJO_TOKEN, FORGEJO_ORG
 GITHUB_TOKEN, GITHUB_ORG                     # token now; GitHub App credentials later behind the same adapter
-HEARTH_COMMITTER_NAME="Hearth", HEARTH_COMMITTER_EMAIL="hearth@acmebiolab.com"
+HEARTH_COMMITTER_NAME="Hearth", HEARTH_COMMITTER_EMAIL="hearth@acme.example"
 WEBHOOK_SECRET                               # production with a remote host: at least 32 characters, not the dev default
 POLL_INTERVAL_MS=60000                       # tests set 1000
 IDLE_COMMIT_MS=60000                         # how long the client waits before committing; exposed via /api/me
@@ -347,7 +347,7 @@ Routes:
 
 Components (each with a `*.test.tsx` where there's logic):
 
-- The shell (`AppShell`), as built since 2026-11-10: an **app rail** (`AppRail`) on the far left, then the active app's sidebar (`SidebarFrame`: the app's name, the app's own body, the hearth glow), then the page. The rail draws the Hearth mark, one item per manifest in `APPS` (`src/apps/registry.ts`: icon, short label, ember wash and `aria-current="page"` when active, a dot on Meetings while a meeting is recording or paused), then `RAIL_LINKS` (apps outside Hearth, opened in a new tab: Acme Chat at chat.office.example.com), and at the bottom Settings and the account button (menu: name, email, Sign out, which unsubscribes this browser's reminders first). Each item lands where that app was last open (`/settings` belongs to no app and isn't remembered), and its route chunk is warmed (`manifest.preload`) when the pointer or focus reaches it. The middle scrolls when the window is short. Under 768px the rail is a tab bar along the bottom (Settings moves into the account menu so eight entries fit across 390px; more scroll inside the bar, never the page) and the sidebar is a drawer. A new app appears in the rail and in Cmd-K's "Go to" commands by its manifest and its line in `APPS`; it also needs its routes in `router.tsx` and its sidebar in `AppShell`. Cmd-K lists "Go to <app>" for every app and rail link.
+- The shell (`AppShell`), as built since 2026-11-10: an **app rail** (`AppRail`) on the far left, then the active app's sidebar (`SidebarFrame`: the app's name, the app's own body, the hearth glow), then the page. The rail draws the Hearth mark, one item per manifest in `APPS` (`src/apps/registry.ts`: icon, short label, ember wash and `aria-current="page"` when active, a dot on Meetings while a meeting is recording or paused), then the links that leave the suite (opened in a new tab: the chat link, when `CHAT_URL` or the chat setting is set), and at the bottom Settings and the account button (menu: name, email, Sign out, which unsubscribes this browser's reminders first). Each item lands where that app was last open (`/settings` belongs to no app and isn't remembered), and its route chunk is warmed (`manifest.preload`) when the pointer or focus reaches it. The middle scrolls when the window is short. Under 768px the rail is a tab bar along the bottom (Settings moves into the account menu so eight entries fit across 390px; more scroll inside the bar, never the page) and the sidebar is a drawer. A new app appears in the rail and in Cmd-K's "Go to" commands by its manifest and its line in `APPS`; it also needs its routes in `router.tsx` and its sidebar in `AppShell`. Cmd-K lists "Go to <app>" for every app and rail link.
 - `AppShell`, `Sidebar`, `SpaceSwitcher`, `FileTree` (lazy per directory, drag to move, context menu: new doc, new folder, rename, move, delete), `TopBar` (breadcrumbs, `SaveState`, reading-view toggle, Share menu).
 - `MarkdownEditor`: CodeMirror 6, `@codemirror/lang-markdown` with GFM, our live-preview extension (`livePreview.ts`): heading sizes, hidden markers on inactive lines, bold/italic/strike/code styling, clickable links, toggleable `- [ ]` checkboxes, inline image widgets, fenced-code highlighting, folded frontmatter. Shortcuts: Cmd-B/I/K, `[[` autocomplete (writes a relative link). Paste/drop image → upload → insert link.
 - `ReadingView`: `react-markdown` + `remark-gfm` + `rehype-highlight`, callouts rendered.
@@ -356,7 +356,7 @@ Components (each with a `*.test.tsx` where there's logic):
 - `useDocument(space, path)`: load → `{content, blobOid}`; edits → debounced autosave to the server buffer is **not** a thing in P0: the client holds the draft and PUTs after `idleCommitMs` of no typing, on route leave, and on Save version. On `merged` adopt the content; on 409 open the resolver. On WS `changed` for the open path with no local edits → refetch.
 - Offline: the PWA caches the shell; an unsaved draft is kept in `localStorage` keyed by `space:path:blobOid` and offered on reload.
 
-Design brief (apply Ada's frontend rules in `~/.claude/CLAUDE.md` §6):
+Design brief:
 
 - Warm hearth palette as CSS tokens on `:root` with a dark theme: charcoal and ash neutrals, one ember accent (orange-red), paper-warm light mode. Never pure black/white; atmospheric background (subtle radial warmth), not flat.
 - Type: **Fraunces** (display, titles) + **IBM Plex Sans** (UI, body) + **JetBrains Mono** (code). Loaded from Google Fonts. No Inter/Roboto/Arial/system.
@@ -383,7 +383,7 @@ Scripts: `pnpm test` runs unit + integration; `pnpm test:e2e` runs Playwright; C
 - The server loads the repo-root `.env.local` (found relative to its own file, not the working directory) when present; variables already in the environment win. It serves `apps/web/dist` (also found relative to its own file) with an SPA fallback to `index.html`, or a placeholder page when there is no web build.
 - `hearth reindex [space]`: `pnpm --filter @hearth/server reindex [space]` in development, `node apps/server/dist/cli/reindex.js [space]` in the image. Rebuilds `files` and `spaces` from the clones; keeps `index.sqlite`.
 - `docker compose up forgejo` for the Forgejo adapter (http://localhost:3300, admin created by the compose init script, token written to `.data/forgejo-token`).
-- `Dockerfile` builds both apps; runtime image has `git`; `DATA_DIR=/data`. `fly.toml` mounts a volume at `/data`. Deploy is **not** automated yet; Ada approves the first deploy.
+- `Dockerfile` builds both apps; runtime image has `git`; `DATA_DIR=/data`. `deploy/fly.example.toml` mounts a volume at `/data` (`scripts/deploy-fly.sh`).
 
 ## 7. Hearth Meetings: foundation (Phase 2)
 
@@ -666,7 +666,7 @@ More tools (2026-11-12), each in its own module under `apps/server/src/mcp/tools
 
 Move, delete and restore commits carry the `Hearth-Via` trailer: `GitStore.move` and `moveAcrossSpaces` take `{ via }`. The server instructions tell the model how to prepare a meeting: `get_event`, `get_agent_brief`, `list_meetings` by attendee, `get_meeting`, `list_tasks`.
 
-Acme Chat is not exposed yet (follow-up).
+An organization's chat app is not exposed yet (follow-up).
 
 ### 8.3 Tests
 
@@ -702,7 +702,7 @@ export function skipsCleanup(raw): boolean
 //   between the words as Deepgram writes them), spoken formatting or symbol ("dash", "dot com"…), list cue ("first",
 //   "number one"…) or repeated word ("the, the"). It is
 //   pasted as Deepgram punctuated it, with dictionary spellings and the chat no-trailing-period rule applied in code
-//   (`tidyShort`). On Ada's dictations the model was ~80% of the wait (0.7–1.8 s of 0.9–2.1 s key-up to text).
+//   (`tidyShort`). On our own dictations the model was ~80% of the wait (0.7–1.8 s of 0.9–2.1 s key-up to text).
 // Dictation.speculate(principal, transcript, context) → { transcript, result } | null starts a cleanup before key-up;
 //   Dictation.finish(…, speculation) uses it when the final transcript is the same, else cleans afresh. The timing line
 //   adds "skipped" and "speculated".
@@ -711,7 +711,7 @@ export class DictationStore   // DATA_DIR/dictation.sqlite: its own file, not th
 //   `hdt_` + 32 random bytes base64url, shown once; at most 20 live devices a member. Devices and personal words are keyed
 //   by user id, not email, which can change.
 //   dictation_words (scope 'team' | user id, word, position); lists of at most 200 words of at most 60 characters, deduplicated
-//   case-insensitively; the team list is seeded with Acme, AcmeBioLab, Hearth, Ember, Granola, Clerk, Deepgram, Anthropic, Claude.
+//   case-insensitively; the team list is seeded with Hotsauce, Clerk, Deepgram, Anthropic, Claude.
 export class Dictation { dictate(principal, { audio, mimeType, mode, appName?, appBundle?, language? }): Promise<DictateResult> }
 //   30 a minute per member (rate_limited 429); ≤ 15 MB (413); a WAV over 10 minutes is 413 before any paid call. Keyterms are
 //   the member's words then the team's (≤ 100). mode=literal skips the model.
@@ -770,7 +770,7 @@ Brand: `DictateCore/Brand.swift` holds the display name (`Hearth`), accent, URL 
 
 `Hearth --self-test <server> <folder> [--sign-in-dev <email>] [--remind] [--try-google]` drives the real suite window (shown on screen, since WebKit doesn't paint a hidden one) and writes `result.json` and PNG snapshots: storage and a cookie left by the previous run, an in-place route change, the reminders' API call and planner, Start opened from a reminder, a deep link, the media APIs the page sees, and Google's sign-in page. Run it from the installed app, with the app quit.
 
-**Name and icons (0.3.0):** the bundle is `<Brand.name>.app` ("Hearth.app") with executable `Hearth`; the bundle id and signing identity are unchanged, so the designated requirement (`identifier "dev.hotsauce.dictate" and certificate root = …`) and with it Microphone and Accessibility carry over the rename (checked on Ada's Mac). On launch from an Applications folder, an old `HearthDictate.app` with the same bundle id goes to the Trash (it would otherwise still show in Spotlight and could answer `hearth://` links), and Open at login is registered again when the app's path changed. Internal names stay: the data folder `~/Library/Application Support/HearthDictate`, the menu bar autosave name, the SwiftPM product. The app icon and the menu bar icon are the Hearth mark from `apps/web/public/favicon.svg`, drawn in `HearthMark.swift`; `Hearth --render-app-icon <dir>/AppIcon.iconset` writes the iconset for `Resources/AppIcon.icns` (`iconutil -c icns`). In the menu bar the mark is a template image: dimmed until Dictate is connected and listening, ember while it records, orange while it writes up, a warning triangle on an error.
+**Name and icons (0.3.0):** the bundle is `<Brand.name>.app` ("Hearth.app") with executable `Hearth`; the bundle id and signing identity are unchanged, so the designated requirement (`identifier "dev.hotsauce.dictate" and certificate root = …`) and with it Microphone and Accessibility carry over the rename. On launch from an Applications folder, an old `HearthDictate.app` with the same bundle id goes to the Trash (it would otherwise still show in Spotlight and could answer `hearth://` links), and Open at login is registered again when the app's path changed. Internal names stay: the data folder `~/Library/Application Support/HearthDictate`, the menu bar autosave name, the SwiftPM product. The app icon and the menu bar icon are the Hearth mark from `apps/web/public/favicon.svg`, drawn in `HearthMark.swift`; `Hearth --render-app-icon <dir>/AppIcon.iconset` writes the iconset for `Resources/AppIcon.icns` (`iconutil -c icns`). In the menu bar the mark is a template image: dimmed until Dictate is connected and listening, ember while it records, orange while it writes up, a warning triangle on an error.
 
 ### 9.5 Tests
 
@@ -876,7 +876,7 @@ Plan and requirements: `docs/PLAN-cloudflare-deploy.md`. The Worker in `apps/clo
 
 ## 12. Hearth Tasks
 
-A Todoist-style task list for the team. Plan and decisions: Ada chose on 2026-11-11 to build it inside Hearth (not to sync with Todoist), with a one-time import from Todoist, Ramble-style voice capture, and the open action items from meetings shown alongside. Git is truth: **one task is one Markdown file**, so tasks are searchable, readable by agents, versioned, and survive a reindex. The pure parts (file format, quick-add parser, recurrence, dates) are in `@hearth/format` (`packages/format/src/tasks.ts`), shared by the server and the web app; read that file, it is part of this contract.
+A Todoist-style task list for the team. It is built inside the suite (not to sync with Todoist), with a one-time import from Todoist, Ramble-style voice capture, and the open action items from meetings shown alongside. Git is truth: **one task is one Markdown file**, so tasks are searchable, readable by agents, versioned, and survive a reindex. The pure parts (file format, quick-add parser, recurrence, dates) are in `@hearth/format` (`packages/format/src/tasks.ts`), shared by the server and the web app; read that file, it is part of this contract.
 
 ### 12.1 The file
 
@@ -893,11 +893,11 @@ tz: America/New_York  # only with a timed due
 recur: every friday   # normalized rule (normalizeRecurrence); the due date moves on completion
 project: Ops          # free text; a project is the set of tasks naming it, per space
 labels: [calls]
-assignee: alex@acmebiolab.com   # lowercase email; absent = unassigned
+assignee: alex@acme.example   # lowercase email; absent = unassigned
 created: 2026-11-11T12:00:00Z
-created_by: ada@acmebiolab.com
+created_by: ada@acme.example
 completed: 2026-11-12T09:00:00Z  # when status is done
-completed_by: ada@acmebiolab.com
+completed_by: ada@acme.example
 order: 1700          # manual order within a list, lower first; absent sorts after, by created
 source: { kind: meeting, space: team, path: meetings/2026/11/....md, line: 14, text: "Send deck" }
         # kind: manual | meeting | voice | import | mcp; import adds from: todoist, ref: <todoist id>
@@ -1106,7 +1106,7 @@ Format (`notes.test.ts`): file round trip, checklist helpers, Keep mapping. Serv
 
 ## 15. Hearth Whiteboard
 
-An Excalidraw whiteboard inside Hearth (plan `docs/plans/2026-11-12-next-tools.md` §1; Ada chose 2026-11-12: one person drawing at a time first, live drawing together second). Git is truth: **one board is one Markdown file**. The pure parts (file format, merge) are in `@hearth/format` (`packages/format/src/boards.ts`), shared by server and web; read that file, it is part of this contract.
+An Excalidraw whiteboard inside Hearth (plan `docs/plans/2026-11-12-next-tools.md` §1; one person drawing at a time first, live drawing together second). Git is truth: **one board is one Markdown file**. The pure parts (file format, merge) are in `@hearth/format` (`packages/format/src/boards.ts`), shared by server and web; read that file, it is part of this contract.
 
 ### 15.1 The file
 
@@ -1118,9 +1118,9 @@ id: 01J...
 type: board
 title: Q4 flow
 created: 2026-11-12T10:00:00Z
-created_by: ada@acmebiolab.com
+created_by: ada@acme.example
 updated: 2026-11-12T10:05:00Z
-updated_by: ada@acmebiolab.com
+updated_by: ada@acme.example
 ---
 <!-- Hearth Whiteboard: open it in Hearth to draw. The words on the board, for search: -->
 - Launch
@@ -1222,7 +1222,7 @@ Live drawing together (W8: one WebSocket room per board relaying scene updates, 
 
 ## 18. Hearth Files
 
-Team files and attachments, beside Google Drive rather than in place of it (plan `docs/plans/2026-11-12-files.md`; Ada said yes 2026-11-12). Bytes live in the object store; Git keeps one small pointer per file, so "delete the SQLite file and reindex" rebuilds the whole listing. The pure parts are in `@hearth/format` (`packages/format/src/files.ts`); the server is `apps/server/src/files/` and `api/drive.ts`; the web app is `apps/web/src/apps/files/` and `components/FilePicker.tsx`.
+Team files and attachments, beside Google Drive rather than in place of it (plan `docs/plans/2026-11-12-files.md`). Bytes live in the object store; Git keeps one small pointer per file, so "delete the SQLite file and reindex" rebuilds the whole listing. The pure parts are in `@hearth/format` (`packages/format/src/files.ts`); the server is `apps/server/src/files/` and `api/drive.ts`; the web app is `apps/web/src/apps/files/` and `components/FilePicker.tsx`.
 
 ### 18.1 The pointer
 
@@ -1239,7 +1239,7 @@ sha256: 9f2c...
 mime: application/pdf
 key: files/01J...          # object-store key (fileStoreKey)
 created: 2026-11-12T10:00:00Z
-created_by: ada@acmebiolab.com
+created_by: ada@acme.example
 updated: 2026-11-12T10:00:00Z
 share: k3P...              # only while a share link is on
 text: extracted            # extracted | none | failed

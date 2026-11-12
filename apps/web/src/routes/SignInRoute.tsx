@@ -144,7 +144,7 @@ function DesktopSignIn({ start }: { start: () => void }) {
       <p className="text-sm text-ink-faint">
         {started
           ? 'Finish in your browser, then come back here.'
-          : 'Opens your browser. If you’re signed in to Hearth there, it’s one click.'}
+          : 'Opens your browser. If you’re signed in there, it’s one click.'}
       </p>
     </div>
   )

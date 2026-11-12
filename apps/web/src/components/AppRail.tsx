@@ -30,7 +30,7 @@ export function appHref(app: AppManifest): string {
   return lastLocation.get(app.id) ?? app.route
 }
 
-/** Initials for the account button: "Ada Lovelace" → "MH"; the email's first letter without a name. */
+/** Initials for the account button: "Ada Lovelace" → "AL"; the email's first letter without a name. */
 export function initials(name: string | undefined, email: string | undefined): string {
   const words = (name ?? '').trim().split(/\s+/).filter(Boolean)
   if (words.length > 0) {

@@ -138,7 +138,7 @@ export function registerTools(server: McpServer, deps: McpDeps, principal: Princ
           .union([z.enum(KINDS), z.array(z.enum(KINDS)).min(1)])
           .optional()
           .describe(
-            'Only these kinds: docs (under docs/), meeting (meeting notes), transcript, task, note, board, person (About notes on people), file (Hearth Files: read one with get_drive_file), other',
+            'Only these kinds: docs (under docs/), meeting (meeting notes), transcript, task, note, board, person (About notes on people), file (Files: read one with get_drive_file), other',
           ),
         space: Space.optional().describe('Only this space; default every space you can see'),
         prefix: z.string().optional().describe('Only paths starting with this, e.g. "docs/plans/"'),
@@ -572,7 +572,7 @@ function registerNoteTools(
     {
       title: 'List notes',
       description:
-        'Your Hearth Notes (Keep-style sticky notes and checklists), pinned first, then newest. A checklist note\'s body is "- [ ]" / "- [x]" lines. view: board (default), archive or trash.',
+        'Your Notes (Keep-style sticky notes and checklists), pinned first, then newest. A checklist note\'s body is "- [ ]" / "- [x]" lines. view: board (default), archive or trash.',
       inputSchema: {
         view: z.enum(['board', 'archive', 'trash']).optional(),
         label: z.string().optional().describe('Only notes with this label'),

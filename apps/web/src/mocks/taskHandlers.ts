@@ -373,7 +373,7 @@ export function taskHandlers(deps: TaskHandlerDeps): AnyHandler[] {
       if (patch.recur === null) task.recur = null
       else {
         const rule = normalizeRecurrence(patch.recur)
-        if (!rule) return error(400, 'bad_request', `Hearth doesn’t understand “${patch.recur}”`)
+        if (!rule) return error(400, 'bad_request', `Can’t understand “${patch.recur}”`)
         task.recur = rule
         if (!task.due)
           task.due = firstOccurrence(rule, localNow(new Date(), patch.tz ?? 'UTC').date)

@@ -5,7 +5,7 @@ import { loadConfig } from '../../src/config.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
-const ALICE = 'alice@acmebiolab.com'
+const ALICE = 'alice@acme.example'
 
 let root: string
 let services: Services
@@ -19,7 +19,7 @@ beforeEach(async () => {
     HOST_KIND: 'local',
     DATA_DIR: join(root, 'data'),
     LOCAL_HOST_DIR: join(root, 'remotes'),
-    ALLOWED_EMAIL_DOMAINS: 'acmebiolab.com',
+    ALLOWED_EMAIL_DOMAINS: 'acme.example',
   })
   services = createServices(config)
   await services.spaces.ensureTeamSpace()

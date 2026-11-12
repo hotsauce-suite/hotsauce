@@ -278,7 +278,7 @@ describe('ClerkAuth.createSignInTicket', () => {
     const createSignInToken = vi.fn(async () => ({ token: 'tkt_123' }))
     const auth = new ClerkAuth({
       clerk: { ...clerk, signInTokens: { createSignInToken } },
-      allowedDomains: ['acmebiolab.com'],
+      allowedDomains: ['acme.example'],
       adminEmails: [],
       authorizedParties: [],
     })

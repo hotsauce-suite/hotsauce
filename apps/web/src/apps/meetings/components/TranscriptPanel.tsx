@@ -62,7 +62,7 @@ export function TranscriptPanel({
     } catch (err) {
       setNameError(
         err instanceof HearthApiError && err.status === 409 && /cleaned up/.test(err.message)
-          ? 'Hearth is still tidying this transcript. Try again in a moment.'
+          ? 'We’re still tidying this transcript. Try again in a moment.'
           : err instanceof HearthApiError && err.status === 409
             ? 'The transcript changed meanwhile. Look again, then try once more.'
             : err instanceof HearthApiError

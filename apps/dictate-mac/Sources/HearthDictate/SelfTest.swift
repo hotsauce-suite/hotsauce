@@ -147,8 +147,8 @@ enum SelfTest {
         _ = try? await suite.webView.evaluateJavaScript("localStorage.removeItem('hearth.devUser')")
         // A link straight to the finish page (a doc, another site) must sign nothing in, even
         // with a ticket in it; deep links to it are refused outright.
-        out["deepLinkToFinishRefused"] = suite.router.url(forPath: SuiteRouter.deepLinkPath(URL(string: "hearth://desktop/finish#ticket=dev:eve@acmebiolab.com")!) ?? "") == nil
-        suite.webView.load(URLRequest(url: URL(string: "\(suite.router.server.absoluteString)/desktop/finish#ticket=dev:eve@acmebiolab.com")!))
+        out["deepLinkToFinishRefused"] = suite.router.url(forPath: SuiteRouter.deepLinkPath(URL(string: "hearth://desktop/finish#ticket=dev:eve@acme.example")!) ?? "") == nil
+        suite.webView.load(URLRequest(url: URL(string: "\(suite.router.server.absoluteString)/desktop/finish#ticket=dev:eve@acme.example")!))
         await waitForLoad(suite.webView)
         try? await Task.sleep(for: .seconds(2))
         out["directFinishSignedInAs"] = (try? await suite.webView.evaluateJavaScript("localStorage.getItem('hearth.devUser')")) as? String ?? NSNull()
