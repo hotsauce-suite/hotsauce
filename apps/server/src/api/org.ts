@@ -151,13 +151,8 @@ export function missingForFinish(deps: AppDeps): string[] {
   if (s.hostKind === 'github' && !(s.githubOrg && deps.org.effectiveSecret('GITHUB_TOKEN'))) {
     missing.push('GitHub organization and token (or choose “On this server”)')
   }
-  const r2 = [s.r2AccountId, s.r2AccessKeyId, s.r2Bucket].filter(Boolean).length
-  if (r2 > 0 && (r2 < 3 || !deps.org.effectiveSecret('R2_SECRET_ACCESS_KEY'))) {
-    missing.push('All four Cloudflare R2 values (or clear them to skip audio storage)')
-  }
-  if (s.keepAudio && !env.KEEP_AUDIO && r2 < 3 && !env.R2_BUCKET) {
-    missing.push('Cloudflare R2 storage, to keep meeting audio (or untick “Keep meeting audio”)')
-  }
+  const r2 = partialR2(deps)
+  if (r2) missing.push(r2)
   // Every admin must be able to sign in. The environment's lists win, as they will at startup.
   const list = (v: string | undefined) =>
     (v ?? '')
@@ -179,7 +174,19 @@ export function missingForFinish(deps: AppDeps): string[] {
  * restart into a config that doesn't load would leave the instance down until someone edits the
  * volume by hand. Returns the problems, empty when it would start.
  */
+/** Some R2 values but not all four: without the rest, video would quietly go to the disk. */
+function partialR2(deps: AppDeps): string | null {
+  const s = deps.org.settings()
+  const r2 = [s.r2AccountId, s.r2AccessKeyId, s.r2Bucket].filter(Boolean).length
+  if (r2 > 0 && (r2 < 3 || !deps.org.effectiveSecret('R2_SECRET_ACCESS_KEY'))) {
+    return 'All four Cloudflare R2 values (or clear them to keep videos and audio on this server’s disk)'
+  }
+  return null
+}
+
 export function nextConfigProblems(deps: AppDeps): string[] {
+  const r2 = partialR2(deps)
+  if (r2) return [r2]
   try {
     loadConfig({
       ...deps.org.toEnv({ asIfComplete: true }),

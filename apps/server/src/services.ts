@@ -89,6 +89,8 @@ export interface ServiceOverrides {
   pushSender?: PushSender
   dictationTranscriber?: DictationTranscriber
   clipTranscriber?: ClipTranscriber
+  /** Free bytes on the data volume, for Clips' disk check. */
+  diskFreeBytes?: () => Promise<number>
   /** The organization store, when the caller already opened one (main.ts). */
   org?: OrgStore
 }
@@ -180,6 +182,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     llm,
     model: config.CLIPS_MODEL,
     keyterms: (userId) => dictation.dictionary(userId).slice(0, 100),
+    ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
     ffmpeg: { ffmpeg: config.FFMPEG_PATH, ffprobe: config.FFPROBE_PATH },
   })
   return {

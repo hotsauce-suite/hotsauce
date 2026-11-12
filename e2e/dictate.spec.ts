@@ -28,10 +28,10 @@ test('Dictate: connect this Mac, dictate with its token, words, disconnect', asy
   await page.getByTestId('app-switch-dictate').click()
   await expect(page).toHaveURL(/\/dictate$/)
   await expect(page.getByRole('heading', { name: 'Talk anywhere you can type.' })).toBeVisible()
-  await expect(page.getByTestId('dictate-download')).toHaveAttribute(
-    'href',
-    '/downloads/HearthDictate.dmg',
-  )
+  // This server was built without the Mac app (only the Docker image copies it in), so the
+  // page points to the source instead of a download that isn't there.
+  await expect(page.getByTestId('dictate-build-from-source')).toBeVisible()
+  await expect(page.getByTestId('dictate-download')).toHaveCount(0)
   await expect(page.getByTestId('dictate-words-team')).toContainText('Hotsauce')
 
   await page.getByTestId('dictate-connect').click()

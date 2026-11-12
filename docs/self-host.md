@@ -33,7 +33,7 @@ The link works only while the instance is new. It walks you through:
 2. **Brand**: logo, icon, colors, fonts and default look, with a live preview. Optional.
 3. **Sign-in**: a free [Clerk](https://clerk.com) application with Google turned on. Paste its two keys.
 4. **AI and transcription**: your own [Anthropic](https://console.anthropic.com/settings/keys) and [Deepgram](https://console.deepgram.com/) keys, each with a Test button. Optional; without them Docs works fully and the AI features say they need a key.
-5. **Files and audio**: repositories on the server's disk, or in a GitHub organization; meeting audio in a Cloudflare R2 bucket, optional.
+5. **Files and audio**: repositories on the server's disk, or in a GitHub organization; Clips videos and kept meeting audio on the server's disk, or in a Cloudflare R2 bucket if you want more room.
 6. **Review and launch**: the server restarts with your settings and you sign in.
 
 Admins change any of it later in **Settings → Organization**. Keys are stored encrypted on the volume and are never shown again.

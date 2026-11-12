@@ -13,5 +13,5 @@ test-results/
 .claude/
 
 # Made by scripts/deploy-fly.sh for each instance.
-fly.*.toml
+/fly.*.toml
 .wrangler/

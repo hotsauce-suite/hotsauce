@@ -17,6 +17,9 @@ export const MAC_APP_DOWNLOAD = '/downloads/HearthDictate.dmg'
 /** The same app as a zip, for anyone whose browser or Mac won't open the disk image. */
 export const MAC_APP_ZIP = '/downloads/HearthDictate.zip'
 const PRIVACY_SETTINGS = 'x-apple.systempreferences:com.apple.preference.security'
+/** How to build the Mac app, for a server that has no build to offer. */
+export const MAC_APP_SOURCE =
+  'https://github.com/hotsauce-suite/hotsauce/blob/main/apps/dictate-mac/README.md'
 
 const kbd =
   'rounded-md border border-ash-strong/70 bg-paper-raised px-1.5 py-0.5 font-mono text-[0.8em] text-ink shadow-[0_1px_0_var(--ash-strong)]'
@@ -33,6 +36,8 @@ export default function DictatePage() {
   const [words, setWords] = useState<DictationWords | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [connect, setConnect] = useState<Connect>({ state: 'idle' })
+  // A server built without the Mac app (a fresh self-hosted one) has nothing to download.
+  const [hasMacApp, setHasMacApp] = useState(true)
 
   const refreshDevices = useCallback(() => {
     dictationApi.devices().then(setDevices, (err: unknown) => setLoadError(messageOf(err)))
@@ -42,6 +47,10 @@ export default function DictatePage() {
     document.title = `${product()} Dictate`
     refreshDevices()
     dictationApi.words().then(setWords, (err: unknown) => setLoadError(messageOf(err)))
+    fetch(MAC_APP_DOWNLOAD, { method: 'HEAD' }).then(
+      (res) => setHasMacApp(res.ok),
+      () => {},
+    )
   }, [refreshDevices])
 
   const onConnect = async () => {
@@ -92,15 +101,28 @@ export default function DictatePage() {
                   out spelled right.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <a
-                    href={MAC_APP_DOWNLOAD}
-                    download
-                    data-testid="dictate-download"
-                    className={primaryButton}
-                  >
-                    <Icon name="mic" />
-                    Download for Mac
-                  </a>
+                  {hasMacApp ? (
+                    <a
+                      href={MAC_APP_DOWNLOAD}
+                      download
+                      data-testid="dictate-download"
+                      className={primaryButton}
+                    >
+                      <Icon name="mic" />
+                      Download for Mac
+                    </a>
+                  ) : (
+                    <a
+                      href={MAC_APP_SOURCE}
+                      target="_blank"
+                      rel="noreferrer"
+                      data-testid="dictate-build-from-source"
+                      className={primaryButton}
+                    >
+                      <Icon name="mic" />
+                      Build the Mac app
+                    </a>
+                  )}
                   <button
                     type="button"
                     data-testid="dictate-connect"
@@ -140,8 +162,7 @@ export default function DictatePage() {
               className="mt-4 list-decimal space-y-2 pl-5 text-sm text-ink-soft marker:font-semibold marker:text-ember"
             >
               <li>
-                Open the downloaded HearthDictate.dmg and drag {product()} Dictate into
-                Applications.
+                Open the downloaded disk image and drag {product()} Dictate into Applications.
               </li>
               <li>
                 Open it from Applications. When macOS says{' '}
@@ -166,14 +187,16 @@ export default function DictatePage() {
               >
                 Open Privacy &amp; Security
               </a>
-              <a
-                href={MAC_APP_ZIP}
-                download
-                data-testid="dictate-download-zip"
-                className="text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink"
-              >
-                Download as a .zip instead
-              </a>
+              {hasMacApp ? (
+                <a
+                  href={MAC_APP_ZIP}
+                  download
+                  data-testid="dictate-download-zip"
+                  className="text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink"
+                >
+                  Download as a .zip instead
+                </a>
+              ) : null}
             </div>
             <p className="mt-3 text-xs text-ink-faint">
               Already installed and nothing happens when you open it? It lives in the menu bar (a
