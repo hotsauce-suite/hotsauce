@@ -107,7 +107,7 @@ export default function BookingLinks() {
             Booking links
           </h1>
           <p className="mt-2 text-[0.95rem] text-ink-soft">
-            Share a link and people pick a time when you’re free. Hearth checks your Google
+            Share a link and people pick a time when you’re free. {product()} checks your Google
             Calendar, adds the meeting with a Google Meet link, and Google emails you both the
             invite. Their answers show up in the meeting.
           </p>
