@@ -164,7 +164,7 @@ def segment(work, shots_dir, seg, idx, ov):
     run("ffmpeg", "-loglevel", "error", "-y", *inputs, "-filter_complex", ";".join(filt),
         "-map", f"[{cur}]", "-map", "[a]", "-t", f"{T:.3f}", "-r", FPS,
         "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", out)
-    return out
+    return out, [(start + capdata["lines"][i]["start"], start + capdata["lines"][i]["end"], capdata["lines"][i]["text"]) for i in ci]
 
 def card(work, ov, name, secs):
     out = work / "seg" / f"_{name}.mp4"
@@ -184,9 +184,18 @@ def join(parts, out):
 
 def cut(work, shots_dir):
     ov = work / "overlays"
-    segs = {s["id"]: segment(work, shots_dir, s["id"], i, ov) for i, s in enumerate(SCRIPT)}
+    rendered = {s["id"]: segment(work, shots_dir, s["id"], i, ov) for i, s in enumerate(SCRIPT)}
+    segs = {k: v[0] for k, v in rendered.items()}
     intro = card(work, ov, "intro", INTRO)
     join([intro] + [segs[s["id"]] for s in SCRIPT], work / "hotsauce-tour.mp4")
+    # WebVTT captions for the site's <track>, matching the burned-in ones.
+    ts = lambda t: f"{int(t // 3600):02d}:{int(t % 3600 // 60):02d}:{t % 60:06.3f}"
+    cues, t0 = ["WEBVTT", ""], INTRO
+    for s in SCRIPT:
+        for a, b, text in rendered[s["id"]][1]:
+            cues += [f"{ts(t0 + a)} --> {ts(t0 + b)}", text, ""]
+        t0 += dur(segs[s["id"]])
+    (work / "hotsauce-tour.vtt").write_text("\n".join(cues))
     short_outro = card(work, ov, "outro", 3.5)
     for name, ids in CUTS.items():
         join([segs[i] for i in ids] + [short_outro], work / f"hotsauce-{name}.mp4")
