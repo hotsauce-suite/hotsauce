@@ -795,15 +795,6 @@ export function StorageSection(props: SectionProps) {
   const [r2Secret, setR2Secret] = useState('')
   const [keepAudio, setKeepAudio] = useState(s.keepAudio)
   const L = state.lockedByEnv
-  // Keeping audio needs somewhere to keep it: the server refuses the save otherwise.
-  const r2Ready =
-    Boolean(L.r2Bucket) ||
-    Boolean(
-      r2AccountId &&
-        r2AccessKeyId &&
-        r2Bucket &&
-        (r2Secret || state.secrets.R2_SECRET_ACCESS_KEY.set),
-    )
   const { busy, error, run } = useSave(props)
   const { results, testing, test } = useTest(editor)
   const hostLocked = state.lockedByEnv.hostKind
@@ -825,7 +816,7 @@ export function StorageSection(props: SectionProps) {
             r2AccountId,
             r2AccessKeyId,
             r2Bucket,
-            keepAudio: keepAudio && r2Ready,
+            keepAudio,
             secrets: typedSecrets({ GITHUB_TOKEN: githubToken, R2_SECRET_ACCESS_KEY: r2Secret }),
           }),
         )
@@ -927,12 +918,12 @@ export function StorageSection(props: SectionProps) {
 
       <details className="rounded-xl border border-ash p-4" open={Boolean(s.r2Bucket)}>
         <summary className="cursor-pointer text-sm font-medium text-ink">
-          Meeting audio storage (optional)
+          Video and audio storage (optional)
         </summary>
         <div className="mt-3 flex flex-col gap-3">
           <p className="text-sm text-ink-soft">
-            Without this, recordings are transcribed and then dropped. With a Cloudflare R2 bucket
-            (10 GB free), you can keep audio to replay later.
+            Clips videos, and meeting audio you choose to keep, are stored on this server’s disk.
+            For more room, use a Cloudflare R2 bucket instead (10 GB free).
           </p>
           <ol className="flex flex-col gap-3">
             <StepLink
@@ -995,13 +986,12 @@ export function StorageSection(props: SectionProps) {
             <input
               type="checkbox"
               data-testid="keep-audio"
-              checked={keepAudio && (r2Ready || Boolean(L.keepAudio))}
-              disabled={Boolean(L.keepAudio) || !r2Ready}
+              checked={keepAudio}
+              disabled={Boolean(L.keepAudio)}
               onChange={(e) => setKeepAudio(e.target.checked)}
               className="accent-[var(--ember)]"
             />
             Keep meeting audio after transcribing
-            {!r2Ready ? <span className="text-ink-faint">(fill in R2 above first)</span> : null}
           </label>
         </div>
       </details>

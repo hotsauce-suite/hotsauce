@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, rm, stat, statfs } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -21,6 +21,11 @@ export const MAX_TITLE_LENGTH = 200
 const ABANDONED_MS = 24 * 3_600_000
 /** Recordings a member can have open at once (each may hold up to 2 GB of chunks on the volume). */
 export const MAX_OPEN_RECORDINGS = 3
+/**
+ * Free space the data volume keeps for git, SQLite and settings: recording stops below it.
+ * Chunks always land on the volume, and so do videos without R2.
+ */
+export const MIN_FREE_BYTES = 1024 ** 3
 /** Playback URLs are signed for a fixed window and valid for two (so they're cacheable). */
 const URL_WINDOW_SECONDS = 3 * 3600
 const CONTENT_TYPE: Record<ClipContainer, string> = { mp4: 'video/mp4', webm: 'video/webm' }
@@ -65,6 +70,8 @@ export interface ClipsOptions {
   ffmpeg: FfmpegPaths
   log?: (message: string) => void
   now?: () => Date
+  /** Free bytes on the data volume (tests stand in for statfs). */
+  freeBytes?: () => Promise<number>
 }
 
 /** A file name for a download: the title without characters file systems refuse. */
@@ -140,7 +147,10 @@ export class Clips {
 
   #media(): AudioStore {
     if (!this.#opts.media) {
-      throw new HearthError('not_found', 'Hearth Clips needs video storage, which isn’t set up')
+      throw new HearthError(
+        'not_found',
+        'Clips needs video storage, which isn’t set up (AUDIO_STORE=none)',
+      )
     }
     return this.#opts.media
   }
@@ -161,11 +171,12 @@ export class Clips {
     return clip
   }
 
-  create(
+  async create(
     principal: Principal,
     req: { mode: ClipMode; container: ClipContainer; title?: string | undefined },
   ): Promise<ClipView> {
     this.#media()
+    await this.#ensureRoom()
     const open = this.store
       .withStatus(['recording'])
       .filter((c) => c.ownerId === principal.userId).length
@@ -196,6 +207,7 @@ export class Clips {
       throw new HearthError('bad_request', `A chunk number is from 0 to ${MAX_CHUNKS - 1}`)
     }
     if (bytes.length === 0) throw new HearthError('bad_request', 'An empty chunk')
+    await this.#ensureRoom()
     const dir = this.#uploadDir(id)
     await mkdir(dir, { recursive: true })
     const file = path.join(dir, chunkName(seq))
@@ -223,6 +235,22 @@ export class Clips {
     }
     // Recording activity keeps the clip from being swept as abandoned.
     this.store.update(id, {}, this.#nowIso())
+  }
+
+  /** Refuses new video when the data volume is nearly full, before git and SQLite run out. */
+  async #ensureRoom(): Promise<void> {
+    const free = this.#opts.freeBytes
+      ? await this.#opts.freeBytes()
+      : await statfs(this.#opts.dataDir).then(
+          (s) => s.bavail * s.bsize,
+          () => Number.POSITIVE_INFINITY,
+        )
+    if (free < MIN_FREE_BYTES) {
+      throw new HearthError(
+        'conflict',
+        'The server’s disk is nearly full, so recording is paused. Delete old clips, or ask an admin to add storage.',
+      )
+    }
   }
 
   async #uploadedBytes(dir: string): Promise<number> {

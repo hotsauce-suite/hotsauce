@@ -905,7 +905,7 @@ describe('configuration', () => {
     })
   })
 
-  it('keeps audio in R2 when its keys are set, and nowhere in production otherwise', () => {
+  it('keeps audio in R2 when its keys are set, and on the data volume otherwise', () => {
     const production = {
       NODE_ENV: 'production',
       CLERK_SECRET_KEY: 'sk_live',
@@ -919,10 +919,12 @@ describe('configuration', () => {
       R2_SECRET_ACCESS_KEY: 'secret',
       R2_BUCKET: 'hearth-audio',
     }
-    expect(loadConfig(production).AUDIO_STORE).toBe('none')
+    expect(loadConfig(production).AUDIO_STORE).toBe('local')
     expect(loadConfig({ ...production, ...r2 }).AUDIO_STORE).toBe('r2')
     expect(loadConfig({ NODE_ENV: 'test', AUTH_MODE: 'dev' }).AUDIO_STORE).toBe('local')
     expect(() => loadConfig({ ...production, AUDIO_STORE: 'r2' })).toThrow(/R2_BUCKET/)
-    expect(() => loadConfig({ ...production, KEEP_AUDIO: 'true' })).toThrow(/KEEP_AUDIO/)
+    expect(() => loadConfig({ ...production, AUDIO_STORE: 'none', KEEP_AUDIO: 'true' })).toThrow(
+      /KEEP_AUDIO/,
+    )
   })
 })

@@ -282,6 +282,23 @@ describe('a running instance', () => {
     }
   })
 
+  it('refuses half an R2 setup, which would quietly store video on the disk', async () => {
+    const { call } = await instance({
+      AUTH_MODE: 'dev',
+      ALLOWED_EMAIL_DOMAINS: 'example.org',
+      ADMIN_EMAILS: ADMIN,
+    })
+    const admin = { 'x-hearth-dev-user': ADMIN }
+    const res = await call('PUT', '/api/admin/org/settings', {
+      headers: admin,
+      json: { r2AccountId: 'acct', r2AccessKeyId: 'id', r2Bucket: 'videos' },
+    })
+    expect(res.status).toBe(400)
+    expect(JSON.stringify(await res.json())).toContain('All four Cloudflare R2 values')
+    const state = await (await call('GET', '/api/admin/org/state', { headers: admin })).json()
+    expect(state.settings.r2Bucket).toBe('')
+  })
+
   it('serves the brand kit publicly and validates changes', async () => {
     const { call } = await instance({
       AUTH_MODE: 'dev',

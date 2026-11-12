@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { HttpResponse, http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { connectLink } from '../../api/dictation'
+import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
 
 const opened = vi.hoisted(() => ({ links: [] as string[] }))
@@ -12,6 +14,19 @@ afterEach(() => {
 })
 
 describe('Hearth Dictate page', () => {
+  it('points to the source when this server has no Mac app build', async () => {
+    server.use(
+      http.head('/downloads/HearthDictate.dmg', () => new HttpResponse(null, { status: 404 })),
+    )
+    renderApp('/dictate')
+    expect(await screen.findByTestId('dictate-build-from-source')).toHaveAttribute(
+      'href',
+      expect.stringContaining('apps/dictate-mac/README.md'),
+    )
+    expect(screen.queryByTestId('dictate-download')).toBeNull()
+    expect(screen.queryByTestId('dictate-download-zip')).toBeNull()
+  })
+
   it('offers the Mac download, the how-to and the team words', async () => {
     renderApp('/dictate')
     expect(await screen.findByTestId('dictate-download')).toHaveAttribute(

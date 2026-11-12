@@ -122,13 +122,13 @@ export const ConfigSchema = z
         c.ASR_PROVIDER ?? (production ? (c.DEEPGRAM_API_KEY ? 'deepgram' : 'none') : 'fake'),
       LLM_PROVIDER:
         c.LLM_PROVIDER ?? (production ? (c.ANTHROPIC_API_KEY ? 'anthropic' : 'none') : 'fake'),
+      // Without R2, video and kept audio go on the data volume (DATA_DIR), which every
+      // supported host persists; AUDIO_STORE=none turns Clips and kept audio off.
       AUDIO_STORE:
         c.AUDIO_STORE ??
         (c.R2_ACCOUNT_ID && c.R2_ACCESS_KEY_ID && c.R2_SECRET_ACCESS_KEY && c.R2_BUCKET
           ? ('r2' as const)
-          : production
-            ? ('none' as const)
-            : ('local' as const)),
+          : ('local' as const)),
     }
   })
   .superRefine((c, ctx) => {

@@ -30,6 +30,8 @@ export function dictationHandlers(opts: {
   const live = (email: string) => (devices.get(email) ?? []).filter((d) => !d.revoked)
 
   return [
+    // The server's build includes the Mac app.
+    http.head('/downloads/HearthDictate.dmg', () => new HttpResponse(null, { status: 200 })),
     http.get(
       '/api/dictation/devices',
       authed(({ user }) =>

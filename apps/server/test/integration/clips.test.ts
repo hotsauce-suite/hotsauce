@@ -331,6 +331,45 @@ describe('recording a clip', () => {
   })
 })
 
+describe('a nearly full disk', () => {
+  it('stops new recordings and new chunks, so git and SQLite keep room', async () => {
+    let free = 50 * 1024 ** 3
+    services.clips.close()
+    services.clips.store.close()
+    services.index.close()
+    services.dictation.store.close()
+    services = createServices(config, {
+      llm,
+      clipTranscriber: asr,
+      diskFreeBytes: async () => free,
+    })
+    app = createApp(services)
+
+    const clip = await json<Clip>(
+      await call('POST', '/api/clips', {
+        as: ALICE,
+        json: { mode: 'screen_camera', container: 'webm', title: 'Recording' },
+      }),
+      201,
+    )
+    free = 200 * 1024 ** 2
+    const chunk = await call('PUT', `/api/clips/${clip.id}/chunks/0`, {
+      as: ALICE,
+      body: webm.subarray(0, 1000),
+      headers: { 'content-type': 'application/octet-stream' },
+    })
+    expect(chunk.status).toBe(409)
+    expect(((await chunk.json()) as { error: { message: string } }).error.message).toMatch(
+      /disk is nearly full/,
+    )
+    const another = await call('POST', '/api/clips', {
+      as: ALICE,
+      json: { mode: 'screen_camera', container: 'webm', title: 'Another' },
+    })
+    expect(another.status).toBe(409)
+  })
+})
+
 describe('transcripts', () => {
   it('records a failed transcript and transcribes again on retry, from the stored video', async () => {
     const failing = {
