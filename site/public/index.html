@@ -707,7 +707,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
   <div class="clip"><video muted loop playsinline controls preload="none"></video></div>
   <div class="body">
     <div>
-      <h3 id="app-info-title"></h3>
+      <h3 id="app-info-title">Hotsauce app</h3>
       <p class="instead"></p>
       <p class="how"></p>
       <p class="req"><b>What it needs</b><span></span></p>
@@ -726,7 +726,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
   const vid = dlg.querySelector('video')
   const reduce = matchMedia('(prefers-reduced-motion: reduce)')
   let opener = null
-  function open(card) {
+  const open = (card) => {
     const a = APPS[card.dataset.app]
     opener = card.querySelector('.more')
     dlg.querySelector('h3').textContent = a.name
@@ -758,7 +758,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
     if (location.hash.startsWith('#app-')) history.replaceState(null, '', location.pathname + location.search)
     opener?.focus()
   })
-  function fromHash() {
+  const fromHash = () => {
     const deep = /^#app-(\w+)$/.exec(location.hash)
     const card = deep && document.querySelector(`.app[data-app="${deep[1]}"]`)
     if (card && !dlg.open) open(card)
