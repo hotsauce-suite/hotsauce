@@ -1,0 +1,8 @@
+# Learnings: the hotsauce.work site
+
+- **The app demo loops come from the tour scripts.** `scripts/tour-video/run.sh` records each app as its own short MP4. Re-encoded at 1280 wide (`-crf 27 -an -movflags +faststart`), all thirteen come to about 1.9 MB, small enough to keep in `site/public/video/apps/` and load only when a card's window opens.
+- **Check every feature claim against the code, not the README.** Reviews caught the README promising things the code doesn't do: live co-editing in Docs (it merges on save), speaker names during the call (they're matched afterwards), folder sharing in Files (file only), and a Clips summary that needs an Anthropic key too.
+- **Cloudflare deployments need R2 for media.** "Works out of the box" is only true on your own server; say so in any "what it needs" copy.
+- **Biome lints the inline scripts in index.html.** Function declarations inside a `{ }` block fail `noInnerDeclarations`, and an empty `<h3>` fails `useHeadingContent`. Run `biome ci site/public/index.html` before pushing.
+- **The desktop app's browser pane doesn't fire a `<dialog>`'s `close` event.** Test dialog behavior in Playwright's Chromium instead; it behaves like real browsers.
+- **`.stove-h:first-of-type` resets the top margin of the first `<h3>` in a section.** A heading added there needs a more specific selector to keep its margin.
