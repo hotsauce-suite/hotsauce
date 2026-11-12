@@ -1,0 +1,94 @@
+WEBVTT
+
+00:00:03.350 --> 00:00:09.070
+This is Hotsauce, an open source office suite for small teams.
+
+00:00:09.070 --> 00:00:11.570
+It runs on your own server.
+
+00:00:11.570 --> 00:00:15.630
+Every morning starts on Today: your meetings, your tasks,
+
+00:00:15.630 --> 00:00:18.230
+and the to-dos your meetings left behind.
+
+00:00:18.783 --> 00:00:23.503
+Docs are plain Markdown files, kept in Git.
+
+00:00:23.503 --> 00:00:27.683
+Write in a clean editor and link docs with two square brackets.
+
+00:00:27.683 --> 00:00:31.883
+Every save is a version, so you can step back through history and see
+
+00:00:31.883 --> 00:00:33.463
+who changed what.
+
+00:00:33.950 --> 00:00:39.010
+Meetings takes the notes for you, and no bot joins your call.
+
+00:00:39.010 --> 00:00:42.950
+After the call, your rough notes and the transcript become clean notes,
+
+00:00:42.950 --> 00:00:45.670
+with decisions and action items.
+
+00:00:46.283 --> 00:00:49.223
+Ask a question across every past meeting,
+
+00:00:49.223 --> 00:00:54.203
+and the answer points back to where it came from.
+
+00:00:54.203 --> 00:00:56.943
+Hotsauce also writes a brief for your AI agents,
+
+00:00:56.943 --> 00:01:02.183
+and they can read and write everything here, through MCP.
+
+00:01:02.829 --> 00:01:06.409
+Action items land in Tasks.
+
+00:01:06.409 --> 00:01:11.029
+Type one in plain words, with a date and a project.
+
+00:01:11.029 --> 00:01:16.909
+Or just ramble for a few seconds, and Hotsauce sorts it into a clean list.
+
+00:01:18.153 --> 00:01:21.833
+Notes hold the small stuff that isn't a doc.
+
+00:01:21.833 --> 00:01:26.073
+Color them, pin them, or turn them into checklists.
+
+00:01:29.424 --> 00:01:33.484
+Clips replaces the meeting you didn't need.
+
+00:01:33.484 --> 00:01:36.044
+Record your screen and talk it through.
+
+00:01:36.044 --> 00:01:39.384
+Whoever watches gets a transcript and a summary.
+
+00:01:41.535 --> 00:01:45.375
+Dictate turns talking into clean text.
+
+00:01:45.375 --> 00:01:48.755
+Hold a key on your Mac and speak into any app,
+
+00:01:48.755 --> 00:01:51.455
+or leave a voice note from your phone.
+
+00:01:52.944 --> 00:01:57.924
+There's more on the table: whiteboards your team draws on live,
+
+00:01:57.924 --> 00:02:03.364
+a people directory, files, forms, booking links, and Briefcast,
+
+00:02:03.364 --> 00:02:06.724
+a morning briefing you can play like a podcast.
+
+00:02:07.503 --> 00:02:13.823
+Hotsauce is free and open source, and it deploys to Cloudflare in minutes.
+
+00:02:13.823 --> 00:02:16.143
+Get it at hotsauce.work.

@@ -351,7 +351,7 @@ footer.foot .brand svg{width:26px;height:26px}
     <a class="btn primary" href="#run">Cook it up for your team</a>
     <a class="btn" href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Read the recipe</a>
   </div>
-  <button type="button" class="watch" id="watch-tour" aria-haspopup="dialog"><span class="play" aria-hidden="true"><svg viewBox="0 0 12 14"><path d="M0 0l12 7-12 7z" fill="currentColor"/></svg></span><u>Watch the tour</u> <small>2 min</small></button>
+  <button type="button" class="watch" id="watch-tour" aria-haspopup="dialog"><span class="play" aria-hidden="true"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M0 0l12 7-12 7z" fill="currentColor"/></svg></span><u>Watch the tour</u> <small>2 min</small></button>
   <ul class="chips"><li>Free forever</li><li>About $6 a month to host</li><li>Bring your own AI keys</li></ul>
 
   <div class="tour" id="tour">
@@ -613,7 +613,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
 </div>
 <dialog id="tour-video" aria-label="Hotsauce tour video">
   <button type="button" class="x" aria-label="Close the video">×</button>
-  <video controls playsinline preload="none" poster="/video/hotsauce-tour-poster.jpg" src="/video/hotsauce-tour.mp4"></video>
+  <video controls playsinline preload="none" poster="/video/hotsauce-tour-poster.jpg" src="/video/hotsauce-tour.mp4"><track kind="captions" src="/video/hotsauce-tour.vtt" srclang="en" label="English"></video>
 </dialog>
 <script>
 // Tour video: opens in a dialog, stops when it closes
