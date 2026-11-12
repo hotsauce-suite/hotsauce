@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hotsauce, the open sauce office suite</title>
-<meta name="description" content="Docs, AI meeting notes, Mac dictation and screen recordings for your team, on a server you run. Every file is plain Markdown in git. Open source under AGPL-3.0.">
+<meta name="description" content="Docs, AI meeting notes, tasks, files, whiteboards, dictation and screen recordings for your team, on a server you run. Every file is plain Markdown in git. Open source under AGPL-3.0.">
 <link rel="canonical" href="https://hotsauce.work/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="Hotsauce, the open sauce office suite">
-<meta property="og:description" content="Docs, meetings, dictation and clips for your team, on your server, in plain Markdown and git. Open source.">
+<meta property="og:description" content="Docs, meetings, tasks, files, whiteboards, dictation and clips for your team, on your server, in plain Markdown and git. Open source.">
 <meta property="og:url" content="https://hotsauce.work/">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://hotsauce.work/og.png">
@@ -159,6 +159,7 @@ h2{font:800 clamp(36px,5.2vw,58px)/1 var(--display);margin:0 0 16px;letter-spaci
 .extra{border:2px dashed var(--line);border-radius:var(--radius);padding:20px 22px}
 .extra h4{margin:0 0 4px;font:700 17px var(--sans)}
 .extra p{margin:0;color:var(--muted);font-size:15px}
+.stove-h.shelf-h{margin:44px 0 16px}
 
 /* on the stove */
 .stove-h{display:flex;align-items:center;gap:12px;margin:34px 0 16px;font:700 13px var(--mono);text-transform:uppercase;letter-spacing:.06em}
@@ -334,7 +335,7 @@ footer.foot .brand svg{width:26px;height:26px}
 <div class="hero">
   <span class="pill"><b>Open source</b><span>AGPL-3.0</span><span aria-hidden="true">·</span><span>Self-hosted</span><span aria-hidden="true">·</span><span>Plain Markdown in git</span></span>
   <h1>The open <em>sauce</em> <br class="lg">office suite.</h1>
-  <p class="lede">Docs, AI meeting notes, Mac dictation and screen recordings for your team. It runs on one small server you own, and every doc and note is a Markdown file in git.</p>
+  <p class="lede">Docs, AI meeting notes, tasks, files, whiteboards, dictation and screen recordings for your team. It runs on one small server you own, and every doc and note is a Markdown file in git.</p>
   <div class="ctas">
     <a class="btn primary" href="#run">Cook it up for your team</a>
     <a class="btn" href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Read the recipe</a>
@@ -375,8 +376,8 @@ footer.foot .brand svg{width:26px;height:26px}
 
 <section id="apps">
   <p class="kicker">The lineup</p>
-  <h2>Four apps your team uses every day.</h2>
-  <p class="sub">One sign-in, one search across docs and meetings, one brand. Each app does the job well enough that you can cancel the subscription it replaces.</p>
+  <h2>A whole office your team uses every day.</h2>
+  <p class="sub">One sign-in, one search across everything, one brand. Each app does the job well enough that you can cancel the subscription it replaces.</p>
   <div class="apps">
     <article class="app">
       <span class="flavor">Original</span>
@@ -388,13 +389,13 @@ footer.foot .brand svg{width:26px;height:26px}
       <span class="flavor">Smoky</span>
       <header><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg></div><h3>Meetings</h3><span class="instead">instead of an AI<br>notetaker</span></header>
       <p>Jot a few notes during the call. Afterwards, AI turns them and the transcript into clean, structured notes.</p>
-      <ul><li>Records in the browser, or Google Meet via the Chrome extension</li><li>No bot joins your call</li><li>Templates for customer calls, interviews and syncs</li><li>Ask questions across every past meeting</li></ul>
+      <ul><li>Records in the browser, Google Meet via the Chrome extension, or any call from the Mac app</li><li>No bot joins your call</li><li>Speaker names, and a cleaner transcript right after the call</li><li>Ask questions across every past meeting, or import them from Granola</li></ul>
     </article>
     <article class="app">
       <span class="flavor">Extra hot</span>
       <header><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div><h3>Dictate</h3><span class="instead">instead of a paid<br>dictation app</span></header>
       <p>Hold a key on your Mac, talk, let go. Clean, punctuated text lands wherever your cursor is.</p>
-      <ul><li>Works in any app: Slack, Mail, docs, the terminal</li><li>Drops the "ums" and fixes "no wait, Wednesday"</li><li>A shared team word list keeps names spelled right</li><li>A native Mac app, built from the source in the repo</li></ul>
+      <ul><li>Works in any app: Slack, Mail, docs, the terminal</li><li>Drops the "ums" and fixes "no wait, Wednesday"</li><li>A shared team word list keeps names spelled right</li><li>On a phone, voice notes come back with a title, summary and to-dos</li></ul>
     </article>
     <article class="app">
       <span class="flavor">Fresh</span>
@@ -403,41 +404,35 @@ footer.foot .brand svg{width:26px;height:26px}
       <ul><li>Your whole screen with a camera bubble, or just a window or tab</li><li>Automatic transcript for every clip, with a Deepgram key</li><li>Playback speed control for viewers</li><li>A shared library for the whole team</li></ul>
     </article>
   </div>
+  <h3 class="stove-h shelf-h">And everything else on the shelf</h3>
+  <ul class="pots">
+    <li class="pot"><h4>Today <span>home page</span></h4><p>One page for your day: today's meetings with notes from last time, tasks due, open to-dos and what changed in your docs.</p></li>
+    <li class="pot"><h4>Tasks <span>instead of a to-do app</span></h4><p>Quick add, action items pulled in from meetings, and a Ramble button: talk through your day and get a clean to-do list. Imports from Todoist.</p></li>
+    <li class="pot"><h4>Notes <span>instead of sticky notes</span></h4><p>Quick notes and checklists on colored cards, for the things too small to be a doc. Imports from Google Keep.</p></li>
+    <li class="pot"><h4>Files <span>instead of a shared drive</span></h4><p>Upload, preview and share files, with search inside PDFs, Word files and slides. Attach any file to a doc, note or task.</p></li>
+    <li class="pot"><h4>Whiteboard <span>instead of a whiteboard app</span></h4><p>Sketch and diagram together and watch each other draw live. The words on every board are searchable.</p></li>
+    <li class="pot"><h4>People <span>instead of a CRM</span></h4><p>Everyone you meet with, with their company, past meetings, open tasks and a shared note on each person. No data entry.</p></li>
+    <li class="pot"><h4>Daily briefing <span>instead of reading it all</span></h4><p>A short audio briefing each morning, made from your meetings, docs and team chat.</p></li>
+    <li class="pot"><h4>Booking links <span>instead of a scheduling app</span></h4><p>Links people use to book time on your calendar, with your hours, buffers and a few questions.</p></li>
+    <li class="pot"><h4>Forms <span>instead of a form builder</span></h4><p>Surveys and sign-up forms for your team or the public. Every answer is a searchable file.</p></li>
+  </ul>
   <div class="extras">
-    <div class="extra"><h4>Works with your AI agents</h4><p>A built-in MCP server lets Claude and other agents search, read and write your docs and meetings as you.</p></div>
-    <div class="extra"><h4>Installs like an app</h4><p>Add it to your home screen or dock from the browser. It works well on phones too.</p></div>
+    <div class="extra"><h4>Works with your AI agents</h4><p>A built-in MCP server lets Claude and other agents search, read and write your work as you. A nightly agent brief hands them your context.</p></div>
+    <div class="extra"><h4>Share and publish</h4><p>Turn on a read-only link for any doc or meeting note, or publish a web page your agent made.</p></div>
     <div class="extra"><h4>Knows your calendar</h4><p>Connect Google Calendar to get a reminder before each call and attendees filled in for you.</p></div>
+    <div class="extra"><h4>Invite people outside your domain</h4><p>Add contractors or partners by exact email address. They sign in with a one-time code.</p></div>
+    <div class="extra"><h4>Installs like an app</h4><p>Add it to your home screen or dock from the browser, or use the Mac app. It works well on phones too.</p></div>
+    <div class="extra"><h4>Feedback that lands in GitHub</h4><p>Your team reports bugs and ideas from inside the app, and each one becomes a GitHub issue. Off until you turn it on.</p></div>
   </div>
 </section>
 
 <section id="stove">
   <p class="kicker">Cooking now</p>
   <h2>On the stove.</h2>
-  <p class="sub">We run Hotsauce for our own team first. Everything here is cooking in that kitchen, and each one joins the open source release when it's ready, so none of it is in the current version yet.</p>
-  <h3 class="stove-h"><span class="heat" aria-hidden="true"></span>Simmering <small>built and in daily use on our own team</small></h3>
-  <ul class="pots">
-    <li class="pot"><h4>Tasks <span>new app</span></h4><p>Quick add, action items pulled in from your meetings, and a Ramble button: talk through your day and get a clean to-do list. Imports from Todoist.</p></li>
-    <li class="pot"><h4>Notes <span>new app</span></h4><p>Quick notes and checklists on colored cards, for the things too small to be a doc. Imports from Google Keep.</p></li>
-    <li class="pot"><h4>Files <span>new app</span></h4><p>Upload, preview and share your team's files, with search inside PDFs, Word files and slides. Attach any file to a doc, note or task.</p></li>
-    <li class="pot"><h4>Whiteboard <span>new app</span></h4><p>Sketch and diagram together and watch each other draw live. Boards are files in your repository, and the words on them are searchable.</p></li>
-    <li class="pot"><h4>Today <span>home page</span></h4><p>One page for your day: today's meetings with notes from last time, tasks due, open to-dos and what changed in your docs.</p></li>
-    <li class="pot"><h4>People <span>new app</span></h4><p>Everyone you meet with, with their company, past meetings, open tasks and a shared note on each person. No data entry.</p></li>
-    <li class="pot"><h4>Daily briefing <span>new app</span></h4><p>A short audio briefing each morning, made from your meetings, docs and team chat.</p></li>
-    <li class="pot"><h4>Agent brief <span>Meetings</span></h4><p>A running summary of what you are working on, built from your meetings, ready to hand to an AI agent.</p></li>
-    <li class="pot"><h4>Speaker names <span>Meetings</span></h4><p>Transcripts tell speakers apart, guess who's who from the invite, spell names right from your word list, and get a cleaner second pass right after the call.</p></li>
-    <li class="pot"><h4>Import from Granola <span>Meetings</span></h4><p>Bring your past meetings over from a Granola export: your notes, the summaries and the transcripts.</p></li>
-    <li class="pot"><h4>Record any call <span>Mac app</span></h4><p>Zoom, Slack huddles, FaceTime or any call, from the Mac app, with no bot and no browser tab. It notices when a call starts and offers to take notes.</p></li>
-    <li class="pot"><h4>Voice notes on your phone <span>Dictate</span></h4><p>Tap record on an iPhone or Android phone. Get a title, a summary, to-dos you can send to Tasks, and a clean transcript.</p></li>
-    <li class="pot"><h4>Docs import and live checklists <span>Docs</span></h4><p>Bring in Markdown, Word, HTML and Google Docs exports, and tick off task lists right in the reading view.</p></li>
-    <li class="pot"><h4>Invite people outside your domain <span>Sign-in</span></h4><p>Add contractors or partners by exact email address. They sign in with a one-time code.</p></li>
-    <li class="pot"><h4>More for your agents <span>MCP</span></h4><p>Agents can also read your clips, calendar, tasks, notes, boards and people, and move or restore files, always as you.</p></li>
-  </ul>
-  <h3 class="stove-h"><span class="heat low" aria-hidden="true"></span>On the burner <small>being built now</small></h3>
+  <p class="sub">We run Hotsauce for our own team first, and new work joins the open source release when it's ready.</p>
+  <h3 class="stove-h"><span class="heat" aria-hidden="true"></span>On the burner <small>being built now</small></h3>
   <ul class="pots next">
     <li class="pot"><h4>Clips, round two <span>Clips</span></h4><p>Your face in the final video, a mic level meter, speaker names, trimming, and one-click summaries and action items.</p></li>
-    <li class="pot"><h4>Share pages <span>Docs</span></h4><p>Read-only links to a doc, and published pages for people outside your team.</p></li>
-    <li class="pot"><h4>Scheduling <span>Meetings</span></h4><p>Booking links people can use to put time on your calendar.</p></li>
-    <li class="pot"><h4>Run on Cloudflare <span>Hosting</span></h4><p>A third way to host it, next to Fly and Docker.</p></li>
   </ul>
   <p class="stove-note">Want to follow along? Watch the <a href="https://github.com/hotsauce-suite/hotsauce">repository on GitHub</a>.</p>
 </section>
@@ -548,7 +543,7 @@ before the spring sampling season.
       <p class="sub" style="font-size:17px">You run a few commands. A setup wizard in your browser does the rest, and nobody edits a config file.</p>
       <p style="margin:0 0 8px;font-weight:700;font-size:15px">The wizard covers</p>
       <ul class="wizard"><li>Your organization</li><li>Brand</li><li>Google sign-in</li><li>AI keys</li><li>Files and audio</li><li>Review and launch</li></ul>
-      <div class="needs"><b>You'll need</b> a Fly.io account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features. Docs, search and Clips recording work without them.</div>
+      <div class="needs"><b>You'll need</b> a Fly.io or Cloudflare account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features. Docs, search and Clips recording work without them.</div>
     </div>
     <ol class="steps">
       <li><div><h3>Get the code</h3>
@@ -562,7 +557,7 @@ cd hotsauce</pre><button class="copy" type="button" aria-live="polite">Copy</but
         <p id="host-note">Needs Node 22, pnpm (<code>corepack enable</code>) and flyctl, signed in with <code>fly auth login</code>. The script creates the app and its disk, generates the server's keys, deploys, and prints your setup link.</p>
         <div class="cmd" id="host-cmd" role="tabpanel" aria-labelledby="h-fly"><pre>pnpm install
 scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-live="polite">Copy</button></div></div></li>
-      <li><div><h3>Open the setup link</h3><p>Name your workspace, add your brand, connect sign-in and keys, and launch. Then send your team the link. Full guide in <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">docs/self-host.md</a>.</p></div></li>
+      <li><div><h3>Open the setup link</h3><p>Name your workspace, add your brand, connect sign-in and keys, and launch. Then send your team the link. Full guide in <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">docs/self-host.md</a>, including <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md#cloudflare-about-1315-a-month-always-on">running it on Cloudflare</a>.</p></div></li>
     </ol>
   </div>
 </section>
