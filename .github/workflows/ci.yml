@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       forgejo:
-        image: codeberg.org/forgejo/forgejo:11
+        image: data.forgejo.org/forgejo/forgejo:11
         ports:
           - 3300:3000
         env:
