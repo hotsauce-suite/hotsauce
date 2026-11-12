@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Hotsauce on Cloudflare (docs/PLAN-cloudflare-deploy.md, docs/self-host.md). At the repository
+  // root so the Deploy to Cloudflare button finds it; the button renames the Worker and bucket for
+  // each deployer. A copy on Fly uses deploy/fly.example.toml instead.
+  "name": "hotsauce",
+  "main": "apps/cloudflare/src/index.ts",
+  "compatibility_date": "2026-10-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "workers_dev": true,
+
+  // The server: the same Docker image Fly and Docker installs run. `basic` is 1/4 vCPU, 1 GiB of
+  // memory and 4 GB of temporary disk; pick a bigger instance type for a big team.
+  "containers": [
+    {
+      "class_name": "HotsauceServer",
+      "image": "./Dockerfile",
+      "instance_type": "basic",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "HOTSAUCE", "class_name": "HotsauceServer" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HotsauceServer"] }],
+
+  // Settings, encrypted keys, sign-in tokens and other state that must outlive the container's
+  // disk, under state/ (apps/cloudflare/src/state-gateway.ts). Clips videos and kept meeting audio
+  // can go in the same bucket through the setup wizard.
+  "r2_buckets": [{ "binding": "STATE", "bucket_name": "hotsauce" }],
+
+  // Every 5 minutes: start the server if it stopped, so background work keeps running.
+  "triggers": { "crons": ["*/5 * * * *"] }
+}

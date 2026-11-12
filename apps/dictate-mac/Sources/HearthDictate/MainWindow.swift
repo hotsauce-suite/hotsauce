@@ -63,6 +63,7 @@ final class MainModel: ObservableObject {
     @Published var suiteServerDraft = ""
     @Published var suiteServerError: String?
     @Published var meetingReminders = true
+    @Published var offerCallNotes = true
     @Published var notificationsAllowed = true
 
     /// Status and settings: cheap, every 2 s while the window is seen.
@@ -88,6 +89,7 @@ final class MainModel: ObservableObject {
     /// Saves the suite's server; returns why not, or nil.
     var setSuiteServer: (String) -> String? = { _ in nil }
     var setMeetingReminders: (Bool) -> Void = { _ in }
+    var setOfferCallNotes: (Bool) -> Void = { _ in }
 
     var stats: DictationStats { DictationStats.compute(records, since: range.since(Date())) }
     var month: MonthActivity { MonthActivity.month(containing: Date(), records: records) }
@@ -117,7 +119,7 @@ final class MainWindow: NSObject, NSWindowDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Hearth Dictate"
+            window.title = "Dictate"
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
             window.minSize = NSSize(width: 780, height: 520)
@@ -601,6 +603,9 @@ private struct SettingsPage: View {
                         .buttonStyle(.link).font(.system(size: 11))
                     }
                 }
+                if #available(macOS 14.2, *) {
+                    Toggle("Offer to take notes when a call starts", isOn: Binding(get: { model.offerCallNotes }, set: model.setOfferCallNotes))
+                }
                 LabeledContent("Server") {
                     HStack {
                         TextField("", text: Binding(get: { model.suiteServerDraft }, set: { model.suiteServerDraft = $0 }))
@@ -638,7 +643,7 @@ private struct SettingsPage: View {
             Section("Account") {
                 LabeledContent("Connected as") { Text(model.account ?? "Not connected").foregroundStyle(Hearth.inkSoft) }
                 HStack {
-                    Button("Open Hearth Dictate on the web", action: model.openWeb)
+                    Button("Open Dictate in \(Brand.name)", action: model.openWeb)
                     if model.account != nil { Button("Disconnect this Mac", role: .destructive, action: model.disconnect) }
                 }
                 LabeledContent("Server") { Text(model.server).font(.system(size: 11, design: .monospaced)).foregroundStyle(Hearth.inkFaint) }

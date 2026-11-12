@@ -87,7 +87,7 @@ final class DictationController {
         }
         guard Permissions.microphoneGranted else {
             machine.reset()
-            overlay.showMessage("Hearth Dictate needs the microphone")
+            overlay.showMessage("Dictate needs the microphone")
             Permissions.requestMicrophone { _ in }
             return
         }

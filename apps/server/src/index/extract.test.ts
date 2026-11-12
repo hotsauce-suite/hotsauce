@@ -104,6 +104,9 @@ describe('kindOf', () => {
     expect(kindOf('docs.md')).toBe('other')
     expect(kindOf('crm/acme.md')).toBe('other')
     expect(kindOf('Docs/a.md')).toBe('other')
+    expect(kindOf('tasks/01JD3Z6Q8W8Y5G2N4K7M9P0R1S.md')).toBe('task')
+    expect(kindOf('tasks/archive/old.md')).toBe('task')
+    expect(kindOf('tasks.md')).toBe('other')
   })
 })
 

@@ -23,6 +23,7 @@ import { MOBILE_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { isExternalHref, meetingUrl, openExternal } from '../../lib/paths'
 import { useSession } from '../../state/session'
 import { CaptureError, type CaptureMode, captureAudio, supportsTabCapture } from './audio/capture'
+import { supportsMacCapture } from './audio/mac'
 import type { MeetingSocket } from './audio/socket'
 import { primaryButton, secondaryButton } from './components/common'
 import { LiveTranscript } from './components/LiveTranscript'
@@ -229,6 +230,14 @@ function LiveView({ meeting, live }: { meeting: Meeting; live: LiveSnapshot }) {
     }
   }
 
+  // While this page is open, the call-end countdown stops through it, so it opens the note.
+  useEffect(() => {
+    meeting.onCallEndStop = stop
+    return () => {
+      if (meeting.onCallEndStop === stop) meeting.onCallEndStop = null
+    }
+  })
+
   // Holds here at once; the server catches up when it can.
   const togglePause = () => void (live.state === 'paused' ? meeting.resume() : meeting.pause())
 
@@ -322,6 +331,11 @@ function LiveView({ meeting, live }: { meeting: Meeting; live: LiveSnapshot }) {
               ? 'Paused, and this page isn’t capturing audio.'
               : 'This page isn’t capturing audio. Your notes and the transcript so far are safe.'}
           </span>
+          {supportsMacCapture() ? (
+            <button type="button" onClick={() => void resumeCapture('mac')} className="underline">
+              Any app on this Mac
+            </button>
+          ) : null}
           {supportsTabCapture() ? (
             <button
               type="button"
@@ -340,17 +354,36 @@ function LiveView({ meeting, live }: { meeting: Meeting; live: LiveSnapshot }) {
           </button>
         </Banner>
       ) : null}
+      {live.callEndsAt && !ended && !stopping ? (
+        <CallEndedBanner
+          endsAt={live.callEndsAt}
+          onStop={() => void stop()}
+          onKeep={() => meeting.keepRecordingAfterCall()}
+        />
+      ) : null}
+      {live.lostTrack === 'me' && live.capturing && live.captureMode === 'mac' ? (
+        <Banner>
+          <span className="flex-1">
+            {product()} stopped hearing your microphone. It is still hearing the call.
+          </span>
+          <button type="button" onClick={() => void resumeCapture('mac')} className="underline">
+            Listen again
+          </button>
+        </Banner>
+      ) : null}
       {live.lostTrack === 'them' && live.capturing ? (
         <Banner>
           <span className="flex-1">
-            The Meet tab stopped sharing. {product()} is still hearing your microphone.
+            {live.captureMode === 'mac'
+              ? `${product()} stopped hearing this Mac’s other apps. It is still hearing your microphone.`
+              : `The Meet tab stopped sharing. ${product()} is still hearing your microphone.`}
           </span>
           <button
             type="button"
-            onClick={() => void resumeCapture('meet-tab')}
+            onClick={() => void resumeCapture(live.captureMode === 'mac' ? 'mac' : 'meet-tab')}
             className="underline"
           >
-            Share the tab again
+            {live.captureMode === 'mac' ? 'Listen again' : 'Share the tab again'}
           </button>
         </Banner>
       ) : null}
@@ -407,6 +440,37 @@ function LiveView({ meeting, live }: { meeting: Meeting; live: LiveSnapshot }) {
         ) : null}
       </div>
     </>
+  )
+}
+
+/** The call ended: the controller stops at `endsAt` unless the member keeps recording. */
+function CallEndedBanner({
+  endsAt,
+  onStop,
+  onKeep,
+}: {
+  endsAt: number
+  onStop: () => void
+  onKeep: () => void
+}) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  const left = Math.max(0, Math.ceil((endsAt - now) / 1000))
+  return (
+    <Banner>
+      <span className="flex-1" data-testid="call-ended">
+        The call ended. {product()} stops taking notes in {left} s.
+      </span>
+      <button type="button" onClick={onKeep} className="underline">
+        Keep recording
+      </button>
+      <button type="button" onClick={onStop} className="underline">
+        Stop now
+      </button>
+    </Banner>
   )
 }
 

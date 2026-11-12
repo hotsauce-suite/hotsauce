@@ -1,9 +1,9 @@
 import {
   type Authenticator,
   domainNotAllowed,
-  isAllowedEmailDomain,
   nameFromEmail,
   type Principal,
+  signInAllowance,
   toPrincipal,
 } from './principal.js'
 
@@ -17,11 +17,25 @@ export interface ClerkClientLike {
     getUser(userId: string): Promise<ClerkUserLike>
     deleteUser(userId: string): Promise<unknown>
   }
+  signInTokens?: {
+    createSignInToken(params: {
+      userId: string
+      expiresInSeconds: number
+    }): Promise<{ token: string }>
+  }
 }
+
+/** A desktop sign-in ticket is used within seconds of being made; Clerk's tokens are single use. */
+export const SIGN_IN_TICKET_SECONDS = 60
 
 export interface ClerkUserLike {
   primaryEmailAddressId: string | null
-  emailAddresses: ReadonlyArray<{ id: string; emailAddress: string }>
+  emailAddresses: ReadonlyArray<{
+    id: string
+    emailAddress: string
+    /** Clerk's proof the person holds the mailbox (an emailed code, or Google vouching for it). */
+    verification?: { status: string } | null
+  }>
   firstName: string | null
   lastName: string | null
   /** Banned or locked in the Clerk dashboard: treated as gone, so their access tokens stop too. */
@@ -34,12 +48,14 @@ const USER_CACHE_TTL_MS = 5 * 60 * 1000
 interface CachedUser {
   email: string
   name: string
+  invited: boolean
   expiresAt: number
 }
 
 export class ClerkAuth implements Authenticator {
   readonly #clerk: ClerkClientLike
   readonly #allowedDomains: readonly string[]
+  readonly #allowedEmails: readonly string[]
   readonly #adminEmails: readonly string[]
   readonly #authorizedParties: string[]
   readonly #users = new Map<string, CachedUser>()
@@ -47,12 +63,15 @@ export class ClerkAuth implements Authenticator {
   constructor(opts: {
     clerk: ClerkClientLike
     allowedDomains: readonly string[]
+    /** Exact addresses invited from outside the allowed domains. */
+    allowedEmails?: readonly string[]
     adminEmails: readonly string[]
     /** Origins allowed in the token's `azp` claim; empty skips the check. */
     authorizedParties: string[]
   }) {
     this.#clerk = opts.clerk
     this.#allowedDomains = opts.allowedDomains
+    this.#allowedEmails = opts.allowedEmails ?? []
     this.#adminEmails = opts.adminEmails
     this.#authorizedParties = opts.authorizedParties
   }
@@ -71,7 +90,18 @@ export class ClerkAuth implements Authenticator {
   async principalForUser(userId: string): Promise<Principal | null> {
     const user = await this.#loadUser(userId)
     if (!user) return null
-    return toPrincipal({ userId, email: user.email, name: user.name }, this.#adminEmails)
+    return toPrincipal({ userId, email: user.email, name: user.name }, this.#adminEmails, {
+      invited: user.invited,
+    })
+  }
+
+  async createSignInTicket(userId: string): Promise<string> {
+    if (!this.#clerk.signInTokens) throw new Error('This Clerk client cannot make sign-in tokens')
+    const { token } = await this.#clerk.signInTokens.createSignInToken({
+      userId,
+      expiresInSeconds: SIGN_IN_TICKET_SECONDS,
+    })
+    return token
   }
 
   async #loadUser(userId: string): Promise<CachedUser | null> {
@@ -89,15 +119,24 @@ export class ClerkAuth implements Authenticator {
 
     if (user.banned || user.locked) return null
 
-    const email =
-      user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ?? ''
-    if (!isAllowedEmailDomain(email, this.#allowedDomains)) {
+    const primary = user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+    const email = primary?.emailAddress ?? ''
+    const allowance = signInAllowance(email, this.#allowedDomains, this.#allowedEmails)
+    // An invited address only counts once Clerk has verified it: the domain lock leans on
+    // Google Workspace vouching for the account, an invite has only the emailed code.
+    const verified = primary?.verification?.status === 'verified'
+    if (allowance === null || (allowance === 'invited' && !verified)) {
       await this.#clerk.users.deleteUser(userId)
       throw domainNotAllowed(email || userId, this.#allowedDomains)
     }
 
     const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || nameFromEmail(email)
-    const entry = { email, name, expiresAt: Date.now() + USER_CACHE_TTL_MS }
+    const entry = {
+      email,
+      name,
+      invited: allowance === 'invited',
+      expiresAt: Date.now() + USER_CACHE_TTL_MS,
+    }
     this.#users.set(userId, entry)
     return entry
   }

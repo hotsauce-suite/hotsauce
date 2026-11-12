@@ -99,7 +99,7 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Hearth Dictate"
+            window.title = "Set up Dictate"
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.contentView = NSHostingView(rootView: OnboardingView(model: model, done: { [weak self] in self?.close() }))
@@ -130,7 +130,7 @@ private struct OnboardingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Set up Hearth Dictate").font(.system(size: 22, weight: .semibold, design: .serif))
+                Text("Set up Dictate").font(.system(size: 22, weight: .semibold, design: .serif))
                 Text("Hold Right Option, speak, and let go: the text appears where your cursor is.")
                     .foregroundStyle(.secondary)
             }
@@ -186,12 +186,12 @@ private struct OnboardingView: View {
             }
             Spacer(minLength: 0)
             HStack {
-                Button("Open Hearth Dictate on the web") { model.openDictatePage() }
+                Button("Open Dictate in \(Brand.name)") { model.openDictatePage() }
                     .buttonStyle(.link)
                 Spacer()
             }
             HStack {
-                Text("Open Hearth Dictate again any time to see this window.")
+                Text("Open it again any time from \(Brand.name) → Dictate….")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
                 Button("Done", action: done).keyboardShortcut(.defaultAction)
@@ -249,7 +249,7 @@ private struct StatusBanner: View {
 
     private var message: String {
         if model.outsideApplications {
-            return "Drag Hearth Dictate into your Applications folder and open it from there; permissions given to a copy run from the download don’t stick."
+            return "Drag \(Brand.name) into your Applications folder and open it from there; permissions given to a copy run from the download don’t stick."
         }
         if !model.microphone { return "Allow the microphone above." }
         if !model.accessibility {

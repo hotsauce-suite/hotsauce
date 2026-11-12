@@ -36,22 +36,7 @@ export function calendarRoutes(deps: AppDeps) {
     }
   }
 
-  /** Meeting notes by `calendar_event_id` in spaces the member reads, their own space first. */
-  const notesByEvent = async (principal: Principal) => {
-    const spaces = (await deps.spaces.visibleSpaces(principal)).sort(
-      (a, b) => Number(b.kind === 'personal') - Number(a.kind === 'personal'),
-    )
-    const notes = new Map<string, NoteRef>()
-    for (const space of spaces) {
-      for (const file of deps.index.listFiles({ space: space.name, kind: 'meeting' })) {
-        const id = file.frontmatter?.calendar_event_id
-        if (file.frontmatter?.type !== 'meeting' || typeof id !== 'string' || notes.has(id))
-          continue
-        notes.set(id, { space: space.name, path: file.path, title: file.title })
-      }
-    }
-    return notes
-  }
+  const notesByEvent = (principal: Principal) => meetingNotesByEvent(deps, principal)
 
   const choices = async (principal: Principal): Promise<CalendarChoice[]> => {
     if (!calendarSync) return [{ id: 'primary', name: 'Calendar', primary: true, selected: true }]
@@ -136,4 +121,23 @@ export function calendarRoutes(deps: AppDeps) {
         return c.json({ calendars: await choices(principal) })
       },
     )
+}
+
+/** Meeting notes by `calendar_event_id` in spaces the member reads, their own space first. */
+export async function meetingNotesByEvent(
+  deps: Pick<AppDeps, 'spaces' | 'index'>,
+  principal: Principal,
+): Promise<Map<string, NoteRef>> {
+  const spaces = (await deps.spaces.visibleSpaces(principal)).sort(
+    (a, b) => Number(b.kind === 'personal') - Number(a.kind === 'personal'),
+  )
+  const notes = new Map<string, NoteRef>()
+  for (const space of spaces) {
+    for (const file of deps.index.listFiles({ space: space.name, kind: 'meeting' })) {
+      const id = file.frontmatter?.calendar_event_id
+      if (file.frontmatter?.type !== 'meeting' || typeof id !== 'string' || notes.has(id)) continue
+      notes.set(id, { space: space.name, path: file.path, title: file.title })
+    }
+  }
+  return notes
 }

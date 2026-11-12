@@ -7,7 +7,14 @@ export function markdownForCopy(text: string): string {
   return parseFrontmatter(text).body.replace(/^(\r?\n)+/, '')
 }
 
-/** The note as HTML, as the reading view renders it (GitHub-flavoured markdown, no highlighting). */
+// Pasted HTML keeps no stylesheet, so the few styles that matter are written inline.
+const CELL_STYLE = { border: '1px solid #c9bfb2', padding: '4px 8px', verticalAlign: 'top' }
+
+/**
+ * The note as HTML for pasting into email, Docs or Slack: GitHub-flavoured markdown as the
+ * reading view renders it, minus what doesn't survive a paste. Callouts become quotes with a bold
+ * title, task boxes become ☐ and ☑, and tables get borders.
+ */
 export async function htmlForCopy(text: string): Promise<string> {
   // Loaded on first use: most sessions never copy as rich text.
   const [
@@ -15,15 +22,34 @@ export async function htmlForCopy(text: string): Promise<string> {
     { renderToStaticMarkup },
     { default: Markdown },
     { default: remarkGfm },
+    { remarkCallouts },
   ] = await Promise.all([
     import('react'),
     import('react-dom/server'),
     import('react-markdown'),
     import('remark-gfm'),
+    import('./remarkCallouts'),
   ])
-  return renderToStaticMarkup(
-    createElement(Markdown, { remarkPlugins: [remarkGfm] }, markdownForCopy(text)),
+  const html = renderToStaticMarkup(
+    createElement(
+      Markdown,
+      {
+        remarkPlugins: [remarkGfm, [remarkCallouts, { asQuote: true }]],
+        components: {
+          input: ({ checked }) => createElement('span', null, checked ? '☑' : '☐'),
+          table: ({ children }) =>
+            createElement('table', { style: { borderCollapse: 'collapse' } }, children),
+          th: ({ children, style }) =>
+            createElement('th', { style: { ...style, ...CELL_STYLE } }, children),
+          td: ({ children, style }) =>
+            createElement('td', { style: { ...style, ...CELL_STYLE } }, children),
+        },
+      },
+      markdownForCopy(text),
+    ),
   )
+  // React hoists a preload hint for each image; it means nothing in a paste.
+  return html.replace(/<link rel="preload"[^>]*>/g, '')
 }
 
 export async function copyAsMarkdown(text: string): Promise<void> {

@@ -93,12 +93,12 @@ export function matchesCompany(
 }
 
 /** The email of an attendee written `Name <email>` or as a bare email, lowercased. */
-function attendeeEmail(attendee: string): string {
+export function attendeeEmail(attendee: string): string {
   const bracketed = /<([^<>]*)>\s*$/.exec(attendee)
   return (bracketed?.[1] ?? attendee).trim().toLowerCase()
 }
 
-function strings(value: unknown): string[] {
+export function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 }
 

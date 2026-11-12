@@ -11,6 +11,19 @@ export interface EditorBridge {
   revealFrontmatter: () => void
   /** Puts the cursor at the start of a 1-based line and scrolls it to the middle. */
   revealLine: (line: number) => void
+  /** Where the cursor is, to carry across a remount (auto-naming moves the file). */
+  selection: () => EditorSelectionJSON
+  /** True while the cursor is on a `# ` heading line, i.e. the title may still be mid-typing. */
+  cursorOnHeading: () => boolean
+  /** Stops typing at once, before React re-renders with `readOnly`. */
+  freeze: () => void
+  /** Puts `text` on its own line after the cursor's line (an attached file's link). */
+  insertBlock?: (text: string) => void
+}
+
+export interface EditorSelectionJSON {
+  anchor: number
+  head: number
 }
 
 /** Replaces the document with the smallest single change, so the cursor maps through it. */
@@ -41,6 +54,8 @@ export interface MarkdownEditorProps extends Omit<EditorServices, 'onChange' | '
   path: string
   readOnly: boolean
   autoFocus?: boolean
+  /** Mount with this selection (clamped to the text) instead of the default, and focus. */
+  initialSelection?: EditorSelectionJSON
   /** Tighter margins and smaller headings, for a notepad beside other things (Meetings). */
   compact?: boolean
   /** More CodeMirror extensions, read once at mount. */
@@ -73,6 +88,12 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       resolveImage: (src) =>
         latest.current.resolveImage?.(src) ?? Promise.reject(new Error('no image resolver')),
       openLink: (href) => latest.current.openLink?.(href),
+      ...(props.mountTaskList
+        ? {
+            mountTaskList: (source: string, host: HTMLElement) =>
+              latest.current.mountTaskList?.(source, host) ?? (() => {}),
+          }
+        : {}),
     }
     const created = EditorState.create({
       doc: props.initialText,
@@ -89,19 +110,35 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     while (firstLine.text.trim() === '' && firstLine.number < created.doc.lines) {
       firstLine = created.doc.line(firstLine.number + 1)
     }
-    const selection =
-      props.autoFocus && firstLine.text.startsWith('# ')
+    const clamp = (n: number) => Math.min(Math.max(0, n), created.doc.length)
+    const selection = props.initialSelection
+      ? { anchor: clamp(props.initialSelection.anchor), head: clamp(props.initialSelection.head) }
+      : props.autoFocus && firstLine.text.startsWith('# ')
         ? { anchor: firstLine.from + 2, head: firstLine.to }
         : { anchor: start }
-    const state = created.update({ selection }).state
+    const state = created.update({
+      selection,
+      ...(props.initialSelection ? { scrollIntoView: true } : {}),
+    }).state
     const editor = new EditorView({ state, parent })
     view.current = editor
-    if (props.autoFocus) editor.focus()
+    if (props.autoFocus || props.initialSelection) editor.focus()
     latest.current.onReady({
       getText: () => editor.state.doc.toString(),
       setText: (text) => adoptText(editor, text),
       revealFrontmatter: () => {
         editor.dispatch({ effects: setFrontmatterFolded.of(false), selection: { anchor: 0 } })
+        editor.focus()
+      },
+      insertBlock: (text) => {
+        const line = editor.state.doc.lineAt(editor.state.selection.main.head)
+        const insert = `${line.text.trim() === '' ? '' : '\n'}${text}\n`
+        const at = line.text.trim() === '' ? line.from : line.to
+        editor.dispatch({
+          changes: { from: at, insert },
+          selection: { anchor: at + insert.length },
+          scrollIntoView: true,
+        })
         editor.focus()
       },
       revealLine: (line) => {
@@ -112,6 +149,14 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
         })
       },
+      selection: () => {
+        const { anchor, head } = editor.state.selection.main
+        return { anchor, head }
+      },
+      freeze: () =>
+        editor.dispatch({ effects: editable.reconfigure(EditorView.editable.of(false)) }),
+      cursorOnHeading: () =>
+        /^#\s/.test(editor.state.doc.lineAt(editor.state.selection.main.head).text),
     })
     return () => {
       latest.current.onReady(null)

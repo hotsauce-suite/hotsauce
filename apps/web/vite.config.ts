@@ -1,16 +1,52 @@
+import { cpSync, createReadStream, existsSync, statSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join, normalize } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { msw } from 'msw/vite'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const API_TARGET = 'http://localhost:3000'
+
+/**
+ * Whiteboard's fonts (ARCHITECTURE §15.4): Excalidraw fetches them from EXCALIDRAW_ASSET_PATH.
+ * The build copies them to dist/excalidraw/fonts and the dev server serves them from the
+ * package, so boards never load anything from a CDN.
+ */
+function excalidrawFonts(): Plugin {
+  // The package exports only its entry points: find the folder from the main one (dist/prod/index.js).
+  const entry = createRequire(import.meta.url).resolve('@excalidraw/excalidraw')
+  const fonts = join(dirname(entry), 'fonts')
+  let outDir = 'dist'
+  return {
+    name: 'hearth-excalidraw-fonts',
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
+    configureServer(server) {
+      server.middlewares.use('/excalidraw/fonts', (req, res, next) => {
+        const file = normalize(join(fonts, decodeURIComponent((req.url ?? '').split('?')[0] ?? '')))
+        if (!file.startsWith(fonts) || !existsSync(file) || !statSync(file).isFile()) return next()
+        res.setHeader(
+          'Content-Type',
+          file.endsWith('.woff2') ? 'font/woff2' : 'application/octet-stream',
+        )
+        createReadStream(file).pipe(res)
+      })
+    },
+    writeBundle() {
+      cpSync(fonts, join(outDir, 'excalidraw', 'fonts'), { recursive: true })
+    },
+  }
+}
 
 export default defineConfig({
   // Secrets (VITE_CLERK_PUBLISHABLE_KEY) live in the repo-root .env.local.
   envDir: '../../',
   plugins: [
     react(),
+    excalidrawFonts(),
     tailwindcss(),
     // Serves /mockServiceWorker.js from the dev server only; production builds never ship it.
     { ...msw({ mode: 'worker-only' }), apply: 'serve' },
@@ -23,10 +59,23 @@ export default defineConfig({
         name: 'Hotsauce',
         short_name: 'Hotsauce',
         description: 'Hotsauce: the open sauce office suite.',
-        start_url: '/docs',
+        // The app's identity stays the old start_url, so installed icons keep working.
+        id: '/docs',
+        // Docs on a computer; a phone or tablet opens straight to voice notes (routes/Launch).
+        start_url: '/?launch=home',
         display: 'standalone',
         background_color: '#f4ece0',
         theme_color: '#1f1915',
+        // Android shows these when the home-screen icon is held; iPhone ignores them.
+        shortcuts: [
+          {
+            name: 'New voice note',
+            short_name: 'Voice note',
+            description: 'Start recording a voice note',
+            url: '/dictate/voice?start=1',
+            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+        ],
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },

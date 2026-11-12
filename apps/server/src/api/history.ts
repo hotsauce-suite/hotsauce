@@ -1,10 +1,13 @@
+import { FrontmatterError, parseFrontmatter, patchFrontmatter } from '@hearth/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { Author } from '../git/index.js'
+import { HearthError } from '../errors.js'
+import { type Author, withVia } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import {
   afterCommit,
   isMarkdown,
+  readIfExists,
   type SaveResult,
   saveFile,
   titleOf,
@@ -59,23 +62,41 @@ export function historyRoutes(deps: AppDeps) {
  * A new commit with the old content; history is never rewritten. A doc is saved like any edit (it
  * keeps its id); any other file goes back byte for byte, since an image can't round-trip as text.
  */
-async function restore(
-  deps: AppDeps,
-  args: { space: string; oid: string; path: string; author: Author },
+export async function restore(
+  deps: Pick<AppDeps, 'git' | 'syncer'>,
+  args: { space: string; oid: string; path: string; author: Author; via?: string | undefined },
 ): Promise<SaveResult> {
   const { git } = deps
   const message = (title: string) => `docs: restore "${title}" to ${args.oid.slice(0, 7)}`
+  const { via, ...save } = args
   if (isMarkdown(args.path)) {
-    const content = await git.show(args.space, args.oid, args.path)
-    return saveFile(deps, { ...args, content, message: message(titleOf(args.path, content)) })
+    const old = await git.show(args.space, args.oid, args.path)
+    // A read-only link belongs to the file as it is now: restoring never revives one that was
+    // turned off, nor ends one that is on (ARCHITECTURE §20.1).
+    const current = await readIfExists(git, args.space, args.path)
+    const content = withShareOf(old, current?.content)
+    return saveFile(deps, { ...save, content, message: message(titleOf(args.path, content)), via })
   }
   const path = writablePath(args.path)
   const { content } = await git.readBlob(args.space, path, args.oid)
   const result = await git.commit(args.space, {
     changes: [{ path, content }],
     author: args.author,
-    message: message(titleOf(path, '')),
+    message: withVia(message(titleOf(path, '')), via),
   })
   await afterCommit(deps, args.space, path, result)
   return result
+}
+
+/** The old text with the current file's read-only link (or none) in place of its own. */
+function withShareOf(content: string, current: string | undefined): string {
+  try {
+    const now = current === undefined ? undefined : parseFrontmatter(current).data.share
+    const share = typeof now === 'string' ? now : undefined
+    if (parseFrontmatter(content).data.share === share) return content
+    return patchFrontmatter(content, { share })
+  } catch (err) {
+    if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+    throw err
+  }
 }

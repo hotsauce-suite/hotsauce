@@ -102,9 +102,9 @@ describe('Live meeting page', () => {
     // Typed just before Stop: no debounce wait, Stop sends it first.
     typeNotes('rerun the third assay')
     await userEvent.click(screen.getByTestId('stop'))
-    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/morgan\//))
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/ada\//))
     expect(fake?.state).toBe('saved')
-    const raw = mockApi().repo.space('morgan').files.get(`.hearth/meetings/raw/${session.id}.md`)
+    const raw = mockApi().repo.space('ada').files.get(`.hearth/meetings/raw/${session.id}.md`)
     expect(raw).toBe('rerun the third assay')
     expect(localStorage.getItem(notesDraftKey(session.id))).toBeNull()
     expect(currentLive()).toBeNull()
@@ -160,6 +160,70 @@ describe('Live meeting page', () => {
     expect(stop).not.toHaveBeenCalled()
   })
 
+  it('when the Mac app sees the call end, counts down and stops; Keep recording cancels', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const session = await startLive('Zoom call')
+      const { router } = renderApp(`/meetings/live/${session.id}`)
+      await screen.findByTestId('live-notepad')
+      await waitFor(() => expect(currentLive()?.socket.status).toBe('live'))
+      let callEnded: (() => void) | null = null
+      await currentLive()?.attachCapture({
+        mode: 'mac',
+        streams: {},
+        onEnded: () => () => {},
+        onCallEnded: (listener) => {
+          callEnded = listener
+          return () => {}
+        },
+        stop: vi.fn(),
+      })
+
+      act(() => callEnded?.())
+      expect(await screen.findByTestId('call-ended')).toHaveTextContent(
+        'stops taking notes in 30 s',
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Keep recording' }))
+      expect(screen.queryByTestId('call-ended')).toBeNull()
+      act(() => vi.advanceTimersByTime(40_000))
+      expect(mockApi().meetings.sessions.get(session.id)?.state).toBe('recording')
+
+      act(() => callEnded?.())
+      act(() => vi.advanceTimersByTime(10_000))
+      expect(screen.getByTestId('call-ended')).toHaveTextContent('in 20 s')
+      act(() => vi.advanceTimersByTime(20_000))
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/ada\//))
+      expect(mockApi().meetings.sessions.get(session.id)?.state).toBe('saved')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('the call-end countdown stops the meeting even with the live page closed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const session = await startLive('Zoom call')
+      let callEnded: (() => void) | null = null
+      await currentLive()?.attachCapture({
+        mode: 'mac',
+        streams: {},
+        onEnded: () => () => {},
+        onCallEnded: (listener) => {
+          callEnded = listener
+          return () => {}
+        },
+        stop: vi.fn(),
+      })
+      await waitFor(() => expect(currentLive()?.socket.status).toBe('live'))
+      act(() => callEnded?.())
+      vi.advanceTimersByTime(30_000)
+      await waitFor(() => expect(mockApi().meetings.sessions.get(session.id)?.state).toBe('saved'))
+      expect(currentLive()).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('says when the meeting was stopped on another device, and keeps the typed notes to copy', async () => {
     const session = await startLive()
     renderApp(`/meetings/live/${session.id}`)
@@ -191,9 +255,9 @@ describe('Live meeting page', () => {
 
     api.meetings.failStop = false
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/morgan\//))
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/ada\//))
     expect(api.meetings.sessions.get(session.id)?.state).toBe('saved')
-    expect(api.repo.space('morgan').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
+    expect(api.repo.space('ada').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
       'the last words',
     )
     expect(localStorage.getItem(notesDraftKey(session.id))).toBeNull()
@@ -209,10 +273,10 @@ describe('Live meeting page', () => {
 
     const { router } = renderApp(`/meetings/live/${session.id}`)
     await userEvent.click(await screen.findByRole('button', { name: 'Save it now' }))
-    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/morgan\//))
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/ada\//))
     expect(api.meetings.sessions.get(session.id)?.state).toBe('saved')
     // This device's draft went with the stop.
-    expect(api.repo.space('morgan').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
+    expect(api.repo.space('ada').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
       'typed on this device',
     )
     expect(localStorage.getItem(notesDraftKey(session.id))).toBeNull()
@@ -227,6 +291,20 @@ describe('Live meeting page', () => {
     expect(screen.getByRole('button', { name: 'Mic only' })).toBeInTheDocument()
     expect(screen.getByTestId('live-notepad')).toHaveTextContent('typed before the reload')
     expect(currentLive()?.session.id).toBe(session.id)
+  })
+
+  it('in the Mac app, resuming capture also offers “Any app on this Mac”', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    try {
+      const session = await meetingsApi.createSession({ title: 'In the app' })
+      renderApp(`/meetings/live/${session.id}`)
+      expect(await screen.findByRole('button', { name: 'Any app on this Mac' })).toBeInTheDocument()
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
   })
 
   it('says a meeting someone else started is theirs, not that the connection failed', async () => {

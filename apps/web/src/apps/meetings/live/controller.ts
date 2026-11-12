@@ -3,7 +3,7 @@
 
 import { HearthApiError } from '../../../api/client'
 import { meetingsApi } from '../../../api/meetings'
-import type { MeetingSession, MeetingState, StopResult } from '../../../api/types'
+import type { MeetingSession, MeetingState, StopResult, Track } from '../../../api/types'
 import { product } from '../../../brand/product'
 import type { Capture } from '../audio/capture'
 import type { Recorder } from '../audio/recorder'
@@ -53,6 +53,9 @@ export interface LiveMeetingOptions {
   stopFlushMs?: number
 }
 
+/** How long a meeting keeps recording after the Mac app saw its call end. */
+export const CALL_END_MS = 30_000
+
 export class LiveMeeting {
   readonly session: MeetingSession
   readonly socket: MeetingSocket
@@ -83,6 +86,11 @@ export class LiveMeeting {
   /** The member's Keep audio choice; undefined until they make one (the server's default). */
   keepAudio: boolean | undefined
   private keepAudioSending = false
+  /** Sees every chunk of PCM as it's sent (the voice notes page draws its sound wave from it). */
+  onAudio: ((track: Track, pcm: Uint8Array) => void) | null = null
+  /** The live page's own Stop (it opens the note); without the page, the controller stops. */
+  onCallEndStop: (() => Promise<void>) | null = null
+  private callEndTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(session: MeetingSession, opts: LiveMeetingOptions = {}) {
     this.session = session
@@ -170,12 +178,16 @@ export class LiveMeeting {
     }
     this.capture = capture
     capture.onEnded((track) => this.patch({ lostTrack: track }))
+    capture.onCallEnded?.(() => this.callEnded())
     const { startRecorder } = await import('../audio/recorder')
     if (replaced()) {
       capture.stop()
       return
     }
-    const recorder = await startRecorder(capture, (track, pcm) => this.socket.sendAudio(track, pcm))
+    const recorder = await startRecorder(capture, (track, pcm) => {
+      this.socket.sendAudio(track, pcm)
+      this.onAudio?.(track, pcm)
+    })
     if (replaced()) {
       capture.stop()
       await recorder.stop()
@@ -183,8 +195,32 @@ export class LiveMeeting {
     }
     this.recorder = recorder
     recorder.setPaused(this.snapshot?.state !== 'recording')
-    this.patch({ capturing: true, lostTrack: null })
+    this.patch({ capturing: true, lostTrack: null, captureMode: capture.mode })
     void this.keepScreenOn()
+  }
+
+  /**
+   * The Mac app saw the call end: stop in CALL_END_MS unless the member keeps recording. The
+   * deadline lives here, not in the page, so it holds while the member is elsewhere in the app.
+   */
+  private callEnded(): void {
+    if (this.disposed || this.callEndTimer) return
+    this.patch({ callEndsAt: Date.now() + CALL_END_MS })
+    this.callEndTimer = setTimeout(() => {
+      this.callEndTimer = null
+      if (this.disposed) return
+      const stop = this.onCallEndStop ?? (async () => void (await this.stop()))
+      stop().catch((err: unknown) => {
+        this.patch({ callEndsAt: null, error: err instanceof Error ? err.message : String(err) })
+      })
+    }, CALL_END_MS)
+  }
+
+  /** "Keep recording": the call ended, but this meeting goes on. */
+  keepRecordingAfterCall(): void {
+    if (this.callEndTimer) clearTimeout(this.callEndTimer)
+    this.callEndTimer = null
+    this.patch({ callEndsAt: null })
   }
 
   /** What the notepad should show: typed here, else this device's draft, else the server's. */
@@ -358,6 +394,8 @@ export class LiveMeeting {
     if (this.disposed) return
     this.disposed = true
     if (this.notesTimer) clearTimeout(this.notesTimer)
+    if (this.callEndTimer) clearTimeout(this.callEndTimer)
+    this.callEndTimer = null
     for (const cleanup of this.cleanups.splice(0)) cleanup()
     this.socket.stop()
     await this.releaseCapture()

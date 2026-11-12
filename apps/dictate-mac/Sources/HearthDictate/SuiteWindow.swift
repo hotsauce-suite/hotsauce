@@ -17,10 +17,14 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     var showMessage: (String) -> Void = { _ in }
     /// The app's own links (`hearth-dictate://connect`, `hearth://<path>`) found in the page.
     var handleAppLink: (URL) -> Void = { _ in }
+    /// The page wants to sign in: the app does it through the member's browser.
+    var signInWithBrowser: () -> Void = {}
     private var destinations: [ObjectIdentifier: URL] = [:]
     private var titleObservation: NSKeyValueObservation?
     private var historyObservations: [NSKeyValueObservation] = []
     private var hasLoaded = false
+    /// The meeting recording of "Any app on this Mac", while the Meetings page has one going.
+    private var meetingCapture: AnyObject?
 
     init(server: URL) {
         router = SuiteRouter(server: server)
@@ -48,6 +52,17 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         )
         super.init()
         configuration.userContentController.add(WeakScriptHandler(self), name: "hearthDownload")
+        // The sign-in page's "Sign in with your browser" (apps/web/src/lib/desktop.ts).
+        configuration.userContentController.add(WeakScriptHandler(self), name: "hearthSignIn")
+        // /desktop/finish takes the ticket the app received, once (never from its URL).
+        configuration.userContentController.addScriptMessageHandler(TicketHandler(self), contentWorld: .page, name: "hearthTicket")
+        // Meetings' "Any app on this Mac" (docs/PLAN-record-any-call.md): process taps need 14.2.
+        if #available(macOS 14.2, *) {
+            configuration.userContentController.addUserScript(WKUserScript(
+                source: "window.hearthMac = Object.freeze({ meetingAudio: 1 })", injectionTime: .atDocumentStart, forMainFrameOnly: true
+            ))
+            configuration.userContentController.addScriptMessageHandler(MeetingAudioHandler(self), contentWorld: .page, name: MeetingAudio.handlerName)
+        }
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -118,6 +133,131 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             }
         } else {
             webView.load(URLRequest(url: url))
+        }
+    }
+
+    /// The ticket from the browser, waiting for /desktop/finish to take it.
+    private var pendingTicket: (ticket: String, received: Date)?
+
+    /// Finishes a browser sign-in: the suite's page that asks for the ticket and redeems it.
+    func finishSignIn(ticket: String) {
+        guard let url = BrowserSignIn.finishURL(server: router.server) else { return }
+        pendingTicket = (ticket, Date())
+        hasLoaded = true
+        webView.load(URLRequest(url: url))
+        show()
+    }
+
+    /// Hands the pending ticket to the suite's own finish page, once, while it's fresh.
+    fileprivate func takeTicket(from message: WKScriptMessage) -> String? {
+        guard message.frameInfo.isMainFrame, let page = message.frameInfo.request.url ?? webView.url,
+              router.isSuite(page), page.path == "/desktop/finish",
+              let pending = pendingTicket
+        else { return nil }
+        pendingTicket = nil
+        return Date().timeIntervalSince(pending.received) <= BrowserSignIn.ticketHandoff ? pending.ticket : nil
+    }
+
+    /// Answers the Meetings page's start, pause, resume and stop for "Any app on this Mac". Start
+    /// only from a Meetings page of the suite (the rest from any suite page, since a recording
+    /// follows the member around the suite), in its main frame; one recording at a time, a new start
+    /// ending the old one (whose page is told both tracks ended).
+    @available(macOS 14.2, *)
+    fileprivate func meetingAudio(_ message: WKScriptMessage) -> Any? {
+        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo),
+              let command = MeetingAudio.Command.parse(message.body)
+        else { return nil }
+        if command == .start, !isOnMeetingsPage { return MeetingAudio.failed(.unsupported, message: "Start from Meetings.") }
+        let current = meetingCapture as? MeetingCapture
+        switch command {
+        case .stop(let session):
+            if current?.session == session { stopMeetingCapture() }
+            return nil
+        case .pause(let session):
+            if current?.session == session { current?.setPaused(true) }
+            return nil
+        case .resume(let session):
+            if current?.session == session { current?.setPaused(false) }
+            return nil
+        case .start:
+            if let current {
+                sendMeetingEvent(MeetingAudio.endedEvent(session: current.session, track: .me))
+                sendMeetingEvent(MeetingAudio.endedEvent(session: current.session, track: .them))
+            }
+            stopMeetingCapture()
+            let capture = MeetingCapture()
+            let session = capture.session
+            capture.onFrames = { [weak self] me, them in
+                self?.sendMeetingEvent(MeetingAudio.framesEvent(session: session, me: me, them: them))
+            }
+            capture.onEnded = { [weak self] track in
+                self?.sendMeetingEvent(MeetingAudio.endedEvent(session: session, track: track))
+            }
+            do {
+                try capture.start()
+            } catch MeetingCapture.CaptureError.failed(let reason, let text) {
+                return MeetingAudio.failed(reason, message: text)
+            } catch {
+                return MeetingAudio.failed(.unsupported, message: "\(Brand.name) couldn’t start recording.")
+            }
+            meetingCapture = capture
+            return MeetingAudio.started(session: session)
+        }
+    }
+
+    /// The frame's own origin is the suite's, and so is the page the web view shows.
+    private func isSuiteFrame(_ frame: WKFrameInfo) -> Bool {
+        let origin = frame.securityOrigin
+        var components = URLComponents()
+        components.scheme = origin.protocol
+        components.host = origin.host
+        if origin.port != 0 { components.port = origin.port }
+        guard let originURL = components.url, router.isSuite(originURL) else { return false }
+        return isOnSuitePage
+    }
+
+    private var isOnSuitePage: Bool {
+        guard let current = webView.url else { return false }
+        return router.isSuite(current)
+    }
+
+    private var isOnMeetingsPage: Bool {
+        guard let current = webView.url, router.isSuite(current) else { return false }
+        return MeetingAudio.isMeetingsPath(current.path)
+    }
+
+    /// The "Any app on this Mac" recording of a live meeting (paused counts), by its session. Nil
+    /// while the Start page only checks the sound: nothing is recorded there yet.
+    var recordingMeetingSession: String? {
+        guard #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture else { return nil }
+        if let current = webView.url, router.isSuite(current), current.path == "/meetings/start" { return nil }
+        return capture.session
+    }
+
+    /// Tells the recording page its call ended (`CallDetector`), if that recording still runs.
+    func meetingCallEnded(session: String) {
+        guard #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture, capture.session == session else { return }
+        sendMeetingEvent(MeetingAudio.callEndedEvent(session: session))
+    }
+
+    /// Ends any meeting recording: the page stopped it, or the page itself went away.
+    func stopMeetingCapture() {
+        guard let capture = meetingCapture else { return }
+        meetingCapture = nil
+        if #available(macOS 14.2, *), let capture = capture as? MeetingCapture {
+            capture.onFrames = { _, _ in }
+            capture.onEnded = { _ in }
+            capture.stop()
+        }
+    }
+
+    /// Audio goes only to the suite's page, checked again as each batch is sent. Not only its
+    /// Meetings routes: a recording keeps going while the member moves to Docs or Tasks.
+    private func sendMeetingEvent(_ detail: [String: Any]) {
+        guard isOnSuitePage else { return }
+        Task {
+            guard isOnSuitePage else { return }
+            _ = try? await webView.callAsyncJavaScript(MeetingAudio.dispatchScript, arguments: ["detail": detail], in: nil, contentWorld: .page)
         }
     }
 
@@ -213,7 +353,6 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         guard let url = action.request.url else { return decisionHandler(.cancel) }
         let decision = router.decide(
             url,
-            from: webView.url,
             isMainFrame: action.targetFrame?.isMainFrame ?? true,
             userClicked: action.navigationType == .linkActivated,
             newWindow: action.targetFrame == nil
@@ -226,6 +365,9 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         case let .handleInApp(link):
             decisionHandler(.cancel)
             handleAppLink(link)
+        case .signInWithBrowser:
+            decisionHandler(.cancel)
+            signInWithBrowser()
         case .openExternally:
             NSWorkspace.shared.open(url)
             decisionHandler(.cancel)
@@ -261,7 +403,13 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         showLoadError(error)
     }
 
+    /// A new page replaced the one that was recording (a reload, a sign-out): stop listening.
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        stopMeetingCapture()
+    }
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        stopMeetingCapture()
         // At most once a minute, so a page that keeps crashing doesn't loop.
         guard Date().timeIntervalSince(lastCrashReload) > 60 else { return }
         lastCrashReload = Date()
@@ -302,10 +450,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         guard let url = action.request.url, url.absoluteString != "about:blank" else { return nil }
         // WebKit only asks here on a click (scripts can't open windows on their own).
-        switch router.decide(url, from: webView.url, isMainFrame: true, userClicked: true, newWindow: true) {
+        switch router.decide(url, isMainFrame: true, userClicked: true, newWindow: true) {
         case let .loadInWindow(target): webView.load(URLRequest(url: target))
         case .openExternally: NSWorkspace.shared.open(url)
         case let .handleInApp(link): handleAppLink(link)
+        case .signInWithBrowser: signInWithBrowser()
         case .allow, .cancel: break
         }
         return nil
@@ -373,8 +522,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         // Only the suite's own page, not an iframe or a page elsewhere.
-        guard message.name == "hearthDownload", message.frameInfo.isMainFrame,
-              let page = message.frameInfo.request.url ?? webView.url, router.isSuite(page),
+        guard message.frameInfo.isMainFrame, let page = message.frameInfo.request.url ?? webView.url,
+              router.isSuite(page)
+        else { return }
+        if message.name == "hearthSignIn" { return signInWithBrowser() }
+        guard message.name == "hearthDownload",
               let text = message.body as? String, let url = URL(string: text),
               ["http", "https"].contains(url.scheme?.lowercased() ?? "")
         else { return }
@@ -418,5 +570,30 @@ private final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
     init(_ target: any WKScriptMessageHandler) { self.target = target }
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         target?.userContentController(controller, didReceive: message)
+    }
+}
+
+/// Answers /desktop/finish's `hearthTicket.postMessage('take')` with the app's pending ticket.
+private final class TicketHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            replyHandler(suite?.takeTicket(from: message), nil)
+        }
+    }
+}
+
+/// Answers the Meetings page's `hearthMeetingAudio.postMessage({type:'start'|'stop'})`.
+@available(macOS 14.2, *)
+private final class MeetingAudioHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            replyHandler(suite?.meetingAudio(message), nil)
+        }
     }
 }

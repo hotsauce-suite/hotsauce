@@ -76,6 +76,7 @@ export default defineConfig({
       stderr: 'pipe',
       env: {
         NODE_ENV: 'test',
+        BRIEF_REFRESH_GAP_SECONDS: '0',
         PORT: String(PORT),
         PUBLIC_URL: BASE_URL,
         AUTH_MODE: 'dev',

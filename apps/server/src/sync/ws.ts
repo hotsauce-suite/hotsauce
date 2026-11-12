@@ -1,5 +1,6 @@
 import { createNodeWebSocket, type NodeWebSocket } from '@hono/node-ws'
 import type { Hono } from 'hono'
+import type { BoardRooms } from '../boards/rooms.js'
 import type { DictationSocketServer } from '../dictation/socket.js'
 import { MAX_MEETING_FRAME_BYTES, type MeetingSocketServer } from '../meetings/socket.js'
 import type { Broadcaster, Connection } from './broadcaster.js'
@@ -17,12 +18,14 @@ export function attachWebSocket(
   broadcaster: Broadcaster,
   meetings?: MeetingSocketServer,
   dictation?: DictationSocketServer,
+  boards?: BoardRooms,
 ): NodeWebSocket['injectWebSocket'] {
   const { injectWebSocket, upgradeWebSocket, wss } = createNodeWebSocket({ app })
   // Anyone can open a socket: cap frames well below ws's 100 MiB default (a bigger one closes the
   // socket with 1009). ws reads this at upgrade, for every route, so with meeting audio it is the
   // audio limit and /ws enforces its own smaller one below.
-  wss.options.maxPayload = meetings || dictation ? MAX_MEETING_FRAME_BYTES : MAX_AUTH_FRAME_BYTES
+  wss.options.maxPayload =
+    meetings || dictation || boards ? MAX_MEETING_FRAME_BYTES : MAX_AUTH_FRAME_BYTES
   if (dictation) {
     // Hearth Dictate's audio stream (ARCHITECTURE §9.2); a device token in the first message.
     app.get(
@@ -41,6 +44,41 @@ export function attachWebSocket(
           onMessage(event) {
             if (typeof event.data === 'string') handlers?.text(event.data)
             else if (event.data instanceof ArrayBuffer) handlers?.binary(new Uint8Array(event.data))
+          },
+          onClose() {
+            handlers?.closed()
+          },
+        }
+      }),
+    )
+  }
+  if (boards) {
+    // Live drawing on one board (ARCHITECTURE §15.5); the auth message first, as on /ws.
+    app.get(
+      '/ws/boards/:space/:id',
+      upgradeWebSocket((c) => {
+        const space = c.req.param('space') ?? ''
+        const id = c.req.param('id') ?? ''
+        let handlers: ReturnType<BoardRooms['connect']> | undefined
+        return {
+          onOpen(_event, ws) {
+            const socket = ws.raw
+            if (!socket) return
+            handlers = boards.connect(space, id, {
+              send: (data) => socket.send(data),
+              bufferedAmount: () => socket.bufferedAmount,
+              close: (code, reason) => socket.close(code, reason),
+              ping: () => socket.ping(),
+              terminate: () => socket.terminate(),
+            })
+            socket.on('pong', () => handlers?.pong())
+          },
+          onMessage(event, ws) {
+            if (typeof event.data !== 'string') {
+              ws.close(1003, 'text only')
+              return
+            }
+            handlers?.text(event.data)
           },
           onClose() {
             handlers?.closed()

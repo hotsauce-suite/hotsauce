@@ -9,7 +9,7 @@ title: Acme sync
 date: 2026-10-07T15:00:00-04:00
 duration_min: 32
 attendees:
-  - Morgan Holland <morgan@example.test>
+  - Ada Lovelace <ada@example.test>
   - Dana Lee <dana@acme.com>
 companies: [acme.com]
 template: customer-call

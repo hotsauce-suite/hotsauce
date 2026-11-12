@@ -12,8 +12,19 @@ describe('copying a note', () => {
   it('renders rich text with headings and task lists, and no frontmatter', async () => {
     const html = await htmlForCopy(NOTE)
     expect(html).toContain('<h1>Acme sync</h1>')
-    expect(html).toContain('type="checkbox"')
+    expect(html).toContain('☐</span> Send the deck')
     expect(html).not.toContain('ai_ranges')
+  })
+
+  it('pastes callouts as quotes with a bold title, and tables with borders', async () => {
+    const html = await htmlForCopy(
+      '> [!WARNING] Careful\n> Hot.\n\n| A | B |\n|---|--:|\n| 1 | 2 |\n\n![x](https://e.test/x.png)\n',
+    )
+    expect(html).toContain('<blockquote>\n<p><strong>Careful</strong></p>')
+    expect(html).not.toContain('[!WARNING]')
+    expect(html).toMatch(/<td style="[^"]*border:1px solid/)
+    expect(html).toContain('text-align:right')
+    expect(html).not.toContain('rel="preload"')
   })
 })
 

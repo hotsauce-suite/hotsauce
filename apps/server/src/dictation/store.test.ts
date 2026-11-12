@@ -36,7 +36,7 @@ describe('device tokens', () => {
 describe('DictationStore', () => {
   it('keeps only the hash, finds the device by token, and stamps its use', () => {
     const store = new DictationStore(':memory:')
-    const { device, token } = store.createDevice(ALICE, 'Morgan’s MacBook')
+    const { device, token } = store.createDevice(ALICE, 'Ada’s MacBook')
     expect(device.lastUsedAt).toBeNull()
     const used = store.useToken(token, new Date('2026-11-09T12:00:00Z'))
     expect(used).toMatchObject({

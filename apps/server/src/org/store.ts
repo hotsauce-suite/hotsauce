@@ -45,6 +45,8 @@ export const OrgSettingsSchema = z.object({
   orgName: z.string().trim().max(80).default(''),
   productName: z.string().trim().max(40).default(''),
   allowedDomains: z.array(z.string()).default([]),
+  /** People outside those domains who may sign in too: exact addresses. */
+  allowedEmails: z.array(z.string()).default([]),
   adminEmails: z.array(z.string()).default([]),
   clerkPublishableKey: z.string().trim().default(''),
   hostKind: z.enum(['local', 'github']).default('local'),
@@ -54,6 +56,8 @@ export const OrgSettingsSchema = z.object({
   r2Bucket: z.string().trim().default(''),
   keepAudio: z.boolean().default(false),
   chatUrl: z.string().trim().default(''),
+  /** Read-only links open for anyone with the link, signed out too (ARCHITECTURE §20). */
+  publicShareLinks: z.boolean().default(false),
   /** Steps of the setup wizard the admin has been through, so it resumes where they left off. */
   stepsDone: z.array(z.string()).default([]),
   setupComplete: z.boolean().default(false),
@@ -206,6 +210,7 @@ export class OrgStore {
     put('ORG_NAME', s.orgName)
     put('PRODUCT_NAME', s.productName)
     put('ALLOWED_EMAIL_DOMAINS', s.allowedDomains.join(','))
+    put('ALLOWED_EMAILS', s.allowedEmails.join(','))
     put('ADMIN_EMAILS', s.adminEmails.join(','))
     put('CLERK_PUBLISHABLE_KEY', s.clerkPublishableKey)
     put('CHAT_URL', s.chatUrl)
@@ -223,8 +228,18 @@ export class OrgStore {
 
   // --- The setup token -------------------------------------------------------------------------
 
-  /** The token that claims this instance, created on first call. */
+  /**
+   * The token that claims this instance: HOTSAUCE_SETUP_TOKEN when set (the setup password a
+   * Deploy to Cloudflare form asks for), else one generated on first call.
+   */
+  /** Whether the setup token is a password the deployer chose (and so must never be printed). */
+  setupTokenFromEnv(): boolean {
+    return Boolean(this.#env.HOTSAUCE_SETUP_TOKEN?.trim())
+  }
+
   setupToken(): string {
+    const fromEnv = this.#env.HOTSAUCE_SETUP_TOKEN?.trim()
+    if (fromEnv) return fromEnv
     const file = path.join(this.dir, 'setup-token')
     if (!existsSync(file)) writeAtomic(file, randomBytes(24).toString('base64url'))
     return readFileSync(file, 'utf8').trim()

@@ -45,7 +45,7 @@ function authWith(clerk: ClerkClientLike) {
   return new ClerkAuth({
     clerk,
     allowedDomains: ['example.test'],
-    adminEmails: ['morgan@example.test'],
+    adminEmails: ['ada@example.test'],
     authorizedParties: ['https://hearth.example'],
   })
 }
@@ -73,12 +73,12 @@ describe('ClerkAuth', () => {
   })
 
   it('builds a principal from the primary email and real name', async () => {
-    const { clerk } = fakeClerk({ userId: 'user_1', user: user('Morgan@Example.test') })
+    const { clerk } = fakeClerk({ userId: 'user_1', user: user('Ada@Example.test') })
     expect(await authWith(clerk).authenticate(request())).toEqual({
       userId: 'user_1',
-      email: 'morgan@example.test',
+      email: 'ada@example.test',
       name: 'Jo Smith',
-      handle: 'morgan',
+      handle: 'ada',
       isAdmin: true,
     })
   })
@@ -181,5 +181,108 @@ describe('ClerkAuth.principalForUser', () => {
       code: 'domain_not_allowed',
     })
     expect(deleted).toEqual(['user_1'])
+  })
+})
+
+describe('ClerkAuth with invited people', () => {
+  function invitedAuth(clerk: ClerkClientLike) {
+    return new ClerkAuth({
+      clerk,
+      allowedDomains: ['example.test'],
+      allowedEmails: ['jo@partner.org'],
+      adminEmails: [],
+      authorizedParties: [],
+    })
+  }
+  const withPrimary = (email: string, status: string | null): ClerkUserLike =>
+    user(email, {
+      emailAddresses: [{ id: 'e1', emailAddress: email, verification: status ? { status } : null }],
+    })
+
+  it('lets a verified invited address in, with a qualified handle', async () => {
+    const { clerk, deleted } = fakeClerk({
+      userId: 'user_2',
+      user: withPrimary('jo@partner.org', 'verified'),
+    })
+    expect(await invitedAuth(clerk).authenticate(request())).toMatchObject({
+      email: 'jo@partner.org',
+      handle: 'jo-partner-org',
+      isAdmin: false,
+    })
+    expect(deleted).toEqual([])
+  })
+
+  it('refuses and deletes an invited address Clerk hasn’t verified', async () => {
+    for (const status of ['unverified', null]) {
+      const { clerk, deleted } = fakeClerk({
+        userId: 'user_3',
+        user: withPrimary('jo@partner.org', status),
+      })
+      await expect(invitedAuth(clerk).authenticate(request())).rejects.toMatchObject({
+        code: 'domain_not_allowed',
+      })
+      expect(deleted).toEqual(['user_3'])
+    }
+  })
+
+  it('still refuses and deletes anyone else, including the rest of the invitee’s domain', async () => {
+    for (const email of ['eve@partner.org', 'outsider@gmail.com']) {
+      const { clerk, deleted } = fakeClerk({
+        userId: 'user_4',
+        user: withPrimary(email, 'verified'),
+      })
+      await expect(invitedAuth(clerk).authenticate(request())).rejects.toMatchObject({
+        code: 'domain_not_allowed',
+      })
+      expect(deleted).toEqual(['user_4'])
+    }
+  })
+
+  it('judges the primary address, not an invited secondary one', async () => {
+    const { clerk, deleted } = fakeClerk({
+      userId: 'user_5',
+      user: user('outsider@gmail.com', {
+        emailAddresses: [
+          { id: 'e0', emailAddress: 'jo@partner.org', verification: { status: 'verified' } },
+          { id: 'e1', emailAddress: 'outsider@gmail.com', verification: { status: 'verified' } },
+        ],
+      }),
+    })
+    await expect(invitedAuth(clerk).authenticate(request())).rejects.toMatchObject({
+      code: 'domain_not_allowed',
+    })
+    expect(deleted).toEqual(['user_5'])
+  })
+
+  it('an invited person’s access token stops once they’re off the list', async () => {
+    const { clerk } = fakeClerk({
+      userId: 'user_6',
+      user: withPrimary('jo@partner.org', 'verified'),
+    })
+    const off = new ClerkAuth({
+      clerk,
+      allowedDomains: ['example.test'],
+      allowedEmails: [],
+      adminEmails: [],
+      authorizedParties: [],
+    })
+    await expect(off.principalForUser('user_6')).rejects.toMatchObject({
+      code: 'domain_not_allowed',
+    })
+  })
+})
+
+describe('ClerkAuth.createSignInTicket', () => {
+  it('asks Clerk for a sign-in token for that user, expiring in a minute', async () => {
+    const { clerk } = fakeClerk({ userId: 'user_1' })
+    const createSignInToken = vi.fn(async () => ({ token: 'tkt_123' }))
+    const auth = new ClerkAuth({
+      clerk: { ...clerk, signInTokens: { createSignInToken } },
+      allowedDomains: ['acme.example'],
+      adminEmails: [],
+      authorizedParties: [],
+    })
+    expect(await auth.createSignInTicket('user_1')).toBe('tkt_123')
+    expect(createSignInToken).toHaveBeenCalledWith({ userId: 'user_1', expiresInSeconds: 60 })
   })
 })

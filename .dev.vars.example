@@ -1,0 +1,3 @@
+# Secrets the Deploy to Cloudflare button asks for (descriptions in package.json, "cloudflare").
+HOTSAUCE_SETUP_TOKEN=
+HOTSAUCE_MASTER_KEY=

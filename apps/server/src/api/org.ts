@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { z } from 'zod'
-import { loadConfig } from '../config.js'
+import { CLOUDFLARE_MEDIA, CLOUDFLARE_REPOS, loadConfig } from '../config.js'
 import { HearthError } from '../errors.js'
 import { ASSET_TYPES, BrandPatchSchema, FONT_CHOICES, MAX_ASSET_BYTES } from '../org/brand.js'
 import { type OrgSettings, SECRET_NAMES, type SecretName } from '../org/store.js'
@@ -42,6 +42,7 @@ const SettingsPatch = z
     orgName: z.string().trim().max(80),
     productName: z.string().trim().max(40),
     allowedDomains: listOf(domainRe, 'domain, like example.com'),
+    allowedEmails: listOf(emailRe, 'email address'),
     adminEmails: listOf(emailRe, 'email address'),
     clerkPublishableKey: z
       .string()
@@ -85,11 +86,14 @@ function stateOf(deps: AppDeps) {
   return {
     settings,
     secrets,
+    // 'cloudflare': the disk is temporary, so the wizard offers only GitHub and R2.
+    platform: config.HOTSAUCE_PLATFORM,
     // Settings the environment sets win over the saved ones; the editor shows them as locked.
     lockedByEnv: {
       orgName: Boolean(env.ORG_NAME),
       productName: Boolean(env.PRODUCT_NAME),
       allowedDomains: Boolean(env.ALLOWED_EMAIL_DOMAINS),
+      allowedEmails: Boolean(env.ALLOWED_EMAILS),
       adminEmails: Boolean(env.ADMIN_EMAILS),
       clerkPublishableKey: Boolean(env.CLERK_PUBLISHABLE_KEY),
       hostKind: Boolean(env.HOST_KIND),
@@ -104,6 +108,7 @@ function stateOf(deps: AppDeps) {
       orgName: config.ORG_NAME,
       productName: config.PRODUCT_NAME,
       allowedDomains: config.ALLOWED_EMAIL_DOMAINS,
+      allowedEmails: config.ALLOWED_EMAILS,
       adminEmails: config.ADMIN_EMAILS,
       hostKind: config.HOST_KIND,
       ai: config.LLM_PROVIDER !== 'none',
@@ -153,6 +158,11 @@ export function missingForFinish(deps: AppDeps): string[] {
   }
   const r2 = partialR2(deps)
   if (r2) missing.push(r2)
+  if ((env.HOTSAUCE_PLATFORM ?? '') === 'cloudflare') {
+    if ((env.HOST_KIND ?? s.hostKind) === 'local') missing.push(CLOUDFLARE_REPOS)
+    const r2Set = Boolean(env.R2_BUCKET || (s.r2AccountId && s.r2AccessKeyId && s.r2Bucket))
+    if (!r2Set && env.AUDIO_STORE !== 'none') missing.push(CLOUDFLARE_MEDIA)
+  }
   // Every admin must be able to sign in. The environment's lists win, as they will at startup.
   const list = (v: string | undefined) =>
     (v ?? '')
@@ -161,8 +171,9 @@ export function missingForFinish(deps: AppDeps): string[] {
       .filter(Boolean)
   const domains = env.ALLOWED_EMAIL_DOMAINS ? list(env.ALLOWED_EMAIL_DOMAINS) : s.allowedDomains
   const admins = env.ADMIN_EMAILS ? list(env.ADMIN_EMAILS) : s.adminEmails
+  const invited = env.ALLOWED_EMAILS ? list(env.ALLOWED_EMAILS) : s.allowedEmails
   for (const email of admins) {
-    if (!domains.includes(email.split('@')[1] ?? '')) {
+    if (!domains.includes(email.split('@')[1] ?? '') && !invited.includes(email)) {
       missing.push(`${email} isn’t in an allowed domain, so it couldn’t sign in`)
     }
   }

@@ -30,6 +30,11 @@ export class TreeStore {
     return this.fetch(space, dir)
   }
 
+  /** The listing as the server has it now, cached or not. */
+  reload(space: string, dir: string): Promise<Entry[]> {
+    return this.fetch(space, dir)
+  }
+
   /** Refetches every loaded directory on the path to each changed file. */
   refreshPaths(space: string, paths: string[]): void {
     const dirs = new Set<string>()
@@ -90,15 +95,33 @@ export class TreeStore {
  * A free `untitled.md` (or `untitled-N.md`) path in `dir`, for "New doc". If the listing
  * can't load, an existing file at the path simply opens instead of being overwritten.
  */
-export async function untitledDocPath(
+export function untitledDocPath(store: TreeStore, space: string, dir: string): Promise<string> {
+  return freeDocPath(store, space, dir, 'untitled')
+}
+
+/**
+ * `dir/stem.md`, or `dir/stem-N.md` when that is taken. `own` is the file being renamed, which
+ * doesn't count as taken; `taken` adds paths the listing may not show yet. If the listing can't
+ * load the plain name is returned, and a clash is then refused by the server, not overwritten.
+ */
+export async function freeDocPath(
   store: TreeStore,
   space: string,
   dir: string,
+  stem: string,
+  {
+    own,
+    taken = [],
+    fresh = false,
+  }: { own?: string; taken?: Iterable<string>; fresh?: boolean } = {},
 ): Promise<string> {
-  const siblings = await store.load(space, dir).catch((): Entry[] => [])
-  const taken = new Set(siblings.map((entry) => entry.path))
-  let path = `${dir}/untitled.md`
-  for (let n = 2; taken.has(path); n++) path = `${dir}/untitled-${n}.md`
+  // `fresh` for a name about to be created: the cached listing may miss a teammate's new doc.
+  const listing = fresh ? store.reload(space, dir) : store.load(space, dir)
+  const siblings = await listing.catch((): Entry[] => [])
+  const used = new Set([...siblings.map((entry) => entry.path), ...taken])
+  if (own) used.delete(own)
+  let path = `${dir}/${stem}.md`
+  for (let n = 2; used.has(path); n++) path = `${dir}/${stem}-${n}.md`
   return path
 }
 

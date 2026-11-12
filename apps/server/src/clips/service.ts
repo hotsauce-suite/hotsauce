@@ -347,7 +347,13 @@ export class Clips {
 
   list(
     principal: Principal,
-    opts: { scope: 'mine' | 'team'; q?: string | undefined; limit: number },
+    opts: {
+      scope: 'mine' | 'team'
+      q?: string | undefined
+      from?: string | undefined
+      to?: string | undefined
+      limit: number
+    },
   ): Promise<ClipView[]> {
     return Promise.all(
       this.store

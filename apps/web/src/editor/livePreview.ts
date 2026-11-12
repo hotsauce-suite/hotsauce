@@ -29,6 +29,11 @@ export interface LivePreviewOptions {
   resolveImage?: (src: string) => Promise<string>
   /** Called when the user Cmd/Ctrl-clicks a link. */
   openLink?: (href: string) => void
+  /**
+   * Draws a `tasks` block's live task list into `host` (its text without the fences); returns
+   * the cleanup. Without it, the block stays as source.
+   */
+  mountTaskList?: (source: string, host: HTMLElement) => () => void
 }
 
 const previewOptions = Facet.define<LivePreviewOptions, LivePreviewOptions>({
@@ -150,6 +155,205 @@ const frontmatterDecorations = EditorView.decorations.compute(
 )
 
 // ---------------------------------------------------------------------------------------------
+// Tables: drawn as a real table while the cursor is elsewhere, raw pipes while it's inside.
+// A block replacement, so like the frontmatter it lives in state, not in the view plugin.
+
+type Align = 'left' | 'center' | 'right' | null
+
+/** One table row's cells, splitting on pipes outside inline code and not escaped. */
+export function tableCells(line: string): string[] {
+  const text = line.trim().replace(/^\|/, '').replace(/\|$/, '')
+  const cells: string[] = []
+  let cell = ''
+  let inCode = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '\\' && text[i + 1] === '|') {
+      cell += '|'
+      i++
+    } else if (ch === '`') {
+      inCode = !inCode
+      cell += ch
+    } else if (ch === '|' && !inCode) {
+      cells.push(cell.trim())
+      cell = ''
+    } else {
+      cell += ch
+    }
+  }
+  cells.push(cell.trim())
+  return cells
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c,
+  )
+}
+
+/** A cell's inline markdown as HTML: code, bold, italic, strike, links (as text). Escaped first. */
+export function inlineHtml(text: string): string {
+  // Odd pieces are inside backticks: code, taken literally. An unpaired backtick stays as text.
+  const pieces = text.split('`')
+  if (pieces.length % 2 === 0) {
+    const last = pieces.pop() ?? ''
+    pieces.push(`${pieces.pop() ?? ''}\`${last}`)
+  }
+  return pieces
+    .map((piece, i) =>
+      i % 2 === 1
+        ? `<code>${escapeHtml(piece)}</code>`
+        : escapeHtml(piece)
+            .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '<span class="cm-lp-link">$1</span>')
+            .replace(/(\*\*|__)(.+?)\1/g, '<strong>$2</strong>')
+            .replace(/(\*|_)(.+?)\1/g, '<em>$2</em>')
+            .replace(/~~(.+?)~~/g, '<s>$1</s>'),
+    )
+    .join('')
+}
+
+class TableWidget extends WidgetType {
+  constructor(readonly source: string) {
+    super()
+  }
+  eq(other: TableWidget) {
+    return other.source === this.source
+  }
+  toDOM(view: EditorView) {
+    const lines = this.source.split('\n')
+    const aligns: Align[] = tableCells(lines[1] ?? '').map((d) =>
+      /^:-+:$/.test(d) ? 'center' : /^-+:$/.test(d) ? 'right' : /^:-+$/.test(d) ? 'left' : null,
+    )
+    const wrap = document.createElement('div')
+    wrap.className = 'cm-lp-table-widget'
+    const table = document.createElement('table')
+    const row = (line: string, tag: 'th' | 'td') => {
+      const tr = document.createElement('tr')
+      const cells = tableCells(line)
+      const width = Math.max(aligns.length, 1)
+      for (let i = 0; i < width; i++) {
+        const cell = document.createElement(tag)
+        cell.innerHTML = inlineHtml(cells[i] ?? '')
+        const align = aligns[i]
+        if (align) cell.style.textAlign = align
+        tr.append(cell)
+      }
+      return tr
+    }
+    const head = document.createElement('thead')
+    head.append(row(lines[0] ?? '', 'th'))
+    const body = document.createElement('tbody')
+    for (const line of lines.slice(2)) if (line.trim()) body.append(row(line, 'td'))
+    table.append(head, body)
+    wrap.append(table)
+    // A click puts the cursor in the table, which shows its source for editing.
+    wrap.addEventListener('mousedown', (event) => {
+      event.preventDefault()
+      // Read the position now: the widget is kept while text above it changes.
+      view.dispatch({ selection: { anchor: view.posAtDOM(wrap) } })
+      view.focus()
+    })
+    return wrap
+  }
+  ignoreEvent() {
+    return false
+  }
+}
+
+/** Each drawn list's cleanup, by its DOM: a kept widget can be destroyed through a newer twin. */
+const taskListCleanups = new WeakMap<HTMLElement, () => void>()
+
+class TaskListWidget extends WidgetType {
+  constructor(
+    readonly source: string,
+    readonly mount: (source: string, host: HTMLElement) => () => void,
+  ) {
+    super()
+  }
+  eq(other: TaskListWidget) {
+    return other.source === this.source
+  }
+  get estimatedHeight() {
+    return 120
+  }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement('div')
+    wrap.className = 'cm-lp-task-list'
+    const host = document.createElement('div')
+    const edit = document.createElement('button')
+    edit.type = 'button'
+    edit.className = 'cm-lp-task-list-edit'
+    edit.textContent = 'Edit query'
+    edit.addEventListener('mousedown', (event) => event.preventDefault())
+    edit.addEventListener('click', () => {
+      // Onto the first query line, inside the fences, so the source shows for editing.
+      const line = view.state.doc.lineAt(view.posAtDOM(wrap))
+      view.dispatch({ selection: { anchor: Math.min(line.to + 1, view.state.doc.length) } })
+      view.focus()
+    })
+    wrap.append(edit, host)
+    taskListCleanups.set(wrap, this.mount(this.source, host))
+    return wrap
+  }
+  destroy(dom: HTMLElement) {
+    taskListCleanups.get(dom)?.()
+    taskListCleanups.delete(dom)
+  }
+  ignoreEvent() {
+    // Checkboxes and links in the list handle their own clicks.
+    return true
+  }
+}
+
+/** The text of a `tasks` fence, without the fence lines; null for any other block. */
+function taskQuerySource(state: EditorState, from: number, to: number): string | null {
+  const first = state.doc.lineAt(from)
+  if (!/^\s*(`{3,}|~{3,})\s*tasks\s*$/.test(first.text)) return null
+  const last = state.doc.lineAt(to)
+  const closed = last.number > first.number && /^\s*(`{3,}|~{3,})\s*$/.test(last.text)
+  const end = closed ? last.from - 1 : to
+  return end > first.to ? state.doc.sliceString(first.to + 1, end) : ''
+}
+
+/** Tables and `tasks` blocks drawn whole while the cursor is elsewhere. */
+function blockDecorations(state: EditorState): DecorationSet {
+  const ranges: Range<Decoration>[] = []
+  const frontmatterTo = state.field(frontmatterInfo)?.to ?? -1
+  const { mountTaskList } = state.facet(previewOptions)
+  const { selection } = state
+  for (let node = syntaxTree(state).topNode.firstChild; node; node = node.nextSibling) {
+    if ((node.name !== 'Table' && node.name !== 'FencedCode') || node.from <= frontmatterTo) {
+      continue
+    }
+    const from = state.doc.lineAt(node.from).from
+    const to = state.doc.lineAt(node.to).to
+    if (selection.ranges.some((r) => r.from <= to && r.to >= from)) continue
+    if (node.name === 'Table') {
+      const widget = new TableWidget(state.doc.sliceString(from, to))
+      ranges.push(Decoration.replace({ widget, block: true }).range(from, to))
+      continue
+    }
+    const source = mountTaskList ? taskQuerySource(state, from, to) : null
+    if (source === null || !mountTaskList) continue
+    const widget = new TaskListWidget(source, mountTaskList)
+    ranges.push(Decoration.replace({ widget, block: true }).range(from, to))
+  }
+  return Decoration.set(ranges)
+}
+
+const blockPreview = StateField.define<DecorationSet>({
+  create: blockDecorations,
+  update(value, tr) {
+    if (tr.docChanged || tr.selection || syntaxTree(tr.startState) !== syntaxTree(tr.state)) {
+      return blockDecorations(tr.state)
+    }
+    return value
+  },
+  provide: (field) => EditorView.decorations.from(field),
+})
+
+// ---------------------------------------------------------------------------------------------
 // Inline preview.
 
 export function toggleTaskAt(view: EditorView, pos: number): boolean {
@@ -256,6 +460,7 @@ const QUOTE_LINE = Decoration.line({ class: 'cm-lp-quote' })
 const CALLOUT_LINE = Decoration.line({ class: 'cm-lp-quote cm-lp-callout' })
 const TABLE_LINE = Decoration.line({ class: 'cm-lp-table' })
 const FENCE_LINE = Decoration.line({ class: 'cm-lp-fence' })
+const INDENTED_CODE_LINE = Decoration.line({ class: 'cm-lp-fence cm-lp-indented-code' })
 const FENCE_START = Decoration.line({ class: 'cm-lp-fence cm-lp-fence-start' })
 const FENCE_END = Decoration.line({ class: 'cm-lp-fence cm-lp-fence-end' })
 
@@ -415,6 +620,9 @@ function buildDecorations(view: EditorView): DecorationSet {
           case 'Table':
             eachLine(from, to, () => TABLE_LINE)
             return
+          case 'CodeBlock':
+            eachLine(from, to, () => INDENTED_CODE_LINE)
+            return false
           case 'FencedCode': {
             const first = doc.lineAt(node.from).number
             const last = doc.lineAt(node.to).number
@@ -473,6 +681,7 @@ export function livePreview(options: LivePreviewOptions = {}): Extension {
     frontmatterInfo,
     frontmatterFolded,
     frontmatterDecorations,
+    blockPreview,
     livePreviewPlugin,
     linkClicks,
   ]

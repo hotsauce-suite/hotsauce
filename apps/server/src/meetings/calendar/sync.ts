@@ -13,8 +13,10 @@ import type { CalendarEvent, CalendarSource } from './types.js'
 const MINUTE = 60_000
 const DAY = 24 * 60 * MINUTE
 /** A full sync asks for this window; incremental syncs follow changes from there. */
-const BACK_MS = 30 * DAY
-const AHEAD_MS = 15 * DAY
+export const SYNC_BACK_MS = 30 * DAY
+export const SYNC_AHEAD_MS = 15 * DAY
+const BACK_MS = SYNC_BACK_MS
+const AHEAD_MS = SYNC_AHEAD_MS
 /** A full sync again after this, so instances entering the 14-day horizon show up. */
 const FULL_EVERY_MS = DAY
 /** Enough for any real calendar; stops a misbehaving page token from looping forever. */

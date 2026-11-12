@@ -67,13 +67,13 @@ describe('CommandK', () => {
       http.get('/api/search', () =>
         HttpResponse.json([
           {
-            space: 'morgan',
+            space: 'ada',
             path: note.replace(/\.md$/, '.transcript.md'),
             title: 'Acme kickoff: transcript',
             snippet: 'we agreed on \u0002pricing\u0003',
             score: 2,
           },
-          { space: 'morgan', path: note, title: 'Acme kickoff', snippet: '', score: 1 },
+          { space: 'ada', path: note, title: 'Acme kickoff', snippet: '', score: 1 },
         ]),
       ),
     )
@@ -83,6 +83,6 @@ describe('CommandK', () => {
     const [transcript] = within(text).getAllByTestId('search-result')
     expect(transcript).toHaveTextContent('Transcript ·')
     await userEvent.keyboard('{Enter}')
-    expect(router.state.location.pathname).toBe(`/meetings/morgan/${note}`)
+    expect(router.state.location.pathname).toBe(`/meetings/ada/${note}`)
   })
 })

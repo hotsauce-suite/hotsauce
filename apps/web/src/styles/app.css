@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./clips.css";
+@import "./tasks.css";
+@import "./notes.css";
+@import "./boards.css";
 
 @theme inline {
   --color-paper: var(--paper);
@@ -274,6 +277,16 @@ button {
   font-weight: 600;
 }
 
+.cm-lp-h5 {
+  font-size: 0.95em;
+}
+
+.cm-lp-h6 {
+  font-size: 0.85em;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+
 /* Compact mode: a notepad sharing the page with other things (the live meeting). */
 .hearth-editor-compact .cm-editor {
   font-size: 1rem;
@@ -410,6 +423,39 @@ button {
   font-size: 0.86em;
 }
 
+.cm-lp-table-widget {
+  overflow-x: auto;
+  /* Lines out the table with the text: CodeMirror pads each line 6px on the left. */
+  padding: 0.3em 2px 0.5em 6px;
+  cursor: text;
+}
+
+.cm-lp-table-widget table {
+  border-collapse: collapse;
+  font-size: 0.94em;
+}
+
+.cm-lp-table-widget th,
+.cm-lp-table-widget td {
+  border-bottom: 1px solid var(--ash);
+  padding: 0.4em 1.2em 0.4em 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cm-lp-table-widget th {
+  font-weight: 600;
+  border-bottom-color: var(--ash-strong);
+}
+
+.cm-lp-table-widget code {
+  font-family: var(--type-mono);
+  font-size: 0.88em;
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+
 .hearth-editor .cm-line.cm-lp-fence {
   font-family: var(--type-mono);
   font-size: 0.86em;
@@ -507,9 +553,35 @@ button {
   margin-top: 1.3em;
 }
 
-.prose-hearth h4 {
+/* The agent brief (Meetings → Agent brief): a card of short sections. */
+.prose-hearth.brief-body {
+  font-size: 1rem;
+}
+
+.prose-hearth.brief-body h2 {
+  font-size: 1.2em;
+  margin-top: 1.4em;
+}
+
+.prose-hearth.brief-body > :first-child {
+  margin-top: 0;
+}
+
+.prose-hearth h4,
+.prose-hearth h5,
+.prose-hearth h6 {
   font-weight: 600;
   margin-top: 1.2em;
+}
+
+.prose-hearth h5 {
+  font-size: 0.95em;
+}
+
+.prose-hearth h6 {
+  font-size: 0.85em;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
 }
 
 .prose-hearth a {
@@ -929,4 +1001,168 @@ button {
   .dictate-pill span {
     animation: none;
   }
+}
+
+/* ------------------------------------------------------- dictate voice notes */
+/* Hearth Dictate on a phone: one big round record button, the coal's glow behind it, and a
+   sound wave that follows the microphone while it records. */
+
+.voice-record {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 999px;
+  color: var(--paper-raised);
+  background: radial-gradient(circle at 50% 35%, var(--ember), var(--ember-strong));
+  box-shadow:
+    0 0 0 10px color-mix(in oklab, var(--ember) 14%, transparent),
+    0 18px 36px -12px rgb(70 34 12 / 0.55);
+  transition: transform 120ms ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.voice-record:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.voice-record:disabled {
+  opacity: 0.5;
+}
+
+.voice-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 4rem;
+}
+
+.voice-wave span {
+  width: 4px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--ember);
+  transform: scaleY(0.08);
+  transform-origin: center;
+  transition: transform 90ms linear;
+}
+
+.voice-words-chevron {
+  transform: rotate(90deg);
+}
+
+details[open] > summary .voice-words-chevron {
+  transform: rotate(-90deg);
+}
+
+details[data-testid="voice-words"] > summary {
+  list-style: none;
+}
+
+details[data-testid="voice-words"] > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* ---------------------------------------------------------- live task lists (`tasks` blocks) */
+
+.task-query {
+  border: 1px solid var(--ash);
+  border-radius: 10px;
+  background: var(--paper-raised);
+  padding: 0.35em 0.9em;
+  font-family: var(--type-ui);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Two classes: the reading view's `.prose-hearth ul` would otherwise indent it. */
+.task-query .task-query-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.task-query-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  padding: 0.4em 0;
+}
+
+.task-query-row + .task-query-row {
+  margin-top: 0;
+  border-top: 1px solid color-mix(in oklab, var(--ash) 60%, transparent);
+}
+
+.task-query input[type="checkbox"] {
+  accent-color: var(--ember);
+  transform: translateY(0.12em);
+  flex-shrink: 0;
+}
+
+.task-query a,
+.prose-hearth .task-query a {
+  color: var(--ink);
+  text-decoration: none;
+  min-width: 0;
+  flex: 1;
+}
+
+.task-query a:hover {
+  color: var(--ember-strong);
+}
+
+.task-query-row[data-done] a {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+}
+
+.task-query-chip {
+  font-size: 0.8em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.task-query-late {
+  color: var(--ember-strong);
+}
+
+.task-query-note,
+.task-query-empty {
+  margin: 0.35em 0;
+  color: var(--ink-faint);
+  font-size: 0.88em;
+}
+
+.task-query-note {
+  color: var(--ember-strong);
+}
+
+.cm-lp-task-list {
+  position: relative;
+  padding: 0.3em 2px 0.5em 6px;
+}
+
+.cm-lp-task-list-edit {
+  position: absolute;
+  top: 0.7em;
+  right: 0.8em;
+  font-family: var(--type-ui);
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.cm-lp-task-list:hover .cm-lp-task-list-edit,
+.cm-lp-task-list-edit:focus-visible {
+  opacity: 1;
+}
+
+.cm-lp-task-list-edit:hover {
+  color: var(--ember-strong);
 }

@@ -24,6 +24,18 @@ export const meetingsRoutes: RouteObject[] = [
     lazy: async () => ({ Component: (await import('./AskMeetings')).default }),
   },
   {
+    path: 'brief',
+    lazy: async () => ({ Component: (await import('./AgentBrief')).default }),
+  },
+  {
+    path: 'import',
+    lazy: async () => ({ Component: (await import('./ImportGranola')).default }),
+  },
+  {
+    path: 'booking',
+    lazy: async () => ({ Component: (await import('./booking/BookingLinks')).default }),
+  },
+  {
     path: ':space/*',
     lazy: async () => ({ Component: (await import('./MeetingNote')).default }),
   },

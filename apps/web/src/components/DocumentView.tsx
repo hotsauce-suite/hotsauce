@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createRoot } from 'react-dom/client'
 import { Link, useBlocker, useLocation, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { docsApp } from '../apps/docs/manifest'
@@ -24,15 +25,26 @@ import { product } from '../brand/product'
 import type { LinkTarget } from '../editor/wikiLink'
 import { type DocumentHandle, GONE_WHILE_EDITING, useDocument } from '../hooks/useDocument'
 import { ImageUrls } from '../lib/assets'
-import { firstHeading, NEW_DOC_TITLE, renameTarget } from '../lib/format'
+import { firstHeading, isUntitledPath, NEW_DOC_TITLE, renameTarget } from '../lib/format'
 import { registerOpenDoc } from '../lib/openDoc'
-import { displayName, isExternalHref, isMarkdown, openExternal } from '../lib/paths'
+import {
+  boardUrl,
+  dirname,
+  displayName,
+  isBoardFile,
+  isExternalHref,
+  isMarkdown,
+  openExternal,
+} from '../lib/paths'
 import { useSession } from '../state/session'
+import { freeDocPath } from '../state/treeStore'
 import { useShell } from './AppShell'
 import { ConflictBanner, DraftBanner } from './Banners'
 import { ConflictResolver } from './ConflictResolver'
-import { type EditorBridge, MarkdownEditor } from './MarkdownEditor'
+import { FilePicker } from './FilePicker'
+import { type EditorBridge, type EditorSelectionJSON, MarkdownEditor } from './MarkdownEditor'
 import { PropertiesPanel } from './PropertiesPanel'
+import { TaskQueryList } from './TaskQueryList'
 import { type PanelToggle, type SidePanel, TopBar } from './TopBar'
 
 const ReadingView = lazy(() => import('./ReadingView'))
@@ -40,6 +52,19 @@ const HistoryPanel = lazy(() => import('./HistoryPanel'))
 
 /** How long typing must pause before the heading is re-read for the rename offer. */
 const HEADING_PAUSE_MS = 400
+/**
+ * How long typing must pause, off the heading line, before an untitled doc takes its name. Kept
+ * shorter than the idle commit, so a new doc is created under its name, never as untitled.md.
+ */
+const autoNamePauseMs = (idleCommitMs: number) => Math.min(1200, idleCommitMs / 2)
+
+/** What a doc's URL carries in history state. */
+interface DocLocationState {
+  /** Opened from "New doc". */
+  newDoc?: boolean
+  /** The cursor to restore: the doc was just auto-named, which remounts the editor. */
+  selection?: EditorSelectionJSON
+}
 
 /** A side panel a page adds next to History and Properties. */
 export interface ExtraPanel extends PanelToggle {
@@ -79,7 +104,9 @@ export function DocumentView({
   const shell = useShell()
   const location = useLocation()
   const navigate = useNavigate()
-  const isNew = (location.state as { newDoc?: boolean } | null)?.newDoc === true
+  const locationState = (location.state as DocLocationState | null) ?? {}
+  const isNew = locationState.newDoc === true
+  const [carriedSelection] = useState(() => locationState.selection)
   // Frontmatter with an id, title and created time, made once per opened doc.
   const [newDocText] = useState(() => newDoc(NEW_DOC_TITLE).text)
   const doc = useDocument(space, path, {
@@ -91,6 +118,7 @@ export function DocumentView({
   const [reading, setReading] = useState(false)
   const [panel, setPanel] = useState<SidePanel>(initialPanel)
   const editor = useRef<EditorBridge | null>(null)
+  const [picking, setPicking] = useState(false)
 
   const { refreshRecents } = session
   const opened = state.status === 'ready' && !state.isNew
@@ -99,9 +127,12 @@ export function DocumentView({
   }, [opened, space, path, refreshRecents])
 
   // Leaving the doc commits pending edits first; a conflict keeps the user here to resolve it.
+  // An untitled doc that has a heading takes its name on the way out too.
+  const autoNameOnLeave = useRef<(() => string | null) | null>(null)
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      doc.isDirty() && currentLocation.pathname !== nextLocation.pathname,
+      currentLocation.pathname !== nextLocation.pathname &&
+      (doc.isDirty() || (autoNameOnLeave.current?.() ?? null) !== null),
   )
   const { commit } = doc
   useEffect(() => registerOpenDoc(space, path, () => commit()), [space, path, commit])
@@ -110,9 +141,16 @@ export function DocumentView({
   useEffect(() => {
     if (saveError === GONE_WHILE_EDITING) session.notify(GONE_WHILE_EDITING)
   }, [saveError, session.notify])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: takeName is recreated each render.
   useEffect(() => {
     if (blocker.state !== 'blocked') return
-    void commit().then((outcome) => (outcome === 'conflict' ? blocker.reset() : blocker.proceed()))
+    void (async () => {
+      const stem = autoNameOnLeave.current?.() ?? null
+      if (stem) {
+        if ((await takeName(stem)) === 'conflict') return blocker.reset()
+      } else if ((await commit()) === 'conflict') return blocker.reset()
+      blocker.proceed()
+    })()
   }, [blocker, commit])
 
   const onReady = useCallback(
@@ -128,16 +166,32 @@ export function DocumentView({
   useEffect(() => () => images.release(), [images])
 
   const { notify, tree } = session
+  const personalSpace = session.spaces.find((s) => s.kind === 'personal')?.name ?? null
   const services = useMemo(
     () => ({
+      // A `tasks` block's live list is its own React root inside the editor's widget.
+      mountTaskList: (source: string, host: HTMLElement) => {
+        const root = createRoot(host)
+        root.render(
+          <TaskQueryList source={source} personalSpace={personalSpace} onOpen={navigate} />,
+        )
+        // Not synchronously: CodeMirror may drop the widget while React is rendering.
+        return () => queueMicrotask(() => root.unmount())
+      },
       resolveImage: (src: string) => images.resolve(src),
       openLink: (href: string) => {
+        // A Hearth Files attachment (§18.4) opens in Files.
+        if (/^\/files\//.test(href)) {
+          navigate(href)
+          return
+        }
         if (isExternalHref(href)) {
           if (!openExternal(href)) notify(`This link can’t be opened from ${product()}: ${href}`)
           return
         }
         const target = resolveRelative(path, href)
-        if (isMarkdown(target)) navigate(app.urlFor(space, target))
+        if (isBoardFile(target)) navigate(boardUrl(space, target))
+        else if (isMarkdown(target)) navigate(app.urlFor(space, target))
         else notify(`Only links to docs open here: ${href}`)
       },
       upload: async (file: File) => {
@@ -162,7 +216,7 @@ export function DocumentView({
       },
       onError: notify,
     }),
-    [space, path, app, images, navigate, notify, tree],
+    [space, path, app, images, navigate, notify, tree, personalSpace],
   )
 
   const togglePanel = (next: string) => setPanel((current) => (current === next ? null : next))
@@ -203,6 +257,7 @@ export function DocumentView({
   const [heading, setHeading] = useState<string | null>(null)
   const headingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { edit } = doc
+  const { idleCommitMs } = session
   const onChange = useCallback(
     (text: Text) => {
       edit(text)
@@ -211,12 +266,27 @@ export function DocumentView({
         () => setHeading(firstHeading(text.toString())),
         HEADING_PAUSE_MS,
       )
+      if (autoNameTimer.current) clearTimeout(autoNameTimer.current)
+      autoNameTimer.current = setTimeout(
+        () => void autoNameRef.current(),
+        autoNamePauseMs(idleCommitMs),
+      )
     },
-    [edit],
+    [edit, idleCommitMs],
   )
+  const autoNameTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  const autoNameRef = useRef<() => Promise<void>>(async () => {})
   useEffect(
     () => () => {
       if (headingTimer.current) clearTimeout(headingTimer.current)
+      if (autoNameTimer.current) clearTimeout(autoNameTimer.current)
     },
     [],
   )
@@ -232,24 +302,90 @@ export function DocumentView({
   const [keptName, setKeptName] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
   const renameTo = isMeeting ? null : renameTarget(path, openedHeading, heading)
+  // A doc still called untitled takes its heading's name on its own (no offer to answer).
+  const untitled = isUntitledPath(path) && !isMeeting
 
-  /** Commits, moves the file (links into it are rewritten server-side), and follows it. */
-  const renameFile = async (to: string) => {
-    setRenaming(true)
-    const outcome = await doc.commit()
-    if (outcome === 'conflict' || outcome === 'error') {
-      setRenaming(false)
-      return
+  /** The file name an untitled doc should take now, or null. Read fresh from the editor. */
+  const autoNameStem = (): string | null => {
+    if (!untitled || state.status !== 'ready' || conflict || renaming) return null
+    const target = renameTarget(path, openedHeading, firstHeading(doc.getText()))
+    if (!target || firstHeading(doc.getText()) === NEW_DOC_TITLE) return null
+    const name = target.slice(target.lastIndexOf('/') + 1, -'.md'.length)
+    return name === '' || isUntitledPath(target) ? null : name
+  }
+  autoNameOnLeave.current = autoNameStem
+
+  /**
+   * Saves an untitled doc under a free `stem.md` beside it: a doc not saved yet is created there
+   * (so `untitled.md` never enters Git), a saved one is committed and moved (links into it are
+   * rewritten server-side). The new path, or what stopped it. One at a time: the pause timer and
+   * leaving the doc can both ask, and the second waits for the first.
+   */
+  const naming = useRef<Promise<string | 'conflict' | 'error'> | null>(null)
+  const takeName = (stem: string): Promise<string | 'conflict' | 'error'> => {
+    naming.current ??= nameFile(stem).finally(() => {
+      naming.current = null
+    })
+    return naming.current
+  }
+  const nameFile = async (stem: string): Promise<string | 'conflict' | 'error'> => {
+    const dir = dirname(path)
+    // A name can be taken between picking it and saving; the second try reads the folder again.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const to = await freeDocPath(tree, space, dir, stem, { own: path, fresh: true })
+      const created = await doc.createAt(to)
+      if (created === 'taken') continue
+      if (created === 'committed') {
+        tree.refreshPaths(space, [to])
+        return to
+      }
+      if (created !== 'not-new') return created === 'conflict' ? 'conflict' : 'error'
+      const outcome = await doc.commit()
+      if (outcome === 'conflict' || outcome === 'error') return outcome
+      return moveFile(to)
     }
+    return 'error'
+  }
+
+  /** Moves the committed file; the new path, or 'error' after saying why. */
+  const moveFile = async (to: string): Promise<string | 'error'> => {
     try {
       await api.move(space, path, to)
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Couldn’t rename the file.')
-      setRenaming(false)
-      return
+      return 'error'
     }
     tree.refreshPaths(space, [path, to])
-    navigate(app.urlFor(space, to), { replace: true })
+    return to
+  }
+
+  /** The "Rename file" offer: commits, moves the file, and follows it. */
+  const renameFile = async (to: string) => {
+    setRenaming(true)
+    const outcome = await doc.commit()
+    const moved = outcome === 'conflict' || outcome === 'error' ? outcome : await moveFile(to)
+    if (moved === 'conflict' || moved === 'error') return setRenaming(false)
+    navigate(app.urlFor(space, moved), { replace: true })
+  }
+
+  // Once typing pauses with the cursor off the heading, an untitled doc takes the heading's
+  // name, and the editor comes back with the cursor where it was.
+  autoNameRef.current = async () => {
+    if (editor.current?.cursorOnHeading() ?? true) return
+    const stem = autoNameStem()
+    if (!stem) return
+    editor.current?.freeze()
+    setRenaming(true)
+    const to = await takeName(stem)
+    // Gone already (the member left while it saved): don't pull them back.
+    if (!mounted.current) return
+    if (to === 'conflict' || to === 'error') return setRenaming(false)
+    // Read after the save, which may have adopted the server's text in place.
+    const selection = editor.current?.selection()
+    navigate(app.urlFor(space, to), {
+      replace: true,
+      ...(selection ? { state: { selection } satisfies DocLocationState } : {}),
+    })
   }
 
   return (
@@ -273,8 +409,9 @@ export function DocumentView({
         beforeShare={() => doc.commit()}
         getText={() => doc.getText()}
         onOpenDrawer={shell.openDrawer}
+        {...(state.status === 'ready' && !reading ? { onAttachFile: () => setPicking(true) } : {})}
         rename={
-          renameTo && renameTo !== keptName && !conflict && !renaming
+          !untitled && renameTo && renameTo !== keptName && !conflict && !renaming
             ? {
                 to: renameTo,
                 onRename: () => void renameFile(renameTo),
@@ -284,6 +421,16 @@ export function DocumentView({
         }
       />
 
+      {picking ? (
+        <FilePicker
+          targetSpace={space}
+          onClose={() => setPicking(false)}
+          onPick={(a) => {
+            setPicking(false)
+            editor.current?.insertBlock?.(a.markdown)
+          }}
+        />
+      ) : null}
       {showConflictBanner ? (
         <ConflictBanner
           onResolve={() => {
@@ -328,6 +475,7 @@ export function DocumentView({
                   path={path}
                   readOnly={conflict !== null || renaming || readOnly}
                   autoFocus={isNew}
+                  {...(carriedSelection ? { initialSelection: carriedSelection } : {})}
                   {...(extensions ? { extensions } : {})}
                   onChange={onChange}
                   onReady={onReady}
@@ -340,6 +488,7 @@ export function DocumentView({
                 <Suspense fallback={null}>
                   <ReadingView
                     markdown={doc.getText()}
+                    personalSpace={personalSpace}
                     space={space}
                     path={path}
                     resolveImage={services.resolveImage}

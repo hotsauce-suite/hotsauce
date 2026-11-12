@@ -1,4 +1,5 @@
 import type { Authenticator, Principal } from '../auth/index.js'
+import { HearthError } from '../errors.js'
 import { TOKEN_PREFIX, type TokenStore } from './store.js'
 
 const BEARER = /^Bearer\s+(\S+)\s*$/i
@@ -29,5 +30,12 @@ export class TokenAuth implements Authenticator {
 
   principalForUser(userId: string): Promise<Principal | null> {
     return this.#inner.principalForUser(userId)
+  }
+
+  createSignInTicket(userId: string): Promise<string> {
+    if (!this.#inner.createSignInTicket) {
+      throw new HearthError('not_found', 'Signing in the Mac app is not available on this server')
+    }
+    return this.#inner.createSignInTicket(userId)
   }
 }

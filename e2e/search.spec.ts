@@ -1,12 +1,11 @@
 import type { Page } from '@playwright/test'
-import { expect, isDocUrl, test, uid } from './fixtures'
+import { expect, isDocUrl, pressCommandK, test, uid } from './fixtures'
 
 /** Opens Cmd-K from the docs shell (outside the editor, where Cmd-K inserts a link). */
 async function openCommandK(page: Page): Promise<void> {
   await page.goto('/docs')
   await expect(page.getByTestId('sidebar')).toBeVisible()
-  await page.keyboard.press('ControlOrMeta+K')
-  await expect(page.getByTestId('cmdk')).toBeVisible()
+  await pressCommandK(page)
 }
 
 /** Types `query` until a result for `title` shows; the index catches up just after the commit. */

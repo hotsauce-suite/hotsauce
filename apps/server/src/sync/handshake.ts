@@ -32,10 +32,11 @@ export async function principalFromAuthMessage(
   }
   const message = AuthMessage.safeParse(json)
   if (!message.success) return null
-  const headers = new Headers()
-  if ('token' in message.data) headers.set('authorization', `Bearer ${message.data.token}`)
-  else headers.set(DEV_USER_HEADER, message.data.devUser)
   try {
+    // Inside the try: a value that isn't a valid header (a newline in it) makes set() throw.
+    const headers = new Headers()
+    if ('token' in message.data) headers.set('authorization', `Bearer ${message.data.token}`)
+    else headers.set(DEV_USER_HEADER, message.data.devUser)
     const principal = await auth.authenticate(new Request(url, { headers }))
     // Access tokens are for /api and /mcp; a socket would keep running after a revoke.
     return principal?.via?.kind === 'token' ? null : principal

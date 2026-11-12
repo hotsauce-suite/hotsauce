@@ -151,7 +151,7 @@ describe('MeetingSocket', () => {
     await vi.waitFor(() => expect(received).toHaveLength(4))
     expect(JSON.parse(String(received[0]))).toEqual({
       type: 'auth',
-      devUser: 'morgan@example.test',
+      devUser: 'ada@example.test',
     })
     expect(received[1]).toBe('ready')
     // Both frames captured before "ready" went out after it, from the ring.

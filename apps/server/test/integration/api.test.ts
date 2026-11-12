@@ -108,6 +108,19 @@ describe('health and identity', () => {
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe('bad_request')
   })
 
+  it('createOnly saves a new file but never overwrites one', async () => {
+    const put = (content: string) =>
+      call('PUT', url('team', 'file'), {
+        as: ALICE,
+        json: { path: 'docs/only-once.md', content, createOnly: true },
+      })
+    expect((await put('# First\n')).status).toBe(200)
+    const again = await put('# Second\n')
+    expect(again.status).toBe(409)
+    expect(((await again.json()) as { error: { code: string } }).error.code).toBe('conflict')
+    expect((await services.git.readFile('team', 'docs/only-once.md'))?.content).toContain('# First')
+  })
+
   it('enforces the domain lock', async () => {
     const body = await json('GET', '/api/me', { as: 'visitor@example.com' }, 403)
     expect(body.error.code).toBe('domain_not_allowed')

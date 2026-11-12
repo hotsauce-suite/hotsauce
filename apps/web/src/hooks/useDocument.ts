@@ -50,12 +50,18 @@ export interface DocumentState {
   draft: Draft | null
 }
 
-export type CommitOutcome = 'committed' | 'noop' | 'conflict' | 'error'
+/** `taken`: a new doc's first save found a file already at its path, so nothing was written. */
+export type CommitOutcome = 'committed' | 'noop' | 'conflict' | 'error' | 'taken'
 
 export interface CommitOptions {
   /** Save version: names the commit (`Hearth-Label` trailer) and commits even without edits. */
   label?: string
   keepalive?: boolean
+  /**
+   * A doc not on the server yet is created at this path instead of its own: it took its
+   * heading's name before its first save. The caller then follows it to the new path.
+   */
+  createAt?: string
 }
 
 export interface UseDocumentOptions {
@@ -232,8 +238,12 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
       const sent = syncTitle(base.current.content, typed)
       if (sent !== typed) adopt(sent)
       const seq = editSeq.current
+      // A new doc's first save creates the file, and never replaces one someone else just made.
+      const creating = isNew.current
+      const target = (creating && commitOpts.createAt) || path
       const body: PutFileBody = {
-        path,
+        path: target,
+        ...(creating ? { createOnly: true } : {}),
         content: sent,
         ...(base.current.blobOid ? { baseBlobOid: base.current.blobOid } : {}),
         ...(commitOpts.label ? { label: commitOpts.label } : {}),
@@ -248,6 +258,16 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
         } catch (err) {
           // The draft is safe in localStorage; try again shortly.
           writeDraftNow()
+          if (
+            creating &&
+            commitOpts.createAt &&
+            err instanceof HearthApiError &&
+            err.status === 409
+          ) {
+            // The name was taken after it was picked; the caller picks another. Still unsaved.
+            setSaveState('dirty')
+            return 'taken'
+          }
           if (err instanceof HearthApiError && err.status === 404 && base.current.blobOid) {
             // Someone moved or deleted this doc while it was open here. Retrying can't help: say
             // so, keep the text in the editor and the browser, and let the member copy it.
@@ -567,6 +587,19 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
 
   const isDirty = useCallback(() => dirty.current, [])
 
+  /**
+   * Saves a doc not on the server yet under `to` instead of its own path. `not-new` when it has
+   * been saved in the meantime (an idle save got there first): the caller moves it instead.
+   */
+  const createAt = useCallback(
+    async (to: string): Promise<CommitOutcome | 'not-new'> => {
+      while (inFlight.current) await inFlight.current
+      if (!isNew.current) return 'not-new'
+      return commit({ createAt: to })
+    },
+    [commit],
+  )
+
   /** Re-reads the file and adopts it, unless there are local edits (they win, as for outside pushes). */
   const refetch = useCallback(() => refetchRef.current(), [])
 
@@ -579,6 +612,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
       isDirty,
       refetch,
       commit,
+      createAt,
       openConflict,
       resolveConflict,
       dismissConflict,
@@ -594,6 +628,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
       isDirty,
       refetch,
       commit,
+      createAt,
       openConflict,
       resolveConflict,
       dismissConflict,

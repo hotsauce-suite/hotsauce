@@ -1,10 +1,17 @@
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
 import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
+import { bookingHandlers } from './bookingHandlers'
+import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
+import { briefHandlers, FakeBriefs } from './briefHandlers'
 import { dictationHandlers } from './dictationHandlers'
 import { FakeMeetings } from './fakeMeetings'
 import { FakeRepo, type FakeUser } from './fakeRepo'
 import { meetingHandlers } from './meetingHandlers'
+import { FakeNotes, noteHandlers } from './noteHandlers'
+import { peopleHandlers } from './peopleHandlers'
 import { seed, seedPersonal } from './seed'
+import { FakeTasks, taskHandlers } from './taskHandlers'
+import { todayHandlers } from './todayHandlers'
 
 const ALLOWED_DOMAIN = 'example.test'
 const MAX_ASSET_BYTES = 10 * 1024 * 1024
@@ -35,6 +42,8 @@ const error = (status: number, code: string, message: string) =>
 export interface MockApi {
   repo: FakeRepo
   meetings: FakeMeetings
+  tasks: FakeTasks
+  notes: FakeNotes
   handlers: AnyHandler[]
   /** Pushes a server event to every authenticated socket, like the real broadcaster. */
   broadcast: (event: ServerEvent) => void
@@ -48,8 +57,11 @@ const socket = ws.link(new URL('/ws', window.location.origin).href.replace(/^htt
 function createHandlers(
   repo: FakeRepo,
   meetings: FakeMeetings,
+  tasks: FakeTasks,
+  notes: FakeNotes,
   latencyMs: number,
-): Omit<MockApi, 'repo' | 'meetings'> {
+  seeded: boolean,
+): Omit<MockApi, 'repo' | 'meetings' | 'tasks' | 'notes'> {
   const ready = new Set<{ send: (data: string) => void }>()
 
   const broadcast = (event: ServerEvent) => {
@@ -63,7 +75,7 @@ function createHandlers(
     const email = request.headers.get('x-hearth-dev-user')?.trim().toLowerCase()
     const bearer = request.headers.get('authorization')
     if (!email && !bearer) return error(401, 'unauthorized', 'Sign in to continue')
-    const user = userFromEmail(email ?? `morgan@${ALLOWED_DOMAIN}`)
+    const user = userFromEmail(email ?? `ada@${ALLOWED_DOMAIN}`)
     if (!user.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
       return error(403, 'domain_not_allowed', `Only ${ALLOWED_DOMAIN} accounts are allowed`)
     }
@@ -251,6 +263,10 @@ function createHandlers(
           baseBlobOid?: string
           label?: string
           message?: string
+          createOnly?: boolean
+        }
+        if (body.createOnly && repo.read(space, body.path)) {
+          return error(409, 'conflict', `${body.path} already exists`)
         }
         const result = repo.put(space, body, authorOf(user))
         if (result.status === 'conflict') {
@@ -443,6 +459,10 @@ function createHandlers(
     }),
   ]
 
+  // Before the meetings routes: ticking a meeting's action item is recorded here first.
+  handlers.push(...taskHandlers({ tasks, latencyMs, principal, broadcast, seeded }))
+  handlers.push(...noteHandlers({ notes, latencyMs, principal, broadcast, seeded }))
+
   const meetingRoutes = meetingHandlers({
     repo,
     meetings,
@@ -453,6 +473,25 @@ function createHandlers(
   })
   handlers.push(...meetingRoutes.handlers)
   handlers.push(...dictationHandlers({ principal }))
+  handlers.push(...todayHandlers())
+  handlers.push(...peopleHandlers())
+  handlers.push(...bookingHandlers())
+  handlers.push(
+    ...briefHandlers({
+      briefs: new FakeBriefs(),
+      latencyMs,
+      principal,
+      meetingCount: (user) => meetings.list(['team', user.handle], {}).length,
+    }),
+  )
+  handlers.push(
+    ...briefcastHandlers({
+      briefcasts: new FakeBriefcasts(),
+      latencyMs,
+      principal,
+      meetingCount: (user) => meetings.list(['team', user.handle], {}).length,
+    }),
+  )
 
   return { handlers, broadcast, dropMeetingSockets: meetingRoutes.dropSockets }
 }
@@ -461,5 +500,14 @@ export function createMockApi(opts: { latencyMs?: number; seeded?: boolean } = {
   const repo = new FakeRepo()
   if (opts.seeded ?? true) seed(repo)
   const meetings = new FakeMeetings(repo)
-  return { repo, meetings, ...createHandlers(repo, meetings, opts.latencyMs ?? 0) }
+  const tasks = new FakeTasks(repo)
+  const notes = new FakeNotes()
+  const seeded = opts.seeded ?? true
+  return {
+    repo,
+    meetings,
+    tasks,
+    notes,
+    ...createHandlers(repo, meetings, tasks, notes, opts.latencyMs ?? 0, seeded),
+  }
 }

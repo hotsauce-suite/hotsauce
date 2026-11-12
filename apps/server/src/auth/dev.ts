@@ -2,9 +2,9 @@ import { z } from 'zod'
 import {
   type Authenticator,
   domainNotAllowed,
-  isAllowedEmailDomain,
   nameFromEmail,
   type Principal,
+  signInAllowance,
   toPrincipal,
 } from './principal.js'
 
@@ -16,10 +16,16 @@ const DEV_USER_ID = 'dev:'
 /** Trusts a header naming the user. Only wired when AUTH_MODE=dev, which config refuses in production. */
 export class DevAuth implements Authenticator {
   readonly #allowedDomains: readonly string[]
+  readonly #allowedEmails: readonly string[]
   readonly #adminEmails: readonly string[]
 
-  constructor(opts: { allowedDomains: readonly string[]; adminEmails: readonly string[] }) {
+  constructor(opts: {
+    allowedDomains: readonly string[]
+    allowedEmails?: readonly string[]
+    adminEmails: readonly string[]
+  }) {
     this.#allowedDomains = opts.allowedDomains
+    this.#allowedEmails = opts.allowedEmails ?? []
     this.#adminEmails = opts.adminEmails
   }
 
@@ -34,15 +40,20 @@ export class DevAuth implements Authenticator {
       : null
   }
 
+  /** Dev sign-in has no secret: the ticket is the dev user id, which the web app signs in as. */
+  async createSignInTicket(userId: string): Promise<string> {
+    return userId
+  }
+
   #principalFor(header: string | null | undefined): Principal | null {
     const email = header?.trim().toLowerCase()
     if (!email || !Email.safeParse(email).success) return null
-    if (!isAllowedEmailDomain(email, this.#allowedDomains)) {
-      throw domainNotAllowed(email, this.#allowedDomains)
-    }
+    const allowance = signInAllowance(email, this.#allowedDomains, this.#allowedEmails)
+    if (allowance === null) throw domainNotAllowed(email, this.#allowedDomains)
     return toPrincipal(
       { userId: `${DEV_USER_ID}${email}`, email, name: nameFromEmail(email) },
       this.#adminEmails,
+      { invited: allowance === 'invited' },
     )
   }
 }

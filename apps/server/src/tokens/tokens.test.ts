@@ -25,6 +25,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  await store.idle()
   await rm(dir, { recursive: true, force: true })
 })
 
@@ -52,6 +53,7 @@ describe('TokenStore', () => {
     await reopened.revoke(alice, created.id)
     expect(await reopened.verify(created.token)).toBeNull()
     expect(await new TokenStore(dir).verify(created.token)).toBeNull()
+    await reopened.idle()
   })
 
   it('lists and revokes only the member’s own tokens', async () => {

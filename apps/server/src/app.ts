@@ -7,20 +7,36 @@ import {
   assetRoutes,
   authenticate,
   authorizeSpace,
+  boardRoutes,
+  bookingRoutes,
+  briefcastRoutes,
+  briefRoutes,
   calendarRoutes,
   clipRoutes,
   conflictRoutes,
+  desktopRoutes,
   dictationRoutes,
+  driveRoutes,
+  feedbackRoutes,
   fileRoutes,
+  formFillRoutes,
+  formRoutes,
   handleError,
   historyRoutes,
   limitBody,
   meetingRoutes,
+  noteRoutes,
   orgPublicRoutes,
+  pageRoutes,
+  peopleRoutes,
+  publicBookingRoutes,
   publicRoutes,
   searchRoutes,
   setupRoutes,
+  shareRoutes,
+  taskRoutes,
   testRoutes,
+  todayRoutes,
   tokenRoutes,
 } from './api/index.js'
 import { HearthError } from './errors.js'
@@ -39,6 +55,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', publicRoutes(deps))
     .route('/api', orgPublicRoutes(deps))
     .route('/api', setupRoutes(deps))
+    .route('/api', publicBookingRoutes(deps))
     .route('/api', adminOrgRoutes(deps))
     .route('/api', accountRoutes(deps))
     .route('/api', searchRoutes(deps))
@@ -51,6 +68,21 @@ export function createApp(deps: AppDeps) {
     .route('/api', tokenRoutes(deps))
     .route('/api', dictationRoutes(deps))
     .route('/api', clipRoutes(deps))
+    .route('/api', desktopRoutes(deps))
+    .route('/api', taskRoutes(deps))
+    .route('/api', noteRoutes(deps))
+    .route('/api', briefRoutes(deps))
+    .route('/api', feedbackRoutes(deps))
+    .route('/api', boardRoutes(deps))
+    .route('/api', todayRoutes(deps))
+    .route('/api', peopleRoutes(deps))
+    .route('/api', bookingRoutes(deps))
+    .route('/api', driveRoutes(deps))
+    .route('/api', briefcastRoutes(deps))
+    .route('/api', shareRoutes(deps))
+    .route('/api', pageRoutes(deps))
+    .route('/api', formRoutes(deps))
+    .route('/api', formFillRoutes(deps))
   // e2e hooks (ARCHITECTURE §7.8); never mounted outside NODE_ENV=test.
   if (deps.config.NODE_ENV === 'test') app.route('/api', testRoutes(deps))
   // The MCP endpoint for agents (ARCHITECTURE §8.2): same authentication and body limit as /api.

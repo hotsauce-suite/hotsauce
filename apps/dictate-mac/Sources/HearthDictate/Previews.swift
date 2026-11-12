@@ -34,9 +34,9 @@ enum Previews {
         let now = Date()
         let samples: [(String, String, String, Double, Int)] = [
             ("Slack", "com.tinyspeck.slackmacgap", "Can we push the Acme report review to Wednesday? I want Dana to see the SSO section first", 0.02, 7_200),
-            ("Mail", "com.apple.mail", "Hi Priya,\n\nThanks for the call today. As discussed, we’ll send the pilot agreement by Friday and schedule onboarding for the week after.\n\nBest,\nMorgan", 0.3, 16_500),
+            ("Mail", "com.apple.mail", "Hi Priya,\n\nThanks for the call today. As discussed, we’ll send the pilot agreement by Friday and schedule onboarding for the week after.\n\nBest,\nAda", 0.3, 16_500),
             ("Cursor", "com.todesktop.230313mzl4w4u92", "add a retry with exponential backoff around the deepgram request and log only the status code", 1.1, 6_100),
-            ("Slack", "com.tinyspeck.slackmacgap", "Shipping Hearth Dictate to the team today 🎉", 2.4, 3_000),
+            ("Slack", "com.tinyspeck.slackmacgap", "Shipping Dictate to the team today 🎉", 2.4, 3_000),
             ("Notes", "com.apple.Notes", "- Call the lab about sample intake\n- Draft the Q1 hiring plan\n- Review Granola notes from Monday", 3.2, 9_800),
             ("Messages", "com.apple.MobileSMS", "Running ten minutes late, start without me", 5.5, 2_600),
             ("Mail", "com.apple.mail", "Following up on the Acme biosafety audit: the report is attached and the open items are on page four.", 8.0, 8_900),

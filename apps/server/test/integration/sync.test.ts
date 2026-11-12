@@ -208,17 +208,18 @@ describe('Broadcaster', () => {
 
 describe('Poller', () => {
   it('never overlaps passes, keeps going after a failing space, and stops cleanly', async () => {
-    let running = 0
-    let maxRunning = 0
+    const running = new Set<string>()
+    let overlapped = false
     const synced: string[] = []
     const log: string[] = []
     const poller = new Poller({
       syncer: {
         async syncSpace(space) {
-          running++
-          maxRunning = Math.max(maxRunning, running)
+          // The same space twice at once would mean two passes overlapping.
+          if (running.has(space)) overlapped = true
+          running.add(space)
           await new Promise((resolve) => setTimeout(resolve, 15))
-          running--
+          running.delete(space)
           if (space === 'broken') throw new Error('host down')
           synced.push(space)
         },
@@ -235,8 +236,35 @@ describe('Poller', () => {
     await new Promise((resolve) => setTimeout(resolve, 30))
 
     expect(synced.length).toBe(after)
-    expect(maxRunning).toBe(1)
+    expect(overlapped).toBe(false)
     expect(log[0]).toBe('sync of broken failed: host down')
+  })
+
+  it('syncs a pass’s spaces a few at a time, so many members don’t slow every space', async () => {
+    let running = 0
+    let maxRunning = 0
+    const synced: string[] = []
+    const spaces = Array.from({ length: 20 }, (_, i) => `space-${i}`)
+    const poller = new Poller({
+      syncer: {
+        async syncSpace(space) {
+          running++
+          maxRunning = Math.max(maxRunning, running)
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          running--
+          synced.push(space)
+        },
+      },
+      spaces: () => spaces,
+      intervalMs: 60_000,
+      concurrency: 4,
+    })
+    const started = Date.now()
+    await poller.pollOnce()
+    expect(synced.sort()).toEqual([...spaces].sort())
+    expect(maxRunning).toBe(4)
+    // Five rounds of 20 ms, not twenty.
+    expect(Date.now() - started).toBeLessThan(300)
   })
 })
 

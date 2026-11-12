@@ -9,6 +9,7 @@ import { loadConfig } from './config.js'
 import { OrgStore } from './org/store.js'
 import { createServices, loadEnvFile } from './services.js'
 import { rebuildRegistryFromClones } from './spaces/index.js'
+import { ensurePushKeys, openStateMirror } from './state/index.js'
 import { attachWebSocket, Poller } from './sync/index.js'
 
 // apps/server/{src,dist}/main.{ts,js} → apps/web/dist, whatever the working directory.
@@ -16,9 +17,20 @@ const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url))
 
 async function main(): Promise<void> {
   loadEnvFile()
+  const dataDir = path.resolve(process.env.DATA_DIR ?? './.data')
+  const setupPassword = process.env.HOTSAUCE_SETUP_TOKEN?.trim()
+  if (setupPassword !== undefined && setupPassword !== '' && setupPassword.length < 12) {
+    console.error(
+      'HOTSAUCE_SETUP_TOKEN is too short: use at least 12 characters nobody would guess.',
+    )
+    process.exit(1)
+  }
+  // On a host whose disk doesn't survive a restart (Cloudflare), put back the files that can't be
+  // rebuilt before anything opens them (docs/PLAN-cloudflare-deploy.md). Off without STATE_URL.
+  const mirror = await openStateMirror(process.env, dataDir)
   // The organization's saved settings sit under the real environment, which always wins.
   const org = new OrgStore({
-    dataDir: path.resolve(process.env.DATA_DIR ?? './.data'),
+    dataDir,
     ...(process.env.HOTSAUCE_MASTER_KEY ? { masterKey: process.env.HOTSAUCE_MASTER_KEY } : {}),
   })
   const lost = org.undecryptable().filter((name) => !process.env[name])
@@ -30,8 +42,21 @@ async function main(): Promise<void> {
         'again, or set these keys in the environment, then start the server.',
     )
   }
+  const saved = org.toEnv()
+  // Web push needs a key pair; an instance that wasn't given one keeps a generated pair on its
+  // data volume, so reminders work without a setup step. A pair in the environment wins.
+  const pushKeys =
+    process.env.NODE_ENV === 'production' &&
+    !process.env.VAPID_PUBLIC_KEY &&
+    !process.env.VAPID_PRIVATE_KEY &&
+    !saved.VAPID_PUBLIC_KEY
+      ? ensurePushKeys(dataDir)
+      : null
   const config = loadConfig({
-    ...org.toEnv(),
+    ...saved,
+    ...(pushKeys
+      ? { VAPID_PUBLIC_KEY: pushKeys.publicKey, VAPID_PRIVATE_KEY: pushKeys.privateKey }
+      : {}),
     HOTSAUCE_SETUP_PENDING: org.settings().setupComplete ? 'false' : 'true',
     ...process.env,
   })
@@ -50,7 +75,10 @@ async function main(): Promise<void> {
   const clipsResumed = services.clips.recover()
   if (clipsResumed > 0) console.log(`Resuming ${clipsResumed} clip job(s)`)
   meetings.reminders?.start()
+  services.tasks.reminders?.start()
   meetings.calendarSync?.start()
+  services.briefs.start()
+  services.briefcasts.start()
 
   const app = new Hono()
   // Once shutdown starts, requests on still-open connections are refused (the client retries
@@ -69,6 +97,7 @@ async function main(): Promise<void> {
     broadcaster,
     meetings.sockets,
     services.dictationSockets,
+    services.boardRooms,
   )
   // Saving the organization's settings restarts the server so they take effect everywhere: a
   // graceful stop, then exit 75 so Fly, Docker or systemd starts it again (see fly.toml).
@@ -86,9 +115,12 @@ async function main(): Promise<void> {
   })
   const server = serve({ fetch: app.fetch, port: config.PORT }, (info) => {
     if (config.AUTH_MODE === 'setup') {
-      const link = `${config.PUBLIC_URL.replace(/\/+$/, '')}/setup#token=${org.setupToken()}`
+      const base = config.PUBLIC_URL.replace(/\/+$/, '')
+      // A setup password from the environment was chosen by the deployer: never print it.
       console.log(
-        `\n  ${config.PRODUCT_NAME} isn't set up yet. Open this link to set it up (it works once):\n\n    ${link}\n`,
+        org.setupTokenFromEnv()
+          ? `\n  ${config.PRODUCT_NAME} isn't set up yet. Open ${base}/setup and enter the setup password you chose.\n`
+          : `\n  ${config.PRODUCT_NAME} isn't set up yet. Open this link to set it up (it works once):\n\n    ${base}/setup#token=${org.setupToken()}\n`,
       )
     }
     console.log(
@@ -99,6 +131,7 @@ async function main(): Promise<void> {
   injectWebSocket(server)
   broadcaster.start()
   meetings.sockets.start()
+  services.boardRooms.start()
   poller.start()
 
   // Fly sends SIGTERM and kills after kill_timeout (30 s). Stop taking new connections first,
@@ -110,8 +143,12 @@ async function main(): Promise<void> {
     await poller.stop()
     broadcaster.stop()
     meetings.sockets.stop()
+    services.boardRooms.stop()
     await meetings.sessions.close()
     await meetings.reminders?.close()
+    await services.tasks.reminders?.close()
+    await services.briefs.close()
+    await services.briefcasts.close()
     await meetings.calendarSync?.close()
     // Requests that were mid-flight when shutdown began may queue a write after the first
     // drain; a second pass, a moment later, waits for those too.
@@ -123,6 +160,8 @@ async function main(): Promise<void> {
     services.clips.close()
     services.clips.store.close()
     meetings.calendarSync?.cache.close()
+    // Last, once every store is closed: push what changed since the mirror's last pass (R5).
+    await mirror?.close()
     process.exit(exitCode)
   }
   process.once('SIGINT', () => void shutdown())
@@ -144,11 +183,15 @@ function serveWebApp(app: Hono, dir: string, productName: string): void {
   // or rebases its URLs. Scripts aren't restricted here: Clerk loads its own from its domain.
   app.use('*', async (c, next) => {
     await next()
-    c.header(
-      'Content-Security-Policy',
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
-    )
-    c.header('X-Frame-Options', 'DENY')
+    // A route that set its own policy keeps it (Hearth Files' previews frame a PDF); every other
+    // response gets this one. Framing is denied unless the route said otherwise.
+    if (!c.res.headers.has('Content-Security-Policy')) {
+      c.header(
+        'Content-Security-Policy',
+        "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+      )
+    }
+    if (!c.res.headers.has('X-Frame-Options')) c.header('X-Frame-Options', 'DENY')
     c.header('X-Content-Type-Options', 'nosniff')
     c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
   })
@@ -200,7 +243,8 @@ function serveWebApp(app: Hono, dir: string, productName: string): void {
       onFound: (_file, c) => {
         // Vite fingerprints everything under assets/; the rest (index.html, the service worker)
         // must be revalidated so a deploy shows up.
-        const immutable = c.req.path.startsWith('/assets/')
+        // Excalidraw's fonts carry a content hash in their names too.
+        const immutable = c.req.path.startsWith('/assets/') || c.req.path.startsWith('/excalidraw/')
         c.header('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-cache')
       },
     }),
@@ -209,6 +253,7 @@ function serveWebApp(app: Hono, dir: string, productName: string): void {
   // app shell served in its place would be cached as that chunk by the service worker.
   app.get('/assets/*', (c) => c.notFound())
   app.get('/downloads/*', (c) => c.notFound())
+  app.get('/excalidraw/*', (c) => c.notFound())
   app.get('*', sendShell)
 }
 

@@ -1,0 +1,121 @@
+/* Hearth Notes (ARCHITECTURE §14.5): card colors and the board's columns. Tokens only; each
+   color is mixed with the paper so cards sit in Hearth's warm palette in both themes. */
+
+:root {
+  --note-red: #f6b3a8;
+  --note-orange: #f3b183;
+  --note-yellow: #fbefa6;
+  --note-green: #d9efc6;
+  --note-teal: #b9dccf;
+  --note-blue: #cfe1ea;
+  --note-darkblue: #adc8da;
+  --note-purple: #d6c3dd;
+  --note-pink: #f4d9d6;
+  --note-brown: #e6dccb;
+  --note-gray: #e6e3df;
+  --note-mix: 78%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --note-red: #7a2a2b;
+    --note-orange: #73391c;
+    --note-yellow: #6d5212;
+    --note-green: #2f5236;
+    --note-teal: #1d5550;
+    --note-blue: #2a5466;
+    --note-darkblue: #2b3f55;
+    --note-purple: #4a3459;
+    --note-pink: #693b48;
+    --note-brown: #4d4136;
+    --note-gray: #3a3633;
+    --note-mix: 70%;
+  }
+}
+
+:root[data-theme="dark"] {
+  --note-red: #7a2a2b;
+  --note-orange: #73391c;
+  --note-yellow: #6d5212;
+  --note-green: #2f5236;
+  --note-teal: #1d5550;
+  --note-blue: #2a5466;
+  --note-darkblue: #2b3f55;
+  --note-purple: #4a3459;
+  --note-pink: #693b48;
+  --note-brown: #4d4136;
+  --note-gray: #3a3633;
+  --note-mix: 70%;
+}
+
+.note-surface {
+  background: var(--paper-raised);
+  border-color: var(--ash);
+}
+.note-surface[data-color] {
+  background: color-mix(in oklab, var(--note-color) var(--note-mix), var(--paper-raised));
+  border-color: color-mix(in oklab, var(--note-color) 80%, var(--ink) 8%);
+}
+.note-surface[data-color="red"] {
+  --note-color: var(--note-red);
+}
+.note-surface[data-color="orange"] {
+  --note-color: var(--note-orange);
+}
+.note-surface[data-color="yellow"] {
+  --note-color: var(--note-yellow);
+}
+.note-surface[data-color="green"] {
+  --note-color: var(--note-green);
+}
+.note-surface[data-color="teal"] {
+  --note-color: var(--note-teal);
+}
+.note-surface[data-color="blue"] {
+  --note-color: var(--note-blue);
+}
+.note-surface[data-color="darkblue"] {
+  --note-color: var(--note-darkblue);
+}
+.note-surface[data-color="purple"] {
+  --note-color: var(--note-purple);
+}
+.note-surface[data-color="pink"] {
+  --note-color: var(--note-pink);
+}
+.note-surface[data-color="brown"] {
+  --note-color: var(--note-brown);
+}
+.note-surface[data-color="gray"] {
+  --note-color: var(--note-gray);
+}
+
+/* The board: columns filled left to right, row by row (Board.tsx deals the cards). */
+.notes-board {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+.notes-col {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+@media (max-width: 30rem) {
+  .notes-board,
+  .notes-col {
+    gap: 0.625rem;
+  }
+}
+
+.note-card:hover .note-card-tools,
+.note-card:focus-within .note-card-tools {
+  opacity: 1;
+}
+@media (hover: none) {
+  .note-card-tools {
+    opacity: 1;
+  }
+}

@@ -17,8 +17,8 @@ async function rejection(promise: Promise<unknown>): Promise<HearthApiError> {
 describe('api client', () => {
   it('sends the auth headers on every request', async () => {
     const me = await api.me()
-    expect(me.principal.email).toBe('morgan@example.test')
-    expect(me.spaces.map((s) => s.name)).toEqual(['team', 'morgan'])
+    expect(me.principal.email).toBe('ada@example.test')
+    expect(me.spaces.map((s) => s.name)).toEqual(['team', 'ada'])
   })
 
   it('maps the server error body to code, message and status', async () => {

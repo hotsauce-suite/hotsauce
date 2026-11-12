@@ -16,6 +16,7 @@ export interface OrgSettings {
   orgName: string
   productName: string
   allowedDomains: string[]
+  allowedEmails: string[]
   adminEmails: string[]
   clerkPublishableKey: string
   hostKind: 'local' | 'github'
@@ -53,11 +54,14 @@ export interface Brand {
 export interface OrgState {
   settings: OrgSettings
   secrets: Record<SecretName, SecretStatus>
+  /** 'cloudflare' when the server's disk is temporary: repositories in GitHub, video in R2. */
+  platform?: 'server' | 'cloudflare'
   lockedByEnv: Partial<Record<keyof OrgSettings, boolean>>
   effective: {
     orgName: string
     productName: string
     allowedDomains: string[]
+    allowedEmails: string[]
     adminEmails: string[]
     hostKind: string
     ai: boolean
@@ -72,9 +76,13 @@ export interface OrgState {
 }
 
 export type SettingsPatch = Partial<
-  Omit<OrgSettings, 'allowedDomains' | 'adminEmails' | 'setupComplete' | 'completedAt'>
+  Omit<
+    OrgSettings,
+    'allowedDomains' | 'allowedEmails' | 'adminEmails' | 'setupComplete' | 'completedAt'
+  >
 > & {
   allowedDomains?: string | string[]
+  allowedEmails?: string | string[]
   adminEmails?: string | string[]
   secrets?: Partial<Record<SecretName, string>> | undefined
   addStepDone?: string

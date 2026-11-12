@@ -1,7 +1,13 @@
 import { extractLinks } from '@hearth/format'
 import { HearthError } from '../../errors.js'
 import type { LLM, LLMUsage } from '../llm/types.js'
-import { buildEnhancePrompt, type EnhanceInput } from './prompt.js'
+import {
+  buildEnhancePrompt,
+  type EnhanceInput,
+  SPEAKERS_LINE,
+  TITLE_LINE,
+  unnamedSpeakers,
+} from './prompt.js'
 
 /** Where raw-notes lines the model left out go, so the member's words are never lost. */
 export const MISSING_NOTES_HEADING = '## More of your notes'
@@ -16,21 +22,82 @@ export class Enhancer {
     this.model = opts.model
   }
 
-  async enhance(input: EnhanceInput): Promise<{ markdown: string; usage: LLMUsage }> {
+  /**
+   * `title` is set when the input asked for one (`nameIt`) and the model gave one;
+   * `speakerGuesses` maps unnamed speakers to attendee names the model thinks they are.
+   */
+  async enhance(input: EnhanceInput): Promise<{
+    markdown: string
+    usage: LLMUsage
+    title?: string
+    speakerGuesses?: Record<string, string>
+  }> {
     const { system, user } = buildEnhancePrompt(input)
     const { text, usage } = await this.#llm.complete({
       model: this.model,
       system,
       messages: [{ role: 'user', content: user }],
     })
-    const cleaned = cleanModelOutput(text)
+    // A fence or a stray heading would hide the Title and Speakers lines, so clean first; the
+    // model may write the two lines in either order.
+    let rest = cleanModelOutput(text)
+    let newTitle: string | undefined
+    let guesses: Record<string, string> = {}
+    const labels = unnamedSpeakers(input.transcript)
+    for (let i = 0; i < 2; i++) {
+      if (input.nameIt && newTitle === undefined && TITLE_LINE.test(firstLine(rest))) {
+        const named = splitTitle(rest)
+        newTitle = named.title
+        rest = named.rest
+      } else if (SPEAKERS_LINE.test(firstLine(rest))) {
+        const who = splitSpeakers(rest, labels, input.attendees)
+        guesses = who.guesses
+        rest = who.rest
+      }
+    }
+    const cleaned = cleanModelOutput(rest)
     if (cleaned === '') throw new HearthError('llm_error', 'Claude returned an empty note')
     const body = withAllRawLines(cleaned, input.rawNotes)
+    const title = newTitle ?? input.title
     return {
-      markdown: withoutOutsideImages(`# ${input.title}\n\n${body}\n`, input.rawNotes),
+      markdown: withoutOutsideImages(`# ${title}\n\n${body}\n`, input.rawNotes),
       usage,
+      ...(newTitle ? { title: newTitle } : {}),
+      ...(Object.keys(guesses).length > 0 ? { speakerGuesses: guesses } : {}),
     }
   }
+}
+
+function firstLine(text: string): string {
+  return text.replace(/\r\n?/g, '\n').trimStart().split('\n')[0] ?? ''
+}
+
+/**
+ * The `Speakers:` line a model asked who's who puts before the body, read into guesses, and the
+ * text after it. A guess counts only for a label still in the transcript and a name on the
+ * attendee list (as its display name, the part before ` <email>`), so the transcript's speech
+ * can't put an arbitrary name on a person. No such line leaves the text as it was.
+ */
+export function splitSpeakers(
+  text: string,
+  labels: string[],
+  attendees: string[],
+): { guesses: Record<string, string>; rest: string } {
+  const lines = text.replace(/\r\n?/g, '\n').trimStart().split('\n')
+  const match = SPEAKERS_LINE.exec(lines[0] ?? '')
+  if (!match) return { guesses: {}, rest: text }
+  const names = new Map<string, string>()
+  for (const a of attendees) {
+    const name = a.replace(/\s*<[^>]*>\s*$/, '').trim()
+    if (name && !name.includes('@')) names.set(name.toLowerCase(), name)
+  }
+  const guesses: Record<string, string> = {}
+  for (const pair of (match[1] ?? '').split(';')) {
+    const [label, guess] = pair.split('=').map((p) => p.trim())
+    const name = names.get((guess ?? '').replace(/^["“']|["”']$/g, '').toLowerCase())
+    if (label && labels.includes(label) && name) guesses[label] = name
+  }
+  return { guesses, rest: lines.slice(1).join('\n') }
 }
 
 /**
@@ -86,6 +153,26 @@ function imgIsOutside(tag: string): boolean {
  */
 function isOutside(href: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//') || href.includes('&')
+}
+
+/**
+ * The `Title:` line a model asked to name the note puts first, and the text after it. The title
+ * is one plain line (no heading marks, quotes or trailing dot), at most 120 characters; a
+ * missing or empty one leaves the text as it was.
+ */
+export function splitTitle(text: string): { title: string | undefined; rest: string } {
+  const lines = text.replace(/\r\n?/g, '\n').trimStart().split('\n')
+  const match = TITLE_LINE.exec(lines[0] ?? '')
+  if (!match) return { title: undefined, rest: text }
+  const title = (match[1] ?? '')
+    .replace(/^[#*_\s]+|[*_\s]+$/g, '')
+    .replace(/^["“'‘]+|["”'’]+$/g, '')
+    .replace(/\.$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120)
+    .trim()
+  return { title: title || undefined, rest: lines.slice(1).join('\n') }
 }
 
 /**

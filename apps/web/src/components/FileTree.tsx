@@ -16,6 +16,7 @@ import {
   dirname,
   displayName,
   docUrl,
+  IMPORT_ACCEPT,
   isMarkdown,
   joinPath,
 } from '../lib/paths'
@@ -86,6 +87,26 @@ export function FileTree({ space, activePath }: { space: string; activePath: str
   const newDoc = async (dir: string) => {
     const path = await untitledDocPath(tree, space, dir)
     navigate(docUrl(space, path), { state: { newDoc: true } })
+  }
+
+  // Import: a hidden file picker, aimed at the folder the member chose.
+  const importInput = useRef<HTMLInputElement>(null)
+  const importDir = useRef(DOCS_ROOT)
+  const chooseImport = (dir: string) => {
+    importDir.current = dir
+    importInput.current?.click()
+  }
+  const importChosen = async (files: File[]) => {
+    if (files.length === 0) return
+    const dir = importDir.current
+    notify(files.length === 1 ? `Importing ${files[0]?.name}…` : `Importing ${files.length} files…`)
+    const { importFiles } = await import('../lib/importDoc')
+    const { paths, errors } = await importFiles(files, { space, dir, tree })
+    for (const error of errors) notify(error)
+    if (paths.length > 1) notify(`Imported ${paths.length} docs.`)
+    setExpanded((current) => new Set([...current, dir]))
+    const last = paths.at(-1)
+    if (last) navigate(docUrl(space, last))
   }
 
   const createFolder = async (dir: string, name: string) => {
@@ -313,6 +334,29 @@ export function FileTree({ space, activePath }: { space: string; activePath: str
         >
           <Icon name="folderPlus" className="size-4" />
         </button>
+        <button
+          type="button"
+          data-testid="import-docs"
+          aria-label="Import docs"
+          title="Import Markdown, Word or HTML files"
+          onClick={() => chooseImport(activePath ? dirname(activePath) : DOCS_ROOT)}
+          className="flex size-8 items-center justify-center rounded-md text-ink-soft hover:bg-paper/70 hover:text-ink"
+        >
+          <Icon name="upload" className="size-4" />
+        </button>
+        <input
+          ref={importInput}
+          type="file"
+          multiple
+          accept={IMPORT_ACCEPT}
+          data-testid="import-input"
+          className="hidden"
+          onChange={(event) => {
+            const files = [...(event.target.files ?? [])]
+            event.target.value = ''
+            void importChosen(files)
+          }}
+        />
       </div>
       <div
         data-testid="file-tree"
@@ -349,6 +393,15 @@ export function FileTree({ space, activePath }: { space: string; activePath: str
             }}
           >
             New folder
+          </MenuItem>
+          <MenuItem
+            icon="upload"
+            onSelect={() => {
+              setMenu(null)
+              chooseImport(folderOf(menuEntry))
+            }}
+          >
+            Import here…
           </MenuItem>
           {menuEntry ? (
             <>

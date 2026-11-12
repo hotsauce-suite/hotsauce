@@ -31,7 +31,7 @@ export function dictationHandlers(opts: {
 
   return [
     // The server's build includes the Mac app.
-    http.head('/downloads/HearthDictate.dmg', () => new HttpResponse(null, { status: 200 })),
+    http.head('/downloads/Hearth.dmg', () => new HttpResponse(null, { status: 200 })),
     http.get(
       '/api/dictation/devices',
       authed(({ user }) =>

@@ -1,4 +1,4 @@
-import { uid } from './fixtures'
+import { pressCommandK, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
 function meetingNote(title: string, date: string, body: string): string {
@@ -66,7 +66,7 @@ test('Cmd-K opens a meeting note on its meeting page, with its transcript panel'
 
   await page.goto('/meetings')
   await expect(page.getByTestId('meetings-home')).toBeVisible()
-  await page.keyboard.press('ControlOrMeta+K')
+  await pressCommandK(page)
   const result = page.getByTestId('search-result').filter({ hasText: `Vendor call ${id}` })
   await expect(async () => {
     await page.getByTestId('cmdk-input').fill(word)

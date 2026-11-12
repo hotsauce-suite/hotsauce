@@ -266,12 +266,23 @@ export class ClipStore {
     userId: string
     scope: 'mine' | 'team'
     q?: string | undefined
+    /** ISO timestamps: only clips created at or after `from` and before `to`. */
+    from?: string | undefined
+    to?: string | undefined
     limit: number
   }): ClipRecord[] {
     const where = [`status != 'recording'`]
     const values: Record<string, unknown> = { user: opts.userId, limit: opts.limit }
     if (opts.scope === 'mine') where.push('owner_id = @user')
     else where.push(`(owner_id = @user OR status IN ('processing', 'ready'))`)
+    if (opts.from) {
+      where.push('created_at >= @from')
+      values.from = opts.from
+    }
+    if (opts.to) {
+      where.push('created_at < @to')
+      values.to = opts.to
+    }
     const q = opts.q?.trim()
     if (q) {
       where.push(

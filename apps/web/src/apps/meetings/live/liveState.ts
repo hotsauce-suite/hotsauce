@@ -5,6 +5,7 @@
 
 import { useSyncExternalStore } from 'react'
 import type { MeetingState, Track } from '../../../api/types'
+import type { CaptureMode } from '../audio/capture'
 import type { LinkStatus } from '../audio/socket'
 
 export interface LiveSnapshot {
@@ -17,6 +18,10 @@ export interface LiveSnapshot {
   capturing: boolean
   /** A track that ended on its own (the Meet tab share was stopped). */
   lostTrack: Track | null
+  /** How the attached capture listens, once there is one. */
+  captureMode?: CaptureMode
+  /** The Mac app saw the call end: the meeting stops at this time (ms), unless kept. */
+  callEndsAt?: number | null
   error: string | null
 }
 

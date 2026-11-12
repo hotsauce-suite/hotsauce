@@ -8,6 +8,7 @@ import { KeyedMutex } from '../git/mutex.js'
 import type { SpaceService } from '../spaces/index.js'
 import { type AudioStore, pcmSeconds, WAV_HEADER_BYTES, wavStream } from './audio/index.js'
 import { type CalendarSource, findEvent } from './calendar/types.js'
+import type { CleanupJob, TranscriptCleanup } from './cleanup/cleanup.js'
 import {
   attendeeLabel,
   type CaptureInput,
@@ -27,7 +28,7 @@ import {
   type SessionState,
   SessionStore,
 } from './session-store.js'
-import { DEFAULT_TEMPLATE, type MeetingTemplates } from './templates.js'
+import { DEFAULT_TEMPLATE, type MeetingTemplates, VOICE_NOTE_TEMPLATE } from './templates.js'
 import {
   PCM_BYTES_PER_MS,
   TRACKS,
@@ -138,6 +139,10 @@ export interface MeetingSessionsOptions {
   idleStopMs?: number
   /** SESSION_MAX_HOURS: a session older than this is stopped and saved, connected or not. */
   maxAgeMs?: number
+  /** The member's and team's word lists (Hearth Dictate), sent to the transcriber as keyterms. */
+  keyterms?: (principal: Principal) => string[]
+  /** After-call transcript cleanup (ARCHITECTURE §7.11); none when absent. */
+  cleanup?: TranscriptCleanup | null
   now?: () => Date
   detachGraceMs?: number
   log?: (message: string) => void
@@ -167,6 +172,8 @@ export class MeetingSessions {
   /** Saved sessions whose kept audio hasn't uploaded yet, and when to try again (ms). */
   readonly #pendingAudio = new Map<string, { meta: SessionMeta; retryAt: number }>()
   readonly #uploading = new Set<string>()
+  /** Meetings deleted while their kept audio was uploading: the upload throws it away. */
+  readonly #discarded = new Set<string>()
 
   constructor(opts: MeetingSessionsOptions) {
     this.#opts = opts
@@ -291,7 +298,10 @@ export class MeetingSessions {
       owner: principal.email.toLowerCase(),
       ownerName: principal.name,
       space: space.name,
-      title: oneLine(input.title) || event?.title || `${clockTimeIn(now, tz)} Meeting`,
+      title:
+        oneLine(input.title) ||
+        event?.title ||
+        `${clockTimeIn(now, tz)} ${template.id === VOICE_NOTE_TEMPLATE ? 'Voice note' : 'Meeting'}`,
       template: template.id,
       templateHeadings: template.sections.map((s) => s.heading),
       startedAt: now.toISOString(),
@@ -302,6 +312,10 @@ export class MeetingSessions {
       companies: externalDomains(
         people.map((p) => p.email),
         this.#opts.internalDomains,
+      ),
+      vocabulary: meetingVocabulary(
+        people.map((p) => p.name),
+        this.#opts.keyterms?.(principal) ?? [],
       ),
     }
     if (input.calendarEventId) meta.calendarEventId = input.calendarEventId
@@ -430,6 +444,47 @@ export class MeetingSessions {
     return this.canKeepAudio && this.#opts.keepAudio
   }
 
+  /** After-call transcript cleanup (§7.11), then the kept-audio upload it holds back. */
+  #startCleanup(live: Live, transcriptPath: string, keep: boolean): boolean {
+    const cleanup = this.#opts.cleanup
+    if (!cleanup) return false
+    const { meta } = live
+    const job: CleanupJob = {
+      id: meta.id,
+      space: meta.space,
+      title: meta.title,
+      transcriptPath,
+      author: { name: meta.ownerName, email: meta.owner },
+      vocabulary: meta.vocabulary ?? [],
+    }
+    if (keep) {
+      job.audio = Object.fromEntries(
+        TRACKS.map((t) => [t, { file: this.#store.audioPath(meta.id, t), bytes: live.bytes[t] }]),
+      )
+    }
+    const done = cleanup
+      .start(job)
+      .then(() => {
+        if (keep) this.#uploadKeptAudio(meta.id)
+      })
+      .finally(() => this.#background.delete(done))
+    this.#background.add(done)
+    return true
+  }
+
+  /** Whether a saved meeting's transcript is being cleaned up (speaker naming waits). */
+  cleanupRunning(id: string): boolean {
+    return this.#opts.cleanup?.running(id) ?? false
+  }
+
+  /**
+   * Waits for a saved meeting's transcript cleanup, if one is running (Enhance calls this so it
+   * reads the cleaned transcript); past `timeoutMs` the cleanup is stopped instead.
+   */
+  cleanupSettled(id: string, timeoutMs?: number): Promise<void> {
+    return this.#opts.cleanup?.settled(id, timeoutMs) ?? Promise.resolve()
+  }
+
   /** Resolves when every kept-audio upload started so far has finished, for tests and shutdown. */
   async settled(): Promise<void> {
     while (this.#background.size > 0) await Promise.allSettled([...this.#background])
@@ -440,6 +495,8 @@ export class MeetingSessions {
    * in flight get a short while to finish; one cut off starts again at the next startup.
    */
   async close(): Promise<void> {
+    // Cleanups stop (the live transcripts stay), so kept audio can upload in the time left.
+    this.#opts.cleanup?.abortAll()
     if (this.#sweeper) clearInterval(this.#sweeper)
     this.#sweeper = null
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -517,7 +574,10 @@ export class MeetingSessions {
     if (live.transcriber) return
     if (!live.transcriberStarting) {
       live.transcriberStarting = this.#opts.transcriber
-        .start({ sessionId: live.meta.id })
+        .start({
+          sessionId: live.meta.id,
+          ...(live.meta.vocabulary?.length ? { vocabulary: live.meta.vocabulary } : {}),
+        })
         .then((session) => {
           // A transcriber hears only the audio after it starts; its times count from there.
           const base = { ...live.bytes }
@@ -661,6 +721,9 @@ export class MeetingSessions {
     if (store) meta.audioPending = true
     await this.#setState(live, 'saved')
     if (store) this.#pendingAudio.set(meta.id, { meta, retryAt: 0 })
+    // Started in the same tick the upload becomes pending, before any other await: no sweep can
+    // upload (and delete) the PCM it reads, and no Enhance finds the note without its cleanup.
+    const cleaning = this.#startCleanup(live, paths.transcript, store !== null)
     // The transcript and notes are committed; memory keeps only where they went.
     live.segments = []
     meta.rawNotes = ''
@@ -674,7 +737,7 @@ export class MeetingSessions {
     await this.#store.cleanUp(meta.id, { keepAudio: store !== null })
     live.socket?.close(1000, 'saved')
     live.socket = null
-    if (store) {
+    if (store && !cleaning) {
       // In the background: a long meeting's audio takes a while to upload, and the member is
       // waiting on the note, which is already saved.
       this.#uploadKeptAudio(meta.id)
@@ -682,11 +745,36 @@ export class MeetingSessions {
     return meta.saved
   }
 
+  /**
+   * Deletes a saved meeting's files with `run` (one commit), under the same lock as the kept-audio
+   * upload's pointer commit, then makes sure no audio of it is kept afterwards: a pending upload
+   * is dropped with its PCM, and one under way deletes what it uploaded instead of committing a
+   * pointer for a note that's gone. `run` failing (a conflict) changes nothing.
+   */
+  async deleting<T>(space: string, id: string, run: () => Promise<T>): Promise<T> {
+    return this.#saves.run(space, async () => {
+      const result = await run()
+      // Deleted: its audio and text go to no transcription service or model from here on.
+      this.#opts.cleanup?.abort(id)
+      const pending = this.#pendingAudio.get(id)
+      if (this.#uploading.has(id)) this.#discarded.add(id)
+      else if (pending) {
+        this.#pendingAudio.delete(id)
+        await this.#audioKept(pending.meta).catch((err: unknown) => {
+          this.#log(`meeting ${id}: dropping the deleted meeting's audio failed: ${err}`)
+        })
+      }
+      return result
+    })
+  }
+
   /** Starts a pending upload unless one is running; a failure is tried again by the sweep. */
   #uploadKeptAudio(id: string): void {
     const pending = this.#pendingAudio.get(id)
     const store = this.#opts.audioStore
     if (!pending || this.#uploading.has(id)) return
+    // The cleanup is still reading the PCM; it starts the upload when it's done.
+    if (this.#opts.cleanup?.running(id)) return
     if (!store) {
       // AUDIO_STORE was turned off since: keep the PCM, and don't ask again until a restart.
       this.#log(`meeting ${id}: audio waits to be kept, but no audio store is configured`)
@@ -733,7 +821,12 @@ export class MeetingSessions {
         store: store.kind,
         tracks,
       })
-      await this.#saves.run(meta.space, async () => {
+      const discarded = await this.#saves.run(meta.space, async () => {
+        // Deleted while uploading (see `deleting`): no pointer, and the audio goes.
+        if (this.#discarded.delete(meta.id)) {
+          for (const t of Object.values(tracks)) if (t) await store.delete(t.key)
+          return true
+        }
         const result = await this.#opts.git.commit(meta.space, {
           changes: [{ path: keptAudioPath(meta.id), content: pointer }],
           author: { name: meta.ownerName, email: meta.owner },
@@ -742,8 +835,10 @@ export class MeetingSessions {
         if (result.status === 'conflict') {
           throw new HearthError('internal', 'Unexpected conflict while keeping audio')
         }
+        return false
       })
       await this.#audioKept(meta)
+      if (discarded) return true
       try {
         await this.#opts.afterCommit(meta.space)
       } catch (err) {
@@ -824,4 +919,35 @@ async function fileSize(file: string): Promise<number> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return 0
     throw err
   }
+}
+
+/** Deepgram nova-3 takes at most 100 keyterms. */
+const MAX_KEYTERMS = 100
+
+/**
+ * The keyterms for one meeting: each attendee's name (and its parts, so "Priya" alone is heard
+ * too), then the member's and team's word lists; once each, ignoring case, at most 100.
+ */
+export function meetingVocabulary(names: Array<string | undefined>, words: string[]): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  const add = (term: string) => {
+    // Attendee names come from other people's calendars: one line of plain text, at most 100.
+    const t = term
+      .replace(/[\p{Cc}\u2028\u2029]+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 100)
+    const key = t.toLowerCase()
+    if (t.length < 2 || seen.has(key) || out.length >= MAX_KEYTERMS) return
+    seen.add(key)
+    out.push(t)
+  }
+  for (const name of names) {
+    if (!name) continue
+    add(name)
+    for (const part of name.split(/\s+/)) if (part.length >= 3) add(part)
+  }
+  for (const word of words) add(word)
+  return out
 }

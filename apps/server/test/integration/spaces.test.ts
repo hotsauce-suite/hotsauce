@@ -24,7 +24,7 @@ function member(email: string, extra: Partial<Principal> = {}): Principal {
   }
 }
 
-const morgan = member('morgan@example.test')
+const ada = member('ada@example.test')
 const jo = member('jo@example.test')
 const admin = member('admin@example.test', { isAdmin: true })
 
@@ -73,43 +73,43 @@ describe('ensureTeamSpace', () => {
 
 describe('ensurePersonalSpace', () => {
   it('first call provisions the handle repo, seeds it as the member, and records the owner', async () => {
-    expect(await spaces.ensurePersonalSpace(morgan)).toEqual({
-      name: 'morgan',
+    expect(await spaces.ensurePersonalSpace(ada)).toEqual({
+      name: 'ada',
       kind: 'personal',
       label: 'Personal',
     })
-    expect(host.ensureRepoCalls).toEqual(['morgan'])
+    expect(host.ensureRepoCalls).toEqual(['ada'])
     expect(git.commits).toEqual([
       {
-        space: 'morgan',
-        author: { name: morgan.name, email: morgan.email },
-        message: 'hearth: create space "morgan"',
+        space: 'ada',
+        author: { name: ada.name, email: ada.email },
+        message: 'hearth: create space "ada"',
         paths: ['README.md', '.hearth/space.yaml'],
       },
     ])
-    expect(registry.getSpace('morgan')).toMatchObject({
+    expect(registry.getSpace('ada')).toMatchObject({
       kind: 'personal',
-      ownerEmail: 'morgan@example.test',
+      ownerEmail: 'ada@example.test',
     })
   })
 
   it('second call on the same instance does nothing', async () => {
-    await spaces.ensurePersonalSpace(morgan)
-    await spaces.ensurePersonalSpace(morgan)
-    expect(host.ensureRepoCalls).toEqual(['morgan'])
+    await spaces.ensurePersonalSpace(ada)
+    await spaces.ensurePersonalSpace(ada)
+    expect(host.ensureRepoCalls).toEqual(['ada'])
     expect(git.commits).toHaveLength(1)
   })
 
   it('after a restart, re-ensures the repo but does not seed it again', async () => {
-    await spaces.ensurePersonalSpace(morgan)
-    await newService().ensurePersonalSpace(morgan)
-    expect(host.ensureRepoCalls).toEqual(['morgan', 'morgan'])
+    await spaces.ensurePersonalSpace(ada)
+    await newService().ensurePersonalSpace(ada)
+    expect(host.ensureRepoCalls).toEqual(['ada', 'ada'])
     expect(git.commits).toHaveLength(1)
   })
 
   it('shares one provisioning between concurrent first requests', async () => {
-    await Promise.all([spaces.ensurePersonalSpace(morgan), spaces.ensurePersonalSpace(morgan)])
-    expect(host.ensureRepoCalls).toEqual(['morgan'])
+    await Promise.all([spaces.ensurePersonalSpace(ada), spaces.ensurePersonalSpace(ada)])
+    expect(host.ensureRepoCalls).toEqual(['ada'])
     expect(git.commits).toHaveLength(1)
   })
 
@@ -120,15 +120,15 @@ describe('ensurePersonalSpace', () => {
       if (fail) throw new HearthError('host_error', 'host down')
       return ensureRepo(name)
     }
-    await expect(spaces.ensurePersonalSpace(morgan)).rejects.toMatchObject({ code: 'host_error' })
+    await expect(spaces.ensurePersonalSpace(ada)).rejects.toMatchObject({ code: 'host_error' })
     fail = false
-    await spaces.ensurePersonalSpace(morgan)
+    await spaces.ensurePersonalSpace(ada)
     expect(git.commits).toHaveLength(1)
   })
 
   it('after a restart with the host down, keeps serving the existing clones', async () => {
     await spaces.ensureTeamSpace()
-    await spaces.ensurePersonalSpace(morgan)
+    await spaces.ensurePersonalSpace(ada)
     host.ensureRepo = async () => {
       throw new HearthError('host_error', 'host down')
     }
@@ -142,15 +142,15 @@ describe('ensurePersonalSpace', () => {
     })
 
     await restarted.ensureTeamSpace()
-    await restarted.ensurePersonalSpace(morgan)
+    await restarted.ensurePersonalSpace(ada)
 
     expect(git.clones.slice(-2)).toEqual([
       { space: 'team', remoteUrl: 'file:///remotes/team.git' },
-      { space: 'morgan', remoteUrl: 'file:///remotes/morgan.git' },
+      { space: 'ada', remoteUrl: 'file:///remotes/ada.git' },
     ])
-    expect((await restarted.visibleSpaces(morgan)).map((s) => s.name)).toEqual(['team', 'morgan'])
+    expect((await restarted.visibleSpaces(ada)).map((s) => s.name)).toEqual(['team', 'ada'])
     const fallbacks = logs.filter((m) => m.includes('using the existing clone'))
-    expect(fallbacks.map((m) => m.split(':')[0])).toEqual(['team', 'morgan'])
+    expect(fallbacks.map((m) => m.split(':')[0])).toEqual(['team', 'ada'])
     expect(git.commits).toHaveLength(2)
   })
 
@@ -198,8 +198,8 @@ describe('ensurePersonalSpace', () => {
 })
 
 describe('handle collisions', () => {
-  const dotted = member('morgan.holland@example.test')
-  const hyphenated = member('morgan-holland@example.test')
+  const dotted = member('ada.lovelace@example.test')
+  const hyphenated = member('ada-lovelace@example.test')
 
   it('the second member to claim a handle is refused and nothing is provisioned', async () => {
     expect(dotted.handle).toBe(hyphenated.handle)
@@ -211,25 +211,25 @@ describe('handle collisions', () => {
       code: 'forbidden',
       message: 'handle already claimed by another member',
     })
-    expect(host.ensureRepoCalls).toEqual(['morgan-holland'])
+    expect(host.ensureRepoCalls).toEqual(['ada-lovelace'])
     expect(git.commits).toHaveLength(1)
-    expect(registry.getSpace('morgan-holland')?.ownerEmail).toBe('morgan.holland@example.test')
+    expect(registry.getSpace('ada-lovelace')?.ownerEmail).toBe('ada.lovelace@example.test')
   })
 
   it('takes the owner recorded in the repo’s space.yaml over the first claim', async () => {
-    const files = initialSpaceFiles('morgan-holland', { kind: 'personal', owner: dotted.email })
-    git.seed('morgan-holland', Object.fromEntries(files.map((f) => [f.path, f.content])))
+    const files = initialSpaceFiles('ada-lovelace', { kind: 'personal', owner: dotted.email })
+    git.seed('ada-lovelace', Object.fromEntries(files.map((f) => [f.path, f.content])))
 
     await expect(spaces.ensurePersonalSpace(hyphenated)).rejects.toMatchObject({
       code: 'forbidden',
     })
-    expect(registry.getSpace('morgan-holland')?.ownerEmail).toBe(dotted.email)
-    expect(spaces.canAccess(hyphenated, 'morgan-holland')).toBe(false)
+    expect(registry.getSpace('ada-lovelace')?.ownerEmail).toBe(dotted.email)
+    expect(spaces.canAccess(hyphenated, 'ada-lovelace')).toBe(false)
 
     await spaces.ensurePersonalSpace(dotted)
     expect((await spaces.visibleSpaces(dotted)).map((s) => s.name)).toEqual([
       'team',
-      'morgan-holland',
+      'ada-lovelace',
     ])
     expect(git.commits).toEqual([])
   })
@@ -244,36 +244,36 @@ describe('handle collisions', () => {
 
   it('denies the colliding member access to the owner’s space and hides it from them', async () => {
     await spaces.ensurePersonalSpace(dotted)
-    expect(spaces.canAccess(dotted, 'morgan-holland')).toBe(true)
-    expect(spaces.canAccess(hyphenated, 'morgan-holland')).toBe(false)
+    expect(spaces.canAccess(dotted, 'ada-lovelace')).toBe(true)
+    expect(spaces.canAccess(hyphenated, 'ada-lovelace')).toBe(false)
     expect(await spaces.visibleSpaces(hyphenated)).toEqual([
       { name: 'team', kind: 'team', label: 'Team' },
     ])
   })
 
   it('is case-insensitive on the owner email', async () => {
-    await spaces.ensurePersonalSpace(member('morgan@example.test'))
-    const shouty = member('Morgan@Example.test')
-    expect(shouty.handle).toBe('morgan')
-    await expect(spaces.ensurePersonalSpace(shouty)).resolves.toMatchObject({ name: 'morgan' })
-    expect(spaces.canAccess(shouty, 'morgan')).toBe(true)
+    await spaces.ensurePersonalSpace(member('ada@example.test'))
+    const shouty = member('Ada@Example.test')
+    expect(shouty.handle).toBe('ada')
+    await expect(spaces.ensurePersonalSpace(shouty)).resolves.toMatchObject({ name: 'ada' })
+    expect(spaces.canAccess(shouty, 'ada')).toBe(true)
     expect(git.commits).toHaveLength(1)
   })
 })
 
 describe('visibleSpaces', () => {
   it('lists team and the member’s own personal space', async () => {
-    await spaces.ensurePersonalSpace(morgan)
-    expect(await spaces.visibleSpaces(morgan)).toEqual([
+    await spaces.ensurePersonalSpace(ada)
+    expect(await spaces.visibleSpaces(ada)).toEqual([
       { name: 'team', kind: 'team', label: 'Team' },
-      { name: 'morgan', kind: 'personal', label: 'Personal' },
+      { name: 'ada', kind: 'personal', label: 'Personal' },
     ])
   })
 
   it('finds the personal space by owner, not by handle', async () => {
-    await spaces.ensurePersonalSpace(morgan)
-    const renamed = { ...morgan, handle: 'something-else' }
-    expect((await spaces.visibleSpaces(renamed)).map((s) => s.name)).toEqual(['team', 'morgan'])
+    await spaces.ensurePersonalSpace(ada)
+    const renamed = { ...ada, handle: 'something-else' }
+    expect((await spaces.visibleSpaces(renamed)).map((s) => s.name)).toEqual(['team', 'ada'])
   })
 
   it('lists only team before the personal space exists', async () => {
@@ -284,26 +284,26 @@ describe('visibleSpaces', () => {
 describe('canAccess', () => {
   beforeEach(async () => {
     await spaces.ensureTeamSpace()
-    await spaces.ensurePersonalSpace(morgan)
+    await spaces.ensurePersonalSpace(ada)
     await spaces.ensurePersonalSpace(jo)
     await spaces.ensurePersonalSpace(admin)
   })
 
   it.each([
-    ['morgan', 'team', true],
+    ['ada', 'team', true],
     ['jo', 'team', true],
     ['admin', 'team', true],
-    ['morgan', 'morgan', true],
-    ['morgan', 'jo', false],
+    ['ada', 'ada', true],
+    ['ada', 'jo', false],
     ['jo', 'jo', true],
-    ['jo', 'morgan', false],
+    ['jo', 'ada', false],
     ['admin', 'admin', true],
-    ['admin', 'morgan', false],
+    ['admin', 'ada', false],
     ['admin', 'jo', false],
-    ['morgan', 'unknown', false],
-    ['morgan', '', false],
+    ['ada', 'unknown', false],
+    ['ada', '', false],
   ])('%s → %s: %s', (who, space, allowed) => {
-    const p = { morgan, jo, admin }[who as 'morgan' | 'jo' | 'admin']
+    const p = { ada, jo, admin }[who as 'ada' | 'jo' | 'admin']
     expect(spaces.canAccess(p, space)).toBe(allowed)
   })
 
@@ -319,10 +319,10 @@ describe('webhooks', () => {
   it('registers the push webhook on every space it provisions', async () => {
     const service = new SpaceService({ git, host, registry, committer: HEARTH, webhook })
     await service.ensureTeamSpace()
-    await service.ensurePersonalSpace(morgan)
+    await service.ensurePersonalSpace(ada)
     expect(host.webhooks).toEqual([
       { name: 'team', ...webhook },
-      { name: 'morgan', ...webhook },
+      { name: 'ada', ...webhook },
     ])
   })
 
@@ -347,11 +347,11 @@ describe('webhooks', () => {
 
 describe('addCollaborator', () => {
   it('adds the member to team and to their own space', async () => {
-    await spaces.ensurePersonalSpace(morgan)
-    await spaces.addCollaborator(morgan, 'ada-gh')
+    await spaces.ensurePersonalSpace(ada)
+    await spaces.addCollaborator(ada, 'ada-gh')
     expect(host.collaborators).toEqual([
       { name: 'team', username: 'ada-gh' },
-      { name: 'morgan', username: 'ada-gh' },
+      { name: 'ada', username: 'ada-gh' },
     ])
   })
 
@@ -383,8 +383,8 @@ describe('rebuildRegistryFromClones', () => {
       team: Object.fromEntries(
         initialSpaceFiles('team', { kind: 'team' }).map((f) => [f.path, f.content]),
       ),
-      morgan: Object.fromEntries(
-        initialSpaceFiles('morgan', { kind: 'personal', owner: 'Morgan@example.test' }).map((f) => [
+      ada: Object.fromEntries(
+        initialSpaceFiles('ada', { kind: 'personal', owner: 'Ada@example.test' }).map((f) => [
           f.path,
           f.content,
         ]),
@@ -395,11 +395,11 @@ describe('rebuildRegistryFromClones', () => {
     await rebuildRegistryFromClones(source, registry, (m) => logs.push(m))
 
     expect(registry.listSpaces()).toMatchObject([
-      { name: 'morgan', kind: 'personal', ownerEmail: 'morgan@example.test' },
+      { name: 'ada', kind: 'personal', ownerEmail: 'ada@example.test' },
       { name: 'team', kind: 'team', ownerEmail: null },
     ])
-    expect(spaces.canAccess(morgan, 'morgan')).toBe(true)
-    expect(spaces.canAccess(jo, 'morgan')).toBe(false)
+    expect(spaces.canAccess(ada, 'ada')).toBe(true)
+    expect(spaces.canAccess(jo, 'ada')).toBe(false)
     expect(logs).toEqual([])
   })
 
@@ -420,7 +420,7 @@ describe('rebuildRegistryFromClones', () => {
     expect(registry.getSpace('jo')).toMatchObject({ ownerEmail: 'jo@example.test' })
     expect(registry.getSpace('old')).toBeNull()
     expect(registry.getSpace('bare')).toBeNull()
-    expect(spaces.canAccess(morgan, 'old')).toBe(false)
+    expect(spaces.canAccess(ada, 'old')).toBe(false)
     const unowned = logs.filter((m) => m.includes('owned by nobody')).map((m) => m.split(':')[0])
     expect(unowned).toEqual(['bare', 'jo', 'old'])
   })

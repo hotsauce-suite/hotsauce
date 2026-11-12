@@ -11,7 +11,7 @@ import { renderApp } from '../../test/renderApp'
 
 /** The seeded "Acme kickoff" note in the member's personal space. */
 async function acmeKickoff(): Promise<string> {
-  const list = await meetingsApi.list({ space: 'morgan' })
+  const list = await meetingsApi.list({ space: 'ada' })
   const note = list.find((m) => m.title === 'Acme kickoff')
   if (!note) throw new Error('seed is missing Acme kickoff')
   return note.path
@@ -33,7 +33,7 @@ const lineWith = (text: string) =>
 describe('Meeting note page', () => {
   it('mutes the AI-written lines from ai_ranges and leaves the member’s own lines alone', async () => {
     const path = await acmeKickoff()
-    renderApp(`/meetings/morgan/${path}`)
+    renderApp(`/meetings/ada/${path}`)
     await waitFor(() => expect(screen.getAllByTestId('ai-text').length).toBeGreaterThan(0))
 
     // Lines the member typed during the meeting.
@@ -50,12 +50,16 @@ describe('Meeting note page', () => {
     // The header reads the frontmatter.
     expect(screen.getByTestId('enhance')).toHaveTextContent('Re-enhance')
     expect(screen.getByTestId('enhance-template')).toHaveValue('customer-call')
-    expect(screen.getByText('Morgan Holland, Dana Lee')).toBeInTheDocument()
+    // P6: each attendee but the member links to their person page.
+    expect(screen.getByTitle(/Dana Lee/)).toHaveTextContent('Ada Lovelace, Dana Lee')
+    expect(
+      screen.getAllByTestId('meeting-attendee').map((a) => [a.textContent, a.getAttribute('href')]),
+    ).toEqual([['Dana Lee', '/people/dana%40acme.com']])
   })
 
   it('opens with the transcript beside the note', async () => {
     const path = await acmeKickoff()
-    renderApp(`/meetings/morgan/${path}`)
+    renderApp(`/meetings/ada/${path}`)
     const panel = await screen.findByTestId('transcript-panel')
     await waitFor(() =>
       expect(
@@ -70,7 +74,7 @@ describe('Meeting note page', () => {
 
   it('finds the transcript from frontmatter `transcript`, not from the note’s file name', async () => {
     const path = await acmeKickoff()
-    const space = mockApi().repo.space('morgan')
+    const space = mockApi().repo.space('ada')
     // Renamed outside Hearth: the transcript kept its name, the frontmatter still points at it.
     const renamed = path.replace(/[^/]+$/, 'kickoff-with-acme.md')
     space.commit(
@@ -81,7 +85,7 @@ describe('Meeting note page', () => {
       PRIYA,
       'rename',
     )
-    renderApp(`/meetings/morgan/${renamed}`)
+    renderApp(`/meetings/ada/${renamed}`)
     const panel = await screen.findByTestId('transcript-panel')
     await waitFor(() =>
       expect(
@@ -90,19 +94,79 @@ describe('Meeting note page', () => {
     )
   })
 
+  it('names speakers: confirms Claude’s guess, or picks an attendee for a label', async () => {
+    const path = await acmeKickoff()
+    const space = mockApi().repo.space('ada')
+    const note = space.files.get(path) ?? ''
+    const transcriptName = /^transcript: (.*)$/m.exec(note)?.[1] ?? ''
+    const transcriptPath = path.replace(/[^/]+$/, transcriptName)
+    const transcript = (space.files.get(transcriptPath) ?? '')
+      .replace('**Them:** Sure.', '**Speaker 1:** Sure.')
+      .replace('**Them:** Yes, Okta.', '**Speaker 2:** Yes, Okta.')
+    space.commit(
+      new Map([
+        [
+          path,
+          note.replace(
+            /^type: meeting$/m,
+            'type: meeting\nspeaker_guesses:\n  Speaker 1: Dana Lee',
+          ),
+        ],
+        [transcriptPath, transcript],
+      ]),
+      PRIYA,
+      'diarized',
+    )
+    const sent: unknown[] = []
+    server.use(
+      http.post('/api/meetings/speakers', async ({ request }) => {
+        sent.push(await request.json())
+        return HttpResponse.json({ transcriptPath, renamed: {} })
+      }),
+    )
+    renderApp(`/meetings/ada/${path}`)
+    const who = await screen.findByTestId('who-is-who')
+    expect(within(who).getByText(/Speaker 1 sounds like/)).toHaveTextContent('Dana Lee')
+    await userEvent.click(within(who).getByRole('button', { name: 'Confirm' }))
+    await waitFor(() =>
+      expect(sent).toEqual([
+        {
+          space: 'ada',
+          path,
+          names: { 'Speaker 1': 'Dana Lee' },
+          // The transcript the panel shows, so a changed one is refused.
+          transcriptBlobOid: expect.stringMatching(/^[0-9a-f]{40}$/),
+        },
+      ]),
+    )
+
+    const panel = screen.getByTestId('transcript-panel')
+    await userEvent.click(
+      within(panel).getAllByRole('button', { name: 'Speaker 2' })[0] as HTMLElement,
+    )
+    expect(within(panel).getByText('Who is Speaker 2?')).toBeInTheDocument()
+    await userEvent.type(within(panel).getByLabelText('Name'), 'Sam Ortiz')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(sent[1]).toMatchObject({ space: 'ada', path, names: { 'Speaker 2': 'Sam Ortiz' } }),
+    )
+    // "Me" is never offered for renaming.
+    expect(within(panel).queryByRole('button', { name: 'Me' })).toBeNull()
+  })
+
   it('says there is no transcript when the frontmatter names none', async () => {
     const path = await acmeKickoff()
-    const space = mockApi().repo.space('morgan')
+    const space = mockApi().repo.space('ada')
     const text = (space.files.get(path) ?? '').replace(/^transcript: .*\n/m, '')
     space.commit(new Map([[path, text]]), PRIYA, 'drop transcript')
-    renderApp(`/meetings/morgan/${path}`)
+    renderApp(`/meetings/ada/${path}`)
     const panel = await screen.findByTestId('transcript-panel')
     expect(await within(panel).findByText(/has no transcript/)).toBeInTheDocument()
   })
 
   it('never offers to rename a meeting note to its title, in Meetings or in Docs', async () => {
     const path = await acmeKickoff()
-    for (const url of [`/meetings/morgan/${path}`, `/docs/morgan/${path}`]) {
+    for (const url of [`/meetings/ada/${path}`, `/docs/ada/${path}`]) {
       renderApp(url)
       await waitFor(() => expect(screen.getByTestId('editor-content')).toHaveTextContent('SSO'))
       replaceInEditor('# Acme kickoff', '# Acme kickoff, round two')
@@ -121,7 +185,7 @@ describe('Meeting note page', () => {
         bodies.push(await request.clone().json())
       }
     })
-    renderApp(`/meetings/morgan/${path}`)
+    renderApp(`/meetings/ada/${path}`)
     await screen.findByTestId('enhance')
     await userEvent.selectOptions(screen.getByTestId('enhance-template'), 'general')
     await userEvent.click(screen.getByTestId('enhance'))
@@ -129,11 +193,11 @@ describe('Meeting note page', () => {
     await waitFor(() =>
       expect(screen.getByTestId('editor-content')).toHaveTextContent('More from the transcript'),
     )
-    expect(bodies).toEqual([{ space: 'morgan', path, template: 'general' }])
+    expect(bodies).toEqual([{ space: 'ada', path, template: 'general' }])
     // The member's lines survive, the new AI lines are muted.
     expect(lineWith('SSO before rollout')).not.toHaveAttribute('data-testid', 'ai-text')
     expect(lineWith('Discussion')).toHaveAttribute('data-testid', 'ai-text')
-    const saved = mockApi().repo.space('morgan').files.get(path) ?? ''
+    const saved = mockApi().repo.space('ada').files.get(path) ?? ''
     expect(parseFrontmatter(saved).data).toMatchObject({ template: 'general' })
   })
 
@@ -147,7 +211,7 @@ describe('Meeting note page', () => {
         await modelDone
       }),
     )
-    renderApp(`/meetings/morgan/${path}`)
+    renderApp(`/meetings/ada/${path}`)
     await screen.findByTestId('enhance')
     const content = await screen.findByTestId('editor-content')
     // Unsaved edits when Enhance is pressed: committed first.
@@ -161,20 +225,20 @@ describe('Meeting note page', () => {
     finish()
     await waitFor(() => expect(content).toHaveTextContent('More from the transcript'))
     await waitFor(() => expect(content).toHaveAttribute('contenteditable', 'true'))
-    expect(mockApi().repo.space('morgan').files.get(path)).not.toContain('typed while enhancing')
+    expect(mockApi().repo.space('ada').files.get(path)).not.toContain('typed while enhancing')
   })
 
   it('asks before re-enhancing over edits made since the last enhance', async () => {
     const path = await acmeKickoff()
     const api = mockApi()
-    renderApp(`/meetings/morgan/${path}`)
+    renderApp(`/meetings/ada/${path}`)
     await screen.findByTestId('enhance')
     await userEvent.click(screen.getByTestId('enhance'))
     await waitFor(() => expect(screen.getByTestId('enhance')).toHaveTextContent('Re-enhance'))
     await waitFor(() => expect(screen.getByTestId('enhance')).toBeEnabled())
 
     // A teammate edits the enhanced note.
-    api.repo.outsideEdit('morgan', path, {
+    api.repo.outsideEdit('ada', path, {
       author: PRIYA,
       apply: (text) =>
         text.replace('## Summary', '## Summary\nPriya: we owe Dana an answer on SSO.'),
@@ -185,7 +249,7 @@ describe('Meeting note page', () => {
 
     await userEvent.click(within(alert).getByText('Re-enhance anyway'))
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
-    expect(api.repo.space('morgan').files.get(path)).not.toContain('Priya: we owe Dana')
+    expect(api.repo.space('ada').files.get(path)).not.toContain('Priya: we owe Dana')
   })
 
   it('shows an Enhance failure without losing the note', async () => {
@@ -198,7 +262,7 @@ describe('Meeting note page', () => {
         ),
       ),
     )
-    renderApp(`/meetings/morgan/${path}`)
+    renderApp(`/meetings/ada/${path}`)
     await userEvent.click(await screen.findByTestId('enhance'))
     expect(await screen.findByRole('alert')).toHaveTextContent('The model is busy')
     expect(screen.getByTestId('editor-content')).toHaveTextContent('SSO before rollout')
@@ -212,7 +276,7 @@ describe('Meeting note page', () => {
         scopes.push(((await request.clone().json()) as { scope: unknown }).scope)
       }
     })
-    const { router } = renderApp(`/meetings/morgan/${path}`)
+    const { router } = renderApp(`/meetings/ada/${path}`)
     await userEvent.type(
       await screen.findByTestId('meeting-chat-input'),
       'What did Dana say about Okta?',
@@ -222,10 +286,10 @@ describe('Meeting note page', () => {
     const answer = await screen.findByTestId('chat-answer')
     const citations = within(answer).getAllByTestId('chat-citation')
     expect(citations.length).toBeGreaterThan(0)
-    expect(scopes).toEqual([{ space: 'morgan', meetingPath: path }])
+    expect(scopes).toEqual([{ space: 'ada', meetingPath: path }])
     for (const citation of citations) {
       expect(citation.getAttribute('href')).toMatch(
-        new RegExp(`^/meetings/morgan/${path.replace(/\.md$/, '')}(\\.transcript)?\\.md#L\\d+$`),
+        new RegExp(`^/meetings/ada/${path.replace(/\.md$/, '')}(\\.transcript)?\\.md#L\\d+$`),
       )
     }
     const okta = citations.find((c) => c.textContent?.includes('Okta')) as HTMLElement

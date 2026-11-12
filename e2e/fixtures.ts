@@ -378,3 +378,14 @@ export async function holdNextSave(page: Page, during: () => Promise<void>): Pro
     },
   )
 }
+
+/**
+ * Presses Cmd-K until the palette opens. The shell listens for it in an effect, just after it
+ * paints; under load a press that lands in between is lost.
+ */
+export async function pressCommandK(page: Page): Promise<void> {
+  await expect(async () => {
+    if (!(await page.getByTestId('cmdk').isVisible())) await page.keyboard.press('ControlOrMeta+K')
+    await expect(page.getByTestId('cmdk')).toBeVisible({ timeout: 1_000 })
+  }).toPass({ timeout: 8_000 })
+}

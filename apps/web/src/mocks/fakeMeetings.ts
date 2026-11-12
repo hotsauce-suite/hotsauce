@@ -253,7 +253,7 @@ export function calendarFixture(now: Date): CalendarEvent[] {
         id: ACME_KICKOFF_EVENT,
         title: 'Acme kickoff',
         attendees: [
-          { email: 'morgan@example.test', name: 'Morgan Holland' },
+          { email: 'ada@example.test', name: 'Ada Lovelace' },
           { email: 'dana@acme.com', name: 'Dana Lee' },
         ],
         calendarId: 'primary',
@@ -266,7 +266,7 @@ export function calendarFixture(now: Date): CalendarEvent[] {
         id: 'evt-bolt-intro',
         title: 'Intro call with Bolt',
         attendees: [
-          { email: 'morgan@example.test', name: 'Morgan Holland' },
+          { email: 'ada@example.test', name: 'Ada Lovelace' },
           { email: 'jo@bolt.io', name: 'Jo Rivera' },
         ],
         calendarId: 'primary',
@@ -280,7 +280,7 @@ export function calendarFixture(now: Date): CalendarEvent[] {
       start: at(MIN),
       end: at(31 * MIN),
       attendees: [
-        { email: 'morgan@example.test', name: 'Morgan Holland' },
+        { email: 'ada@example.test', name: 'Ada Lovelace' },
         { email: 'dana@acme.com', name: 'Dana Lee' },
       ],
       description: 'Follow-up on SSO and the pricing one-pager.',
@@ -294,7 +294,7 @@ export function calendarFixture(now: Date): CalendarEvent[] {
       start: at(180 * MIN),
       end: at(225 * MIN),
       attendees: [
-        { email: 'morgan@example.test', name: 'Morgan Holland' },
+        { email: 'ada@example.test', name: 'Ada Lovelace' },
         { email: 'priya@example.test', name: 'Priya Natarajan' },
         { email: 'sam@example.test', name: 'Sam Okafor' },
       ],

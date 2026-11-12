@@ -27,38 +27,95 @@ const Results = z.object({
   duration: z.number(),
   is_final: z.boolean(),
   channel: z.object({
-    alternatives: z.array(z.object({ transcript: z.string() })),
+    alternatives: z.array(
+      z.object({
+        transcript: z.string(),
+        /** With `diarize=true`, each word carries the speaker Deepgram heard it from. */
+        words: z
+          .array(
+            z.object({
+              word: z.string(),
+              punctuated_word: z.string().optional(),
+              start: z.number(),
+              end: z.number(),
+              speaker: z.number().int().nonnegative().optional(),
+            }),
+          )
+          .optional(),
+      }),
+    ),
   }),
 })
 
+/** Deepgram counts speakers from 0; people read "Speaker 1" first. */
+export function diarizedSpeaker(index: number): string {
+  return `Speaker ${index + 1}`
+}
+
 /**
- * One Deepgram `Results` message as a segment, or null for anything else (Metadata,
- * SpeechStarted, UtteranceEnd) and for empty transcripts. `offsetMs` is the audio on the track
- * before this connection opened, since each connection's `start` counts from its own zero.
+ * One Deepgram `Results` message as segments: none for anything else (Metadata, SpeechStarted,
+ * UtteranceEnd) and for empty transcripts. `offsetMs` is the audio on the track before this
+ * connection opened, since each connection's `start` counts from its own zero.
+ *
+ * When the words carry speakers (the `them` track is diarized), a final is split into one
+ * segment per run of the same speaker, labelled "Speaker 1", "Speaker 2"…; a partial takes its
+ * first word's speaker. Without speakers the track's own label is used ("Me" / "Them").
  */
-export function segmentFromMessage(
+export function segmentsFromMessage(
   message: unknown,
   track: Track,
   offsetMs: number,
-): TranscriptSegment | null {
+): TranscriptSegment[] {
   const parsed = Results.safeParse(message)
-  if (!parsed.success) return null
-  const text = parsed.data.channel.alternatives[0]?.transcript.trim() ?? ''
-  if (text === '') return null
-  return {
+  if (!parsed.success) return []
+  const alt = parsed.data.channel.alternatives[0]
+  const text = alt?.transcript.trim() ?? ''
+  if (text === '') return []
+  const final = parsed.data.is_final
+  const whole: TranscriptSegment = {
     track,
     speaker: speakerFor(track),
     at: offsetMs + Math.round(parsed.data.start * 1000),
     durationMs: Math.round(parsed.data.duration * 1000),
     text,
-    final: parsed.data.is_final,
+    final,
   }
+  const words = alt?.words ?? []
+  if (words.length === 0 || words.some((w) => w.speaker === undefined)) return [whole]
+  if (!final) return [{ ...whole, speaker: diarizedSpeaker(words[0]?.speaker ?? 0) }]
+  const runs: Array<{ speaker: number; words: typeof words }> = []
+  for (const w of words) {
+    const last = runs[runs.length - 1]
+    if (last && last.speaker === w.speaker) last.words.push(w)
+    else runs.push({ speaker: w.speaker ?? 0, words: [w] })
+  }
+  if (runs.length === 1) return [{ ...whole, speaker: diarizedSpeaker(runs[0]?.speaker ?? 0) }]
+  return runs.map((run) => {
+    const first = run.words[0]
+    const last = run.words[run.words.length - 1]
+    const start = first?.start ?? parsed.data.start
+    const end = last?.end ?? start
+    return {
+      track,
+      speaker: diarizedSpeaker(run.speaker),
+      at: offsetMs + Math.round(start * 1000),
+      durationMs: Math.max(0, Math.round((end - start) * 1000)),
+      text: run.words.map((w) => w.punctuated_word ?? w.word).join(' '),
+      final: true,
+    }
+  })
 }
 
 /** The streaming URL for one track (ARCHITECTURE §7.1). Nova-3 takes custom words as `keyterm`. */
 export function listenUrl(
   base: string,
-  opts: { model: string; language?: string | undefined; vocabulary?: string[] | undefined },
+  opts: {
+    model: string
+    language?: string | undefined
+    vocabulary?: string[] | undefined
+    /** Tell the speakers apart (the call's side of a meeting, which can be several people). */
+    diarize?: boolean | undefined
+  },
 ): string {
   const url = new URL(base)
   const params = url.searchParams
@@ -69,6 +126,7 @@ export function listenUrl(
   params.set('smart_format', 'true')
   params.set('model', opts.model)
   if (opts.language) params.set('language', opts.language)
+  if (opts.diarize) params.set('diarize', 'true')
   for (const term of opts.vocabulary ?? []) params.append('keyterm', term)
   return url.href
 }
@@ -104,15 +162,19 @@ export class DeepgramTranscriber implements Transcriber {
     vocabulary?: string[]
     failOnDrop?: boolean
   }): Promise<TranscriberSession> {
-    const url = listenUrl(this.#opts.url, {
-      model: this.#opts.model,
-      language: opts.language,
-      vocabulary: opts.vocabulary,
-    })
+    const urlFor = (track: Track) =>
+      listenUrl(this.#opts.url, {
+        model: this.#opts.model,
+        language: opts.language,
+        vocabulary: opts.vocabulary,
+        // Only the call's side is diarized: the microphone is the member (or, in a room, the
+        // member's "Me" stays one label so their own lines and action items stay theirs).
+        diarize: track === 'them' && !opts.failOnDrop,
+      })
     const { apiKey, keepAliveMs, retryMs, log } = this.#opts
     return new DeepgramSession({
       apiKey,
-      url,
+      urls: { me: urlFor('me'), them: urlFor('them') },
       keepAliveMs,
       retryMs,
       log,
@@ -124,7 +186,7 @@ export class DeepgramTranscriber implements Transcriber {
 
 interface SessionConfig {
   apiKey: string
-  url: string
+  urls: Record<Track, string>
   keepAliveMs: number
   retryMs: number
   sessionId: string
@@ -238,7 +300,7 @@ class TrackStream {
   }
 
   #connect(): void {
-    const ws = new WebSocket(this.#config.url, {
+    const ws = new WebSocket(this.#config.urls[this.#track], {
       headers: { Authorization: `Token ${this.#config.apiKey}` },
     })
     this.#ws = ws
@@ -259,8 +321,9 @@ class TrackStream {
       } catch {
         return
       }
-      const segment = segmentFromMessage(message, this.#track, offsetMs)
-      if (segment) this.#deliver(segment)
+      for (const segment of segmentsFromMessage(message, this.#track, offsetMs)) {
+        this.#deliver(segment)
+      }
     })
     ws.on('error', (err) => {
       // The detail (status, network cause) can name the account; it stays in the server log.

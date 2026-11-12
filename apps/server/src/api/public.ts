@@ -39,6 +39,8 @@ export function publicRoutes(deps: AppDeps) {
         chatUrl: config.CHAT_URL ?? null,
         // For the sign-in page's hint ("Sign in with your example.com account").
         signInDomain: config.ALLOWED_EMAIL_DOMAINS[0] ?? null,
+        // Invited people sign in with an emailed code; whether to offer it, never who they are.
+        emailCodeSignIn: config.ALLOWED_EMAILS.length > 0,
         features: {
           ai: config.LLM_PROVIDER !== 'none',
           transcription: config.ASR_PROVIDER !== 'none',

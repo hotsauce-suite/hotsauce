@@ -4,7 +4,9 @@ import { api } from '../api/client'
 import { type OrgState, orgEditor, waitForRestart } from '../api/org'
 import { MeetingsPageHeader, primaryButton } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
+import { ChatRoomsSection } from './org/ChatRoomsSection'
 import { Callout, messageOf } from './org/fields'
+import { LinkSharingSection } from './org/LinkSharingSection'
 import {
   AiSection,
   BrandSection,
@@ -112,6 +114,8 @@ export default function OrgSettingsRoute() {
               <OrgSection {...(props('restart') as SectionProps)} />
               <BrandSection {...(props('live') as SectionProps)} />
               <SignInSection {...(props('restart') as SectionProps)} />
+              <LinkSharingSection />
+              <ChatRoomsSection />
               <AiSection {...(props('restart') as SectionProps)} />
               <StorageSection {...(props('restart') as SectionProps)} />
               <Callout>

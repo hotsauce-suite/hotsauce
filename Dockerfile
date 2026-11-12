@@ -40,8 +40,12 @@ RUN HEARTH_URL=$HEARTH_URL pnpm --filter @hearth/extension run build \
 # The Mac app can't be built on Linux: scripts/build-app.sh builds it on a Mac and the zip is
 # committed, so this copies them as they are (Dictate → Download for Mac).
 # A checkout without the built app (the public repository) simply offers no download.
-RUN for f in HearthDictate.dmg HearthDictate.zip; do \
-      if [ -f "apps/dictate-mac/release/$f" ]; then cp "apps/dictate-mac/release/$f" apps/web/dist/downloads/; fi; \
+# Hearth.dmg and .zip, also under their old names (HearthDictate.*) so links already shared work.
+RUN for ext in dmg zip; do \
+      if [ -f "apps/dictate-mac/release/Hearth.$ext" ]; then \
+        cp "apps/dictate-mac/release/Hearth.$ext" apps/web/dist/downloads/ \
+        && cp "apps/dictate-mac/release/Hearth.$ext" "apps/web/dist/downloads/HearthDictate.$ext"; \
+      fi; \
     done
 # The server's production dependencies, with workspace packages copied in, not
 # linked. pnpm 10's deploy reads the shared lockfile only when workspace

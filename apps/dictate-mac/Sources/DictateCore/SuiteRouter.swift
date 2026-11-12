@@ -15,6 +15,9 @@ public struct SuiteRouter: Sendable {
         /// One of the app's own links (`hearth-dictate://connect`, a deep link): the app handles
         /// it, with its own checks, instead of macOS.
         case handleInApp(URL)
+        /// The page is starting a sign-in (Google, Clerk): Google refuses apps' web views, so the
+        /// app signs in through the member's browser instead (`BrowserSignIn`).
+        case signInWithBrowser
     }
 
     /// The suite's origin, e.g. https://office.example.com.
@@ -31,8 +34,8 @@ public struct SuiteRouter: Sendable {
             && effectivePort(url) == effectivePort(server)
     }
 
-    /// Sign-in pages that must stay in the window, so the session lands in its cookie store:
-    /// Clerk (its Frontend API on the server's domain, or a development instance) and Google.
+    /// Sign-in pages: Clerk (its Frontend API on the server's domain, or a development instance)
+    /// and Google. The window never shows them; it signs in through the browser.
     public func isSignIn(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else { return false }
         if host == "accounts.google.com" || host.hasSuffix(".clerk.accounts.dev") || host == "clerk.com" || host.hasSuffix(".clerk.com") {
@@ -43,11 +46,10 @@ public struct SuiteRouter: Sendable {
     }
 
     /// - Parameters:
-    ///   - from: the page the window is on now (nil before the first load).
     ///   - isMainFrame: the navigation replaces the page, rather than an iframe's.
     ///   - userClicked: a link the member clicked (not a redirect or a script).
     ///   - newWindow: `target=_blank` or `window.open` (WebKit only allows those on a click).
-    public func decide(_ url: URL, from: URL?, isMainFrame: Bool, userClicked: Bool, newWindow: Bool) -> Decision {
+    public func decide(_ url: URL, isMainFrame: Bool, userClicked: Bool, newWindow: Bool) -> Decision {
         let scheme = url.scheme?.lowercased() ?? ""
         // The app's own links come back to it, whoever opens them; it asks before connecting.
         if scheme == "hearth-dictate" || scheme == Brand.urlScheme.lowercased() { return .handleInApp(url) }
@@ -56,19 +58,18 @@ public struct SuiteRouter: Sendable {
         // (file:, other apps' schemes), so no page can open things on the Mac.
         if scheme == "mailto" || scheme == "tel" { return userClicked || newWindow ? .openExternally : .cancel }
         guard scheme == "http" || scheme == "https" else { return .cancel }
-        if newWindow { return isSuite(url) || isSignIn(url) ? .loadInWindow(url) : .openExternally }
-        if !isMainFrame || isSuite(url) || isSignIn(url) { return .allow }
-        // Elsewhere: only as a hop of a sign-in already under way (Google passes through hosts
-        // that can't be listed). Anything else, clicked or not, goes to the browser, which shows
-        // its address, so no other site can pose as the app.
-        if !userClicked, let from, isSignIn(from) { return .allow }
+        if isSignIn(url), isMainFrame || newWindow { return .signInWithBrowser }
+        if newWindow { return isSuite(url) ? .loadInWindow(url) : .openExternally }
+        if !isMainFrame || isSuite(url) { return .allow }
+        // Anything else, clicked or not, goes to the browser, which shows its address, so no
+        // other site can pose as the app.
         return .openExternally
     }
 
     /// The suite URL for a path like `/meetings/start?event=x`; nil for anything that isn't a
     /// path on this server (a full URL, `//host`, or a path with a scheme).
     public func url(forPath path: String) -> URL? {
-        guard path.hasPrefix("/"), !path.hasPrefix("//"), !path.contains("\\"), !Self.isAPIPath(path),
+        guard path.hasPrefix("/"), !path.hasPrefix("//"), !path.contains("\\"), !Self.isClosedToLinks(path),
               let components = URLComponents(string: path),
               components.scheme == nil, components.host == nil
         else { return nil }
@@ -79,11 +80,12 @@ public struct SuiteRouter: Sendable {
         return full.url
     }
 
-    /// The server's API, which links and shortcuts never open: a page is fine, a GET of
-    /// `/api/…` with the member's credentials isn't.
-    static func isAPIPath(_ path: String) -> Bool {
-        let lower = path.lowercased()
-        return lower == "/api" || lower.hasPrefix("/api/") || lower.hasPrefix("/api?") || lower.hasPrefix("/mcp") || lower.hasPrefix("/ws/")
+    /// Paths links and shortcuts never open: the server's API (a GET with the member's
+    /// credentials), and the desktop sign-in pages (only the app's own sign-in opens those).
+    static func isClosedToLinks(_ path: String) -> Bool {
+        let lower = (path.removingPercentEncoding ?? path).lowercased()
+        return lower == "/api" || lower.hasPrefix("/api/") || lower.hasPrefix("/api?") || lower.hasPrefix("/mcp")
+            || lower.hasPrefix("/ws/") || lower.hasPrefix("/desktop")
     }
 
     /// The path a deep link opens: `hearth://meetings/x?y` → `/meetings/x?y`, and

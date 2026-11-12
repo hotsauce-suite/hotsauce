@@ -4,8 +4,10 @@ import { HearthApiError } from '../../../api/client'
 import { type AudioTrack, meetingsApi } from '../../../api/meetings'
 import { Icon } from '../../../components/Icon'
 import type { DocumentHandle } from '../../../hooks/useDocument'
+import { emailOf, PersonLinks } from '../../people/PersonLinks'
 import { attendeeName, dayLabel, timeLabel } from '../format'
 import { TemplateSelect, useTemplates } from './common'
+import { VoiceNoteActions } from './VoiceNoteActions'
 
 export interface MeetingMeta {
   id: string | null
@@ -116,7 +118,7 @@ export function MeetingHeader({
 
   if (!ready || !meta.isMeeting) return null
   const enhancing = phase.name === 'enhancing'
-  const names = meta.attendees.map(attendeeName)
+  const people = meta.attendees.map((a) => ({ email: emailOf(a), name: attendeeName(a) }))
 
   return (
     <div className="shrink-0 border-b border-ash/70 bg-paper-raised/35 py-2">
@@ -130,9 +132,9 @@ export function MeetingHeader({
               </span>
             ) : null}
             {meta.durationMin !== null ? ` · ${meta.durationMin} min` : null}
-            {names.length > 0 ? (
+            {people.length > 0 ? (
               <span className="block truncate" title={meta.attendees.join(', ')}>
-                {names.join(', ')}
+                <PersonLinks people={people} testId="meeting-attendee" />
               </span>
             ) : null}
             {meta.id ? <KeptAudio space={space} id={meta.id} /> : null}
@@ -158,6 +160,9 @@ export function MeetingHeader({
             </button>
           </div>
         </div>
+        {meta.template === 'voice-note' && !enhancing ? (
+          <VoiceNoteActions doc={doc} space={space} path={path} />
+        ) : null}
         {phase.name === 'enhancing' ? (
           <p role="status" className="mt-1.5 text-xs text-ink-faint">
             Writing up your notes with the transcript. Your own lines stay as you typed them.

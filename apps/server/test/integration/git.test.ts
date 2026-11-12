@@ -276,6 +276,23 @@ describe('GitStore: commit', () => {
     expect(await commitCount(remote)).toBe(2)
   })
 
+  it('refuses an unchanged-guarded write to a file deleted since it was read', async () => {
+    const store = newStore()
+    const path = 'tasks/a.md'
+    const { outside, remote } = await seed(store, 'team', { [path]: 'a\n' })
+    const read = await store.readFile('team', path)
+    await outside.push({ [path]: null })
+
+    await expect(
+      store.commit('team', {
+        ...edit(path, 'a (stale)\n'),
+        unchanged: { path, blobOid: read.blobOid },
+      }),
+    ).rejects.toMatchObject({ code: 'conflict' })
+    await expect(catFile(remote, MAIN, path)).rejects.toThrow()
+    await expect(store.readFile('team', path)).rejects.toMatchObject({ code: 'not_found' })
+  })
+
   it('merges a stale edit with a concurrent outside change to another line', async () => {
     const store = newStore()
     const path = 'docs/a.md'

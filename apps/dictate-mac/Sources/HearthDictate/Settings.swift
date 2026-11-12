@@ -43,6 +43,12 @@ final class Settings {
         set { defaults.set(newValue, forKey: "meetingReminders") }
     }
 
+    /// "Take notes?" when another app starts a call; on by default.
+    var offerCallNotes: Bool {
+        get { defaults.object(forKey: "offerCallNotes") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "offerCallNotes") }
+    }
+
     var hasOnboarded: Bool {
         get { defaults.bool(forKey: "hasOnboarded") }
         set { defaults.set(newValue, forKey: "hasOnboarded") }

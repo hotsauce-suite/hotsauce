@@ -8,14 +8,19 @@ import { IconButton } from '../../../components/TopBar'
 export function MeetingsPageHeader({
   title,
   children,
+  menu = true,
 }: {
   title: ReactNode
   children?: ReactNode
+  /** False for a page whose app has no sidebar to open. */
+  menu?: boolean
 }) {
   const { compact, openDrawer } = useShell()
   return (
     <header className="flex h-[var(--topbar-height)] shrink-0 items-center gap-2 border-b border-ash/70 bg-paper/80 px-2 backdrop-blur-sm md:px-4">
-      {compact ? <IconButton icon="menu" label="Open sidebar" onClick={openDrawer} /> : null}
+      {compact && menu ? (
+        <IconButton icon="menu" label="Open sidebar" onClick={openDrawer} />
+      ) : null}
       <h1 className="min-w-0 flex-1 truncate font-display text-lg font-semibold tracking-tight text-ink">
         {title}
       </h1>

@@ -59,10 +59,28 @@ export function MeetingsSidebar({
           active={location.pathname === '/meetings/ask'}
         />
         <NavItem
+          to="/meetings/brief"
+          icon="sparkle"
+          label="Agent brief"
+          active={location.pathname === '/meetings/brief'}
+        />
+        <NavItem
+          to="/meetings/booking"
+          icon="link"
+          label="Booking links"
+          active={location.pathname === '/meetings/booking'}
+        />
+        <NavItem
           to="/meetings/extension"
           icon="tab"
           label="Chrome extension"
           active={location.pathname === '/meetings/extension'}
+        />
+        <NavItem
+          to="/meetings/import"
+          icon="upload"
+          label="Import from Granola"
+          active={location.pathname === '/meetings/import'}
         />
       </nav>
 

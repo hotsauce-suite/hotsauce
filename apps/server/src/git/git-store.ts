@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { ulid } from 'ulid'
 import { type ErrorCode, HearthError } from '../errors.js'
-import { parseCommitMessage } from './message.js'
+import { parseCommitMessage, withVia } from './message.js'
 import { KeyedMutex } from './mutex.js'
 import { GitError, runGit, runGitBuffer } from './run-git.js'
 import type { Author, Change, Commit, CommitResult, ConflictInfo, Entry } from './types.js'
@@ -135,6 +135,12 @@ export class GitStore {
     }
     const content = await this.git(dir, ['cat-file', 'blob', entry.oid])
     return { content, blobOid: entry.oid }
+  }
+
+  /** A blob's text by its oid, such as the version a client last read; bad_request if unknown. */
+  async readBlobText(space: string, oid: string): Promise<string> {
+    if (!BLOB_OID.test(oid)) throw new HearthError('bad_request', `Invalid blob: ${oid}`)
+    return this.blobContent(this.requireClone(space), oid)
   }
 
   /** `readFile` for binary files: the blob's bytes, undecoded. */
@@ -279,8 +285,12 @@ export class GitStore {
       author: Author
       message: string
       base?: { path: string; blobOid: string }
-      /** No merge: refuse (conflict) unless this file is still exactly this blob at HEAD. */
-      unchanged?: { path: string; blobOid: string }
+      /**
+       * No merge: refuse (conflict) unless this file is still exactly this blob at HEAD. A file
+       * deleted or moved since is a conflict too, so a stale write never brings it back. A null
+       * blob means the file must not exist yet (create only), checked under the space lock.
+       */
+      unchanged?: { path: string; blobOid: string | null }
     },
   ): Promise<CommitResult> {
     assertSpace(space)
@@ -291,9 +301,11 @@ export class GitStore {
     }))
     const { author, message } = args
     if (args.base === undefined) {
+      // "Must not exist": no blob can equal '', and a missing file is fine.
       const unchanged = args.unchanged && {
         path: normalizeRepoPath(args.unchanged.path),
-        blobOid: args.unchanged.blobOid,
+        blobOid: args.unchanged.blobOid ?? '',
+        missingOk: args.unchanged.blobOid === null,
       }
       return this.write(space, (dir) =>
         this.commitUnlocked(space, dir, {
@@ -324,6 +336,8 @@ export class GitStore {
     rawTo: string,
     author: Author,
     extraChanges?: (headOid: string) => Promise<Change[]>,
+    /** A `Hearth-Via` trailer for the commit (an agent made the move, ARCHITECTURE §8.2). */
+    opts: { via?: string | undefined } = {},
   ): Promise<{ oid: string }> {
     assertSpace(space)
     const from = normalizeRepoPath(rawFrom)
@@ -332,7 +346,7 @@ export class GitStore {
       throw new HearthError('bad_request', `Cannot move ${from} into ${to}`)
     }
     return this.write(space, (dir) =>
-      this.moveUnlocked(space, dir, { from, to, author, extraChanges }),
+      this.moveUnlocked(space, dir, { from, to, author, extraChanges, via: opts.via }),
     )
   }
 
@@ -347,6 +361,7 @@ export class GitStore {
     rawFrom: { space: string; path: string },
     rawTo: { space: string; path: string },
     author: Author,
+    opts: { via?: string | undefined } = {},
   ): Promise<{ removedOid: string; addedOid: string }> {
     assertSpace(rawFrom.space)
     assertSpace(rawTo.space)
@@ -369,7 +384,7 @@ export class GitStore {
       return this.commitUnlocked(to.space, dir, {
         changes: [{ path: to.path, content: source.content }],
         author,
-        message: `hearth: add "${to.path}" from ${from.space}`,
+        message: withVia(`hearth: add "${to.path}" from ${from.space}`, opts.via),
       })
     })
 
@@ -377,8 +392,8 @@ export class GitStore {
       this.commitUnlocked(from.space, dir, {
         changes: [{ path: from.path, content: null }],
         author,
-        message: `hearth: move "${from.path}" to ${to.space}`,
-        unchanged: { path: from.path, blobOid: source.blobOid },
+        message: withVia(`hearth: move "${from.path}" to ${to.space}`, opts.via),
+        unchanged: { path: from.path, blobOid: source.blobOid, missingOk: true },
       }),
     )
 
@@ -475,8 +490,11 @@ export class GitStore {
       author: Author
       message: string
       base?: { path: string; blobOid: string }
-      /** Refuse (conflict) if, after catching up, this file is no longer this blob. */
-      unchanged?: { path: string; blobOid: string }
+      /**
+       * Refuse (conflict) if, after catching up, this file is no longer this blob, or is gone
+       * (unless `missingOk`: a move's removal of a source someone else already removed).
+       */
+      unchanged?: { path: string; blobOid: string; missingOk?: boolean }
       /** Write `base.path` even if HEAD no longer has it (resolving a conflict). */
       allowRecreate?: boolean
     },
@@ -489,7 +507,8 @@ export class GitStore {
       const before = await this.revParse(dir, 'HEAD')
       if (args.unchanged) {
         const head = await this.treeEntry(dir, 'HEAD', args.unchanged.path)
-        if (head !== null && head.oid !== args.unchanged.blobOid) {
+        const gone = head === null && !args.unchanged.missingOk
+        if (gone || (head !== null && head.oid !== args.unchanged.blobOid)) {
           throw new HearthError(
             'conflict',
             `${args.unchanged.path} changed in ${space} while Hearth was working on it`,
@@ -578,6 +597,7 @@ export class GitStore {
       to: string
       author: Author
       extraChanges: ((headOid: string) => Promise<Change[]>) | undefined
+      via?: string | undefined
     },
   ): Promise<{ oid: string }> {
     const { from, to, author } = args
@@ -625,7 +645,13 @@ export class GitStore {
       if (normalized.length > 0) await this.writeChanges(dir, normalized)
       await this.git(
         dir,
-        ['commit', '--quiet', '--no-verify', '-m', `hearth: move "${from}" to "${to}"`],
+        [
+          'commit',
+          '--quiet',
+          '--no-verify',
+          '-m',
+          withVia(`hearth: move "${from}" to "${to}"`, args.via),
+        ],
         { GIT_AUTHOR_NAME: author.name, GIT_AUTHOR_EMAIL: author.email },
       )
 
