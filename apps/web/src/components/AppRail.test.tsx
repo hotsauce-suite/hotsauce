@@ -180,7 +180,7 @@ describe('the app rail', () => {
 
 describe('initials', () => {
   it('takes the first and last names, else the email', () => {
-    expect(initials('Ada Lovelace', 'm@x.com')).toBe('MH')
+    expect(initials('Ada Lovelace', 'm@x.com')).toBe('AL')
     expect(initials('Cher', 'c@x.com')).toBe('C')
     expect(initials('Ana María de la Cruz', undefined)).toBe('AC')
     expect(initials('', 'priya@x.com')).toBe('P')

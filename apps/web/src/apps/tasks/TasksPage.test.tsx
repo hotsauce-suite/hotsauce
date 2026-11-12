@@ -95,7 +95,7 @@ describe('views', () => {
       'Write the launch announcement',
       'Record a demo clip',
     ])
-    expect(screen.getAllByTestId('task-assignee').map((a) => a.textContent)).toEqual(['MH', 'PN'])
+    expect(screen.getAllByTestId('task-assignee').map((a) => a.textContent)).toEqual(['AL', 'PN'])
     await userEvent.click(within(screen.getByTestId('project-done')).getByRole('button'))
     expect(await screen.findByText('Nothing done here yet.')).toBeInTheDocument()
   })
