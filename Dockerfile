@@ -68,6 +68,8 @@ COPY --from=build /prod/server/package.json apps/server/package.json
 COPY --from=build /prod/server/node_modules apps/server/node_modules
 COPY --from=build /repo/apps/server/dist apps/server/dist
 COPY --from=build /repo/apps/web/dist apps/web/dist
+# The release this image is, reported by /api/health and compared with newer releases.
+COPY HOTSAUCE_VERSION ./HOTSAUCE_VERSION
 COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/hearth-entrypoint
 RUN mkdir -p /data && chown node:node /data
 EXPOSE 3000

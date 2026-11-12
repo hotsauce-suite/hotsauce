@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { HearthError } from '../errors.js'
+import { readVersion } from '../updates/version.js'
 import type { AppDeps, AppEnv } from './env.js'
 
 const MAX_WEBHOOK_BYTES = 5 * 1024 * 1024
@@ -26,10 +27,13 @@ const limitWebhookBody = bodyLimit({
 /** Routes reachable without a session (see `isPublic` in middleware.ts). */
 export function publicRoutes(deps: AppDeps) {
   const { config, host, index, syncer } = deps
+  const version = readVersion()
   return new Hono<AppEnv>()
     .get('/health', (c) =>
       c.json({
         ok: true as const,
+        // The Hotsauce release running here; the updater checks it after a deploy.
+        version,
         authMode: config.AUTH_MODE,
         // What the web app needs before sign-in: who this is for, and how to sign in.
         setupRequired: config.AUTH_MODE === 'setup',
