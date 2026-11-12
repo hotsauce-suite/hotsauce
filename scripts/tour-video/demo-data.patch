@@ -1,0 +1,126 @@
+diff --git a/apps/web/src/mocks/briefHandlers.ts b/apps/web/src/mocks/briefHandlers.ts
+index 85ab77d..3e9e88b 100644
+--- a/apps/web/src/mocks/briefHandlers.ts
++++ b/apps/web/src/mocks/briefHandlers.ts
+@@ -26,11 +26,13 @@ export class FakeBriefs {
+ 
+   write(user: FakeUser, meetings: number): AgentBrief {
+     const notes = this.get(user.email).notes
+-    const body = SECTIONS.map((h, i) =>
+-      i === 0
+-        ? `## ${h}\n\n- You are ${user.name}.${notes ? ` You said: ${notes.split('\n')[0]}` : ''}`
+-        : `## ${h}\n\n- A fake ${h.toLowerCase()} line.`,
+-    ).join('\n\n')
++    const body = [
++      `## Overview\n\n- You are ${user.name}, running pilots and customer onboarding at Acme. Most of your week is customer calls and the Q4 plan.`,
++      '## Current priorities\n\n- Close the Acme pilot: send the pricing one-pager by Friday and answer their SSO questions.\n- Hire a second assay scientist; Priya drafts the posting Wednesday.\n- Rerun the Northwind pilot after the barcode label mix-up.',
++      '## People\n\n- **Dana Lee**, Acme ops: wants annual billing with a 60-day exit.\n- **Priya Natarajan**, your lab lead: owns hiring and reagent orders.\n- **Sam Okafor**: runs pilot logistics and the budget.',
++      '## Glossary\n\n- **Kit**: the assay kit shipped to each pilot site.\n- **Rerun**: repeating a pilot batch after a failed run.',
++      '## Communication style\n\n- Short answers first, detail after. Bullet points over paragraphs.',
++    ].join('\n\n')
+     const brief: AgentBrief = {
+       space: user.handle,
+       path: '.hearth/brief/brief.md',
+diff --git a/apps/web/src/mocks/dictationHandlers.ts b/apps/web/src/mocks/dictationHandlers.ts
+index c9f2fc1..ad93fdb 100644
+--- a/apps/web/src/mocks/dictationHandlers.ts
++++ b/apps/web/src/mocks/dictationHandlers.ts
+@@ -4,7 +4,7 @@ import { type AnyHandler, HttpResponse, http } from 'msw'
+ import type { DictationDevice } from '../api/dictation'
+ import type { FakeUser } from './fakeRepo'
+ 
+-const TEAM_SEED = ['Acme', 'Hearth', 'Ember', 'Granola', 'Clerk', 'Deepgram', 'Anthropic', 'Claude']
++const TEAM_SEED = ['Acme', 'Hotsauce', 'Ember', 'Granola', 'Clerk', 'Deepgram', 'Anthropic', 'Claude']
+ 
+ export function dictationHandlers(opts: {
+   principal: (request: Request) => FakeUser | Response
+diff --git a/apps/web/src/mocks/seed.ts b/apps/web/src/mocks/seed.ts
+index 232079b..c4f4fbd 100644
+--- a/apps/web/src/mocks/seed.ts
++++ b/apps/web/src/mocks/seed.ts
+@@ -18,12 +18,12 @@ const SKETCH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="
+ 
+ const WELCOME = `---
+ id: 01JA2Z8Q4M7V3K9R5T1XWYB6CD
+-title: Welcome to Hearth Docs
++title: Welcome to Hotsauce Docs
+ created: 2026-10-01T09:00:00Z
+ tags: [guide]
+ ---
+ 
+-# Welcome to Hearth Docs
++# Welcome to Hotsauce Docs
+ 
+ Every doc here is a **plain markdown file** in Git. Edit it here, in *Obsidian*, or with an agent, and it stays in sync.
+ 
+@@ -40,9 +40,9 @@ Every doc here is a **plain markdown file** in Git. Edit it here, in *Obsidian*,
+ - [ ] Star the docs you open every day
+ 
+ > [!note] Saving
+-> Hearth commits after a short pause, when you leave a doc, or when you choose **Save version**.
++> Hotsauce commits after a short pause, when you leave a doc, or when you choose **Save version**.
+ 
+-![Hearth sketch](../assets/2026/10/hearth-sketch-01JA2Z.svg)
++![Sketch](../assets/2026/10/hearth-sketch-01JA2Z.svg)
+ 
+ | Shortcut | Does |
+ | --- | --- |
+@@ -68,7 +68,7 @@ tags: [planning]
+ 
+ ## Goals
+ 
+-- Ship Hearth Docs to the whole team.
++- Move the whole team onto Hotsauce.
+ - Close two pilot customers.
+ 
+ ## Budget
+@@ -119,7 +119,7 @@ See the [onboarding guide](onboarding.md) for local setup.
+ const ONBOARDING = `# Onboarding
+ 
+ - [ ] Get a example.test Google account
+-- [ ] Sign in to Hearth
++- [ ] Sign in to Hotsauce
+ - [ ] Read the [welcome doc](../welcome.md)
+ `
+ 
+@@ -173,18 +173,6 @@ function seedTeam(repo: FakeRepo): void {
+ 
+   seedTeamMeetings(repo, ADA)
+ 
+-  // A conflict left by an earlier save, so the banner and resolver show on open.
+-  repo.addConflict(
+-    'team',
+-    'docs/plans/hiring.md',
+-    HIRING.replace('Two interviews, one work sample', 'Three interviews, one paid work sample'),
+-  )
+-
+-  // The next save of the rituals doc races a teammate's edit of the standup line.
+-  repo.armOutsideEdit('team', 'docs/team-rituals.md', {
+-    author: PRIYA,
+-    apply: (content) => content.replace(CONFLICT_DEMO_LINE, 'Standup is at 9:45, cameras on.'),
+-  })
+ }
+ 
+ export function seedPersonal(repo: FakeRepo, user: FakeUser): void {
+diff --git a/apps/web/src/mocks/taskHandlers.ts b/apps/web/src/mocks/taskHandlers.ts
+index 591c6db..f9afc5a 100644
+--- a/apps/web/src/mocks/taskHandlers.ts
++++ b/apps/web/src/mocks/taskHandlers.ts
+@@ -189,7 +189,7 @@ export function seedTasks(fake: FakeTasks, user: FakeUser, today: string): void
+     space: personal,
+     createdBy: me,
+     created: created(4),
+-    title: 'Read the biosafety audit draft',
++    title: 'Read the security audit draft',
+     notes: 'Priya sent it Tuesday.\nFocus on section 4, the sample chain of custody.',
+     priority: p(3),
+   })
+@@ -220,7 +220,7 @@ export function seedTasks(fake: FakeTasks, user: FakeUser, today: string): void
+     space: 'team',
+     createdBy: me,
+     created: created(8),
+-    title: 'Ship the Hearth Tasks beta',
++    title: 'Ship the pilot report',
+     project: 'Launch',
+     assignee: me,
+     due: at(5),
