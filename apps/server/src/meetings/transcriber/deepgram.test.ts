@@ -4,12 +4,109 @@ import type { AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type WebSocket, WebSocketServer } from 'ws'
 import { HearthError } from '../../errors.js'
-import { DeepgramTranscriber, listenUrl, segmentFromMessage } from './deepgram.js'
+import { DeepgramTranscriber, listenUrl, segmentsFromMessage } from './deepgram.js'
 import type { TranscriptSegment } from './types.js'
 
 const STREAM: unknown[] = JSON.parse(
   readFileSync(new URL('../../../test/fixtures/deepgram/stream.json', import.meta.url), 'utf8'),
 )
+
+/** The one segment a message maps to, or null; diarized finals are tested separately. */
+function segmentFromMessage(message: unknown, track: 'me' | 'them', offsetMs: number) {
+  const segments = segmentsFromMessage(message, track, offsetMs)
+  expect(segments.length).toBeLessThanOrEqual(1)
+  return segments[0] ?? null
+}
+
+/** A diarized Results message: words as [text, start s, end s, speaker]. */
+function diarized(isFinal: boolean, words: Array<[string, number, number, number]>) {
+  const start = words[0]?.[1] ?? 0
+  const end = words[words.length - 1]?.[2] ?? 0
+  return {
+    type: 'Results',
+    start,
+    duration: end - start,
+    is_final: isFinal,
+    channel: {
+      alternatives: [
+        {
+          transcript: words.map((w) => w[0]).join(' '),
+          words: words.map(([w, s, e, speaker]) => ({
+            word: w.toLowerCase().replace(/[^a-z']/g, ''),
+            punctuated_word: w,
+            start: s,
+            end: e,
+            speaker,
+          })),
+        },
+      ],
+    },
+  }
+}
+
+describe('segmentsFromMessage with speakers', () => {
+  it('splits a final into one segment per run of the same speaker', () => {
+    const message = diarized(true, [
+      ['Can', 1.0, 1.2, 0],
+      ['you', 1.2, 1.4, 0],
+      ['ship?', 1.4, 1.8, 0],
+      ['Yes,', 2.0, 2.3, 1],
+      ['Friday.', 2.3, 2.9, 1],
+    ])
+    expect(segmentsFromMessage(message, 'them', 10_000)).toEqual([
+      {
+        track: 'them',
+        speaker: 'Speaker 1',
+        at: 11_000,
+        durationMs: 800,
+        text: 'Can you ship?',
+        final: true,
+      },
+      {
+        track: 'them',
+        speaker: 'Speaker 2',
+        at: 12_000,
+        durationMs: 900,
+        text: 'Yes, Friday.',
+        final: true,
+      },
+    ])
+  })
+
+  it('keeps a one-speaker final whole, with its transcript text', () => {
+    const message = diarized(true, [
+      ['Sounds', 0.5, 0.8, 2],
+      ['good.', 0.8, 1.1, 2],
+    ])
+    expect(segmentsFromMessage(message, 'them', 0)).toEqual([
+      {
+        track: 'them',
+        speaker: 'Speaker 3',
+        at: 500,
+        durationMs: 600,
+        text: 'Sounds good.',
+        final: true,
+      },
+    ])
+  })
+
+  it('gives a partial its first word’s speaker and never splits it', () => {
+    const message = diarized(false, [
+      ['Can', 1.0, 1.2, 1],
+      ['yes', 1.3, 1.5, 0],
+    ])
+    const segments = segmentsFromMessage(message, 'them', 0)
+    expect(segments).toHaveLength(1)
+    expect(segments[0]).toMatchObject({ speaker: 'Speaker 2', final: false, text: 'Can yes' })
+  })
+
+  it('falls back to the track label when the words carry no speaker', () => {
+    const message = diarized(true, [['Hi.', 0, 0.3, 0]])
+    const { speaker: _, ...word } = message.channel.alternatives[0]?.words[0] ?? { speaker: 0 }
+    message.channel.alternatives = [{ transcript: 'Hi.', words: [word as never] }]
+    expect(segmentsFromMessage(message, 'them', 0)[0]?.speaker).toBe('Them')
+  })
+})
 
 describe('segmentFromMessage', () => {
   it('maps Results to segments and skips everything else', () => {
@@ -81,6 +178,12 @@ describe('listenUrl', () => {
       language: 'en',
     })
     expect(url.searchParams.getAll('keyterm')).toEqual(['Hearth', 'Acme'])
+    expect(url.searchParams.has('diarize')).toBe(false)
+  })
+
+  it('asks for speakers only when told to', () => {
+    const url = new URL(listenUrl('wss://x/v1/listen', { model: 'nova-3', diarize: true }))
+    expect(url.searchParams.get('diarize')).toBe('true')
   })
 })
 
@@ -171,6 +274,28 @@ describe('DeepgramTranscriber against a fake server', () => {
     ])
     // One connection per track; `me` sent nothing, so it never connected.
     expect(fake.requests).toHaveLength(1)
+    // The call's side is diarized.
+    expect(url.searchParams.get('diarize')).toBe('true')
+  })
+
+  it('diarizes the call’s side only, never the microphone or a dictation', async () => {
+    fake = await FakeDeepgram.start()
+    fake.reply = []
+    const transcriber = new DeepgramTranscriber({ apiKey: 'k', url: fake.url })
+    const meeting = await transcriber.start({ sessionId: 's-d' })
+    meeting.sendAudio('me', FRAME)
+    meeting.sendAudio('them', FRAME)
+    await vi.waitFor(() => expect(fake?.requests).toHaveLength(2))
+    const dictation = await transcriber.start({ sessionId: 's-dict', failOnDrop: true })
+    dictation.sendAudio('them', FRAME)
+    await vi.waitFor(() => expect(fake?.requests).toHaveLength(3))
+    const diarize = fake.requests.map((r) =>
+      new URL(r.url ?? '', 'ws://x').searchParams.get('diarize'),
+    )
+    // Connection order between the two tracks isn't fixed.
+    expect([...diarize.slice(0, 2)].sort()).toEqual([null, 'true'].sort())
+    expect(diarize[2]).toBeNull()
+    await Promise.all([meeting.finish(), dictation.finish()])
   })
 
   it('reconnects after a drop and offsets the new connection by the audio already sent', async () => {

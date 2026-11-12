@@ -1,6 +1,14 @@
 // MSW routes for `/api/meetings`, `/api/calendar` and the `/ws/meetings/:id` audio socket
 // (ARCHITECTURE §7.2, §7.3), over FakeMeetings.
 
+import {
+  cleanSpeakerName,
+  parseFrontmatter,
+  parseTranscript,
+  patchFrontmatter,
+  renameSpeakers,
+  transcriptPathFor,
+} from '@hearth/format'
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
 import type {
   ChatScope,
@@ -100,7 +108,7 @@ export function meetingHandlers(deps: MeetingHandlerDeps): {
           typeof message.devUser === 'string'
             ? message.devUser.toLowerCase()
             : typeof message.token === 'string'
-              ? `morgan@${ALLOWED_DOMAIN}`
+              ? `ada@${ALLOWED_DOMAIN}`
               : null
         if (message.type !== 'auth' || !email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
           client.close(4401, 'unauthorized')
@@ -375,6 +383,56 @@ export function meetingHandlers(deps: MeetingHandlerDeps): {
       if (!result) return error(404, 'not_found', `No file at ${body.path}`)
       deps.afterCommit(body.space, [body.path])
       return HttpResponse.json(result)
+    }),
+
+    // Like the server, minus renaming on the note's AI lines: the transcript and the guesses.
+    http.post('/api/meetings/speakers', async ({ request }) => {
+      await wait()
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const body = (await request.json()) as {
+        space: string
+        path: string
+        names: Record<string, string>
+      }
+      if (!visible(user).includes(body.space)) {
+        return error(403, 'forbidden', 'You cannot open this space')
+      }
+      const space = deps.repo.space(body.space)
+      const note = space.files.get(body.path)
+      if (note === undefined) return error(404, 'not_found', `No file at ${body.path}`)
+      const fm = parseFrontmatter(note).data
+      const transcriptPath = transcriptPathFor(body.path, fm)
+      const transcript = transcriptPath ? space.files.get(transcriptPath) : undefined
+      if (!transcriptPath || transcript === undefined) {
+        return error(400, 'bad_request', 'This meeting has no transcript')
+      }
+      const labels = new Set(parseTranscript(transcript).map((l) => l.speaker))
+      for (const [from, to] of Object.entries(body.names)) {
+        if (from === 'Me' || !labels.has(from) || !cleanSpeakerName(to)) {
+          return error(400, 'bad_request', `“${from}” can’t be named “${to}”`)
+        }
+      }
+      const guesses = Object.fromEntries(
+        Object.entries((fm.speaker_guesses ?? {}) as Record<string, string>).filter(
+          ([label]) => !Object.hasOwn(body.names, label),
+        ),
+      )
+      space.commit(
+        new Map([
+          [
+            body.path,
+            patchFrontmatter(note, {
+              speaker_guesses: Object.keys(guesses).length > 0 ? guesses : undefined,
+            }),
+          ],
+          [transcriptPath, renameSpeakers(transcript, body.names)],
+        ]),
+        { name: user.name, email: user.email },
+        `meetings: name speakers in "${String(fm.title ?? '')}"`,
+      )
+      deps.afterCommit(body.space, [body.path, transcriptPath])
+      return HttpResponse.json({ transcriptPath, renamed: body.names })
     }),
 
     http.post('/api/meetings/chat', async ({ request }) => {

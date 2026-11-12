@@ -33,6 +33,8 @@ export const MeetingFrontmatter = z.looseObject({
   /** Line ranges of the note written by AI, as `[first, last]` pairs. */
   ai_ranges: optional(z.array(z.tuple([z.number().int(), z.number().int()]))),
   models: optional(z.record(z.string(), z.string())),
+  /** Who Claude thinks each unnamed voice is ("Speaker 1": "Priya Shah"), until the member confirms. */
+  speaker_guesses: optional(z.record(z.string(), z.string())),
 })
 export type MeetingFrontmatter = z.infer<typeof MeetingFrontmatter>
 

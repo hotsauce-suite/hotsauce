@@ -155,12 +155,10 @@ describe('openExternal', () => {
 describe('fileUrl', () => {
   it('opens meeting notes and transcripts in Meetings, everything else in Docs', () => {
     expect(fileUrl('team', 'docs/a b.md')).toBe(docUrl('team', 'docs/a b.md'))
-    expect(fileUrl('morgan', 'meetings/2026/11/x.md')).toBe(
-      '/meetings/morgan/meetings/2026/11/x.md',
+    expect(fileUrl('ada', 'meetings/2026/11/x.md')).toBe('/meetings/ada/meetings/2026/11/x.md')
+    expect(fileUrl('ada', 'meetings/2026/11/x.transcript.md')).toBe(
+      '/meetings/ada/meetings/2026/11/x.md',
     )
-    expect(fileUrl('morgan', 'meetings/2026/11/x.transcript.md')).toBe(
-      '/meetings/morgan/meetings/2026/11/x.md',
-    )
-    expect(fileUrl('morgan', 'meetings/notes.txt')).toBe(docUrl('morgan', 'meetings/notes.txt'))
+    expect(fileUrl('ada', 'meetings/notes.txt')).toBe(docUrl('ada', 'meetings/notes.txt'))
   })
 })

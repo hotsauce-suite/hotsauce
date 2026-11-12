@@ -5,7 +5,7 @@ import { seedPersonalMeetings, seedTeamMeetings } from './meetingSeed'
 
 export const PRIYA: Author = { name: 'Priya Natarajan', email: 'priya@example.test' }
 export const SAM: Author = { name: 'Sam Okafor', email: 'sam@example.test' }
-export const MORGAN: Author = { name: 'Morgan Holland', email: 'morgan@example.test' }
+export const ADA: Author = { name: 'Ada Lovelace', email: 'ada@example.test' }
 
 /** The line in the conflict demo that the armed outside edit also changes. */
 export const CONFLICT_DEMO_LINE = 'Standup is at 9:30, cameras optional.'
@@ -161,17 +161,17 @@ function seedTeam(repo: FakeRepo): void {
     bytes: SKETCH_SVG,
     type: 'image/svg+xml',
   })
-  team.commit(new Map([[q4, Q4_V1]]), MORGAN, 'docs: create "Q4 plan"', { date: daysAgo(6) })
+  team.commit(new Map([[q4, Q4_V1]]), ADA, 'docs: create "Q4 plan"', { date: daysAgo(6) })
   team.commit(new Map([[q4, Q4_V2]]), PRIYA, 'docs: edit "Q4 plan"', { date: daysAgo(4) })
   team.commit(new Map([['docs/plans/hiring.md', HIRING]]), SAM, 'docs: create "Hiring plan"', {
     date: daysAgo(3),
   })
-  team.commit(new Map([[q4, Q4_V3]]), MORGAN, 'docs: edit "Q4 plan"', {
+  team.commit(new Map([[q4, Q4_V3]]), ADA, 'docs: edit "Q4 plan"', {
     label: 'Board draft',
     date: daysAgo(1),
   })
 
-  seedTeamMeetings(repo, MORGAN)
+  seedTeamMeetings(repo, ADA)
 
   // A conflict left by an earlier save, so the banner and resolver show on open.
   repo.addConflict(

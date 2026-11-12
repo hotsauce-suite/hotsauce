@@ -52,6 +52,15 @@ export function DevAuthProvider({ children }: { children: ReactNode }) {
     setEmail(candidate)
   }, [])
 
+  /** The dev server's ticket is `dev:<email>`. */
+  const signInWithTicket = useCallback(
+    async (ticket: string) => {
+      if (!ticket.startsWith('dev:')) throw new Error('Not a development sign-in ticket')
+      await signInWithEmail(ticket.slice('dev:'.length))
+    },
+    [signInWithEmail],
+  )
+
   useEffect(() => {
     const onStorage = () => setEmail(readDevUser())
     window.addEventListener('storage', onStorage)
@@ -68,8 +77,9 @@ export function DevAuthProvider({ children }: { children: ReactNode }) {
       status: email ? 'signed-in' : 'signed-out',
       signOut,
       signInWithEmail,
+      signInWithTicket,
     }),
-    [email, signOut, signInWithEmail],
+    [email, signOut, signInWithEmail, signInWithTicket],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router'
 import { HearthApiError } from '../../api/client'
 import {
   connectLink,
@@ -13,9 +14,9 @@ import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/
 import { openAppLink } from './openAppLink'
 
 /** Served by the server from the web build; the Dockerfile puts it there. */
-export const MAC_APP_DOWNLOAD = '/downloads/HearthDictate.dmg'
+export const MAC_APP_DOWNLOAD = '/downloads/Hearth.dmg'
 /** The same app as a zip, for anyone whose browser or Mac won't open the disk image. */
-export const MAC_APP_ZIP = '/downloads/HearthDictate.zip'
+export const MAC_APP_ZIP = '/downloads/Hearth.zip'
 const PRIVACY_SETTINGS = 'x-apple.systempreferences:com.apple.preference.security'
 /** How to build the Mac app, for a server that has no build to offer. */
 export const MAC_APP_SOURCE =
@@ -30,7 +31,7 @@ type Connect =
   | { state: 'opened'; link: string }
   | { state: 'failed'; message: string }
 
-/** `/dictate`: get the Mac app, connect this Mac, see connected Macs, edit the word lists. */
+/** `/dictate` on a computer, and `/dictate/mac` anywhere: get the Mac app, connect this Mac, see connected Macs, edit the word lists. */
 export default function DictatePage() {
   const [devices, setDevices] = useState<DictationDevice[] | null>(null)
   const [words, setWords] = useState<DictationWords | null>(null)
@@ -38,6 +39,12 @@ export default function DictatePage() {
   const [connect, setConnect] = useState<Connect>({ state: 'idle' })
   // A server built without the Mac app (a fresh self-hosted one) has nothing to download.
   const [hasMacApp, setHasMacApp] = useState(true)
+
+  // The sidebar links to this page's sections by hash; the router doesn't scroll to them.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+  }, [hash])
 
   const refreshDevices = useCallback(() => {
     dictationApi.devices().then(setDevices, (err: unknown) => setLoadError(messageOf(err)))
@@ -133,6 +140,17 @@ export default function DictatePage() {
                     {connect.state === 'connecting' ? 'Connecting…' : 'Connect this Mac'}
                   </button>
                 </div>
+                <p className="mt-4 text-sm text-ink-soft">
+                  Not at your Mac?{' '}
+                  <Link
+                    to="/dictate/voice"
+                    data-testid="dictate-voice-link"
+                    className="font-medium text-ink underline decoration-ash-strong underline-offset-2 hover:decoration-ember"
+                  >
+                    Record a voice note here
+                  </Link>{' '}
+                  and {product()} writes it up for you.
+                </p>
               </div>
               <Keycap />
             </div>
@@ -155,15 +173,14 @@ export default function DictatePage() {
 
           <section id="install" aria-labelledby="install-title" className="mt-14">
             <SectionTitle id="install-title" title="Installing it the first time">
-              {product()} Dictate isn’t from the App Store, so macOS asks you to confirm it once.
+              The {product()} Mac app isn’t from the App Store, so macOS asks you to confirm it
+              once.
             </SectionTitle>
             <ol
               data-testid="dictate-install-steps"
               className="mt-4 list-decimal space-y-2 pl-5 text-sm text-ink-soft marker:font-semibold marker:text-ember"
             >
-              <li>
-                Open the downloaded disk image and drag {product()} Dictate into Applications.
-              </li>
+              <li>Open the downloaded disk image and drag {product()} into Applications.</li>
               <li>
                 Open it from Applications. When macOS says{' '}
                 <span className="text-ink">“Apple could not verify…”</span>, click{' '}
@@ -171,8 +188,8 @@ export default function DictatePage() {
               </li>
               <li>
                 Open System Settings → Privacy &amp; Security, scroll down, and click{' '}
-                <span className="font-medium text-ink">Open Anyway</span> next to {product()}{' '}
-                Dictate, then confirm. On macOS 14, Control-click the app and choose Open instead.
+                <span className="font-medium text-ink">Open Anyway</span> next to {product()}, then
+                confirm. On macOS 14, Control-click the app and choose Open instead.
               </li>
               <li>
                 Allow the microphone and Accessibility when it asks, then press Connect this Mac
@@ -199,9 +216,9 @@ export default function DictatePage() {
               ) : null}
             </div>
             <p className="mt-3 text-xs text-ink-faint">
-              Already installed and nothing happens when you open it? It lives in the menu bar (a
-              mic icon), which on a MacBook can hide behind the camera notch. Opening it again shows
-              its setup window with what’s missing.
+              Already installed? It’s {product()} in your Dock and Applications, with its mark in
+              the menu bar while Dictate is on. Dictate’s own settings are under {product()} →
+              Dictate… in the menu bar.
             </p>
           </section>
 
@@ -277,7 +294,7 @@ function ConnectStatus({ connect }: { connect: Connect }) {
     >
       <p className="flex items-center gap-2 font-medium text-ink">
         <Icon name="check" className="size-4 text-moss" />
-        Opening {product()} Dictate to finish connecting…
+        Opening {product()} on your Mac to finish connecting…
       </p>
       <p className="mt-2 text-ink-soft">
         Nothing happened? Install the app first, open it, choose{' '}
@@ -347,7 +364,7 @@ function DeviceList({
   )
 }
 
-function WordEditor({
+export function WordEditor({
   scope,
   title,
   hint,

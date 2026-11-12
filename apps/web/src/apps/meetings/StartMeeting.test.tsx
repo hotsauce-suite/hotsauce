@@ -192,7 +192,7 @@ describe('Start screen', () => {
                 start: new Date(Date.now() - 5 * 60_000).toISOString(),
                 end: new Date(Date.now() + 40 * 60_000).toISOString(),
                 attendees: [
-                  { email: 'morgan@example.test', name: 'Morgan Holland' },
+                  { email: 'ada@example.test', name: 'Ada Lovelace' },
                   { email: 'priya@example.test', name: 'Priya Natarajan' },
                 ],
                 meetLink: 'https://meet.google.com/xyz-wxyz-abc',
@@ -230,6 +230,62 @@ describe('Start screen', () => {
     const session = mockApi().meetings.sessions.get(id)
     expect(session?.meetCode).toBe('nop-nopq-nop')
     expect(session?.calendarEventId).toBeUndefined()
+  })
+
+  it('outside the Mac app there is no “Any app on this Mac” choice', async () => {
+    renderApp('/meetings/start')
+    await screen.findByTestId('capture-mic-only')
+    expect(screen.queryByTestId('capture-mac')).toBeNull()
+  })
+
+  it('in the Mac app: “Any app on this Mac” checks both tracks from the app’s frames', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    const frames = new Set<(track: 'me' | 'them', pcm: Uint8Array) => void>()
+    capture.captureAudio.mockImplementation(async (mode: string) => ({
+      mode,
+      streams: {},
+      frames: {
+        tracks: ['me', 'them'],
+        onFrame: (l: (track: 'me' | 'them', pcm: Uint8Array) => void) => {
+          frames.add(l)
+          return () => frames.delete(l)
+        },
+      },
+      onEnded: () => () => {},
+      stop: capture.stop,
+    }))
+    try {
+      renderApp('/meetings/start')
+      await userEvent.click(await screen.findByTestId('capture-mac'))
+      expect(capture.captureAudio).toHaveBeenCalledWith('mac', null)
+      expect(checkState()).toBe('waiting')
+      const loud = new Uint8Array([0x00, 0x10])
+      for (const l of [...frames]) {
+        l('me', loud)
+        l('them', loud)
+      }
+      await waitFor(() => expect(checkState()).toBe('ok'))
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('from the Mac app’s call notice: titled for the app, listening to the Mac at once', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    try {
+      renderApp('/meetings/start?via=mac-call&app=Zoom')
+      await waitFor(() => expect(capture.captureAudio).toHaveBeenCalledWith('mac', null))
+      expect(capture.captureAudio).toHaveBeenCalledTimes(1)
+      expect(screen.getByTestId('start-title')).toHaveValue('Zoom call')
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
   })
 
   it('without the extension, points to it from the Meet tab choice', async () => {

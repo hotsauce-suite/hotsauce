@@ -36,6 +36,9 @@ function fakeEditor() {
     adopted: [],
     revealFrontmatter: () => {},
     revealLine: () => {},
+    selection: () => ({ anchor: 0, head: 0 }),
+    cursorOnHeading: () => false,
+    freeze: () => {},
     getText: () => text,
     setText: (next) => {
       text = next
@@ -106,7 +109,7 @@ describe('useDocument', () => {
     await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
     expect(states).toEqual(['committed', 'dirty', 'saving', 'committed'])
     expect(mockApi().repo.read(SPACE, Q4)?.content).toBe(edited)
-    expect(mockApi().repo.history(SPACE, Q4)[0]?.author.email).toBe('morgan@example.test')
+    expect(mockApi().repo.history(SPACE, Q4)[0]?.author.email).toBe('ada@example.test')
   })
 
   it('does not commit while the user keeps typing', async () => {
@@ -283,6 +286,26 @@ describe('useDocument', () => {
     expect(onMain).toMatch(/^---\nid: \w+\n---\n# Untitled\n\nHello\.\n$/)
     expect(editor.adopted.at(-1)).toBe(onMain)
     expect(result.current.isDirty()).toBe(false)
+  })
+
+  it('a new doc can be created under another name, never over an existing file', async () => {
+    const { result } = renderDocument('docs/untitled.md', {
+      isNew: true,
+      newDocText: '# Untitled\n\n',
+    })
+    await loaded(result)
+    act(() => result.current.bindEditor(fakeEditor()))
+    act(() => result.current.edit('# Q4 plan\n\nHello.\n'))
+    // Taken: nothing is written, and the doc stays new and unsaved.
+    expect(await act(() => result.current.createAt(Q4))).toBe('taken')
+    expect(mockApi().repo.read(SPACE, Q4)?.content).not.toContain('Hello.')
+    expect(result.current.state.isNew).toBe(true)
+    // Free: created there, and the untitled path never enters Git.
+    expect(await act(() => result.current.createAt('docs/q4-plan-2.md'))).toBe('committed')
+    expect(mockApi().repo.read(SPACE, 'docs/q4-plan-2.md')?.content).toContain('Hello.')
+    expect(mockApi().repo.read(SPACE, 'docs/untitled.md')).toBeNull()
+    // Once saved, it's no longer new: the caller moves it instead.
+    expect(await act(() => result.current.createAt('docs/other.md'))).toBe('not-new')
   })
 
   it('a new doc from newDoc() commits with its id, and its title follows the typed heading', async () => {

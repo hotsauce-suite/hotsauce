@@ -5,6 +5,7 @@ export {
   Index,
   type IndexFile,
   type ListFilesOptions,
+  NEVER_CHANGED,
   type SearchHit,
   type SearchOptions,
   SNIPPET_CLOSE,

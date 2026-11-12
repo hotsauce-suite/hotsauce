@@ -5,7 +5,17 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hearth/format'
 import dotenv from 'dotenv'
-import { type Authenticator, createAuthenticator } from './auth/index.js'
+import { type Authenticator, createAuthenticator, type Principal } from './auth/index.js'
+import { BoardRooms, Boards } from './boards/index.js'
+import { AgentBriefs, BriefMembers } from './brief/index.js'
+import {
+  BriefcastState,
+  Briefcasts,
+  FakeSpeaker,
+  OpenAISpeaker,
+  type Speaker,
+  UnconfiguredSpeaker,
+} from './briefcast/index.js'
 import {
   ClipStore,
   Clips,
@@ -22,9 +32,22 @@ import {
   type DictationTranscriber,
   FakeDictationTranscriber,
 } from './dictation/index.js'
+import {
+  Clarifier,
+  Feedback,
+  type FeedbackTracker,
+  GitHubTracker,
+  MemoryTracker,
+} from './feedback/index.js'
+import { Files } from './files/index.js'
 import { GitStore } from './git/index.js'
 import { createHostAdapter } from './hosts/index.js'
 import { Index, Indexer, indexPath } from './index/index.js'
+import {
+  DeepgramRetranscriber,
+  type MeetingRetranscriber,
+  TranscriptCleanup,
+} from './meetings/cleanup/index.js'
 import {
   AnthropicLLM,
   type AudioStore,
@@ -56,6 +79,7 @@ import {
   ReminderStore,
   WebPushSender,
 } from './meetings/reminders/index.js'
+import { Notes } from './notes/index.js'
 import { BrandStore } from './org/brand.js'
 import { OrgStore } from './org/store.js'
 import {
@@ -64,8 +88,10 @@ import {
   UnconfiguredLLM,
   UnconfiguredTranscriber,
 } from './org/unconfigured.js'
+import { People } from './people/index.js'
 import { SpaceService } from './spaces/index.js'
 import { Broadcaster, Syncer } from './sync/index.js'
+import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from './tasks/index.js'
 import { TokenAuth, TokenStore } from './tokens/index.js'
 
 // Same depth from src/ and dist/: apps/server/{src,dist}/services.{ts,js} → the repo root.
@@ -85,14 +111,24 @@ export interface ServiceOverrides {
   calendar?: CalendarSource
   /** null turns kept audio off. */
   audioStore?: AudioStore | null
+  /** Briefcast's voice; tests pass a FakeSpeaker to see what was read. */
+  speaker?: Speaker
+  /** Briefcast's clock, so tests can step through mornings. */
+  briefcastNow?: () => Date
   /** Stands in for Web Push; reminders run with it even without VAPID keys. */
   pushSender?: PushSender
   dictationTranscriber?: DictationTranscriber
   clipTranscriber?: ClipTranscriber
+  /** Re-transcribes kept meeting audio after the call; null turns that off (§7.11). */
+  retranscriber?: MeetingRetranscriber | null
   /** Free bytes on the data volume, for Clips' disk check. */
   diskFreeBytes?: () => Promise<number>
+  /** Stands in for the network in the Todoist import. */
+  todoistFetch?: typeof fetch
   /** The organization store, when the caller already opened one (main.ts). */
   org?: OrgStore
+  /** Where feedback is filed; null turns Send feedback off. */
+  feedbackTracker?: FeedbackTracker | null
 }
 
 /** The real services, wired from config. Shared by the server and the CLI. */
@@ -130,12 +166,8 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   })
   const broadcaster = new Broadcaster({ auth, spaces, publicUrl: config.PUBLIC_URL })
   const syncer = new Syncer({ git, index, indexer, broadcaster })
+  const boardRooms = new BoardRooms({ auth, spaces, publicUrl: config.PUBLIC_URL })
   const llm = overrides.llm ?? createLLM(config)
-  const meetings = createMeetingServices(
-    config,
-    { git, index, auth, spaces, syncer },
-    { ...overrides, llm },
-  )
   const dictation = new Dictation({
     store: new DictationStore(path.join(config.DATA_DIR, 'dictation.sqlite')),
     transcriber:
@@ -155,6 +187,11 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
         : llm),
     model: config.DICTATION_MODEL,
   })
+  const meetings = createMeetingServices(
+    config,
+    { git, index, auth, spaces, syncer, keyterms: (p) => dictation.keyterms(p) },
+    { ...overrides, llm },
+  )
   const dictationSockets = new DictationSocketServer({
     dictation,
     auth,
@@ -185,6 +222,75 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
     ffmpeg: { ffmpeg: config.FFMPEG_PATH, ffprobe: config.FFPROBE_PATH },
   })
+  const taskService = new Tasks({ git, index, spaces, syncer })
+  const tasks: TaskServices = {
+    service: taskService,
+    ramble: new Ramble({ dictation, llm, model: config.TASKS_MODEL, tasks: taskService }),
+    todoist: new TodoistImport({
+      tasks: taskService,
+      ...(overrides.todoistFetch ? { fetch: overrides.todoistFetch } : {}),
+    }),
+    // Task reminders go to the browsers that turned on meeting reminders (ARCHITECTURE §12.2).
+    reminders: meetings.pushSender
+      ? new TaskReminders({
+          store: meetings.reminderStore,
+          sender: meetings.pushSender,
+          tasks: taskService,
+        })
+      : null,
+  }
+  // Agent briefs (ARCHITECTURE §13): written nightly from each member's meetings and tasks.
+  const briefs = new AgentBriefs({
+    git,
+    index,
+    spaces,
+    syncer,
+    tasks: taskService,
+    llm,
+    model: config.BRIEF_MODEL,
+    members: new BriefMembers(config.DATA_DIR),
+    auth,
+    org: config.ORG_NAME,
+    hour: config.BRIEF_HOUR,
+    forcedGapMs: config.BRIEF_REFRESH_GAP_SECONDS * 1000,
+    nightly: config.LLM_PROVIDER !== 'none',
+  })
+  // Briefcast (docs/plans/2026-11-12-briefcast.md): a spoken briefing each weekday morning.
+  const speaker =
+    overrides.speaker ??
+    (config.TTS_PROVIDER === 'openai'
+      ? new OpenAISpeaker({
+          apiKey: config.OPENAI_API_KEY ?? '',
+          model: config.TTS_MODEL,
+          voice: config.TTS_VOICE,
+        })
+      : config.TTS_PROVIDER === 'none'
+        ? new UnconfiguredSpeaker()
+        : new FakeSpeaker())
+  const briefcasts = new Briefcasts({
+    git,
+    index,
+    spaces,
+    syncer,
+    tasks: taskService,
+    calendar: meetings.calendar,
+    llm,
+    model: config.BRIEFCAST_MODEL,
+    speaker,
+    audio: meetings.audioStore,
+    members: new BriefMembers(config.DATA_DIR, 'briefcast'),
+    state: new BriefcastState(config.DATA_DIR),
+    auth,
+    push: meetings.pushSender
+      ? { store: meetings.reminderStore, sender: meetings.pushSender }
+      : null,
+    org: config.ORG_NAME,
+    publicUrl: config.PUBLIC_URL,
+    hour: config.BRIEFCAST_HOUR,
+    forcedGapMs: config.BRIEF_REFRESH_GAP_SECONDS * 1000,
+    nightly: config.LLM_PROVIDER !== 'none',
+    ...(overrides.briefcastNow ? { now: overrides.briefcastNow } : {}),
+  })
   return {
     config,
     git,
@@ -199,10 +305,51 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     meetings,
     dictation,
     dictationSockets,
+    boardRooms,
     clips,
+    tasks,
+    notes: new Notes({ git, index, spaces, syncer }),
+    // Hearth Files keep their bytes beside Clips and kept audio, under files/ (ARCHITECTURE §18).
+    files: new Files({
+      git,
+      index,
+      spaces,
+      syncer,
+      store: meetings.audioStore,
+      dataDir: config.DATA_DIR,
+      ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
+    }),
+    briefs,
+    feedback: new Feedback({
+      clarifier: new Clarifier({ llm, model: config.FEEDBACK_MODEL }),
+      tracker:
+        overrides.feedbackTracker === undefined
+          ? createFeedbackTracker(config)
+          : overrides.feedbackTracker,
+      secret: config.WEBHOOK_SECRET,
+    }),
+    boards: new Boards({ git, index, spaces, syncer }),
+    people: new People({
+      git,
+      index,
+      spaces,
+      syncer,
+      tasks: taskService,
+      calendar: meetings.calendar,
+      internalDomains: config.ALLOWED_EMAIL_DOMAINS,
+    }),
+    briefcasts,
     org,
     brand,
   }
+}
+
+/** GitHub issues when a repo and token are set; memory outside production; else off. */
+function createFeedbackTracker(config: Config): FeedbackTracker | null {
+  if (config.FEEDBACK_REPO && config.FEEDBACK_GITHUB_TOKEN) {
+    return new GitHubTracker({ repo: config.FEEDBACK_REPO, token: config.FEEDBACK_GITHUB_TOKEN })
+  }
+  return config.NODE_ENV === 'production' ? null : new MemoryTracker()
 }
 
 /** Claude, with the key from config (env or the organization's saved key). */
@@ -221,10 +368,11 @@ function createMeetingServices(
     auth: Authenticator
     spaces: SpaceService
     syncer: Syncer
+    keyterms: (principal: Principal) => string[]
   },
   overrides: ServiceOverrides,
 ): MeetingServices {
-  const { git, index, auth, spaces, syncer } = deps
+  const { git, index, auth, spaces, syncer, keyterms } = deps
   const transcriber =
     overrides.transcriber ??
     (config.ASR_PROVIDER === 'deepgram'
@@ -239,6 +387,18 @@ function createMeetingServices(
   const templates = new MeetingTemplates({ git, spaces })
   const audioStore =
     overrides.audioStore !== undefined ? overrides.audioStore : createAudioStore(config)
+  const cleanup = new TranscriptCleanup({
+    git,
+    afterCommit: (space) => syncer.afterHeadChanged(space),
+    retranscriber:
+      overrides.retranscriber !== undefined
+        ? overrides.retranscriber
+        : config.ASR_PROVIDER === 'deepgram'
+          ? new DeepgramRetranscriber({ apiKey: config.DEEPGRAM_API_KEY ?? '' })
+          : null,
+    llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+    model: config.CLEANUP_MODEL,
+  })
   const sessions = new MeetingSessions({
     dataDir: config.DATA_DIR,
     git,
@@ -252,6 +412,8 @@ function createMeetingServices(
     audioStore,
     idleStopMs: config.SESSION_IDLE_STOP_MINUTES * 60_000,
     maxAgeMs: config.SESSION_MAX_HOURS * 3_600_000,
+    keyterms,
+    cleanup,
   })
   return {
     sessions,
@@ -284,6 +446,7 @@ function reminderServices(config: Config, calendar: CalendarSource, sender?: Pus
     reminderStore: store,
     recordedPushes: recorder,
     vapidPublicKey: vapid?.publicKey ?? (sender || recorder ? 'test-public-key' : null),
+    pushSender,
     reminders: pushSender ? new MeetingReminders({ store, calendar, sender: pushSender }) : null,
   }
 }

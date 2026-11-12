@@ -11,6 +11,7 @@ export {
   deriveHandle,
   isAllowedEmailDomain,
   type Principal,
+  signInAllowance,
 } from './principal.js'
 
 export type AuthConfig = Pick<
@@ -20,14 +21,16 @@ export type AuthConfig = Pick<
   | 'CLERK_SECRET_KEY'
   | 'CLERK_PUBLISHABLE_KEY'
   | 'ALLOWED_EMAIL_DOMAINS'
+  | 'ALLOWED_EMAILS'
   | 'ADMIN_EMAILS'
   | 'PUBLIC_URL'
 >
 
 export function createAuthenticator(config: AuthConfig): Authenticator {
   const allowedDomains = config.ALLOWED_EMAIL_DOMAINS
+  const allowedEmails = config.ALLOWED_EMAILS
   const adminEmails = config.ADMIN_EMAILS
-  if (config.AUTH_MODE === 'dev') return new DevAuth({ allowedDomains, adminEmails })
+  if (config.AUTH_MODE === 'dev') return new DevAuth({ allowedDomains, allowedEmails, adminEmails })
   // Setup mode: nobody can sign in until the wizard has saved the sign-in keys.
   if (config.AUTH_MODE === 'setup') {
     return { authenticate: async () => null, principalForUser: async () => null }
@@ -41,6 +44,7 @@ export function createAuthenticator(config: AuthConfig): Authenticator {
   return new ClerkAuth({
     clerk,
     allowedDomains,
+    allowedEmails,
     adminEmails,
     authorizedParties: authorizedParties(config),
   })

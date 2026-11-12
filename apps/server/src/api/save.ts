@@ -1,6 +1,8 @@
 import {
   ensureId,
   extractTitle,
+  FILES_FOLDER,
+  FILES_FOLDERS_PATH,
   FrontmatterError,
   parseFrontmatter,
   patchFrontmatter,
@@ -26,6 +28,7 @@ export type SaveResult =
   | Exclude<CommitResult, { status: 'committed' }>
 
 const SPACE_CONFIG = `${SPACE_LAYOUT.meta}/space.yaml`
+const FILES_OWNED = [FILES_FOLDER, FILES_FOLDERS_PATH]
 
 /**
  * Writes one file as a member and commits it on main. Markdown gets an `id`. The message is
@@ -39,6 +42,8 @@ export async function saveFile(
     content: string
     author: Author
     baseBlobOid?: string | undefined
+    /** Refuse to overwrite: a new doc or an import must never replace a file it didn't see. */
+    createOnly?: boolean | undefined
     message?: string | undefined
     label?: string | undefined
     /** The agent channel the save came through, as a `Hearth-Via` trailer (ARCHITECTURE §8.2). */
@@ -47,6 +52,9 @@ export async function saveFile(
 ): Promise<SaveResult> {
   const path = writablePath(args.path)
   const existing = await readIfExists(deps.git, args.space, path)
+  if (args.createOnly && existing) {
+    throw new HearthError('conflict', `${path} already exists`)
+  }
   const content = isMarkdown(path) ? withStableId(args.content, existing?.content) : args.content
   const message = withVia(
     args.message?.trim()
@@ -126,6 +134,10 @@ export function writablePath(rawPath: string): string {
   const path = normalizeRepoPath(rawPath)
   if (isAtOrUnder(SPACE_CONFIG, path)) {
     throw new HearthError('forbidden', `${SPACE_CONFIG} can't be changed from Hearth`)
+  }
+  // Hearth Files' pointers say which stored bytes a file is; only the Files app writes them.
+  if (path === '' || FILES_OWNED.some((p) => isAtOrUnder(path, p) || isAtOrUnder(p, path))) {
+    throw new HearthError('forbidden', 'Files in Hearth Files are changed from the Files app')
   }
   return path
 }

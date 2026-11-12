@@ -2,7 +2,7 @@ import { readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
-import { loadConfig } from '../../src/config.js'
+import { CLOUDFLARE_MEDIA, CLOUDFLARE_REPOS, loadConfig } from '../../src/config.js'
 import { HearthError } from '../../src/errors.js'
 import { OrgStore } from '../../src/org/store.js'
 import { testProvider } from '../../src/org/test-keys.js'
@@ -110,6 +110,33 @@ describe('setup mode', () => {
     expect(
       new OrgStore({ dataDir, masterKey: 'other' }).savedSecret('ANTHROPIC_API_KEY'),
     ).toBeNull()
+  })
+
+  it('saves invited people as exact, lowercased addresses and lets an invited admin finish', async () => {
+    const { call, org } = await instance({ AUTH_MODE: 'clerk' })
+    const headers = { 'x-setup-token': org.setupToken() }
+    const res = await call('PUT', '/api/setup/settings', {
+      headers,
+      json: {
+        orgName: 'Acme',
+        allowedDomains: 'example.org',
+        allowedEmails: 'Jo@Partner.org, sam@gmail.com, jo@partner.org',
+        adminEmails: 'sam@gmail.com',
+        clerkPublishableKey: 'pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk',
+        secrets: { CLERK_SECRET_KEY: SK },
+      },
+    })
+    expect(res.status).toBe(200)
+    const state = await res.json()
+    expect(state.settings.allowedEmails).toEqual(['jo@partner.org', 'sam@gmail.com'])
+    // An invited admin can sign in, so nothing is missing on their account.
+    expect(state.missing.join(' ')).not.toContain('sam@gmail.com')
+    expect(org.toEnv({ asIfComplete: true }).ALLOWED_EMAILS).toBe('jo@partner.org,sam@gmail.com')
+    const bad = await call('PUT', '/api/setup/settings', {
+      headers,
+      json: { allowedEmails: 'partner.org' },
+    })
+    expect(bad.status).toBe(400)
   })
 
   it('rejects bad domains, emails and publishable keys with a readable message', async () => {
@@ -413,5 +440,48 @@ describe('bring your own keys', () => {
     )
     expect((await testProvider('github', 'k', '', fetchOk as never)).ok).toBe(false)
     expect((await testProvider('anthropic', '', '', fetchOk as never)).ok).toBe(false)
+  })
+})
+
+describe('on Cloudflare (docs/PLAN-cloudflare-deploy.md R9)', () => {
+  it('won’t finish setup with repositories or video on the temporary disk, and says why', async () => {
+    const { call, org } = await instance({ AUTH_MODE: 'clerk', HOTSAUCE_PLATFORM: 'cloudflare' })
+    const headers = { 'x-setup-token': org.setupToken() }
+    await call('PUT', '/api/setup/settings', {
+      headers,
+      json: {
+        orgName: 'Fieldwork',
+        allowedDomains: 'example.org',
+        adminEmails: ADMIN,
+        clerkPublishableKey: 'pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk',
+        secrets: { CLERK_SECRET_KEY: SK },
+      },
+    })
+    const res = await call('POST', '/api/setup/finish', { headers })
+    expect(res.status).toBe(400)
+    const missing: string[] = (await res.json()).error.details.missing
+    expect(missing).toEqual(expect.arrayContaining([CLOUDFLARE_REPOS, CLOUDFLARE_MEDIA]))
+    expect(org.settings().setupComplete).toBe(false)
+  })
+
+  it('a server started with repositories on its disk refuses to start', () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: 'test',
+        HOTSAUCE_PLATFORM: 'cloudflare',
+        AUTH_MODE: 'dev',
+        HOST_KIND: 'local',
+      }),
+    ).toThrow(/GitHub organization[\s\S]*R2/)
+  })
+
+  it('is fine in setup mode, before either is chosen', () => {
+    const c = loadConfig({
+      NODE_ENV: 'test',
+      HOTSAUCE_PLATFORM: 'cloudflare',
+      AUTH_MODE: 'clerk',
+      HOTSAUCE_SETUP_PENDING: 'true',
+    })
+    expect(c.AUTH_MODE).toBe('setup')
   })
 })

@@ -41,21 +41,32 @@ describe('the app rail', () => {
 
   it('marks Settings, and no app, on the Settings page; Docs then returns to its last doc', async () => {
     const { router } = renderApp('/docs/team/docs/welcome.md')
-    expect(await screen.findByTestId('editor')).toBeInTheDocument()
+    // The editor and the Settings page load lazily; under a full parallel run that can take
+    // longer than the default second.
+    const slow = { timeout: 5_000 }
+    expect(await screen.findByTestId('editor', {}, slow)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('settings-link'))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
-    expect(screen.getByTestId('settings-link')).toHaveAttribute('aria-current', 'page')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'), slow)
+    // The router's state changes before React renders the new location: wait for the render.
+    await waitFor(
+      () => expect(screen.getByTestId('settings-link')).toHaveAttribute('aria-current', 'page'),
+      slow,
+    )
     for (const app of APPS) {
       expect(screen.getByTestId(`app-switch-${app.id}`)).not.toHaveAttribute('aria-current')
     }
     // Leaving Settings for Meetings and back to Docs lands on the doc, not on Settings.
     await userEvent.click(screen.getByTestId('app-switch-meetings'))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/meetings'))
-    expect(screen.getByTestId('app-switch-docs')).toHaveAttribute(
-      'href',
-      '/docs/team/docs/welcome.md',
+    await waitFor(() => expect(router.state.location.pathname).toBe('/meetings'), slow)
+    await waitFor(
+      () =>
+        expect(screen.getByTestId('app-switch-docs')).toHaveAttribute(
+          'href',
+          '/docs/team/docs/welcome.md',
+        ),
+      slow,
     )
-  })
+  }, 20_000)
 
   it('opens the account menu with the email, and signs out after forgetting reminders', async () => {
     const signOut = vi.fn()
@@ -64,7 +75,7 @@ describe('the app rail', () => {
     await waitFor(() => expect(button).toHaveTextContent(/^[A-Z?]{1,2}$/))
     await userEvent.click(button)
     const menu = screen.getByRole('menu', { name: 'Account' })
-    expect(within(menu).getByTestId('account-email')).toHaveTextContent('morgan@example.test')
+    expect(within(menu).getByTestId('account-email')).toHaveTextContent('ada@example.test')
     await userEvent.click(within(menu).getByTestId('sign-out'))
     await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
   })
@@ -169,7 +180,7 @@ describe('the app rail', () => {
 
 describe('initials', () => {
   it('takes the first and last names, else the email', () => {
-    expect(initials('Morgan Holland', 'm@x.com')).toBe('MH')
+    expect(initials('Ada Lovelace', 'm@x.com')).toBe('MH')
     expect(initials('Cher', 'c@x.com')).toBe('C')
     expect(initials('Ana María de la Cruz', undefined)).toBe('AC')
     expect(initials('', 'priya@x.com')).toBe('P')

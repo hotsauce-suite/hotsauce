@@ -43,4 +43,12 @@ describe('scriptedResponse', () => {
     )
     expect(scriptedResponse(ask('anything else'))).toBe('I could not find that in your meetings.')
   })
+
+  it('answers a Tasks ramble with one quick-add line per sentence', () => {
+    const prompt =
+      'Today is Wednesday.\n<ramble>\nCall Sam tomorrow. Pay 1.5k rent; send the deck and then book flights also renew\n</ramble>'
+    expect(scriptedResponse(ask(prompt))).toBe(
+      '<tasks>\nCall Sam tomorrow\nPay 1.5k rent\nsend the deck\nbook flights\nrenew\n</tasks>',
+    )
+  })
 })

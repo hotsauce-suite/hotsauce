@@ -1,4 +1,11 @@
 /**
+ * How many spaces one pass syncs at once. Each sync is mostly a `git fetch` waiting on the host,
+ * and spaces don't share locks, so a pass over many members' spaces takes about as long as its
+ * slowest few, not the sum of them all (one at a time, 40 spaces took ~6 s).
+ */
+export const POLL_CONCURRENCY = 8
+
+/**
  * Syncs every known space on an interval: the fallback for hosts without webhooks (and for
  * missed deliveries). The next pass is scheduled only when the last one ends, so passes never
  * overlap however slow the host is.
@@ -7,6 +14,7 @@ export class Poller {
   readonly #syncSpace: (space: string) => Promise<void>
   readonly #spaces: () => string[]
   readonly #intervalMs: number
+  readonly #concurrency: number
   readonly #log: (message: string) => void
   #timer: ReturnType<typeof setTimeout> | null = null
   #running: Promise<void> | null = null
@@ -17,10 +25,12 @@ export class Poller {
     spaces: () => string[]
     intervalMs: number
     log?: (message: string) => void
+    concurrency?: number
   }) {
     this.#syncSpace = (space) => opts.syncer.syncSpace(space)
     this.#spaces = opts.spaces
     this.#intervalMs = opts.intervalMs
+    this.#concurrency = Math.max(1, opts.concurrency ?? POLL_CONCURRENCY)
     this.#log = opts.log ?? console.error
   }
 
@@ -39,15 +49,22 @@ export class Poller {
     await this.#running
   }
 
-  /** One pass, one space at a time; a failing space is logged and doesn't stop the others. */
+  /**
+   * One pass over every space, a few at a time, in list order (the team space first); a failing
+   * space is logged and doesn't stop the others.
+   */
   async pollOnce(): Promise<void> {
-    for (const space of this.#spaces()) {
-      try {
-        await this.#syncSpace(space)
-      } catch (err) {
-        this.#log(`sync of ${space} failed: ${err instanceof Error ? err.message : String(err)}`)
+    const queue = [...this.#spaces()]
+    const worker = async () => {
+      for (let space = queue.shift(); space !== undefined; space = queue.shift()) {
+        try {
+          await this.#syncSpace(space)
+        } catch (err) {
+          this.#log(`sync of ${space} failed: ${err instanceof Error ? err.message : String(err)}`)
+        }
       }
     }
+    await Promise.all(Array.from({ length: Math.min(this.#concurrency, queue.length) }, worker))
   }
 
   #schedule(delayMs: number): void {

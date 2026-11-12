@@ -14,7 +14,7 @@ import { type CalendarSource, findEvent } from '../calendar/types.js'
 import { rawNotesPath } from '../files.js'
 import type { LLMUsage } from '../llm/types.js'
 import type { SeriesNote } from '../series.js'
-import { DEFAULT_TEMPLATE, type MeetingTemplates } from '../templates.js'
+import { DEFAULT_TEMPLATE, type MeetingTemplates, VOICE_NOTE_TEMPLATE } from '../templates.js'
 import type { TranscriptSegment } from '../transcriber/types.js'
 import { assembleEnhancedNote } from './assemble.js'
 import type { Enhancer } from './enhancer.js'
@@ -31,6 +31,8 @@ export interface EnhanceNoteDeps {
   ) => Promise<SeriesNote[]>
   /** Index and announce the commit, or record the conflict branch (api/save.ts afterCommit). */
   afterCommit: (space: string, path: string, result: CommitResult) => Promise<void>
+  /** Waits for the meeting's after-call transcript cleanup, if one is running (§7.11). */
+  transcriptSettled?: (meetingId: string) => Promise<void>
   log?: (message: string) => void
 }
 
@@ -61,6 +63,8 @@ export async function enhanceNote(
   if (!meeting.success) throw new HearthError('bad_request', `${path} is not a meeting note`)
   const fm = meeting.data
   if (!args.force) await assertUnedited(git, space, path, parsed.body, fm.models)
+  // Enhance right after Stop reads the cleaned-up transcript, not the live one it replaces.
+  await deps.transcriptSettled?.(fm.id)
 
   const transcriptPath = transcriptPathFor(path, fm)
   const [rawNotes, transcript, template] = await Promise.all([
@@ -85,8 +89,15 @@ export async function enhanceNote(
         })
       : []
 
-  const { markdown, usage } = await deps.enhancer.enhance({
+  const nameIt = template.id === VOICE_NOTE_TEMPLATE && hasPlaceholderTitle(fm.title)
+  const {
+    markdown,
+    usage,
+    title: newTitle,
+    speakerGuesses,
+  } = await deps.enhancer.enhance({
     title: fm.title,
+    ...(nameIt ? { nameIt: true } : {}),
     template,
     rawNotes: rawNotes ?? '',
     transcript: segmentsOf(transcript),
@@ -106,6 +117,9 @@ export async function enhanceNote(
   let content: string
   try {
     content = patchFrontmatter(assembled.text, {
+      ...(newTitle ? { title: newTitle } : {}),
+      // Fresh guesses replace old ones; none at all clears them.
+      speaker_guesses: speakerGuesses,
       template: template.id,
       ai_ranges: assembled.aiRanges,
       models: { ...fm.models, enhance: deps.enhancer.model, enhanced_blob: blobOidOf(body) },
@@ -122,7 +136,11 @@ export async function enhanceNote(
   const result = await git.commit(space, {
     changes: [{ path, content }],
     author: { name: principal.name, email: principal.email },
-    message: formatCommitMessage({ app: 'meetings', verb: 'enhance', title: fm.title }),
+    message: formatCommitMessage({
+      app: 'meetings',
+      verb: 'enhance',
+      title: newTitle ?? fm.title,
+    }),
     base: { path, blobOid: note.blobOid },
   })
   await deps.afterCommit(space, path, result)
@@ -130,6 +148,14 @@ export async function enhanceNote(
     throw new HearthError('conflict', 'The note changed while it was being enhanced; try again')
   }
   return { path, aiRanges: assembled.aiRanges, usage }
+}
+
+/**
+ * The title a voice note gets when it starts ("10:12 PM Voice note", in any clock format):
+ * Enhance names such a note from what was said. A title the member typed is theirs.
+ */
+export function hasPlaceholderTitle(title: string): boolean {
+  return /^[\d:.\s]+(?:[AaPp]\.?\s?[Mm]\.?)?\s*Voice note$/.test(title.trim())
 }
 
 /**

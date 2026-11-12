@@ -1,8 +1,11 @@
-import { type ReactNode, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { feedbackEnabled } from '../api/feedback'
 import { useLive } from '../apps/meetings/live/liveState'
 import { forgetRemindersHere } from '../apps/meetings/reminders'
 import { APPS, type AppId, type AppManifest, ownerOfPath, railLinks } from '../apps/registry'
+import { forgetTaskLists } from '../apps/tasks/useTaskList'
+import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
 import { useSession } from '../state/session'
 import { BrandMark } from './BrandMark'
@@ -27,7 +30,7 @@ export function appHref(app: AppManifest): string {
   return lastLocation.get(app.id) ?? app.route
 }
 
-/** Initials for the account button: "Morgan Holland" → "MH"; the email's first letter without a name. */
+/** Initials for the account button: "Ada Lovelace" → "MH"; the email's first letter without a name. */
 export function initials(name: string | undefined, email: string | undefined): string {
   const words = (name ?? '').trim().split(/\s+/).filter(Boolean)
   if (words.length > 0) {
@@ -53,7 +56,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   const recording = live !== null && (live.state === 'recording' || live.state === 'paused')
   const vertical = orientation === 'vertical'
 
-  const apps = APPS.map((app) => {
+  const apps = APPS.filter((app) => vertical || app.onPhoneBar !== false).map((app) => {
     const current = app.id === active
     const isRecording = app.id === 'meetings' && recording
     return (
@@ -84,6 +87,22 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       external
     />
   ))
+  const onFeedback = location.pathname === '/feedback'
+  const feedbackHref = feedbackLink(location.pathname)
+  const feedbackOn = useFeedbackEnabled()
+  const feedback =
+    vertical && feedbackOn ? (
+      <RailItem
+        orientation={orientation}
+        to={onFeedback ? '/feedback' : feedbackHref}
+        icon="chat"
+        label="Feedback"
+        name="Send feedback"
+        current={onFeedback}
+        testId="feedback-link"
+        hideLabel
+      />
+    ) : null
   const settings = vertical ? (
     <RailItem
       orientation={orientation}
@@ -113,6 +132,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
           {links}
         </div>
         <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
+          {feedback}
           {settings}
           {account}
         </div>
@@ -135,6 +155,23 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       </div>
     </nav>
   )
+}
+
+function useFeedbackEnabled(): boolean {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    let live = true
+    void feedbackEnabled().then((v) => live && setOn(v))
+    return () => {
+      live = false
+    }
+  }, [])
+  return on
+}
+
+/** Send feedback, remembering the page it was opened from (docs/plans/2026-11-12-feedback.md). */
+export function feedbackLink(pathname: string): string {
+  return pathname === '/feedback' ? '/feedback' : `/feedback?from=${encodeURIComponent(pathname)}`
 }
 
 function itemClass(orientation: Orientation, current: boolean): string {
@@ -237,8 +274,12 @@ function AccountButton({
     buttonRef.current?.focus()
   }
   const principal = session.me?.principal
+  const feedbackOn = useFeedbackEnabled()
   const signOut = () => {
     forgetAppLocations()
+    // Tasks keeps the last lists, people and projects in memory; they're this member's.
+    forgetTaskLists()
+    forgetTaskMeta()
     void forgetRemindersHere().finally(auth.signOut)
   }
   const label = principal ? `Account: ${principal.email}` : 'Account'
@@ -287,6 +328,18 @@ function AccountButton({
               }}
             >
               Settings
+            </MenuItem>
+          ) : null}
+          {feedbackOn ? (
+            <MenuItem
+              icon="chat"
+              testId="menu-feedback"
+              onSelect={() => {
+                setAnchor(null)
+                navigate(feedbackLink(window.location.pathname))
+              }}
+            >
+              Send feedback
             </MenuItem>
           ) : null}
           <MenuItem testId="sign-out" onSelect={signOut}>

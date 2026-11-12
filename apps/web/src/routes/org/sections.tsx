@@ -176,6 +176,9 @@ export function OrgSection(props: SectionProps) {
   const [admins, setAdmins] = useState(
     (s.adminEmails.length ? s.adminEmails : state.effective.adminEmails).join(', '),
   )
+  const [invited, setInvited] = useState(
+    (s.allowedEmails.length ? s.allowedEmails : (state.effective.allowedEmails ?? [])).join(', '),
+  )
   const [chatUrl, setChatUrl] = useState(s.chatUrl)
   const { busy, error, run } = useSave(props)
 
@@ -194,6 +197,7 @@ export function OrgSection(props: SectionProps) {
             orgName,
             productName,
             allowedDomains: domains,
+            allowedEmails: invited,
             adminEmails: admins,
             chatUrl,
           }),
@@ -246,6 +250,23 @@ export function OrgSection(props: SectionProps) {
             disabled={locked.allowedDomains}
             placeholder="acme.com"
             onChange={(e) => setDomains(e.target.value)}
+          />
+        )}
+      </Field>
+      <Field
+        label="Invited people (optional)"
+        locked={locked.allowedEmails}
+        hint="Exact email addresses outside those domains who can also sign in, with a code sent to their email. They see and can edit everything the team can. Adding or removing someone takes effect when you apply the settings. Separate several with commas."
+      >
+        {(id) => (
+          <input
+            id={id}
+            data-testid="allowed-emails"
+            className={inputClass}
+            value={invited}
+            disabled={locked.allowedEmails}
+            placeholder="jo@partner.org"
+            onChange={(e) => setInvited(e.target.value)}
           />
         )}
       </Field>
@@ -786,7 +807,8 @@ export function AiSection(props: SectionProps) {
 export function StorageSection(props: SectionProps) {
   const { state, editor } = props
   const s = state.settings
-  const [hostKind, setHostKind] = useState(s.hostKind)
+  const onCloudflare = state.platform === 'cloudflare'
+  const [hostKind, setHostKind] = useState(onCloudflare ? 'github' : s.hostKind)
   const [githubOrg, setGithubOrg] = useState(s.githubOrg)
   const [githubToken, setGithubToken] = useState('')
   const [r2AccountId, setR2AccountId] = useState(s.r2AccountId)
@@ -831,6 +853,12 @@ export function StorageSection(props: SectionProps) {
             </span>
           ) : null}
         </legend>
+        {onCloudflare ? (
+          <p className="text-xs text-ink-faint" data-testid="cloudflare-storage-note">
+            On Cloudflare the server’s disk is wiped whenever it restarts, so repositories live in
+            GitHub and videos and audio in R2.
+          </p>
+        ) : null}
         {(
           [
             [
@@ -844,26 +872,28 @@ export function StorageSection(props: SectionProps) {
               'Each space is a private repository you can also open on GitHub.',
             ],
           ] as const
-        ).map(([value, label, hint]) => (
-          <label
-            key={value}
-            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 ${hostKind === value ? 'border-ember bg-ember-wash' : 'border-ash'}`}
-          >
-            <input
-              type="radio"
-              name="hostKind"
-              data-testid={`host-${value}`}
-              value={value}
-              checked={hostKind === value}
-              onChange={() => setHostKind(value)}
-              className="mt-1 accent-[var(--ember)]"
-            />
-            <span>
-              <span className="block text-sm font-medium text-ink">{label}</span>
-              <span className="block text-xs text-ink-faint">{hint}</span>
-            </span>
-          </label>
-        ))}
+        )
+          .filter(([value]) => !(onCloudflare && value === 'local'))
+          .map(([value, label, hint]) => (
+            <label
+              key={value}
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 ${hostKind === value ? 'border-ember bg-ember-wash' : 'border-ash'}`}
+            >
+              <input
+                type="radio"
+                name="hostKind"
+                data-testid={`host-${value}`}
+                value={value}
+                checked={hostKind === value}
+                onChange={() => setHostKind(value)}
+                className="mt-1 accent-[var(--ember)]"
+              />
+              <span>
+                <span className="block text-sm font-medium text-ink">{label}</span>
+                <span className="block text-xs text-ink-faint">{hint}</span>
+              </span>
+            </label>
+          ))}
       </fieldset>
 
       {hostKind === 'github' ? (
@@ -916,14 +946,18 @@ export function StorageSection(props: SectionProps) {
         </div>
       ) : null}
 
-      <details className="rounded-xl border border-ash p-4" open={Boolean(s.r2Bucket)}>
+      <details
+        className="rounded-xl border border-ash p-4"
+        open={onCloudflare || Boolean(s.r2Bucket)}
+      >
         <summary className="cursor-pointer text-sm font-medium text-ink">
-          Video and audio storage (optional)
+          {onCloudflare ? 'Video and audio storage' : 'Video and audio storage (optional)'}
         </summary>
         <div className="mt-3 flex flex-col gap-3">
           <p className="text-sm text-ink-soft">
-            Clips videos, and meeting audio you choose to keep, are stored on this server’s disk.
-            For more room, use a Cloudflare R2 bucket instead (10 GB free).
+            {onCloudflare
+              ? 'Clips videos, and meeting audio you choose to keep, go in a Cloudflare R2 bucket (10 GB free). You can use the bucket the Deploy button made.'
+              : 'Clips videos, and meeting audio you choose to keep, are stored on this server’s disk. For more room, use a Cloudflare R2 bucket instead (10 GB free).'}
           </p>
           <ol className="flex flex-col gap-3">
             <StepLink
@@ -1008,9 +1042,10 @@ export function Summary({ state }: { state: OrgState }) {
     ['Workspace name', s.productName || e.productName || 'Hotsauce', true],
     [
       'Who can sign in',
-      (s.allowedDomains.length ? s.allowedDomains : e.allowedDomains)
-        .map((d) => `@${d}`)
-        .join(', ') || 'Not set',
+      [
+        ...(s.allowedDomains.length ? s.allowedDomains : e.allowedDomains).map((d) => `@${d}`),
+        ...(s.allowedEmails.length ? s.allowedEmails : (e.allowedEmails ?? [])),
+      ].join(', ') || 'Not set',
       Boolean(s.allowedDomains.length || e.allowedDomains.length),
     ],
     [

@@ -19,7 +19,7 @@ const ALICE: Principal = {
 describe('built-in templates', () => {
   const builtins = loadBuiltinTemplates()
 
-  it('are the seven meeting types of PRD §6.5', () => {
+  it('are the seven meeting types of PRD §6.5, plus the voice note', () => {
     expect(builtins.map((t) => [t.id, t.name])).toEqual([
       ['brainstorm', 'Brainstorm'],
       ['candidate-interview', 'Candidate interview'],
@@ -28,6 +28,7 @@ describe('built-in templates', () => {
       ['one-on-one', '1:1'],
       ['pitch', 'Pitch'],
       ['standup', 'Standup'],
+      ['voice-note', 'Voice note'],
     ])
   })
 
@@ -41,7 +42,10 @@ describe('built-in templates', () => {
         expect(s.instructions, `${t.id}: ${s.title}`).not.toBe('')
         expect(s.instructions).not.toContain('<!--')
       }
-      expect(t.sections.at(-1)?.instructions, t.id).toContain('- [ ] Owner: task (due date)')
+      // A voice note has one speaker, so its to-dos have no owner.
+      expect(t.sections.at(-1)?.instructions, t.id).toContain(
+        t.id === 'voice-note' ? '- [ ] task (due date)' : '- [ ] Owner: task (due date)',
+      )
     }
   })
 })
@@ -143,6 +147,7 @@ describe('MeetingTemplates', () => {
       ['one-on-one', '1:1', 'builtin'],
       ['pitch', 'Pitch', 'builtin'],
       ['standup', 'Standup', 'builtin'],
+      ['voice-note', 'Voice note', 'builtin'],
       ['retro', 'My retro', 'personal'],
     ])
     expect((await templates.getTemplate(ALICE, 'retro')).sections[0]?.instructions).toBe(

@@ -71,6 +71,20 @@ export function testRoutes(deps: AppDeps) {
     .post('/reminders/tick', async (c) => {
       if (!reminders) throw new HearthError('not_found', 'Reminders are off')
       await reminders.tick()
+      await deps.tasks.reminders?.tick()
       return c.json({ ok: true })
     })
+    .post(
+      '/feedback/:number/ask',
+      valid('param', z.object({ number: z.coerce.number().int().positive() })),
+      valid('json', z.object({ question: z.string().min(1) })),
+      (c) => {
+        // Send feedback: the team asks the member a question, as the daily review would.
+        const tracker = deps.feedback.memoryTracker
+        if (!tracker) throw new HearthError('not_found', 'No in-memory feedback on this server')
+        tracker.ask(c.req.valid('param').number, c.req.valid('json').question)
+        deps.feedback.forgetCache()
+        return c.json({ ok: true })
+      },
+    )
 }

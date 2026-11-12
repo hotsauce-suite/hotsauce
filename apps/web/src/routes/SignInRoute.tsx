@@ -5,16 +5,22 @@ import type { Health } from '../api/types'
 import { useAuthState } from '../auth/AuthContext'
 import { product } from '../brand/product'
 import { BrandMark } from '../components/BrandMark'
+import { desktopSignInBridge, safeReturnPath } from '../lib/desktop'
 
 const ClerkSignInButton = lazy(() =>
   import('../auth/clerkAuth').then((m) => ({ default: m.ClerkSignInButton })),
+)
+const ClerkEmailCodeSignIn = lazy(() =>
+  import('../auth/clerkAuth').then((m) => ({ default: m.ClerkEmailCodeSignIn })),
 )
 
 export default function SignInRoute() {
   const auth = useAuthState()
   const location = useLocation()
-  const from = (location.state as { from?: string } | null)?.from ?? '/docs'
-  const domain = (useRouteLoaderData('root') as Health | undefined)?.signInDomain
+  const from = safeReturnPath((location.state as { from?: string } | null)?.from)
+  const desktop = desktopSignInBridge()
+  const health = useRouteLoaderData('root') as Health | undefined
+  const domain = health?.signInDomain
   if (auth.status === 'signed-in') return <Navigate to={from} replace />
 
   return (
@@ -37,11 +43,16 @@ export default function SignInRoute() {
             ? `Sign in with your ${domain} account to open the team’s workspace.`
             : 'Sign in with your work account to open the team’s workspace.'}
         </p>
-        {auth.mode === 'dev' ? (
+        {desktop ? (
+          <DesktopSignIn start={() => desktop.postMessage('start')} />
+        ) : auth.mode === 'dev' ? (
           <DevSignInForm from={from} domain={domain} />
         ) : (
           <Suspense fallback={<div className="h-12" />}>
-            <ClerkSignInButton />
+            <div className="flex flex-col gap-5">
+              <ClerkSignInButton returnTo={from} />
+              {health?.emailCodeSignIn ? <ClerkEmailCodeSignIn returnTo={from} /> : null}
+            </div>
           </Suspense>
         )}
       </main>
@@ -109,5 +120,32 @@ function DevSignInForm({ from, domain }: { from: string; domain: string | null |
         </p>
       ) : null}
     </form>
+  )
+}
+
+/**
+ * In the Mac app's window: Google won't sign in inside an app, so the app opens the member's
+ * browser, where they're usually signed in already, and is handed a one-time ticket back.
+ */
+function DesktopSignIn({ start }: { start: () => void }) {
+  const [started, setStarted] = useState(false)
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => {
+          setStarted(true)
+          start()
+        }}
+        className="rounded-lg bg-ember px-4 py-3 font-medium text-paper-raised shadow-sm hover:bg-ember-strong"
+      >
+        Sign in with your browser
+      </button>
+      <p className="text-sm text-ink-faint">
+        {started
+          ? 'Finish in your browser, then come back here.'
+          : 'Opens your browser. If you’re signed in to Hearth there, it’s one click.'}
+      </p>
+    </div>
   )
 }

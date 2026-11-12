@@ -35,10 +35,9 @@ const ACME_KICKOFF: SeedMeeting = {
   minute: 0,
   durationMin: 32,
   template: 'customer-call',
-  attendees: ['Morgan Holland <morgan@example.test>', 'Dana Lee <dana@acme.com>'],
+  attendees: ['Ada Lovelace <ada@example.test>', 'Dana Lee <dana@acme.com>'],
   calendarEventId: ACME_KICKOFF_EVENT,
-  rawNotes:
-    'SSO before rollout\npricing ok if annual\n- [ ] Morgan: send pricing one-pager (Fri)\n',
+  rawNotes: 'SSO before rollout\npricing ok if annual\n- [ ] Ada: send pricing one-pager (Fri)\n',
   body: `# Acme kickoff
 
 ## Summary
@@ -59,7 +58,7 @@ pricing ok if annual
 - Send the pricing one-pager and the SSO roadmap.
 
 ## Action items
-- [ ] Morgan: send pricing one-pager (Fri)
+- [ ] Ada: send pricing one-pager (Fri)
 - [ ] Dana: intro to their ops lead
 `,
   transcript: [
@@ -89,7 +88,7 @@ const PRIYA_ONE_ON_ONE: SeedMeeting = {
   minute: 30,
   durationMin: 25,
   template: 'one-on-one',
-  attendees: ['Morgan Holland <morgan@example.test>', 'Priya Natarajan <priya@example.test>'],
+  attendees: ['Ada Lovelace <ada@example.test>', 'Priya Natarajan <priya@example.test>'],
   rawNotes: 'hiring: second assay scientist\nfeedback on onboarding doc\n',
   body: `# Priya 1:1
 
@@ -107,7 +106,7 @@ feedback on onboarding doc
 
 ## Action items
 - [ ] Priya: draft the assay scientist posting (Wed)
-- [ ] Morgan: add reagent ordering to the onboarding doc
+- [ ] Ada: add reagent ordering to the onboarding doc
 `,
   transcript: [
     { at: 3, speaker: 'Me', text: 'How’s the lab move going?' },
@@ -128,7 +127,7 @@ const PILOT_DEBRIEF: SeedMeeting = {
   durationMin: 41,
   template: 'general',
   attendees: [
-    'Morgan Holland <morgan@example.test>',
+    'Ada Lovelace <ada@example.test>',
     'Sam Okafor <sam@example.test>',
     'Priya Natarajan <priya@example.test>',
     'Lena Brooks <lena@northwind.bio>',

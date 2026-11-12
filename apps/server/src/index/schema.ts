@@ -93,6 +93,33 @@ export const MIGRATIONS: readonly string[] = [
   -- next sync of each space (the poller's first pass, at startup) re-index it in full.
   DELETE FROM sync_state;
   `,
+  `
+  -- Hearth Tasks (ARCHITECTURE §12.1): one task per file under tasks/, its own kind. Forgetting the
+  -- sync points re-indexes every space on its next sync, which fills in what this UPDATE can't.
+  UPDATE files SET kind = 'task' WHERE path LIKE 'tasks/%';
+  DELETE FROM sync_state;
+  `,
+  `
+  -- Hearth Notes (ARCHITECTURE §14.1): one note per file under notes/, its own kind.
+  UPDATE files SET kind = 'note' WHERE path LIKE 'notes/%';
+  DELETE FROM sync_state;
+  `,
+  `
+  -- Hearth Whiteboard (ARCHITECTURE §15.1): one board per file under boards/, its own kind.
+  UPDATE files SET kind = 'board' WHERE path LIKE 'boards/%';
+  DELETE FROM sync_state;
+  `,
+  `
+  -- Today (ARCHITECTURE §16): where each body starts in its file, so line numbers read from the
+  -- index (meeting to-dos) match the file's. Re-indexing fills it in.
+  ALTER TABLE files ADD COLUMN body_line INTEGER NOT NULL DEFAULT 1;
+  DELETE FROM sync_state;
+  `,
+  `
+  -- Hearth Files (ARCHITECTURE §18.1): one pointer per stored file under files/, its own kind.
+  UPDATE files SET kind = 'file' WHERE path LIKE 'files/%';
+  DELETE FROM sync_state;
+  `,
 ]
 
 /** Applies pending migrations in one IMMEDIATE transaction, so a second process waits instead of racing. */

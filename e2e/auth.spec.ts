@@ -8,12 +8,12 @@ test('signs in through the dev form with an allowed email', async ({ page, user 
   await page.getByTestId('dev-signin-email').fill(user.email)
   await page.getByTestId('dev-signin-submit').click()
 
-  await expect(page).toHaveURL((url) => url.pathname.startsWith('/docs'))
-  await expect(page.getByTestId('sidebar')).toBeVisible()
+  await expect(page).toHaveURL((url) => url.pathname === '/today')
+  await expect(page.getByTestId('today')).toBeVisible()
 
   // The session survives a reload; every other spec relies on page.goto after sign-in.
   await page.reload()
-  await expect(page.getByTestId('sidebar')).toBeVisible()
+  await expect(page.getByTestId('today')).toBeVisible()
 })
 
 test('rejects an email outside the allowed domain with a visible message', async ({

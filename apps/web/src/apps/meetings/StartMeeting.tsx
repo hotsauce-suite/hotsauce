@@ -16,6 +16,7 @@ import {
   supportsTabCapture,
 } from './audio/capture'
 import { extensionVersion } from './audio/extension'
+import { framesArrived, supportsMacCapture } from './audio/mac'
 import {
   MeetingsPageHeader,
   primaryButton,
@@ -122,18 +123,21 @@ function StartForm() {
   // Opened by the extension's "Take notes" on a Meet call.
   const viaExtension = params.get('via') === 'extension'
   const meet = params.get('meet')
+  // Opened by the Mac app's "Take notes on this call?": the app that is on the call.
+  const callApp = params.get('via') === 'mac-call' ? params.get('app')?.trim().slice(0, 60) : null
   const event = useCalendarEvent(eventId, meet)
   // The Meet call this meeting is for, so the extension hands over that tab and no other.
   const call = meet ?? meetCallCode(event?.meetLink)
   const extension = useExtensionVersion()
   const templates = useTemplates()
-  const [title, setTitle] = useState('')
+  const [title, setTitle] = useState(() => (callApp ? `${callApp} call` : ''))
   const [placeholder] = useState(() => defaultMeetingTitle())
   const [template, setTemplate] = useState('general')
   const [state, dispatch] = useReducer(startReducer, INITIAL_START)
   const capture = useRef<Capture | null>(null)
   const handedOff = useRef(false)
   const tabCapture = supportsTabCapture()
+  const macCapture = supportsMacCapture()
   const titleTouched = useRef(false)
 
   useEffect(() => {
@@ -160,8 +164,13 @@ function StartForm() {
   const check = (current: Capture, tracks: Track[]) => {
     for (const track of tracks) {
       const stream = current.streams[track]
-      if (!stream) continue
-      void audioArrived(stream).then(
+      const arrived = current.frames
+        ? framesArrived(current.frames, track)
+        : stream
+          ? audioArrived(stream)
+          : null
+      if (!arrived) continue
+      void arrived.then(
         (arrived) => {
           if (capture.current === current) dispatch({ type: 'checked', track, arrived })
         },
@@ -188,7 +197,7 @@ function StartForm() {
         return
       }
       capture.current = next
-      const tracks = Object.keys(next.streams) as Track[]
+      const tracks = next.frames?.tracks ?? (Object.keys(next.streams) as Track[])
       dispatch({ type: 'granted', tracks })
       check(next, tracks)
     } catch (err) {
@@ -202,6 +211,14 @@ function StartForm() {
       })
     }
   }
+
+  // The member chose "Take notes" on the app's call notice: listen to the Mac at once.
+  const autoChose = useRef(false)
+  useEffect(() => {
+    if (!callApp || !macCapture || autoChose.current) return
+    autoChose.current = true
+    void choose('mac')
+  })
 
   const recheck = () => {
     const current = capture.current
@@ -291,6 +308,17 @@ function StartForm() {
             How should {product()} listen?
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
+            {macCapture ? (
+              <ModeCard
+                testId="capture-mac"
+                icon="laptop"
+                title="Any app on this Mac"
+                body="Zoom, Slack, FaceTime, a browser call, or a phone call on this Mac. Hearth hears your mic and everything the Mac plays."
+                selected={mode === 'mac'}
+                disabled={state.step === 'starting'}
+                onClick={() => void choose('mac')}
+              />
+            ) : null}
             <ModeCard
               testId="capture-meet-tab"
               icon="tab"
@@ -337,11 +365,13 @@ function StartForm() {
               <h3 className="text-sm font-semibold text-ink">Is sound arriving?</h3>
               {state.step === 'permission' ? (
                 <p className="mt-2 text-sm text-ink-soft">
-                  {mode === 'meet-tab' && extension
-                    ? 'Connecting to the Meet tab. If Chrome asks what to share, pick the Meet tab and tick “Share tab audio”.'
-                    : mode === 'meet-tab'
-                      ? 'Pick the Meet tab in Chrome’s window, tick “Share tab audio”, then Share.'
-                      : 'Allow the microphone when the browser asks.'}
+                  {mode === 'mac'
+                    ? 'If your Mac asks, allow the microphone and System Audio Recording.'
+                    : mode === 'meet-tab' && extension
+                      ? 'Connecting to the Meet tab. If Chrome asks what to share, pick the Meet tab and tick “Share tab audio”.'
+                      : mode === 'meet-tab'
+                        ? 'Pick the Meet tab in Chrome’s window, tick “Share tab audio”, then Share.'
+                        : 'Allow the microphone when the browser asks.'}
                 </p>
               ) : null}
               {state.step === 'blocked' ? (
@@ -357,9 +387,11 @@ function StartForm() {
               {overall === 'failed' && state.step === 'check' ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                   <span className="text-ink-soft">
-                    {tracks?.them === 'failed'
-                      ? 'No sound from the Meet tab yet. Someone may just not be talking.'
-                      : `${product()} can’t hear the microphone. Check it isn’t muted.`}
+                    {tracks?.them === 'failed' && mode === 'mac'
+                      ? `No sound from other apps yet. Someone may just not be talking. If it stays silent during a call, turn on ${product()} in System Settings → Privacy & Security → Screen & System Audio Recording.`
+                      : tracks?.them === 'failed'
+                        ? 'No sound from the Meet tab yet. Someone may just not be talking.'
+                        : `${product()} can’t hear the microphone. Check it isn’t muted.`}
                   </span>
                   <button type="button" onClick={recheck} className="text-ember-strong underline">
                     Check again

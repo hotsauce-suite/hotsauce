@@ -4,7 +4,17 @@ import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { DictationDevice } from '../api/dictation'
 import type { FakeUser } from './fakeRepo'
 
-const TEAM_SEED = ['Acme', 'Hearth', 'Ember', 'Granola', 'Clerk', 'Deepgram', 'Anthropic', 'Claude']
+const TEAM_SEED = [
+  'Acme',
+  'Acme',
+  'Hearth',
+  'Ember',
+  'Granola',
+  'Clerk',
+  'Deepgram',
+  'Anthropic',
+  'Claude',
+]
 
 export function dictationHandlers(opts: {
   principal: (request: Request) => FakeUser | Response
@@ -31,7 +41,7 @@ export function dictationHandlers(opts: {
 
   return [
     // The server's build includes the Mac app.
-    http.head('/downloads/HearthDictate.dmg', () => new HttpResponse(null, { status: 200 })),
+    http.head('/downloads/Hearth.dmg', () => new HttpResponse(null, { status: 200 })),
     http.get(
       '/api/dictation/devices',
       authed(({ user }) =>

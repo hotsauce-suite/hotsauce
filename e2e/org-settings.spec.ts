@@ -37,6 +37,8 @@ test.describe('as an admin', () => {
     await expect(page.getByTestId('org-summary')).toBeVisible()
     // Env-configured values show as locked.
     await expect(page.getByTestId('allowed-domains')).toBeDisabled()
+    // Invited people outside the domains are set here, not by env, so the admin can edit them.
+    await expect(page.getByTestId('allowed-emails')).toBeEnabled()
 
     try {
       await page.getByTestId('brand-primary').fill('#0f766e')

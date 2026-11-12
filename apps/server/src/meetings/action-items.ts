@@ -127,3 +127,38 @@ export async function completeActionItem(
     }
   }
 }
+
+const DONE_TASK = /^([ \t]*[-*+][ \t]+)\[[xX]\]([ \t]+)(\S.*)$/
+
+/**
+ * Unticks one item (`- [x]` → `- [ ]`), the reverse of completeActionItem: reopening a task that
+ * came from it. The line must still hold that item, ticked; otherwise it's a conflict.
+ */
+export async function reopenActionItem(
+  deps: Parameters<typeof completeActionItem>[0],
+  principal: Principal,
+  args: { space: string; path: string; line: number; text: string },
+): Promise<void> {
+  const { space, path } = args
+  for (let attempt = 1; ; attempt++) {
+    const file = await deps.git.readFile(space, path)
+    const lines = file.content.split('\n')
+    const match = DONE_TASK.exec((lines[args.line - 1] ?? '').replace(/\r$/, ''))
+    if (!match || match[3]?.trim() !== args.text.trim()) throw new HearthError('conflict', CHANGED)
+    lines[args.line - 1] = (lines[args.line - 1] ?? '').replace(/\[[xX]\]/, '[ ]')
+    try {
+      const result = await deps.git.commit(space, {
+        changes: [{ path, content: lines.join('\n') }],
+        author: { name: principal.name, email: principal.email },
+        message: formatCommitMessage({ app: 'meetings', verb: 'reopen', title: args.text.trim() }),
+        unchanged: { path, blobOid: file.blobOid },
+      })
+      await deps.afterCommit(space, path, result)
+      return
+    } catch (err) {
+      if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= TICK_ATTEMPTS) {
+        throw err
+      }
+    }
+  }
+}

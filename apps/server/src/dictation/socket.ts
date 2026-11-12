@@ -8,7 +8,7 @@ import type {
   TranscriptSegment,
 } from '../meetings/transcriber/types.js'
 import { authenticateDevice } from './device-auth.js'
-import { type Dictation, MAX_DICTATION_MS } from './service.js'
+import { type Dictation, MAX_DICTATION_MS, type Speculation } from './service.js'
 
 /** 16 kHz mono PCM16: 32 bytes a millisecond. */
 const PCM_BYTES_PER_MS = 32
@@ -19,6 +19,17 @@ const MAX_EARLY_BYTES = 30_000 * PCM_BYTES_PER_MS
 const IDLE_MS = 20_000
 /** And none outlives the longest dictation, whatever it sends. */
 const MAX_LIFETIME_MS = MAX_DICTATION_MS + 60_000
+/**
+ * A pause this long after Deepgram's last final words starts a cleanup of the transcript so far,
+ * so a member who stops talking before letting go of the key finds it ready (the cleanup was
+ * most of the wait). Speaking again just means a newer one replaces it.
+ */
+const SPECULATE_AFTER_MS = 300
+/**
+ * At most this many speculative cleanups per dictation, one at a time: a long dictation with many
+ * pauses mustn't turn into a model call per pause on an ever longer transcript.
+ */
+const MAX_SPECULATIONS = 4
 
 const Start = z.object({
   type: z.literal('start'),
@@ -60,6 +71,7 @@ export class DictationSocketServer {
   readonly #transcriber: Transcriber
   readonly #authTimeoutMs: number
   readonly #idleMs: number
+  readonly #speculateAfterMs: number
 
   constructor(opts: {
     dictation: Dictation
@@ -67,12 +79,14 @@ export class DictationSocketServer {
     transcriber: Transcriber
     authTimeoutMs?: number
     idleMs?: number
+    speculateAfterMs?: number
   }) {
     this.#dictation = opts.dictation
     this.#auth = opts.auth
     this.#transcriber = opts.transcriber
     this.#authTimeoutMs = opts.authTimeoutMs ?? 5_000
     this.#idleMs = opts.idleMs ?? IDLE_MS
+    this.#speculateAfterMs = opts.speculateAfterMs ?? SPECULATE_AFTER_MS
   }
 
   connect(socket: DictationSocket): {
@@ -89,9 +103,53 @@ export class DictationSocketServer {
     let earlyBytes = 0
     let finishRequested = false
     const finals: TranscriptSegment[] = []
+    let speculation: Speculation | null = null
+    let speculateTimer: ReturnType<typeof setTimeout> | undefined
+    const transcriptSoFar = () =>
+      [...finals]
+        .sort((a, b) => a.at - b.at)
+        .map((s) => s.text)
+        .join(' ')
+    let speculations = 0
+    let speculating = false
+    let speculateAgain = false
+    const scheduleSpeculation = () => {
+      clearTimeout(speculateTimer)
+      speculateTimer = setTimeout(() => {
+        if (phase !== 'streaming' || !principal || !start) return
+        if (speculations >= MAX_SPECULATIONS) return
+        if (speculating) {
+          // Try again with the newer transcript once this one is back.
+          speculateAgain = true
+          return
+        }
+        const transcript = transcriptSoFar().trim()
+        if (speculation?.transcript === transcript) return
+        const next = this.#dictation.speculate(principal, transcript, {
+          mode: start.mode,
+          appName: start.app_name,
+          appBundle: start.app_bundle,
+          language: start.language,
+        })
+        if (!next) return
+        speculation = next
+        speculations += 1
+        speculating = true
+        const settled = () => {
+          speculating = false
+          if (speculateAgain) {
+            speculateAgain = false
+            scheduleSpeculation()
+          }
+        }
+        // A failure is the cleanup's own fallback; nothing may go unhandled while no one waits.
+        next.result.then(settled, settled)
+      }, this.#speculateAfterMs)
+    }
 
     let idleTimer: ReturnType<typeof setTimeout> | undefined
     const stopTimers = () => {
+      clearTimeout(speculateTimer)
       clearTimeout(timer)
       clearTimeout(idleTimer)
       clearTimeout(lifetimeTimer)
@@ -136,21 +194,24 @@ export class DictationSocketServer {
       await session.finish()
       // Closed, cancelled or failed while Deepgram flushed: don't pay for a cleanup no one gets.
       if (phase !== 'finishing') return
-      const transcript = finals
-        .sort((a, b) => a.at - b.at)
-        .map((s) => s.text)
-        .join(' ')
-      const result = await this.#dictation.finish(principal, {
-        transcript,
-        durationMs: Math.round(bytes / PCM_BYTES_PER_MS),
-        // What the member waits for after key-up: Deepgram's last words, not the whole audio.
-        asrMs: Math.round(performance.now() - finishedAt),
-        bytes,
-        mode: start.mode,
-        appName: start.app_name,
-        appBundle: start.app_bundle,
-        via: 'stream',
-      })
+      clearTimeout(speculateTimer)
+      const transcript = transcriptSoFar()
+      const result = await this.#dictation.finish(
+        principal,
+        {
+          transcript,
+          durationMs: Math.round(bytes / PCM_BYTES_PER_MS),
+          // What the member waits for after key-up: Deepgram's last words, not the whole audio.
+          asrMs: Math.round(performance.now() - finishedAt),
+          bytes,
+          mode: start.mode,
+          appName: start.app_name,
+          appBundle: start.app_bundle,
+          language: start.language,
+          via: 'stream',
+        },
+        speculation,
+      )
       if (phase !== 'finishing') return
       phase = 'done'
       stopTimers()
@@ -173,7 +234,10 @@ export class DictationSocketServer {
         failOnDrop: true,
       })
       session.on('segment', (segment) => {
-        if (segment.final && segment.track === 'me') finals.push(segment)
+        if (segment.final && segment.track === 'me') {
+          finals.push(segment)
+          scheduleSpeculation()
+        }
       })
       session.on('error', fail)
       if (phase !== 'starting') {

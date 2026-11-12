@@ -10,9 +10,15 @@ import type { Change, CommitResult } from '../git/index.js'
 import { type AudioStore, LocalAudioStore } from './audio/index.js'
 import { FakeCalendar } from './calendar/fake.js'
 import { audioFrame } from './frames.js'
-import { MAX_OPEN_SESSIONS, MeetingSessions, type MeetingSessionsOptions } from './sessions.js'
+import {
+  MAX_OPEN_SESSIONS,
+  MeetingSessions,
+  type MeetingSessionsOptions,
+  meetingVocabulary,
+} from './sessions.js'
 import { loadBuiltinTemplates } from './templates.js'
 import { FakeTranscriber } from './transcriber/fake.js'
+import type { Transcriber } from './transcriber/types.js'
 
 const ALICE: Principal = {
   userId: 'dev:alice@example.test',
@@ -519,5 +525,56 @@ describe('MeetingSessions kept audio', () => {
     })
     await sessions.stop(session.id)
     expect([...repo.files.keys()].some((p) => p.includes('/audio/'))).toBe(false)
+  })
+})
+
+describe('meeting vocabulary', () => {
+  it('sends attendee names and the member’s word lists to the transcriber, and keeps them across a restart', async () => {
+    const started: Array<Parameters<Transcriber['start']>[0]> = []
+    const fake = new FakeTranscriber()
+    const transcriber: Transcriber = {
+      start: (opts) => {
+        started.push(opts)
+        return fake.start(opts)
+      },
+    }
+    await sessions.close()
+    sessions = openSessions(null, { transcriber, keyterms: () => ['AcmeBioLab', 'dana'] })
+    const session = await sessions.create(ALICE, { calendarEventId: 'fake-acme-sync', tz: 'UTC' })
+    await sessions.attachAudio(session.id, { send: () => {}, close: () => {} })
+    expect(started[0]?.vocabulary).toEqual(['Alice', 'Dana Lee', 'Dana', 'Lee', 'AcmeBioLab'])
+
+    // A restart recovers the session from disk with the same words.
+    await sessions.close()
+    sessions = openSessions(null, { transcriber })
+    await sessions.recover()
+    await sessions.attachAudio(session.id, { send: () => {}, close: () => {} })
+    expect(started[1]?.vocabulary).toEqual(started[0]?.vocabulary)
+  })
+
+  it('sends none when there are no words', async () => {
+    const started: Array<Parameters<Transcriber['start']>[0]> = []
+    const fake = new FakeTranscriber()
+    await sessions.close()
+    sessions = openSessions(null, {
+      transcriber: {
+        start: (opts) => {
+          started.push(opts)
+          return fake.start(opts)
+        },
+      },
+      keyterms: () => [],
+    })
+    const session = await sessions.create({ ...ALICE, name: 'A' }, { tz: 'UTC' })
+    await sessions.attachAudio(session.id, { send: () => {}, close: () => {} })
+    expect(started[0]).not.toHaveProperty('vocabulary')
+  })
+
+  it('caps the list at 100 and drops repeats ignoring case', () => {
+    const words = Array.from({ length: 150 }, (_, i) => `word${i}`)
+    const out = meetingVocabulary(['Dana Lee', 'dana lee', undefined], ['DANA', ...words])
+    expect(out.slice(0, 3)).toEqual(['Dana Lee', 'Dana', 'Lee'])
+    expect(out).toHaveLength(100)
+    expect(out.filter((w) => w.toLowerCase() === 'dana')).toHaveLength(1)
   })
 })

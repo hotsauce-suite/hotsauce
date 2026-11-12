@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { deriveHandle, isAllowedEmailDomain, nameFromEmail, toPrincipal } from './principal.js'
+import {
+  deriveHandle,
+  isAllowedEmailDomain,
+  nameFromEmail,
+  signInAllowance,
+  toPrincipal,
+} from './principal.js'
 
 describe('deriveHandle', () => {
   it.each([
-    ['morgan@example.test', 'morgan'],
-    ['Morgan@Example.test', 'morgan'],
-    ['morgan.holland@example.test', 'morgan-holland'],
-    ['morgan+hearth@example.test', 'morgan-hearth'],
+    ['ada@example.test', 'ada'],
+    ['Ada@Example.test', 'ada'],
+    ['ada.lovelace@example.test', 'ada-lovelace'],
+    ['ada+hearth@example.test', 'ada-hearth'],
     ['a..b__c@example.test', 'a-b-c'],
     ['a--b@example.test', 'a-b'],
     ['.jo.@example.test', 'jo'],
@@ -20,7 +26,7 @@ describe('deriveHandle', () => {
 
 describe('nameFromEmail', () => {
   it('title-cases the local part words', () => {
-    expect(nameFromEmail('morgan.holland@example.test')).toBe('Morgan Holland')
+    expect(nameFromEmail('ada.lovelace@example.test')).toBe('Ada Lovelace')
     expect(nameFromEmail('jo@example.test')).toBe('Jo')
   })
 })
@@ -29,25 +35,25 @@ describe('isAllowedEmailDomain', () => {
   const allowed = ['example.test']
 
   it('allows an exact domain match', () => {
-    expect(isAllowedEmailDomain('morgan@example.test', allowed)).toBe(true)
+    expect(isAllowedEmailDomain('ada@example.test', allowed)).toBe(true)
   })
 
   it('is case-insensitive on both sides', () => {
-    expect(isAllowedEmailDomain('morgan@Example.TEST', allowed)).toBe(true)
-    expect(isAllowedEmailDomain('morgan@example.test', ['EXAMPLE.test'])).toBe(true)
+    expect(isAllowedEmailDomain('ada@Example.TEST', allowed)).toBe(true)
+    expect(isAllowedEmailDomain('ada@example.test', ['EXAMPLE.test'])).toBe(true)
   })
 
   it('blocks Clerk test-mode addresses, which Clerk verifies without sending email', () => {
     expect(isAllowedEmailDomain('anyone+clerk_test@example.test', allowed)).toBe(false)
     expect(isAllowedEmailDomain('a+CLERK_TEST_x@example.test', allowed)).toBe(false)
-    expect(isAllowedEmailDomain('morgan+notes@example.test', allowed)).toBe(true)
+    expect(isAllowedEmailDomain('ada+notes@example.test', allowed)).toBe(true)
   })
 
   it('blocks other domains, subdomains and lookalikes', () => {
     expect(isAllowedEmailDomain('mallory@gmail.com', allowed)).toBe(false)
-    expect(isAllowedEmailDomain('morgan@eng.example.test', allowed)).toBe(false)
-    expect(isAllowedEmailDomain('morgan@example.test.evil.io', allowed)).toBe(false)
-    expect(isAllowedEmailDomain('morgan@notexample.test', allowed)).toBe(false)
+    expect(isAllowedEmailDomain('ada@eng.example.test', allowed)).toBe(false)
+    expect(isAllowedEmailDomain('ada@example.test.evil.io', allowed)).toBe(false)
+    expect(isAllowedEmailDomain('ada@notexample.test', allowed)).toBe(false)
     expect(isAllowedEmailDomain('example.test@evil.io', allowed)).toBe(false)
   })
 
@@ -63,14 +69,14 @@ describe('isAllowedEmailDomain', () => {
 
 describe('toPrincipal', () => {
   it('lowercases the email, derives the handle and checks admins case-insensitively', () => {
-    const p = toPrincipal({ userId: 'u1', email: 'Morgan.Holland@example.test', name: 'M' }, [
-      'MORGAN.holland@example.test',
+    const p = toPrincipal({ userId: 'u1', email: 'Ada.Lovelace@example.test', name: 'M' }, [
+      'ADA.lovelace@example.test',
     ])
     expect(p).toEqual({
       userId: 'u1',
-      email: 'morgan.holland@example.test',
+      email: 'ada.lovelace@example.test',
       name: 'M',
-      handle: 'morgan-holland',
+      handle: 'ada-lovelace',
       isAdmin: true,
     })
   })
@@ -78,5 +84,49 @@ describe('toPrincipal', () => {
   it('is not admin unless listed', () => {
     const p = toPrincipal({ userId: 'u2', email: 'jo@example.test', name: 'Jo' }, [])
     expect(p.isAdmin).toBe(false)
+  })
+})
+
+describe('signInAllowance', () => {
+  const domains = ['example.test']
+  const emails = ['jo@partner.org', 'Sam@Gmail.com']
+
+  it('calls an allowed domain a member, even when also invited', () => {
+    expect(signInAllowance('ann@example.test', domains, ['ann@example.test'])).toBe('member')
+  })
+
+  it('calls an exact invited address invited, ignoring case', () => {
+    expect(signInAllowance('JO@partner.org', domains, emails)).toBe('invited')
+    expect(signInAllowance('sam@gmail.com', domains, emails)).toBe('invited')
+  })
+
+  it('refuses the rest of an invited person’s domain, look-alikes and test addresses', () => {
+    expect(signInAllowance('eve@partner.org', domains, emails)).toBeNull()
+    expect(signInAllowance('jo@partner.org.evil.com', domains, emails)).toBeNull()
+    expect(signInAllowance('xjo@partner.org', domains, emails)).toBeNull()
+    expect(
+      signInAllowance('jo+clerk_test@partner.org', domains, ['jo+clerk_test@partner.org']),
+    ).toBeNull()
+    expect(signInAllowance('', domains, emails)).toBeNull()
+    // U+212A KELVIN SIGN lowercases to an ASCII "k".
+    expect(signInAllowance('\u212Aim@partner.org', domains, ['kim@partner.org'])).toBeNull()
+  })
+
+  it('refuses everyone outside the domains when nobody is invited', () => {
+    expect(signInAllowance('jo@partner.org', domains)).toBeNull()
+  })
+})
+
+describe('deriveHandle, qualified', () => {
+  it('adds the domain so an invited person can’t take a member’s handle', () => {
+    expect(deriveHandle('ada@gmail.com', { qualified: true })).toBe('ada-gmail-com')
+    expect(deriveHandle('ada@gmail.com')).toBe('ada')
+  })
+
+  it('toPrincipal gives invited people the qualified handle', () => {
+    const p = toPrincipal({ userId: 'u', email: 'Jo@Partner.org', name: 'Jo' }, [], {
+      invited: true,
+    })
+    expect(p.handle).toBe('jo-partner-org')
   })
 })

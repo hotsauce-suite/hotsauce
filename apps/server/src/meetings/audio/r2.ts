@@ -74,7 +74,7 @@ export class R2AudioStore implements AudioStore {
    */
   async presignGet(
     key: string,
-    opts: { windowSeconds: number; download?: string; now?: Date },
+    opts: { windowSeconds: number; download?: string; inline?: string; now?: Date },
   ): Promise<string> {
     const nowMs = (opts.now ?? new Date()).getTime()
     const windowMs = opts.windowSeconds * 1000
@@ -83,6 +83,11 @@ export class R2AudioStore implements AudioStore {
     url.searchParams.set('X-Amz-Expires', String(opts.windowSeconds * 2))
     if (opts.download !== undefined) {
       url.searchParams.set('response-content-disposition', contentDisposition(opts.download))
+    }
+    // Shown in the browser as this type (Hearth Files previews), never as a download.
+    if (opts.inline !== undefined) {
+      url.searchParams.set('response-content-type', opts.inline)
+      url.searchParams.set('response-content-disposition', 'inline')
     }
     const signed = await this.#client.sign(url.href, {
       method: 'GET',

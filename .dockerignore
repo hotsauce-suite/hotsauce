@@ -10,6 +10,10 @@
 **/dist
 **/*.tsbuildinfo
 
+# The Mac app's local builds (only release/ goes into the image): ~1 GB after `swift build`.
+apps/dictate-mac/.build
+apps/dictate-mac/build
+
 # Not needed to build, and changes to them shouldn't bust the install cache.
 .git
 .github

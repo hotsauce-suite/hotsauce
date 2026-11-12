@@ -149,7 +149,8 @@ export class MeetingChat {
     return this.#index
       .search(question, {
         spaces,
-        kinds: ['meeting', 'transcript'],
+        // Uploaded files' text (Hearth Files, §18.3) answers too: a contract, a deck.
+        kinds: ['meeting', 'transcript', 'file'],
         anyTerm: true,
         limit: MAX_FILES,
         prefix,

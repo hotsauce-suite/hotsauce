@@ -1,12 +1,14 @@
 // Getting the two tracks (Meetings PRD §6.2): "them" is the Google Meet tab's audio, from the
 // Hearth extension when it's installed and otherwise from the share picker; "me" is the
-// microphone. Mic-only mode covers in-person meetings and phones.
+// microphone. Mic-only mode covers in-person meetings and phones. In the Hearth Mac app, "mac"
+// mode has the app record the mic and everything the Mac plays (./mac.ts).
 
 import type { Track } from '../../../api/types'
 import { product } from '../../../brand/product'
 import { meetTabFromExtension } from './extension'
+import { captureMac } from './mac'
 
-export type CaptureMode = 'meet-tab' | 'mic-only'
+export type CaptureMode = 'meet-tab' | 'mic-only' | 'mac'
 
 export type CaptureFailure =
   /** The person (or the browser) refused the picker or the microphone. */
@@ -28,12 +30,24 @@ export class CaptureError extends Error {
   }
 }
 
+/** Audio that arrives as ready-made PCM16 frames (16 kHz mono), not as media streams. */
+export interface FrameSource {
+  tracks: Track[]
+  onFrame: (listener: (track: Track, pcm: Uint8Array) => void) => () => void
+  /** Tells the source to stop listening while paused (the Mac app releases the mic). */
+  setPaused?: (paused: boolean) => void
+}
+
 export interface Capture {
   mode: CaptureMode
-  /** One stream per captured track. */
+  /** One stream per captured track (empty when `frames` carries the audio). */
   streams: Partial<Record<Track, MediaStream>>
+  /** Set when the Mac app records: its frames, already converted. */
+  frames?: FrameSource
   /** Fires when a track ends on its own: the Meet tab share was stopped, the mic unplugged. */
   onEnded: (listener: (track: Track) => void) => () => void
+  /** The Mac app saw the call this recording runs through end (another app let go of the mic). */
+  onCallEnded?: (listener: () => void) => () => void
   stop: () => void
 }
 
@@ -75,6 +89,7 @@ export async function captureAudio(
   media: Media = navigator.mediaDevices,
   tabSource: TabSource = () => meetTabFromExtension(call, media),
 ): Promise<Capture> {
+  if (mode === 'mac') return captureMac()
   const streams: Partial<Record<Track, MediaStream>> = {}
 
   if (mode === 'meet-tab') {

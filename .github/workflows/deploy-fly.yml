@@ -1,0 +1,29 @@
+name: Deploy to Fly
+
+# For a copy of Hotsauce that runs on Fly.io (scripts/deploy-fly.sh): every push to main deploys,
+# so merging an "Update Hotsauce" pull request ships it. Off until the repository has a
+# FLY_API_TOKEN secret (fly tokens create deploy) and a FLY_APP variable with the app's name.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-fly
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.FLY_APP != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only --app "$FLY_APP" --ha=false
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP: ${{ vars.FLY_APP }}

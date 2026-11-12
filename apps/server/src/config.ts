@@ -1,6 +1,11 @@
 import path from 'node:path'
 import { z } from 'zod'
 
+export const CLOUDFLARE_REPOS =
+  'On Cloudflare the server’s disk is temporary: keep repositories in a GitHub organization'
+export const CLOUDFLARE_MEDIA =
+  'On Cloudflare the server’s disk is temporary: keep Clips videos and meeting audio in Cloudflare R2'
+
 const csv = (s: string) =>
   s
     .split(',')
@@ -31,10 +36,23 @@ export const ConfigSchema = z
       .default('false')
       .transform((v) => v === 'true' || v === '1'),
 
+    // Where this instance runs (docs/PLAN-cloudflare-deploy.md). On `cloudflare` the disk is
+    // temporary, so setup insists on repositories in GitHub and video and audio in R2.
+    HOTSAUCE_PLATFORM: z.enum(['server', 'cloudflare']).default('server'),
+    // The state mirror's store; main.ts reads these before config loads. Off when unset.
+    // Empty means off, as in an env file with `STATE_URL=`.
+    STATE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+    STATE_SYNC_MS: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z.coerce.number().int().positive().optional(),
+    ),
+
     AUTH_MODE: z.enum(['clerk', 'dev']).default('clerk'),
     CLERK_SECRET_KEY: z.string().optional(),
     CLERK_PUBLISHABLE_KEY: z.string().optional(),
     ALLOWED_EMAIL_DOMAINS: z.string().default('').transform(csv),
+    // Exact addresses outside those domains who may also sign in (invited people).
+    ALLOWED_EMAILS: z.string().default('').transform(csv),
     ADMIN_EMAILS: z.string().default('').transform(csv),
 
     HOST_KIND: z.enum(['local', 'forgejo', 'github']).default('local'),
@@ -59,10 +77,29 @@ export const ConfigSchema = z
     ANTHROPIC_API_KEY: z.string().optional(),
     ENHANCE_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     CHAT_MODEL: z.string().min(1).default('claude-opus-5-5'),
+    // After-call transcript cleanup (ARCHITECTURE §7.11): the spelling pass's model.
+    CLEANUP_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hearth Dictate's cleanup pass runs on every dictation, so it uses a fast model.
     DICTATION_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hearth Clips (ARCHITECTURE §10): the title and summary model, and where ffmpeg is.
     CLIPS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+    // Hearth Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
+    TASKS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+    // Agent briefs (ARCHITECTURE §13): the model that writes each member's nightly brief, and the
+    // local hour after which it is due.
+    BRIEF_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+    BRIEF_HOUR: z.coerce.number().int().min(0).max(23).default(4),
+    BRIEF_REFRESH_GAP_SECONDS: z.coerce.number().int().min(0).default(60),
+    // Briefcast (docs/plans/2026-11-12-briefcast.md): the morning audio briefing. The script
+    // model, the voice (OpenAI text to speech; fake in development and test), and the local hour
+    // by which each weekday's episode is ready.
+    BRIEFCAST_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+    // 1–11: writing starts an hour before and catches up until noon.
+    BRIEFCAST_HOUR: z.coerce.number().int().min(1).max(11).default(6),
+    TTS_PROVIDER: z.enum(['fake', 'openai', 'none']).optional(),
+    OPENAI_API_KEY: z.string().optional(),
+    TTS_MODEL: z.string().min(1).default('gpt-4o-mini-tts'),
+    TTS_VOICE: z.string().min(1).default('marin'),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
     FFPROBE_PATH: z.string().min(1).default('ffprobe'),
     KEEP_AUDIO: z
@@ -90,6 +127,15 @@ export const ConfigSchema = z
     // and saved by the server, so a tab that died doesn't record forever.
     SESSION_IDLE_STOP_MINUTES: z.coerce.number().int().positive().default(120),
     SESSION_MAX_HOURS: z.coerce.number().int().positive().default(8),
+    // Send feedback (docs/plans/2026-11-12-feedback.md): filed as issues in this GitHub repo
+    // ("owner/name") with a token that can only read and write its issues. Off without both;
+    // development and test keep feedback in memory.
+    FEEDBACK_REPO: z
+      .string()
+      .regex(/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/, 'FEEDBACK_REPO must look like owner/name')
+      .optional(),
+    FEEDBACK_GITHUB_TOKEN: z.string().optional(),
+    FEEDBACK_MODEL: z.string().min(1).default('claude-haiku-5-5'),
   })
   .transform((c) => {
     const production = c.NODE_ENV === 'production'
@@ -120,6 +166,8 @@ export const ConfigSchema = z
       // of refusing to start, so an organization can bring its own keys later.
       ASR_PROVIDER:
         c.ASR_PROVIDER ?? (production ? (c.DEEPGRAM_API_KEY ? 'deepgram' : 'none') : 'fake'),
+      TTS_PROVIDER:
+        c.TTS_PROVIDER ?? (production ? (c.OPENAI_API_KEY ? 'openai' : 'none') : 'fake'),
       LLM_PROVIDER:
         c.LLM_PROVIDER ?? (production ? (c.ANTHROPIC_API_KEY ? 'anthropic' : 'none') : 'fake'),
       // Without R2, video and kept audio go on the data volume (DATA_DIR), which every
@@ -146,6 +194,20 @@ export const ConfigSchema = z
         message: 'the fake language model is not allowed in production',
       })
     }
+    if (c.NODE_ENV === 'production' && c.TTS_PROVIDER === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TTS_PROVIDER'],
+        message: 'the fake voice is not allowed in production',
+      })
+    }
+    if (c.TTS_PROVIDER === 'openai' && !c.OPENAI_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPENAI_API_KEY'],
+        message: 'OPENAI_API_KEY is required when TTS_PROVIDER=openai',
+      })
+    }
     if (c.ASR_PROVIDER === 'deepgram' && !c.DEEPGRAM_API_KEY) {
       ctx.addIssue({
         code: 'custom',
@@ -163,6 +225,24 @@ export const ConfigSchema = z
         message:
           'R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET are required when AUDIO_STORE=r2',
       })
+    }
+    // A Cloudflare Container's disk is wiped on every restart: repositories and video can't live
+    // on it (docs/PLAN-cloudflare-deploy.md R9). Setup mode runs before either is chosen.
+    if (c.HOTSAUCE_PLATFORM === 'cloudflare' && c.AUTH_MODE !== 'setup') {
+      if (c.HOST_KIND === 'local') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['HOST_KIND'],
+          message: CLOUDFLARE_REPOS,
+        })
+      }
+      if (c.AUDIO_STORE === 'local') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['AUDIO_STORE'],
+          message: CLOUDFLARE_MEDIA,
+        })
+      }
     }
     if (Boolean(c.VAPID_PUBLIC_KEY) !== Boolean(c.VAPID_PRIVATE_KEY)) {
       ctx.addIssue({

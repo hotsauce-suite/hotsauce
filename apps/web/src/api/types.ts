@@ -12,6 +12,8 @@ export interface Health {
   clerkPublishableKey?: string | null
   chatUrl?: string | null
   signInDomain?: string | null
+  /** Invited people outside the domains can sign in with an emailed code. */
+  emailCodeSignIn?: boolean
   features?: { ai: boolean; transcription: boolean }
   /** Added by the root loader from /api/org/brand. */
   brand?: PublicBrand | null
@@ -94,6 +96,8 @@ export interface PutFileBody {
   path: string
   content: string
   baseBlobOid?: string
+  /** Refuse (409) rather than replace a file already at `path`: a new doc's first save. */
+  createOnly?: boolean
   message?: string
   label?: string
 }

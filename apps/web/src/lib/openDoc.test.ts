@@ -6,7 +6,7 @@ describe('saveOpenDocUnder', () => {
     const commit = vi.fn(async () => 'committed' as const)
     const off = registerOpenDoc('team', 'docs/plans/q4.md', commit)
     expect(await saveOpenDocUnder('team', 'docs/other.md')).toBe(true)
-    expect(await saveOpenDocUnder('morgan', 'docs/plans/q4.md')).toBe(true)
+    expect(await saveOpenDocUnder('ada', 'docs/plans/q4.md')).toBe(true)
     expect(await saveOpenDocUnder('team', 'docs/plan')).toBe(true)
     expect(commit).not.toHaveBeenCalled()
     expect(await saveOpenDocUnder('team', 'docs/plans/q4.md')).toBe(true)

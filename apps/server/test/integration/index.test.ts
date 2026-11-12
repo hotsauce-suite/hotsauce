@@ -8,6 +8,7 @@ import {
   Index,
   Indexer,
   indexPath,
+  NEVER_CHANGED,
   type SearchHit,
   SNIPPET_CLOSE,
   SNIPPET_OPEN,
@@ -28,7 +29,7 @@ beforeEach(() => {
   index = new Index(file)
   git = new MemoryGit()
   git.seed('team', teamCorpus)
-  git.seed('morgan', personalCorpus)
+  git.seed('ada', personalCorpus)
   indexer = new Indexer(git, index)
 })
 
@@ -98,6 +99,26 @@ describe('Index database', () => {
     expect(index.getSyncState('team')).toBeNull()
   })
 
+  it('migrates a v2 index: files under tasks/ become kind task, sync points forgotten', () => {
+    index.close()
+    fs.rmSync(file)
+    const raw = new Database(file)
+    migrate(raw, MIGRATIONS.slice(0, 2))
+    const insert = raw.prepare(
+      `INSERT INTO files (space, path, id, kind, title, body, blob_oid, size, mtime)
+       VALUES ('team', ?, NULL, 'other', 't', 'b', 'x', 1, 'now')`,
+    )
+    insert.run('tasks/01JD3Z6Q8W8Y5G2N4K7M9P0R1S.md')
+    insert.run('README.md')
+    raw.prepare("INSERT INTO sync_state VALUES ('team', 'abc', 'now')").run()
+    raw.close()
+
+    index = new Index(file)
+    expect(index.getFile('team', 'tasks/01JD3Z6Q8W8Y5G2N4K7M9P0R1S.md')?.kind).toBe('task')
+    expect(index.getFile('team', 'README.md')?.kind).toBe('other')
+    expect(index.getSyncState('team')).toBeNull()
+  })
+
   it('refuses a database written by a newer build', () => {
     index.close()
     const raw = new Database(file)
@@ -151,12 +172,31 @@ describe('Indexer', () => {
     expect(index.search('stale', { spaces: ['team'] })).toEqual([])
   })
 
+  it('full() keeps when an unchanged file last changed; a first index says "unknown"', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-11-01T00:00:00Z'))
+      // A first index can't know when files changed: not "just now".
+      await indexer.full('team')
+      expect(index.getFile('team', 'docs/roadmap.md')?.mtime).toBe(NEVER_CHANGED)
+      vi.setSystemTime(new Date('2026-11-12T00:00:00Z'))
+      git.write('team', 'docs/new.md', '# Brand new\n')
+      git.write('team', 'docs/hiring/plan.md', '# Hiring plan\n\nRevised.\n')
+      await indexer.full('team')
+      expect(index.getFile('team', 'docs/roadmap.md')?.mtime).toBe(NEVER_CHANGED)
+      expect(index.getFile('team', 'docs/new.md')?.mtime).toBe('2026-11-12T00:00:00.000Z')
+      expect(index.getFile('team', 'docs/hiring/plan.md')?.mtime).toBe('2026-11-12T00:00:00.000Z')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('full() of one space leaves other spaces alone', async () => {
     await indexer.full('team')
-    await indexer.full('morgan')
+    await indexer.full('ada')
     git.write('team', 'docs/roadmap.md', null)
     await indexer.full('team')
-    expect(index.getFile('morgan', 'docs/diary.md')).not.toBeNull()
+    expect(index.getFile('ada', 'docs/diary.md')).not.toBeNull()
   })
 
   it('incremental() upserts changed files and adds new ones', async () => {
@@ -225,7 +265,7 @@ describe('Indexer', () => {
 describe('search', () => {
   beforeEach(async () => {
     await indexer.full('team')
-    await indexer.full('morgan')
+    await indexer.full('ada')
   })
 
   it('ranks a title hit above a body hit', () => {
@@ -242,11 +282,9 @@ describe('search', () => {
 
   it('filters to the given spaces', () => {
     expect(index.search('zebrafish', { spaces: ['team'] })).toEqual([])
-    expect(paths(index.search('zebrafish', { spaces: ['morgan'] }))).toEqual([
-      'morgan:docs/diary.md',
-    ])
-    expect(paths(index.search('zebrafish', { spaces: ['team', 'morgan'] }))).toEqual([
-      'morgan:docs/diary.md',
+    expect(paths(index.search('zebrafish', { spaces: ['ada'] }))).toEqual(['ada:docs/diary.md'])
+    expect(paths(index.search('zebrafish', { spaces: ['team', 'ada'] }))).toEqual([
+      'ada:docs/diary.md',
     ])
   })
 
@@ -373,7 +411,7 @@ describe('meetings: listFiles, filtered search and passage ranking', () => {
     expect(list({ prefix: 'meetings/clients/', limit: 1 })).toEqual([
       'meetings/clients/2026-10-01-beta.md',
     ])
-    expect(list({ space: 'morgan', kind: 'meeting' })).toEqual([])
+    expect(list({ space: 'ada', kind: 'meeting' })).toEqual([])
     expect(
       index.listFiles({ space: 'team', prefix: 'meetings/2026/10/2026-10-08-acme.md' })[0]
         ?.frontmatter,
@@ -384,7 +422,7 @@ describe('meetings: listFiles, filtered search and passage ranking', () => {
 
   it('filters search by kind and prefix, and can match any word', () => {
     const search = (q: string, opts: Partial<Parameters<Index['search']>[1]> = {}) =>
-      paths(index.search(q, { spaces: ['team', 'morgan'], ...opts }))
+      paths(index.search(q, { spaces: ['team', 'ada'], ...opts }))
 
     expect(search('sso', { kinds: ['transcript'] })).toEqual([
       'team:meetings/2026/10/2026-10-08-acme.transcript.md',
@@ -424,19 +462,19 @@ describe('sync state, conflicts, recents and stars', () => {
     index.setSyncState('team', 'abc')
     index.setSyncState('team', 'def')
     expect(index.getSyncState('team')?.headOid).toBe('def')
-    expect(index.getSyncState('morgan')).toBeNull()
+    expect(index.getSyncState('ada')).toBeNull()
   })
 
   it('tracks conflicts per space', () => {
     index.addConflict('team', 'refs/heads/conflicts/01A', 'docs/a.md')
     index.addConflict('team', 'refs/heads/conflicts/01A', 'docs/a.md')
-    index.addConflict('morgan', 'refs/heads/conflicts/01B', 'docs/b.md')
+    index.addConflict('ada', 'refs/heads/conflicts/01B', 'docs/b.md')
     expect(index.listConflicts('team')).toEqual([
       { ref: 'refs/heads/conflicts/01A', path: 'docs/a.md', createdAt: expect.any(String) },
     ])
     index.removeConflict('team', 'refs/heads/conflicts/01A')
     expect(index.listConflicts('team')).toEqual([])
-    expect(index.listConflicts('morgan')).toHaveLength(1)
+    expect(index.listConflicts('ada')).toHaveLength(1)
   })
 
   it('lists recents newest first with titles when indexed', async () => {
@@ -485,18 +523,18 @@ describe('sync state, conflicts, recents and stars', () => {
 describe('space registry', () => {
   it('upserts, gets and lists spaces, keeping the first createdAt', () => {
     index.upsertSpace({ name: 'team', kind: 'team', ownerEmail: null })
-    index.upsertSpace({ name: 'morgan', kind: 'personal', ownerEmail: 'morgan@example.test' })
-    const created = index.getSpace('morgan')?.createdAt
-    index.upsertSpace({ name: 'morgan', kind: 'personal', ownerEmail: 'morgan@example.test' })
+    index.upsertSpace({ name: 'ada', kind: 'personal', ownerEmail: 'ada@example.test' })
+    const created = index.getSpace('ada')?.createdAt
+    index.upsertSpace({ name: 'ada', kind: 'personal', ownerEmail: 'ada@example.test' })
 
-    expect(index.getSpace('morgan')).toEqual({
-      name: 'morgan',
+    expect(index.getSpace('ada')).toEqual({
+      name: 'ada',
       kind: 'personal',
-      ownerEmail: 'morgan@example.test',
+      ownerEmail: 'ada@example.test',
       createdAt: created,
     })
     expect(index.getSpace('nobody')).toBeNull()
-    expect(index.listSpaces().map((s) => s.name)).toEqual(['morgan', 'team'])
+    expect(index.listSpaces().map((s) => s.name)).toEqual(['ada', 'team'])
   })
 
   it('requires an owner for personal spaces and none for team', () => {

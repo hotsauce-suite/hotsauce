@@ -12,10 +12,13 @@ import {
   audioFrame,
   FakeCalendar,
   FakeLLM,
+  FakeRetranscriber,
   FakeTranscriber,
   type LLMRequest,
+  type MeetingRetranscriber,
   type MeetingSession,
   MeetingSocketServer,
+  scriptedResponse,
   type Track,
   type TranscriptSegment,
   WS_FORBIDDEN,
@@ -42,6 +45,10 @@ let server: Server
 let base: string
 let respond: (req: LLMRequest) => string
 let llm: FakeLLM
+/** How many voices the fake transcriber tells apart on the call's side (0: just "Them"). */
+let speakers = 0
+/** Re-transcribes kept audio after the call; null (the fake ASR's default) means it doesn't. */
+let retranscriber: MeetingRetranscriber | null = null
 
 beforeEach(async () => {
   root = await makeTempDir('hearth-meetings-')
@@ -54,6 +61,8 @@ beforeEach(async () => {
     ALLOWED_EMAIL_DOMAINS: 'example.test',
   })
   respond = () => 'unset'
+  speakers = 0
+  retranscriber = null
   await start()
 })
 
@@ -67,7 +76,8 @@ async function start(): Promise<void> {
   llm = new FakeLLM((req) => respond(req))
   services = createServices(config, {
     llm,
-    transcriber: new FakeTranscriber({ partials: true }),
+    transcriber: new FakeTranscriber({ partials: true, speakers }),
+    retranscriber,
     calendar: new FakeCalendar(),
     pushSender: new FakePushSender(),
   })
@@ -187,6 +197,301 @@ async function createSession(body: Record<string, unknown> = {}): Promise<Meetin
     },
   })
 }
+
+describe('transcript cleanup after the call', () => {
+  it('transcribes kept audio again before Enhance reads it, then keeps the audio', async () => {
+    await stop()
+    retranscriber = new FakeRetranscriber({ speakers: 2 })
+    await start()
+    const session = await createSession()
+    const socket = await MeetingSocket.connect(session.id)
+    socket.sendAudio(2)
+    await vi.waitFor(() => expect(socket.finals()).toHaveLength(4))
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`, {
+      json: { keepAudio: true },
+    })
+    await socket.close()
+
+    let prompt = ''
+    respond = (req) => {
+      prompt = req.messages.at(-1)?.content ?? ''
+      return '## Summary\n- done'
+    }
+    // Straight after Stop, as the note page does: Enhance waits for the cleanup.
+    await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path: saved.path } })
+    expect(prompt).toContain('**Speaker 2:** their tidy sentence 2')
+    expect(prompt).not.toContain('segment')
+    const transcript = await readRemote('alice', saved.transcriptPath)
+    expect(transcript).toContain('[00:00:00] **Me:** my clean words 1')
+    expect(transcript).toContain('[00:00:01] **Speaker 2:** their tidy sentence 2')
+    expect(transcript).not.toContain('them segment')
+    const log = await runGit(bare('alice'), ['log', '--format=%s', 'main'])
+    expect(log).toContain('meetings: clean up transcript of "Acme sync"')
+    // The live transcript is still in history.
+    expect(
+      await runGit(bare('alice'), ['log', '-p', '--format=%s', 'main', '--', saved.transcriptPath]),
+    ).toContain('-[00:00:00] **Them:** them segment 1')
+    // Both tracks were sent with the meeting's word list, and the audio was kept afterwards.
+    const fake = retranscriber as FakeRetranscriber
+    expect(fake.calls.map((c) => c.track).sort()).toEqual(['me', 'them'])
+    expect(fake.calls[0]?.vocabulary).toContain('Dana Lee')
+    await services.meetings.sessions.settled()
+    expect(await readRemote('alice', `.hearth/meetings/audio/${session.id}.yaml`)).toContain(
+      'me.wav',
+    )
+  })
+
+  it('keeps the live transcript when re-transcribing fails', async () => {
+    await stop()
+    retranscriber = new FakeRetranscriber({ fail: true })
+    await start()
+    const session = await createSession()
+    const socket = await MeetingSocket.connect(session.id)
+    socket.sendAudio(1)
+    await vi.waitFor(() => expect(socket.finals()).toHaveLength(2))
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`, {
+      json: { keepAudio: true },
+    })
+    await socket.close()
+    await services.meetings.sessions.settled()
+    expect(await readRemote('alice', saved.transcriptPath)).toContain('**Them:** them segment 1')
+    expect(await readRemote('alice', `.hearth/meetings/audio/${session.id}.yaml`)).toContain(
+      'them.wav',
+    )
+  })
+
+  it('without kept audio, fixes names from the word list and nothing else', async () => {
+    await api('PUT', '/api/dictation/words', { json: { scope: 'mine', words: ['Segmint'] } })
+    respond = (req) => {
+      const prompt = req.messages.at(-1)?.content ?? ''
+      if (!prompt.includes('<cleanup_transcript>')) return '## Summary\n- done'
+      return JSON.stringify([
+        { line: 0, from: 'segment', to: 'segmint' },
+        // Not on the word list, not on that line, or not a mishearing of it: all dropped.
+        { line: 1, from: 'segment', to: 'Segments' },
+        { line: 1, from: 'nowhere', to: 'Segmint' },
+        { line: 1, from: 'them', to: 'Dana Lee' },
+      ])
+    }
+    const session = await createSession()
+    const socket = await MeetingSocket.connect(session.id)
+    socket.sendAudio(1)
+    await vi.waitFor(() => expect(socket.finals()).toHaveLength(2))
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`, { json: {} })
+    await socket.close()
+    await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path: saved.path } })
+    const cleanupCall = llm.calls.find((c) =>
+      c.messages.at(-1)?.content.includes('<cleanup_transcript>'),
+    )
+    expect(cleanupCall?.model).toBe(config.CLEANUP_MODEL)
+    expect(cleanupCall?.messages.at(-1)?.content).toContain('\nDana Lee\n')
+    expect(cleanupCall?.messages.at(-1)?.content).toContain('\nSegmint\n')
+    const transcript = await readRemote('alice', saved.transcriptPath)
+    expect(transcript).toContain('**Me:** me Segmint 1')
+    expect(transcript).toContain('**Them:** them segment 1')
+    expect(llm.calls.at(-1)?.messages.at(-1)?.content).toContain('me Segmint 1')
+  })
+
+  it('refuses to name speakers from a transcript the cleanup has since replaced', async () => {
+    await stop()
+    speakers = 2
+    retranscriber = new FakeRetranscriber({ speakers: 2 })
+    await start()
+    const session = await createSession()
+    const socket = await MeetingSocket.connect(session.id)
+    socket.sendAudio(2)
+    await vi.waitFor(() => expect(socket.finals()).toHaveLength(4))
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`, {
+      json: { keepAudio: true },
+    })
+    await socket.close()
+    // What the panel loaded straight after Stop: the live transcript.
+    const live = await api(
+      'GET',
+      `/api/spaces/alice/file?path=${encodeURIComponent(saved.transcriptPath)}`,
+    )
+    await services.meetings.sessions.settled()
+    await api('POST', '/api/meetings/speakers', {
+      json: {
+        space: 'alice',
+        path: saved.path,
+        names: { 'Speaker 2': 'Dana Lee' },
+        transcriptBlobOid: live.blobOid,
+      },
+      status: 409,
+    })
+    expect(await readRemote('alice', saved.transcriptPath)).not.toContain('Dana Lee')
+  })
+})
+
+describe('import from Granola', () => {
+  const rows = [
+    {
+      ref: 'g-1',
+      title: 'Acme kickoff',
+      date: '2026-03-04T15:30:00-05:00',
+      notes: 'Dana wants SSO',
+      summary: '- Ship SSO first',
+      transcript: 'Me: Hi all\nThem: Hello there.',
+    },
+    {
+      ref: 'g-2',
+      title: 'Empty',
+      date: '2026-03-05T10:00:00Z',
+      notes: '',
+      summary: '',
+      transcript: '',
+    },
+  ]
+
+  it('imports meetings into the personal space once, ready to enhance', async () => {
+    const first = await api('POST', '/api/meetings/import/granola', {
+      json: { meetings: rows, tz: 'America/New_York' },
+    })
+    expect(first).toEqual({ imported: 1, skipped: 1, space: 'alice' })
+    expect(await lastMessage('alice')).toBe('meetings: import "1 from Granola"')
+    const note = await readRemote('alice', 'meetings/2026/03/2026-03-04-acme-kickoff.md')
+    expect(note).toContain('imported_from: granola')
+    expect(note).toContain('## My notes\n\nDana wants SSO')
+    expect(
+      await readRemote('alice', 'meetings/2026/03/2026-03-04-acme-kickoff.transcript.md'),
+    ).toContain('[00:00:00] **Them:** Hello there.')
+    const list = await api('GET', '/api/meetings')
+    expect(list.map((m: { title: string }) => m.title)).toContain('Acme kickoff')
+
+    // Again: nothing new.
+    const again = await api('POST', '/api/meetings/import/granola', {
+      json: { meetings: rows, tz: 'America/New_York' },
+    })
+    expect(again).toEqual({ imported: 0, skipped: 2, space: 'alice' })
+
+    // Hearth can enhance it without asking to replace edits: Granola's summary is AI text.
+    let prompt = ''
+    respond = (req) => {
+      prompt = req.messages.at(-1)?.content ?? ''
+      return '## Summary\n- Hearth summary'
+    }
+    await api('POST', '/api/meetings/enhance', {
+      json: { space: 'alice', path: 'meetings/2026/03/2026-03-04-acme-kickoff.md' },
+    })
+    expect(prompt).toContain('Dana wants SSO')
+    expect(prompt).toContain('Hello there.')
+  })
+
+  it('a meeting with only notes, dated without a zone, lands on its day and can be enhanced', async () => {
+    const notesOnly = {
+      ref: 'g-3',
+      title: 'Late call',
+      date: '2026-03-04 21:30',
+      notes: 'Just my notes',
+      summary: '',
+      transcript: '',
+    }
+    await api('POST', '/api/meetings/import/granola', {
+      json: { meetings: [notesOnly], tz: 'America/New_York' },
+    })
+    const path = 'meetings/2026/03/2026-03-04-late-call.md'
+    expect(await readRemote('alice', path)).toMatch(/^date: '?2026-03-04T21:30:00-05:00'?$/m)
+    respond = () => '## Summary\n- Hearth summary'
+    await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path } })
+    expect(await readRemote('alice', path)).toContain('Hearth summary')
+  })
+
+  it('refuses a batch that is too big or malformed', async () => {
+    const tz = 'America/New_York'
+    await api('POST', '/api/meetings/import/granola', { json: { meetings: [], tz }, status: 400 })
+    await api('POST', '/api/meetings/import/granola', {
+      json: { meetings: [{ ...rows[0], ref: '' }], tz },
+      status: 400,
+    })
+    await api('POST', '/api/meetings/import/granola', {
+      json: { meetings: rows, tz: 'Mars/Olympus' },
+      status: 400,
+    })
+  })
+})
+
+describe('speakers on the call', () => {
+  it('labels each voice, guesses names from attendees, and names them in transcript and note', async () => {
+    await stop()
+    speakers = 2
+    await start()
+    const session = await createSession()
+    const socket = await MeetingSocket.connect(session.id)
+    socket.sendAudio(2)
+    await vi.waitFor(() => expect(socket.finals()).toHaveLength(4))
+    expect(socket.finals().map((s) => [s.track, s.speaker])).toEqual([
+      ['me', 'Me'],
+      ['them', 'Speaker 1'],
+      ['me', 'Me'],
+      ['them', 'Speaker 2'],
+    ])
+    socket.ws.send(JSON.stringify({ type: 'notes', text: RAW_NOTES }))
+    await vi.waitFor(async () =>
+      expect((await api('GET', `/api/meetings/sessions/${session.id}`)).rawNotes).toBe(RAW_NOTES),
+    )
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`, { json: {} })
+    await socket.close()
+    expect(await readRemote('alice', saved.transcriptPath)).toContain(
+      '**Speaker 2:** them segment 2',
+    )
+
+    let prompt = ''
+    respond = (req) => {
+      prompt = req.messages[0]?.content ?? ''
+      // Eve isn't an attendee, so that guess is dropped.
+      return 'Speakers: Speaker 1 = Dana Lee; Speaker 2 = Eve\n\n## Summary\n- Speaker 1 wants SSO; Speaker 12 is not a label'
+    }
+    await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path: saved.path } })
+    expect(prompt).toMatch(/write one line "Speakers: "/)
+    let note = await readRemote('alice', saved.path)
+    expect(note).not.toContain('Speakers:')
+    expect(note).toMatch(/speaker_guesses:\n {2}Speaker 1: Dana Lee\n/)
+    expect(note).toContain('- Speaker 1 wants SSO; Speaker 12 is not a label')
+
+    await api('POST', '/api/meetings/speakers', {
+      json: { space: 'alice', path: saved.path, names: { 'Speaker 1': 'Dana Lee' } },
+    })
+    expect(await lastMessage('alice')).toBe('meetings: name speakers in "Acme sync"')
+    const transcript = await readRemote('alice', saved.transcriptPath)
+    expect(transcript).toContain('**Dana Lee:** them segment 1')
+    expect(transcript).toContain('**Speaker 2:** them segment 2')
+    expect(transcript).toContain('**Me:** me segment 1')
+    note = await readRemote('alice', saved.path)
+    expect(note).toContain('- Dana Lee wants SSO; Speaker 12 is not a label')
+    // The member's own line keeps its words.
+    expect(note).toContain('Dana wants SSO before rollout')
+    expect(note).not.toContain('speaker_guesses')
+
+    // Hearth's own rename doesn't count as the member editing the note.
+    respond = () => '## Summary\n- again'
+    await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path: saved.path } })
+
+    for (const names of [{ Me: 'Alice' }, { 'Speaker 9': 'Sam' }, { 'Speaker 2': '  ' }]) {
+      await api('POST', '/api/meetings/speakers', {
+        json: { space: 'alice', path: saved.path, names },
+        status: 400,
+      })
+    }
+    // Once the member edits the note, Claude's lines are no longer known: only the transcript
+    // is renamed, and the note keeps every byte.
+    const edited = `${await readRemote('alice', saved.path)}\nSpeaker 2 is my line\n`
+    await api('PUT', '/api/spaces/alice/file', { json: { path: saved.path, content: edited } })
+    await api('POST', '/api/meetings/speakers', {
+      json: { space: 'alice', path: saved.path, names: { 'Speaker 2': 'Sam Ortiz' } },
+    })
+    expect(await readRemote('alice', saved.path)).toBe(edited)
+    expect(await readRemote('alice', saved.transcriptPath)).toContain(
+      '**Sam Ortiz:** them segment 2',
+    )
+
+    await api('POST', '/api/meetings/speakers', {
+      as: BOB,
+      json: { space: 'alice', path: saved.path, names: { 'Sam Ortiz': 'Sam' } },
+      status: 403,
+    })
+  })
+})
 
 describe('a meeting from capture to chat', () => {
   it('records over a WebSocket, commits the files, enhances, refuses to clobber edits, and answers', async () => {
@@ -700,7 +1005,8 @@ describe('recovery', () => {
     const session = await createSession({ calendarEventId: undefined, title: 'Board prep' })
     const socket = await MeetingSocket.connect(session.id)
     socket.sendAudio(2, ['me'])
-    await vi.waitFor(() => expect(socket.finals()).toHaveLength(2))
+    // Under a full parallel run transcription can take longer than waitFor's default second.
+    await vi.waitFor(() => expect(socket.finals()).toHaveLength(2), { timeout: 5_000 })
     await api('PUT', `/api/meetings/sessions/${session.id}/notes`, {
       json: { text: 'Q4 numbers' },
       status: 204,
@@ -719,7 +1025,9 @@ describe('recovery', () => {
     expect(resumed.ready).toMatchObject({ resumeFrom: { me: 64_000, them: 0 } })
     resumed.sendAudio(1, ['me'])
     // A new transcriber after the restart: its times continue from the audio already held.
-    await vi.waitFor(() => expect(resumed.finals().map((s) => s.at)).toEqual([2000]))
+    await vi.waitFor(() => expect(resumed.finals().map((s) => s.at)).toEqual([2000]), {
+      timeout: 5_000,
+    })
     const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`)
     expect((await readRemote('alice', saved.transcriptPath)).split('\n').slice(2, 5)).toEqual([
       '[00:00:00] **Me:** me segment 1',
@@ -738,7 +1046,7 @@ describe('templates, calendar and the meeting list', () => {
       },
     })
     const templates = await api('GET', '/api/meetings/templates')
-    expect(templates).toHaveLength(8)
+    expect(templates).toHaveLength(9)
     expect(templates).toContainEqual({
       id: 'general',
       name: 'General',
@@ -825,6 +1133,144 @@ describe('templates, calendar and the meeting list', () => {
     // Bob can't see Alice's meetings, or ask for her space.
     expect(await titles('', BOB)).toEqual([])
     await api('GET', '/api/meetings?space=alice', { as: BOB, status: 403 })
+  })
+})
+
+describe('voice notes', () => {
+  it('names a voice note from what was said, and deletes it with its transcript and audio', async () => {
+    const session = await createSession({
+      title: undefined,
+      template: 'voice-note',
+      calendarEventId: undefined,
+    })
+    expect(session.title).toMatch(/^\d{1,2}:\d{2} [AP]M Voice note$/)
+    const socket = await MeetingSocket.connect(session.id)
+    socket.sendAudio(2, ['me'])
+    await vi.waitFor(async () =>
+      expect((await api('GET', `/api/meetings/sessions/${session.id}`)).segments).toHaveLength(2),
+    )
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`, {
+      json: { keepAudio: true },
+    })
+    await services.meetings.sessions.settled()
+    await socket.close()
+
+    respond = scriptedResponse
+    await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path: saved.path } })
+    expect(llm.calls.at(-1)?.messages.at(-1)?.content).toContain('This note has no title yet')
+    const note = await readRemote('alice', saved.path)
+    expect(note).toMatch(/^title: About me segment 1$/m)
+    expect(note).toContain('\n# About me segment 1\n')
+    expect(note).toContain('## To-dos')
+    expect(await lastMessage('alice')).toBe('meetings: enhance "About me segment 1"')
+    // Named once: enhancing again keeps the title it was given.
+    await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path: saved.path } })
+    expect(llm.calls.at(-1)?.messages.at(-1)?.content).not.toContain('This note has no title yet')
+    expect(await readRemote('alice', saved.path)).toMatch(/^title: About me segment 1$/m)
+
+    const pointer = `.hearth/meetings/audio/${session.id}.yaml`
+    expect(await readRemote('alice', pointer)).toContain('me.wav')
+    await api('POST', '/api/meetings/delete', {
+      as: BOB,
+      json: { space: 'alice', path: saved.path },
+      status: 403,
+    })
+    const result = await api('POST', '/api/meetings/delete', {
+      json: { space: 'alice', path: saved.path },
+    })
+    expect(result.deleted).toEqual(
+      expect.arrayContaining([saved.path, saved.transcriptPath, pointer]),
+    )
+    expect(await lastMessage('alice')).toBe('meetings: delete "About me segment 1"')
+    for (const path of [saved.path, saved.transcriptPath, pointer]) {
+      await expect(readRemote('alice', path)).rejects.toThrow()
+    }
+    expect(
+      await services.meetings.audioStore?.get(`meetings/alice/${session.id}/me.wav`),
+    ).toBeNull()
+    // Gone from the list, and deleting again finds nothing.
+    expect((await api('GET', '/api/meetings')).map((m: { path: string }) => m.path)).not.toContain(
+      saved.path,
+    )
+    await api('POST', '/api/meetings/delete', {
+      json: { space: 'alice', path: saved.path },
+      status: 404,
+    })
+  })
+
+  it('deleting straight after Stop keeps no audio, even while it is still uploading', async () => {
+    const session = await createSession({ template: 'voice-note', calendarEventId: undefined })
+    const socket = await MeetingSocket.connect(session.id)
+    socket.sendAudio(1, ['me'])
+    await vi.waitFor(async () =>
+      expect((await api('GET', `/api/meetings/sessions/${session.id}`)).segments).toHaveLength(1),
+    )
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`, {
+      json: { keepAudio: true },
+    })
+    await socket.close()
+    // No settled(): the upload may not have started, or be half way.
+    await api('POST', '/api/meetings/delete', { json: { space: 'alice', path: saved.path } })
+    await services.meetings.sessions.settled()
+    await expect(readRemote('alice', `.hearth/meetings/audio/${session.id}.yaml`)).rejects.toThrow()
+    expect(
+      await services.meetings.audioStore?.get(`meetings/alice/${session.id}/me.wav`),
+    ).toBeNull()
+  })
+
+  it('deletes only a transcript beside the note, never Hearth files or another note', async () => {
+    const id = '01JAAAAAAAAAAAAAAAAAAAAAAA'
+    const meetingNote = (transcript: string) =>
+      `---\nid: ${id}\ntype: meeting\ntitle: t\ndate: 2026-11-11T10:00:00Z\ntranscript: ${transcript}\n---\n# t\n`
+    const other = '---\nid: 01JBBBBBBBBBBBBBBBBBBBBBBB\ntype: meeting\ntitle: o\ndate: d\n---\n'
+    await api('PUT', '/api/spaces/alice/file', {
+      json: { path: 'meetings/x/other.transcript.md', content: other },
+    })
+    await api('PUT', '/api/spaces/alice/file', {
+      json: { path: 'meetings/x/sibling.md', content: '# Sibling\n' },
+    })
+    const aims = [
+      '../../.hearth/space.yaml',
+      '.hearth/space.yaml',
+      'sibling.md',
+      'other.transcript.md',
+    ]
+    for (const transcript of aims) {
+      await api('PUT', '/api/spaces/alice/file', {
+        json: { path: 'meetings/x/evil.md', content: meetingNote(transcript) },
+      })
+      const res = await api('POST', '/api/meetings/delete', {
+        json: { space: 'alice', path: 'meetings/x/evil.md' },
+      })
+      expect(res.deleted, transcript).toEqual(['meetings/x/evil.md'])
+    }
+    expect(await readRemote('alice', '.hearth/space.yaml')).toContain('kind: personal')
+    expect(await readRemote('alice', 'meetings/x/sibling.md')).toContain('# Sibling')
+    expect(await readRemote('alice', 'meetings/x/other.transcript.md')).toContain('title: o')
+  })
+
+  it('refuses to delete a note that changed since the member opened it', async () => {
+    const session = await createSession({ template: 'voice-note', calendarEventId: undefined })
+    const saved = await api('POST', `/api/meetings/sessions/${session.id}/stop`)
+    const seen = await api('GET', `/api/spaces/alice/file?path=${encodeURIComponent(saved.path)}`)
+    await api('PUT', '/api/spaces/alice/file', {
+      json: { path: saved.path, content: `${seen.content}edited\n`, baseBlobOid: seen.blobOid },
+    })
+    await api('POST', '/api/meetings/delete', {
+      json: { space: 'alice', path: saved.path, blobOid: seen.blobOid },
+      status: 409,
+    })
+    expect(await readRemote('alice', saved.path)).toContain('edited')
+  })
+
+  it('refuses to delete a file that is not a meeting note', async () => {
+    await api('PUT', '/api/spaces/alice/file', {
+      json: { path: 'docs/plain.md', content: '# Plain\n' },
+    })
+    await api('POST', '/api/meetings/delete', {
+      json: { space: 'alice', path: 'docs/plain.md' },
+      status: 400,
+    })
   })
 })
 

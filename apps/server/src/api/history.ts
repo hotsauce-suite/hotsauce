@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import type { Author } from '../git/index.js'
+import { type Author, withVia } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import {
   afterCommit,
@@ -59,22 +59,23 @@ export function historyRoutes(deps: AppDeps) {
  * A new commit with the old content; history is never rewritten. A doc is saved like any edit (it
  * keeps its id); any other file goes back byte for byte, since an image can't round-trip as text.
  */
-async function restore(
-  deps: AppDeps,
-  args: { space: string; oid: string; path: string; author: Author },
+export async function restore(
+  deps: Pick<AppDeps, 'git' | 'syncer'>,
+  args: { space: string; oid: string; path: string; author: Author; via?: string | undefined },
 ): Promise<SaveResult> {
   const { git } = deps
   const message = (title: string) => `docs: restore "${title}" to ${args.oid.slice(0, 7)}`
+  const { via, ...save } = args
   if (isMarkdown(args.path)) {
     const content = await git.show(args.space, args.oid, args.path)
-    return saveFile(deps, { ...args, content, message: message(titleOf(args.path, content)) })
+    return saveFile(deps, { ...save, content, message: message(titleOf(args.path, content)), via })
   }
   const path = writablePath(args.path)
   const { content } = await git.readBlob(args.space, path, args.oid)
   const result = await git.commit(args.space, {
     changes: [{ path, content }],
     author: args.author,
-    message: message(titleOf(path, '')),
+    message: withVia(message(titleOf(path, '')), via),
   })
   await afterCommit(deps, args.space, path, result)
   return result

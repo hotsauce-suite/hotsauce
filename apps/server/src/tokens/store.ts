@@ -64,6 +64,7 @@ export class TokenStore {
   readonly #lock = new KeyedMutex()
   readonly #lastWritten = new Map<string, number>()
   #loading: Promise<State> | null = null
+  #pending: Promise<void> = Promise.resolve()
 
   constructor(dataDir: string) {
     this.#file = path.join(dataDir, 'tokens', 'tokens.json')
@@ -140,9 +141,14 @@ export class TokenStore {
     if (now - (this.#lastWritten.get(token.id) ?? 0) < LAST_USED_WRITE_MS) return
     this.#lastWritten.set(token.id, now)
     // The in-memory state already has it; this only persists it. A failure costs a timestamp.
-    this.#update(() => {}).catch((err: unknown) => {
+    this.#pending = this.#update(() => {}).catch((err: unknown) => {
       console.error(`tokens: could not record a use of ${token.id}: ${err}`)
     })
+  }
+
+  /** Resolves once a last-use write started by `verify` has finished (shutdown and tests). */
+  async idle(): Promise<void> {
+    await this.#pending
   }
 
   /**

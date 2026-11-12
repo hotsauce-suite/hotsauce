@@ -12,21 +12,25 @@ import {
  * and test). Every `bytesPerSegment` of audio on a track (default 32,000 bytes, one second) is
  * one final segment, "<track> segment <n>"; with `partials`, a partial of the same text comes
  * when the segment is half heard. `finish()` flushes what's left as a shorter final segment.
+ * With `speakers`, the call's side is "diarized": its segments take turns as "Speaker 1",
+ * "Speaker 2"… up to that many, as Deepgram labels them.
  */
 export class FakeTranscriber implements Transcriber {
   readonly #bytesPerSegment: number
   readonly #partials: boolean
+  readonly #speakers: number
   /** Session ids, in the order they were started. */
   readonly started: string[] = []
 
-  constructor(opts: { bytesPerSegment?: number; partials?: boolean } = {}) {
+  constructor(opts: { bytesPerSegment?: number; partials?: boolean; speakers?: number } = {}) {
     this.#bytesPerSegment = opts.bytesPerSegment ?? 32_000
     this.#partials = opts.partials ?? false
+    this.#speakers = opts.speakers ?? 0
   }
 
   async start(opts: { sessionId: string }): Promise<TranscriberSession> {
     this.started.push(opts.sessionId)
-    return new FakeTranscriberSession(this.#bytesPerSegment, this.#partials)
+    return new FakeTranscriberSession(this.#bytesPerSegment, this.#partials, this.#speakers)
   }
 }
 
@@ -34,6 +38,7 @@ class FakeTranscriberSession implements TranscriberSession {
   readonly #events = new SessionEvents()
   readonly #bytesPerSegment: number
   readonly #partials: boolean
+  readonly #speakers: number
   readonly #bytes: Record<Track, number> = { me: 0, them: 0 }
   /** Bytes already turned into final segments. */
   readonly #done: Record<Track, number> = { me: 0, them: 0 }
@@ -43,9 +48,10 @@ class FakeTranscriberSession implements TranscriberSession {
 
   readonly on: TranscriberSession['on']
 
-  constructor(bytesPerSegment: number, partials: boolean) {
+  constructor(bytesPerSegment: number, partials: boolean, speakers: number) {
     this.#bytesPerSegment = bytesPerSegment
     this.#partials = partials
+    this.#speakers = speakers
     this.on = this.#events.on
   }
 
@@ -77,7 +83,10 @@ class FakeTranscriberSession implements TranscriberSession {
     const n = this.#count[track] + 1
     const segment = {
       track,
-      speaker: speakerFor(track),
+      speaker:
+        track === 'them' && this.#speakers > 0
+          ? `Speaker ${((n - 1) % this.#speakers) + 1}`
+          : speakerFor(track),
       at: Math.floor(this.#done[track] / PCM_BYTES_PER_MS),
       durationMs: Math.floor(bytes / PCM_BYTES_PER_MS),
       text: `${track} segment ${n}`,

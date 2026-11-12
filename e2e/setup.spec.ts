@@ -162,7 +162,7 @@ test('an instance configured by its environment never shows the wizard', async (
   page,
   request,
 }) => {
-  // The main e2e server, set up the way Acme's is: everything in env, no wizard.
+  // The main e2e server, set up entirely through in env, no wizard.
   const main = 'http://localhost:3999'
   expect((await (await request.get(`${main}/api/health`)).json()).setupRequired).toBe(false)
   expect(

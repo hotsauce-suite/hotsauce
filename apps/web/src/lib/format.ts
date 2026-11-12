@@ -61,3 +61,11 @@ export function syncTitle(base: string, next: string): string {
     return next
   }
 }
+
+/**
+ * A doc still on the name "New doc" gave it (`untitled.md`, `untitled-2.md`). Such a doc takes
+ * its first heading's name on its own; any other doc is only offered the rename.
+ */
+export function isUntitledPath(path: string): boolean {
+  return /^untitled(-\d+)?\.md$/i.test(path.slice(path.lastIndexOf('/') + 1))
+}

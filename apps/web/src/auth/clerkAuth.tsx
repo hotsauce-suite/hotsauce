@@ -1,12 +1,14 @@
 // Clerk mode, loaded only when the server reports `authMode: 'clerk'` so dev builds never
-// download the SDK. Google is the only sign-in method; the server enforces the domain lock.
+// download the SDK. Members sign in with Google; people invited from outside the allowed domains
+// sign in with a code emailed to them. The server enforces who may sign in either way.
 //
 // @clerk/react v6 moved the redirect-based `signIn.authenticateWithRedirect` to the
 // `/legacy` entry (the root `useSignIn` is the new signal API). It is still the documented
 // pairing for <AuthenticateWithRedirectCallback />, which is what we render at /sso-callback.
 
 import { AuthenticateWithRedirectCallback, ClerkFailed, ClerkProvider, useAuth } from '@clerk/react'
-import { useSignIn } from '@clerk/react/legacy'
+import { isClerkAPIResponseError } from '@clerk/react/errors'
+import { useSignIn, useSignUp } from '@clerk/react/legacy'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useNavigate, useRouteLoaderData } from 'react-router'
 import { setAuthHeaders } from '../api/client'
@@ -42,6 +44,7 @@ export function ClerkAuthProvider({ children }: { children: ReactNode }) {
 
 function ClerkBridge({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, getToken, signOut } = useAuth()
+  const { signIn, setActive } = useSignIn()
   // getToken refreshes the short-lived session token as needed; ask on every request.
   setAuthHeaders(async (): Promise<Record<string, string>> => {
     const token = await getToken()
@@ -52,13 +55,21 @@ function ClerkBridge({ children }: { children: ReactNode }) {
       mode: 'clerk',
       status: !isLoaded ? 'loading' : isSignedIn ? 'signed-in' : 'signed-out',
       signOut: () => void signOut(),
+      signInWithTicket: async (ticket: string) => {
+        if (!signIn || !setActive) throw new Error('Sign-in is still loading. Try again.')
+        const attempt = await signIn.create({ strategy: 'ticket', ticket })
+        if (attempt.status !== 'complete' || !attempt.createdSessionId) {
+          throw new Error('That sign-in didn’t complete. Try again from the app.')
+        }
+        await setActive({ session: attempt.createdSessionId })
+      },
     }),
-    [isLoaded, isSignedIn, signOut],
+    [isLoaded, isSignedIn, signOut, signIn, setActive],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function ClerkSignInButton() {
+export function ClerkSignInButton({ returnTo = '/today' }: { returnTo?: string }) {
   const { isLoaded, signIn } = useSignIn()
   const [error, setError] = useState<string | null>(null)
 
@@ -69,7 +80,8 @@ export function ClerkSignInButton() {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
         redirectUrl: '/sso-callback',
-        redirectUrlComplete: '/docs',
+        // Back where the member was going (the Mac app's confirm page, a doc), on this site only.
+        redirectUrlComplete: returnTo,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google sign-in didn’t start. Try again.')
@@ -115,6 +127,176 @@ export function ClerkSignInButton() {
         </p>
       ) : null}
     </div>
+  )
+}
+
+type CodeStep = { kind: 'email' } | { kind: 'code'; flow: 'sign-in' | 'sign-up' }
+
+/** Clerk's own message for an API error, else a plain fallback. */
+function clerkMessage(err: unknown, fallback: string): string {
+  if (isClerkAPIResponseError(err)) {
+    const first = err.errors[0]
+    return first?.longMessage || first?.message || fallback
+  }
+  return err instanceof Error && err.message ? err.message : fallback
+}
+
+/**
+ * For people invited from outside the allowed domains: type an email, get a code, type it back.
+ * Someone Clerk hasn't seen is signed up instead of in; the server decides whether they may stay.
+ */
+export function ClerkEmailCodeSignIn({ returnTo = '/today' }: { returnTo?: string }) {
+  const navigate = useNavigate()
+  const signInState = useSignIn()
+  const signUpState = useSignUp()
+  const [open, setOpen] = useState(false)
+  const [step, setStep] = useState<CodeStep>({ kind: 'email' })
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        data-testid="email-code-open"
+        onClick={() => setOpen(true)}
+        className="text-sm text-ink-soft underline decoration-ash-strong underline-offset-4 hover:text-ink"
+      >
+        Invited from outside? Sign in with an email code
+      </button>
+    )
+  }
+
+  const run = async (work: () => Promise<void>, fallback: string) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await work()
+    } catch (err) {
+      setError(clerkMessage(err, fallback))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const sendCode = () =>
+    run(async () => {
+      const { signIn } = signInState
+      const { signUp } = signUpState
+      if (!signInState.isLoaded || !signUpState.isLoaded || !signIn || !signUp) {
+        throw new Error('Sign-in is still loading. Try again.')
+      }
+      const address = email.trim()
+      try {
+        const attempt = await signIn.create({ identifier: address })
+        const factor = attempt.supportedFirstFactors?.find((f) => f.strategy === 'email_code')
+        if (!factor || !('emailAddressId' in factor)) {
+          throw new Error('Email codes aren’t turned on for this workspace yet. Ask an admin.')
+        }
+        await signIn.prepareFirstFactor({
+          strategy: 'email_code',
+          emailAddressId: factor.emailAddressId,
+        })
+        setStep({ kind: 'code', flow: 'sign-in' })
+      } catch (err) {
+        // A first visit: Clerk has no account for this address yet, so make one.
+        if (
+          isClerkAPIResponseError(err) &&
+          err.errors.some((e) => e.code === 'form_identifier_not_found')
+        ) {
+          await signUp.create({ emailAddress: address })
+          await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+          setStep({ kind: 'code', flow: 'sign-up' })
+          return
+        }
+        throw err
+      }
+    }, 'Couldn’t send a code. Check the address and try again.')
+
+  const verify = () =>
+    run(async () => {
+      if (step.kind !== 'code') return
+      const typed = code.trim()
+      let sessionId: string | null = null
+      if (step.flow === 'sign-in') {
+        const { signIn, setActive } = signInState
+        if (!signIn || !setActive) throw new Error('Sign-in is still loading. Try again.')
+        const attempt = await signIn.attemptFirstFactor({ strategy: 'email_code', code: typed })
+        if (attempt.status === 'complete') sessionId = attempt.createdSessionId
+        if (sessionId) await setActive({ session: sessionId })
+      } else {
+        const { signUp, setActive } = signUpState
+        if (!signUp || !setActive) throw new Error('Sign-in is still loading. Try again.')
+        const attempt = await signUp.attemptEmailAddressVerification({ code: typed })
+        if (attempt.status === 'complete') sessionId = attempt.createdSessionId
+        if (sessionId) await setActive({ session: sessionId })
+      }
+      if (!sessionId) throw new Error('That sign-in didn’t complete. Ask an admin for help.')
+      navigate(returnTo, { replace: true })
+    }, 'That code didn’t work. Check it and try again.')
+
+  const inputClass =
+    'h-11 rounded-lg border border-ash-strong bg-paper-raised px-3.5 text-ink outline-none placeholder:text-ink-faint focus:border-ember'
+  const buttonClass =
+    'h-11 rounded-lg bg-ember font-medium text-paper-raised hover:bg-ember-strong disabled:opacity-60'
+
+  return (
+    <form
+      data-testid="email-code-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void (step.kind === 'email' ? sendCode() : verify())
+      }}
+      className="flex flex-col gap-3"
+    >
+      {step.kind === 'email' ? (
+        <>
+          <label htmlFor="code-email" className="text-sm font-medium text-ink-soft">
+            Your email
+          </label>
+          <input
+            id="code-email"
+            data-testid="email-code-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            className={inputClass}
+          />
+          <button type="submit" disabled={busy} className={buttonClass}>
+            {busy ? 'Sending…' : 'Email me a code'}
+          </button>
+        </>
+      ) : (
+        <>
+          <label htmlFor="code-value" className="text-sm font-medium text-ink-soft">
+            The code we sent to {email.trim()}
+          </label>
+          <input
+            id="code-value"
+            data-testid="email-code-value"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            required
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            className={inputClass}
+          />
+          <button type="submit" disabled={busy} className={buttonClass}>
+            {busy ? 'Checking…' : 'Sign in'}
+          </button>
+        </>
+      )}
+      {error ? (
+        <p role="alert" className="text-sm text-ember-strong">
+          {error}
+        </p>
+      ) : null}
+    </form>
   )
 }
 

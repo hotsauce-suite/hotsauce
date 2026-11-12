@@ -1,7 +1,22 @@
+import { boardSearchText } from '@hearth/format'
 import { parse as parseYaml } from 'yaml'
 
-/** `meeting` is a note under `meetings/`, `transcript` its `.transcript.md` sibling (ARCHITECTURE §7.1). */
-export type FileKind = 'docs' | 'meeting' | 'transcript' | 'other'
+/**
+ * `meeting` is a note under `meetings/`, `transcript` its `.transcript.md` sibling (ARCHITECTURE
+ * §7.1), `task` a file under `tasks/` (§12.1), `note` a file under `notes/` (§14.1), `board` a
+ * whiteboard under `boards/` (§15.1), `person` a person's About under `people/` (§17.3),
+ * `file` a Hearth Files pointer under `files/` (§18.1).
+ */
+export type FileKind =
+  | 'docs'
+  | 'meeting'
+  | 'transcript'
+  | 'task'
+  | 'note'
+  | 'board'
+  | 'person'
+  | 'file'
+  | 'other'
 
 export interface ExtractedDoc {
   id: string | null
@@ -11,6 +26,8 @@ export interface ExtractedDoc {
   body: string
   /** The parsed frontmatter mapping; null when there is none, or it isn't a valid YAML mapping. */
   frontmatter: Record<string, unknown> | null
+  /** The file's line (1-based) where `body` starts: 1 without frontmatter. */
+  bodyLine: number
 }
 
 const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/
@@ -25,30 +42,45 @@ export function isIndexable(path: string): boolean {
 export function kindOf(path: string): FileKind {
   const top = path.split('/', 1)[0]
   if (top === 'docs') return 'docs'
+  if (top === 'tasks') return 'task'
+  if (top === 'notes') return 'note'
+  if (top === 'boards') return 'board'
+  if (top === 'people') return 'person'
+  if (top === 'files') return 'file'
   if (top !== 'meetings') return 'other'
   return path.toLowerCase().endsWith('.transcript.md') ? 'transcript' : 'meeting'
 }
 
 /** Title is frontmatter `title`, else the first H1, else the filename without `.md`. */
 export function extractDoc(path: string, text: string): ExtractedDoc {
-  const { frontmatter, body } = splitFrontmatter(text)
+  const { frontmatter, body, bodyLine } = splitFrontmatter(text)
   const data = frontmatter ?? {}
+  const kind = kindOf(path)
   return {
     id: typeof data.id === 'string' ? data.id : null,
-    title: frontmatterTitle(data) ?? firstH1(body) ?? fileStem(path),
-    kind: kindOf(path),
-    body,
+    title:
+      frontmatterTitle(data) ??
+      (kind === 'board' ? 'Untitled board' : (firstH1(body) ?? fileStem(path))),
+    kind,
+    // A board's drawing data isn't text anyone searches for; search sees the text on it.
+    body: kind === 'board' ? boardSearchText(body) : body,
     frontmatter,
+    bodyLine,
   }
 }
 
 function splitFrontmatter(text: string): {
   frontmatter: Record<string, unknown> | null
   body: string
+  bodyLine: number
 } {
   const match = FRONTMATTER.exec(text)
-  if (!match) return { frontmatter: null, body: text }
-  return { frontmatter: parseYamlObject(match[1] ?? ''), body: text.slice(match[0].length) }
+  if (!match) return { frontmatter: null, body: text, bodyLine: 1 }
+  return {
+    frontmatter: parseYamlObject(match[1] ?? ''),
+    body: text.slice(match[0].length),
+    bodyLine: match[0].split('\n').length,
+  }
 }
 
 function parseYamlObject(yaml: string): Record<string, unknown> | null {

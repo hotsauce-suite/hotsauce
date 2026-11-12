@@ -2,7 +2,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { type LivePreviewOptions, livePreview } from './livePreview'
+import { inlineHtml, type LivePreviewOptions, livePreview, tableCells } from './livePreview'
 
 let views: EditorView[] = []
 
@@ -167,5 +167,39 @@ describe('live preview', () => {
     const view = mount(doc, { cursorLine: 4 })
     placeCursor(view, 7)
     expect(view.state.doc.toString()).toBe(doc)
+  })
+})
+
+describe('table preview', () => {
+  const TABLE = 'Intro\n\n| A | B |\n|:--|--:|\n| **1** | 2 |\n\nAfter\n'
+
+  it('draws a table while the cursor is elsewhere, and the source while it is inside', () => {
+    const view = mount(TABLE, { cursorLine: 1 })
+    const widget = view.contentDOM.querySelector('.cm-lp-table-widget')
+    expect(widget?.querySelectorAll('th')).toHaveLength(2)
+    expect(widget?.querySelector('td strong')?.textContent).toBe('1')
+    expect(widget?.querySelectorAll('td')[1]).toHaveStyle({ textAlign: 'right' })
+    placeCursor(view, 4)
+    expect(view.contentDOM.querySelector('.cm-lp-table-widget')).toBeNull()
+    expect(view.contentDOM.textContent).toContain('| A | B |')
+  })
+
+  it('styles indented code like fenced code', () => {
+    const view = mount('Text\n\n    code line\n', { cursorLine: 1 })
+    expect(view.contentDOM.querySelectorAll('.cm-line')[2]).toHaveClass('cm-lp-indented-code')
+  })
+})
+
+describe('table preview helpers', () => {
+  it('splits cells on pipes, but not escaped ones or ones inside code', () => {
+    expect(tableCells('| a | `x|y` | b \\| c |')).toEqual(['a', '`x|y`', 'b | c'])
+    expect(tableCells('a | b')).toEqual(['a', 'b'])
+  })
+
+  it('renders a cell’s inline markdown, escaping everything else', () => {
+    expect(inlineHtml('**b** and *i* `<code>` [t](u) <script>')).toBe(
+      '<strong>b</strong> and <em>i</em> <code>&lt;code&gt;</code> <span class="cm-lp-link">t</span> &lt;script&gt;',
+    )
+    expect(inlineHtml('a ` b')).toBe('a ` b')
   })
 })

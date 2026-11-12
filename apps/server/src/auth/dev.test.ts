@@ -4,7 +4,7 @@ import { DEV_USER_HEADER, DevAuth } from './dev.js'
 
 const auth = new DevAuth({
   allowedDomains: ['example.test'],
-  adminEmails: ['morgan@example.test'],
+  adminEmails: ['ada@example.test'],
 })
 
 function req(headers: Record<string, string> = {}): Request {
@@ -34,7 +34,7 @@ describe('DevAuth', () => {
   })
 
   it('marks admins from adminEmails', async () => {
-    const p = await auth.authenticate(req({ [DEV_USER_HEADER]: 'morgan@example.test' }))
+    const p = await auth.authenticate(req({ [DEV_USER_HEADER]: 'ada@example.test' }))
     expect(p?.isAdmin).toBe(true)
   })
 
@@ -49,5 +49,29 @@ describe('DevAuth', () => {
     await expect(attempt).rejects.toThrow(
       'visitor@example.com is not allowed. Sign in with your example.test account.',
     )
+  })
+})
+
+describe('DevAuth with invited people', () => {
+  const invited = new DevAuth({
+    allowedDomains: ['example.test'],
+    allowedEmails: ['jo@partner.org'],
+    adminEmails: [],
+  })
+
+  it('lets an invited address in, with a handle that names its domain', async () => {
+    const p = await invited.authenticate(req({ [DEV_USER_HEADER]: 'Jo@Partner.org' }))
+    expect(p).toMatchObject({ email: 'jo@partner.org', handle: 'jo-partner-org' })
+  })
+
+  it('still refuses everyone else at that domain', async () => {
+    await expect(
+      invited.authenticate(req({ [DEV_USER_HEADER]: 'eve@partner.org' })),
+    ).rejects.toMatchObject({ code: 'domain_not_allowed' })
+  })
+
+  it('keeps members’ handles as they were', async () => {
+    const p = await invited.authenticate(req({ [DEV_USER_HEADER]: 'jo@example.test' }))
+    expect(p?.handle).toBe('jo')
   })
 })

@@ -12,6 +12,9 @@ export interface IndexFile {
   blobOid: string
 }
 
+/** The `mtime` of a file first seen in a full index: when it changed is unknown. */
+export const NEVER_CHANGED = '1970-01-01T00:00:00.000Z'
+
 export interface FileRow {
   space: string
   path: string
@@ -99,11 +102,18 @@ export class Index {
     return this.#q.vecVersion.get()?.v ?? ''
   }
 
-  /** Replaces everything indexed for `space`, atomically. */
+  /**
+   * Replaces everything indexed for `space`, atomically. A file whose content is unchanged keeps
+   * its `mtime`, so a restart's reindex doesn't make every file look just changed.
+   */
   reindexSpace(space: string, files: IndexFile[]): void {
-    const mtime = new Date().toISOString()
+    const keep = new Set(files.map((f) => f.path))
     this.#db.transaction(() => {
-      this.#q.deleteSpace.run(space)
+      const had = this.#q.spacePaths.all(space)
+      // A space indexed for the first time (a new volume, a deleted index) has no idea when its
+      // files last changed: they get the epoch, not "just now", so Today doesn't list them all.
+      const mtime = had.length === 0 ? NEVER_CHANGED : new Date().toISOString()
+      for (const { path } of had) if (!keep.has(path)) this.#q.deleteFile.run(space, path)
       for (const file of files) this.#q.upsertFile.run(toRow(space, file, mtime))
     })()
   }
@@ -138,6 +148,22 @@ export class Index {
         limit,
       })
       .map(toFileRow)
+  }
+
+  /**
+   * The indexed body (the text after the frontmatter) of each of `paths` in `space` that is
+   * indexed, keyed by path. One query, so a list of tasks shows its notes without a Git read each.
+   */
+  bodies(space: string, paths: string[]): Map<string, string> {
+    if (paths.length === 0) return new Map()
+    const rows = this.#q.bodies.all({ space, paths: JSON.stringify(paths) })
+    return new Map(rows.map((r) => [r.path, r.body]))
+  }
+
+  /** One file's indexed body and the line of the file it starts on, or null. */
+  bodyAt(space: string, path: string): { body: string; line: number } | null {
+    const row = this.#q.bodyAt.get(space, path)
+    return row ? { body: row.body, line: row.bodyLine } : null
   }
 
   /** Full-text search limited to `spaces`. Any user string is safe; nothing searchable → []. */
@@ -241,6 +267,7 @@ interface FileParams {
   size: number
   mtime: string
   frontmatter: string | null
+  bodyLine: number
 }
 
 type RawFileRow = Omit<FileRow, 'frontmatter'> & { frontmatter: string | null }
@@ -262,6 +289,7 @@ function toRow(space: string, file: IndexFile, mtime: string): FileParams {
     size: Buffer.byteLength(file.content),
     mtime,
     frontmatter: doc.frontmatter === null ? null : JSON.stringify(doc.frontmatter),
+    bodyLine: doc.bodyLine,
   }
 }
 
@@ -274,14 +302,16 @@ function prepareStatements(db: Database.Database) {
     vecVersion: db.prepare<[], { v: string }>('SELECT vec_version() AS v'),
 
     upsertFile: db.prepare<FileParams>(`
-      INSERT INTO files (space, path, id, kind, title, body, blob_oid, size, mtime, frontmatter)
-      VALUES (@space, @path, @id, @kind, @title, @body, @blobOid, @size, @mtime, @frontmatter)
+      INSERT INTO files (space, path, id, kind, title, body, blob_oid, size, mtime, frontmatter, body_line)
+      VALUES (@space, @path, @id, @kind, @title, @body, @blobOid, @size, @mtime, @frontmatter, @bodyLine)
       ON CONFLICT (space, path) DO UPDATE SET
         id = excluded.id, kind = excluded.kind, title = excluded.title, body = excluded.body,
-        blob_oid = excluded.blob_oid, size = excluded.size, mtime = excluded.mtime,
-        frontmatter = excluded.frontmatter`),
+        mtime = CASE WHEN files.blob_oid = excluded.blob_oid THEN files.mtime ELSE excluded.mtime END,
+        blob_oid = excluded.blob_oid, size = excluded.size,
+        frontmatter = excluded.frontmatter, body_line = excluded.body_line`),
     deleteFile: db.prepare<[string, string]>('DELETE FROM files WHERE space = ? AND path = ?'),
     deleteSpace: db.prepare<[string]>('DELETE FROM files WHERE space = ?'),
+    spacePaths: db.prepare<[string], { path: string }>('SELECT path FROM files WHERE space = ?'),
     getFile: db.prepare<[string, string], RawFileRow>(
       `SELECT ${FILE_COLUMNS} FROM files WHERE space = ? AND path = ?`,
     ),
@@ -296,6 +326,13 @@ function prepareStatements(db: Database.Database) {
       ORDER BY CASE WHEN @order = 'date_desc' THEN json_extract(frontmatter, '$.date') END DESC,
         path
       LIMIT @limit`),
+
+    bodyAt: db.prepare<[string, string], { body: string; bodyLine: number }>(
+      'SELECT body, body_line AS bodyLine FROM files WHERE space = ? AND path = ?',
+    ),
+    bodies: db.prepare<{ space: string; paths: string }, { path: string; body: string }>(`
+      SELECT path, body FROM files
+      WHERE space = @space AND path IN (SELECT value FROM json_each(@paths))`),
 
     search: db.prepare<
       {

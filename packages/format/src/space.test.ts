@@ -22,17 +22,17 @@ describe('initialSpaceFiles', () => {
   })
 
   it('records a personal space with its owner', () => {
-    const files = initialSpaceFiles('morgan', { kind: 'personal', owner: 'Morgan@Example.test' })
+    const files = initialSpaceFiles('ada', { kind: 'personal', owner: 'Ada@Example.test' })
     expect(parseSpaceConfig(spaceYaml(files))).toEqual({
-      name: 'morgan',
+      name: 'ada',
       schema: 1,
       kind: 'personal',
-      owner: 'morgan@example.test',
+      owner: 'ada@example.test',
     })
   })
 
   it('refuses a personal space without an owner', () => {
-    expect(() => initialSpaceFiles('morgan', { kind: 'personal' })).toThrow(/owner/)
+    expect(() => initialSpaceFiles('ada', { kind: 'personal' })).toThrow(/owner/)
   })
 
   it('names the space in the README, and quotes it in YAML where needed', () => {

@@ -16,8 +16,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The suite's window; its page also answers the meeting reminders' calendar calls.
     lazy var suite = SuiteWindow(server: suiteServer)
     private lazy var reminders = Reminders(suite: suite) { [weak self] in self?.settings.meetingReminders ?? false }
+    /// A `CallDetector` on macOS 14.2+ (stored untyped for the availability check).
+    private var callDetector: AnyObject?
 
-    /// The server in Settings, else the one this app was built for. Not Dictate's connection: a connect link names its
+    /// The server in Settings, else the default server. Not Dictate's connection: a connect link names its
     /// server, and the window grants its server the camera and microphone.
     private var suiteServer: URL {
         settings.suiteServer ?? ConnectLink.defaultServer
@@ -38,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.mainMenu = makeMainMenu()
         suite.showMessage = { [weak self] in self?.controller.showMessage($0) }
         suite.handleAppLink = { [weak self] in self?.openAppLink($0.absoluteString) }
+        suite.signInWithBrowser = { [weak self] in self?.startBrowserSignIn() }
         statusItem = Self.makeStatusItem()
         statusItem.isVisible = settings.showInMenuBar
         let menu = NSMenu()
@@ -81,6 +84,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if launchedAsLoginItem { suite.loadIfNeeded() } else { suite.show() }
         if !settings.hasOnboarded { onboarding.show() }
         reminders.start()
+        if #available(macOS 14.2, *) {
+            let detector = CallDetector(suite: suite) { [weak self] in self?.settings.offerCallNotes ?? false }
+            detector.start()
+            callDetector = detector
+        }
+        retireOldCopy()
+        refreshLoginItemIfMoved()
+    }
+
+    /// Whether this copy is installed: directly in an Applications folder (not the disk image,
+    /// a translocated path or a build folder).
+    private var isInstalled: Bool {
+        let folder = Bundle.main.bundleURL.standardizedFileURL.deletingLastPathComponent()
+        return (FileManager.default.urls(for: .applicationDirectory, in: .localDomainMask)
+            + FileManager.default.urls(for: .applicationDirectory, in: .userDomainMask))
+            .contains { $0.standardizedFileURL == folder }
+    }
+
+    /// Up to 0.2 the app was HearthDictate.app. Installed as <Name>.app, the old copy (the same
+    /// app, same bundle id) would still show in Spotlight and could answer links, so it is quit if
+    /// it's running and goes to the Trash: only from an installed copy, only an app with this
+    /// bundle id.
+    private func retireOldCopy() {
+        guard isInstalled else { return }
+        let me = Bundle.main.bundleURL.standardizedFileURL
+        let applications = FileManager.default.urls(for: .applicationDirectory, in: .localDomainMask)
+            + FileManager.default.urls(for: .applicationDirectory, in: .userDomainMask)
+        for folder in applications {
+            let old = folder.appendingPathComponent("HearthDictate.app").standardizedFileURL
+            guard old != me, FileManager.default.fileExists(atPath: old.path),
+                  Bundle(url: old)?.bundleIdentifier == Bundle.main.bundleIdentifier
+            else { continue }
+            let running = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+                .filter { $0.bundleURL?.standardizedFileURL == old }
+            running.forEach { $0.terminate() }
+            // Give it a moment to quit (it flushes its history), then trash it.
+            DispatchQueue.main.asyncAfter(deadline: .now() + (running.isEmpty ? 0 : 3)) {
+                running.filter { !$0.isTerminated }.forEach { $0.forceTerminate() }
+                try? FileManager.default.trashItem(at: old, resultingItemURL: nil)
+            }
+        }
+    }
+
+    /// Open at login points at the app where it was turned on; after a rename or move, register
+    /// it again so the next login opens this copy. Only for an installed copy, and the new path is
+    /// remembered only once that worked, so a failure is retried at the next launch.
+    private func refreshLoginItemIfMoved() {
+        let defaults = UserDefaults.standard
+        let path = Bundle.main.bundlePath
+        guard isInstalled, defaults.string(forKey: "lastBundlePath") != path else { return }
+        guard SMAppService.mainApp.status == .enabled else {
+            defaults.set(path, forKey: "lastBundlePath")
+            return
+        }
+        do {
+            try? SMAppService.mainApp.unregister()
+            try SMAppService.mainApp.register()
+            defaults.set(path, forKey: "lastBundlePath")
+        } catch {
+            controller.showMessage("Couldn’t update Open at login — turn it on again in Settings")
+        }
     }
 
     /// A login item starts quietly; a launch by the member opens the window.
@@ -118,6 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 model.suiteServerDraft = suiteServer
             }
             set(\.meetingReminders, self.settings.meetingReminders)
+            set(\.offerCallNotes, self.settings.offerCallNotes)
             self.reminders.authorizationStatus { status in
                 set(\.notificationsAllowed, status != .denied)
             }
@@ -211,6 +276,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.setMeetingReminders = { [weak self] on in
             guard let self else { return }
             self.settings.meetingReminders = on
+            if on { self.reminders.requestAuthorization { _ in model.reload() } }
+            model.reload()
+        }
+        model.setOfferCallNotes = { [weak self] on in
+            guard let self else { return }
+            self.settings.offerCallNotes = on
             if on { self.reminders.requestAuthorization { _ in model.reload() } }
             model.reload()
         }
@@ -331,7 +402,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func relaunch() {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
-        task.arguments = ["-c", "sleep 1; /usr/bin/open -b dev.hotsauce.dictate"]
+        // This copy by its path when installed (another copy with the same bundle id elsewhere
+        // must not open instead); else by bundle id, as the disk image's copy may be gone by then.
+        task.arguments = isInstalled
+            ? ["-c", "sleep 1; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
+            : ["-c", "sleep 1; /usr/bin/open -b dev.hotsauce.dictate"]
         do {
             try task.run()
         } catch {
@@ -343,21 +418,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Status item
 
+    /// The menu bar icon is the Hearth mark. Dimmed until Dictate is ready, ember while it listens,
+    /// orange while it writes up; a warning triangle only for an error.
+    private static let markImage = HearthMark.menuBarImage()
+    private static let errorImage = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: Brand.name) ?? markImage
+    private static let accent = NSColor(name: nil) { appearance in
+        let hex = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? Brand.accentDark : Brand.accentLight
+        return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                       blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+    }
+
     private func updateIcon() {
         guard let button = statusItem?.button else { return }
-        let symbol: String
+        let ready = ConnectionStore.connection() != nil && monitor.isRunning
+        var image = Self.markImage
+        var tint: NSColor?
         switch controller.status {
-        case .idle: symbol = ConnectionStore.connection() == nil || !monitor.isRunning ? "mic.slash" : "mic"
-        case .recording: symbol = "mic.fill"
-        case .processing: symbol = "waveform"
-        case .error: symbol = "exclamationmark.triangle"
+        case .idle: break
+        case .recording: tint = Self.accent
+        case .processing: tint = .systemOrange
+        case .error: image = Self.errorImage
         }
-        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Hearth Dictate")
-        button.image?.isTemplate = true
+        image.isTemplate = true
+        if button.image !== image { button.image = image }
+        if button.contentTintColor != tint { button.contentTintColor = tint }
+        let dimmed = controller.status == .idle && !ready
+        if button.appearsDisabled != dimmed { button.appearsDisabled = dimmed }
     }
 
     private var statusLine: String {
-        if ConnectionStore.connection() == nil { return "Not connected to Hearth" }
+        if ConnectionStore.connection() == nil { return "Dictate isn’t connected" }
         if !Permissions.microphoneGranted { return "Needs the microphone" }
         if !monitor.isRunning {
             return Permissions.accessibilityGranted ? "Can’t see the keyboard — quit and reopen" : "Needs Accessibility"
@@ -418,7 +508,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(item("Open \(Brand.name)", #selector(showSuite)))
-        menu.addItem(item("Open Hearth Dictate", #selector(openMainWindow)))
+        menu.addItem(item("Dictate settings…", #selector(openMainWindow)))
         let login = item("Launch at login", #selector(toggleLaunchAtLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
@@ -427,7 +517,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item("Disconnect this Mac", #selector(disconnect)))
         }
         menu.addItem(.separator())
-        menu.addItem(item("Quit Hearth Dictate", #selector(quit), key: "q"))
+        menu.addItem(item("Quit \(Brand.name)", #selector(quit), key: "q"))
     }
 
     private func disabled(_ title: String) -> NSMenuItem {
@@ -507,8 +597,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         openAppLink(text)
     }
 
-    /// A deep link opens its path in the window; a connect link connects, asking first.
+    /// The sign-in started from the window and waiting for the browser's callback.
+    private var browserSignIn: BrowserSignIn?
+
+    /// Opens the member's browser at the suite's confirm page; it hands back a one-time ticket.
+    private func startBrowserSignIn() {
+        // Pressed again while one is under way: the same sign-in, so either tab still works.
+        let signIn = browserSignIn.flatMap { Date().timeIntervalSince($0.started) < BrowserSignIn.timeout / 2 ? $0 : nil }
+            ?? BrowserSignIn()
+        guard let url = signIn.connectURL(server: suite.router.server) else { return }
+        browserSignIn = signIn
+        NSWorkspace.shared.open(url)
+    }
+
+    /// A deep link opens its path in the window; a connect link connects, asking first; a
+    /// browser sign-in's callback signs the window in, if this app started that sign-in.
     private func openAppLink(_ text: String) {
+        if let url = URL(string: text), BrowserSignIn.callback(url) != nil {
+            guard let ticket = browserSignIn?.ticket(from: url) else {
+                controller.showMessage("That sign-in expired — press Sign in with your browser again")
+                return
+            }
+            browserSignIn = nil
+            suite.finishSignIn(ticket: ticket)
+            return
+        }
         if let url = URL(string: text), let path = SuiteRouter.deepLinkPath(url) {
             suite.show()
             suite.open(path: path)
@@ -529,7 +642,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// connection. Calls back with why it didn't connect, or nil when it did.
     private func connect(code: String, fromLink: Bool, done: @escaping (String?) -> Void) {
         guard let link = ConnectLink.parse(code) else {
-            done("That isn’t a Hearth Dictate connection code. Press Connect this Mac on your workspace’s /dictate page to get one.")
+            done("That isn’t a Dictate connection code. Press Connect this Mac on your workspace’s /dictate page to get one.")
             return
         }
         let client = DictationClient(server: link.server, token: link.token)
@@ -546,7 +659,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if fromLink || link.isUnfamiliarServer || previous != nil {
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()
-                alert.messageText = "Connect Hearth Dictate as \(account)?"
+                alert.messageText = "Connect Dictate as \(account)?"
                 var detail = link.isUnfamiliarServer
                     ? "This isn’t the server this app was built for (office.example.com). Your dictations will be sent to \(link.server.absoluteString). Only continue if you trust it."
                     : "Your dictations will go to \(link.server.host ?? "Hearth") as \(account)."

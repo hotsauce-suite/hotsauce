@@ -1,0 +1,261 @@
+/* Hearth Tasks (ARCHITECTURE §12.5): priority colors, the round checkbox, the quick-add token
+   highlight, the leaving animation, the bottom sheet. Tokens only. */
+
+:root {
+  --task-p1: var(--ember);
+  --task-p2: var(--glow);
+  --task-p3: var(--code-type);
+  --task-p4: var(--ash-strong);
+}
+
+/* Personal / Team: Clips' segmented tabs, as radios. */
+.clips-tabs button[role="radio"][aria-checked="true"] {
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(70 34 12 / 0.12);
+}
+
+/* ------------------------------------------------------------- checkbox */
+
+.task-check {
+  --tone: var(--task-p4);
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.15rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--tone);
+  background: color-mix(in oklab, var(--tone) 10%, transparent);
+  color: var(--tone);
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+.task-check[data-priority="1"] {
+  --tone: var(--task-p1);
+  border-width: 2px;
+}
+.task-check[data-priority="2"] {
+  --tone: var(--task-p2);
+  border-width: 2px;
+}
+.task-check[data-priority="3"] {
+  --tone: var(--task-p3);
+  border-width: 2px;
+}
+.task-check svg {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.task-check:hover svg,
+.task-check:focus-visible svg {
+  opacity: 0.7;
+}
+.task-check[aria-checked="true"] {
+  background: var(--tone);
+  color: var(--paper-raised);
+}
+.task-check[aria-checked="true"] svg {
+  opacity: 1;
+}
+/* Touch has no hover: a bigger target, the same look. */
+@media (pointer: coarse) {
+  .task-check::after {
+    content: "";
+    position: absolute;
+    inset: -0.7rem;
+  }
+}
+
+/* ------------------------------------------------------------------ rows */
+
+.task-row {
+  position: relative;
+  transition:
+    opacity 260ms ease,
+    transform 260ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    background-color 120ms ease;
+}
+.task-row[data-selected="true"] {
+  background: color-mix(in oklab, var(--ember-wash) 70%, transparent);
+}
+.task-row[data-leaving="true"] {
+  opacity: 0;
+  transform: translateX(14px);
+}
+.task-row[data-dragging="true"] {
+  z-index: 2;
+  background: var(--paper-raised);
+  box-shadow: var(--shadow-float);
+  transition: none;
+}
+.task-drop-line {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ember);
+  pointer-events: none;
+}
+
+.task-handle {
+  touch-action: none;
+  opacity: 0;
+}
+.task-row:hover .task-handle,
+.task-handle:focus-visible {
+  opacity: 1;
+}
+@media (pointer: coarse) {
+  .task-handle {
+    opacity: 0.55;
+  }
+}
+
+/* ------------------------------------------------------------- quick add */
+
+.quick-field {
+  position: relative;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.quick-field input,
+.quick-backdrop {
+  font: inherit;
+  letter-spacing: normal;
+  padding: 0.5rem 0;
+  white-space: pre;
+}
+.quick-field input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+.quick-field input::placeholder {
+  color: var(--ink-faint);
+}
+.quick-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+.quick-backdrop mark {
+  color: transparent;
+  border-radius: 0.3rem;
+  background: var(--ember-wash);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--ember) 25%, transparent);
+}
+.quick-backdrop mark[data-kind="priority"] {
+  background: color-mix(in oklab, var(--task-p2) 20%, transparent);
+}
+.quick-backdrop mark[data-kind="project"],
+.quick-backdrop mark[data-kind="label"],
+.quick-backdrop mark[data-kind="assignee"] {
+  background: color-mix(in oklab, var(--task-p3) 16%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--task-p3) 28%, transparent);
+}
+
+.task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--ash);
+  background: var(--paper);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.task-chip[data-kind="date"],
+.task-chip[data-kind="recur"] {
+  color: var(--moss);
+  border-color: color-mix(in oklab, var(--moss) 30%, transparent);
+  background: var(--moss-wash);
+}
+.task-chip[data-kind="priority"] {
+  color: var(--ember-strong);
+  border-color: color-mix(in oklab, var(--ember) 30%, transparent);
+  background: var(--ember-wash);
+}
+
+/* ------------------------------------------------------------ the sheet */
+
+@keyframes task-sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+.task-sheet {
+  animation: task-sheet-in 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes task-toast-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+.task-toast {
+  animation: task-toast-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-row,
+  .task-sheet,
+  .task-toast {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Ramble's microphone level: five bars that light up with the voice. */
+.ramble-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.ramble-bars > span {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--color-ash-strong, currentColor);
+  opacity: 0.45;
+  transition:
+    opacity 80ms linear,
+    background-color 80ms linear;
+}
+.ramble-bars > span:nth-child(1) {
+  height: 30%;
+}
+.ramble-bars > span:nth-child(2) {
+  height: 50%;
+}
+.ramble-bars > span:nth-child(3) {
+  height: 70%;
+}
+.ramble-bars > span:nth-child(4) {
+  height: 85%;
+}
+.ramble-bars > span:nth-child(5) {
+  height: 100%;
+}
+.ramble-bars > span[data-on="true"] {
+  background: var(--color-ember, currentColor);
+  opacity: 1;
+}

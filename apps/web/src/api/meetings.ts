@@ -1,6 +1,7 @@
 // Client for `/api/meetings` (ARCHITECTURE §7.2). The audio socket is in
 // apps/meetings/audio/socket.ts.
 
+import type { GranolaMeeting } from '../apps/meetings/granolaExport'
 import { api, HearthApiError, request, requestBlob } from './client'
 import type {
   ChatAnswer,
@@ -115,8 +116,31 @@ export const meetingsApi = {
   stop: (id: string, opts: { keepAudio?: boolean; notes?: string } = {}) =>
     request<StopResult>(`${session(id)}/stop`, { method: 'POST', json: opts }),
 
+  /** Deletes a meeting note with its transcript, raw notes and kept audio, in one commit. */
+  deleteNote: (space: string, path: string) =>
+    request<{ deleted: string[] }>(`${BASE}/delete`, { method: 'POST', json: { space, path } }),
+
   enhance: (body: EnhanceBody) =>
     request<EnhanceResult>(`${BASE}/enhance`, { method: 'POST', json: body }),
+
+  /** Names speakers ("Speaker 1" → "Priya Shah") in a meeting's transcript and note, in one commit. */
+  nameSpeakers: (
+    space: string,
+    path: string,
+    names: Record<string, string>,
+    transcriptBlobOid?: string,
+  ) =>
+    request<{ transcriptPath: string; renamed: Record<string, string> }>(`${BASE}/speakers`, {
+      method: 'POST',
+      json: { space, path, names, ...(transcriptBlobOid ? { transcriptBlobOid } : {}) },
+    }),
+
+  /** Past meetings from Granola's export, into the personal space (ARCHITECTURE §7.12). */
+  importGranola: (meetings: GranolaMeeting[], tz: string) =>
+    request<{ imported: number; skipped: number; space: string }>(`${BASE}/import/granola`, {
+      method: 'POST',
+      json: { meetings, tz },
+    }),
 
   chat: (question: string, scope: ChatScope) =>
     request<ChatAnswer>(`${BASE}/chat`, { method: 'POST', json: { question, scope } }),

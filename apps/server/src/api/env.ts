@@ -1,15 +1,23 @@
 import type { Authenticator, Principal } from '../auth/index.js'
+import type { Boards } from '../boards/index.js'
+import type { AgentBriefs } from '../brief/index.js'
+import type { Briefcasts } from '../briefcast/index.js'
 import type { Clips } from '../clips/index.js'
 import type { Config } from '../config.js'
 import type { Dictation } from '../dictation/index.js'
+import type { Feedback } from '../feedback/index.js'
+import type { Files } from '../files/index.js'
 import type { Author, GitStore } from '../git/index.js'
 import type { HostAdapter } from '../hosts/index.js'
 import type { Index } from '../index/index.js'
 import type { MeetingServices } from '../meetings/index.js'
+import type { Notes } from '../notes/index.js'
 import type { BrandStore } from '../org/brand.js'
 import type { OrgStore } from '../org/store.js'
+import type { People } from '../people/index.js'
 import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
+import type { TaskServices } from '../tasks/index.js'
 import type { TokenStore } from '../tokens/index.js'
 
 /** Everything the API is built from; tests pass a temp data dir, LocalHost and DevAuth. */
@@ -25,6 +33,14 @@ export interface AppDeps {
   meetings: MeetingServices
   dictation: Dictation
   clips: Clips
+  tasks: TaskServices
+  notes: Notes
+  files: Files
+  briefs: AgentBriefs
+  feedback: Feedback
+  boards: Boards
+  people: People
+  briefcasts: Briefcasts
   org: OrgStore
   brand: BrandStore
   /** Stops gracefully and exits so the process manager starts us with the new settings. */

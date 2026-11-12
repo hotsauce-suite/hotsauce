@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { api } from '../api/client'
 import type { SearchResult } from '../api/types'
 import { APPS, railLinks } from '../apps/registry'
-import { displayName, fileUrl, meetingFileKind } from '../lib/paths'
+import { displayName, fileUrl, isTaskFile, meetingFileKind } from '../lib/paths'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
 import { Icon, type IconName } from './Icon'
@@ -19,7 +19,12 @@ interface Hit {
   snippet?: string
 }
 
-const KIND_LABEL = { doc: 'Doc', meeting: 'Meeting', transcript: 'Transcript' } as const
+const KIND_LABEL = {
+  doc: 'Doc',
+  meeting: 'Meeting',
+  transcript: 'Transcript',
+  task: 'Task',
+} as const
 
 const terms = (query: string) => query.toLowerCase().split(/\s+/).filter(Boolean)
 
@@ -319,7 +324,8 @@ function ResultItem({
           {highlight(hit.title, query)}
         </span>
         <span className="shrink-0 text-xs text-ink-faint">
-          {KIND_LABEL[meetingFileKind(hit.path) ?? 'doc']} · {spaceLabel}
+          {KIND_LABEL[isTaskFile(hit.path) ? 'task' : (meetingFileKind(hit.path) ?? 'doc')]} ·{' '}
+          {spaceLabel}
         </span>
       </span>
       {hit.snippet ? (

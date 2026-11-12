@@ -18,7 +18,7 @@ Related: [[Q4 plan]] and [[people/Dana Lee|Dana]], plus the [roadmap](../plannin
 > [!note] Decision
 > We ship the docs editor first.
 
-- [ ] Morgan: write the format spec
+- [ ] Ada: write the format spec
 - [x] Dana: book the room
   - [ ] nested follow-up
 

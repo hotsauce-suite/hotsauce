@@ -7,10 +7,12 @@ import {
   cleanModelOutput,
   Enhancer,
   MISSING_NOTES_HEADING,
+  splitSpeakers,
+  splitTitle,
   withAllRawLines,
   withoutOutsideImages,
 } from './enhancer.js'
-import { blobOidOf } from './note.js'
+import { blobOidOf, hasPlaceholderTitle } from './note.js'
 import { buildEnhancePrompt, type EnhanceInput } from './prompt.js'
 
 const FRONTMATTER = '---\nid: X\ntype: meeting\ntitle: Acme sync\n---\n'
@@ -124,10 +126,10 @@ describe('buildEnhancePrompt', () => {
   it('names the note-taker and the date, so action items say who and when, never "Me"', () => {
     const prompt = buildEnhancePrompt({
       ...INPUT,
-      noteTaker: 'Morgan Holland',
+      noteTaker: 'Ada Lovelace',
       date: '2026-11-10T09:00:00-05:00',
     })
-    expect(prompt.user).toContain('Date: 2026-11-10T09:00:00-05:00\nNote-taker: Morgan Holland')
+    expect(prompt.user).toContain('Date: 2026-11-10T09:00:00-05:00\nNote-taker: Ada Lovelace')
     expect(prompt.system).toContain('Write the note-taker\'s name, never "Me"')
     expect(buildEnhancePrompt(INPUT).user).not.toContain('Note-taker:')
   })
@@ -175,6 +177,52 @@ describe('Enhancer', () => {
   it('cleans only a fence around everything and a leading title', () => {
     expect(cleanModelOutput('## A\n```js\nx\n```\n')).toBe('## A\n```js\nx\n```')
     expect(withAllRawLines('a\nb', 'b\na\n')).toBe('a\nb')
+  })
+})
+
+describe('naming a voice note', () => {
+  it('asks for a title only when told to, and puts it in the heading', async () => {
+    expect(buildEnhancePrompt(INPUT).user).not.toContain('This note has no title yet')
+    const llm = new FakeLLM(() => 'Title: "Pricing ideas for Acme."\n\n## Summary\n- tiers')
+    const enhancer = new Enhancer(llm, { model: 'm' })
+    const named = await enhancer.enhance({ ...INPUT, rawNotes: '', nameIt: true })
+    expect(llm.calls[0]?.messages[0]?.content).toContain('This note has no title yet')
+    expect(named.title).toBe('Pricing ideas for Acme')
+    expect(named.markdown).toBe('# Pricing ideas for Acme\n\n## Summary\n- tiers\n')
+  })
+
+  it('finds the Title line inside a fence around the whole answer', async () => {
+    const llm = new FakeLLM(() => '```markdown\nTitle: Fenced\n\n## Summary\n- x\n```')
+    const named = await new Enhancer(llm, { model: 'm' }).enhance({
+      ...INPUT,
+      rawNotes: '',
+      nameIt: true,
+    })
+    expect(named.title).toBe('Fenced')
+    expect(named.markdown).toBe('# Fenced\n\n## Summary\n- x\n')
+  })
+
+  it('keeps the old title when the model gives none', async () => {
+    const enhancer = new Enhancer(new FakeLLM(() => '## Summary\n- tiers'), { model: 'm' })
+    const named = await enhancer.enhance({ ...INPUT, rawNotes: '', nameIt: true })
+    expect(named.title).toBeUndefined()
+    expect(named.markdown).toBe('# Acme sync\n\n## Summary\n- tiers\n')
+  })
+
+  it('splits a Title line off, cleaning marks and capping its length', () => {
+    expect(splitTitle('Title: **Big idea**\nbody')).toEqual({ title: 'Big idea', rest: 'body' })
+    expect(splitTitle('Title:\nbody')).toEqual({ title: undefined, rest: 'body' })
+    expect(splitTitle('## Summary\nx')).toEqual({ title: undefined, rest: '## Summary\nx' })
+    expect(splitTitle(`Title: ${'a'.repeat(300)}`).title).toHaveLength(120)
+  })
+
+  it('recognises only the placeholder title a voice note starts with', () => {
+    expect(hasPlaceholderTitle('10:12 PM Voice note')).toBe(true)
+    expect(hasPlaceholderTitle('9:05 am Voice note')).toBe(true)
+    expect(hasPlaceholderTitle('22:12 Voice note')).toBe(true)
+    expect(hasPlaceholderTitle('Pricing ideas')).toBe(false)
+    expect(hasPlaceholderTitle('My voice note')).toBe(false)
+    expect(hasPlaceholderTitle('10:12 PM Meeting')).toBe(false)
   })
 })
 
@@ -265,5 +313,57 @@ describe('note helpers', () => {
   it('hashes like git hash-object', () => {
     // printf 'hello\n' | git hash-object --stdin
     expect(blobOidOf('hello\n')).toBe('ce013625030ba8dba906f756967f9e9ca394464a')
+  })
+})
+
+describe('splitSpeakers', () => {
+  it('keeps only guesses for labels in the transcript and names on the attendee list', () => {
+    const { guesses, rest } = splitSpeakers(
+      'Speakers: Speaker 1 = Priya Shah; Speaker 2 = ?; Speaker 3 = dana lee; Speaker 9 = Sam\n\n## Summary',
+      ['Speaker 1', 'Speaker 2', 'Speaker 3'],
+      ['Priya Shah <priya@acme.com>', 'Dana Lee <dana@acme.com>', 'sam@acme.com'],
+    )
+    expect(guesses).toEqual({ 'Speaker 1': 'Priya Shah', 'Speaker 3': 'Dana Lee' })
+    expect(rest.trim()).toBe('## Summary')
+  })
+
+  it('leaves text without a Speakers line alone', () => {
+    expect(splitSpeakers('## Summary', ['Speaker 1'], ['A B'])).toEqual({
+      guesses: {},
+      rest: '## Summary',
+    })
+  })
+})
+
+describe('the Speakers line, however the model wraps it', () => {
+  const transcript = [
+    { track: 'them' as const, speaker: 'Speaker 1', at: 0, durationMs: 0, text: 'hi', final: true },
+  ]
+  const input = (nameIt: boolean) => ({
+    title: '10:12 PM Voice note',
+    template: { id: 'general', name: 'General', sections: [], preamble: '' } as never,
+    rawNotes: '',
+    transcript,
+    attendees: ['Dana Lee <dana@acme.com>'],
+    ...(nameIt ? { nameIt: true } : {}),
+  })
+
+  it('takes it out of a fenced answer', async () => {
+    const llm = new FakeLLM(
+      () => '```markdown\nSpeakers: Speaker 1 = Dana Lee\n\n## Summary\n- x\n```',
+    )
+    const out = await new Enhancer(llm, { model: 'm' }).enhance(input(false))
+    expect(out.markdown).not.toContain('Speakers:')
+    expect(out.speakerGuesses).toEqual({ 'Speaker 1': 'Dana Lee' })
+  })
+
+  it('reads Title and Speakers in either order', async () => {
+    const llm = new FakeLLM(
+      () => 'Speakers: Speaker 1 = Dana Lee\nTitle: Pilot plan\n\n## Summary\n- x',
+    )
+    const out = await new Enhancer(llm, { model: 'm' }).enhance(input(true))
+    expect(out.title).toBe('Pilot plan')
+    expect(out.markdown).not.toMatch(/Title:|Speakers:/)
+    expect(out.speakerGuesses).toEqual({ 'Speaker 1': 'Dana Lee' })
   })
 })

@@ -93,7 +93,7 @@ function frames(ms: number): Uint8Array[] {
 }
 
 describe('/ws/dictation', () => {
-  it('streams audio as it is spoken and answers finish with the cleaned result', async () => {
+  it('streams audio as it is spoken and answers finish with the result', async () => {
     const t = token()
     const { messages, close } = await stream((ws) => {
       ws.send(JSON.stringify({ type: 'start', token: t, mode: 'clean', app_name: 'Slack' }))
@@ -103,19 +103,88 @@ describe('/ws/dictation', () => {
     })
     expect(close.code).toBe(1000)
     expect(messages[0]).toEqual({ type: 'ready' })
+    // Six plain words: pasted as Deepgram gave them, no model.
     expect(messages[1]).toMatchObject({
       type: 'result',
       raw: 'me segment 1 me segment 2',
-      cleaned: true,
+      cleaned: false,
       durationMs: 2_000,
+      ms: { llm: 0 },
     })
-    expect(llm.calls[0]?.messages[0]?.content).toContain('The text goes into a chat app')
+    expect(llm.calls).toHaveLength(0)
     const logged = vi
       .mocked(console.log)
       .mock.calls.map((c) => c.join(' '))
       .find((l) => l.startsWith('dictation {'))
     expect(logged).toContain('"via":"stream"')
+    expect(logged).toContain('"skipped":true')
     expect(logged).not.toContain('segment')
+  })
+
+  it('cleans a long dictation during a pause, so key-up finds it ready', async () => {
+    const t = token()
+    const { messages } = await stream((ws) => {
+      ws.send(JSON.stringify({ type: 'start', token: t, mode: 'clean', app_name: 'Slack' }))
+      // 15 s: "me segment 1 … me segment 15", 45 words, so it goes to the model.
+      for (const frame of frames(15_000)) ws.send(frame)
+      // The member stops talking, then lets go of the key.
+      setTimeout(() => ws.send(JSON.stringify({ type: 'finish' })), 600)
+    })
+    expect(messages.at(-1)).toMatchObject({ type: 'result', cleaned: true })
+    expect(llm.calls).toHaveLength(1)
+    const logged = vi
+      .mocked(console.log)
+      .mock.calls.map((c) => c.join(' '))
+      .find((l) => l.startsWith('dictation {'))
+    expect(logged).toContain('"speculated":true')
+  })
+
+  it('speculates at most four times, one at a time, however many pauses', async () => {
+    const slow = new FakeLLM(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      return '<cleaned>Cleaned.</cleaned>'
+    })
+    const local = createServices(
+      loadConfig({
+        NODE_ENV: 'test',
+        AUTH_MODE: 'dev',
+        HOST_KIND: 'local',
+        DATA_DIR: join(root, 'data2'),
+        LOCAL_HOST_DIR: join(root, 'remotes2'),
+        ALLOWED_EMAIL_DOMAINS: 'example.test',
+      }),
+      { llm: slow, transcriber: new FakeTranscriber() },
+    )
+    const sockets = new DictationSocketServer({
+      dictation: local.dictation,
+      auth: local.auth,
+      transcriber: new FakeTranscriber(),
+      speculateAfterMs: 10,
+    })
+    const t = local.dictation.store.createDevice(
+      { userId: `dev:${ALICE}`, email: ALICE },
+      'Mac',
+    ).token
+    const sent: string[] = []
+    const done = new Promise<void>((resolve) => {
+      const handlers = sockets.connect({ send: (d) => sent.push(d), close: () => resolve() })
+      handlers.text(JSON.stringify({ type: 'start', token: t }))
+      void (async () => {
+        await new Promise((r) => setTimeout(r, 20))
+        // 20 seconds of speech with a pause after every second: 20 chances to speculate.
+        for (let second = 0; second < 20; second++) {
+          for (const frame of frames(1_000)) handlers.binary(frame)
+          await new Promise((r) => setTimeout(r, 25))
+        }
+        handlers.text(JSON.stringify({ type: 'finish' }))
+      })()
+    })
+    await done
+    expect(JSON.parse(sent.at(-1) ?? '{}')).toMatchObject({ type: 'result' })
+    // Four speculations at most, plus the final cleanup if the last one didn't match.
+    expect(slow.calls.length).toBeLessThanOrEqual(5)
+    local.index.close()
+    local.dictation.store.close()
   })
 
   it('literal mode skips the model', async () => {

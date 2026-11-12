@@ -3,7 +3,7 @@
 title: "Lab safety: quarterly review"   # quoted because of the colon
 status: 'draft'  # draft | review | final
 owner: dana
-reviewers: [morgan, "sam o'neil"]
+reviewers: [ada, "sam o'neil"]
 
 # Dates are ISO 8601.
 due: 2026-12-01

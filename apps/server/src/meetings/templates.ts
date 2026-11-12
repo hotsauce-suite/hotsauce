@@ -29,6 +29,8 @@ export interface TemplateDoc {
 /** Custom templates live here in the team space (shared) and a personal space (yours). */
 export const TEMPLATES_DIR = `${SPACE_LAYOUT.meta}/meetings/templates`
 export const DEFAULT_TEMPLATE = 'general'
+/** A recording of one person talking (Hearth Dictate on a phone): named by Enhance from what was said. */
+export const VOICE_NOTE_TEMPLATE = 'voice-note'
 
 // Next to this module in src/ and in dist/ (the build copies the .md files).
 const BUILTIN_DIR = fileURLToPath(new URL('./templates/', import.meta.url))

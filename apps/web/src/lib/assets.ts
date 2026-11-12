@@ -1,6 +1,6 @@
 import { resolveRelative } from '@hearth/format'
 import { api } from '../api/client'
-import { isExternalHref } from './paths'
+import { isBoardFile, isExternalHref } from './paths'
 
 /**
  * Loadable URLs for the images in one open document. An `<img src>` can't carry the dev header
@@ -25,6 +25,14 @@ export class ImageUrls {
     if (isExternalHref(src)) return Promise.resolve(src)
     const repoPath = resolveRelative(this.#docPath, src)
     let url = this.#byPath.get(repoPath)
+    if (!url && isBoardFile(repoPath)) {
+      // A whiteboard embedded in a doc shows as a picture of the board.
+      url = import('../apps/boards/boardPreview').then((m) =>
+        m.boardPreviewUrl(this.#space, repoPath),
+      )
+      url.catch(() => this.#byPath.delete(repoPath))
+      this.#byPath.set(repoPath, url)
+    }
     if (!url) {
       url = api.raw(this.#space, repoPath).then(async (blob) => {
         if (isSvg(blob, repoPath)) return svgDataUrl(blob)

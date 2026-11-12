@@ -38,6 +38,8 @@ interface TopBarProps {
   onOpenDrawer: () => void
   /** Offered after a retitle: move the file to the new title's slug, or keep its name. */
   rename: { to: string; onRename: () => void; onKeep: () => void } | null
+  /** Shows "Attach a file" (Hearth Files' picker). */
+  onAttachFile?: () => void
 }
 
 export function TopBar(props: TopBarProps) {
@@ -108,6 +110,14 @@ export function TopBar(props: TopBarProps) {
             onClick={() => props.onTogglePanel(toggle.id)}
           />
         ))}
+        {props.onAttachFile ? (
+          <IconButton
+            icon="paperclip"
+            label="Attach a file"
+            testId="attach-file"
+            onClick={props.onAttachFile}
+          />
+        ) : null}
         <IconButton
           icon="star"
           label={starred ? 'Remove from Starred' : 'Add to Starred'}

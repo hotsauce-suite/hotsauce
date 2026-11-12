@@ -14,5 +14,7 @@ export const clipsApp: AppManifest = {
   route: '/clips',
   folder: '',
   urlFor: docUrl,
+  // Phone browsers can't record the screen; Clips still opens from a link.
+  onPhoneBar: false,
   preload: () => import('./ClipsLibrary'),
 }

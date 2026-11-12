@@ -37,6 +37,10 @@ export function meetingFileKind(path: string): 'meeting' | 'transcript' | null {
  * and chat), a transcript on its note's page, anything else in Docs.
  */
 export function fileUrl(space: string, path: string): string {
+  if (isTaskFile(path)) return taskUrl(space, path)
+  if (isNoteFile(path)) return noteUrl(space, path)
+  if (isBoardFile(path)) return boardUrl(space, path)
+  if (isDriveFile(path)) return driveFileUrl(space, path)
   const kind = meetingFileKind(path)
   if (kind === 'meeting') return meetingUrl(space, path)
   if (kind === 'transcript') return meetingUrl(space, path.replace(/\.transcript\.md$/i, '.md'))
@@ -65,7 +69,54 @@ export function docUrl(space: string, path: string): string {
   return `/docs/${encodeURIComponent(space)}/${encodePath(path)}`
 }
 
+/** A task's file, `tasks/<id>.md` (ARCHITECTURE §12.1). */
+export function isTaskFile(path: string): boolean {
+  return /^tasks\/[^/]+\.md$/i.test(path)
+}
+
+/** The app URL for a task: its list with the detail panel open. */
+export function taskUrl(space: string, path: string): string {
+  const id = basename(path).replace(/\.md$/i, '')
+  return `/tasks/item/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
+}
+
+/** A note's file, `notes/<id>.md` (ARCHITECTURE §14.1). */
+export function isNoteFile(path: string): boolean {
+  return /^notes\/[^/]+\.md$/i.test(path)
+}
+
+/** The app URL for a note: the board with that note open. */
+export function noteUrl(space: string, path: string): string {
+  const id = basename(path).replace(/\.md$/i, '')
+  return `/notes/item/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
+}
+
+/** A Hearth Files pointer, `files/<id>.md` (ARCHITECTURE §18.1). */
+export function isDriveFile(path: string): boolean {
+  return /^files\/[0-9A-Z]{26}\.md$/.test(path)
+}
+
+/** Where Hearth Files opens the file a pointer stands for. */
+export function driveFileUrl(space: string, path: string): string {
+  const id = basename(path).replace(/\.md$/i, '')
+  return `/files/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
+}
+
 /** The app URL for a meeting note (or any file opened from Hearth Meetings). */
 export function meetingUrl(space: string, path: string): string {
   return `/meetings/${encodeURIComponent(space)}/${encodePath(path)}`
+}
+
+/** The files Docs can import (lib/importDoc.ts), for the file picker. */
+export const IMPORT_ACCEPT = '.md,.markdown,.txt,.docx,.html,.htm'
+
+/** A whiteboard's file, `boards/<id>.md` (ARCHITECTURE §15.1). */
+export function isBoardFile(path: string): boolean {
+  return /^boards\/[0-9A-Z]{26}\.md$/.test(path)
+}
+
+/** The app URL for a whiteboard. */
+export function boardUrl(space: string, path: string): string {
+  const id = basename(path).replace(/\.md$/i, '')
+  return `/boards/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
 }

@@ -11,6 +11,7 @@ import {
 } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
 import { Icon } from '../components/Icon'
+import { chooseTheme, currentTheme, type ThemeChoice } from '../lib/theme'
 
 const when = (iso: string | null) =>
   iso
@@ -97,14 +98,24 @@ export default function SettingsRoute() {
               <Icon name="chevron" className="size-4 text-ink-faint" />
             </Link>
           ) : null}
-          <h2 className="font-display text-[1.6rem] font-semibold tracking-tight">
+          <AppearancePicker />
+
+          <h2 className="mt-12 font-display text-[1.6rem] font-semibold tracking-tight">
             Connect Claude to {product()}
           </h2>
           <p className="mt-2 text-ink-soft">
-            An access token lets Claude Code, Claude desktop or a script search, read and write your
-            {product()} Docs and Meetings as you. It sees exactly what you see, and everything it
-            writes is saved under your name, marked as made through Claude. Treat a token like a
-            password, and revoke it when you stop using it.
+            An access token lets Claude Code, Claude desktop or a script work in {product()} as you:
+            search, read, write, move and restore Docs; read Meetings and ask about them; manage
+            Tasks and Notes; read Clips and your calendar. It sees exactly what you see, and
+            everything it writes is saved under your name, marked as made through Claude. Treat a
+            token like a password, and revoke it when you stop using it.
+          </p>
+          <p className="mt-2 text-ink-soft">
+            Once connected, Claude reads your{' '}
+            <Link to="/meetings/brief" className="text-ember-strong underline">
+              agent brief
+            </Link>{' '}
+            first, so it already knows your priorities, projects and people.
           </p>
 
           <form onSubmit={(e) => void create(e)} className="mt-6 flex flex-wrap items-end gap-2">
@@ -325,4 +336,52 @@ function CopyBlock({ text, testId }: { text: string; testId: string }) {
 
 function messageOf(err: unknown): string {
   return err instanceof HearthApiError || err instanceof Error ? err.message : String(err)
+}
+
+const THEMES: { value: ThemeChoice; label: string }[] = [
+  { value: 'system', label: 'Match my device' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+]
+
+/** Light, dark, or whatever the device uses; this browser remembers it. */
+function AppearancePicker() {
+  const [theme, setTheme] = useState<ThemeChoice>(currentTheme)
+  return (
+    <fieldset data-testid="theme-picker">
+      <legend className="font-display text-[1.6rem] font-semibold tracking-tight">
+        Appearance
+      </legend>
+      <p className="mt-2 text-ink-soft">Light or dark, on this device.</p>
+      <div className="mt-4 inline-flex flex-wrap rounded-xl border border-ash bg-paper-sunk p-1">
+        {THEMES.map((option) => {
+          const on = theme === option.value
+          return (
+            <label
+              key={option.value}
+              className={`cursor-pointer rounded-lg px-3.5 py-1.5 text-sm transition-colors has-[:focus-visible]:shadow-[var(--focus-ring)] ${
+                on
+                  ? 'bg-paper-raised font-medium text-ink shadow-sm'
+                  : 'text-ink-soft hover:text-ink'
+              }`}
+            >
+              <input
+                type="radio"
+                name="theme"
+                value={option.value}
+                checked={on}
+                data-testid={`theme-${option.value}`}
+                onChange={() => {
+                  chooseTheme(option.value)
+                  setTheme(option.value)
+                }}
+                className="sr-only"
+              />
+              {option.label}
+            </label>
+          )
+        })}
+      </div>
+    </fieldset>
+  )
 }

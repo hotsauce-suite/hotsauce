@@ -1,7 +1,7 @@
 import { setupServer } from 'msw/node'
 import { createMockApi, type MockApi } from '../mocks/handlers'
 
-export const TEST_USER = 'morgan@example.test'
+export const TEST_USER = 'ada@example.test'
 
 export const server = setupServer()
 

@@ -217,14 +217,36 @@ describe('the /mcp endpoint', () => {
     expect(client.getServerVersion()?.name).toBe('hotsauce')
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
+      'add_note',
+      'add_task',
       'ask_meetings',
+      'complete_task',
+      'delete_file',
+      'file_history',
+      'find_person',
+      'get_agent_brief',
       'get_brand',
+      'get_clip',
+      'get_drive_file',
+      'get_event',
       'get_meeting',
+      'get_person',
+      'list_boards',
+      'list_clips',
+      'list_drive_files',
+      'list_events',
       'list_files',
       'list_meetings',
+      'list_notes',
       'list_spaces',
+      'list_tasks',
+      'move_file',
+      'read_board',
       'read_file',
+      'restore_file',
       'search',
+      'update_note',
+      'update_task',
       'write_file',
     ])
     await client.close()
@@ -235,6 +257,23 @@ describe('the /mcp endpoint', () => {
     const client = await connect({ authorization: `Bearer ${token}` })
     await call('DELETE', `/api/tokens/${id}`, { as: ALICE })
     await expect(client.listTools()).rejects.toThrow()
+  })
+})
+
+describe('the synced calendar window', () => {
+  it('list_events refuses a range Hearth holds no copy of, rather than answering free', async () => {
+    expect(services.meetings.calendarSync).not.toBeNull()
+    const { token } = await createToken(ALICE)
+    const client = await connect({ authorization: `Bearer ${token}` })
+    const day = 24 * 60 * 60 * 1000
+    const far = await tool(client, 'list_events', {
+      from: new Date(Date.now() + 20 * day).toISOString(),
+      to: new Date(Date.now() + 30 * day).toISOString(),
+    })
+    expect(far.text).toMatch(/^bad_request: .*30 days ago to 15 days ahead/)
+    const near = await tool(client, 'list_events')
+    expect(near.isError, near.text).toBe(false)
+    await client.close()
   })
 })
 

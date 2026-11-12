@@ -1,5 +1,10 @@
 import type { AudioStore } from './audio/index.js'
-import type { FakePushSender, MeetingReminders, ReminderStore } from './reminders/index.js'
+import type {
+  FakePushSender,
+  MeetingReminders,
+  PushSender,
+  ReminderStore,
+} from './reminders/index.js'
 
 export {
   type AudioStore,
@@ -8,6 +13,15 @@ export {
   R2AudioStore,
   wavHeader,
 } from './audio/index.js'
+export * from './cleanup/index.js'
+export {
+  GranolaMeeting,
+  granolaFiles,
+  granolaTranscript,
+  type ImportGranolaDeps,
+  importGranola,
+  MAX_IMPORT_MEETINGS,
+} from './import-granola.js'
 
 import type { FakeGoogle } from './calendar/fake-google.js'
 import type { CalendarSync } from './calendar/sync.js'
@@ -35,7 +49,7 @@ export {
   GoogleCalendarHttp,
   mapGoogleEvents,
 } from './calendar/google.js'
-export { CachedCalendar, CalendarSync } from './calendar/sync.js'
+export { CachedCalendar, CalendarSync, SYNC_AHEAD_MS, SYNC_BACK_MS } from './calendar/sync.js'
 export { type CalendarEvent, type CalendarSource, findEvent } from './calendar/types.js'
 export {
   type CoverageItem,
@@ -45,6 +59,7 @@ export {
   type NoteRef,
 } from './calendar/views.js'
 export { type ChatScope, type Citation, MeetingChat } from './chat.js'
+export { type DeleteMeetingDeps, deleteMeeting } from './delete.js'
 export { assembleEnhancedNote } from './enhance/assemble.js'
 export { Enhancer } from './enhance/enhancer.js'
 export { type EnhanceNoteDeps, type EnhanceResult, enhanceNote } from './enhance/note.js'
@@ -71,6 +86,7 @@ export {
   WS_FORBIDDEN,
   WS_NOT_FOUND,
 } from './socket.js'
+export { type NameSpeakersDeps, nameSpeakers } from './speakers.js'
 export { MeetingTemplates, TEMPLATES_DIR, type TemplateDoc } from './templates.js'
 export { DeepgramTranscriber } from './transcriber/deepgram.js'
 export { FakeTranscriber } from './transcriber/fake.js'
@@ -101,4 +117,6 @@ export interface MeetingServices {
   /** The VAPID public key browsers subscribe with; null when reminders are off. */
   vapidPublicKey: string | null
   reminders: MeetingReminders | null
+  /** What reminders are pushed with; null when they are off. Hearth Tasks reminds through it too. */
+  pushSender: PushSender | null
 }

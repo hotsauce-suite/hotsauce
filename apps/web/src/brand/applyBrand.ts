@@ -1,4 +1,5 @@
 import type { PublicBrand } from '../api/types'
+import { storedTheme } from '../lib/theme'
 
 /**
  * Turns the organization's brand kit into the app's look (ARCHITECTURE §11.3): `--brand-*`
@@ -152,13 +153,7 @@ export function applyBrand(brand: PublicBrand | null | undefined): void {
   }
   // The organization's default, unless this browser already chose a theme.
   const root = document.documentElement
-  if (brand.defaultTheme !== 'system' && !root.hasAttribute('data-theme')) {
-    let chosen: string | null = null
-    try {
-      chosen = localStorage.getItem('hearth:theme')
-    } catch {
-      // No storage.
-    }
-    if (!chosen) root.setAttribute('data-theme', brand.defaultTheme)
+  if (brand.defaultTheme !== 'system' && !root.hasAttribute('data-theme') && !storedTheme()) {
+    root.setAttribute('data-theme', brand.defaultTheme)
   }
 }

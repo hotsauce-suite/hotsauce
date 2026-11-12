@@ -42,6 +42,8 @@ export function fileRoutes(deps: AppDeps) {
           path: PathParam,
           content: z.string(),
           baseBlobOid: z.string().min(1).optional(),
+          /** Create the file only: refuse (409) if something is already at `path`. */
+          createOnly: z.boolean().optional(),
           message: z.string().optional(),
           label: z.string().optional(),
         }),
@@ -129,18 +131,24 @@ export function fileRoutes(deps: AppDeps) {
  * `.trash/<YYYY-MM-DD>-<id8>/<path>`: the suffix is on the folder, so the file keeps its name and
  * a meeting note's transcript, named in its frontmatter, still sits beside it.
  */
-async function moveToTrash(
+export async function moveToTrash(
   git: GitStore,
   space: string,
   path: string,
   author: ReturnType<typeof authorOf>,
+  via?: string,
 ): Promise<string> {
   const day = new Date().toISOString().slice(0, 10)
   const target = `${SPACE_LAYOUT.trash}/${day}/${path}`
   const moveTo = async (to: string) =>
     (
-      await git.move(space, path, to, author, (headOid) =>
-        transcriptFollows(git, space, path, to, headOid),
+      await git.move(
+        space,
+        path,
+        to,
+        author,
+        (headOid) => transcriptFollows(git, space, path, to, headOid),
+        { via },
       )
     ).oid
   try {
@@ -155,7 +163,7 @@ async function moveToTrash(
  * The other markdown files in the space with links into `from`, rewritten to point at `to`.
  * Runs inside GitStore.move, under the space lock, so HEAD is the commit the move is based on.
  */
-async function linksInto(
+export async function linksInto(
   git: GitStore,
   space: string,
   from: string,
@@ -182,7 +190,7 @@ async function linksInto(
  * frontmatter `transcript`, relative to the note's folder. Anything else that moves (a folder, a
  * doc, a note whose transcript already moves with it or is missing) adds nothing.
  */
-async function transcriptFollows(
+export async function transcriptFollows(
   git: GitStore,
   space: string,
   from: string,
@@ -194,8 +202,8 @@ async function transcriptFollows(
   if (note === null) return []
   const { data } = parseFrontmatter(note)
   if (data.type !== 'meeting') return []
-  const oldPath = transcriptPathFor(from, data)
-  const newPath = transcriptPathFor(to, data)
+  const oldPath = besideNote(from, transcriptPathFor(from, data))
+  const newPath = besideNote(to, transcriptPathFor(to, data))
   if (oldPath === null || newPath === null || oldPath === newPath) return []
   const transcript = await readOrNull(git, space, oldPath, headOid)
   if (transcript === null) return []
@@ -219,5 +227,24 @@ async function readOrNull(
   } catch (err) {
     if (err instanceof HearthError && err.code === 'not_found') return null
     throw err
+  }
+}
+
+/**
+ * A transcript path from a note's frontmatter, only when it is a file beside the note that the
+ * API may write: frontmatter is text anyone can edit, so it never gets to name `.hearth/space.yaml`
+ * or a file in another folder.
+ */
+export function besideNote(note: string, transcript: string | null): string | null {
+  if (transcript === null) return null
+  const folder = note.slice(0, note.lastIndexOf('/') + 1)
+  const name = transcript.slice(folder.length)
+  if (!transcript.startsWith(folder) || name === '' || name.includes('/') || name.startsWith('.')) {
+    return null
+  }
+  try {
+    return writablePath(transcript)
+  } catch {
+    return null
   }
 }

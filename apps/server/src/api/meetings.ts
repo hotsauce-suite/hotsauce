@@ -4,18 +4,23 @@ import { z } from 'zod'
 import { HearthError } from '../errors.js'
 import {
   completeActionItem,
+  deleteMeeting,
   enhanceNote,
+  GranolaMeeting,
+  importGranola,
   KeptAudioSchema,
   keptAudioKey,
   keptAudioPath,
   listActionItems,
   listMeetings,
+  MAX_IMPORT_MEETINGS,
+  nameSpeakers,
   previousInSeries,
 } from '../meetings/index.js'
 import { PushSubscriptionSchema } from '../meetings/reminders/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { afterCommit, writablePath } from './save.js'
-import { sessionOnly } from './tokens.js'
+import { sessionOnly, viaFor } from './tokens.js'
 import { PathParam, valid } from './validate.js'
 
 const SessionId = z.object({ id: z.string().min(1) })
@@ -147,7 +152,12 @@ export function meetingRoutes(deps: AppDeps) {
         ),
         async (c) => {
           const body = c.req.valid('json')
-          return c.json(await sessions.create(c.get('principal'), withoutUndefined(body)))
+          const session = await sessions.create(c.get('principal'), withoutUndefined(body))
+          // Taking notes enrols the member for the nightly agent brief (ARCHITECTURE §13.2).
+          await deps.briefs
+            .touch(c.get('principal'), body.tz)
+            .catch((err: unknown) => console.error(`brief: couldn't enrol a member: ${err}`))
+          return c.json(session)
         },
       )
       .get('/sessions', (c) => c.json(sessions.list(c.get('principal'))))
@@ -258,9 +268,105 @@ export function meetingRoutes(deps: AppDeps) {
               previousInSeries: (principal, note) =>
                 previousInSeries({ index: deps.index, git, spaces }, principal, note),
               afterCommit: (space, path, commit) => afterCommit(deps, space, path, commit),
+              transcriptSettled: (id) => meetings.sessions.cleanupSettled(id),
             },
             principal,
             { ...body, path },
+          )
+          return c.json(result)
+        },
+      )
+      /** Past meetings from Granola's CSV export, into the member's personal space (§7.12). */
+      .post(
+        '/import/granola',
+        valid(
+          'json',
+          z.object({
+            meetings: z.array(GranolaMeeting).min(1).max(MAX_IMPORT_MEETINGS),
+            tz: z.string().min(1).max(100),
+          }),
+        ),
+        async (c) => {
+          const principal = sessionOnly(c.get('principal'))
+          const result = await importGranola(
+            {
+              git,
+              index: deps.index,
+              spaces,
+              afterCommit: (space) => deps.syncer.afterHeadChanged(space),
+            },
+            principal,
+            c.req.valid('json').meetings,
+            c.req.valid('json').tz,
+          )
+          return c.json(result)
+        },
+      )
+      /** Names speakers ("Speaker 1" → "Priya Shah") in a meeting's transcript and note. */
+      .post(
+        '/speakers',
+        valid(
+          'json',
+          z.object({
+            space: z.string().min(1),
+            path: PathParam,
+            names: z
+              .record(z.string().min(1).max(80), z.string().max(200))
+              .refine((n) => Object.keys(n).length > 0 && Object.keys(n).length <= 20, {
+                message: 'Name between 1 and 20 speakers',
+              }),
+            transcriptBlobOid: z
+              .string()
+              .regex(/^[0-9a-f]{40}$/)
+              .optional(),
+          }),
+        ),
+        async (c) => {
+          const principal = c.get('principal')
+          const body = c.req.valid('json')
+          assertAccess(principal, body.space)
+          const path = writablePath(body.path)
+          const result = await nameSpeakers(
+            {
+              git,
+              afterCommit: (space, p, commit) => afterCommit(deps, space, p, commit),
+              transcriptBusy: (id) => meetings.sessions.cleanupRunning(id),
+            },
+            principal,
+            { ...body, path },
+          )
+          return c.json(result)
+        },
+      )
+      /** A meeting note and its transcript, raw notes and kept audio, for anyone who can edit it. */
+      .post(
+        '/delete',
+        valid(
+          'json',
+          z.object({
+            space: z.string().min(1),
+            path: PathParam,
+            /** The note as the member saw it; a note changed since is refused (409). */
+            blobOid: z
+              .string()
+              .regex(/^[0-9a-f]{40}$/)
+              .optional(),
+          }),
+        ),
+        async (c) => {
+          const principal = c.get('principal')
+          const body = c.req.valid('json')
+          assertAccess(principal, body.space)
+          const result = await deleteMeeting(
+            {
+              git,
+              audioStore: meetings.audioStore,
+              sessions,
+              writablePath,
+              afterCommit: (space, p, commit) => afterCommit(deps, space, p, commit),
+            },
+            principal,
+            { ...body, via: viaFor(principal) },
           )
           return c.json(result)
         },

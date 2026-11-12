@@ -30,6 +30,9 @@ enum SelfTest {
 
         Task { @MainActor in
             defer { app.stop(nil); app.postEvent(NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0)!, atStart: true) }
+            // Loading pages must never start a browser sign-in on its own (a Clerk redirect would).
+            var browserSignIns = 0
+            suite.signInWithBrowser = { browserSignIns += 1 }
             // On screen: WebKit doesn't paint a page in a window that isn't.
             suite.show()
             await waitForLoad(suite.webView)
@@ -87,6 +90,12 @@ enum SelfTest {
                 result["deepLinkURL"] = suite.webView.url?.absoluteString
                 await snapshot(suite.webView, to: folder.appendingPathComponent("4-deep-link-clips.png"))
             }
+            // Signing in through "the browser": a second web view with its own storage plays the
+            // browser, already signed in; its confirm page hands the ticket back on hearth://.
+            if let email = arguments.firstIndex(of: "--browser-sign-in").flatMap({ $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }) {
+                result["browserSignIn"] = await browserSignIn(suite: suite, email: email, folder: folder)
+            }
+
             // A download link, as Clips' Download button: the app's bridge saves it to ~/Downloads.
             if arguments.contains("--download") {
                 var finished: String?
@@ -116,6 +125,7 @@ enum SelfTest {
                 result["googleText"] = ((try? await suite.webView.evaluateJavaScript("document.body.innerText.slice(0, 300)")) as? String)
                 await snapshot(suite.webView, to: folder.appendingPathComponent("6-google.png"))
             }
+            result["browserSignInsWhileBrowsing"] = browserSignIns
             result["mediaDevices"] = (try? await suite.webView.evaluateJavaScript(
                 "JSON.stringify({ getUserMedia: typeof navigator.mediaDevices?.getUserMedia, getDisplayMedia: typeof navigator.mediaDevices?.getDisplayMedia, documentPiP: 'documentPictureInPicture' in window })"
             )) as? String
@@ -128,6 +138,71 @@ enum SelfTest {
         }
         app.run()
         return code
+    }
+
+    /// Signs the window out, presses "Sign in with your browser" on its sign-in page, confirms in
+    /// a separate "browser" web view, and checks the window ends up signed in.
+    private static func browserSignIn(suite: SuiteWindow, email: String, folder: URL) async -> [String: Any] {
+        var out: [String: Any] = [:]
+        _ = try? await suite.webView.evaluateJavaScript("localStorage.removeItem('hearth.devUser')")
+        // A link straight to the finish page (a doc, another site) must sign nothing in, even
+        // with a ticket in it; deep links to it are refused outright.
+        out["deepLinkToFinishRefused"] = suite.router.url(forPath: SuiteRouter.deepLinkPath(URL(string: "hearth://desktop/finish#ticket=dev:eve@acmebiolab.com")!) ?? "") == nil
+        suite.webView.load(URLRequest(url: URL(string: "\(suite.router.server.absoluteString)/desktop/finish#ticket=dev:eve@acmebiolab.com")!))
+        await waitForLoad(suite.webView)
+        try? await Task.sleep(for: .seconds(2))
+        out["directFinishSignedInAs"] = (try? await suite.webView.evaluateJavaScript("localStorage.getItem('hearth.devUser')")) as? String ?? NSNull()
+        out["directFinishText"] = (try? await suite.webView.evaluateJavaScript("document.body.innerText.slice(0, 120)")) as? String
+
+        suite.webView.load(URLRequest(url: URL(string: "\(suite.router.server.absoluteString)/sign-in")!))
+        await waitForLoad(suite.webView)
+        try? await Task.sleep(for: .seconds(1))
+        out["windowSignInText"] = (try? await suite.webView.evaluateJavaScript("document.body.innerText.slice(0, 200)")) as? String
+        await snapshot(suite.webView, to: folder.appendingPathComponent("7-sign-in-in-app.png"))
+
+        // What the app does on the button: a new state, the connect page in "the browser".
+        var started: BrowserSignIn?
+        var openedURL: URL?
+        suite.signInWithBrowser = {
+            let signIn = BrowserSignIn()
+            started = signIn
+            openedURL = signIn.connectURL(server: suite.router.server)
+        }
+        _ = try? await suite.webView.evaluateJavaScript("[...document.querySelectorAll('button')].find((b) => /browser/i.test(b.textContent))?.click()")
+        try? await Task.sleep(for: .seconds(1))
+        guard let signIn = started, let connect = openedURL else {
+            out["error"] = "the sign-in page didn't ask the app to sign in with the browser"
+            return out
+        }
+        out["connectURL"] = connect.absoluteString
+
+        let browser = FakeBrowser()
+        await browser.load(URL(string: "\(suite.router.server.absoluteString)/sign-in")!)
+        _ = try? await browser.webView.callAsyncJavaScript("localStorage.setItem('hearth.devUser', email)", arguments: ["email": email], in: nil, contentWorld: .page)
+        await browser.load(connect)
+        try? await Task.sleep(for: .seconds(2))
+        out["browserText"] = (try? await browser.webView.evaluateJavaScript("document.body.innerText.slice(0, 200)")) as? String
+        await snapshot(browser.webView, to: folder.appendingPathComponent("8-browser-confirm.png"))
+        _ = try? await browser.webView.evaluateJavaScript("[...document.querySelectorAll('button')].find((b) => /Mac app/.test(b.textContent))?.click()")
+        for _ in 0 ..< 40 where browser.callback == nil { try? await Task.sleep(for: .milliseconds(250)) }
+        guard let callback = browser.callback else {
+            out["error"] = "the browser never handed a ticket back"
+            return out
+        }
+        out["callbackHasTicket"] = callback.absoluteString.contains("ticket=")
+        // A callback with another state (any web page could send one) is refused.
+        out["forgedStateRefused"] = signIn.ticket(from: URL(string: "hearth://auth/callback?state=forged&ticket=x")!) == nil
+        guard let ticket = signIn.ticket(from: callback) else {
+            out["error"] = "the app refused its own callback"
+            return out
+        }
+        suite.finishSignIn(ticket: ticket)
+        await waitForLoad(suite.webView)
+        try? await Task.sleep(for: .seconds(2))
+        out["windowURLAfter"] = suite.webView.url?.absoluteString
+        out["windowSignedInAs"] = (try? await suite.webView.evaluateJavaScript("localStorage.getItem('hearth.devUser')")) as? String ?? NSNull()
+        await snapshot(suite.webView, to: folder.appendingPathComponent("9-signed-in-after-browser.png"))
+        return out
     }
 
     private static func waitForLoad(_ webView: WKWebView) async {
@@ -162,5 +237,40 @@ enum SelfTest {
         } catch {
             return "failed: \(error.localizedDescription)"
         }
+    }
+}
+
+/// Plays the member's browser in `--self-test`: its own storage, and it records the app link the
+/// confirm page opens instead of opening it.
+@MainActor
+private final class FakeBrowser: NSObject, WKNavigationDelegate {
+    let webView: WKWebView
+    var callback: URL?
+
+    override init() {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 900, height: 700), configuration: configuration)
+        super.init()
+        webView.navigationDelegate = self
+        let window = NSWindow(contentRect: NSRect(x: 40, y: 40, width: 900, height: 700), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = webView
+        window.orderFront(nil)
+    }
+
+    func load(_ url: URL) async {
+        webView.load(URLRequest(url: url))
+        try? await Task.sleep(for: .milliseconds(500))
+        for _ in 0 ..< 60 where webView.isLoading { try? await Task.sleep(for: .milliseconds(250)) }
+        try? await Task.sleep(for: .seconds(1))
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+        if let url = action.request.url, url.scheme == Brand.urlScheme {
+            callback = url
+            return decisionHandler(.cancel)
+        }
+        decisionHandler(.allow)
     }
 }

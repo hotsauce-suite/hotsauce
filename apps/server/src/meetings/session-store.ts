@@ -37,6 +37,8 @@ const SessionMeta = z.object({
   keepAudio: z.boolean().optional(),
   /** Saved with Keep audio, and the upload hasn't finished: the PCM is still on disk. */
   audioPending: z.boolean().optional(),
+  /** Words to bias recognition toward (attendee names, then the member's and team's word lists). */
+  vocabulary: z.array(z.string()).optional(),
 })
 export type SessionMeta = z.infer<typeof SessionMeta>
 

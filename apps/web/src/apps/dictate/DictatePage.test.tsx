@@ -15,9 +15,7 @@ afterEach(() => {
 
 describe('Hearth Dictate page', () => {
   it('points to the source when this server has no Mac app build', async () => {
-    server.use(
-      http.head('/downloads/HearthDictate.dmg', () => new HttpResponse(null, { status: 404 })),
-    )
+    server.use(http.head('/downloads/Hearth.dmg', () => new HttpResponse(null, { status: 404 })))
     renderApp('/dictate')
     expect(await screen.findByTestId('dictate-build-from-source')).toHaveAttribute(
       'href',
@@ -31,11 +29,11 @@ describe('Hearth Dictate page', () => {
     renderApp('/dictate')
     expect(await screen.findByTestId('dictate-download')).toHaveAttribute(
       'href',
-      '/downloads/HearthDictate.dmg',
+      '/downloads/Hearth.dmg',
     )
     expect(screen.getByTestId('dictate-download-zip')).toHaveAttribute(
       'href',
-      '/downloads/HearthDictate.zip',
+      '/downloads/Hearth.zip',
     )
     expect(screen.getByTestId('dictate-install-steps')).toHaveTextContent('Open Anyway')
     expect(screen.getByTestId('dictate-open-privacy')).toHaveAttribute(

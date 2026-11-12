@@ -19,29 +19,90 @@ export const DICTATION_MIME_TYPES = [
   'audio/webm',
 ] as const
 const RATE_LIMIT_PER_MINUTE = 30
-/** Utterances this short skip the cleanup model (see `skipsCleanup`). */
-export const SHORT_UTTERANCE_WORDS = 3
-const SHORT_UTTERANCE_CHARS = 25
-// Words the cleanup acts on even in a short utterance: formatting commands and self-corrections.
-const SPOKEN_COMMANDS =
-  /\b(new (line|paragraph)|bullet|period|full stop|comma|colon|question mark|exclamation|scratch that|no wait|actually|i mean)\b/i
+/**
+ * Dictations up to this long skip the cleanup model when there is nothing in them for it to do
+ * (see `skipsCleanup`): Deepgram has already punctuated them, and the model was most of the wait.
+ */
+export const PLAIN_UTTERANCE_WORDS = 40
+// What the cleanup is for: fillers, self-corrections, spoken formatting and lists. Any of these
+// sends a dictation to the model whatever its length. Common words among them ("first", "period")
+// only cost a cleanup that wasn't needed, never one that was.
+// Gaps inside a cue allow Deepgram's punctuation ("Tuesday, no, wait, Wednesday").
+const GAP = String.raw`[\s,.;:!?-]+`
+const CUE_WORDS = [
+  // fillers Deepgram can keep
+  'um+',
+  'uh+',
+  'erm',
+  'er',
+  'hmm+',
+  `you${GAP}know`,
+  // self-corrections
+  `i${GAP}mean`,
+  `i${GAP}meant`,
+  `no${GAP}wait`,
+  `wait${GAP}no`,
+  `scratch${GAP}that`,
+  `strike${GAP}that`,
+  `delete${GAP}that`,
+  `never${GAP}mind`,
+  `make${GAP}that`,
+  `or${GAP}rather`,
+  'actually',
+  'sorry',
+  `let${GAP}me${GAP}rephrase`,
+  'correction',
+  // spoken formatting and symbols
+  `new${GAP}(line|paragraph)`,
+  'bullet',
+  'numbered',
+  'period',
+  `full${GAP}stop`,
+  'comma',
+  'colon',
+  'semicolon',
+  `question${GAP}mark`,
+  'exclamation',
+  `(open|close)${GAP}(quote|paren|bracket)`,
+  'dash',
+  'hyphen',
+  'slash',
+  'underscore',
+  'hashtag',
+  `at${GAP}sign`,
+  `dot${GAP}(com|org|net|io|app|co)`,
+  // lists
+  'first(ly)?',
+  'second(ly)?',
+  'third(ly)?',
+  `number${GAP}(one|two)`,
+  `step${GAP}(one|two)`,
+]
+// Whole words only: a letter or digit on either side means it's part of another word.
+const CLEANUP_CUES = new RegExp(
+  `(?<![\\p{L}\\p{N}])(${CUE_WORDS.join('|')})(?![\\p{L}\\p{N}])`,
+  'iu',
+)
+// A stutter: the same word twice in a row, with or without a comma ("the, the report").
+const REPEATED_WORD = /(?<![\p{L}\p{N}])(\p{L}+)[\s,]+\1(?![\p{L}\p{N}])/iu
+// The cues are English. Other languages keep the old rule: only a few words skip the model.
+const OTHER_LANGUAGE_WORDS = 3
+const NON_ASCII_LETTER = /[^\p{ASCII}](?<=\p{L})/u
 
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length
 }
 
 /**
- * A few plain words have nothing for the model to clean. Character count too: Chinese, Japanese
- * and Thai have no spaces, so a whole sentence would count as one word.
+ * Whether a transcript can be pasted as Deepgram gave it: short enough that paragraphing doesn't
+ * matter, and nothing the cleanup acts on. Chinese, Japanese and Thai have no spaces, so they
+ * count two characters a word.
  */
-export function skipsCleanup(raw: string): boolean {
-  // Chinese, Japanese and Thai are written without spaces: count characters, a few per word.
+export function skipsCleanup(raw: string, language?: string): boolean {
   const words = NO_SPACE_SCRIPTS.test(raw) ? Math.ceil(raw.length / 2) : wordCount(raw)
-  return (
-    words <= SHORT_UTTERANCE_WORDS &&
-    raw.length <= SHORT_UTTERANCE_CHARS &&
-    !SPOKEN_COMMANDS.test(raw)
-  )
+  const english = (language === undefined || /^en\b/i.test(language)) && !NON_ASCII_LETTER.test(raw)
+  const limit = english ? PLAIN_UTTERANCE_WORDS : OTHER_LANGUAGE_WORDS
+  return words <= limit && !CLEANUP_CUES.test(raw) && !REPEATED_WORD.test(raw)
 }
 
 const NO_SPACE_SCRIPTS = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}]/u
@@ -71,6 +132,20 @@ export interface DictateRequest {
   appName?: string | undefined
   appBundle?: string | undefined
   language?: string | undefined
+}
+
+/** What the cleanup needs to know about where the text is going. */
+export interface CleanupContext {
+  mode: 'clean' | 'literal'
+  language?: string | undefined
+  appName?: string | undefined
+  appBundle?: string | undefined
+}
+
+/** A cleanup started before key-up on the transcript as it stood then. */
+export interface Speculation {
+  transcript: string
+  result: Promise<{ text: string; cleaned: boolean; skipped: boolean }>
 }
 
 export interface DictateResult {
@@ -128,6 +203,29 @@ export class Dictation {
   }
 
   async dictate(principal: Principal, req: DictateRequest): Promise<DictateResult> {
+    const asrStart = performance.now()
+    const heard = await this.hear(principal, req)
+    return this.finish(principal, {
+      transcript: heard.text,
+      durationMs: heard.durationMs,
+      asrMs: Math.round(performance.now() - asrStart),
+      bytes: req.audio.length,
+      mode: req.mode,
+      appName: req.appName,
+      appBundle: req.appBundle,
+      language: req.language,
+      via: 'upload',
+    })
+  }
+
+  /**
+   * The transcript of one recording with the member's words, no cleanup: counted against their
+   * 30 a minute, at most 15 MB and (for a WAV) 10 minutes. Hearth Tasks' Ramble uses it too.
+   */
+  async hear(
+    principal: Principal,
+    req: { audio: Uint8Array; mimeType: string; language?: string | undefined },
+  ): Promise<{ text: string; durationMs: number }> {
     this.takeSlot(principal)
     if (req.audio.length === 0) throw new HearthError('bad_request', 'No audio was sent')
     if (req.audio.length > MAX_DICTATION_BYTES) {
@@ -142,21 +240,10 @@ export class Dictation {
         })
       }
     }
-    const asrStart = performance.now()
-    const heard = await this.#transcriber.transcribe(req.audio, {
+    return this.#transcriber.transcribe(req.audio, {
       mimeType: req.mimeType,
       keyterms: this.keyterms(principal),
       language: req.language,
-    })
-    return this.finish(principal, {
-      transcript: heard.text,
-      durationMs: heard.durationMs,
-      asrMs: Math.round(performance.now() - asrStart),
-      bytes: req.audio.length,
-      mode: req.mode,
-      appName: req.appName,
-      appBundle: req.appBundle,
-      via: 'upload',
     })
   }
 
@@ -164,61 +251,81 @@ export class Dictation {
    * Everything after the transcript, shared by the upload and the stream: the cleanup (or its
    * short-utterance shortcut) and one line of timings in the log.
    */
+  /**
+   * Starts the cleanup of a transcript ahead of key-up (the stream calls it in pauses), so that if
+   * nothing more is said, the result is ready when the key comes up. Null when there is nothing
+   * to clean.
+   */
+  speculate(principal: Principal, transcript: string, context: CleanupContext): Speculation | null {
+    const raw = transcript.trim()
+    if (context.mode === 'literal' || raw === '' || skipsCleanup(raw, context.language)) return null
+    return { transcript: raw, result: this.#clean(principal, raw, context) }
+  }
+
+  /**
+   * Everything after the transcript, shared by the upload and the stream: the cleanup (or its
+   * shortcut for plain dictations) and one line of timings in the log. A speculation made on
+   * this exact transcript is used instead of a fresh cleanup.
+   */
   async finish(
     principal: Principal,
-    heard: {
+    heard: CleanupContext & {
       transcript: string
       durationMs: number
       asrMs: number
       bytes: number
-      mode: 'clean' | 'literal'
-      appName?: string | undefined
-      appBundle?: string | undefined
       via: 'upload' | 'stream'
     },
+    speculation?: Speculation | null,
   ): Promise<DictateResult> {
     const raw = heard.transcript.trim()
-    const asrMs = heard.asrMs
-    const dictionary = this.dictionary(principal.userId)
     const style = styleForApp({ name: heard.appName, bundle: heard.appBundle })
-    let result: DictateResult
+    const llmStart = performance.now()
+    let cleanup: { text: string; cleaned: boolean; skipped: boolean }
+    let speculated = false
     if (heard.mode === 'literal' || raw === '') {
-      result = {
-        text: raw,
-        raw,
-        cleaned: false,
-        durationMs: heard.durationMs,
-        ms: { asr: asrMs, llm: 0 },
-      }
-    } else if (skipsCleanup(raw)) {
-      // Deepgram has punctuated a few plain words already; the model would only add latency.
-      result = {
-        text: tidyShort(raw, style, dictionary),
-        raw,
-        cleaned: false,
-        durationMs: heard.durationMs,
-        ms: { asr: asrMs, llm: 0 },
-      }
+      cleanup = { text: raw, cleaned: false, skipped: true }
+    } else if (speculation && speculation.transcript === raw) {
+      speculated = true
+      cleanup = await speculation.result
     } else {
-      const llmStart = performance.now()
-      const cleaned = await cleanTranscript(this.#llm, this.#model, {
-        transcript: raw,
-        style,
-        appName: heard.appName,
-        dictionary,
-      })
-      result = {
-        text: cleaned.text,
-        raw,
-        cleaned: cleaned.cleaned,
-        durationMs: heard.durationMs,
-        ms: { asr: asrMs, llm: Math.round(performance.now() - llmStart) },
-      }
+      cleanup = await this.#clean(principal, raw, heard)
+    }
+    // What the member waited for: with a speculation, only what was left of it after key-up.
+    const llmMs = cleanup.skipped ? 0 : Math.round(performance.now() - llmStart)
+    const result: DictateResult = {
+      text: cleanup.text,
+      raw,
+      cleaned: cleanup.cleaned,
+      durationMs: heard.durationMs,
+      ms: { asr: heard.asrMs, llm: llmMs },
     }
     // Timings only: never the audio or the text.
     this.#log(
-      `dictation ${JSON.stringify({ audioMs: result.durationMs, bytes: heard.bytes, asrMs: result.ms.asr, llmMs: result.ms.llm, words: wordCount(raw), cleaned: result.cleaned, mode: heard.mode, style, via: heard.via })}`,
+      `dictation ${JSON.stringify({ audioMs: result.durationMs, bytes: heard.bytes, asrMs: result.ms.asr, llmMs, words: wordCount(raw), cleaned: result.cleaned, skipped: cleanup.skipped, speculated, mode: heard.mode, style, via: heard.via })}`,
     )
     return result
+  }
+
+  /** The cleanup model, or the shortcut for a plain dictation. */
+  async #clean(
+    principal: Principal,
+    raw: string,
+    context: CleanupContext,
+  ): Promise<{ text: string; cleaned: boolean; skipped: boolean }> {
+    const dictionary = this.dictionary(principal.userId)
+    const style = styleForApp({ name: context.appName, bundle: context.appBundle })
+    if (skipsCleanup(raw, context.language)) {
+      // Deepgram has punctuated it already and there's nothing to fix: the model would only add
+      // latency (it was most of the wait).
+      return { text: tidyShort(raw, style, dictionary), cleaned: false, skipped: true }
+    }
+    const cleaned = await cleanTranscript(this.#llm, this.#model, {
+      transcript: raw,
+      style,
+      appName: context.appName,
+      dictionary,
+    })
+    return { ...cleaned, skipped: false }
   }
 }

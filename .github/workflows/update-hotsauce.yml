@@ -1,0 +1,85 @@
+name: Update Hotsauce
+
+# Brings this copy up to Hotsauce's newest release (docs/self-host.md, "Staying up to date"):
+# every Monday, and whenever it's run from the Actions tab, it opens a pull request with the
+# update. Merging it deploys: Workers Builds on Cloudflare, or the Deploy to Fly workflow.
+# If the update collides with your own changes, it opens an issue instead.
+# New repositories don't let workflows open pull requests until Settings → Actions → General →
+# "Allow GitHub Actions to create and approve pull requests" is ticked.
+on:
+  schedule:
+    - cron: "17 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: update-hotsauce
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # Hotsauce itself, and the private repository it's published from, have nothing to update.
+    if: github.repository != 'hotsauce-suite/hotsauce'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare the update
+        id: update
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set +e
+          result="$(node scripts/update-hotsauce.mjs)"
+          code=$?
+          echo "$result"
+          echo "status=$(echo "$result" | jq -r .status)" >> "$GITHUB_OUTPUT"
+          echo "version=$(echo "$result" | jq -r .version)" >> "$GITHUB_OUTPUT"
+          echo "from=$(echo "$result" | jq -r '.from // ""')" >> "$GITHUB_OUTPUT"
+          echo "branch=$(echo "$result" | jq -r '.branch // ""')" >> "$GITHUB_OUTPUT"
+          echo "workflows=$(echo "$result" | jq -r '(.workflows // []) | join(" ")')" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then exit "$code"; fi
+      - name: Open the pull request
+        if: steps.update.outputs.status == 'ready'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.update.outputs.branch }}
+          VERSION: ${{ steps.update.outputs.version }}
+          FROM: ${{ steps.update.outputs.from }}
+          WORKFLOWS: ${{ steps.update.outputs.workflows }}
+        run: |
+          if gh pr list --head "$BRANCH" --state open --json number --jq 'length' | grep -qv '^0$'; then
+            echo "A pull request for $VERSION is already open."; exit 0
+          fi
+          git push --force origin "$BRANCH"
+          body="Updates this copy of Hotsauce from $FROM to $VERSION. What's new: https://github.com/hotsauce-suite/hotsauce/releases/tag/v$VERSION
+
+          Merging deploys it."
+          if [ -n "$WORKFLOWS" ]; then
+            body="$body
+
+          This release also changes these GitHub workflow files, which a workflow isn't allowed to update. Copy them from the release by hand (each file's page on GitHub has a copy button): $WORKFLOWS"
+          fi
+          gh pr create --head "$BRANCH" --title "Update Hotsauce to $VERSION" --body "$body"
+      - name: Ask for a hand
+        if: steps.update.outputs.status == 'conflict'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.update.outputs.version }}
+          FROM: ${{ steps.update.outputs.from }}
+        run: |
+          title="Hotsauce $VERSION needs a hand to update"
+          if gh issue list --state open --search "\"$title\" in:title" --json number --jq 'length' | grep -qv '^0$'; then exit 0; fi
+          gh issue create --title "$title" --body "Hotsauce $VERSION changes files this copy has changed too (it's on $FROM), so the update couldn't be applied by itself. The workflow log lists the files. Merge the changes from https://github.com/hotsauce-suite/hotsauce/releases/tag/v$VERSION by hand, set HOTSAUCE_VERSION to $VERSION, and push."

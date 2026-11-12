@@ -103,7 +103,7 @@ interface RequestOptions {
   query?: Query
   json?: unknown
   form?: FormData
-  /** Raw bytes (a recording's chunk), sent as application/octet-stream. */
+  /** Raw bytes (a recording's chunk), sent as application/octet-stream unless `contentType` says. */
   body?: Blob
   /** PUT/restore/resolve answer 409 with a CommitResult body; return it instead of throwing. */
   conflictIsResult?: boolean
@@ -166,6 +166,7 @@ export const api = {
   health: () => request<Health>('/api/health'),
   brand: () => request<PublicBrand>('/api/org/brand'),
   me: () => request<Me>('/api/me'),
+  desktopTicket: () => request<{ ticket: string }>('/api/desktop/ticket', { method: 'POST' }),
 
   tree: (space: string, dir: string) =>
     request<Entry[]>(`${spaceBase(space)}/tree`, { query: { dir } }),

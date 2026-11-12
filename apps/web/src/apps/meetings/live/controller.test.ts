@@ -76,7 +76,7 @@ describe('LiveMeeting', () => {
     const saved = await meeting.stop()
     expect(saved.path).toMatch(/controller\.md$/)
     expect(
-      mockApi().repo.space('morgan').files.get(`.hearth/meetings/raw/${meeting.session.id}.md`),
+      mockApi().repo.space('ada').files.get(`.hearth/meetings/raw/${meeting.session.id}.md`),
     ).toBe('decided: ship Friday')
     expect(currentLive()).toBeNull()
     expect(getLive()).toBeNull()
@@ -315,10 +315,10 @@ describe('LiveMeeting', () => {
     if (fake) fake.rawNotes = 'final'
     const saved = await meeting.stop()
     const raw = mockApi()
-      .repo.space('morgan')
+      .repo.space('ada')
       .files.get(`.hearth/meetings/raw/${meeting.session.id}.md`)
     expect(raw).toBe('final words')
-    expect(saved.space).toBe('morgan')
+    expect(saved.space).toBe('ada')
   })
 
   it('Stop carries the notepad’s text in its body, with no separate notes request', async () => {
@@ -348,7 +348,7 @@ describe('LiveMeeting', () => {
         body: { notes: 'typed while offline' },
       },
     ])
-    expect(mockApi().repo.space('morgan').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
+    expect(mockApi().repo.space('ada').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
       'typed while offline',
     )
   })

@@ -1,12 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router'
+import { BoardsSidebar } from '../apps/boards/BoardsSidebar'
+import { BriefcastSidebar } from '../apps/briefcast/BriefcastSidebar'
 import { ClipsSidebar } from '../apps/clips/ClipsSidebar'
 import { DictateSidebar } from '../apps/dictate/DictateSidebar'
+import { FilesSidebar } from '../apps/files/FilesSidebar'
 import { RecordingIndicator } from '../apps/meetings/components/RecordingIndicator'
 import { useLive } from '../apps/meetings/live/liveState'
 import { useRecordingTitle } from '../apps/meetings/live/useRecordingTitle'
 import { MeetingsSidebar } from '../apps/meetings/MeetingsSidebar'
+import { NotesSidebar } from '../apps/notes/NotesSidebar'
 import { appForPath } from '../apps/registry'
+import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { SessionProvider, useSession } from '../state/session'
@@ -67,7 +72,10 @@ function ShellLayout() {
   const { setSpace } = session
   const app = appForPath(location.pathname)
   const live = useLive()
-  const onLivePage = live !== null && location.pathname === `/meetings/live/${live.id}`
+  // The voice notes page shows its own recording, and what any other meeting is doing.
+  const onLivePage =
+    live !== null &&
+    (location.pathname === `/meetings/live/${live.id}` || location.pathname === '/dictate/voice')
   useRecordingTitle(live)
 
   // The sidebar follows the open doc's space.
@@ -125,6 +133,16 @@ function ShellLayout() {
         <DictateSidebar />
       ) : app.id === 'clips' ? (
         <ClipsSidebar />
+      ) : app.id === 'tasks' ? (
+        <TasksSidebar />
+      ) : app.id === 'notes' ? (
+        <NotesSidebar />
+      ) : app.id === 'boards' ? (
+        <BoardsSidebar />
+      ) : app.id === 'files' ? (
+        <FilesSidebar />
+      ) : app.id === 'briefcast' ? (
+        <BriefcastSidebar />
       ) : (
         <Sidebar activeSpace={activeSpace} activePath={activePath} onOpenSearch={openSearch} />
       )}
@@ -151,7 +169,9 @@ function ShellLayout() {
         ) : (
           <>
             <AppRail orientation="vertical" />
-            <div className="h-full w-[var(--sidebar-width)] shrink-0">{sidebar}</div>
+            {app.sidebar === false ? null : (
+              <div className="h-full w-[var(--sidebar-width)] shrink-0">{sidebar}</div>
+            )}
           </>
         )}
 

@@ -10,7 +10,15 @@ interface MdNode {
 
 const MARKER = /^\[!(\w+)\][+-]?[ \t]*([^\n]*)\n?/
 
-function toCallout(quote: MdNode): void {
+export interface CalloutOptions {
+  /**
+   * Keep the blockquote and make the title bold, for HTML that leaves the app (copy as rich
+   * text), where the callout classes have no styles.
+   */
+  asQuote?: boolean
+}
+
+function toCallout(quote: MdNode, options: CalloutOptions): void {
   const first = quote.children?.[0]
   const text = first?.type === 'paragraph' ? first.children?.[0] : undefined
   if (!first || text?.type !== 'text' || !text.value) return
@@ -23,6 +31,13 @@ function toCallout(quote: MdNode): void {
   if (!text.value) first.children?.shift()
   if (first.children?.length === 0) quote.children?.shift()
 
+  if (options.asQuote) {
+    quote.children?.unshift({
+      type: 'paragraph',
+      children: [{ type: 'strong', children: [{ type: 'text', value: title }] }],
+    })
+    return
+  }
   quote.data = {
     hName: 'div',
     hProperties: { className: ['callout', `callout-${kind}`], dataCallout: kind },
@@ -34,13 +49,13 @@ function toCallout(quote: MdNode): void {
   })
 }
 
-function walk(node: MdNode): void {
+function walk(node: MdNode, options: CalloutOptions): void {
   for (const child of node.children ?? []) {
-    if (child.type === 'blockquote') toCallout(child)
-    walk(child)
+    if (child.type === 'blockquote') toCallout(child, options)
+    walk(child, options)
   }
 }
 
-export function remarkCallouts() {
-  return (tree: MdNode) => walk(tree)
+export function remarkCallouts(options: CalloutOptions = {}) {
+  return (tree: MdNode) => walk(tree, options)
 }

@@ -7,6 +7,14 @@
     <meta name="description" content="Docs, meetings and more for the team." />
     <meta name="theme-color" content="#f2eadf" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1d1815" media="(prefers-color-scheme: dark)" />
+    <script>
+      // The member's light or dark choice (src/lib/theme.ts), applied before the first paint.
+      var theme = null
+      try {
+        theme = localStorage.getItem('hearth:theme')
+      } catch {}
+      if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
+    </script>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

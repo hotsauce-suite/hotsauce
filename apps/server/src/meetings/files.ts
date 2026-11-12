@@ -1,4 +1,10 @@
-import { formatTranscriptLine, meetingPaths, patchFrontmatter, SPACE_LAYOUT } from '@hearth/format'
+import {
+  dropEchoes,
+  formatTranscriptLine,
+  meetingPaths,
+  patchFrontmatter,
+  SPACE_LAYOUT,
+} from '@hearth/format'
 import { stringify } from 'yaml'
 import { z } from 'zod'
 import { PCM_BYTES_PER_MS, type TranscriptSegment } from './transcriber/types.js'
@@ -138,10 +144,12 @@ export function captureBody(title: string, headings: string[], rawNotes: string)
   return `${parts.join('\n\n')}\n`
 }
 
-/** `# <title>: transcript`, then one `[hh:mm:ss] **Speaker:** text` line per final segment. */
+/**
+ * `# <title>: transcript`, then one `[hh:mm:ss] **Speaker:** text` line per final segment,
+ * without "me" lines that are the other side heard through the speakers (`dropEchoes`).
+ */
 export function transcriptText(title: string, segments: TranscriptSegment[]): string {
-  const lines = segments
-    .filter((s) => s.final)
+  const lines = dropEchoes(segments.filter((s) => s.final))
     // Stable: segments starting together keep the order they arrived in.
     .sort((a, b) => a.at - b.at)
     .map((s) => formatTranscriptLine({ at: s.at / 1000, speaker: s.speaker, text: s.text }))

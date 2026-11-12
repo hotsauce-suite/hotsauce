@@ -14,7 +14,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "pnpm build:format && vitest run",
-    "test:unit": "pnpm build:format && vitest run --project format --project server-unit --project web --project extension",
+    "test:unit": "pnpm build:format && vitest run --project format --project server-unit --project web --project extension --project cloudflare",
     "test:integration": "pnpm build:format && vitest run --project server-integration",
     "test:e2e": "pnpm build:format && playwright test",
     "test:all": "pnpm test && pnpm test:e2e"
@@ -28,5 +28,21 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3"
+  },
+  "cloudflare": {
+    "bindings": {
+      "HOTSAUCE_SETUP_TOKEN": {
+        "description": "Make up a setup password of at least 12 characters. Open your Worker's address, go to /setup and paste it to start the setup wizard. It works until setup is finished."
+      },
+      "HOTSAUCE_MASTER_KEY": {
+        "description": "Make up a long random string and keep a copy somewhere safe. It encrypts the keys you paste into setup (Clerk, Anthropic, Deepgram, GitHub). Changing it later locks those keys away."
+      },
+      "STATE": {
+        "description": "The R2 bucket that keeps Hotsauce's settings and keys while the server's own disk comes and goes. Each Hotsauce needs its own: choose Create new if this one belongs to another."
+      },
+      "HOTSAUCE": {
+        "description": "The server, running in a Cloudflare Container."
+      }
+    }
   }
 }

@@ -4,12 +4,30 @@
 
 import { chat, org, product } from '../brand/product'
 import type { IconName } from '../components/Icon'
+import { boardsApp } from './boards/manifest'
+import { briefcastApp } from './briefcast/manifest'
 import { clipsApp } from './clips/manifest'
 import { dictateApp } from './dictate/manifest'
 import { docsApp } from './docs/manifest'
+import { filesApp } from './files/manifest'
 import { meetingsApp } from './meetings/manifest'
+import { notesApp } from './notes/manifest'
+import { peopleApp } from './people/manifest'
+import { tasksApp } from './tasks/manifest'
+import { todayApp } from './today/manifest'
 
-export type AppId = 'docs' | 'meetings' | 'dictate' | 'clips'
+export type AppId =
+  | 'today'
+  | 'docs'
+  | 'meetings'
+  | 'dictate'
+  | 'clips'
+  | 'tasks'
+  | 'notes'
+  | 'boards'
+  | 'people'
+  | 'files'
+  | 'briefcast'
 
 export interface AppManifest {
   id: AppId
@@ -27,6 +45,10 @@ export interface AppManifest {
   folder: string
   /** The app URL that opens a file of this app. */
   urlFor: (space: string, path: string) => string
+  /** False: the app has no sidebar, and its page takes the whole width. */
+  sidebar?: boolean
+  /** False keeps it off the phone's bottom bar (it has room for seven); it still opens by link. */
+  onPhoneBar?: boolean
   /** Loads the app's first page, so its chunk is warm before the click lands. */
   preload: () => Promise<unknown>
 }
@@ -48,7 +70,19 @@ export function railLinks(): readonly RailLink[] {
     : []
 }
 
-export const APPS: readonly AppManifest[] = [docsApp, meetingsApp, dictateApp, clipsApp]
+export const APPS: readonly AppManifest[] = [
+  todayApp,
+  docsApp,
+  meetingsApp,
+  dictateApp,
+  clipsApp,
+  tasksApp,
+  notesApp,
+  boardsApp,
+  peopleApp,
+  filesApp,
+  briefcastApp,
+]
 
 /** The app whose routes contain `pathname`, if any (`/settings` belongs to none). */
 export function ownerOfPath(pathname: string): AppManifest | undefined {

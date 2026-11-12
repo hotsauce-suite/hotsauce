@@ -2,6 +2,7 @@
 
 import type { Track } from '../../../api/types'
 import type { Capture } from './capture'
+import { frameRecorder } from './mac'
 import { PCM_PROCESSOR, TARGET_RATE } from './pcm'
 import workletUrl from './worklet.ts?worker&url'
 
@@ -36,6 +37,7 @@ export async function startRecorder(
   capture: Capture,
   onFrame: (track: Track, pcm: Uint8Array) => void,
 ): Promise<Recorder> {
+  if (capture.frames) return frameRecorder(capture.frames, onFrame)
   const tracks = Object.entries(capture.streams) as Array<[Track, MediaStream]>
   const { context, sources } = await openContext(tracks.map(([, stream]) => stream))
   await context.audioWorklet.addModule(workletUrl)

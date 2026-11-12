@@ -6,6 +6,7 @@ import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 import { docUrl, isExternalHref, isMarkdown } from '../lib/paths'
 import { remarkCallouts } from '../lib/remarkCallouts'
+import { TaskQueryList } from './TaskQueryList'
 
 /** Turns an image src from the document into a loadable URL (see `ImageUrls`). */
 export type ResolveImage = (src: string) => Promise<string>
@@ -42,6 +43,7 @@ export default function ReadingView({
   path,
   resolveImage,
   embedded = false,
+  personalSpace = null,
 }: {
   markdown: string
   space: string
@@ -49,6 +51,8 @@ export default function ReadingView({
   resolveImage: ResolveImage
   /** Inside another view (history preview): no test ID, so the main reading view stays unique. */
   embedded?: boolean
+  /** What a `tasks` block's `space: personal` means. */
+  personalSpace?: string | null
 }) {
   const navigate = useNavigate()
   const body = useMemo(() => parseFrontmatter(markdown).body, [markdown])
@@ -78,12 +82,28 @@ export default function ReadingView({
           </a>
         )
       },
+      // A `tasks` block reads as its live task list.
+      pre: ({ children, node }) => {
+        const code = node?.children[0]
+        const classes = code?.type === 'element' ? code.properties.className : undefined
+        if (Array.isArray(classes) && classes.includes('language-tasks')) {
+          const text = code?.type === 'element' ? textOf(code) : ''
+          return (
+            <TaskQueryList
+              source={text.replace(/\n$/, '')}
+              personalSpace={personalSpace}
+              onOpen={navigate}
+            />
+          )
+        }
+        return <pre>{children}</pre>
+      },
       img: ({ src, alt }) =>
         typeof src === 'string' ? (
           <RepoImage src={src} alt={alt ?? ''} resolveImage={resolveImage} />
         ) : null,
     }),
-    [navigate, space, path, resolveImage],
+    [navigate, space, path, resolveImage, personalSpace],
   )
 
   return (
@@ -97,4 +117,10 @@ export default function ReadingView({
       </Markdown>
     </article>
   )
+}
+
+/** The plain text of a hast element (a code block's source, before highlighting is applied). */
+function textOf(node: { type: string; value?: string; children?: unknown[] }): string {
+  if (node.type === 'text') return node.value ?? ''
+  return (node.children ?? []).map((c) => textOf(c as Parameters<typeof textOf>[0])).join('')
 }

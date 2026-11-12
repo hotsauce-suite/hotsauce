@@ -2,7 +2,7 @@
 
 This is the contract between the modules of Hearth and between the agents building them in parallel. If something here conflicts with a PRD, the PRD wins and this file gets fixed. If you need to change an interface in this file, change it here first, in the same commit as the code.
 
-The design of every part, in the order it was built.
+Phase 0 and 1 scope (see `PLAN.md`): platform spike + Docs-minimal. Meetings comes after and is not in this file yet beyond the file format.
 
 ## 1. Monorepo
 
@@ -122,12 +122,13 @@ PUBLIC_URL=http://localhost:3000
 DATA_DIR=./.data                 # repos/, index.sqlite, uploads tmp
 AUTH_MODE=clerk|dev                          # default clerk (fail closed); dev is only accepted when NODE_ENV is development or test
 CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY      # when AUTH_MODE=clerk
-ALLOWED_EMAIL_DOMAINS=example.com        # comma list; enforced server-side in both modes
+ALLOWED_EMAIL_DOMAINS=acmebiolab.com        # comma list; enforced server-side in both modes
+ALLOWED_EMAILS=                              # exact invited addresses outside those domains (optional)
 HOST_KIND=local|forgejo|github
 LOCAL_HOST_DIR=./.data/remotes               # local: bare repos as file:// remotes
 FORGEJO_URL, FORGEJO_TOKEN, FORGEJO_ORG
 GITHUB_TOKEN, GITHUB_ORG                     # token now; GitHub App credentials later behind the same adapter
-HEARTH_COMMITTER_NAME="Hearth", HEARTH_COMMITTER_EMAIL="hearth@example.com"
+HEARTH_COMMITTER_NAME="Hearth", HEARTH_COMMITTER_EMAIL="hearth@acmebiolab.com"
 WEBHOOK_SECRET                               # production with a remote host: at least 32 characters, not the dev default
 POLL_INTERVAL_MS=60000                       # tests set 1000
 IDLE_COMMIT_MS=60000                         # how long the client waits before committing; exposed via /api/me
@@ -252,7 +253,7 @@ export interface Principal { userId: string; email: string; name: string; handle
 export interface Authenticator { authenticate(req: Request): Promise<Principal | null> }
 ```
 
-- `ClerkAuth`: verifies the session token (`Authorization: Bearer` or Clerk cookie) with `@clerk/backend`, loads the user's primary email once per token (cached by `userId` for 5 minutes). Domain lock: email domain must be in `ALLOWED_EMAIL_DOMAINS`, else delete the Clerk user and return 403 `domain_not_allowed`. Authorized parties (the token's `azp`): `PUBLIC_URL`'s origin, plus `http://localhost:5173` (Vite) when `NODE_ENV=development`.
+- `ClerkAuth`: verifies the session token (`Authorization: Bearer` or Clerk cookie) with `@clerk/backend`, loads the user's primary email once per token (cached by `userId` for 5 minutes). Domain lock: email domain must be in `ALLOWED_EMAIL_DOMAINS`, or the primary address must be on the invite list `ALLOWED_EMAILS` (exact, and verified by Clerk), else delete the Clerk user and return 403 `domain_not_allowed`. Invited people sign in with Clerk's email code, and their handle carries their domain (`jo@gmail.com` → `jo-gmail-com`) so it can't take a member's personal space. They are full members: Team is theirs to read and edit. Authorized parties (the token's `azp`): `PUBLIC_URL`'s origin, plus `http://localhost:5173` (Vite) when `NODE_ENV=development`.
 - `DevAuth` (only when `AUTH_MODE=dev`): header `x-hearth-dev-user: <email>`; same domain lock; name from the local part. Never enabled in production (`main.ts` refuses to start with `AUTH_MODE=dev` and `NODE_ENV=production`).
 - `handle` = email local part lowercased, non `[a-z0-9-]` → `-`. Personal space repo name = handle. The handle is lossy (`a.b@` and `a-b@` collide), so it is only a name: ownership is recorded in the `spaces` table by email, `ensurePersonalSpace` refuses to provision a handle already owned by a different email (`forbidden`), and `canAccess` checks the recorded owner, never the handle string.
 - Admins: `ADMIN_EMAILS` comma list in env.
@@ -346,7 +347,7 @@ Routes:
 
 Components (each with a `*.test.tsx` where there's logic):
 
-- The shell (`AppShell`), as built since 2026-11-10: an **app rail** (`AppRail`) on the far left, then the active app's sidebar (`SidebarFrame`: the app's name, the app's own body, the hearth glow), then the page. The rail draws the Hearth mark, one item per manifest in `APPS` (`src/apps/registry.ts`: icon, short label, ember wash and `aria-current="page"` when active, a dot on Meetings while a meeting is recording or paused), then `RAIL_LINKS` (apps outside Hearth, opened in a new tab: the team chat set in `CHAT_URL`), and at the bottom Settings and the account button (menu: name, email, Sign out, which unsubscribes this browser's reminders first). Each item lands where that app was last open (`/settings` belongs to no app and isn't remembered), and its route chunk is warmed (`manifest.preload`) when the pointer or focus reaches it. The middle scrolls when the window is short. Under 768px the rail is a tab bar along the bottom (Settings moves into the account menu so eight entries fit across 390px; more scroll inside the bar, never the page) and the sidebar is a drawer. A new app appears in the rail and in Cmd-K's "Go to" commands by its manifest and its line in `APPS`; it also needs its routes in `router.tsx` and its sidebar in `AppShell`. Cmd-K lists "Go to <app>" for every app and rail link.
+- The shell (`AppShell`), as built since 2026-11-10: an **app rail** (`AppRail`) on the far left, then the active app's sidebar (`SidebarFrame`: the app's name, the app's own body, the hearth glow), then the page. The rail draws the Hearth mark, one item per manifest in `APPS` (`src/apps/registry.ts`: icon, short label, ember wash and `aria-current="page"` when active, a dot on Meetings while a meeting is recording or paused), then `RAIL_LINKS` (apps outside Hearth, opened in a new tab: Acme Chat at chat.office.example.com), and at the bottom Settings and the account button (menu: name, email, Sign out, which unsubscribes this browser's reminders first). Each item lands where that app was last open (`/settings` belongs to no app and isn't remembered), and its route chunk is warmed (`manifest.preload`) when the pointer or focus reaches it. The middle scrolls when the window is short. Under 768px the rail is a tab bar along the bottom (Settings moves into the account menu so eight entries fit across 390px; more scroll inside the bar, never the page) and the sidebar is a drawer. A new app appears in the rail and in Cmd-K's "Go to" commands by its manifest and its line in `APPS`; it also needs its routes in `router.tsx` and its sidebar in `AppShell`. Cmd-K lists "Go to <app>" for every app and rail link.
 - `AppShell`, `Sidebar`, `SpaceSwitcher`, `FileTree` (lazy per directory, drag to move, context menu: new doc, new folder, rename, move, delete), `TopBar` (breadcrumbs, `SaveState`, reading-view toggle, Share menu).
 - `MarkdownEditor`: CodeMirror 6, `@codemirror/lang-markdown` with GFM, our live-preview extension (`livePreview.ts`): heading sizes, hidden markers on inactive lines, bold/italic/strike/code styling, clickable links, toggleable `- [ ]` checkboxes, inline image widgets, fenced-code highlighting, folded frontmatter. Shortcuts: Cmd-B/I/K, `[[` autocomplete (writes a relative link). Paste/drop image → upload → insert link.
 - `ReadingView`: `react-markdown` + `remark-gfm` + `rehype-highlight`, callouts rendered.
@@ -355,7 +356,7 @@ Components (each with a `*.test.tsx` where there's logic):
 - `useDocument(space, path)`: load → `{content, blobOid}`; edits → debounced autosave to the server buffer is **not** a thing in P0: the client holds the draft and PUTs after `idleCommitMs` of no typing, on route leave, and on Save version. On `merged` adopt the content; on 409 open the resolver. On WS `changed` for the open path with no local edits → refetch.
 - Offline: the PWA caches the shell; an unsaved draft is kept in `localStorage` keyed by `space:path:blobOid` and offered on reload.
 
-Design brief:
+Design brief (apply Ada's frontend rules in `~/.claude/CLAUDE.md` §6):
 
 - Warm hearth palette as CSS tokens on `:root` with a dark theme: charcoal and ash neutrals, one ember accent (orange-red), paper-warm light mode. Never pure black/white; atmospheric background (subtle radial warmth), not flat.
 - Type: **Fraunces** (display, titles) + **IBM Plex Sans** (UI, body) + **JetBrains Mono** (code). Loaded from Google Fonts. No Inter/Roboto/Arial/system.
@@ -382,7 +383,7 @@ Scripts: `pnpm test` runs unit + integration; `pnpm test:e2e` runs Playwright; C
 - The server loads the repo-root `.env.local` (found relative to its own file, not the working directory) when present; variables already in the environment win. It serves `apps/web/dist` (also found relative to its own file) with an SPA fallback to `index.html`, or a placeholder page when there is no web build.
 - `hearth reindex [space]`: `pnpm --filter @hearth/server reindex [space]` in development, `node apps/server/dist/cli/reindex.js [space]` in the image. Rebuilds `files` and `spaces` from the clones; keeps `index.sqlite`.
 - `docker compose up forgejo` for the Forgejo adapter (http://localhost:3300, admin created by the compose init script, token written to `.data/forgejo-token`).
-- `Dockerfile` builds both apps; runtime image has `git`; `DATA_DIR=/data`. `deploy/fly.example.toml` mounts a volume at `/data`; `scripts/deploy-fly.sh` deploys a new instance (docs/self-host.md).
+- `Dockerfile` builds both apps; runtime image has `git`; `DATA_DIR=/data`. `fly.toml` mounts a volume at `/data`. Deploy is **not** automated yet; Ada approves the first deploy.
 
 ## 7. Hearth Meetings: foundation (Phase 2)
 
@@ -472,7 +473,7 @@ export interface CalendarSource { upcoming(principal, range: { from: string; to:
 // Since 2026-11-10 every reader goes through the cached calendar of §7.8 (`CachedCalendar` over `CalendarSync` and `GoogleCalendarHttp`, token via Clerk: `clerk.users.getUserOauthAccessToken(userId, 'google')`, `data[0].token`). Cancelled, all-day and declined events are skipped, rooms aren't attendees; no token, or Google answering 401/403 (not a rate limit), is 403 forbidden (reconnect Google); other failures host_error. Dev auth runs the same sync against the in-memory `FakeGoogle`; `FakeCalendar` remains a `CalendarSource` for tests. `findEvent(calendar, principal, id, at)` looks an event up a day either side of `at`. Scope `calendar.readonly` must be enabled on the Clerk Google connection (dashboard task, noted in STATUS.md).
 ```
 
-Config additions: `ASR_PROVIDER=fake|deepgram` (default fake in dev/test, deepgram in production), `DEEPGRAM_API_KEY` (required with deepgram), `LLM_PROVIDER=fake|anthropic` (default fake in dev/test, anthropic in production), `ANTHROPIC_API_KEY` (required with anthropic), `ENHANCE_MODEL=claude-sonnet-5-5`, `CHAT_MODEL=claude-opus-5-5`, `KEEP_AUDIO=false` (whether Stop keeps audio when the client doesn't say), `AUDIO_STORE=none|local|r2` (default r2 when `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` are all set, else local (`DATA_DIR/kept-audio/`, on the volume); none hides Keep audio and Clips; `KEEP_AUDIO=true` with none is refused). Routes: `GET /api/meetings/settings → { keepAudio: { available, byDefault } }`; `GET /api/meetings/audio?space&id&track → audio/wav` for anyone who can see the space, reading the key from the pointer file, which must be the meeting's own key in that space. Meeting reminders (PRD §6.1): `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` (both or neither; off without them), `GET /api/meetings/reminders → { publicKey | null }`, `POST /api/meetings/reminders { subscription }`, `DELETE /api/meetings/reminders { endpoint }` (own subscriptions only). Subscriptions and sent reminders live on the volume (`DATA_DIR/push/state.json`), not Git or SQLite: they're device state. `MeetingReminders` ticks every 30 s; for each subscribed member it reads the calendar for the next 90 s and pushes `{ title: 'Take notes for “<title>”?', body, url: '/meetings/start?event=<id>', tag }` once per event with attendees to each of their browsers, forgetting subscriptions the push service answers 404/410. The service worker imports `public/push-sw.js` for the push and click handlers; a click focuses an open Hearth tab and moves it in-app (`hearth:navigate` message, `src/lib/swNavigate.ts`), never by a page load, which would end a recording there, else opens a window. The toggle is on Meetings home; each visit re-sends a subscribed browser's subscription (resubscribing if the server's key changed), so one the server dropped comes back. Sign out unsubscribes the browser first, so the next person on it doesn't get the last member's reminders. Production refuses `fake` providers. `createServices(config, { transcriber?, llm?, calendar? })` takes stand-ins for tests.
+Config additions: `ASR_PROVIDER=fake|deepgram` (default fake in dev/test, deepgram in production), `DEEPGRAM_API_KEY` (required with deepgram), `LLM_PROVIDER=fake|anthropic` (default fake in dev/test, anthropic in production), `ANTHROPIC_API_KEY` (required with anthropic), `ENHANCE_MODEL=claude-sonnet-5-5`, `CHAT_MODEL=claude-opus-5-5`, `CLEANUP_MODEL=claude-haiku-5-5` (§7.11), `KEEP_AUDIO=false` (whether Stop keeps audio when the client doesn't say), `AUDIO_STORE=none|local|r2` (default r2 when `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` are all set, else local (`DATA_DIR/kept-audio/`, on the volume); none hides Keep audio and Clips; `KEEP_AUDIO=true` with none is refused). Routes: `GET /api/meetings/settings → { keepAudio: { available, byDefault } }`; `GET /api/meetings/audio?space&id&track → audio/wav` for anyone who can see the space, reading the key from the pointer file, which must be the meeting's own key in that space. Meeting reminders (PRD §6.1): `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` (both or neither; off without them), `GET /api/meetings/reminders → { publicKey | null }`, `POST /api/meetings/reminders { subscription }`, `DELETE /api/meetings/reminders { endpoint }` (own subscriptions only). Subscriptions and sent reminders live on the volume (`DATA_DIR/push/state.json`), not Git or SQLite: they're device state. `MeetingReminders` ticks every 30 s; for each subscribed member it reads the calendar for the next 90 s and pushes `{ title: 'Take notes for “<title>”?', body, url: '/meetings/start?event=<id>', tag }` once per event with attendees to each of their browsers, forgetting subscriptions the push service answers 404/410. The service worker imports `public/push-sw.js` for the push and click handlers; a click focuses an open Hearth tab and moves it in-app (`hearth:navigate` message, `src/lib/swNavigate.ts`), never by a page load, which would end a recording there, else opens a window. The toggle is on Meetings home; each visit re-sends a subscribed browser's subscription (resubscribing if the server's key changed), so one the server dropped comes back. Sign out unsubscribes the browser first, so the next person on it doesn't get the last member's reminders. Production refuses `fake` providers. `createServices(config, { transcriber?, llm?, calendar? })` takes stand-ins for tests.
 
 Index: `files` gains a `frontmatter TEXT` column (JSON of the parsed frontmatter, null when none) so meeting lists can show date/attendees without reading git; `Index.listFiles({ space, kind, prefix, limit, order: 'path' | 'date_desc' })` added (`FileRow.frontmatter` is the parsed object). `kind` is `meeting` for `meetings/**/*.md` that aren't `*.transcript.md`, `transcript` for those. `search()` also takes `kinds`, `prefix` and `anyTerm` (match any word of a question); `rankPassages(q, passages, limit)` ranks short texts with the same tokenizer and bm25. The migration forgets every sync point, so the next sync re-indexes each space and fills `frontmatter`.
 
@@ -490,6 +491,8 @@ POST /api/meetings/sessions/:id/pause | resume → MeetingSession
 PUT  /api/meetings/sessions/:id/keep-audio { keep } → MeetingSession   (the member's choice, used by any stop that doesn't say; keep with no AUDIO_STORE is 400)
 POST /api/meetings/sessions/:id/stop { keepAudio?, notes? } → { space, path, transcriptPath }   (files committed; enhancement NOT yet run)
 POST /api/meetings/enhance         { space, path, template?, force? } → { path, aiRanges, usage }  (re-runnable; 409 conflict if the note was edited since Hearth last wrote it, unless `force`)
+POST /api/meetings/speakers        { space, path, names: { "Speaker 1": "Priya Shah" }, transcriptBlobOid? } → { transcriptPath, renamed }  (§7.10; 400 for "Me", a label not in the transcript, or a name with `*`/`:`; 409 while the transcript is being cleaned up (§7.11) or when it is no longer the `transcriptBlobOid` the panel showed; one commit `meetings: name speakers in "<title>"`)
+POST /api/meetings/import/granola  { meetings: GranolaMeeting[] (1–100), tz } → { imported, skipped, space }  (§7.12; session only)
 POST /api/meetings/chat            { question, scope } → { answer, citations }
 WS   /ws/meetings/:id              audio + live transcript (7.3)
 ```
@@ -553,7 +556,7 @@ Scope is `calendar.readonly`: Hearth never writes to Google, registers no push c
 
 **CachedCalendar** implements `CalendarSource` over the cache: `upcoming` returns cached events overlapping the range, in start order. A member who has never synced is synced inline first, and that sync's error is thrown (so a missing grant still shows "reconnect Google"); within a minute of such a failure, reads throw it again without asking Google; after one success, Google failures never empty the list. Reminders, Start, enhance and `/api/calendar/upcoming` all read through it. Each reminder tick calls `calendar.refresh(principal, { maxAgeMs: 60_000 })` for every subscribed member before reading, so a meeting moved, cancelled or added more than a minute ago is reminded (or not) as it now stands; if that refresh fails, the cached events are reminded anyway. The reminder key includes the start, so a moved event is reminded at its new time.
 
-**Dev and test.** Without Clerk, the same `GoogleCalendarHttp` runs against `fakeGoogleFetch(model)`, an in-memory Google (`FakeGoogle`) with sync tokens and 410s; the token is `fake-token:<email>`. Each member is seeded on first sight with `FakeCalendar.events()` (Acme sync in a minute or two with Meet code `abc-defg-hij`, series `fake-acme-series`; Design review later) plus past meetings for coverage (Pipeline review, series `fake-pipeline`, yesterday and a week ago; Intro call with Bolt two days ago; a declined Offsite planning yesterday) and a second calendar `team@fake` ("Team"). Production refuses the fake. `FakeCalendar` still works as a `CalendarSource` override in tests. With `NODE_ENV=test` only, `/api/test/*` exposes hooks for e2e: `POST /api/test/calendar/add { id, title, startsInSeconds, minutes?, meetLink? }` (with Jo Park as a guest), `POST /api/test/calendar/move { id, minutes }`, `POST /api/test/calendar/cancel { id }`, `POST /api/test/calendar/sync` (sync the caller now), and with `PUSH_SENDER=record` a recording push sender: `GET /api/test/pushes`, `POST /api/test/reminders/tick`.
+**Dev and test.** Without Clerk, the same `GoogleCalendarHttp` runs against `fakeGoogleFetch(model)`, an in-memory Google (`FakeGoogle`) with sync tokens and 410s; the token is `fake-token:<email>`. Each member is seeded on first sight with `FakeCalendar.events()` (Acme sync in a minute or two with Meet code `abc-defg-hij`, series `fake-acme-series`; Design review later) plus past meetings for coverage (Pipeline review, series `fake-pipeline`, yesterday and a week ago; Intro call with Bolt two days ago; a declined Offsite planning yesterday) and a second calendar `team@fake` ("Acme team"). Production refuses the fake. `FakeCalendar` still works as a `CalendarSource` override in tests. With `NODE_ENV=test` only, `/api/test/*` exposes hooks for e2e: `POST /api/test/calendar/add { id, title, startsInSeconds, minutes?, meetLink? }` (with Jo Park as a guest), `POST /api/test/calendar/move { id, minutes }`, `POST /api/test/calendar/cancel { id }`, `POST /api/test/calendar/sync` (sync the caller now), and with `PUSH_SENDER=record` a recording push sender: `GET /api/test/pushes`, `POST /api/test/reminders/tick`.
 
 **Routes** (all for the signed-in member):
 
@@ -579,6 +582,32 @@ interface CalendarChoice { id: string; name: string; primary: boolean; selected:
 - **Calendar picker**: Settings → "Calendars" lists the member's calendars with primary on and fixed; ticking others saves the choice, runs a fresh sync after any one in progress (so new ones fill at once), and drops cached events of removed ones.
 
 Test IDs: `calendar-status`, `coverage`, `coverage-item` (`data-event-id`, `data-has-notes`), `coverage-note-link`, `calendar-choice` (`data-calendar-id`, checkbox inside).
+
+### 7.9 Any app on this Mac (`apps/web/src/apps/meetings/audio/mac.ts`, `apps/dictate-mac/Sources/HearthDictate/MeetingCapture.swift`)
+
+Capture mode `mac`, offered only when the page runs in the Hearth Mac app on macOS 14.2+ (the app injects `window.hearthMac = { meetingAudio: 1 }`). The page posts `{type:'start'}` to `webkit.messageHandlers.hearthMeetingAudio` and gets `{ok:true, session}` or `{ok:false, reason:'denied'|'no-mic'|'unsupported', message}`; then `{type:'pause'|'resume'|'stop', session}`. The app answers only the suite's main frame (by security origin), and accepts start only on a `/meetings` route. It sends `hearth-mac-audio` window events: `{session, type:'frames', me?, them?}` (base64, whole 100 ms frames of 16 kHz PCM16 LE) every 100 ms, or `{session, type:'ended', track}` when a track stops and one restart fails. A `Capture` with `frames` (no streams) goes straight to the socket (`frameRecorder`); the audio check reads the frames' peak. In the app, the mic is a plain `AVAudioEngine` input (restarted after a device change), and Them is a mono global process tap excluding the app's own process, in a private aggregate device, re-reading its rate when it changes. The tap starts before the mic. A reload, navigation or crashed page stops the capture. `HearthDictate --meeting-audio-probe <s> [--mic-only|--tap-only] [--out file]` checks it on a real Mac (run through `open` on the built `.app`). Echo: `dropEchoes` removes "me" lines that repeat a "them" line (four or more words, 70% of distinct words, starts within 4 s) from the transcript file and the Enhance prompt; the live view still shows them.
+
+**Call detection** (`DictateCore/CallWatch.swift`, `HearthDictate/CallDetector.swift`): every 2 s the app reads Core Audio's process list (`kAudioHardwarePropertyProcessObjectList`, then each process's `IsRunningInput`, `PID`, `BundleID`, macOS 14.2+). Only a fixed list of call apps counts (Zoom, Teams, Slack, FaceTime and `avconferenced`, Webex, Discord, WhatsApp and others; never browsers, which the extension covers), and only one with a Dock icon. `CallWatch` offers "Take notes on this Zoom call?" after 4 s of mic use when nothing records (once per app per 10 minutes); the click opens `/meetings/start?via=mac-call&app=Zoom`, which picks "Any app on this Mac" by itself. When the app lets go for 20 s after a call of a minute or more, and an "Any app" recording that began during the call is running, the app sends `{session, type:'call-ended'}`; the live meeting (not the page) then stops in 30 s unless the member chooses Keep recording. A recording already running when the call began is never stopped. Settings → "Offer to take notes when a call starts" turns it off. `Hearth --call-probe 10` lists every mic user.
+
+### 7.10 Speakers and word lists (`docs/PLAN-meeting-speakers.md`)
+
+- **Word lists.** A session stores `vocabulary` in its meta at creation: each attendee's name and its parts, then the member's and team's Dictate word lists (`Dictation.keyterms`), once each ignoring case, at most 100 (`meetingVocabulary`). The transcriber gets them as Deepgram `keyterm`s, so a recovered session keeps them.
+- **Diarization.** The `them` track's Deepgram stream asks for `diarize=true`; `me` never does (the note-taker stays "Me", which Agent briefs and action items rely on), and neither does a dictation (`failOnDrop`). A diarized final is split into one segment per run of the same speaker, labelled `Speaker n` (Deepgram's index + 1); a partial takes its first word's speaker. Labels can restart after a reconnect (Deepgram numbers per connection). Mic-only meetings (one room, one mic) are not diarized.
+- **Guesses.** When the transcript still has `Speaker n` labels and the note has attendees, Enhance asks the model for a `Speakers:` line before the body; only guesses naming an attendee (by display name) for a label in the transcript are kept, as frontmatter `speaker_guesses`. The note body keeps the label ("Speaker 2"), never a guessed name.
+- **Naming.** `nameSpeakers` renames labels in the transcript lines (`renameSpeakers` in `@hearth/format`, every other byte kept) and, as whole words, on the note's AI lines only (`ai_ranges`), drops the renamed labels from `speaker_guesses`, and moves `models.enhanced_blob` along when the note was unedited, so the next Enhance isn't refused. The transcript panel shows "Who's who?" with Confirm per guess, and every label but "Me" is a button that offers the attendees or a typed name.
+
+### 7.11 Transcript cleanup after the call (`apps/server/src/meetings/cleanup/`, `docs/PLAN-transcript-cleanup.md`)
+
+- **When.** Right after Stop commits a meeting, `TranscriptCleanup` runs in the background, as one job per meeting, registered in the same tick its kept audio becomes pending (so no sweep uploads and deletes the PCM first, and no Enhance finds the note without the job). Enhance (`enhanceNote`'s `transcriptSettled`, wired to `MeetingSessions.cleanupSettled`) waits for that meeting's job before it reads the transcript, at most `CLEANUP_WAIT_MS` (2 minutes); past that the job is aborted, unless it has passed its last check and is committing, in which case Enhance waits for the commit. Either way the transcript never changes under a note enhanced without it. Deleting the meeting and shutdown abort the job. Naming speakers is refused (409) while a job runs, and when the transcript is not the one the panel showed (`transcriptBlobOid`), since a re-transcription can renumber speakers.
+- **Kept audio: re-transcribe.** With kept audio and `ASR_PROVIDER=deepgram`, each track's PCM is streamed from the session directory as WAV to Deepgram's pre-recorded API (nova-3, `utterances`, the session's `vocabulary` as keyterms, `diarize` on `them` only), before the kept-audio upload, which deletes the PCM and so waits for the job (`#uploadKeptAudio` skips a meeting whose cleanup is running). Utterances become segments labelled like the live ones ("Me", "Speaker n" or "Them"), and the transcript is rebuilt with `transcriptText` (echo filter included). The body is sent sized (`Content-Length`), streamed from disk; an answer that isn't JSON is a plain `asr_error`, never logged. It is thrown away if either track has fewer than half that track's live words, or if Deepgram fails; the spelling pass runs instead.
+- **No kept audio: spelling pass.** One `CLEANUP_MODEL` call gets the session's word list (attendees' names, Dictate word lists) and the numbered transcript lines, and answers JSON `[{line, from, to}]`. A fix is kept only when `from` is on that line, `to` is a word-list entry (written as the list spells it), `from` contains no other entry, and `from` sounds like `to` (`soundsLike`: same letters ignoring case and spaces, edit distance at most 40%); `fixTranscriptWords` in `@hearth/format` replaces whole words in the spoken text only, and refuses any fix with a line break or control character. Word-list entries (attendee names come from other people's calendars) are made one line of plain text in `meetingVocabulary`. No word list, no lines, or over 300,000 characters: no call.
+- **Commit.** One commit as the owner, `meetings: clean up transcript of "<title>"`, with `unchanged` on the transcript's saved blob: a rename, edit or delete since the save wins and the cleanup is dropped. Git keeps the live transcript. Any failure is logged and leaves the live transcript; nothing retries after a restart.
+
+### 7.12 Import from Granola (`apps/server/src/meetings/import-granola.ts`, `docs/PLAN-granola-import.md`)
+
+- **Where.** Meetings → "Import from Granola" (`/meetings/import`). The member runs Generate CSV in Granola (Settings → Profile) and drops the `.csv`, or a `.zip` with CSVs in it, on the page. The browser parses it (`granolaExport.ts`: RFC 4180, BOM, header aliases for Granola's column names, zip via the Keep import's `readZipFiles`) and sends batches of at most 100 meetings and about 6 MB of UTF-8 to `POST /api/meetings/import/granola`.
+- **What it writes.** Per meeting, the same three files as a recorded one (§7.4), in the member's personal space: the note (`# title`, `## My notes`, `## Summary` with Granola's summary marked as AI text in `ai_ranges` and `models.enhance: granola`, so Enhance can replace it), the raw notes, and the transcript when there is one. The transcript file is always written (empty when the export has none) and `models.enhanced_blob` is always set, so Enhance works on every imported note. Transcript lines labelled `Me:`/`You:`/`Them:` or a name of up to four capitalised words keep their speaker (with `[h:mm:ss]` or `(m:ss)` times when given) when at least half the lines have one; otherwise every line is "Speaker". The page sends the browser's time zone: a time with an offset is that instant, a time or bare date without one is wall time in that zone, and the note is dated and filed in it like a recorded meeting. Impossible dates are skipped. Paths take the first free `-n` suffix. Attendees split on `;` and lines, and on commas only between addresses.
+- **Re-runnable.** Frontmatter `imported_from: granola` and `import_ref` (Granola's id, or `h:` + a hash of title and date) mark an imported meeting; one already in the space, or with no usable date or no content, is skipped. The space is reindexed before the refs are read (an earlier batch whose indexing failed), then one commit per batch as the member (`meetings: import "<n> from Granola"`), indexed before the call returns, and batches from one member run one at a time, so overlapping requests can't add a meeting twice.
 
 ## 8. Agent access: MCP server and access tokens (platform PRD P1)
 
@@ -613,15 +642,31 @@ Tools:
 | Tool | Input | Output (JSON text) |
 | --- | --- | --- |
 | `list_spaces` | — | `[{ name, kind, label }]` |
-| `search` | `query`, `kind?` (`docs`/`meeting`/`transcript`/`other`, or a list), `space?`, `prefix?`, `limit?` (1–50, default 20) | `[{ space, path, title, snippet, score }]`, matches marked `**…**` |
+| `search` | `query`, `kind?` (`docs`/`meeting`/`transcript`/`task`/`other`, or a list), `space?`, `prefix?`, `limit?` (1–50, default 20) | `[{ space, path, title, snippet, score }]`, matches marked `**…**` |
 | `list_files` | `space`, `dir?`, `recursive?` | entries (one level, as the tree API) or every file under `dir` (at most 2000, `truncated` flag) |
 | `read_file` | `space`, `path`, `ref?` | `{ space, path, blobOid, content }`; binary files (a NUL byte, or not valid UTF-8) are refused (use `GET /api/spaces/:space/raw`); text over 500 000 characters is cut, with `truncated: true` |
 | `write_file` | `space`, `path`, `content`, `message?`, `base_blob_oid?` | `SaveResult` (`committed` / `merged` with content / `conflict` as a tool error naming the conflict ref) |
 | `list_meetings` | `space?`, `from?`, `to?`, `person?`, `company?`, `folder?`, `limit?` (default 50) | `GET /api/meetings` items |
 | `get_meeting` | `space`, `path`, `include_transcript?` (default true) | `{ space, path, title, frontmatter, note, transcriptPath, transcript }`; a file that isn't `type: meeting` is `bad_request` |
 | `ask_meetings` | `question`, `space?`, `meeting_path?`, `folder?`, `person?`, `company?` | `{ answer, citations: [{ space, path, line, text }] }` (the Meetings chat) |
+| `get_agent_brief` | — | `{ generated, basedOn: { meetings, tasks }, brief, corrections }` (§13), or `{ brief: null, message }` when there is nothing to write from; the first call writes it |
 
-Team chat is not exposed yet (follow-up).
+More tools (2026-11-12), each in its own module under `apps/server/src/mcp/tools/`:
+
+| Tool | Input | Output |
+| --- | --- | --- |
+| `move_file` | `space`, `from`, `to`, `to_space?` | Within a space: `GitStore.move` with links into it rewritten and a meeting note's transcript following (the `/move` route's own helpers). Across spaces only personal → team, files only, as Share to team: both targets must be free first (`conflict`, nothing moved), then `moveAcrossSpaces` for the note and its transcript; a failure after the first reports what moved. A transcript follows only when it is a writable file beside the note (`besideNote`, also used by the web routes). `{ space, path, oid }` or `{ space, path, moved }` |
+| `delete_file` | `space`, `path` | `moveToTrash`, as `DELETE /file` (transcript follows): `{ space, path, oid, trashed }` |
+| `file_history` | `space`, `path?`, `limit?` (default 20, max 200) | `GitStore.log` (`--follow` with a path) |
+| `restore_file` | `space`, `path`, `oid` | the `/restore` route's `restore()`; a conflict is a tool error |
+| `list_clips` | `query?` (≤ 200), `from?`, `to?`, `mine?`, `limit?` (default 25) | `Clips.list` (`team` scope unless `mine`; dates filtered in SQL): what the Clips page lists, never another member's recording in progress. Metadata, summary and the page URL; no video or signed media URLs |
+| `get_clip` | `id` | `Clips.get` plus the transcript as `[m:ss] text` lines |
+| `list_events` | `from?`, `to?` (default the next 24 h; at most 62 days, and with the sync on, within its window of 30 days back to 15 ahead, else `bad_request`), `limit?` | `meetings.calendar.upcoming(principal, …)` after a `refresh` (max age 60 s): the caller's own calendar only. Each event carries `note`, the meeting note whose `calendar_event_id` is the event's (`meetingNotesByEvent`, own space first) |
+| `get_event` | `id`, `around?` | the same, searched ±1 day around `around` or across the synced window (30 days back, 15 ahead), with `description` |
+
+Move, delete and restore commits carry the `Hearth-Via` trailer: `GitStore.move` and `moveAcrossSpaces` take `{ via }`. The server instructions tell the model how to prepare a meeting: `get_event`, `get_agent_brief`, `list_meetings` by attendee, `get_meeting`, `list_tasks`.
+
+Acme Chat is not exposed yet (follow-up).
 
 ### 8.3 Tests
 
@@ -650,12 +695,23 @@ export function cleanTranscript(llm, model, input): Promise<{ text, cleaned }>
 //   Never fails a dictation: an LLM error, no answer within 15 s, an answer without <cleaned> tags, or one longer than
 //   1.6 × the transcript + 80 characters (it answered instead of cleaning) returns the raw transcript with cleaned: false.
 //   An empty transcript skips the model. In production it has its own Anthropic client with no SDK retries.
+export function skipsCleanup(raw): boolean
+//   A plain dictation skips the model: at most 40 words of English (other languages, by the request's `language` or a
+//   non-ASCII letter, keep a 3-word limit, since the cues are English; Chinese, Japanese and Thai count two characters
+//   a word) with no filler, self-correction ("no, wait", "make that", "or rather", "never mind"…, punctuation allowed
+//   between the words as Deepgram writes them), spoken formatting or symbol ("dash", "dot com"…), list cue ("first",
+//   "number one"…) or repeated word ("the, the"). It is
+//   pasted as Deepgram punctuated it, with dictionary spellings and the chat no-trailing-period rule applied in code
+//   (`tidyShort`). On Ada's dictations the model was ~80% of the wait (0.7–1.8 s of 0.9–2.1 s key-up to text).
+// Dictation.speculate(principal, transcript, context) → { transcript, result } | null starts a cleanup before key-up;
+//   Dictation.finish(…, speculation) uses it when the final transcript is the same, else cleans afresh. The timing line
+//   adds "skipped" and "speculated".
 export class DictationStore   // DATA_DIR/dictation.sqlite: its own file, not the index, which may be deleted and rebuilt
 //   dictation_devices (id, user_id, email, name, token_hash sha256, created_at, last_used_at, revoked_at); tokens are
 //   `hdt_` + 32 random bytes base64url, shown once; at most 20 live devices a member. Devices and personal words are keyed
 //   by user id, not email, which can change.
 //   dictation_words (scope 'team' | user id, word, position); lists of at most 200 words of at most 60 characters, deduplicated
-//   case-insensitively; the team list is seeded with Hotsauce, Clerk, Deepgram, Anthropic, Claude.
+//   case-insensitively; the team list is seeded with Acme, AcmeBioLab, Hearth, Ember, Granola, Clerk, Deepgram, Anthropic, Claude.
 export class Dictation { dictate(principal, { audio, mimeType, mode, appName?, appBundle?, language? }): Promise<DictateResult> }
 //   30 a minute per member (rate_limited 429); ≤ 15 MB (413); a WAV over 10 minutes is 413 before any paid call. Keyterms are
 //   the member's words then the team's (≤ 100). mode=literal skips the model.
@@ -682,13 +738,13 @@ WS     /ws/dictation                 first message { type: 'start', token: hdt_�
                                      and close 1000; { type: 'cancel' } closes; failures are { type: 'error', code, message } and close 4401 / 4403 / 4429 / 4500
 ```
 
-The stream (`dictation/socket.ts`) uses the Meetings streaming `Transcriber` (Deepgram nova-3 over a WebSocket, keyterms as vocabulary), holds audio sent before Deepgram is ready (up to 30 s), refuses past 10 minutes, counts against the same 30 a minute, and on `finish` waits for Deepgram's last finals, then runs the same `Dictation.finish` as the upload (`asrMs` is then the wait after key-up, and the timing line says `"via":"stream"`). Measured on a Mac against a local server with real Deepgram, key-up to transcript went from 0.6–0.8 s (upload) to 0.1–0.17 s (stream). The Mac opens the stream on key-down and streams converted audio as it records, keeps the recording, and uploads it to `/transcribe` if the stream fails in any way, so streaming can only make a dictation faster.
+The stream (`dictation/socket.ts`) uses the Meetings streaming `Transcriber` (Deepgram nova-3 over a WebSocket, keyterms as vocabulary), holds audio sent before Deepgram is ready (up to 30 s), refuses past 10 minutes, counts against the same 30 a minute, and on `finish` waits for Deepgram's last finals, then runs the same `Dictation.finish` as the upload (`asrMs` is then the wait after key-up, and the timing line says `"via":"stream"`). While the member speaks, 300 ms after Deepgram's latest final words with nothing newer, the stream starts a speculative cleanup of the transcript so far (`Dictation.speculate`); a member who pauses before letting go finds it ready at key-up, and newer words simply replace it. One runs at a time (a pause during one is taken up when it returns) and at most four per dictation. Measured on a Mac against a local server with real Deepgram, key-up to transcript went from 0.6–0.8 s (upload) to 0.1–0.17 s (stream). The Mac opens the stream on key-down and streams converted audio as it records, keeps the recording, and uploads it to `/transcribe` if the stream fails in any way, so streaming can only make a dictation faster.
 
 Device tokens: `Authorization: Bearer hdt_…` is recognised in `authenticate` before Clerk and is accepted for `POST /transcribe`, `GET` and `PUT /words` (the Mac app's Dictionary page) and `DELETE /devices/self` only; any other request carrying one is 401, whatever else it carries. Each use re-checks the member through `Authenticator.principalForUser` (Clerk's user cache and domain lock; dev auth checks the domain): a deleted account is 401 and a refused domain 403, and both revoke all that member's devices. The body limit is 15 MB for `/transcribe`, 12 MB elsewhere. Neither the audio nor the text is logged or stored.
 
 ### 9.3 Web (`apps/web/src/apps/dictate/`)
 
-`/dictate` is the third app in the switch. Download for Mac (`/downloads/HearthDictate.dmg`; the zip stays as a fallback), first-install steps for Gatekeeper (Done → Privacy & Security → Open Anyway, with a button to that pane), Connect this Mac (`POST /devices`, then `hearth-dictate://connect?token=…&server=<origin>`, with the same link shown as a code to paste if the app isn't installed), connected Macs with Disconnect, and My words / Team words editors.
+`/dictate` is the third app in the switch. Download for Mac (`/downloads/Hearth.dmg`; the zip stays as a fallback; the image also serves both under their pre-0.3 names, `HearthDictate.*`, for old links), first-install steps for Gatekeeper (Done → Privacy & Security → Open Anyway, with a button to that pane), Connect this Mac (`POST /devices`, then `hearth-dictate://connect?token=…&server=<origin>`, with the same link shown as a code to paste if the app isn't installed), connected Macs with Disconnect, and My words / Team words editors.
 
 ### 9.4 Mac app (`apps/dictate-mac/`)
 
@@ -696,13 +752,15 @@ Swift package, macOS 14+, built with the Command Line Tools alone. `DictateCore`
 
 The main window (`MainWindow.swift`, SwiftUI `NavigationSplitView` in Hearth's colours) opens when the member launches the app (not as a login item), on reopen once set up, and from the menu: Dictations (7 days / 30 days / all: total words; time saved = words ÷ 40 wpm − speaking time, never negative; words per minute of speech; top apps with their icons; the month's activity grid; recent dictations, searchable, with Copy and Paste), Dictionary (both word lists over `GET`/`PUT /words`), Settings (open at login, meeting reminders, the suite's server; hotkey, mode, live permission rows, account and Disconnect, history retention and Clear). Since 0.2.0 it opens from ⌘, (Settings) and the app menu's Dictate…, not at launch. The Command Line Tools' SwiftUI has no `@State` (its macro plugin ships with Xcode), so view state lives on the model. `HearthDictate --render-previews <folder> [--dark]` draws each page with made-up history held in memory, for checking the design without screen access.
 
-`scripts/build-app.sh` builds a universal binary, writes Info.plist (`dev.hotsauce.dictate`, the name from `Brand.swift`, the microphone and camera strings, the `hearth-dictate` and `hearth` URL schemes; the camera entitlement), signs it, and writes `release/HearthDictate.dmg` (the app beside an Applications link) and `release/HearthDictate.zip`, both committed: the Linux Docker build copies them to `/downloads/`. Signing, in order: a Developer ID identity (hardened runtime, timestamp); `Hotsauce Local Code Signing`, a self-signed identity that `scripts/create-signing-identity.sh` creates once in the build Mac's login keychain (hardened runtime), so every build has the same designated requirement and macOS keeps Microphone and Accessibility across updates; else ad hoc, which changes with every build and makes members grant Accessibility again. Recreating the identity (a new build Mac) is running that script again; members then re-grant once.
+`scripts/build-app.sh` builds a universal binary, writes Info.plist (`dev.hotsauce.dictate`, the name from `Brand.swift`, the microphone and camera strings, the `hearth-dictate` and `hearth` URL schemes; the camera entitlement), signs it, and writes `release/Hearth.dmg` (the app beside an Applications link) and `release/Hearth.zip`, both committed: the Linux Docker build copies them to `/downloads/`. Signing, in order: a Developer ID identity (hardened runtime, timestamp); `Hotsauce Local Code Signing`, a self-signed identity that `scripts/create-signing-identity.sh` creates once in the build Mac's login keychain (hardened runtime), so every build has the same designated requirement and macOS keeps Microphone and Accessibility across updates; else ad hoc, which changes with every build and makes members grant Accessibility again. Recreating the identity (a new build Mac) is running that script again; members then re-grant once.
 
-Opening the app while it runs (`applicationShouldHandleReopen`) shows the suite window. The setup window opens at launch until it has been closed once; it says what's missing in one line (microphone, Accessibility, the key tap, the connection) and names the connected account. The menu bar icon has a fixed autosave name (`HearthDictate`), starts near the right edge beside Control Center (`NSStatusItem Preferred Position HearthDictate` = 120 when unset) instead of the left end where a MacBook's notch hides new icons, can't be dragged out, and follows a Show in menu bar setting; when it is on but not on screen (occluded, off-screen, or not allowed in System Settings → Menu Bar) Settings and the setup window say so and link to the Menu Bar settings. Every 2 s the app re-checks the permissions, restarts or re-enables the key tap, updates the menu bar icon, and writes what it sees to `status.*` in its defaults (including `status.menuBarIconShown`) (`defaults read dev.hotsauce.dictate`) for diagnosis. If Accessibility is on but the tap still can't start, the window offers Quit and reopen. `HearthDictate.app/Contents/MacOS/HearthDictate --transcribe-file <path> [--literal] [--app-name N] [--app-bundle B] [--server URL]` runs the same upload with `HEARTH_DICTATE_TOKEN` (never the saved connection) and prints the JSON, for end-to-end tests.
+Opening the app while it runs (`applicationShouldHandleReopen`) shows the suite window. The setup window opens at launch until it has been closed once; it says what's missing in one line (microphone, Accessibility, the key tap, the connection) and names the connected account. The menu bar icon has a fixed autosave name (`HearthDictate`), starts near the right edge beside Control Center (`NSStatusItem Preferred Position HearthDictate` = 120 when unset) instead of the left end where a MacBook's notch hides new icons, can't be dragged out, and follows a Show in menu bar setting; when it is on but not on screen (occluded, off-screen, or not allowed in System Settings → Menu Bar) Settings and the setup window say so and link to the Menu Bar settings. Every 2 s the app re-checks the permissions, restarts or re-enables the key tap, updates the menu bar icon, and writes what it sees to `status.*` in its defaults (including `status.menuBarIconShown`) (`defaults read dev.hotsauce.dictate`) for diagnosis. If Accessibility is on but the tap still can't start, the window offers Quit and reopen. `Hearth.app/Contents/MacOS/Hearth --transcribe-file <path> [--literal] [--app-name N] [--app-bundle B] [--server URL]` runs the same upload with `HEARTH_DICTATE_TOKEN` (never the saved connection) and prints the JSON, for end-to-end tests.
 
 ### 9.4.1 The suite window (0.2.0, plan `docs/plans/2026-11-11-mac-app.md`)
 
-The app is a Dock app (`.regular`, no LSUIElement) whose main window (`SuiteWindow.swift`) is the whole web suite in a `WKWebView`: the default persistent `WKWebsiteDataStore`, so the Clerk session survives relaunch; `applicationNameForUserAgent` Safari's version string, so the user agent is exactly Safari's and Google's sign-in page accepts it. Closing the window hides it: the page keeps its session, a recording, and the reminders' calls. `SuiteRouter` (`DictateCore`, tested) decides each navigation: the server's origin and sign-in hosts (`accounts.google.com`, `clerk.`/`accounts.` + the server's host, `*.clerk.accounts.dev`, `clerk.com`) stay in the window; a clicked link or a new window elsewhere goes to the default browser; other schemes (mailto, `hearth-dictate://connect` from the Dictate page) to their app; redirects and iframes elsewhere load (sign-in hops through hosts that can't be listed). A new window on the suite loads in the main window. Downloads: a response WebKit can't show or marked `attachment` becomes a `WKDownload` to `~/Downloads` (`DownloadName.unique`, `name 2.ext`, never outside the folder); a click on `a[download]` with an http(s) href is caught by a user script and downloaded natively, because WebKit ignores the attribute on another origin's link (a clip's presigned storage URL). Uploads use the open panel; `alert`/`confirm`/`prompt` are sheets; camera and microphone requests from the server's origin are granted (macOS asks once per app; the camera entitlement and usage string are in the bundle), others are prompted. Menus: App (Settings… ⌘,, Dictate…), File (Close ⌘W), Edit, View (Reload ⌘R, zoom, full screen), Go (Back ⌘[, Forward ⌘], Home ⇧⌘H, the rail's apps on ⌘1–⌘5 from `Brand.railShortcuts`), Window. Opening a path while the page is on the suite uses `history.pushState` + `popstate`, so React Router changes route without reloading (an open recording survives); otherwise it loads the URL. A failed load shows a small page with Try again.
+The app is a Dock app (`.regular`, no LSUIElement) whose main window (`SuiteWindow.swift`) is the whole web suite in a `WKWebView`: the default persistent `WKWebsiteDataStore`, so the Clerk session survives relaunch; `applicationNameForUserAgent` Safari's version string, so the user agent is exactly Safari's and Google's sign-in page accepts it. Closing the window hides it: the page keeps its session, a recording, and the reminders' calls. `SuiteRouter` (`DictateCore`, tested) decides each navigation: the server's origin stays in the window; a page elsewhere, clicked or not, goes to the default browser (iframes load where they are); mailto/tel go to their apps on a click; the app's own schemes (`hearth-dictate://connect` from the Dictate page, `hearth://`) come back to the app; every other scheme (`file:`, other apps') is refused. Sign-in hosts (`accounts.google.com`, `clerk.`/`accounts.` + the server's host, `*.clerk.accounts.dev`, `clerk.com`) never load in the window: they start the browser sign-in below. A new window on the suite loads in the main window. Downloads: a response WebKit can't show or marked `attachment` becomes a `WKDownload` to `~/Downloads` (`DownloadName.unique`, `name 2.ext`, never outside the folder); a click on `a[download]` with an http(s) href is caught by a user script and downloaded natively, because WebKit ignores the attribute on another origin's link (a clip's presigned storage URL). Uploads use the open panel; `alert`/`confirm`/`prompt` are sheets; camera and microphone requests from the server's origin are granted (macOS asks once per app; the camera entitlement and usage string are in the bundle), others are prompted. Menus: App (Settings… ⌘,, Dictate…), File (Close ⌘W), Edit, View (Reload ⌘R, zoom, full screen), Go (Back ⌘[, Forward ⌘], Home ⇧⌘H, the rail's apps on ⌘1–⌘5 from `Brand.railShortcuts`), Window. Opening a path while the page is on the suite uses `history.pushState` + `popstate`, so React Router changes route without reloading (an open recording survives); otherwise it loads the URL. A failed load shows a small page with Try again.
+
+Sign-in through the browser (Google refuses to sign in inside an app's web view): in the app, the web sign-in page sees the `hearthSignIn` script bridge and shows "Sign in with your browser" instead of Google. The app makes a random 32-byte state (`DictateCore/BrowserSignIn`) and opens `<server>/desktop/connect?state=…` in the default browser. That page (signed out → `/sign-in`, which now returns to where it was going) asks "Sign in to Hearth on this Mac as <email>?"; only on that click does it call `POST /api/desktop/ticket`, which needs a signed-in session (`sessionOnly`: never an access token; device tokens never reach it) and returns a Clerk sign-in token for that member, single use, 60 s (`signInTokens.createSignInToken`; dev auth's ticket is `dev:<email>`), `Cache-Control: no-store`. The page opens `hearth://auth/callback?state=…&ticket=…`; the app accepts it only if the state is the one it started in the last 10 minutes (a link from anywhere else gets an alert), then opens `<server>/desktop/finish`, which asks the app for the ticket over a reply bridge (`hearthTicket`: suite origin, main frame, that path only, once, within 60 s) and redeems it with `signIn.create({ strategy: 'ticket' })` + `setActive`, then opens Docs. The ticket is never in a URL, so a link to the finish page (a doc, another site) signs nothing in, and deep links and shortcuts refuse `/desktop/*` paths. Residual: another local app that registers `hearth://` could receive a callback and redeem its ticket within 60 s; that needs malware already on the Mac, so the state check is the only binding (no PKCE). The window's own Clerk session then persists like any other.
 
 Deep links: `hearth://<path>` (scheme from `Brand.urlScheme`) and `hearth-dictate://open?path=/x` open that path, only ever on the configured server (`SuiteRouter.url(forPath:)` refuses full URLs and `//host`). The server is Settings' value, else the server Dictate is connected to, else office.example.com.
 
@@ -710,7 +768,9 @@ Meeting reminders (`Reminders.swift`, rule in `DictateCore.ReminderPlanner`): ev
 
 Brand: `DictateCore/Brand.swift` holds the display name (`Hearth`), accent, URL scheme and rail shortcuts; the build script reads the name and scheme from it. The server has no brand endpoint. Strings that existed before 0.2.0 ("Hearth Dictate" for the dictation feature) are unchanged, except where they name the app in System Settings.
 
-`HearthDictate --self-test <server> <folder> [--sign-in-dev <email>] [--remind] [--try-google]` drives the real suite window (shown on screen, since WebKit doesn't paint a hidden one) and writes `result.json` and PNG snapshots: storage and a cookie left by the previous run, an in-place route change, the reminders' API call and planner, Start opened from a reminder, a deep link, the media APIs the page sees, and Google's sign-in page. Run it from the installed app, with the app quit.
+`Hearth --self-test <server> <folder> [--sign-in-dev <email>] [--remind] [--try-google]` drives the real suite window (shown on screen, since WebKit doesn't paint a hidden one) and writes `result.json` and PNG snapshots: storage and a cookie left by the previous run, an in-place route change, the reminders' API call and planner, Start opened from a reminder, a deep link, the media APIs the page sees, and Google's sign-in page. Run it from the installed app, with the app quit.
+
+**Name and icons (0.3.0):** the bundle is `<Brand.name>.app` ("Hearth.app") with executable `Hearth`; the bundle id and signing identity are unchanged, so the designated requirement (`identifier "dev.hotsauce.dictate" and certificate root = …`) and with it Microphone and Accessibility carry over the rename (checked on Ada's Mac). On launch from an Applications folder, an old `HearthDictate.app` with the same bundle id goes to the Trash (it would otherwise still show in Spotlight and could answer `hearth://` links), and Open at login is registered again when the app's path changed. Internal names stay: the data folder `~/Library/Application Support/HearthDictate`, the menu bar autosave name, the SwiftPM product. The app icon and the menu bar icon are the Hearth mark from `apps/web/public/favicon.svg`, drawn in `HearthMark.swift`; `Hearth --render-app-icon <dir>/AppIcon.iconset` writes the iconset for `Resources/AppIcon.icns` (`iconutil -c icns`). In the menu bar the mark is a template image: dimmed until Dictate is connected and listening, ember while it records, orange while it writes up, a warning triangle on an error.
 
 ### 9.5 Tests
 
@@ -775,7 +835,7 @@ Server unit: store (patches, listing rules, reopen), Deepgram URL and mapping, t
 
 ## 11. Organizations: setup, brand kit, bring-your-own keys (Hotsauce)
 
-One instance serves one organization. Everything an organization chooses lives under `<DATA_DIR>/org/` on the volume, and the real environment always wins over it, so an instance configured entirely by env behaves exactly as it would without the wizard.
+One instance serves one organization. Everything an organization chooses lives under `<DATA_DIR>/org/` on the volume, and the real environment always wins over it, so an instance configured entirely by env behaves exactly as before.
 
 | File | What |
 |---|---|
@@ -803,3 +863,418 @@ One instance serves one organization. Everything an organization chooses lives u
 ### 11.3 Brand kit
 
 `GET /api/org/brand` (public, so the sign-in page is branded) returns colors, neutral, font pair (`FONT_CHOICES`, all Google Fonts), default theme, logo and icon URLs and the writing voice. `GET /api/org/assets/{logo|mark}` serves SVG/PNG/JPEG/WebP up to 1 MB with `Content-Security-Policy: sandbox` and `nosniff`. The web app's root loader (`brand/boot.ts`) applies it with `applyBrand`: a `<style>` that sets `--brand-primary`/`--brand-accent` and points `--ember`, `--ember-strong`, `--ember-wash`, `--glow`, `--focus-ring`, the paper and ink tokens (for cool or gray neutrals) and `--type-display`/`--type-ui` at it, in light and dark. The default brand emits nothing. Agents read it with the MCP tool `get_brand`. The product name comes from `/api/health` (`brand/product.ts`, cached in `localStorage`); the server rewrites `manifest.webmanifest` with it.
+
+### 11.4 Running on Cloudflare (Hotsauce)
+
+Plan and requirements: `docs/PLAN-cloudflare-deploy.md`. The Worker in `apps/cloudflare/` (root `wrangler.jsonc`) runs the unchanged Docker image as one Cloudflare Container (`HotsauceServer`, a Durable Object named `main`) and passes every request, WebSockets included, to it. It remembers the first visit's origin and gives the container `PUBLIC_URL`, `HOTSAUCE_PLATFORM=cloudflare` and `STATE_URL=http://state.hotsauce`, plus every uppercase string variable or secret of the Worker. Always on: `onActivityExpired` renews unless `HOTSAUCE_SLEEP` is true, and a `*/5` cron starts it again after a crash.
+
+**State mirror** (`apps/server/src/state/`). The container's disk is wiped on every restart. With `STATE_URL` set, `main.ts` restores every stored file under `DATA_DIR` before any store opens (a local file wins), then pushes changes every `STATE_SYNC_MS` (15 s) and on shutdown, including the exit-75 restart. The store speaks four routes (`GET /list`, `GET|PUT|DELETE /o/<key>`); on Cloudflare the container's requests to `state.hotsauce` are answered by the Worker's outbound intercept from the R2 binding under `state/`, so no keys live in the container. Mirrored: everything except what rebuilds or is temporary (`repos/`, `index.sqlite`, WAL/SHM, `*.tmp`, Clips and Files uploads in progress, Clips work, kept audio and local Files bytes, PCM under `sessions/`). SQLite files are copied with the backup API. A new feature's files are covered without changes as long as they live under `DATA_DIR`.
+
+`HOTSAUCE_SETUP_TOKEN` (12+ characters) replaces the generated setup token, so the Deploy button can ask for it. Without `VAPID_*`, push keys are generated once into `DATA_DIR/push/vapid.json`. With `HOTSAUCE_PLATFORM=cloudflare`, the wizard hides "On this server" storage and finishing requires GitHub repos and R2 media.
+
+**Updates.** `HOTSAUCE_VERSION` names the release a copy has; `scripts/update-hotsauce.mjs` (run weekly by `.github/workflows/update-hotsauce.yml`) three-way applies the diff between that tag and the newest upstream tag on a branch and opens a PR, or an issue on conflict. `deploy-fly.yml` deploys main when `vars.FLY_APP` is set. Both skip Hotsauce's own repo.
+
+## 12. Hearth Tasks
+
+A Todoist-style task list for the team. Plan and decisions: Ada chose on 2026-11-11 to build it inside Hearth (not to sync with Todoist), with a one-time import from Todoist, Ramble-style voice capture, and the open action items from meetings shown alongside. Git is truth: **one task is one Markdown file**, so tasks are searchable, readable by agents, versioned, and survive a reindex. The pure parts (file format, quick-add parser, recurrence, dates) are in `@hearth/format` (`packages/format/src/tasks.ts`), shared by the server and the web app; read that file, it is part of this contract.
+
+### 12.1 The file
+
+`tasks/<ID>.md` (ULID, `taskPath(id)`), in the team space (visible to every member) or the member's personal space (only them). Frontmatter is `TaskFrontmatter`; the body is the task's notes (Markdown, may be empty). Written with `newTaskFile()` and changed only with `patchFrontmatter()` (never re-serialized), so hand edits survive.
+
+```yaml
+id: 01J...            # ULID, same as the file name
+type: task
+title: Call Sam       # one line
+status: open          # open | done
+priority: 1           # 1 (p1, most urgent) .. 3; absent = 4 (none)
+due: 2026-11-13T15:00 # YYYY-MM-DD, or YYYY-MM-DDTHH:mm wall time in `tz`
+tz: America/New_York  # only with a timed due
+recur: every friday   # normalized rule (normalizeRecurrence); the due date moves on completion
+project: Ops          # free text; a project is the set of tasks naming it, per space
+labels: [calls]
+assignee: alex@acmebiolab.com   # lowercase email; absent = unassigned
+created: 2026-11-11T12:00:00Z
+created_by: ada@acmebiolab.com
+completed: 2026-11-12T09:00:00Z  # when status is done
+completed_by: ada@acmebiolab.com
+order: 1700          # manual order within a list, lower first; absent sorts after, by created
+source: { kind: meeting, space: team, path: meetings/2026/11/....md, line: 14, text: "Send deck" }
+        # kind: manual | meeting | voice | import | mcp; import adds from: todoist, ref: <todoist id>
+```
+
+Rules:
+- A task assigned to anyone but its creator lives in the team space (a personal space is invisible to others); the API refuses (`bad_request`) an assignee other than the caller on a personal task.
+- **Mine** = in my personal space, or in the team space with `assignee` = me, or in the team space unassigned with `created_by` = me.
+- Completing a recurring task doesn't close it: `due` moves to `nextDue(recur, due, today)` (today in the request's `tz`), the time of day kept, and the commit records the completion (`tasks: complete "<title>"`). Completing a non-recurring one sets `status: done`, `completed`, `completed_by`. Reopen clears those two keys.
+- Index: `kindOf()` returns `task` for any `.md` under `tasks/` (a new `FileKind`), via a migration that sets `kind = 'task'` for `tasks/%` and forgets sync points. Task lists come from `Index.listFiles({ space, kind: 'task' })` frontmatter; no git reads to list. Full-text search sees title and notes (`kinds` filter `task`).
+- Commit messages: `tasks: create|edit|complete|reopen|delete|move "<title>"`, `tasks: import <n> from Todoist`. Authored by the member; MCP adds `Hearth-Via` like other writes.
+- Every write is read → `patchFrontmatter` → `git.commit` with `unchanged: { path, blobOid }`, retried up to 3 times by re-reading and re-applying the same field patch on `conflict` (like `completeActionItem`), so two members editing different fields never lose each other's change and there are no conflict branches for tasks. A file missing at HEAD fails the `unchanged` guard too (`GitStore.commit`), so a stale write never brings back a task deleted or moved meanwhile: the retry's re-read answers 404 `not_found`. A client may send `baseBlobOid` only to be told (409) that the title or notes it is overwriting changed; field patches don't need it.
+
+### 12.2 Server (`apps/server/src/tasks/`)
+
+```ts
+export interface TaskView {
+  space: string; path: string; id: string; blobOid: string
+  title: string; notes: string; status: 'open' | 'done'
+  priority: 1 | 2 | 3 | 4; due: string | null; tz: string | null
+  dueAt: string | null      // ISO instant of a timed due (dueInstant), else null
+  recur: string | null; project: string | null; labels: string[]
+  assignee: string | null; createdBy: string; created: string
+  completed: string | null; completedBy: string | null
+  order: number | null; source: TaskSource | null
+  mine: boolean             // per the rule above, for the caller
+}
+export class Tasks {
+  constructor(deps: { git, index, spaces, syncer, now?: () => Date })
+  list(principal, filter: TaskFilter): Promise<TaskView[]>    // from the index; notes from the index's stored body (Index.bodies), for the returned tasks only (≤ 500); no Git reads
+  get(principal, space, id): Promise<TaskView>
+  create(principal, input: TaskInput & { space?: string }, via?): Promise<TaskView>   // space default: team if assignee is someone else, else personal
+  quickAdd(principal, { text, tz, space?, project? }, via?): Promise<TaskView>         // parseQuickAdd + resolve +assignee
+  update(principal, space, id, patch: Partial<TaskInput>, via?): Promise<TaskView>
+  complete(principal, space, id, { tz }, via?): Promise<TaskView>
+  reopen(principal, space, id, via?): Promise<TaskView>
+  remove(principal, space, id, via?): Promise<void>            // to .trash like DELETE /file
+  move(principal, space, id, toSpace, via?): Promise<TaskView> // one commit per space: create in toSpace, then trash
+  people(principal): Array<{ email, name, handle }>             // members: owners of personal spaces in the registry, plus the caller
+}
+TaskFilter = { status?: 'open' | 'done' | 'all' (default open); mine?: boolean; project?: string; space?: string;
+               dueBefore?: string /* YYYY-MM-DD inclusive */; dueAfter?: string /* YYYY-MM-DD inclusive */;
+               dueAtAfter?: string; dueAtUntil?: string /* ISO, (after, until]: timed tasks only; reminders */; doneSince?: string /* ISO */; q?: string; limit?: number (≤ 500, default 500) }
+TaskInput = { title, notes?, priority?, due? (YYYY-MM-DD[THH:mm] | null to clear), tz?, recur? (any rule parseRecurrence accepts, null clears),
+              project? (null clears), labels?, assignee? (email or handle, null clears), order?, source? }
+```
+
+- `+handle` and assignee handles resolve against `people()` (email local part, then the email itself); unknown is `bad_request` "No member called …".
+- `tz` must be an IANA zone (`assertTimeZone`); a timed due without one uses the request's `tz`.
+- Sorting for `list`: open tasks by (due date ascending, nulls last; then time; then priority; then order; then created); done tasks by `completed` newest first.
+- Meeting action items: when a task with `source.kind = 'meeting'` is completed, the server also ticks that line with `completeActionItem` (best effort: a `conflict` because the note moved on is logged and ignored). Reopening a non-recurring one unticks it the same way (`reopenActionItem`, `- [x]` back to `- [ ]` when that line still holds the item, ticked; commit `meetings: reopen "<text>"`). `GET /api/tasks/from-meetings` is `listActionItems` minus items that already have a task (any visible task whose `source` names the same space, path and text).
+- Reminders (`tasks/reminders.ts`, `TaskReminders`): reuses the Meetings `ReminderStore` subscribers and `PushSender` (a member who turned on meeting reminders gets task reminders too). Every 30 s, for each subscribed member: open tasks that are **mine**, timed, with `dueAt` in `(now − 10 min, now + 30 s]` (filtered in `list` with `dueAtAfter`/`dueAtUntil`, before its 500 limit), not sent before (key `task <email> <id> <dueAt>`, `markSent`), payload `{ title: "Due now: <title>", body: project or "Hearth Tasks", url: "/tasks/today", tag: "task-<id>" }`. Started next to `meetings.reminders` in `main.ts` when a sender exists.
+- Ramble (`tasks/ramble.ts`): `ramble(principal, { audio, mimeType, tz })` → the Dictate transcriber (`deps.dictation`'s `DictationTranscriber`, same keyterms) → `TASKS_MODEL` (default `claude-haiku-5-5`, config) with the transcript in `<ramble>`, today's date and weekday, and the member's project names in `<projects>`; it answers one quick-add line per task inside `<tasks>`…`</tasks>` (no other prose). Each line is parsed with `parseQuickAdd`. Returns `{ transcript, tasks: ParsedTask[] }` and saves nothing. ≤ 15 MB, ≤ 10 minutes, the same per-member rate limit as Dictate (30 a minute). The fake LLM (`scriptedResponse`) answers a `<ramble>` prompt with one line per sentence of the transcript (split on a `.` followed by a space or the end, so "1.5" stays whole; `;`; " and then "; " also "). An LLM failure (or an answer without `<tasks>`) returns the transcript split into sentences the same way (`rambleLines`), one task line each, cut at 200 characters.
+- Todoist import (`tasks/todoist.ts`): `importTodoist(principal, { token } | { csv, projectName })` into the member's personal space, one commit. API: `https://api.todoist.com/api/v1/` `projects`, `sections`, `labels`, `tasks` (cursor-paginated: `results`, `next_cursor`), `Authorization: Bearer <token>`, 30 s timeout per request; the token is never logged, stored or returned. Mapping: content → title, description → notes, priority (API 4 = p1 … 1 = p4) → priority, `due.date`/`due.datetime` (+ `due.timezone`) → due/tz, `due.is_recurring` with `due.string` → `recur` if `normalizeRecurrence` accepts it (else the string is appended to the notes as "Repeats: …"), project name → project (Inbox → none), section name → a label, labels → labels, sub-tasks → their own tasks with "Sub-task of: <parent title>" as the first notes line, `id` → `source { kind: import, from: todoist, ref }`. Already-imported refs (a task with that `from`/`ref` in the member's personal space, or one they created; a teammate's import of the same rows doesn't count) are skipped, so a second import only adds new ones. CSV: Todoist's export columns (`TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,AUTHOR,RESPONSIBLE,DATE,DATE_LANG,TIMEZONE,…`), rows with `TYPE=task`, `PRIORITY` 1 = p1, `section` rows become a label on the tasks after them, `DATE` parsed with `parseQuickAdd(DATE, today)` (dates and "every …"), `projectName` from the file name. At most 5000 tasks an import. Result `{ imported, skipped, projects: string[] }`.
+
+As built (server, 2026-11-11). Where the contract above left a choice open, the server does this:
+- Listing reads no Git: frontmatter from `Index.listFiles`, notes from `Index.bodies(space, paths)` (the indexed text after the frontmatter, minus the blank line Hearth writes and trailing space). A file under `tasks/` that isn't named `tasks/<ULID>.md`, or whose frontmatter doesn't parse as `TaskFrontmatter`, is indexed (kind `task`, searchable) but left out of task lists. `get` and every write read Git.
+- Sorting: on the same due date a date-only task comes before a timed one; a task with no `order` sorts after those with one; the last tie-break is the id.
+- Filters: `project: ''` means tasks with no project (the Inbox); `mine: false` is no filter; `doneSince` drops only done tasks completed before it (open tasks pass); `q` is the index's full-text search over title and notes (kind `task`, best 100 matches).
+- `tz` on PATCH is the member's zone: their today, and the zone of a timed `due` sent with it (a patch without `tz` uses the task's own zone, else UTC). It becomes the task's `tz` only when the patch sets a timed `due`, or the task already has a timed `due` with no `tz`; otherwise it changes nothing. The web sends the member's zone on every PATCH and completion; the `t`/`m` shortcuts and the detail's time field send a timed task's own `tz` to keep it. A `recur` with no due date (in the patch or on the task) sets `due` to `firstOccurrence(recur, today)`.
+- `baseBlobOid` (PATCH): 409 only when the patch sets `title` or `notes` and that field differs between the version at `baseBlobOid` (read with `GitStore.readBlobText`) and the current one; field patches never 409.
+- Completing a done task, or reopening an open one, commits nothing and returns the task. The meeting line is ticked after every completion commit (a recurring task's first one included), only when the member can access the note's space; any failure is logged and ignored.
+- `remove` is one commit that adds `.trash/<YYYY-MM-DD>/tasks/<id>.md` (or `.trash/<YYYY-MM-DD>-<id8>/…` when that exists) and removes the task, message `tasks: delete "<title>"`, guarded and retried like other writes. `move` commits `tasks: move "<title>"` in both spaces (the copy first, then the trash); a task with that id already in the target is 409; into a personal space with someone else as assignee is 400; if the task changed between the copy and the trash, the copy is rewritten and the trash retried.
+- `people()` names members other than the caller from their email (`nameFromEmail`), sorted by name. `projects()` lists team projects first, then by name. `source` is left out when the client sends none; MCP `add_task` writes `{ kind: mcp }`.
+- Ramble: `Dictation.hear(principal, { audio, mimeType })` is the Dictate path without cleanup (rate limit, 15 MB, 10-minute WAV check, keyterms). An empty transcript returns `{ transcript: '', tasks: [] }` with no model call; the model gets 30 s; at most 50 tasks are returned. `tz` defaults to UTC when the query leaves it out; the accepted types are Dictate's (`audio/wav`, `audio/x-wav`, `audio/wave`, `audio/mp4`, `audio/webm`, parameters ignored).
+- Todoist: the `labels` endpoint isn't fetched (a task's `labels` already carry names). The import body takes an optional `tz` (default UTC): a floating time is wall time in `due.timezone`, else that `tz`; a time with `Z` or an offset is converted into that zone; CSV `DATE` is parsed with today in it. Todoist answering 401/403 is 400 `bad_request` ("Todoist didn't accept that API token"); other failures and timeouts are `host_error`; no provisioned personal space is 403. An import of more than 5000 new tasks takes the first 5000, and running it again adds the rest. CSV: `@label` words in `CONTENT` become labels; a `DATE` that `parseQuickAdd` finds nothing in goes into the notes as "Due in Todoist: …"; `PRIORITY` 4 is none; rows have no id, so `ref` is `csv:` + the first 16 hex of SHA-1 over project, section, parent title and content, with `:<n>` added for the n-th identical row.
+- Reminders list the member's tasks over the spaces the registry says they can access (`Tasks.accessibleSpaces`), not this process's provisioned ones, so a member who hasn't opened Hearth since a restart is still reminded of personal tasks. `MeetingServices` gains `pushSender`. `POST /api/test/reminders/tick` (test only) ticks task reminders too.
+- MCP `list_tasks` defaults to 100 tasks.
+
+### 12.3 API (`/api/tasks`)
+
+```
+GET    /api/tasks?status=&mine=&project=&space=&due_before=&due_after=&done_since=&q=&limit=  → { tasks: TaskView[] }
+GET    /api/tasks/projects                     → [{ space, name, open: number }]   (visible spaces, projects with any task, open count)
+GET    /api/tasks/people                       → [{ email, name, handle }]
+GET    /api/tasks/from-meetings                → MeetingActionItems[] (see 11.2)
+POST   /api/tasks                              TaskInput & { space?, tz } → 201 TaskView
+POST   /api/tasks/quick                        { text, tz, space?, project?, source? } → 201 TaskView
+GET    /api/tasks/:space/:id                   → TaskView
+PATCH  /api/tasks/:space/:id                   Partial<TaskInput> & { tz?, baseBlobOid? } → TaskView
+POST   /api/tasks/:space/:id/complete          { tz } → TaskView
+POST   /api/tasks/:space/:id/reopen            → TaskView
+POST   /api/tasks/:space/:id/move              { toSpace } → TaskView
+DELETE /api/tasks/:space/:id                   → 204
+POST   /api/tasks/ramble?tz=                   raw audio body (audio/webm, audio/mp4, audio/wav; else 415) → { transcript, tasks: ParsedTask[] }
+POST   /api/tasks/import/todoist               { token } | { csv, projectName } → { imported, skipped, projects }   (session only, not access tokens)
+```
+
+`:space` access is checked like every space route (403). An unknown id is 404. Bodies are Zod-validated. Ramble's body limit is 15 MB.
+
+### 12.4 MCP tools (added to §8.2's table)
+
+| Tool | Input | Output |
+| --- | --- | --- |
+| `list_tasks` | `status?`, `mine?` (default true), `project?`, `space?`, `due_before?`, `q?`, `limit?` | `TaskView[]` |
+| `add_task` | `text` (quick-add syntax, e.g. "Send deck fri p2 #Board"), `notes?`, `space?`, `tz?` (default UTC) | `TaskView` |
+| `update_task` | `space`, `id`, any `TaskInput` field | `TaskView` |
+| `complete_task` | `space`, `id`, `tz?` | `TaskView` |
+
+The `search` tool's `kind` gains `task`.
+
+### 12.5 Web (`apps/web/src/apps/tasks/`)
+
+Fifth manifest in `apps/registry.ts`: id `tasks`, name "Hearth Tasks", label "Tasks", icon `tasks` (a checkbox; add it to `Icon.tsx`), route `/tasks`, folder `tasks`, `urlFor(space, path)` → `/tasks/item/<space>/<id>`. API client `src/api/tasks.ts`.
+
+Routes: `/tasks` (Inbox: mine, open, no project; loaded with `project=`), `/tasks/today` (mine, overdue + due today, overdue in its own group; plus "From your meetings": `from-meetings` items with a checkbox that ticks the note and **Add to tasks**, which creates a task with `source.kind = meeting`, due today), `/tasks/upcoming` (mine, open, due in the next 14 days grouped by day, then Later; loaded with `due_after=<today>` so overdue tasks, which are in Today, don't use up the 500), `/tasks/project/<space>/<name>` (everyone's open tasks in that project, then a collapsed Done list), `/tasks/done` (mine, done in the last 30 days), `/tasks/item/<space>/<id>` (the list it belongs in, with the task's detail panel open), `/tasks/import` (Todoist: paste an API token, with a link to https://app.todoist.com/app/settings/integrations/developer, or drop CSV files).
+
+- Sidebar (`TasksSidebar`): Add task (and `q`), Inbox, Today (open count), Upcoming, Done, Projects (team and personal, with counts), Import from Todoist.
+- Quick add (`QuickAdd.tsx`): one line; tokens highlighted live with `parseQuickAdd` from `@hearth/format` (chips: date in words like "Fri 3:00 PM", priority, #project, @labels, +assignee); a Personal / Team switch (Team forced when assigning someone else; never for the member's own handle, and not for a handle the people list, still loading, can't place yet); Enter adds (`POST /quick`), Esc closes, Shift+Enter keeps it open for the next. A **Ramble** button (mic) records with `MediaRecorder` (up to 5 minutes, live timer, Stop), posts to `/ramble`, then shows the proposed tasks as editable quick-add lines with checkboxes and "Add N tasks" (each `POST /quick`, `source.kind = voice`).
+- Rows (`TaskRow.tsx`): round checkbox colored by priority, title, notes first line, chips for due (red when overdue; "Today", "Tomorrow", weekday within 6 days, else "Nov 20"), recurrence icon, project, labels, assignee initials. Completing animates out and shows an undo toast for 5 s (Undo = reopen; for a recurring task, Undo restores the previous due by PATCH). Optimistic: the list updates first and rolls back with an error on failure.
+- Detail panel (`TaskDetail.tsx`): title, notes (plain textarea; saved on blur), due date/time inputs, repeat (text with a hint, validated with `normalizeRecurrence`), priority, project (combobox of existing), labels, assignee (people list), Personal/Team move, source link (opens the meeting note line), Delete (confirm). Every field saves on change by PATCH.
+- Keyboard (list focus, never while typing): `q` quick add, `j`/`k` or arrows to move, `x` or Space completes, Enter opens detail, `e` edits title, Delete/Backspace asks to delete, `1`–`4` set priority, `t` due today, `m` due tomorrow.
+- Drag to reorder in Inbox and project lists (pointer events; mouse and touch), writing `order` as the midpoint of the neighbors (PATCH of the moved task only).
+- Live: `hearthSocket.onChanged` with any path under `tasks/` refetches the current view (debounced 300 ms). A refetch never discards an optimistic change still in flight.
+- Works at phone width (bottom sheet detail, full-width quick add, no hover-only controls).
+
+### 12.6 Tests
+
+- Format (`tasks.test.ts`): quick-add parsing, recurrence, dates and zones, the file.
+- Server unit: list sorting and filters, the "mine" rule, assignee resolution, recurring completion, the patch-retry on a concurrent commit, the reminder window and once-only key, the ramble response parser (fake LLM), Todoist API mapping against a fake fetch (pagination, priorities inverted, sub-tasks, sections, recurring, skip already imported) and CSV parsing.
+- Server integration (`test/integration/tasks.test.ts`): every route through `app.request` in dev auth: create/quick/patch/complete/reopen/move/delete commit authored by the member with the right message; personal tasks invisible to another member and 403 on their routes; a personal task can't be assigned to someone else; a meeting-sourced task ticks its meeting line on completion; from-meetings hides converted items; ramble with the fake transcriber and LLM; Todoist import (fake fetch and CSV), idempotent; MCP `list_tasks`/`add_task`/`update_task`/`complete_task` and `search` with kind `task`; reindex picks tasks up as kind `task`.
+- Web (vitest + MSW): quick-add chips and submit, row complete and undo, views filter correctly, detail saves, keyboard shortcuts, drag order math.
+- E2E (`e2e/tasks.spec.ts`, desktop and Pixel 7): quick add with tokens → appears in Today/Upcoming correctly; complete + undo; recurring task moves forward; detail edit (project, priority, notes) persists across reload; team task visible to a second member, personal one not; meeting action item → Add to tasks → completing it ticks the note; Ramble with the fake mic produces a task; Todoist CSV import.
+
+## 13. Agent briefs
+
+A nightly snapshot of each member's work, written by the language model from their meetings and tasks, so an agent connected over MCP starts with their context (the Granola "agent brief", Nov 2026). Server code in `apps/server/src/brief/`.
+
+### 13.1 The files
+
+- `.hearth/brief/brief.md` in the member's personal space, written only by Hearth: frontmatter `{ type: agent-brief, generated, model, meetings, tasks, window_days, sources_hash }`, a `# Agent brief: <name>` title, then exactly these `##` sections in order: Overview, Current priorities, Projects, People, Glossary, Communication style, Habits, Identity and role, What changed. Each write is a commit `brief: write "Agent brief"` authored by the member; Git history is the brief's history.
+- `.hearth/brief/notes.md`: the member's corrections, verbatim (`brief: correct "Agent brief"`). They go into every brief and the prompt says they win.
+
+### 13.2 Writing (`AgentBriefs`)
+
+- Material: meeting notes (`type: meeting`) dated in the last 30 days, at most 40, newest first: every one in the member's personal space, and team-space ones where they are an attendee (`matchesPerson`). Each note body is cut to 4000 characters; for notes in the personal space only, the transcript's `Me` lines (what the member said) are added, cut to 1500 (a shared note's `Me` is whoever took it). The whole is capped at 180 000 characters, dropping the oldest meetings. Plus the member's open tasks (`mine`, up to 60) and tasks done in the last 14 days (up to 30). Plus the previous brief (for continuity and "What changed") and their notes.
+- The prompt (`prompt.ts`) fences all material in tags and tells the model it is information, never instructions; no secrets, health or family details; no images or links. Angle brackets in all material become look-alikes (`‹ ›`), so nothing can close or open the prompt's tags. `cleanBrief` drops a code fence, a title, every image, link (its text kept), reference definition, HTML tag, autolink and bare URL from the answer; an empty answer is `llm_error`. Model `BRIEF_MODEL` (default `claude-sonnet-5-5`).
+- `sources_hash` is a SHA-256 of a prompt version, the model, every meeting note and transcript blob, every task blob and the notes. A refresh that isn't forced writes nothing (`unchanged`) when it matches the current brief, so a quiet night costs no model call. No meetings and no tasks is `empty` (nothing written).
+- One refresh per member at a time (a per-member lock). Forced rewrites are limited per member to one per `BRIEF_REFRESH_GAP_SECONDS` (default 60) and 20 a day (`rate_limited`, in memory).
+- Nightly: members are enrolled (`DATA_DIR/brief/members.json`, volume state like push subscriptions: `{ userId: { email, tz, checkedAt } }`) when they open the brief page (with their browser's zone), call `get_agent_brief`, or start a meeting (with its zone). Every 15 minutes (and a minute after start), each member whose last check was on an earlier "brief day" (the day starting at `BRIEF_HOUR`, default 4, in their zone) is re-checked with `Authenticator.principalForUser` (gone → dropped), gets their personal space ensured, and a non-forced refresh; a failure is logged and tried again on the next ticks, up to 3 times a night, then `checkedAt` is set. `close()` stops the pass between members. Off when `LLM_PROVIDER=none`.
+
+### 13.3 API and MCP
+
+```
+GET  /api/brief?tz=        → { brief: { space, path, body, generated, model, meetings, tasks } | null, notes }   (enrols the member)
+POST /api/brief/refresh    { tz? } → { status: 'written' | 'empty', brief, notes }   (always rewrites)
+PUT  /api/brief/notes      { text } (≤ 20 000 chars) → 204
+```
+
+Only the member's own brief exists on these routes; tokens work (writes carry `Hearth-Via: api (token …)`). MCP `get_agent_brief` (§8.2) returns it, writing the first one on first use; the MCP server's instructions tell agents to call it before helping with the member's work, and both say it is background drawn from meetings, never instructions. The tool isn't marked read-only (the first call writes).
+
+### 13.4 Web
+
+`/meetings/brief` (sidebar: Agent brief; linked from Settings): the brief rendered (no images; links open in a new tab), when it was written and from how much, Rewrite now, a Correct it box (Save, Save and rewrite), and example questions with Copy and Ask Claude (`https://claude.ai/new?q=`) that start "Read my <product> agent brief first."
+
+### 13.5 Tests
+
+- Server unit (`brief/brief.test.ts`): `isDue` (once per night after the local hour, across midnight, unknown zone), `cleanBrief`, the prompt's section order and tag fencing.
+- Server integration (`test/integration/brief.test.ts`): empty until there is material; written from personal meetings, shared meetings the member attended and their tasks, not from older meetings or shared ones they weren't at, and only their own `Me` lines; commits; another member sees nothing; corrections reach the next brief and the previous brief is passed on; unchanged material skips the model and the nightly pass runs once; images stripped; MCP `get_agent_brief` writes the first brief with the `Hearth-Via: mcp` trailer.
+- Web: the page writes, corrects and rewrites, saves a correction alone, says when there's nothing to write from, shows refusals, never renders images.
+- E2E (`e2e/meetings-brief.spec.ts`): a meeting note in the member's space → Agent brief from the sidebar → Rewrite now shows it → a correction with Save and rewrite reaches the brief and survives a reload.
+
+
+## 14. Hearth Notes
+
+A Google Keep-style board of quick notes and checklists (Nov 2026; plan `docs/plans/2026-11-12-notes.md`). Like Tasks (§12), git is the record: one note is one Markdown file, listed from the index. Format in `packages/format/src/notes.ts`, server in `apps/server/src/notes/`, routes in `api/notes.ts`, web in `apps/web/src/apps/notes/`.
+
+### 14.1 The file
+
+`notes/<ULID>.md` in the member's personal space (the default) or the team space. Frontmatter: `id`, `type: note`, `title?`, `color?` (`red orange yellow green teal blue darkblue purple pink brown gray`; absent or unknown is the default paper), `pinned?`, `archived?`, `trashed?` (ISO instant), `labels?`, `created`, `created_by`, `updated`, `order` (higher first), `source { kind: manual | import | mcp, from?: keep, ref? }`. The body is the note's text. A note whose non-blank lines are all `- [ ]`/`- [x]` items is a checklist. New files come from `newNoteFile`; every later write patches frontmatter keys in place and swaps the body, so a hand-edited file keeps its YAML text.
+
+### 14.2 Service (`Notes`)
+
+- Reads come from the index (kind `note`, a migration re-kinded existing `notes/%` rows); bodies from `Index.bodies`. No Git read per note. Views: `board` (not archived, not trashed), `archive`, `trash`; filters `label`, `space`, `q` (full-text); at most 1000. Order: pinned first, then `order` desc, then id; trash by `trashed` desc.
+- Writes are read → patch → commit, skipped when unchanged, retried 3 times. With `baseBlobOid`, a write is a 409 only if the title or body changed since that blob (color, pin and labels never conflict). Commit messages `notes: create|edit|pin|unpin|archive|unarchive|trash|restore|delete|move|empty trash "<name>"`, authored by the member, with `Hearth-Via` for tokens and MCP. `<name>` is the title, else the first line, cut at 60, else "Untitled note".
+- Trash sets `trashed` (and unpins); Restore clears it, so an archived note goes back to the archive. Delete forever moves the file to `.trash/<date>/notes/<id>.md`. There is no system author for a background sweep, so opening the Trash view purges the viewer's visible notes trashed over 30 days ago, as that member; each file is re-read and skipped if it was restored meanwhile.
+- Move to Team (or back) is one commit adding to the target and one removing from the source. Only the note's writer (`created_by`) can move a team note into a personal space.
+- Keep import: one at a time per member, up to 5000 notes per call, one commit, idempotent by `source.ref` (the Takeout file name). `mapKeepNote` maps text, list items, title, color, pinned, archived, labels, timestamps and annotation links; trashed or empty Keep notes are skipped; attachments become a line "_Had N attachment(s) in Google Keep._".
+
+### 14.3 API and MCP
+
+```
+GET    /api/notes?view=board|archive|trash&label=&space=&q=&limit=   → { notes: NoteView[] }
+GET    /api/notes/labels                                             → [{ name, count }]
+POST   /api/notes                { title?, body?, color?, pinned?, archived?, labels?, order?, space? } → 201 NoteView
+GET    /api/notes/:space/:id     → NoteView (with blobOid)
+PATCH  /api/notes/:space/:id     { title?, body?, color?, pinned?, archived?, labels?, order?, baseBlobOid? }
+POST   /api/notes/:space/:id/trash | /restore | /move { to }
+DELETE /api/notes/:space/:id     → 204 (delete forever)
+POST   /api/notes/import/keep    { notes: [{ ref, note }] } → { imported, skipped }   (signed-in browser only)
+```
+
+Another member's personal space is a 403. MCP (§8.2): `list_notes`, `add_note`, `update_note` (also trashes and restores); `search` takes kind `note`.
+
+### 14.4 Web
+
+Rail app "Notes" at `/notes`: a "Take a note…" composer (title, text or New list) that saves on close; a board of colored cards dealt into columns left to right (`dealColumns`, two on a phone), Pinned then Others; ticking from the card; an editor dialog (a bottom sheet on a phone) that autosaves 700 ms after typing through one serialized write chain, with a "Someone else changed this" banner offering Show theirs or Keep mine. Tools: color, labels, pin, archive, trash, Move to Team, text ↔ checklist, and "Make a task" on a checklist line (a Hearth task in the note's space). Sidebar: Notes, labels, Archive, Trash, Import from Google Keep. Undo on archive and trash. Notes stay plain files, so Docs shows them in a `notes` folder.
+
+### 14.5 Keep import
+
+`/notes/import` links to Google Takeout (Keep only). The browser reads the `.zip` itself (`keepTakeout.ts`: central directory, zip64, `DecompressionStream('deflate-raw')`), reading only `…/Keep/*.json` entries, so photos never upload and export size doesn't matter. Loose `.json` files work too. It posts batches of 500.
+
+### 14.6 Tests
+
+Format (`notes.test.ts`): file round trip, checklist helpers, Keep mapping. Server unit (`notes/service.test.ts`): order, names. Integration (`test/integration/notes.test.ts`): writes and commit messages, conflicts, hand edits kept, personal vs team, move, 30-day trash, Keep import idempotency and token refusal, MCP, index. Web (`NotesPage.test.tsx`, `keepTakeout.test.ts`). E2E: `e2e/notes.spec.ts` (desktop) and `e2e/notes-mobile.spec.ts` (Pixel 7).
+
+## 15. Hearth Whiteboard
+
+An Excalidraw whiteboard inside Hearth (plan `docs/plans/2026-11-12-next-tools.md` §1; Ada chose 2026-11-12: one person drawing at a time first, live drawing together second). Git is truth: **one board is one Markdown file**. The pure parts (file format, merge) are in `@hearth/format` (`packages/format/src/boards.ts`), shared by server and web; read that file, it is part of this contract.
+
+### 15.1 The file
+
+`boards/<ULID>.md` (`boardPath(id)`), in the team space or the member's personal space (only them).
+
+````markdown
+---
+id: 01J...
+type: board
+title: Q4 flow
+created: 2026-11-12T10:00:00Z
+created_by: ada@acmebiolab.com
+updated: 2026-11-12T10:05:00Z
+updated_by: ada@acmebiolab.com
+---
+<!-- Hearth Whiteboard: open it in Hearth to draw. The words on the board, for search: -->
+- Launch
+- Pricing
+
+```excalidraw
+{"elements":[
+{"id":"r1","type":"rectangle","version":3,...},
+...
+],"appState":{"viewBackgroundColor":"#ffffff"},"files":{"f1":{"mimeType":"image/png","path":"assets/2026/11/....png"}}}
+```
+````
+
+- The word list is written from the scene's live text elements on every save (`boardBodyText`), so search and GitHub show what the board says. Search indexes only the word list (`boardSearchText`), never the JSON.
+- The scene is one element per line, so diffs show which shapes changed. The fence is longer than any backtick run inside it.
+- Images are never data URLs in the file: the web app uploads them through the assets API first, and `files` holds `{mimeType, path}` under `assets/` (the server refuses other paths and `..`). The schema strips any `dataURL`. Files no live element uses are pruned on save.
+- Hearth writes the whole body on every save (the word list and scene), so text added by hand below the frontmatter doesn't survive a save; frontmatter keys are patched in place. `parseBoardBody` refuses a scene block that isn't a valid scene (the API answers 400, the file is left alone).
+- Deleted elements stay as small tombstones (`{id, type, version, versionNonce, isDeleted, index}`) so deletes merge; at most 20,000 live shapes and 100,000 elements in all. `iframe` elements are refused: Excalidraw runs their HTML in a scripted frame. The editor also turns off embeds (`validateEmbeddable={false}`).
+
+### 15.2 Saving and merging
+
+`PUT /api/boards/:space/:id` takes `{scene?, title?, baseBlobOid?}`. When `baseBlobOid` isn't the file's current blob, someone saved in between: the server merges (`mergeScenes`) and answers `merged: true` with the result, which the client adopts. Merge rule: union of elements by id; when both sides have one, the higher `version` wins, a tie goes to the lower `versionNonce` (Excalidraw's own rule); deletes are tombstones (`isDeleted`), so a delete beats an older edit and loses to a newer one. A save sends only the canvas settings (background, grid) it changed since its last save; the server keeps the rest, so a stale copy never undoes someone else's. A save that changes nothing makes no commit. Commits are `boards: create|edit|rename "<title>"`, authored by the member, with the `unchanged` guard and three retries like tasks. `DELETE` moves the file to `.trash/`.
+
+### 15.3 API and MCP
+
+`GET /api/boards?space=&q=&limit=` (from the index, newest first, with each board's words), `POST /api/boards` (`{space?, title?, scene?}`, personal space by default), `GET|PUT|DELETE /api/boards/:space/:id`. Index kind `board` (titled "Untitled board" when it has no title). MCP: `list_boards`, `read_board` (title, words, shape counts; never the JSON). No drawing over MCP.
+
+### 15.4 Web
+
+`/boards` (the rail's Whiteboard): My boards / Team tabs, search, dotted-paper cards. `/boards/:space/:id`: title, Private/Team label, save status, "Embed in a doc", delete. Excalidraw 0.18 (MIT) loads only on the board route (lazy chunk; e2e W6 checks no other page pulls it); its fonts are self-hosted at `/excalidraw/fonts` (a Vite plugin copies them from the package), so nothing loads from a CDN. The theme follows Hearth's light/dark.
+
+`BoardSession` (`apps/web/src/apps/boards/session.ts`, unit tested apart from Excalidraw) saves 2 s after the last real change (a signature of element ids/versions, background and images, so selection and pointer moves don't save), one save at a time, uploading new images first; it saves on tab hide, on leaving the route (the router waits) and warns on unload while unsaved. When the socket says the board's file changed, it loads it and merges it in (shapes and canvas settings) without touching the undo history; a change that arrives during a save is fetched once the save is done. Leaving the board waits for the last save; if saving keeps failing, it asks before leaving without it.
+
+Docs embed: `[![Title](/boards/<id>.md)](/boards/<id>.md)` in a doc of the same space shows the board as an SVG (Excalidraw's `exportToSvg`, lazy) and the link opens the board.
+
+### 15.5 Drawing together
+
+Everyone with a board open is in that board's room: `GET /ws/boards/:space/:id` (`BoardRooms`, `apps/server/src/boards/rooms.ts`), in memory on the one machine. The first message authenticates exactly as on `/ws` (session JWT or dev user; access tokens refused, 4401); the member must be able to read the space (else 4403, checked again on every message, so a removed invite drops out). The server answers `{type:'ready', you, peers}`, tells the others `join`/`leave`, and relays two messages to everyone else in the room, stamped with the sender's peer id: `scene` (a batch of changed Excalidraw elements, at most 2,000 and 256 KiB per frame) and `pointer` (`x`, `y`, `button`, `tool`: pointer or laser). It stores nothing. It checks each element's `id`/`type`/`version` and that its geometry (`x`, `y`, `width`, `height`, `angle`, `points`) is finite, and refuses `iframe` as a save does (§15.1); junk closes the socket (1008) and nothing more from that socket is relayed. Each peer may send 120 messages and 2 MiB a second (the rest is dropped; the next save carries it), at most 50 people per board, a receiver with more than 4 MiB still queued is skipped until it catches up, and a peer that stops answering pings is dropped.
+
+The browser side is `BoardCollab` (`apps/web/src/apps/boards/collab.ts`, tested apart from Excalidraw): it sends only elements whose version moved since it last sent or received them, batched every 40 ms and split under the frame limit counted in UTF-8 bytes (an element too big for a frame waits for the save); pointer moves at most every 50 ms; nothing while alone. Someone who joins gets, addressed to them alone (`to`), everything this editor already sent since its last save; `join`/`leave` always reach everyone, even a slow receiver. The sign-in frame is capped at 16 KiB, as on `/ws`. A refusal (4403, 1008, 1009) stops reconnecting; a full board (1013) retries after 30 s. `iframe` elements are dropped both ways. Incoming elements are collected and painted once per animation frame: restored, merged with Excalidraw's own `reconcileElements` (newer version wins, order follows each element's fractional `index`, and what this editor is editing right now is kept), and put in the editor without touching undo. The elements the editor then holds for those ids are marked seen, so the index fixes and restores Excalidraw makes are not sent back as new edits. `onChange` does nothing unless `hashElementsVersion` or the canvas settings moved, so panning and pointer moves cost nothing. Saving is unchanged: each editor saves what it has through `BoardSession`, and the server merges by element version, so a save that adds nothing new makes no commit. Images arrive with the sender's next save. A dropped socket reconnects with backoff and loses only cursors.
+
+The header shows who else is here (initials in their color); Excalidraw draws their cursors with names.
+
+Not yet: boards can't be embedded across spaces. Rooms live on one machine; a second Fly machine would need a shared relay.
+
+## 16. Today
+
+The home page: `/` opens `/today` (a phone's home-screen launch still goes to voice notes), and it is first on the rail and the phone bar. To make room on the phone bar, Clips is off it (phone browsers can't record the screen) and opens by link. Today has no sidebar (`AppManifest.sidebar: false`); the page takes the full width.
+
+One read, `GET /api/today?from&to&date` (`apps/server/src/today/service.ts`, `api/today.ts`). `from`..`to` is the member's own day (local midnight to midnight, at most 26 hours, as instants) and `date` its calendar date, both from the browser, so "today" is theirs. It reads only the index and the calendar cache: no Git reads, no model calls (asserted in `today.test.ts`, which also holds it under 200 ms on 5,000 indexed files). It returns:
+
+- `meetings`: the day's calendar events with the member's note for the event if there is one (`calendar_event_id`, own space first), and a Prep line: the latest earlier note of the same series (`calendar_series_id`), else the latest earlier note sharing two or more attendee emails; the line is the first readable line of that note's body (`prepLine`). A calendar that fails (no grant, Google down) gives `events: []` and its message in `error`; the rest still loads.
+- `tasks`: the member's open tasks due today or before (`Tasks.list` with `mine`, `dueBefore`), overdue shown apart. Completing one uses the Tasks API and takes it off the page. A task added on Today is due today unless the line names a date.
+- `actionItems`: open meeting to-dos no task came from (`Tasks.fromMeetings` with `fromIndex`, reading each note's body from the index instead of Git, with the index's `body_line` so line numbers are the file's own).
+- `notes`: the member's own notes created in the last day that aren't pinned or labelled ("Unfiled"), newest 10.
+- `docs`: docs in the member's spaces whose indexed `mtime` is in the last day, newest 10. The index keeps a file's `mtime` across reindexes when its blob is unchanged, and a space's first index stamps the epoch (`NEVER_CHANGED`), so neither a restart nor a fresh volume makes every doc look new.
+- `briefcast`: always null until Briefcast ships; the page hides the card.
+
+Everything comes from spaces the member can read (`visibleSpaces`), never another member's personal space. The page refreshes on any `changed` event (debounced 500 ms), on reconnect, and every minute.
+
+
+## 17. People
+
+A light CRM nobody types into (plan `docs/plans/2026-11-12-next-tools.md` §3). Rail item "People", `/people`, no sidebar, off the phone bar.
+
+### 17.1 Who is a person
+
+An email seen in what the member can read (`visibleSpaces`): an attendee of a meeting note (`attendees`, `Name <email>` or a bare email), an attendee of an event on their calendar in the next 60 days, or the assignee of an open task. The member themselves isn't one. Someone who appears only in a teammate's personal notes doesn't exist for them: not on the list, a 404 for their page, not in `find_person`.
+
+- `name`: the calendar's display name, else a note's `Name <email>`, else a member's name, else null (the page shows the email).
+- `company`: the email's domain, except personal mail (gmail.com, outlook.com and the rest of `PERSONAL_MAIL_DOMAINS`), which is null. `team`: the domain is one of `ALLOWED_EMAIL_DOMAINS`, or they're a member (an invited person).
+- `meetings`, `last`: the readable meeting notes they attended, newest first. `next`: their first event on the member's calendar from now.
+
+### 17.2 Derived per request, no table
+
+Unlike the plan's "rebuildable SQLite table", nothing is stored: `People` (`apps/server/src/people/service.ts`) reads the index's meeting frontmatter, the calendar cache and the task list on each request, the same reads Today makes. That keeps P2 (each member's own view) true by construction and leaves nothing to rebuild. If it ever gets slow, the cache goes in the index; it stays derived.
+
+### 17.3 The About note
+
+The only thing written down: a team file `people/<email>.md` (index kind `person`), frontmatter `email`, `updated`, `updated_by`, then the text. Every member can read and edit it, so the page says so. A save sends the version it edited when editing began (`blobOid`, null for a new note); a different version, or a note created meanwhile, is a 409 (`GitStore.commit`'s `unchanged` with a null blob means "must not exist", checked under the space lock). Commit `people: edit "<name>"`, authored by the member. Since the note is a team file, it can only be written for someone the whole team can already see: seen in a team meeting note, assigned a team task, or a member (`canEditAbout`; otherwise 403). Someone only in your own meetings or calendar gets no team file, which would tell the team they exist.
+
+### 17.4 API and MCP
+
+- `GET /api/people?q=` → `{ people: PersonSummary[] }`, most recent meeting first, then most meetings, then email; `q` matches name, email or company.
+- `GET /api/people/:email` → `PersonView`: the summary plus `history` (up to 200), open `tasks` assigned to them, `about` `{ text, blobOid }` and `canEditAbout`.
+- `PUT /api/people/:email/about` `{ text (≤ 20,000), blobOid | null }` → `{ blobOid }`.
+- `GET /api/companies/:domain` → `{ domain, team, people, meetings }`; 404 for personal mail or a domain with no one readable.
+- MCP: `find_person` (`q`, `limit`), `get_person` (`email`). `search_files` takes kind `person` for About notes.
+
+### 17.5 Web
+
+`apps/web/src/apps/people/`: the list with a search box, a person page (who they are, About edited in place, meetings, next meeting, open tasks) and a company page. Attendee names on a meeting note's header and on Today's meetings link to the person page (`PersonLinks`), except the member's own. Pages reload on `changed` events.
+
+### 17.6 Tests
+
+`test/integration/people.test.ts` (P1–P5, MCP), `apps/people/PeoplePages.test.tsx` and `MeetingNote.test.tsx` (P6), `e2e/people.spec.ts` (P7).
+
+Live drawing together (W8: one WebSocket room per board relaying scene updates, cursors with names) is slice 2. Boards in other spaces can't be embedded across spaces.
+
+## 18. Hearth Files
+
+Team files and attachments, beside Google Drive rather than in place of it (plan `docs/plans/2026-11-12-files.md`; Ada said yes 2026-11-12). Bytes live in the object store; Git keeps one small pointer per file, so "delete the SQLite file and reindex" rebuilds the whole listing. The pure parts are in `@hearth/format` (`packages/format/src/files.ts`); the server is `apps/server/src/files/` and `api/drive.ts`; the web app is `apps/web/src/apps/files/` and `components/FilePicker.tsx`.
+
+### 18.1 The pointer
+
+`files/<ULID>.md` (`filePointerPath(id)`) in the team space or the uploader's personal space.
+
+```markdown
+---
+id: 01J...
+type: file
+title: NDA Acme.pdf        # the file's name
+folder: Legal/2026         # "" is the top level
+size: 48211
+sha256: 9f2c...
+mime: application/pdf
+key: files/01J...          # object-store key (fileStoreKey)
+created: 2026-11-12T10:00:00Z
+created_by: ada@acmebiolab.com
+updated: 2026-11-12T10:00:00Z
+share: k3P...              # only while a share link is on
+text: extracted            # extracted | none | failed
+---
+The text pulled out of the file, at most 200,000 characters (MAX_FILE_TEXT_CHARS).
+```
+
+- Names go through `cleanFileName` (no slashes or control characters, 200 characters at most) and folders through `cleanFolder` (segments trimmed, no `.`/`..`, no leading or trailing slash).
+- Folders are the `folder` field. A folder made with New folder and still empty is kept in `.hearth/files/folders.json`.
+- Index kind `file` (top folder `files/`), titled by the name; the body (the extracted text) is what search, Meetings Ask and MCP `search` read.
+
+### 18.2 Bytes and uploads
+
+- The store is `meetings.audioStore` (R2 `files/<id>` in production, a folder on the volume in dev and tests). Bytes never go into Git.
+- Uploads are chunked: `POST /api/files/uploads` (`{space, folder, name, size, mime}`) → `PUT /uploads/:id/chunks/:seq` (8 MB each, at most 2 GB a file) → `POST /uploads/:id/complete`, which joins the chunks on the volume while hashing (sha256), pulls out text, puts the file to the store, then commits the pointer (a `files:` commit authored by the member, with `Hearth-Via` from MCP). `DELETE /uploads/:id` cancels. An upload belongs to the member who started it.
+- Text: PDF with `unpdf`; Word, PowerPoint and Excel by unzipping with `fflate` and reading their XML; plain text as is. A file whose text can't be read is still stored, with `text: failed`.
+
+### 18.3 Reading, previews and share links
+
+- `<img>`, `<video>` and `<iframe>` can't send the bearer token, so every view hands out short-lived signed URLs: an R2 presigned GET (with `inline` setting the content type and disposition) in production, or an HMAC-signed `/api/files/media/<space>/<id>?exp&sig` on the local store (a per-process random key; the path is exempt from sign-in like clip media and checked by signature). `?download=1` gives `Content-Disposition: attachment`.
+- The local media route streams with Range support and sends `Content-Security-Policy: sandbox`, except a PDF, which gets `frame-ancestors 'self'` so the app can frame it; `main.ts` leaves a route's own CSP and `X-Frame-Options` alone when the route set them. `previewKind` is `image`, `pdf`, `video`, `audio`, `text` or `none`; SVG, HEIC and HTML are `none` and always download.
+- A share link (`POST /item/:space/:id/share {on}`) puts a random token in `share:`; `/files/s/<token>` opens it for any signed-in member or invited person (never signed-out people, never revealing the space). Turning it off removes the token. A public "anyone with the link" switch is an organization setting left to Share pages.
+
+### 18.4 API, MCP and the picker
+
+- `GET /api/files/config`, `GET /api/files?space=&folder=&q=` (folders first, then files; `q` searches names and text), `GET /recent`, `GET|PATCH|DELETE /item/:space/:id` (`?text=1` adds the text; PATCH renames or moves to a folder; DELETE moves the pointer to `.trash/` and keeps the bytes), `POST /item/:space/:id/move {to}` (personal → team; team → personal only for the uploader), `POST|PATCH|DELETE /folders`, `GET /shared/:token`.
+- MCP: `search` takes kind `file`; `list_drive_files` and `get_drive_file` (name, folder, size, link, text; never a signed URL).
+- One picker (`FilePicker`) attaches a file to a Doc or meeting note (the paperclip in the top bar inserts a Markdown link at the cursor), a Note and a Task (appended to the body or notes, shown as chips). A personal file attached to a page outside that space gets a share link, so teammates reading the page can open it.
+- Web: `/files` (Team files, My files, Recent), breadcrumbs, search, drop zone, upload tray with progress and cancel, rename, move, share, delete; `/files/:space/:id` opens the preview dialog; `/files/s/:token` is the shared view.
+
+### 18.5 Guards and known limits
+
+- Only the Files service writes `files/**` and `.hearth/files/**`: Docs saves, moves, restores and MCP `write_file` refuse them (`writablePath`), and the store key is always `fileStoreKey(id)`, never the pointer's own `key`. A pointer hand-made in Git can't name another file's bytes. (Someone who can push to the space's repo directly is trusted with the space anyway.)
+- Finishing an upload is safe to repeat: a second `complete` waits for the first and returns the same file; a failure keeps the chunks for a retry (the hourly sweep removes uploads abandoned for a day) and deletes a stored object whose commit failed. The disk check counts every open upload (×3 on the local store).
+- Text is read one file at a time, with a 60 s limit (then `text: failed`); PDFs over 50 MB and files over 100 MB are stored without text. pdf.js runs on the main thread.
+- Signed links last up to an hour: turning a share link off stops new views at once, but a link already handed out works until it expires.
+- Deleting a file moves its pointer to `.trash/`; the bytes stay in the store and there is no restore in the Files app yet. Folder rename and delete work from the index (at most 5,000 files a space) and take no per-file base check.
+- Files isn't on the phone's bottom bar (it's full); on a phone it opens from links and attachments.

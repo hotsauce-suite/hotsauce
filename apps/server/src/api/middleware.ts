@@ -2,12 +2,16 @@ import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { authenticateDevice, deviceTokenFrom, MAX_DICTATION_BYTES } from '../dictation/index.js'
 import { type ErrorCode, HearthError } from '../errors.js'
+import { FILE_MEDIA_PREFIX } from '../files/index.js'
+import { BRIEFCAST_FEED_PREFIX } from './briefcast.js'
 import { CLIP_MEDIA_PREFIX } from './clips.js'
 import type { AppDeps, AppEnv } from './env.js'
 
 // Above the 10 MB upload limit, which the assets route checks itself.
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024
 const DICTATION_UPLOAD = '/api/dictation/transcribe'
+// A Hearth Tasks ramble is a voice note, up to the same 15 MB as a dictation.
+const RAMBLE_UPLOAD = '/api/tasks/ramble'
 
 /**
  * The only requests a Hearth Dictate device token can make. Anything else with one is refused,
@@ -31,7 +35,11 @@ function isPublic(path: string): boolean {
     // The brand kit (the sign-in page shows it) and the setup wizard, which checks its own token.
     path.startsWith('/api/org/') ||
     path.startsWith('/api/setup/') ||
-    path.startsWith(CLIP_MEDIA_PREFIX)
+    path.startsWith(CLIP_MEDIA_PREFIX) ||
+    // Hearth Files' local bytes: signed URLs, like clip media.
+    path.startsWith(FILE_MEDIA_PREFIX) ||
+    // A member's private podcast feed: podcast apps can't sign in; the URL's token is the key.
+    path.startsWith(BRIEFCAST_FEED_PREFIX)
   )
 }
 
@@ -88,11 +96,12 @@ export function limitBody() {
     throw new HearthError('bad_request', 'Request body is too large', { status: 413 })
   }
   const limit = bodyLimit({ maxSize: MAX_REQUEST_BYTES, onError: tooLarge })
-  // A dictation is up to 15 MB of audio; the route checks it again.
-  const dictation = bodyLimit({ maxSize: MAX_DICTATION_BYTES, onError: tooLarge })
+  // A dictation or a ramble is up to 15 MB of audio; the route checks it again.
+  const audio = bodyLimit({ maxSize: MAX_DICTATION_BYTES, onError: tooLarge })
   return createMiddleware<AppEnv>((c, next) => {
     if (isPublic(c.req.path)) return next()
-    return c.req.path === DICTATION_UPLOAD ? dictation(c, next) : limit(c, next)
+    const isAudio = c.req.path === DICTATION_UPLOAD || c.req.path === RAMBLE_UPLOAD
+    return isAudio ? audio(c, next) : limit(c, next)
   })
 }
 

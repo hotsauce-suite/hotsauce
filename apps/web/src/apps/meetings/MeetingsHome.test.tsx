@@ -37,7 +37,7 @@ describe('Meetings home', () => {
     expect(within(list).getByText('Yesterday')).toBeInTheDocument()
     const first = within(list).getAllByTestId('meeting-item')[0] as HTMLElement
     expect(first.dataset.path).toMatch(/^meetings\/\d{4}\/\d{2}\/\d{4}-\d{2}-\d{2}-priya-1-1\.md$/)
-    expect(first).toHaveAttribute('href', `/meetings/morgan/${first.dataset.path}`)
+    expect(first).toHaveAttribute('href', `/meetings/ada/${first.dataset.path}`)
   })
 
   it('filters the list by company through the API', async () => {
@@ -91,11 +91,11 @@ describe('unsaved meetings on Home', () => {
     const row = await screen.findByTestId('open-session')
     await userEvent.click(within(row).getByTestId('open-session-stop'))
     await waitFor(() =>
-      expect(router.state.location.pathname).toMatch(/^\/meetings\/morgan\/meetings\/.+\.md$/),
+      expect(router.state.location.pathname).toMatch(/^\/meetings\/ada\/meetings\/.+\.md$/),
     )
     const api = mockApi()
     expect(api.meetings.sessions.get(session.id)?.state).toBe('saved')
-    expect(api.repo.space('morgan').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
+    expect(api.repo.space('ada').files.get(`.hearth/meetings/raw/${session.id}.md`)).toBe(
       'typed before the tab closed',
     )
   })
@@ -155,12 +155,12 @@ describe('the app switch', () => {
 describe('open action items on Home', () => {
   const items = [
     {
-      space: 'morgan',
+      space: 'ada',
       path: 'meetings/2026/11/2026-11-08-acme-kickoff.md',
       title: 'Acme kickoff',
       date: '2026-11-08T10:00:00Z',
       items: [
-        { line: 12, text: 'Morgan: send the pilot scope' },
+        { line: 12, text: 'Ada: send the pilot scope' },
         { line: 13, text: 'Dana: share the data sheet' },
       ],
     },
@@ -179,17 +179,17 @@ describe('open action items on Home', () => {
     const section = await screen.findByTestId('action-items')
     const rows = within(section).getAllByTestId('action-item')
     expect(rows.map((r) => r.querySelector('span span')?.textContent)).toEqual([
-      'Morgan: send the pilot scope',
+      'Ada: send the pilot scope',
       'Dana: share the data sheet',
     ])
     expect(
       within(rows[0] as HTMLElement).getByRole('link', { name: 'Acme kickoff' }),
-    ).toHaveAttribute('href', `/meetings/morgan/${items[0]?.path}#L12`)
+    ).toHaveAttribute('href', `/meetings/ada/${items[0]?.path}#L12`)
 
-    await userEvent.click(screen.getByLabelText('Mark done: Morgan: send the pilot scope'))
+    await userEvent.click(screen.getByLabelText('Mark done: Ada: send the pilot scope'))
     await waitFor(() => expect(within(section).getAllByTestId('action-item')).toHaveLength(1))
     expect(ticked).toEqual([
-      { space: 'morgan', path: items[0]?.path, line: 12, text: 'Morgan: send the pilot scope' },
+      { space: 'ada', path: items[0]?.path, line: 12, text: 'Ada: send the pilot scope' },
     ])
   })
 
@@ -294,7 +294,7 @@ describe('calendar sync on Home', () => {
     const link = within(kickoff).getByTestId('coverage-note-link')
     expect(link).toHaveTextContent('Notes')
     expect(link.getAttribute('href')).toMatch(
-      /^\/meetings\/morgan\/meetings\/\d{4}\/\d{2}\/\d{4}-\d{2}-\d{2}-acme-kickoff\.md$/,
+      /^\/meetings\/ada\/meetings\/\d{4}\/\d{2}\/\d{4}-\d{2}-\d{2}-acme-kickoff\.md$/,
     )
     expect(bolt).toHaveTextContent('Intro call with Bolt')
     expect(bolt).toHaveTextContent('No notes')

@@ -6,11 +6,10 @@ import Testing
     let router = SuiteRouter(server: URL(string: "https://office.example.com")!)
 
     func url(_ s: String) -> URL { URL(string: s)! }
-    var suitePage: URL { url("https://office.example.com/docs") }
 
     @Test func suitePagesStayInTheWindow() {
-        #expect(router.decide(url("https://office.example.com/meetings"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: false) == .allow)
-        #expect(router.decide(url("https://OFFICE.example.com:443/docs"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: false) == .allow)
+        #expect(router.decide(url("https://office.example.com/meetings"), isMainFrame: true, userClicked: true, newWindow: false) == .allow)
+        #expect(router.decide(url("https://OFFICE.example.com:443/docs"), isMainFrame: true, userClicked: true, newWindow: false) == .allow)
     }
 
     @Test func otherOriginsOfTheSameHostAreNotTheSuite() {
@@ -21,66 +20,62 @@ import Testing
     }
 
     @Test func clickedLinksElsewhereOpenInTheBrowser() {
-        #expect(router.decide(url("https://github.com/x"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: false) == .openExternally)
-        #expect(router.decide(url("https://chat.office.example.com"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: false) == .openExternally)
+        #expect(router.decide(url("https://github.com/x"), isMainFrame: true, userClicked: true, newWindow: false) == .openExternally)
+        #expect(router.decide(url("https://chat.office.example.com"), isMainFrame: true, userClicked: true, newWindow: false) == .openExternally)
     }
 
     @Test func newWindowsOpenElsewhereUnlessTheyAreTheSuite() {
-        #expect(router.decide(url("https://chat.office.example.com"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: true) == .openExternally)
-        #expect(router.decide(url("https://office.example.com/clips/abc"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: true) == .loadInWindow(url("https://office.example.com/clips/abc")))
+        #expect(router.decide(url("https://chat.office.example.com"), isMainFrame: true, userClicked: true, newWindow: true) == .openExternally)
+        #expect(router.decide(url("https://office.example.com/clips/abc"), isMainFrame: true, userClicked: true, newWindow: true) == .loadInWindow(url("https://office.example.com/clips/abc")))
     }
 
-    @Test func signInStaysInTheWindow() {
+    @Test func signInGoesThroughTheBrowser() {
         for page in ["https://accounts.google.com/o/oauth2/v2/auth?x=1", "https://clerk.office.example.com/v1/oauth_callback",
                      "https://accounts.office.example.com/sign-in", "https://smart-fox-1.clerk.accounts.dev/v1/client"] {
-            #expect(router.decide(url(page), from: suitePage, isMainFrame: true, userClicked: true, newWindow: false) == .allow, Comment(rawValue: page))
+            #expect(router.decide(url(page), isMainFrame: true, userClicked: true, newWindow: false) == .signInWithBrowser, Comment(rawValue: page))
+            #expect(router.decide(url(page), isMainFrame: true, userClicked: false, newWindow: true) == .signInWithBrowser, Comment(rawValue: page))
         }
         #expect(!router.isSignIn(url("http://accounts.google.com/")))
         #expect(!router.isSignIn(url("https://accounts.google.com.evil.com/")))
         #expect(!router.isSignIn(url("https://evilclerk.com/")))
     }
 
-    @Test func hopsElsewhereAreAllowedOnlyDuringSignIn() {
-        // Google's sign-in passes through hosts we can't list.
-        let google = url("https://accounts.google.com/signin")
-        #expect(router.decide(url("https://accounts.youtube.com/x"), from: google, isMainFrame: true, userClicked: false, newWindow: false) == .allow)
-        // From the suite, a script or redirect elsewhere goes to the browser, which shows the address.
-        #expect(router.decide(url("https://evil.example/fake-login"), from: suitePage, isMainFrame: true, userClicked: false, newWindow: false) == .openExternally)
-        #expect(router.decide(url("https://evil.example/x"), from: nil, isMainFrame: true, userClicked: false, newWindow: false) == .openExternally)
-        // A clicked link leaves even from a sign-in page.
-        #expect(router.decide(url("https://support.google.com/x"), from: google, isMainFrame: true, userClicked: true, newWindow: false) == .openExternally)
+    @Test func otherSitesNeverLoadInTheWindow() {
+        // A script or redirect elsewhere goes to the browser, which shows the address.
+        #expect(router.decide(url("https://evil.example/fake-login"), isMainFrame: true, userClicked: false, newWindow: false) == .openExternally)
+        #expect(router.decide(url("https://accounts.youtube.com/x"), isMainFrame: true, userClicked: false, newWindow: false) == .openExternally)
         // Iframes load where they are.
-        #expect(router.decide(url("https://www.youtube.com/embed/x"), from: suitePage, isMainFrame: false, userClicked: false, newWindow: false) == .allow)
+        #expect(router.decide(url("https://www.youtube.com/embed/x"), isMainFrame: false, userClicked: false, newWindow: false) == .allow)
     }
 
     @Test func noPageCanOpenOtherAppsOrFiles() {
         for target in ["file:///Users/me/Downloads/x.command", "file:///System/Applications/Calculator.app", "ssh://host",
                        "x-apple.systempreferences:com.apple.x", "zoommtg://x", "javascript:alert(1)"] {
             for clicked in [true, false] {
-                #expect(router.decide(url(target), from: suitePage, isMainFrame: true, userClicked: clicked, newWindow: false) == .cancel, Comment(rawValue: target))
-                #expect(router.decide(url(target), from: suitePage, isMainFrame: false, userClicked: clicked, newWindow: true) == .cancel, Comment(rawValue: target))
+                #expect(router.decide(url(target), isMainFrame: true, userClicked: clicked, newWindow: false) == .cancel, Comment(rawValue: target))
+                #expect(router.decide(url(target), isMainFrame: false, userClicked: clicked, newWindow: true) == .cancel, Comment(rawValue: target))
             }
         }
     }
 
     @Test func mailLinksOpenOnAClick() {
-        #expect(router.decide(url("mailto:a@b.com"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: false) == .openExternally)
-        #expect(router.decide(url("mailto:a@b.com"), from: suitePage, isMainFrame: true, userClicked: false, newWindow: false) == .cancel)
-        #expect(router.decide(url("blob:https://office.example.com/1"), from: suitePage, isMainFrame: true, userClicked: true, newWindow: false) == .allow)
-        #expect(router.decide(url("about:blank"), from: suitePage, isMainFrame: false, userClicked: false, newWindow: false) == .allow)
+        #expect(router.decide(url("mailto:a@b.com"), isMainFrame: true, userClicked: true, newWindow: false) == .openExternally)
+        #expect(router.decide(url("mailto:a@b.com"), isMainFrame: true, userClicked: false, newWindow: false) == .cancel)
+        #expect(router.decide(url("blob:https://office.example.com/1"), isMainFrame: true, userClicked: true, newWindow: false) == .allow)
+        #expect(router.decide(url("about:blank"), isMainFrame: false, userClicked: false, newWindow: false) == .allow)
     }
 
     @Test func theAppsOwnLinksComeBackToIt() {
         let connect = url("hearth-dictate://connect?token=x")
-        #expect(router.decide(connect, from: suitePage, isMainFrame: true, userClicked: false, newWindow: false) == .handleInApp(connect))
+        #expect(router.decide(connect, isMainFrame: true, userClicked: false, newWindow: false) == .handleInApp(connect))
         let deep = url("hearth://meetings")
-        #expect(router.decide(deep, from: suitePage, isMainFrame: true, userClicked: true, newWindow: true) == .handleInApp(deep))
+        #expect(router.decide(deep, isMainFrame: true, userClicked: true, newWindow: true) == .handleInApp(deep))
     }
 
     @Test func pathsBecomeSuiteURLs() {
         #expect(router.url(forPath: "/meetings/start?event=a%20b#x")?.absoluteString == "https://office.example.com/meetings/start?event=a%20b#x")
         #expect(SuiteRouter(server: url("http://localhost:3000")).url(forPath: "/docs")?.absoluteString == "http://localhost:3000/docs")
-        for bad in ["meetings", "//evil.com/x", "https://evil.com/x", "/\\evil.com", "", "/api/calendar/upcoming", "/API/x", "/api?x", "/mcp", "/ws/dictation"] {
+        for bad in ["meetings", "//evil.com/x", "https://evil.com/x", "/\\evil.com", "", "/api/calendar/upcoming", "/API/x", "/api?x", "/mcp", "/ws/dictation", "/desktop/finish#ticket=x", "/Desktop%2Ffinish"] {
             #expect(router.url(forPath: bad) == nil, Comment(rawValue: bad))
         }
     }
