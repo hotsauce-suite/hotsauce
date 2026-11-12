@@ -1,0 +1,54 @@
+name: Something's broken
+description: Report a bug in Hotsauce.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. For a security problem, don't use this form: see the security link on the previous page.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Docs
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Hotsauce version
+      description: The number in the HOTSAUCE_VERSION file, or "main".
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it run?
+      options:
+        - Cloudflare
+        - Fly.io
+        - Docker on my own server
+        - Local development
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser or app
+      placeholder: Chrome 131 on macOS, the Mac app, the Chrome extension…
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Remove keys, tokens and anything private before pasting.
