@@ -1,6 +1,7 @@
 # Plan: release images and the built-in updater
 
-Status: slice 1 in progress (2026-11-12). Decided by Morgan on 2026-11-12: organizations,
+Status (2026-11-12): slice 1 merged (PR #20, v0.2.0 is the first image); slices 2 and 3 built
+(`apps/server/src/updates/`, Settings → Organization → Updates); slice 4 next. Decided by Morgan on 2026-11-12: organizations,
 Haven included, run the published Hotsauce release with no code fork and no settings repo.
 Settings live in Settings → Organization. Hotsauce updates itself on every release and rolls
 back on its own when the new version fails its health check.
@@ -33,3 +34,23 @@ R9. Automatic updates wait while a meeting is being recorded (subject to Morgan'
 2. Version check and the admin notice (R4, R5, R7).
 3. The Fly helper and rollback (R6, R8, R9).
 4. Haven switches to the image; the old Haven repository is archived.
+
+## How the Fly update works
+
+- The server reads Fly's own variables (`FLY_APP_NAME`, `FLY_REGION`, `FLY_IMAGE_REF`) and the
+  secret `FLY_API_TOKEN` (`fly tokens create deploy`, scoped to the app). Without the token,
+  Settings shows the one command that adds it.
+- Update writes `DATA_DIR/updates.json` (`pending`), then creates a machine with
+  `auto_destroy`, no restarts, metadata `role=hotsauce-updater`, on the image it runs now
+  (`FLY_IMAGE_REF`), running `node apps/server/dist/updates/helper-main.js`. The token reaches it
+  as an app secret, never in the machine config.
+- The helper (`updates/helper.ts`) updates each app machine's config to the new image (keeping
+  services and mounts), waits for it to start, and polls `PUBLIC_URL/api/health` for
+  `version` = the new one. After five minutes, or if Fly refuses, it puts the old image back.
+- On boot, the server compares its version with `pending`: the new one clears it; the old one
+  records `failed` and adds the version to `skip`, which automatic updates honour. A pending
+  update older than 30 minutes counts as failed.
+- Automatic updates (on unless an admin turns them off) check GitHub every six hours and try
+  every ten minutes, never while a meeting socket is open.
+- Health is checked through the public address, so with several machines the check passes only
+  once the address answers with the new version. Haven runs one machine.

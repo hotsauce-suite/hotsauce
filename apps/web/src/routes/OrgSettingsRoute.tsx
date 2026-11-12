@@ -7,6 +7,7 @@ import { product } from '../brand/product'
 import { ChatRoomsSection } from './org/ChatRoomsSection'
 import { Callout, messageOf } from './org/fields'
 import { LinkSharingSection } from './org/LinkSharingSection'
+import { UpdatesSection } from './org/UpdatesSection'
 import {
   AiSection,
   BrandSection,
@@ -118,6 +119,7 @@ export default function OrgSettingsRoute() {
               <ChatRoomsSection />
               <AiSection {...(props('restart') as SectionProps)} />
               <StorageSection {...(props('restart') as SectionProps)} />
+              <UpdatesSection />
               <Callout>
                 Values set in the server’s environment always win and show as locked here. Keys are
                 stored encrypted on the server and are never shown again.

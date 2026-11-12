@@ -106,6 +106,16 @@ import { Broadcaster, Syncer } from './sync/index.js'
 import { Tables } from './tables/index.js'
 import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from './tasks/index.js'
 import { TokenAuth, TokenStore } from './tokens/index.js'
+import {
+  type FlyApi,
+  fetchLatestRelease,
+  flyApi,
+  RELEASE_IMAGE,
+  type Release,
+  readVersion,
+  Updater,
+  UpdateStore,
+} from './updates/index.js'
 
 // Same depth from src/ and dist/: apps/server/{src,dist}/services.{ts,js} → the repo root.
 const ENV_FILE = fileURLToPath(new URL('../../../.env.local', import.meta.url))
@@ -142,6 +152,11 @@ export interface ServiceOverrides {
   chatFetch?: typeof fetch
   /** Free bytes on the data volume, for Clips' disk check. */
   diskFreeBytes?: () => Promise<number>
+  /** The updater's view of the newest release and of Fly (docs/PLAN-releases-and-updates.md). */
+  latestRelease?: () => Promise<Release | null>
+  fly?: FlyApi | null
+  flyEnv?: { app?: string; region?: string; imageRef?: string }
+  version?: string
   /** Stands in for the network in the Todoist import. */
   todoistFetch?: typeof fetch
   /** The organization store, when the caller already opened one (main.ts). */
@@ -351,9 +366,33 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
     productName: config.PRODUCT_NAME,
   })
+  // In tests nothing reaches GitHub or Fly unless the test hands in stand-ins.
+  const flyEnv = overrides.flyEnv ?? {
+    ...(process.env.FLY_APP_NAME ? { app: process.env.FLY_APP_NAME } : {}),
+    ...(process.env.FLY_REGION ? { region: process.env.FLY_REGION } : {}),
+    ...(process.env.FLY_IMAGE_REF ? { imageRef: process.env.FLY_IMAGE_REF } : {}),
+  }
+  const updates = new Updater({
+    current: overrides.version ?? readVersion(),
+    store: new UpdateStore(config.DATA_DIR),
+    latestRelease:
+      overrides.latestRelease ??
+      (config.NODE_ENV === 'test' ? async () => null : () => fetchLatestRelease()),
+    fly:
+      overrides.fly !== undefined
+        ? overrides.fly
+        : config.FLY_API_TOKEN && flyEnv.app
+          ? flyApi({ token: config.FLY_API_TOKEN, app: flyEnv.app })
+          : null,
+    flyEnv,
+    image: RELEASE_IMAGE,
+    publicUrl: config.PUBLIC_URL,
+    busy: () => meetings.sockets.recording > 0,
+  })
   return {
     config,
     git,
+    updates,
     host,
     index,
     indexer,

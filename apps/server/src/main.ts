@@ -80,6 +80,9 @@ async function main(): Promise<void> {
   meetings.calendarSync?.start()
   services.briefs.start()
   services.briefcasts.start()
+  // An update this server started either took or was rolled back; then keep checking.
+  services.updates.reconcile()
+  services.updates.startTimer()
 
   const app = new Hono()
   // Once shutdown starts, requests on still-open connections are refused (the client retries

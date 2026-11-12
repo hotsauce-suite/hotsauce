@@ -391,34 +391,60 @@ export function setupRoutes(deps: AppDeps) {
 }
 
 export function adminOrgRoutes(deps: AppDeps) {
-  return new Hono<AppEnv>()
-    .use('/admin/org/*', requireAdmin())
-    .route(
-      '/admin/org',
-      editorRoutes(deps, {
-        validate: true,
-        // An instance configured by env (set up before the wizard existed) becomes wizard-managed
-        // the first time an admin saves here. Env values still win.
-        onSaved: () => {
-          if (!deps.org.settings().setupComplete) {
-            deps.org.saveSettings({ setupComplete: true, completedAt: new Date().toISOString() })
-          }
-        },
-      }),
-    )
-    .post('/admin/org/apply', (c) => {
-      ensureWebhookSecret(deps)
-      const problems = nextConfigProblems(deps)
-      if (problems.length > 0) {
-        throw new HearthError(
-          'bad_request',
-          `Not applied: the server wouldn’t start with these settings: ${problems.join('; ')}`,
-          {
-            details: { problems },
+  return (
+    new Hono<AppEnv>()
+      .use('/admin/org/*', requireAdmin())
+      .route(
+        '/admin/org',
+        editorRoutes(deps, {
+          validate: true,
+          // An instance configured by env (set up before the wizard existed) becomes wizard-managed
+          // the first time an admin saves here. Env values still win.
+          onSaved: () => {
+            if (!deps.org.settings().setupComplete) {
+              deps.org.saveSettings({ setupComplete: true, completedAt: new Date().toISOString() })
+            }
           },
-        )
-      }
-      setTimeout(() => deps.restart?.(), 400)
-      return c.json({ ok: true as const, restarting: true })
-    })
+        }),
+      )
+      // Updates (docs/PLAN-releases-and-updates.md): the running and newest release, the
+      // automatic-updates switch, and the Update button.
+      .get('/admin/org/updates', async (c) => {
+        await deps.updates.check()
+        return c.json(deps.updates.status())
+      })
+      .post('/admin/org/updates/check', async (c) => {
+        await deps.updates.check(true)
+        return c.json(deps.updates.status())
+      })
+      .put('/admin/org/updates/auto', async (c) => {
+        const body = (await c.req.json().catch(() => null)) as { on?: unknown } | null
+        if (typeof body?.on !== 'boolean') {
+          throw new HearthError('bad_request', 'Send {"on": true} or {"on": false}')
+        }
+        return c.json(deps.updates.setAuto(body.on))
+      })
+      .post('/admin/org/updates/start', async (c) => {
+        try {
+          return c.json(await deps.updates.start())
+        } catch (err) {
+          throw new HearthError('conflict', err instanceof Error ? err.message : String(err))
+        }
+      })
+      .post('/admin/org/apply', (c) => {
+        ensureWebhookSecret(deps)
+        const problems = nextConfigProblems(deps)
+        if (problems.length > 0) {
+          throw new HearthError(
+            'bad_request',
+            `Not applied: the server wouldn’t start with these settings: ${problems.join('; ')}`,
+            {
+              details: { problems },
+            },
+          )
+        }
+        setTimeout(() => deps.restart?.(), 400)
+        return c.json({ ok: true as const, restarting: true })
+      })
+  )
 }

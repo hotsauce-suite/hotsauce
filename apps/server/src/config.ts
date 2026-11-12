@@ -41,6 +41,8 @@ export const ConfigSchema = z
     // Where this instance runs (docs/PLAN-cloudflare-deploy.md). On `cloudflare` the disk is
     // temporary, so setup insists on repositories in GitHub and video and audio in R2.
     HOTSAUCE_PLATFORM: z.enum(['server', 'cloudflare']).default('server'),
+    // On Fly, a token for this app lets Settings → Organization update it (PLAN-releases-and-updates).
+    FLY_API_TOKEN: z.string().optional(),
     // The state mirror's store; main.ts reads these before config loads. Off when unset.
     // Empty means off, as in an env file with `STATE_URL=`.
     STATE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),

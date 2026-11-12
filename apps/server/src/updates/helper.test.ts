@@ -1,0 +1,91 @@
+import { describe, expect, it } from 'vitest'
+import { FakeFly } from './fake-fly.js'
+import { HELPER_ROLE } from './fly.js'
+import { runHelper } from './helper.js'
+
+const OLD = 'registry.fly.io/acme:deployment-1'
+const NEW = 'ghcr.io/hotsauce-suite/hotsauce:0.3.0'
+
+/** A site whose health reports whatever version `serving()` says. */
+const site = (serving: () => string | null) =>
+  (async () => {
+    const v = serving()
+    if (v === null) return new Response('down', { status: 502 })
+    return Response.json({ ok: true, version: v })
+  }) as unknown as typeof fetch
+
+const base = (fly: FakeFly, fetchFn: typeof fetch) => ({
+  fly,
+  target: NEW,
+  targetVersion: '0.3.0',
+  previous: OLD,
+  publicUrl: 'https://office.example.com',
+  timeoutMs: 20_000,
+  pollMs: 5_000,
+  fetchFn,
+  sleep: async () => {},
+  log: () => {},
+})
+
+describe('runHelper', () => {
+  it('moves the app machines to the new image and stops once health reports it', async () => {
+    const fly = new FakeFly()
+    fly.add('app1', OLD)
+    fly.add('helper', OLD, { role: HELPER_ROLE })
+    const result = await runHelper(
+      base(
+        fly,
+        site(() => (fly.image('app1') === NEW ? '0.3.0' : '0.2.0')),
+      ),
+    )
+    expect(result).toEqual({ ok: true, version: '0.3.0' })
+    expect(fly.image('app1')).toBe(NEW)
+    // It never touches itself.
+    expect(fly.image('helper')).toBe(OLD)
+    expect(fly.machines.find((m) => m.id === 'app1')?.config.services).toEqual([
+      { internal_port: 3000 },
+    ])
+  })
+
+  it('puts the old image back when the new one never turns healthy', async () => {
+    const fly = new FakeFly()
+    fly.add('app1', OLD)
+    const result = await runHelper(
+      base(
+        fly,
+        site(() => (fly.image('app1') === NEW ? null : '0.2.0')),
+      ),
+    )
+    expect(result.ok).toBe(false)
+    expect(result).toMatchObject({ rolledBack: true })
+    expect(fly.image('app1')).toBe(OLD)
+  })
+
+  it('rolls back when the new version starts but reports the wrong version', async () => {
+    const fly = new FakeFly()
+    fly.add('app1', OLD)
+    const result = await runHelper(
+      base(
+        fly,
+        site(() => '0.2.0'),
+      ),
+    )
+    expect(result).toMatchObject({ ok: false, rolledBack: true })
+    expect(fly.image('app1')).toBe(OLD)
+  })
+
+  it('leaves untouched machines alone when Fly refuses the new image', async () => {
+    const fly = new FakeFly()
+    fly.add('app1', OLD)
+    fly.refuse.add(NEW)
+    const result = await runHelper(
+      base(
+        fly,
+        site(() => '0.2.0'),
+      ),
+    )
+    expect(result).toMatchObject({ ok: false, rolledBack: true })
+    expect(fly.calls.filter((c) => c.startsWith('update'))).toEqual([`update app1 ${NEW}`])
+    expect(fly.image('app1')).toBe(OLD)
+  })
+})
