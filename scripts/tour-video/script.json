@@ -1,0 +1,52 @@
+[
+ {
+  "id": "today",
+  "app": "Today",
+  "vo": "This is Hotsauce, an open source office suite for small teams. It runs on your own server. Every morning starts on Today: your meetings, your tasks, and the to-dos your meetings left behind."
+ },
+ {
+  "id": "docs",
+  "app": "Docs",
+  "vo": "Docs are plain Markdown files, kept in Git. Write in a clean editor and link docs with two square brackets. Every save is a version, so you can step back through history and see who changed what."
+ },
+ {
+  "id": "meetings",
+  "app": "Meetings",
+  "vo": "Meetings takes the notes for you, and no bot joins your call. After the call, your rough notes and the transcript become clean notes, with decisions and action items."
+ },
+ {
+  "id": "ask",
+  "app": "Meetings",
+  "vo": "Ask a question across every past meeting, and the answer points back to where it came from. Hotsauce also writes a brief for your AI agents, and they can read and write everything here, through MCP."
+ },
+ {
+  "id": "tasks",
+  "app": "Tasks",
+  "vo": "Action items land in Tasks. Type one in plain words, with a date and a project. Or just ramble for a few seconds, and Hotsauce sorts it into a clean list."
+ },
+ {
+  "id": "notes",
+  "app": "Notes",
+  "vo": "Notes hold the small stuff that isn't a doc. Color them, pin them, or turn them into checklists."
+ },
+ {
+  "id": "clips",
+  "app": "Clips",
+  "vo": "Clips replaces the meeting you didn't need. Record your screen and talk it through. Whoever watches gets a transcript and a summary."
+ },
+ {
+  "id": "dictate",
+  "app": "Dictate",
+  "vo": "Dictate turns talking into clean text. Hold a key on your Mac and speak into any app, or leave a voice note from your phone."
+ },
+ {
+  "id": "more",
+  "app": "And more",
+  "vo": "There's more on the table: whiteboards your team draws on live, a people directory, files, forms, booking links, and Briefcast, a morning briefing you can play like a podcast."
+ },
+ {
+  "id": "close",
+  "app": "Hotsauce",
+  "vo": "Hotsauce is free and open source, and it deploys to Cloudflare in minutes. Get it at hotsauce dot work."
+ }
+]
