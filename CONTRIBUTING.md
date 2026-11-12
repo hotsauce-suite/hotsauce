@@ -32,3 +32,7 @@ Add or update tests with every behavior change. Specs drive the real built app; 
 ## License
 
 By contributing, you agree that your contributions are licensed under the [AGPL-3.0](LICENSE).
+
+## Releases
+
+Raise `HOTSAUCE_VERSION` in the pull request that finishes a piece of work people will notice (patch for fixes, minor for features). Merging it tags `v<version>`, publishes the release notes and pushes the image `ghcr.io/hotsauce-suite/hotsauce:<version>` (`.github/workflows/release.yml`). Merges that leave the version alone release nothing.

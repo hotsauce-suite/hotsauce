@@ -62,6 +62,8 @@ describe('invited people', () => {
     const withInvite = await instance({ ALLOWED_EMAILS: INVITED })
     const health = await (await withInvite('GET', '/api/health')).json()
     expect(health.emailCodeSignIn).toBe(true)
+    // The updater reads the running release from here.
+    expect(health.version).toMatch(/^\d+\.\d+\.\d+$/)
     // Health is public: it never names who is invited.
     expect(JSON.stringify(health)).not.toContain('gmail')
   })
