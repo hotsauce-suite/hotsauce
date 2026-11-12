@@ -10,6 +10,10 @@ export type PageMessage =
   | { source: typeof PAGE_SOURCE; type: 'hello'; id: string }
   /** `code`: the call the page is for, when it knows it ("abc-defg-hij"). */
   | { source: typeof PAGE_SOURCE; type: 'capture-meet'; id: string; code?: string }
+  /** The save page (/links/save?via=extension) saved its link, or couldn't. */
+  | { source: typeof PAGE_SOURCE; type: 'link-saved'; id: string; ok: boolean }
+  /** The save page asks whether this extension opened it (then it saves without a click). */
+  | { source: typeof PAGE_SOURCE; type: 'may-save'; id: string }
 
 export type CaptureFailure =
   /**
@@ -28,11 +32,16 @@ export type CaptureReply =
 export type WorkerMessage =
   | { type: 'take-notes'; tabId: number }
   | { type: 'capture-meet'; code?: string }
+  | { type: 'save-page'; tabId: number }
+  | { type: 'link-saved'; ok: boolean }
+  | { type: 'may-save' }
 
 export function isPageMessage(data: unknown): data is PageMessage {
   if (typeof data !== 'object' || data === null) return false
   const d = data as Record<string, unknown>
   if (d.source !== PAGE_SOURCE || typeof d.id !== 'string') return false
   if (d.type === 'hello') return true
+  if (d.type === 'link-saved') return typeof d.ok === 'boolean'
+  if (d.type === 'may-save') return true
   return d.type === 'capture-meet' && (d.code === undefined || typeof d.code === 'string')
 }

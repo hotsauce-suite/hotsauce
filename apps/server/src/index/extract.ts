@@ -7,7 +7,7 @@ import { parse as parseYaml } from 'yaml'
  * whiteboard under `boards/` (§15.1), `person` a person's About under `people/` (§17.3),
  * `file` a Hearth Files pointer under `files/` (§18.1), `page` a published page's pointer under
  * `pages/` (§20.2), `form` a form under `forms/` and `form-answer` one of its answers beside it
- * (§21.1).
+ * (§21.1), `table` a table under `tables/` (§22.1), `link` a saved link under `links/` (§23.1).
  */
 export type FileKind =
   | 'docs'
@@ -21,6 +21,8 @@ export type FileKind =
   | 'page'
   | 'form'
   | 'form-answer'
+  | 'table'
+  | 'link'
   | 'other'
 
 export interface ExtractedDoc {
@@ -53,6 +55,8 @@ export function kindOf(path: string): FileKind {
   if (top === 'people') return 'person'
   if (top === 'files') return 'file'
   if (top === 'pages') return 'page'
+  if (top === 'tables') return 'table'
+  if (top === 'links') return 'link'
   if (top === 'forms') return path.split('/').length > 2 ? 'form-answer' : 'form'
   if (top !== 'meetings') return 'other'
   return path.toLowerCase().endsWith('.transcript.md') ? 'transcript' : 'meeting'

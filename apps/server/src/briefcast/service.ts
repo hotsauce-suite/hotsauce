@@ -8,6 +8,7 @@ import { HearthError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
 import { extractDoc, type Index, kindOf } from '../index/index.js'
+import type { Links, LinkView } from '../links/index.js'
 import type { AudioStore } from '../meetings/audio/types.js'
 import type { CalendarSource } from '../meetings/calendar/types.js'
 import { matchesPerson } from '../meetings/list.js'
@@ -22,6 +23,7 @@ import {
   buildBriefcastPrompt,
   type CastDoc,
   type CastEvent,
+  type CastLink,
   type CastMeeting,
   type CastTask,
   cleanScript,
@@ -45,7 +47,10 @@ const MAX_DOC_LOOKUPS = 40
 const DOC_CHARS = 600
 const MAX_TASKS = 40
 const TICK_MS = 15 * 60_000
-const PROMPT_VERSION = 1
+const PROMPT_VERSION = 2
+/** Saved links read out in one briefing, and last week's unread ones on Mondays. */
+const MAX_LINKS = 8
+const MAX_UNREAD_LINKS = 5
 const NIGHTLY_ATTEMPTS = 3
 const FORCED_PER_DAY = 10
 
@@ -65,7 +70,7 @@ export interface Episode extends EpisodeSummary {
   audioExpired: boolean
   model: string
   voice: string
-  counts: { events: number; meetings: number; tasks: number; docs: number }
+  counts: { events: number; meetings: number; tasks: number; docs: number; links: number }
 }
 
 export interface BriefcastOverview {
@@ -87,6 +92,8 @@ type Deps = {
   spaces: Pick<SpaceService, 'visibleSpaces' | 'ensurePersonalSpace'>
   syncer: Pick<Syncer, 'afterHeadChanged'>
   tasks: Pick<Tasks, 'list'>
+  /** Saved links (§23); null leaves them out. */
+  links: Pick<Links, 'list'> | null
   calendar: CalendarSource
   llm: LLM
   model: string
@@ -190,8 +197,9 @@ export class Briefcasts {
       meetings: material.meetings.length,
       tasks: material.tasks.length,
       docs: material.docs.length,
+      links: material.links.length,
     }
-    if (counts.events + counts.meetings + counts.tasks + counts.docs === 0) {
+    if (counts.events + counts.meetings + counts.tasks + counts.docs + counts.links === 0) {
       return { status: 'empty', date: null }
     }
     const { system, user } = buildBriefcastPrompt({
@@ -257,7 +265,13 @@ export class Briefcasts {
     now: Date,
     tz: string,
     weekday: string,
-  ): Promise<{ events: CastEvent[]; meetings: CastMeeting[]; tasks: CastTask[]; docs: CastDoc[] }> {
+  ): Promise<{
+    events: CastEvent[]
+    meetings: CastMeeting[]
+    tasks: CastTask[]
+    docs: CastDoc[]
+    links: CastLink[]
+  }> {
     const since = new Date(now.getTime() - (weekday === 'Mon' ? 72 : 24) * 3_600_000)
     const spaces = await this.#d.spaces.visibleSpaces(principal)
 
@@ -354,7 +368,38 @@ export class Briefcasts {
       }))
 
     const docs = await this.#changedDocs(principal, spaces, since)
-    return { events, meetings, tasks, docs }
+    const links = await this.#savedLinks(principal, since, weekday === 'Mon')
+    return { events, meetings, tasks, docs, links }
+  }
+
+  /** Links the member saved since `since`; on Mondays also last week's still unread. */
+  async #savedLinks(principal: Principal, since: Date, monday: boolean): Promise<CastLink[]> {
+    if (!this.#d.links) return []
+    const toCast = (status: CastLink['status']) => (l: LinkView) => ({
+      title: l.title || l.site || 'An untitled page',
+      site: l.site,
+      summary: l.summary || l.description,
+      status,
+    })
+    const recent = await this.#d.links.list(principal, {
+      view: 'all',
+      savedBy: principal.email,
+      savedSince: since.toISOString(),
+      limit: MAX_LINKS,
+    })
+    if (!monday) return recent.map(toCast('saved'))
+    const weekAgo = new Date(since.getTime() - 7 * 86_400_000).toISOString()
+    const unread = (
+      await this.#d.links.list(principal, {
+        view: 'unread',
+        savedBy: principal.email,
+        savedSince: weekAgo,
+        limit: MAX_LINKS * 4,
+      })
+    )
+      .filter((l) => l.saved < since.toISOString())
+      .slice(0, MAX_UNREAD_LINKS)
+    return [...recent.map(toCast('saved')), ...unread.map(toCast('unread'))]
   }
 
   /** Docs other people changed since `since`, in spaces the member can read. */
@@ -644,6 +689,7 @@ export class Briefcasts {
         meetings: num(data.meetings),
         tasks: num(data.tasks),
         docs: num(data.docs),
+        links: num(data.links),
       },
     }
   }

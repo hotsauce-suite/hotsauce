@@ -24,6 +24,7 @@ import {
   handleError,
   historyRoutes,
   limitBody,
+  linkRoutes,
   meetingRoutes,
   noteRoutes,
   orgPublicRoutes,
@@ -34,6 +35,7 @@ import {
   searchRoutes,
   setupRoutes,
   shareRoutes,
+  tableRoutes,
   taskRoutes,
   testRoutes,
   todayRoutes,
@@ -83,6 +85,8 @@ export function createApp(deps: AppDeps) {
     .route('/api', pageRoutes(deps))
     .route('/api', formRoutes(deps))
     .route('/api', formFillRoutes(deps))
+    .route('/api', tableRoutes(deps))
+    .route('/api', linkRoutes(deps))
   // e2e hooks (ARCHITECTURE §7.8); never mounted outside NODE_ENV=test.
   if (deps.config.NODE_ENV === 'test') app.route('/api', testRoutes(deps))
   // The MCP endpoint for agents (ARCHITECTURE §8.2): same authentication and body limit as /api.

@@ -8,6 +8,7 @@ import {
   parseFrontmatter,
   patchFrontmatter,
   SPACE_LAYOUT,
+  TABLES_FOLDER,
 } from '@hearth/format'
 import { HearthError } from '../errors.js'
 import {
@@ -135,11 +136,11 @@ export function isAtOrUnder(path: string, folder: string): boolean {
 export function writablePath(rawPath: string): string {
   const path = normalizeRepoPath(rawPath)
   if (isAtOrUnder(SPACE_CONFIG, path)) {
-    throw new HearthError('forbidden', `${SPACE_CONFIG} can't be changed from Hearth`)
+    throw new HearthError('forbidden', `${SPACE_CONFIG} can't be changed here`)
   }
   // Hearth Files' pointers say which stored bytes a file is; only the Files app writes them.
   if (path === '' || FILES_OWNED.some((p) => isAtOrUnder(path, p) || isAtOrUnder(p, path))) {
-    throw new HearthError('forbidden', 'Files in Hearth Files are changed from the Files app')
+    throw new HearthError('forbidden', 'These files are changed from the Files app')
   }
   // A published page's pointer and HTML change only by publishing it again (ARCHITECTURE §20.2).
   if (isAtOrUnder(path, PAGES_FOLDER) || isAtOrUnder(PAGES_FOLDER, path)) {
@@ -148,6 +149,10 @@ export function writablePath(rawPath: string): string {
   // Forms and their answers change only in the Forms app (ARCHITECTURE §21.1).
   if (isAtOrUnder(path, FORMS_FOLDER) || isAtOrUnder(FORMS_FOLDER, path)) {
     throw new HearthError('forbidden', 'Forms and their answers change only in the Forms app')
+  }
+  // A table's cells and columns change in the Tables app or its MCP tools (ARCHITECTURE §22.1).
+  if (isAtOrUnder(path, TABLES_FOLDER) || isAtOrUnder(TABLES_FOLDER, path)) {
+    throw new HearthError('forbidden', 'Tables change only in the Tables app')
   }
   return path
 }

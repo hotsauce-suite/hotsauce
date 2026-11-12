@@ -266,7 +266,7 @@ final class DictationController {
         if dictationError.isRetryable {
             failed = (request, target)
             status = .error("Couldn’t send the last dictation")
-            overlay.showMessage("Couldn’t reach Hearth — Retry is in the menu", seconds: 3.5)
+            overlay.showMessage("Couldn’t reach \(Brand.name) — Retry is in the menu", seconds: 3.5)
         } else if dictationError == .notConnected {
             failed = nil
             ConnectionStore.delete()

@@ -42,7 +42,7 @@ export function registerCalendarTools(
     if (start < now - SEARCH_BACK_MS - HOUR_MS || end > now + SEARCH_AHEAD_MS + HOUR_MS) {
       throw new HearthError(
         'bad_request',
-        'The server keeps your calendar from 30 days ago to 15 days ahead; ask within that range',
+        'The calendar is kept from 30 days ago to 15 days ahead; ask within that range',
       )
     }
   }

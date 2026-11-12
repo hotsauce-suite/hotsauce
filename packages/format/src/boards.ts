@@ -206,7 +206,7 @@ export function sceneJson(scene: BoardScene): string {
 }
 
 const NOTE =
-  '<!-- A Hearth Whiteboard. Open it in Hearth to draw; the list is the text on the board. -->'
+  '<!-- A Hotsauce Whiteboard. Open it in Hotsauce to draw; the list is the text on the board. -->'
 
 /** The file body (everything after the frontmatter) for a scene. */
 export function boardBodyText(scene: BoardScene): string {
@@ -315,7 +315,11 @@ export function boardSearchText(body: string): string {
       if (closes(line, fence)) fence = null
       continue
     }
-    if (line.startsWith('<!-- A Hearth Whiteboard')) continue
+    if (
+      line.startsWith('<!-- A Hotsauce Whiteboard') ||
+      line.startsWith('<!-- A Hearth Whiteboard')
+    )
+      continue
     out.push(line)
   }
   return out.join('\n')

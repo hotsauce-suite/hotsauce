@@ -1,6 +1,7 @@
 // Builds the Chrome extension into dist/ and packs dist/ as release/hearth-meetings-chrome.zip.
 //
-//   HEARTH_URL  the Hearth it talks to (default http://localhost:3000). A localhost URL also
+//   PRODUCT_NAME  the name it shows (default Hotsauce; match the server's PRODUCT_NAME)
+//   HEARTH_URL  the instance it talks to (default http://localhost:3000). A localhost URL also
 //               allows both dev ports, :3000 (built server) and :5173 (Vite).
 //
 // The Dockerfile copies the zip to the web app's /downloads/, where Meetings links to it.
@@ -16,6 +17,7 @@ const dist = path.join(root, 'dist')
 const release = path.join(root, 'release')
 const ZIP_NAME = 'hearth-meetings-chrome.zip'
 
+const productName = process.env.PRODUCT_NAME?.trim() || 'Hotsauce'
 const hearthUrl = new URL(process.env.HEARTH_URL ?? 'http://localhost:3000')
 const origins =
   hearthUrl.hostname === 'localhost'
@@ -30,14 +32,14 @@ const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'ut
 const icons = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png' }
 const manifest = {
   manifest_version: 3,
-  name: 'Hearth Meetings',
+  name: productName,
   version,
-  description: 'Take notes on Google Meet calls with Hearth, without Chrome’s share dialog.',
+  description: `Take notes on Google Meet calls with ${productName}, and save pages to read later.`,
   minimum_chrome_version: '116',
   icons: { ...icons, 128: 'icons/icon-128.png' },
-  action: { default_title: 'Hearth Meetings', default_popup: 'popup.html', default_icon: icons },
+  action: { default_title: productName, default_popup: 'popup.html', default_icon: icons },
   background: { service_worker: 'background.js', type: 'module' },
-  permissions: ['tabCapture', 'storage'],
+  permissions: ['tabCapture', 'storage', 'activeTab', 'contextMenus'],
   host_permissions: ['https://meet.google.com/*'],
   content_scripts: [
     {
@@ -64,6 +66,7 @@ await build({
   define: {
     __HEARTH_URL__: JSON.stringify(hearthUrl.origin),
     __HEARTH_ORIGINS__: JSON.stringify(origins),
+    __PRODUCT_NAME__: JSON.stringify(productName),
   },
   logLevel: 'warning',
 })
@@ -79,4 +82,4 @@ writeFileSync(
   path.join(release, ZIP_NAME),
   zip(files.map((name) => ({ name, data: readFileSync(path.join(dist, name)) }))),
 )
-console.log(`Hearth Meetings extension ${version} for ${hearthUrl.origin}: release/${ZIP_NAME}`)
+console.log(`${productName} extension ${version} for ${hearthUrl.origin}: release/${ZIP_NAME}`)

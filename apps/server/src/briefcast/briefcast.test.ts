@@ -31,6 +31,15 @@ const input = {
     },
   ],
   docs: [{ space: 'team', title: 'Plan', path: 'docs/plan.md', by: ['Bob'], excerpt: 'New plan' }],
+  links: [
+    {
+      title: 'Mirror life',
+      site: 'Nature',
+      summary: 'Why <b>mirror</b> bacteria worry biologists.',
+      status: 'saved' as const,
+    },
+    { title: 'Gene drives', site: 'b.test', summary: '', status: 'unread' as const },
+  ],
 }
 
 describe('buildBriefcastPrompt (R3)', () => {
@@ -44,6 +53,11 @@ describe('buildBriefcastPrompt (R3)', () => {
     expect(user).toContain('- Send deck (open, p1, due 2026-11-12, project Sales)')
     expect(user).toContain('<doc title="Plan" space="team" changed_by="Bob">')
     expect(user).toContain('Today: Thursday, November 12 (2026-11-12)')
+    expect(user).toContain(
+      '<link status="saved" title="Mirror life" site="Nature">Why ‹b›mirror‹/b› bacteria worry biologists.</link>',
+    )
+    expect(user).toContain('<link status="unread" title="Gene drives" site="b.test"></link>')
+    expect(system).toContain('Saved to read')
   })
 })
 

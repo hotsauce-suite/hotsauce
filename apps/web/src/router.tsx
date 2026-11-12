@@ -5,10 +5,12 @@ import { clipsRoutes } from './apps/clips/routes'
 import { dictateRoutes } from './apps/dictate/routes'
 import { filesRoutes } from './apps/files/routes'
 import { formsRoutes } from './apps/forms/routes'
+import { linksRoutes } from './apps/links/routes'
 import { meetingsRoutes } from './apps/meetings/routes'
 import { notesRoutes } from './apps/notes/routes'
 import { pagesRoutes } from './apps/pages/routes'
 import { peopleRoutes } from './apps/people/routes'
+import { tablesRoutes } from './apps/tables/routes'
 import { tasksRoutes } from './apps/tasks/routes'
 import { todayRoutes } from './apps/today/routes'
 import { AuthRoot, BootError } from './auth/AuthRoot'
@@ -112,6 +114,8 @@ export const createAppRouter = () =>
             { path: '/today', children: todayRoutes },
             { path: '/files', children: filesRoutes },
             { path: '/forms', children: formsRoutes },
+            { path: '/tables', children: tablesRoutes },
+            { path: '/links', children: linksRoutes },
             { path: '/briefcast', children: briefcastRoutes },
             { path: '/pages', children: pagesRoutes },
           ],

@@ -58,7 +58,7 @@ function messageFor(err: InstanceType<typeof Anthropic.APIError>): string {
     err instanceof Anthropic.AuthenticationError ||
     err instanceof Anthropic.PermissionDeniedError
   ) {
-    return "Claude refused Hearth's API key"
+    return 'Claude refused the Anthropic API key'
   }
   if (err instanceof Anthropic.APIConnectionError) return "Couldn't reach Claude"
   return `Claude request failed${err.status ? ` (${err.status})` : ''}`

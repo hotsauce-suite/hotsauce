@@ -2,6 +2,7 @@
 # Deploys a new Hotsauce to Fly.io and prints its setup link.
 #
 #   scripts/deploy-fly.sh <app-name> [region]      e.g. scripts/deploy-fly.sh acme-office ewr
+#   PUBLIC_URL=https://hotsauce.acme.com scripts/deploy-fly.sh acme-office    (recommended address)
 #
 # Needs flyctl, signed in (`fly auth login`). Creates the app, a 3 GB volume and three
 # generated secrets (the key that encrypts saved API keys, and the push notification keys),
@@ -37,6 +38,16 @@ if ! fly secrets list --app "$app" 2>/dev/null | grep -q HOTSAUCE_MASTER_KEY; th
 fi
 
 fly deploy --config "$config" --app "$app" --build-arg "HEARTH_URL=${url}"
+
+# Your company's address (PUBLIC_URL=https://hotsauce.acme.com): Fly issues its certificate once
+# the DNS record points at the app.
+host="${url#https://}"; host="${host%%/*}"
+if [[ "$host" != *.fly.dev ]]; then
+  fly certs add "$host" --app "$app" >/dev/null 2>&1 || true
+  echo
+  echo "Add this DNS record at your DNS provider: CNAME ${host%%.*} → ${app}.fly.dev"
+  echo "(if your DNS is on Cloudflare, set it to DNS only, the grey cloud)."
+fi
 
 echo
 echo "Deployed to ${url}. The setup link:"

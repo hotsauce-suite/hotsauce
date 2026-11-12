@@ -10,17 +10,9 @@ import {
 } from '../../api/dictation'
 import { org, product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { MAC_APP_SETTINGS } from '../../components/MacApp'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { openAppLink } from './openAppLink'
-
-/** Served by the server from the web build; the Dockerfile puts it there. */
-export const MAC_APP_DOWNLOAD = '/downloads/Hearth.dmg'
-/** The same app as a zip, for anyone whose browser or Mac won't open the disk image. */
-export const MAC_APP_ZIP = '/downloads/Hearth.zip'
-const PRIVACY_SETTINGS = 'x-apple.systempreferences:com.apple.preference.security'
-/** How to build the Mac app, for a server that has no build to offer. */
-export const MAC_APP_SOURCE =
-  'https://github.com/hotsauce-suite/hotsauce/blob/main/apps/dictate-mac/README.md'
 
 const kbd =
   'rounded-md border border-ash-strong/70 bg-paper-raised px-1.5 py-0.5 font-mono text-[0.8em] text-ink shadow-[0_1px_0_var(--ash-strong)]'
@@ -31,14 +23,15 @@ type Connect =
   | { state: 'opened'; link: string }
   | { state: 'failed'; message: string }
 
-/** `/dictate` on a computer, and `/dictate/mac` anywhere: get the Mac app, connect this Mac, see connected Macs, edit the word lists. */
+/**
+ * `/dictate` on a computer, and `/dictate/mac` anywhere: connect this Mac, see connected Macs, edit
+ * the word lists. The app's download is in Settings (docs/PLAN-mac-app-download.md).
+ */
 export default function DictatePage() {
   const [devices, setDevices] = useState<DictationDevice[] | null>(null)
   const [words, setWords] = useState<DictationWords | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [connect, setConnect] = useState<Connect>({ state: 'idle' })
-  // A server built without the Mac app (a fresh self-hosted one) has nothing to download.
-  const [hasMacApp, setHasMacApp] = useState(true)
 
   // The sidebar links to this page's sections by hash; the router doesn't scroll to them.
   const { hash } = useLocation()
@@ -54,10 +47,6 @@ export default function DictatePage() {
     document.title = `${product()} Dictate`
     refreshDevices()
     dictationApi.words().then(setWords, (err: unknown) => setLoadError(messageOf(err)))
-    fetch(MAC_APP_DOWNLOAD, { method: 'HEAD' }).then(
-      (res) => setHasMacApp(res.ok),
-      () => {},
-    )
   }, [refreshDevices])
 
   const onConnect = async () => {
@@ -107,40 +96,30 @@ export default function DictatePage() {
                   “ums” go, “no wait, Wednesday” becomes Wednesday, and your team’s own words come
                   out spelled right.
                 </p>
-                <div className="mt-6 flex flex-wrap gap-3">
-                  {hasMacApp ? (
-                    <a
-                      href={MAC_APP_DOWNLOAD}
-                      download
-                      data-testid="dictate-download"
-                      className={primaryButton}
-                    >
-                      <Icon name="mic" />
-                      Download for Mac
-                    </a>
-                  ) : (
-                    <a
-                      href={MAC_APP_SOURCE}
-                      target="_blank"
-                      rel="noreferrer"
-                      data-testid="dictate-build-from-source"
-                      className={primaryButton}
-                    >
-                      <Icon name="mic" />
-                      Build the Mac app
-                    </a>
-                  )}
+                <div className="mt-6 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     data-testid="dictate-connect"
                     onClick={() => void onConnect()}
                     disabled={connect.state === 'connecting'}
-                    className={secondaryButton}
+                    className={primaryButton}
                   >
+                    <Icon name="mic" />
                     {connect.state === 'connecting' ? 'Connecting…' : 'Connect this Mac'}
                   </button>
                 </div>
-                <p className="mt-4 text-sm text-ink-soft">
+                <p className="mt-4 text-sm text-ink-soft" data-testid="dictate-get-app">
+                  Don’t have the Mac app yet?{' '}
+                  <Link
+                    to={MAC_APP_SETTINGS}
+                    data-testid="dictate-get-app-link"
+                    className="font-medium text-ink underline decoration-ash-strong underline-offset-2 hover:decoration-ember"
+                  >
+                    Get it in Settings
+                  </Link>
+                  , then connect it here.
+                </p>
+                <p className="mt-2 text-sm text-ink-soft">
                   Not at your Mac?{' '}
                   <Link
                     to="/dictate/voice"
@@ -171,57 +150,6 @@ export default function DictatePage() {
             <ConnectStatus connect={connect} />
           </section>
 
-          <section id="install" aria-labelledby="install-title" className="mt-14">
-            <SectionTitle id="install-title" title="Installing it the first time">
-              The {product()} Mac app isn’t from the App Store, so macOS asks you to confirm it
-              once.
-            </SectionTitle>
-            <ol
-              data-testid="dictate-install-steps"
-              className="mt-4 list-decimal space-y-2 pl-5 text-sm text-ink-soft marker:font-semibold marker:text-ember"
-            >
-              <li>Open the downloaded disk image and drag {product()} into Applications.</li>
-              <li>
-                Open it from Applications. When macOS says{' '}
-                <span className="text-ink">“Apple could not verify…”</span>, click{' '}
-                <span className="font-medium text-ink">Done</span>.
-              </li>
-              <li>
-                Open System Settings → Privacy &amp; Security, scroll down, and click{' '}
-                <span className="font-medium text-ink">Open Anyway</span> next to {product()}, then
-                confirm. On macOS 14, Control-click the app and choose Open instead.
-              </li>
-              <li>
-                Allow the microphone and Accessibility when it asks, then press Connect this Mac
-                above.
-              </li>
-            </ol>
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-              <a
-                href={PRIVACY_SETTINGS}
-                data-testid="dictate-open-privacy"
-                className={secondaryButton}
-              >
-                Open Privacy &amp; Security
-              </a>
-              {hasMacApp ? (
-                <a
-                  href={MAC_APP_ZIP}
-                  download
-                  data-testid="dictate-download-zip"
-                  className="text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink"
-                >
-                  Download as a .zip instead
-                </a>
-              ) : null}
-            </div>
-            <p className="mt-3 text-xs text-ink-faint">
-              Already installed? It’s {product()} in your Dock and Applications, with its mark in
-              the menu bar while Dictate is on. Dictate’s own settings are under {product()} →
-              Dictate… in the menu bar.
-            </p>
-          </section>
-
           {loadError ? (
             <p role="alert" className="mt-8 rounded-lg bg-rust-wash px-3 py-2 text-sm text-ink">
               {loadError}
@@ -230,7 +158,7 @@ export default function DictatePage() {
 
           <section id="devices" aria-labelledby="devices-title" className="mt-14">
             <SectionTitle id="devices-title" title="Connected Macs">
-              Each Mac has its own key. It can dictate and read the word lists, and nothing else in
+              Each Mac has its own key. It can dictate and read the word lists, and nothing else in{' '}
               {product()}. Disconnect a Mac you no longer use.
             </SectionTitle>
             <DeviceList devices={devices} onRevoke={(d) => void onRevoke(d)} />

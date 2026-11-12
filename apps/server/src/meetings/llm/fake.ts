@@ -54,6 +54,11 @@ export function scriptedResponse(req: LLMRequest): string {
   }
   // After-call transcript cleanup's spelling pass: nothing to fix unless a test says so.
   if (tagged(prompt, 'cleanup_transcript') !== null) return '[]'
+  // A saved link's summary and tags (§23): named after the page's title, tagged "reading".
+  const page = /<link_page title="([^"]*)"/.exec(prompt)
+  if (page) {
+    return JSON.stringify({ summary: `${page[1] || 'A page'}, in a sentence.`, tags: ['reading'] })
+  }
   // A Hearth Clips title and summary: named after the clip's first line.
   const clip = tagged(prompt, 'clip_transcript')
   if (clip !== null) {

@@ -41,7 +41,10 @@ export default function AppShell() {
   const location = useLocation()
   if (auth.status === 'loading') return null
   if (auth.status === 'signed-out') {
-    return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />
+    // The query comes along: a shared link's save page (/links/save?url=…) needs it after sign-in.
+    return (
+      <Navigate to="/sign-in" replace state={{ from: `${location.pathname}${location.search}` }} />
+    )
   }
   return (
     <SessionProvider>

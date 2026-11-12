@@ -2,6 +2,7 @@ import { configure, render } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { briefcastRoutes } from '../apps/briefcast/routes'
 import { dictateRoutes } from '../apps/dictate/routes'
+import { linksRoutes } from '../apps/links/routes'
 import { meetingsRoutes } from '../apps/meetings/routes'
 import { notesRoutes } from '../apps/notes/routes'
 import { peopleRoutes } from '../apps/people/routes'
@@ -59,6 +60,7 @@ export function renderApp(
           { path: '/dictate', children: dictateRoutes },
           { path: '/tasks', children: tasksRoutes },
           { path: '/notes', children: notesRoutes },
+          { path: '/links', children: linksRoutes },
           { path: '/people', children: peopleRoutes },
           { path: '/briefcast', children: briefcastRoutes },
         ],

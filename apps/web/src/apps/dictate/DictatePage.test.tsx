@@ -1,9 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { HttpResponse, http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { connectLink } from '../../api/dictation'
-import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
 
 const opened = vi.hoisted(() => ({ links: [] as string[] }))
@@ -14,31 +12,16 @@ afterEach(() => {
 })
 
 describe('Hearth Dictate page', () => {
-  it('points to the source when this server has no Mac app build', async () => {
-    server.use(http.head('/downloads/Hearth.dmg', () => new HttpResponse(null, { status: 404 })))
+  it('connects this Mac and the word lists, and sends the download to Settings', async () => {
     renderApp('/dictate')
-    expect(await screen.findByTestId('dictate-build-from-source')).toHaveAttribute(
+    expect(await screen.findByTestId('dictate-connect')).toHaveTextContent('Connect this Mac')
+    expect(screen.getByTestId('dictate-get-app-link')).toHaveAttribute('href', '/settings#mac-app')
+    // The download and the install steps live in Settings now.
+    expect(screen.queryByTestId('mac-app-download')).toBeNull()
+    expect(screen.queryByTestId('mac-app-install-steps')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Get the Mac app' })).toHaveAttribute(
       'href',
-      expect.stringContaining('apps/dictate-mac/README.md'),
-    )
-    expect(screen.queryByTestId('dictate-download')).toBeNull()
-    expect(screen.queryByTestId('dictate-download-zip')).toBeNull()
-  })
-
-  it('offers the Mac download, the how-to and the team words', async () => {
-    renderApp('/dictate')
-    expect(await screen.findByTestId('dictate-download')).toHaveAttribute(
-      'href',
-      '/downloads/Hearth.dmg',
-    )
-    expect(screen.getByTestId('dictate-download-zip')).toHaveAttribute(
-      'href',
-      '/downloads/Hearth.zip',
-    )
-    expect(screen.getByTestId('dictate-install-steps')).toHaveTextContent('Open Anyway')
-    expect(screen.getByTestId('dictate-open-privacy')).toHaveAttribute(
-      'href',
-      'x-apple.systempreferences:com.apple.preference.security',
+      '/settings#mac-app',
     )
     expect(screen.getByText(/Double-tap/)).toBeInTheDocument()
     expect(await screen.findByTestId('dictate-no-devices')).toBeInTheDocument()

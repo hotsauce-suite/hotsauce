@@ -58,3 +58,30 @@ test('a phone switches apps from the bottom tab bar, and nothing scrolls sideway
   await page.getByRole('button', { name: 'Open sidebar' }).first().tap()
   await expect(page.getByTestId('sidebar-app-name')).toHaveText('Hotsauce Meetings')
 })
+
+test('a phone reaches every app from the Apps sheet', async ({ page }) => {
+  await page.goto('/today')
+  const bar = page.getByTestId('app-rail')
+  await expect(bar.getByRole('link')).toHaveCount(4)
+  // Five even tabs, each at least a thumb wide.
+  const widths = await bar
+    .locator('a, button')
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width))
+  expect(widths).toHaveLength(5)
+  for (const width of widths) expect(width).toBeGreaterThanOrEqual(56)
+
+  await bar.getByTestId('apps-menu').tap()
+  const sheet = page.getByRole('dialog', { name: 'All apps' })
+  await expect(sheet).toBeVisible()
+  await sheet.getByTestId('apps-sheet-files').tap()
+  await expect(page).toHaveURL(/\/files/)
+  await expect(sheet).toHaveCount(0)
+  await expect(bar.getByTestId('apps-menu')).toHaveClass(/text-ember/)
+
+  // A tap outside closes it without going anywhere.
+  await bar.getByTestId('apps-menu').tap()
+  await expect(sheet).toBeVisible()
+  await page.mouse.click(200, 60)
+  await expect(sheet).toHaveCount(0)
+  await expect(page).toHaveURL(/\/files/)
+})

@@ -14,7 +14,5 @@ export const filesApp: AppManifest = {
   route: '/files',
   folder: 'files',
   urlFor: driveFileUrl,
-  // The phone bar is full; on a phone Files opens from links and attachments.
-  onPhoneBar: false,
   preload: () => import('./FilesPage'),
 }

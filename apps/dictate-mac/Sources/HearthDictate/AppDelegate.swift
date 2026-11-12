@@ -102,7 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .contains { $0.standardizedFileURL == folder }
     }
 
-    /// Up to 0.2 the app was HearthDictate.app. Installed as <Name>.app, the old copy (the same
+    /// Up to 0.2 the app was HearthDictate.app, then Hearth.app. Installed as <Name>.app, an old copy (the same
     /// app, same bundle id) would still show in Spotlight and could answer links, so it is quit if
     /// it's running and goes to the Trash: only from an installed copy, only an app with this
     /// bundle id.
@@ -112,7 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let applications = FileManager.default.urls(for: .applicationDirectory, in: .localDomainMask)
             + FileManager.default.urls(for: .applicationDirectory, in: .userDomainMask)
         for folder in applications {
-            let old = folder.appendingPathComponent("HearthDictate.app").standardizedFileURL
+            for oldName in ["HearthDictate.app", "Hearth.app"] {
+            let old = folder.appendingPathComponent(oldName).standardizedFileURL
             guard old != me, FileManager.default.fileExists(atPath: old.path),
                   Bundle(url: old)?.bundleIdentifier == Bundle.main.bundleIdentifier
             else { continue }
@@ -123,6 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + (running.isEmpty ? 0 : 3)) {
                 running.filter { !$0.isTerminated }.forEach { $0.forceTerminate() }
                 try? FileManager.default.trashItem(at: old, resultingItemURL: nil)
+            }
             }
         }
     }
@@ -661,8 +663,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let alert = NSAlert()
                 alert.messageText = "Connect Dictate as \(account)?"
                 var detail = link.isUnfamiliarServer
-                    ? "This isn’t the server this app was built for (office.example.com). Your dictations will be sent to \(link.server.absoluteString). Only continue if you trust it."
-                    : "Your dictations will go to \(link.server.host ?? "Hearth") as \(account)."
+                    ? "This isn’t the usual \(Brand.name) server. Your dictations will be sent to \(link.server.absoluteString). Only continue if you trust it."
+                    : "Your dictations will go to \(link.server.host ?? Brand.name) as \(account)."
                 if previous != nil { detail += " This replaces the connection this Mac has now." }
                 alert.informativeText = detail
                 alert.addButton(withTitle: "Connect")

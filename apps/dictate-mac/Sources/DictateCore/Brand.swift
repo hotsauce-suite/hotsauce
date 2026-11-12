@@ -4,7 +4,7 @@ import Foundation
 /// app spells the name out. The server has no brand endpoint yet, so these are the values.
 /// `scripts/build-app.sh` reads `name` from this file for the bundle's CFBundleName.
 public enum Brand {
-    public static let name = "Hearth"
+    public static let name = "Hotsauce"
     /// The accent (the web app's ember), light and dark appearance.
     public static let accentLight: UInt32 = 0xC63D19
     public static let accentDark: UInt32 = 0xFF6A3D

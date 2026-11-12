@@ -147,6 +147,7 @@ function EpisodeView({ episode, voice }: { episode: Episode; voice: boolean }) {
     plural(episode.counts.meetings, 'recent meeting', 'recent meetings'),
     plural(episode.counts.tasks, 'task', 'tasks'),
     plural(episode.counts.docs, 'changed doc', 'changed docs'),
+    plural(episode.counts.links ?? 0, 'saved link', 'saved links'),
   ].filter(Boolean)
   return (
     <section

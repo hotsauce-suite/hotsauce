@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Hearth Meetings</title>
+    <title>Hotsauce</title>
     <style>
       :root {
         --paper: #f2eadf;
@@ -63,6 +63,12 @@
       a {
         color: var(--ember-strong);
       }
+      .title {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
       .hint {
         margin: 10px 0 0;
         font-size: 12px;
@@ -72,14 +78,20 @@
   <body>
     <section id="on-call" hidden>
       <h1>Take notes on this call</h1>
-      <p>Hearth listens to this tab and your microphone. No bot joins. <code id="code" hidden></code></p>
+      <p><span class="product">Hotsauce</span> listens to this tab and your microphone. No bot joins. <code id="code" hidden></code></p>
       <button id="take-notes" type="button">Take notes</button>
       <p class="hint">Shortcut: Alt+Shift+H, then Enter.</p>
     </section>
+    <section id="save" hidden>
+      <h1>Save this page</h1>
+      <p id="page-title" class="title"></p>
+      <button id="save-page" type="button">Save to <span class="product">Hotsauce</span></button>
+      <p class="hint"><span class="product">Hotsauce</span> keeps a readable copy. <a id="open-links" href="http://localhost:3000/links" target="_blank" rel="noreferrer">Your saved links</a></p>
+    </section>
     <section id="elsewhere" hidden>
-      <h1>Hearth Meetings</h1>
+      <h1><span class="product">Hotsauce</span> Meetings</h1>
       <p>Join a Google Meet call, then click this icon to take notes on it.</p>
-      <a id="open-hearth" href="http://localhost:3000/meetings" target="_blank" rel="noreferrer">Open Hearth Meetings</a>
+      <a id="open-hearth" href="http://localhost:3000/meetings" target="_blank" rel="noreferrer">Open <span class="product">Hotsauce</span> Meetings</a>
     </section>
     <script src="popup.js" type="module"></script>
   </body>

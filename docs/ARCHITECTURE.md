@@ -752,7 +752,7 @@ Swift package, macOS 14+, built with the Command Line Tools alone. `DictateCore`
 
 The main window (`MainWindow.swift`, SwiftUI `NavigationSplitView` in Hearth's colours) opens when the member launches the app (not as a login item), on reopen once set up, and from the menu: Dictations (7 days / 30 days / all: total words; time saved = words ÷ 40 wpm − speaking time, never negative; words per minute of speech; top apps with their icons; the month's activity grid; recent dictations, searchable, with Copy and Paste), Dictionary (both word lists over `GET`/`PUT /words`), Settings (open at login, meeting reminders, the suite's server; hotkey, mode, live permission rows, account and Disconnect, history retention and Clear). Since 0.2.0 it opens from ⌘, (Settings) and the app menu's Dictate…, not at launch. The Command Line Tools' SwiftUI has no `@State` (its macro plugin ships with Xcode), so view state lives on the model. `HearthDictate --render-previews <folder> [--dark]` draws each page with made-up history held in memory, for checking the design without screen access.
 
-`scripts/build-app.sh` builds a universal binary, writes Info.plist (`dev.hotsauce.dictate`, the name from `Brand.swift`, the microphone and camera strings, the `hearth-dictate` and `hearth` URL schemes; the camera entitlement), signs it, and writes `release/Hearth.dmg` (the app beside an Applications link) and `release/Hearth.zip`, both committed: the Linux Docker build copies them to `/downloads/`. Signing, in order: a Developer ID identity (hardened runtime, timestamp); `Hotsauce Local Code Signing`, a self-signed identity that `scripts/create-signing-identity.sh` creates once in the build Mac's login keychain (hardened runtime), so every build has the same designated requirement and macOS keeps Microphone and Accessibility across updates; else ad hoc, which changes with every build and makes members grant Accessibility again. Recreating the identity (a new build Mac) is running that script again; members then re-grant once.
+`scripts/build-app.sh` builds a universal binary, writes Info.plist (`dev.hotsauce.dictate`, the name from `Brand.swift`, the microphone and camera strings, the `hearth-dictate` and `hearth` URL schemes; the camera entitlement), signs it, and writes `release/Hearth.dmg` (the app beside an Applications link) and `release/Hearth.zip`, both committed: the Linux Docker build copies them to `/downloads/`. Signing, in order: a Developer ID identity (hardened runtime, timestamp); `Hotsauce Local Code Signing`, a self-signed identity that `scripts/create-signing-identity.sh` creates once in the build Mac's login keychain (hardened runtime), so every build has the same designated requirement and macOS keeps Microphone and Accessibility across updates; else ad hoc, which changes with every build and makes members grant Accessibility again. Recreating the identity (a new build Mac) is running that script again; members then re-grant once. With a Developer ID identity and the `mac-notary` notarytool keychain profile (`xcrun notarytool store-credentials mac-notary`, the app-specific password stays in the keychain), the script notarizes the zipped app and staples it, rebuilds the zip, then signs, notarizes and staples the DMG; with a Developer ID but no profile it warns that the build is not notarized. The DMG window (background, icon positions, 128 px icons) is written by dmgbuild (`uvx dmgbuild==1.6.7`, MIT) from `Resources/dmg/settings.py` and `background.tiff`, which `scripts/render-dmg-background.mjs` renders at 1x and 2x from `background.html`; without uv the script falls back to a plain window.
 
 Opening the app while it runs (`applicationShouldHandleReopen`) shows the suite window. The setup window opens at launch until it has been closed once; it says what's missing in one line (microphone, Accessibility, the key tap, the connection) and names the connected account. The menu bar icon has a fixed autosave name (`HearthDictate`), starts near the right edge beside Control Center (`NSStatusItem Preferred Position HearthDictate` = 120 when unset) instead of the left end where a MacBook's notch hides new icons, can't be dragged out, and follows a Show in menu bar setting; when it is on but not on screen (occluded, off-screen, or not allowed in System Settings → Menu Bar) Settings and the setup window say so and link to the Menu Bar settings. Every 2 s the app re-checks the permissions, restarts or re-enables the key tap, updates the menu bar icon, and writes what it sees to `status.*` in its defaults (including `status.menuBarIconShown`) (`defaults read dev.hotsauce.dictate`) for diagnosis. If Accessibility is on but the tap still can't start, the window offers Quit and reopen. `Hearth.app/Contents/MacOS/Hearth --transcribe-file <path> [--literal] [--app-name N] [--app-bundle B] [--server URL]` runs the same upload with `HEARTH_DICTATE_TOKEN` (never the saved connection) and prints the JSON, for end-to-end tests.
 
@@ -1370,11 +1370,99 @@ Pick 3 of the directory picks (plan `docs/plans/2026-11-12-forms.md`). Written f
 
 ### 21.5 Chat rooms
 
-An admin (in a session, not a token) adds rooms in Settings → Organization: a name and a Slack-compatible incoming webhook URL (`https://` only). Slack and Slack-compatible chat apps give each bot one per room. They are kept in `DATA_DIR/forms/rooms.json` (mode 600), never in Git; `GET /api/chat-rooms` shows members the names and admins also the last four characters; `POST` and `DELETE /api/chat-rooms/:id` are admin only. A form picks a room or none. Each new answer posts `{text}`: the form's title, the first three answers (one line each, Slack's `& < >` escaped so an answer can't mention or link) and a link to the answer in Forms. The post runs after the answer is saved, in the background; a failed post is logged and never loses the answer or delays the reply.
+An admin (in a session, not a token) adds rooms in Settings → Organization: a name and a Slack-compatible incoming webhook URL (`https://` only). Slack and Slack-compatible chat apps give each bot one per room. Before saving, Hotsauce refuses a chat app's plain message address (`…/rooms/<id>/<key>/messages`) and posts "Hearth Forms is connected" to the link; anything but a 2xx answering `ok` (what Slack and Slack-compatible addresses answer) is refused with the status and reason. The name is only a label; the link decides the room. They are kept in `DATA_DIR/forms/rooms.json` (mode 600), never in Git; `GET /api/chat-rooms` shows members the names and admins also the last four characters; `POST` and `DELETE /api/chat-rooms/:id` are admin only. A form picks a room or none. Each new answer posts `{text}`: the form's title, the first three answers (one line each, Slack's `& < >` escaped so an answer can't mention or link) and a link to the answer in Forms. The post runs after the answer is saved, in the background; a failed post is logged and never loses the answer or delays the reply.
 
 ### 21.6 Known limits
 
 - Rate limits are in memory, per process: a restart resets them.
+- A chat room's link must resolve only to public addresses (checked when it is added, not on each post; the connection isn't pinned, so DNS rebinding isn't stopped — only admins add links).
 - Answers can't be edited; a deleted answer's files stay in Files.
 - An uploaded file on a public form is stored as sent (Files previews never run HTML or SVG, §18.3).
-- No MCP tools of its own yet: Claude reads forms and answers with `search` and `read_file`. Tables (pick 4) will open answers as a table.
+- No MCP tools of its own yet: Claude reads forms and answers with `search` and `read_file`. Tables opens a form's answers as a live table (§22.6).
+
+## 22. Hearth Tables
+
+Pick 4 of the directory picks (2026-11-12): trackers with spreadsheet formulas, kept in Git. The formula engine is IronCalc (`@ironcalc/wasm` 0.9.1, MIT OR Apache-2.0, pinned), in the browser and on the server; the grid, the file format and the .xlsx reader and writer are written fresh (Baserow's MIT front end, Teable and NocoDB looked at only). Pure parts: `packages/format/src/tables.ts`; server: `apps/server/src/tables/`, `api/tables.ts`, `mcp/tools/tables.ts`; web: `apps/web/src/apps/tables/` (rail app, no sidebar, off the phone bar).
+
+### 22.1 Files
+
+- A table is `tables/<ULID>.md` in the team space or a member's personal space. Frontmatter (`TableFrontmatter`): `id, type: table, title, columns, created, created_by, updated, updated_by`; unknown keys are kept. The body is the cells as one fenced `csv` block (RFC 4180, LF between rows, quoted only where needed), with a fence longer than any run of backticks inside. Row 1 is the header row (the column names). Each cell is stored as typed: a formula as `=C2*D2`, `007` as `007`. Index kind `table`; search reads the CSV text.
+- `columns[i]` is column i's `{ type, options?, width? }`; types `text, number, date, checkbox, choice, person, link` (an unknown type reads as text). Types shape how a cell shows and is entered; any cell can still hold a formula.
+- Limits (`tableProblem`): 5,000 rows plus the header, 52 columns (A–AZ), 10,000 characters a cell, 2 MB of CSV, 50 options a choice column with no repeats.
+- Only Tables writes `tables/**`: `writablePath` refuses it, so Docs saves and MCP `write_file` can't write one around the service. Commits: `tables: create|edit|delete "<title>"`, authored by the member (`Hearth-Via: mcp` through MCP).
+
+### 22.2 Formulas
+
+Excel syntax, worked out by IronCalc. A cell shows its formula's result (or an error such as `#DIV/0!`, `#NAME?`, `#CIRC!`); a plain cell shows what was typed, without a leading `'` (which keeps a value text). Formulas read typed numbers the way Excel does (`$12.50` is 12.5). The browser keeps the cells as typed and mirrors them into an IronCalc model (`sheet.ts`); after rows or columns are added or removed it takes back the formulas IronCalc rewrote. The server's `evaluateCells` (`tables/engine.ts`) loads IronCalc once and works out a whole table for MCP and exports. Measured: 20,000 cells with formulas load in about 64 ms with evaluation paused while loading; one edit re-evaluates in about 3 ms.
+
+### 22.3 API (members; the space is checked in the service)
+
+`GET /api/tables` (every space the member can open, newest change first); `POST /api/tables {space, title, cells?, fromForm?}`; `GET|PUT|DELETE /api/tables/:space/:id`. A save sends the whole table (`title, columns, cells`) and the `blobOid` it edited; another is a 409. Delete moves the file to `.trash/<date>-<id8>/`.
+
+### 22.4 The grid
+
+`/tables` lists tables (New table, Import, a space picker); `/tables/:space/:id` is the grid. Only rows near the scroll position are drawn. Click or arrow to a cell; type to replace it; Enter or F2 or a double-click to edit; Enter and Tab move on; Escape cancels; Delete clears the selection; shift-click or drag selects a block; ⌘A selects all. The formula bar shows and edits the cell as typed. Copy puts the values on the clipboard tab-separated (Sheets and Excel paste it); pasting text from them fills cells; pasting a block copied in Tables keeps its formulas and moves their references (`shiftFormula`). A column letter opens its menu: name, type, choice options, sort, a "contains" filter, insert and delete; right-click a cell for rows and columns. Drag a column letter's edge to resize. Undo and redo (⌘Z, ⌘⇧Z) keep the last 30 steps. Changes save a second after the last one, and on ⌘S or leaving the page; a 409 shows "someone else changed this table" with Reload. Sorting and filtering change the rows on screen only, never the file, so references keep meaning what they say; they aren't saved. Typed cells: numbers right-aligned with thousands separators, checkboxes toggle on click or Space, choice is a picker, date a date input, person a list of team members' emails (from People), link and person cells open as links (`http`, `https`, `mailto` only).
+
+### 22.5 Import and export
+
+`POST /api/tables/import` (multipart `space` and `file`, 5 MB) makes a table from `.csv`, `.tsv` or `.xlsx`. For .xlsx: the first sheet only; text (shared and inline strings), numbers, booleans, dates (by the cell's number format, as `YYYY-MM-DD`) and formulas (shared formulas expanded to each cell); the XML is unzipped at most 60 MB. `GET …/csv` is the values (UTF-8 with BOM; a value starting `= + - @` gets a leading `'`). `GET …/xlsx` is a one-sheet workbook with the formulas and the values the grid shows, numbers as numbers and `YYYY-MM-DD` cells as dates.
+
+### 22.6 Form answers
+
+`GET /api/forms/:space/:id/table` (`Forms.answerTable`) gives a form's answers as a table: Submitted, From (a person column), then one column per question (choice and dropdown → choice with the question's options, rating → number, date → date, the rest text), newest first. The web shows it at `/tables/form/:space/:id`, read-only and always current (Forms → Answers → Open as a table). "Copy to a new table" (`POST /api/tables {fromForm}`) makes an editable table in the form's space; an answer starting `=` is copied as text (`'=…`), never as a formula.
+
+### 22.7 MCP
+
+`list_tables` (`space?`, `q?` on the title), `read_table` (rows of values with formulas worked out, each formula by address, the columns with letter, name and type, the `blobOid`), `update_table` (`set` cells by A1 address and/or `append` rows; with the `blobOid` from `read_table` a changed table is refused), `create_table` (`rows[0]` the header row). Each returns the table's link.
+
+### 22.8 Known limits
+
+- One person edits at a time: two people editing the same table at once get a 409 and the second reloads. Live editing together, like Whiteboard's, is a later step.
+- Sort and filter views aren't saved or shared.
+- Cell styles (bold, colours, number formats) aren't kept: a table is its values and formulas. Imported .xlsx loses styles, merged cells, other sheets and charts.
+- IronCalc's wasm is about 2 MB (730 KB gzipped), loaded only on Tables pages.
+- A deleted table can't be restored from the trash in the app (`writablePath` refuses `tables/**`, as it does `forms/**`); it comes back from Git history.
+- The .xlsx reader scans the XML with `indexOf`, never backtracking regexes, so a hostile workbook can't stall the server; workbook.xml, its relationships and styles.xml over 2 MB are ignored. A CSV import is checked against the row and column limits before it becomes a grid.
+
+## 23. Saved links
+
+Pick 5 of the directory picks (2026-11-12): a Pocket-style read-later list. "Save to Hearth" from the Chrome extension, the Android share sheet, an iPhone Shortcut, the paste box or MCP; the server keeps a readable copy, Claude adds a summary and tags, and search, Ask and Briefcast use them. Readable copies by Mozilla Readability (Apache-2.0) over linkedom (ISC), Markdown by Turndown and Joplin's GFM plugin (MIT); Linkding and Wallabag (MIT) for what to keep, Karakeep and Linkwarden (AGPL) looked at only. Pure parts: `packages/format/src/saved-links.ts`; server: `apps/server/src/links/`, `api/saved-links.ts`, `mcp/tools/links.ts`; web: `apps/web/src/apps/links/` (rail app "Links", no sidebar, in the phone Apps sheet).
+
+### 23.1 Files
+
+- A link is `links/<ULID>.md` in the member's personal space (default) or the team space. Frontmatter (`LinkFrontmatter`): `id, type: link, url, title, site, description, summary, tags, archived, saved, saved_by, fetched, fetch_error, words, tags_set, source` (`web | extension | share | shortcut | mcp`); unknown keys are kept. The body is the readable copy in Markdown (at most 200,000 characters). Index kind `link`; search reads the title and the copy.
+- `tags_set` marks tags the member chose; Claude never replaces them. `archived` is "Done".
+- Commits `links: save|read|done|unread|tag|edit|share|move|delete "<title>"`, authored by the member who saved or acted (`Hearth-Via: mcp` through MCP). The background `read` commit is authored by the member who saved it. Links aren't write-protected: a hand edit in Docs or `write_file` is fine, and the web treats `url` as untrusted (only `http(s)` becomes a link).
+
+### 23.2 Fetching and the readable copy
+
+- `fetchPage` (`links/fetch.ts`) fetches a page the safe way (the readable copy is made on the main thread, so the page is capped at 2 MB and Readability at 30,000 elements; a 1.4 MB list of 60,000 items reads in about half a second): `http`/`https` on ports 80, 443, 8080 or 8443; every address the name resolves to must be public (no loopback, private, link-local and metadata, carrier-grade NAT, multicast, reserved or documentation ranges; IPv6 only global unicast, and IPv4-mapped, NAT64, 6to4 and Teredo addresses judged by the IPv4 inside); the connection goes to the address that was checked (a `lookup` override, so no DNS rebinding); every redirect (at most 5) is checked the same way; 15 s in all; 2 MB after decompression (the decompressor is stopped at the limit); `text/html`, `application/xhtml+xml` or `text/plain` only (a PDF keeps the link with "no readable copy"). Charset from the header or `<meta charset>`.
+- `readPage` (`links/read.ts`): title, site name and description from `og:` tags, else `<title>` and the host; Readability picks the article; Turndown writes headings, lists, quotes, code, tables and links (made absolute; `#` links on the page dropped). Pictures become `[Picture: alt](src)` links, so nothing is loaded from the page when reading and Git stays small. A page it can't read keeps its title and an empty copy.
+- `LINK_FETCH` is `live` in production and `fake` (stand-in pages, `links/fake.ts`) in development and tests; production refuses `fake`.
+
+### 23.3 Saving and the background read
+
+`Links.save` checks the URL, returns the member's existing link when the same address (no `#hash`, no `utm_*`/`fbclid`-style parameters, host lower case without `www.`, no trailing slash) is already saved in a space they can read (moved back to Unread), else commits the new file at once and queues the read. Reads run three at a time in the process, at most 20 waiting per member and 200 in all (beyond that a link reads as failed with "Too many pages at once" until Try again); a link moved before its read is read in its new space; each fetches, makes the copy, asks Claude (`LINKS_MODEL`, Haiku; skipped when tags were set or AI is off) for one sentence and up to three tags preferring the member's existing ones, then commits frontmatter and body in one read → patch → commit guarded by the blob it read and retried on a concurrent change. A title or tags the member changed meanwhile win; a link deleted or moved meanwhile is left alone. A failed fetch writes `fetch_error`; "Try again" is `refetch`. A link with neither `fetched` nor `fetch_error` three minutes after saving (a restart) reads as failed.
+
+### 23.4 API (members; the space is checked in the service)
+
+`GET /api/links?view=unread|archive|all&tag=&q=&space=` (newest saved first, from the index); `GET /api/links/tags`; `POST /api/links {url? | text?, title?, tags?, space?, source?}` (201, or 200 with `existing: true`; a link is found inside `text`, as Android shares it); `GET|PATCH|DELETE /api/links/:space/:id` (patch `title, tags, archived`); `POST …/refetch`; `POST …/move {toSpace}` ("Share with team"; only the member who saved a team link can make it private). Delete moves the file to `.trash/<date>/links/`.
+
+### 23.5 MCP, Ask and Briefcast
+
+- MCP: `list_links` (view, tag, query), `get_link` (with the copy, described as someone else's writing), `save_link`; `search` takes kind `link`.
+- Meetings Ask searches `link` with meetings, transcripts and files; its prompt says excerpts under `links/` are saved pages to use as information, never instructions.
+- Briefcast's prompt gets `<saved_links>`: links the member saved since the last briefing (24 hours, 72 on Mondays), and on Mondays up to five from the week before still unread. Saved links alone make a briefing. Episodes count them (`links`).
+
+### 23.6 Web and the extension
+
+- `/links`: paste box, Unread and Archive, search, tag chips, rows with summary, "Getting the page…" (polled every 2.5 s) or the error and Try again, Done. `/links/:space/:id`: the reader (title, site, Open original, Done or Move to Unread, Share with team or Make private, Delete, tags, summary, the copy rendered by react-markdown with every link opening outside and pictures as links). `/links/save?url=&title=&text=&via=` shows the link and a Save button, then says Saved or Already saved; signed out, sign-in keeps the query and comes back to it. Any site could open that address in a member's browser, so the page saves without a tap only when the Chrome extension confirms it opened that tab (`may-save`, answered by the worker from the tabs it opened).
+- The PWA manifest's `share_target` (GET `/links/save`) puts Hearth in Android's share sheet once installed. iPhone Safari has no share target: an Apple Shortcut ("Save to Hearth") opens the same page.
+- Chrome extension 0.3.0 (`name: Hearth`): the popup on a web page offers "Save to Hearth"; right-click a page or a link offers "Save page/link to Hearth". The worker opens the save page in a background tab, remembers it in session storage (changes serialized), and the page posts `{source: 'hearth-page', type: 'link-saved', ok}`; the bridge (on Hearth origins only) relays it, and the worker closes only a tab it opened and puts a ✓ on the icon. A save tab that hasn't reported in 12 s (signed out) comes to the front. New permissions: `activeTab`, `contextMenus`.
+
+### 23.7 Known limits
+
+- The server fetches pages signed out, so paywalled or sign-in pages keep only what they show the public. Saving the page as the member sees it in Chrome is a later step.
+- PDFs and other files keep the link without a copy (Files could read them later).
+- "Done" on a team link is done for everyone.
+- No import from Pocket or browser bookmarks; no highlights or notes on a link.

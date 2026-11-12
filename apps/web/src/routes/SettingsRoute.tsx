@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { calendarApi } from '../api/calendar'
 import { api, HearthApiError } from '../api/client'
 import { type AccessToken, claudeCodeCommand, claudeDesktopConfig, tokensApi } from '../api/tokens'
@@ -11,6 +11,7 @@ import {
 } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
 import { Icon } from '../components/Icon'
+import { MacAppSection } from '../components/MacApp'
 import { chooseTheme, currentTheme, type ThemeChoice } from '../lib/theme'
 
 const when = (iso: string | null) =>
@@ -24,7 +25,8 @@ const when = (iso: string | null) =>
 
 /**
  * `/settings`: the member's access tokens, for connecting Claude and scripts (ARCHITECTURE §8.1),
- * and which Google calendars Hearth Meetings reads (§7.8).
+ * the Mac app's download (docs/PLAN-mac-app-download.md), and which Google calendars Hearth
+ * Meetings reads (§7.8).
  */
 export default function SettingsRoute() {
   const [tokens, setTokens] = useState<AccessToken[] | null>(null)
@@ -33,6 +35,12 @@ export default function SettingsRoute() {
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<(AccessToken & { token: string }) | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  // Today links to `#mac-app`; the router doesn't scroll to it.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+  }, [hash])
 
   useEffect(() => {
     api.me().then(
@@ -99,6 +107,7 @@ export default function SettingsRoute() {
             </Link>
           ) : null}
           <AppearancePicker />
+          <MacAppSection />
 
           <h2 className="mt-12 font-display text-[1.6rem] font-semibold tracking-tight">
             Connect Claude to {product()}

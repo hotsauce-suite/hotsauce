@@ -156,10 +156,10 @@ private struct OnboardingView: View {
                 }
                 Divider()
                 Row(
-                    title: "Connect to Hearth",
+                    title: "Connect to \(Brand.name)",
                     detail: model.connectedAs.map { "Connected as \($0)." } ?? "Press Connect this Mac on your workspace’s /dictate page.",
                     granted: model.connected,
-                    button: "Open Hearth"
+                    button: "Open \(Brand.name)"
                 ) {
                     model.awaitingReturn = true
                     model.openDictatePage()

@@ -44,6 +44,7 @@ import { ChatRooms, Forms } from './forms/index.js'
 import { GitStore } from './git/index.js'
 import { createHostAdapter } from './hosts/index.js'
 import { Index, Indexer, indexPath } from './index/index.js'
+import { fakePageFetcher, fetchPage, Links, type PageFetcher } from './links/index.js'
 import {
   DeepgramRetranscriber,
   type MeetingRetranscriber,
@@ -102,6 +103,7 @@ import {
 import { Shares } from './shares/index.js'
 import { SpaceService } from './spaces/index.js'
 import { Broadcaster, Syncer } from './sync/index.js'
+import { Tables } from './tables/index.js'
 import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from './tasks/index.js'
 import { TokenAuth, TokenStore } from './tokens/index.js'
 
@@ -134,6 +136,8 @@ export interface ServiceOverrides {
   retranscriber?: MeetingRetranscriber | null
   /** Booking links' robot check; null is a server that can't take bookings (§19). */
   robotCheck?: RobotCheck | null
+  /** Saved links' page fetcher (§23.2); tests pass their own pages. */
+  linkFetch?: PageFetcher
   /** Hearth Forms' chat posts (§21.5); tests pass a fake. */
   chatFetch?: typeof fetch
   /** Free bytes on the data volume, for Clips' disk check. */
@@ -282,12 +286,25 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       : config.TTS_PROVIDER === 'none'
         ? new UnconfiguredSpeaker()
         : new FakeSpeaker())
+  // Saved links: one file per link, a readable copy fetched in the background (§23).
+  const links = new Links({
+    git,
+    index,
+    spaces,
+    syncer,
+    fetchPage:
+      overrides.linkFetch ??
+      (config.LINK_FETCH === 'live' ? (url) => fetchPage(url) : fakePageFetcher),
+    llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+    model: config.LINKS_MODEL,
+  })
   const briefcasts = new Briefcasts({
     git,
     index,
     spaces,
     syncer,
     tasks: taskService,
+    links,
     calendar: meetings.calendar,
     llm,
     model: config.BRIEFCAST_MODEL,
@@ -317,7 +334,22 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   })
   const chatRooms = new ChatRooms({
     dataDir: config.DATA_DIR,
-    ...(overrides.chatFetch ? { fetch: overrides.chatFetch } : {}),
+    ...(overrides.chatFetch
+      ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
+      : {}),
+  })
+  const forms = new Forms({
+    git,
+    index,
+    spaces,
+    syncer,
+    files,
+    rooms: chatRooms,
+    llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+    model: config.ENHANCE_MODEL,
+    robotCheck: overrides.robotCheck !== undefined ? overrides.robotCheck : robotCheckFor(config),
+    publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
+    productName: config.PRODUCT_NAME,
   })
   return {
     config,
@@ -370,24 +402,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     pages: new Pages({ git, index, spaces, syncer }),
     // Forms and their answers in Git; answers' files in Hearth Files (§21).
     chatRooms,
-    forms: new Forms({
-      git,
-      index,
-      spaces,
-      syncer,
-      files,
-      rooms: chatRooms,
-      llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
-      model: config.ENHANCE_MODEL,
-      robotCheck: overrides.robotCheck !== undefined ? overrides.robotCheck : robotCheckFor(config),
-      publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
-      productName: config.PRODUCT_NAME,
-    }),
+    forms,
+    // Tables: a CSV block in Git, formulas by IronCalc (§22).
+    tables: new Tables({ git, index, spaces, syncer, forms }),
+    links,
     org,
     brand,
   }
 }
-
 /**
  * Booking links' robot check: Cloudflare Turnstile with both keys; otherwise the dev stand-in, or
  * in production nothing, so the page says it can't take bookings yet (S8).

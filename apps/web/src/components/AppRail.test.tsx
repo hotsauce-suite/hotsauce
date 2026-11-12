@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { meetingsApi } from '../api/meetings'
@@ -13,6 +13,15 @@ afterEach(async () => {
   await currentLive()?.dispose()
   vi.restoreAllMocks()
 })
+
+/** Renders as a phone: the shell's mobile query matches. */
+function phone() {
+  const real = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+    ...real(query),
+    matches: query === MOBILE_QUERY,
+  }))
+}
 
 describe('the app rail', () => {
   it('has one item per app, then Acme Chat, Settings and the account', async () => {
@@ -94,23 +103,106 @@ describe('the app rail', () => {
     await waitFor(() => expect(within(meetings).queryByTestId('rail-recording')).toBeNull())
   })
 
-  it('is a tab bar along the bottom on a phone, with the sidebar in the drawer', async () => {
-    const real = window.matchMedia
-    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
-      ...real(query),
-      matches: query === MOBILE_QUERY,
-    }))
+  it('is a tab bar of four apps and Apps on a phone, with the sidebar in the drawer', async () => {
+    phone()
     const { router } = renderApp('/meetings')
     const rail = await screen.findByTestId('app-rail')
     expect(rail.className).toContain('shell-tabbar')
+    const pinned = APPS.filter((app) => app.onPhoneBar === true).map((app) => app.id)
+    expect(pinned).toEqual(['today', 'docs', 'meetings', 'tasks'])
+    for (const app of APPS) {
+      const item = within(rail).queryByTestId(`app-switch-${app.id}`)
+      if (pinned.includes(app.id)) expect(item).toBeInTheDocument()
+      else expect(item).toBeNull()
+    }
     expect(within(rail).getByTestId('app-switch-meetings')).toHaveAttribute('aria-current', 'page')
+    expect(within(rail).getByTestId('apps-menu')).not.toHaveClass('text-ember')
     expect(screen.queryByTestId('sidebar')).toBeNull()
-    // Settings sits in the account menu on a phone.
+    // Settings, Chat and the account live in the Apps sheet on a phone.
     expect(within(rail).queryByTestId('settings-link')).toBeNull()
-    await userEvent.click(within(rail).getByTestId('account-menu'))
-    await userEvent.click(screen.getByTestId('settings-link'))
+    expect(within(rail).queryByTestId('app-link-chat')).toBeNull()
+    expect(within(rail).queryByTestId('account-menu')).toBeNull()
+    await userEvent.click(within(rail).getByTestId('apps-menu'))
+    await userEvent.click(within(screen.getByTestId('apps-sheet')).getByTestId('settings-link'))
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
-    await waitFor(() => expect(within(rail).getByTestId('account-menu')).toHaveClass('text-ember'))
+    await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
+    await waitFor(() => expect(within(rail).getByTestId('apps-menu')).toHaveClass('text-ember'))
+  })
+
+  it('opens every app, Chat and the account from the Apps sheet on a phone', async () => {
+    phone()
+    const signOut = vi.fn()
+    const { router } = renderApp('/docs', { signOut })
+    const button = await screen.findByTestId('apps-menu')
+    expect(button).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(button)
+    expect(button).toHaveAttribute('aria-expanded', 'true')
+    const sheet = screen.getByRole('dialog', { name: 'All apps' })
+    for (const app of APPS) {
+      expect(within(sheet).getByTestId(`apps-sheet-${app.id}`)).toHaveTextContent(app.label)
+    }
+    expect(within(sheet).getByTestId('apps-sheet-docs')).toHaveAttribute('aria-current', 'page')
+    const chat = within(sheet).getByTestId('apps-sheet-link-chat')
+    expect(chat).toHaveAttribute('href', 'https://chat.example.test')
+    expect(chat).toHaveAttribute('target', '_blank')
+    expect(chat).toHaveAccessibleName('Acme Chat (opens in a new tab)')
+    await waitFor(() =>
+      expect(within(sheet).getByTestId('account-email')).toHaveTextContent('ada@example.test'),
+    )
+
+    // An app off the bar opens from the sheet, which closes, and Apps becomes the current tab.
+    await userEvent.click(within(sheet).getByTestId('apps-sheet-briefcast'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/briefcast'))
+    await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
+    await waitFor(() => expect(button).toHaveClass('text-ember'))
+
+    // Escape closes it and hands focus back; Sign out signs out.
+    await userEvent.click(button)
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
+    expect(button).toHaveFocus()
+    await userEvent.click(button)
+    await userEvent.click(screen.getByTestId('sign-out'))
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
+  })
+
+  it('keeps your place when the open app is tapped in the sheet, and shows a recording', async () => {
+    phone()
+    const { router } = renderApp('/briefcast')
+    const button = await screen.findByTestId('apps-menu')
+    expect(button).toHaveAttribute('aria-current', 'page')
+    await router.navigate('/tasks?view=today')
+    await waitFor(() => expect(button).not.toHaveAttribute('aria-current'))
+    const session = await meetingsApi.createSession({ title: 'Acme sync' })
+    beginLive(session, { ring: new AudioRing({ factory: null }) })
+    await userEvent.click(button)
+    const sheet = screen.getByTestId('apps-sheet')
+    await waitFor(() =>
+      expect(within(sheet).getByTestId('apps-sheet-meetings')).toHaveAccessibleName(
+        'Hotsauce Meetings (recording)',
+      ),
+    )
+    await userEvent.click(within(sheet).getByTestId('apps-sheet-tasks'))
+    await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
+    expect(router.state.location.pathname + router.state.location.search).toBe('/tasks?view=today')
+    expect(button).toHaveFocus()
+  })
+
+  it('closes the Apps sheet when its handle is dragged down', async () => {
+    phone()
+    renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('apps-menu'))
+    const handle = screen.getByTestId('apps-sheet-handle')
+    handle.setPointerCapture = () => {}
+    fireEvent.pointerDown(handle, { pointerId: 1, clientY: 100 })
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: 130 })
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 130 })
+    // A short drag springs back.
+    expect(screen.getByTestId('apps-sheet')).toBeInTheDocument()
+    fireEvent.pointerDown(handle, { pointerId: 1, clientY: 100 })
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: 200 })
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 200 })
+    await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
   })
 
   it('lists every app and link for Cmd-K, and jumps to an app', async () => {
