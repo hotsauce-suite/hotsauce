@@ -110,7 +110,7 @@ describe('the app rail', () => {
     await userEvent.click(within(rail).getByTestId('account-menu'))
     await userEvent.click(screen.getByTestId('settings-link'))
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
-    expect(within(rail).getByTestId('account-menu')).toHaveClass('text-ember')
+    await waitFor(() => expect(within(rail).getByTestId('account-menu')).toHaveClass('text-ember'))
   })
 
   it('lists every app and link for Cmd-K, and jumps to an app', async () => {
