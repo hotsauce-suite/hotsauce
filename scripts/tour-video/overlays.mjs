@@ -32,15 +32,33 @@ h1 em{font-style:normal;color:var(--rust)}
 </style>`
 
 const pages = []
-pages.push(['intro', `<div class="card"><div class="logo">${logo}</div><h1>Hot<em>sauce</em></h1><p class="sub">The open sauce office suite. Docs, meetings, tasks and more, on your own server.</p></div>`])
-pages.push(['outro', `<div class="card"><div class="logo">${logo}</div><h1>Run it for<br>your <em>team.</em></h1><div class="links"><div><b>→</b> hotsauce.work</div><div><b>→</b> github.com/hotsauce-suite/hotsauce</div></div><p class="sub" style="font-size:36px">Free and open source. Deploys to Cloudflare in minutes.</p></div>`])
-caps.chapters.forEach((c, i) => pages.push([`chip-${c.id}`, `<div class="chip"><span>${String(i + 1).padStart(2, '0')}</span>${c.app}</div>`]))
-caps.lines.forEach((l, i) => pages.push([`cap-${String(i).padStart(3, '0')}`, `<div class="cap">${l.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`]))
+pages.push([
+  'intro',
+  `<div class="card"><div class="logo">${logo}</div><h1>Hot<em>sauce</em></h1><p class="sub">The open sauce office suite. Docs, meetings, tasks and more, on your own server.</p></div>`,
+])
+pages.push([
+  'outro',
+  `<div class="card"><div class="logo">${logo}</div><h1>Run it for<br>your <em>team.</em></h1><div class="links"><div><b>→</b> hotsauce.work</div><div><b>→</b> github.com/hotsauce-suite/hotsauce</div></div><p class="sub" style="font-size:36px">Free and open source. Deploys to Cloudflare in minutes.</p></div>`,
+])
+caps.chapters.forEach((c, i) => {
+  pages.push([
+    `chip-${c.id}`,
+    `<div class="chip"><span>${String(i + 1).padStart(2, '0')}</span>${c.app}</div>`,
+  ])
+})
+caps.lines.forEach((l, i) => {
+  pages.push([
+    `cap-${String(i).padStart(3, '0')}`,
+    `<div class="cap">${l.text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`,
+  ])
+})
 
 const b = await chromium.launch()
 const p = await b.newPage({ viewport: { width: 1920, height: 1080 } })
 for (const [name, body] of pages) {
-  await p.setContent(`<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`, { waitUntil: 'networkidle' })
+  await p.setContent(`<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`, {
+    waitUntil: 'networkidle',
+  })
   await p.evaluate(() => document.fonts.ready)
   await p.screenshot({ path: path.join(out, `${name}.png`), omitBackground: true })
 }

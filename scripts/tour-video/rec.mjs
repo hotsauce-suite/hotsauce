@@ -33,7 +33,11 @@ const CURSOR = `
 })()`
 
 const browser = await chromium.launch({
-  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--hide-scrollbars'],
+  args: [
+    '--use-fake-ui-for-media-stream',
+    '--use-fake-device-for-media-stream',
+    '--hide-scrollbars',
+  ],
 })
 const ctx = await browser.newContext({
   viewport: { width: 1600, height: 900 },
@@ -45,7 +49,10 @@ const ctx = await browser.newContext({
 await ctx.addInitScript(CURSOR)
 const page = await ctx.newPage()
 page.setDefaultTimeout(10000)
-setTimeout(() => { console.log('WATCHDOG', name); process.exit(3) }, 150000)
+setTimeout(() => {
+  console.log('WATCHDOG', name)
+  process.exit(3)
+}, 150000)
 
 // Eased mouse, so the drawn cursor glides instead of teleporting.
 let pos = { x: 800, y: 450 }
@@ -107,7 +114,12 @@ async function startCapture() {
     writeFileSync(file, Buffer.from(f.data, 'base64'))
     await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {})
   })
-  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 93, maxWidth: 1920, maxHeight: 1080 })
+  await cdp.send('Page.startScreencast', {
+    format: 'jpeg',
+    quality: 93,
+    maxWidth: 1920,
+    maxHeight: 1080,
+  })
   // Nudge a repaint so the first frame arrives now.
   await page.mouse.move(pos.x, pos.y)
 }
@@ -134,7 +146,27 @@ lines.push(`file '${frames.at(-1).file}'`)
 const list = path.join(outDir, `${name}.ffconcat`)
 writeFileSync(list, lines.join('\n'))
 const out = path.join(outDir, `${name}.mp4`)
-execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-safe', '0', '-f', 'concat', '-i', list,
-  '-vf', 'scale=1920:1080:flags=lanczos,fps=30,format=yuv420p', '-c:v', 'libx264', '-crf', '17', '-preset', 'slow', out])
-console.log(`${name}: ${frames.length} frames, ${((Date.now() - t0) / 1000).toFixed(1)}s wall -> ${out}`)
+execFileSync('ffmpeg', [
+  '-loglevel',
+  'error',
+  '-y',
+  '-safe',
+  '0',
+  '-f',
+  'concat',
+  '-i',
+  list,
+  '-vf',
+  'scale=1920:1080:flags=lanczos,fps=30,format=yuv420p',
+  '-c:v',
+  'libx264',
+  '-crf',
+  '17',
+  '-preset',
+  'slow',
+  out,
+])
+console.log(
+  `${name}: ${frames.length} frames, ${((Date.now() - t0) / 1000).toFixed(1)}s wall -> ${out}`,
+)
 process.exit(0)

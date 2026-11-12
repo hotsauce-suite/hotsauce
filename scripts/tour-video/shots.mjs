@@ -117,7 +117,10 @@ export const shots = {
     await wait(1500)
     await startCapture()
     await moveTo(900, 450, 10)
-    await click(page.getByTestId('notes-new-list').or(page.getByTestId('notes-take-note')).first(), { after: 500 })
+    await click(
+      page.getByTestId('notes-new-list').or(page.getByTestId('notes-take-note')).first(),
+      { after: 500 },
+    )
     if (await page.getByTestId('checklist-new').isVisible()) {
       await type('Pilot kit: labels', 40)
       await page.keyboard.press('Enter')
@@ -133,19 +136,23 @@ export const shots = {
     await click(card.getByTestId('note-card-open').or(card).first(), { after: 900 })
     const editor = page.getByTestId('note-editor')
     await click(editor.getByTestId('note-color'), { after: 500 })
-    await click(editor.getByTestId('note-color-teal').or(page.getByTestId('note-color-teal')).first(), { after: 500 })
+    await click(
+      editor.getByTestId('note-color-teal').or(page.getByTestId('note-color-teal')).first(),
+      { after: 500 },
+    )
     await click(editor.getByTestId('note-editor-pin'), { after: 500 })
     await click(editor.getByTestId('note-editor-close'), { after: 2200 })
   },
 
-  async clipsRecorder({ page, signIn, startCapture, wait, moveTo, click, point }) {
+  async clipsRecorder({ page, signIn, startCapture, wait, moveTo, point }) {
     await signIn()
     await page.goto(`${B}/clips/new`)
     await wait(1500)
     await page.getByText('Screen only').first().click()
     await wait(1200)
     await page.evaluate(() => {
-      for (const o of document.querySelectorAll('option')) if (/fake/i.test(o.textContent)) o.textContent = 'Built-in microphone'
+      for (const o of document.querySelectorAll('option'))
+        if (/fake/i.test(o.textContent)) o.textContent = 'Built-in microphone'
     })
     await startCapture()
     await moveTo(900, 450, 10)
@@ -165,11 +172,16 @@ export const shots = {
     await wait(600)
     await click(page.getByRole('link', { name: /Q4 plan, before/ }).first(), { after: 1200 })
     const v = page.getByTestId('clip-video')
-    await v.evaluate((el) => { el.muted = true; el.play() })
+    await v.evaluate((el) => {
+      el.muted = true
+      el.play()
+    })
     await wait(2500)
     await point(page.getByText('Transcript').first(), { ms: 800 })
     await wait(1500)
-    await click(page.getByRole('button', { name: '1.5×' }).or(page.getByText('1.5×')).first(), { after: 2500 })
+    await click(page.getByRole('button', { name: '1.5×' }).or(page.getByText('1.5×')).first(), {
+      after: 2500,
+    })
   },
 
   async dictate({ page, signIn, startCapture, wait, moveTo, point }) {
@@ -179,7 +191,13 @@ export const shots = {
     await startCapture()
     await moveTo(900, 450, 10)
     await wait(800)
-    await point(page.getByRole('button', { name: /Download for Mac/ }).or(page.getByRole('link', { name: /Download for Mac/ })).first(), { ms: 900 })
+    await point(
+      page
+        .getByRole('button', { name: /Download for Mac/ })
+        .or(page.getByRole('link', { name: /Download for Mac/ }))
+        .first(),
+      { ms: 900 },
+    )
     await wait(1800)
     await point(page.getByText('Record a voice note here').first(), { ms: 900 })
     await wait(1200)
@@ -187,7 +205,7 @@ export const shots = {
     await wait(2500)
   },
 
-  async boards({ page, signIn, startCapture, wait, moveTo, click }) {
+  async boards({ page, signIn, startCapture, wait, moveTo }) {
     await signIn()
     await page.goto(`${B}/boards`)
     await wait(1500)
