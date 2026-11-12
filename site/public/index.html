@@ -24,8 +24,6 @@ try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark'
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Mono:wght@400;500&display=swap">
-<link rel="preload" as="image" href="/img/default-docs-light.webp" media="(prefers-color-scheme: light)">
-<link rel="preload" as="image" href="/img/default-docs-dark.webp" media="(prefers-color-scheme: dark)">
 <style>
 :root{
   --paper:#fff4e2;--paper-2:#f8e7c9;--card:#fffbf4;--ink:#16262d;--muted:#46565b;--line:#16262d;--hair:#16262d29;
@@ -95,7 +93,6 @@ nav.links a.gh{display:inline-flex;align-items:center;gap:7px;border:2px solid v
 .hero{padding:48px 0 0;text-align:center;position:relative}
 .pill{display:inline-flex;flex-wrap:wrap;justify-content:center;gap:6px 10px;font:500 13.5px var(--mono);color:var(--ink);background:var(--t2);border:2px solid var(--line);padding:5px 14px;border-radius:99px;transform:rotate(-1.5deg)}
 .pill b{color:var(--spruce);font-weight:500}
-:root[data-theme=dark] .pill b{color:var(--spruce)}
 h1{font:800 clamp(50px,9.4vw,112px)/.92 var(--display);letter-spacing:-.045em;margin:26px auto 22px;max-width:none}
 h1 em{font-style:normal;color:var(--rust);text-shadow:.05em .05em 0 color-mix(in srgb,var(--spruce) 55%,transparent)}
 .lede{font-size:clamp(18px,2.3vw,21px);color:var(--muted);max-width:34em;margin:0 auto 32px}
@@ -105,9 +102,6 @@ h1 em{font-style:normal;color:var(--rust);text-shadow:.05em .05em 0 color-mix(in
 .chips li:nth-child(1){background:var(--spruce);color:var(--spruce-ink)}
 .chips li:nth-child(2){background:var(--t3);transform:rotate(2deg)}
 .chips li:nth-child(3){background:var(--ink);color:var(--paper)}
-.heat{display:inline-flex;align-items:center;gap:10px;margin:22px 0 0;font:500 13px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.heat svg{width:18px;height:18px;color:var(--rust)}
-.heat .off{color:var(--hair)}
 
 /* product tour */
 .tour{margin:56px auto 0;max-width:1080px;position:relative}
@@ -126,7 +120,6 @@ h1 em{font-style:normal;color:var(--rust);text-shadow:.05em .05em 0 color-mix(in
 .stamp{position:absolute;right:-34px;top:20px;width:128px;height:128px;z-index:2;pointer-events:none}
 .stamp .ring{animation:spin 24s linear infinite;transform-origin:50% 50%}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.stamp .ring,.marquee .track{animation:none}}
 
 /* sauce band */
 .band{position:relative;margin:96px 0 0;color:var(--rust-ink);width:100vw;left:50%;margin-left:-50vw;overflow-x:clip;padding:8px 0}
@@ -138,6 +131,7 @@ h1 em{font-style:normal;color:var(--rust);text-shadow:.05em .05em 0 color-mix(in
 .marquee li{display:flex;align-items:center;gap:28px}
 .marquee li::after{content:"";width:24px;height:24px;flex:none;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12.0%201.0L14.0%207.2L19.8%204.2L16.8%2010.0L23.0%2012.0L16.8%2014.0L19.8%2019.8L14.0%2016.8L12.0%2023.0L10.0%2016.8L4.2%2019.8L7.2%2014.0L1.0%2012.0L7.2%2010.0L4.2%204.2L10.0%207.2z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12.0%201.0L14.0%207.2L19.8%204.2L16.8%2010.0L23.0%2012.0L16.8%2014.0L19.8%2019.8L14.0%2016.8L12.0%2023.0L10.0%2016.8L4.2%2019.8L7.2%2014.0L1.0%2012.0L7.2%2010.0L4.2%204.2L10.0%207.2z'/%3E%3C/svg%3E") center/contain no-repeat}
 @keyframes slide{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.stamp .ring,.marquee .track{animation:none}}
 
 /* sections */
 section{padding:104px 0 0}
@@ -324,7 +318,7 @@ footer.foot .brand svg{width:26px;height:26px}
   <p class="lede">Docs, AI meeting notes, Mac dictation and screen recordings for your team. It runs on one small server you own, and every doc and note is a Markdown file in git.</p>
   <div class="ctas">
     <a class="btn primary" href="#run">Cook it up for your team</a>
-    <a class="btn" href="https://github.com/hotsauce-suite/hotsauce">Read the recipe</a>
+    <a class="btn" href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Read the recipe</a>
   </div>
   <ul class="chips"><li>Free forever</li><li>About $6 a month to host</li><li>Bring your own AI keys</li></ul>
 
@@ -342,6 +336,10 @@ footer.foot .brand svg{width:26px;height:26px}
           <source id="tour-dark" data-dark media="(prefers-color-scheme: dark)" srcset="/img/default-docs-dark.webp">
           <img id="tour-img" src="/img/default-docs-light.webp" width="1600" height="1012" alt="Hotsauce Docs showing a team roadmap document, with a folder tree of team docs on the left.">
         </picture>
+        <script>
+        // Match the screenshot to a saved theme before it starts loading
+        { const t = document.documentElement.dataset.theme; if (t) document.getElementById('tour-dark').media = t === 'dark' ? 'all' : 'not all' }
+        </script>
       </div>
     </div>
     <p class="caption" id="tour-caption" aria-live="polite">A team roadmap in Docs. It's a Markdown file in your git repository, with full history, search and links that survive renames.</p>
@@ -383,7 +381,7 @@ footer.foot .brand svg{width:26px;height:26px}
       <span class="flavor">Fresh</span>
       <header><div class="ico"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><circle cx="17" cy="14" r="3"/><path d="M8 21h8"/></svg></div><h3>Clips</h3><span class="instead">instead of a screen<br>recording service</span></header>
       <p>Record your screen with a camera bubble and share a link instead of booking a meeting.</p>
-      <ul><li>Your whole screen with a camera bubble, or just a window or tab</li><li>Automatic transcript for every clip</li><li>Playback speed control for viewers</li><li>A shared library for the whole team</li></ul>
+      <ul><li>Your whole screen with a camera bubble, or just a window or tab</li><li>Automatic transcript for every clip, with a Deepgram key</li><li>Playback speed control for viewers</li><li>A shared library for the whole team</li></ul>
     </article>
   </div>
   <div class="extras">
@@ -432,9 +430,9 @@ footer.foot .brand svg{width:26px;height:26px}
         <div><h3>Keep it where you choose</h3><p>On the server's own disk, or in your GitHub organization. For docs and meetings, the database is only an index you can delete and rebuild.</p></div>
       </div>
     </div>
-    <div class="code" role="img" aria-label="A meeting note as a Markdown file with YAML frontmatter: title, date, attendees and template, followed by the summary.">
-      <div class="bar" aria-hidden="true">meetings/2026/11/2026-11-10-northside-water-kickoff.md</div>
-<pre aria-hidden="true"><span class="d">---</span>
+    <div class="code">
+      <div class="bar">meetings/2026/11/2026-11-10-northside-water-kickoff.md</div>
+<pre><span class="d">---</span>
 <span class="k">type</span>: meeting
 <span class="k">title</span>: <span class="s">Northside Water kickoff</span>
 <span class="k">date</span>: 2026-11-10T14:00:00-05:00
@@ -496,10 +494,10 @@ before the spring sampling season.
     <div>
       <p class="kicker">The recipe</p>
       <h2>Running this afternoon.</h2>
-      <p class="sub" style="font-size:17px">You run three commands. A setup wizard in your browser does the rest, and nobody edits a config file.</p>
+      <p class="sub" style="font-size:17px">You run a few commands. A setup wizard in your browser does the rest, and nobody edits a config file.</p>
       <p style="margin:0 0 8px;font-weight:700;font-size:15px">The wizard covers</p>
       <ul class="wizard"><li>Your organization</li><li>Brand</li><li>Google sign-in</li><li>AI keys</li><li>Files and audio</li><li>Review and launch</li></ul>
-      <div class="needs"><b>You'll need</b> a Fly.io account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features. Docs and Clips work fully without them.</div>
+      <div class="needs"><b>You'll need</b> a Fly.io account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features. Docs, search and Clips recording work without them.</div>
     </div>
     <ol class="steps">
       <li><div><h3>Get the code</h3>
@@ -521,10 +519,10 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
 <section id="faq">
   <div class="center"><p class="kicker">The back label</p><h2>Good to know.</h2></div>
   <div class="faq">
-    <details><summary>Who is Hotsauce for?</summary><p>Teams of roughly 5 to 50 people who want their documents and meeting notes on infrastructure they control, without paying per seat. You need one person who is comfortable running three commands. After that, everything is set up and managed in the browser.</p></details>
+    <details><summary>Who is Hotsauce for?</summary><p>Teams of roughly 5 to 50 people who want their documents and meeting notes on infrastructure they control, without paying per seat. You need one person who is comfortable running a few commands in a terminal. After that, everything is set up and managed in the browser.</p></details>
     <details><summary>Is it really free?</summary><p>Yes. The code is free under AGPL-3.0 and every feature is included. You pay your own hosting (about $6 a month on Fly.io) and, if you turn them on, your own Anthropic, Deepgram and Cloudflare R2 usage.</p></details>
     <details><summary>What does AGPL-3.0 mean for my company?</summary><p>You can run Hotsauce for your team, change it, and keep using it, with no fees. If you offer a modified version to people outside your organization over a network, you have to share your changes under the same license. Using it internally doesn't trigger that.</p></details>
-    <details><summary>Do I need the AI keys?</summary><p>No. Docs, search and Clips work fully without them. A Deepgram key turns on meeting transcripts and Dictate. An Anthropic key turns on AI meeting notes, Ask, and Dictate's clean-up of filler words. The app shows what each key turns on, and admins can add keys at any time in Settings.</p></details>
+    <details><summary>Do I need the AI keys?</summary><p>No. Docs, search and Clips recording work without them. A Deepgram key turns on transcripts for meetings and clips, and Dictate. An Anthropic key turns on AI meeting notes, Ask, and Dictate's clean-up of filler words. The app shows what each key turns on, and admins can add keys at any time in Settings.</p></details>
     <details><summary>Where does my data go?</summary><p>Your files live on your server, or in your GitHub organization if you choose that. Audio is sent to Deepgram for transcription and text to Anthropic for notes, using your own accounts. Clips and kept meeting audio stay on your server's disk, or in your own Cloudflare R2 bucket if you want more room.</p></details>
     <details><summary>How do people sign in?</summary><p>With Google, through a free Clerk application that the wizard walks you through. The server only lets in email addresses from the domains you choose.</p></details>
     <details><summary>Does a bot join my meetings?</summary><p>No. Meetings records from your own browser tab or the Chrome extension for Google Meet, so there's no extra attendee in the call.</p></details>
