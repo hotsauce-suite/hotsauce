@@ -1,5 +1,6 @@
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
 import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
+import { bookingHandlers } from './bookingHandlers'
 import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
 import { briefHandlers, FakeBriefs } from './briefHandlers'
 import { dictationHandlers } from './dictationHandlers'
@@ -474,6 +475,7 @@ function createHandlers(
   handlers.push(...dictationHandlers({ principal }))
   handlers.push(...todayHandlers())
   handlers.push(...peopleHandlers())
+  handlers.push(...bookingHandlers())
   handlers.push(
     ...briefHandlers({
       briefs: new FakeBriefs(),

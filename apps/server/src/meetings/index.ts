@@ -44,9 +44,11 @@ export { FakeCalendar } from './calendar/fake.js'
 export { FAKE_TEAM_CALENDAR, FakeGoogle, fakeGoogleToken } from './calendar/fake-google.js'
 export {
   type AccessToken,
+  clerkGoogleGrant,
   clerkGoogleToken,
   type GoogleCalendarApi,
   GoogleCalendarHttp,
+  type GoogleGrantSource,
   mapGoogleEvents,
 } from './calendar/google.js'
 export { CachedCalendar, CalendarSync, SYNC_AHEAD_MS, SYNC_BACK_MS } from './calendar/sync.js'
@@ -98,6 +100,8 @@ export type {
 } from './transcriber/types.js'
 
 /** Everything the Meetings API and WebSocket are built from. */
+import type { GoogleGrantSource } from './calendar/google.js'
+
 export interface MeetingServices {
   sessions: MeetingSessions
   sockets: MeetingSocketServer
@@ -109,6 +113,8 @@ export interface MeetingServices {
   calendarSync: CalendarSync | null
   /** The in-memory Google behind the sync in dev and test; null with real Google. */
   fakeGoogle: FakeGoogle | null
+  /** The member's Google grant with its scopes (booking links); null when a test supplies its own calendar. */
+  googleGrant: GoogleGrantSource | null
   /** Where kept audio lives; null when keeping it isn't offered. */
   audioStore: AudioStore | null
   reminderStore: ReminderStore

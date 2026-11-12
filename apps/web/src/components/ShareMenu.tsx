@@ -7,6 +7,7 @@ import { useSession } from '../state/session'
 import { FolderPicker } from './FolderPicker'
 import { Icon } from './Icon'
 import { below, Menu, type MenuAnchor, MenuItem } from './Menu'
+import { ReadOnlyLinkItems, useReadOnlyLink } from './ReadOnlyLink'
 
 interface ShareMenuProps {
   space: string
@@ -24,6 +25,7 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const [picking, setPicking] = useState(false)
   const isPersonal = spaces.find((s) => s.name === space)?.kind === 'personal'
+  const readOnly = useReadOnlyLink(space, path)
 
   const copyLink = async () => {
     setAnchor(null)
@@ -63,7 +65,10 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
         aria-haspopup="menu"
         aria-expanded={anchor !== null}
         aria-label={iconOnly ? 'Share' : undefined}
-        onClick={(event) => setAnchor(anchor ? null : below(event.currentTarget))}
+        onClick={(event) => {
+          if (!anchor) readOnly.refresh()
+          setAnchor(anchor ? null : below(event.currentTarget))
+        }}
         className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink"
       >
         <Icon name="share" />
@@ -74,6 +79,7 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
           <MenuItem icon="link" onSelect={() => void copyLink()}>
             Copy link
           </MenuItem>
+          <ReadOnlyLinkItems link={readOnly} close={() => setAnchor(null)} before={beforeShare} />
           <MenuItem icon="copy" testId="copy-markdown" onSelect={() => void copy('markdown')}>
             Copy as markdown
           </MenuItem>

@@ -409,6 +409,60 @@ export class Files {
     }
   }
 
+  /**
+   * Stores a small file for Hearth Forms (an answer's upload, ARCHITECTURE §21): hashed, text read,
+   * put to the store and its pointer committed by `author`. The caller has checked who may write
+   * to `space`; a signed-out person answering a public form has no principal of their own.
+   */
+  async storeFormFile(
+    author: Pick<Principal, 'name' | 'email'>,
+    input: { space: string; folder: string; name: string; mime?: string; bytes: Uint8Array },
+    via?: string,
+  ): Promise<FileView> {
+    this.#store()
+    await this.#ensureRoom(input.bytes.length)
+    const name = cleanFileName(input.name)
+    const mime = fileMimeType(name, input.mime)
+    const dir = path.join(this.#uploadRoot, `form-${ulid()}`)
+    await mkdir(dir, { recursive: true })
+    const whole = path.join(dir, 'whole')
+    try {
+      await writeFile(whole, input.bytes)
+      const size = input.bytes.length
+      const sha256 = createHash('sha256').update(input.bytes).digest('hex')
+      const extracted: Extracted = await extractText(whole, name, mime, size)
+      const pointer = newFilePointer({
+        name,
+        folder: cleanFolder(input.folder),
+        size,
+        sha256,
+        mime,
+        createdBy: author.email,
+        created: isoNow(this.#now()),
+        text: extracted.status === 'extracted' ? extracted.text : null,
+        textStatus: extracted.status,
+      })
+      const key = fileStoreKey(pointer.id)
+      await this.#store().put(key, createReadStream(whole), size, mime)
+      try {
+        await this.#commit(author, input.space, {
+          changes: [{ path: pointer.path, content: pointer.text }],
+          verb: 'upload',
+          title: name,
+          via,
+        })
+      } catch (err) {
+        await this.#store()
+          .delete(key)
+          .catch(() => {})
+        throw err
+      }
+      return (await this.#read(input.space, pointer.id)).view
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }
+
   #remember(uploadId: string, done: { owner: string; space: string; fileId: string }): void {
     this.#completed.set(uploadId, done)
     if (this.#completed.size > 500) {
@@ -678,7 +732,7 @@ export class Files {
   }
 
   async #commit(
-    principal: Principal,
+    principal: Pick<Principal, 'name' | 'email'>,
     space: string,
     args: {
       changes: Change[]

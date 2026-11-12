@@ -40,6 +40,7 @@ import {
   MemoryTracker,
 } from './feedback/index.js'
 import { Files } from './files/index.js'
+import { ChatRooms, Forms } from './forms/index.js'
 import { GitStore } from './git/index.js'
 import { createHostAdapter } from './hosts/index.js'
 import { Index, Indexer, indexPath } from './index/index.js'
@@ -55,7 +56,7 @@ import {
   CalendarCache,
   type CalendarSource,
   CalendarSync,
-  clerkGoogleToken,
+  clerkGoogleGrant,
   createAudioStore,
   DeepgramTranscriber,
   Enhancer,
@@ -64,6 +65,7 @@ import {
   FakeTranscriber,
   fakeGoogleToken,
   GoogleCalendarHttp,
+  type GoogleGrantSource,
   type LLM,
   MeetingChat,
   type MeetingServices,
@@ -88,7 +90,16 @@ import {
   UnconfiguredLLM,
   UnconfiguredTranscriber,
 } from './org/unconfigured.js'
+import { Pages } from './pages/index.js'
 import { People } from './people/index.js'
+import {
+  Bookings,
+  FakeRobotCheck,
+  GoogleBookingHttp,
+  type RobotCheck,
+  Turnstile,
+} from './scheduling/index.js'
+import { Shares } from './shares/index.js'
 import { SpaceService } from './spaces/index.js'
 import { Broadcaster, Syncer } from './sync/index.js'
 import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from './tasks/index.js'
@@ -121,6 +132,10 @@ export interface ServiceOverrides {
   clipTranscriber?: ClipTranscriber
   /** Re-transcribes kept meeting audio after the call; null turns that off (§7.11). */
   retranscriber?: MeetingRetranscriber | null
+  /** Booking links' robot check; null is a server that can't take bookings (§19). */
+  robotCheck?: RobotCheck | null
+  /** Hearth Forms' chat posts (§21.5); tests pass a fake. */
+  chatFetch?: typeof fetch
   /** Free bytes on the data volume, for Clips' disk check. */
   diskFreeBytes?: () => Promise<number>
   /** Stands in for the network in the Todoist import. */
@@ -291,6 +306,19 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     nightly: config.LLM_PROVIDER !== 'none',
     ...(overrides.briefcastNow ? { now: overrides.briefcastNow } : {}),
   })
+  const files = new Files({
+    git,
+    index,
+    spaces,
+    syncer,
+    store: meetings.audioStore,
+    dataDir: config.DATA_DIR,
+    ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
+  })
+  const chatRooms = new ChatRooms({
+    dataDir: config.DATA_DIR,
+    ...(overrides.chatFetch ? { fetch: overrides.chatFetch } : {}),
+  })
   return {
     config,
     git,
@@ -310,15 +338,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     tasks,
     notes: new Notes({ git, index, spaces, syncer }),
     // Hearth Files keep their bytes beside Clips and kept audio, under files/ (ARCHITECTURE §18).
-    files: new Files({
-      git,
-      index,
-      spaces,
-      syncer,
-      store: meetings.audioStore,
-      dataDir: config.DATA_DIR,
-      ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
-    }),
+    files,
     briefs,
     feedback: new Feedback({
       clarifier: new Clarifier({ llm, model: config.FEEDBACK_MODEL }),
@@ -339,9 +359,79 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       internalDomains: config.ALLOWED_EMAIL_DOMAINS,
     }),
     briefcasts,
+    bookings: createBookings(
+      config,
+      { git, index, spaces, syncer, meetings },
+      overrides.robotCheck,
+    ),
+    // Read-only links to docs, meeting notes and notes (ARCHITECTURE §20).
+    shares: new Shares({ git, index, spaces, syncer }),
+    // HTML pages Claude publishes over MCP, versioned in Git (§20.2).
+    pages: new Pages({ git, index, spaces, syncer }),
+    // Forms and their answers in Git; answers' files in Hearth Files (§21).
+    chatRooms,
+    forms: new Forms({
+      git,
+      index,
+      spaces,
+      syncer,
+      files,
+      rooms: chatRooms,
+      llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+      model: config.ENHANCE_MODEL,
+      robotCheck: overrides.robotCheck !== undefined ? overrides.robotCheck : robotCheckFor(config),
+      publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
+      productName: config.PRODUCT_NAME,
+    }),
     org,
     brand,
   }
+}
+
+/**
+ * Booking links' robot check: Cloudflare Turnstile with both keys; otherwise the dev stand-in, or
+ * in production nothing, so the page says it can't take bookings yet (S8).
+ */
+export function robotCheckFor(config: Config): RobotCheck | null {
+  if (config.TURNSTILE_SECRET_KEY && config.TURNSTILE_SITE_KEY) {
+    return new Turnstile({
+      siteKey: config.TURNSTILE_SITE_KEY,
+      secret: config.TURNSTILE_SECRET_KEY,
+    })
+  }
+  return config.NODE_ENV === 'production' ? null : new FakeRobotCheck()
+}
+
+/** Booking links (ARCHITECTURE §19): the member's Google grant, and Turnstile or its dev stand-in. */
+function createBookings(
+  config: Config,
+  deps: {
+    git: GitStore
+    index: Index
+    spaces: SpaceService
+    syncer: Syncer
+    meetings: MeetingServices
+  },
+  override?: RobotCheck | null,
+): Bookings {
+  const { calendarSync, googleGrant, fakeGoogle } = deps.meetings
+  const robotCheck = override !== undefined ? override : robotCheckFor(config)
+  return new Bookings({
+    git: deps.git,
+    spaces: deps.spaces,
+    registry: deps.index,
+    syncer: deps.syncer,
+    google: new GoogleBookingHttp({
+      grant: googleGrant ?? (async () => null),
+      ...(fakeGoogle ? { fetch: fakeGoogle.fetch } : {}),
+    }),
+    member: (email) =>
+      calendarSync?.cache.members().find((m) => m.email.toLowerCase() === email.toLowerCase()) ??
+      null,
+    calendarsOf: (p) => calendarSync?.cache.calendars(p.userId) ?? [],
+    register: (p) => calendarSync?.cache.register(p),
+    robotCheck,
+  })
 }
 
 /** GitHub issues when a repo and token are set; memory outside production; else off. */
@@ -381,8 +471,8 @@ function createMeetingServices(
         ? new UnconfiguredTranscriber()
         : new FakeTranscriber())
   const llm = overrides.llm ?? createLLM(config)
-  const { calendar, calendarSync, fakeGoogle } = overrides.calendar
-    ? { calendar: overrides.calendar, calendarSync: null, fakeGoogle: null }
+  const { calendar, calendarSync, fakeGoogle, googleGrant } = overrides.calendar
+    ? { calendar: overrides.calendar, calendarSync: null, fakeGoogle: null, googleGrant: null }
     : createCalendar(config)
   const templates = new MeetingTemplates({ git, spaces })
   const audioStore =
@@ -424,6 +514,7 @@ function createMeetingServices(
     calendar,
     calendarSync,
     fakeGoogle,
+    googleGrant,
     audioStore,
     ...reminderServices(config, calendar, overrides.pushSender),
   }
@@ -459,20 +550,21 @@ function createCalendar(config: Config): {
   calendar: CalendarSource
   calendarSync: CalendarSync
   fakeGoogle: FakeGoogle | null
+  googleGrant: GoogleGrantSource
 } {
   const fake = config.AUTH_MODE !== 'clerk' || !config.CLERK_SECRET_KEY
   const fakeGoogle = fake ? new FakeGoogle() : null
-  const google = fakeGoogle
-    ? new GoogleCalendarHttp({ accessToken: fakeGoogleToken, fetch: fakeGoogle.fetch })
-    : new GoogleCalendarHttp({
-        accessToken: clerkGoogleToken(
-          createClerkClient({ secretKey: config.CLERK_SECRET_KEY ?? '' }),
-        ),
-      })
+  const googleGrant: GoogleGrantSource = fakeGoogle
+    ? async (p) => ({ token: await fakeGoogleToken(p), scopes: fakeGoogle.scopes(p.email) })
+    : clerkGoogleGrant(createClerkClient({ secretKey: config.CLERK_SECRET_KEY ?? '' }))
+  const google = new GoogleCalendarHttp({
+    accessToken: async (p) => (await googleGrant(p))?.token ?? null,
+    ...(fakeGoogle ? { fetch: fakeGoogle.fetch } : {}),
+  })
   const calendarSync = new CalendarSync({
     cache: new CalendarCache(path.join(config.DATA_DIR, 'calendar', 'cache.sqlite')),
     google,
     intervalMs: config.CALENDAR_SYNC_MINUTES * 60_000,
   })
-  return { calendar: new CachedCalendar(calendarSync), calendarSync, fakeGoogle }
+  return { calendar: new CachedCalendar(calendarSync), calendarSync, fakeGoogle, googleGrant }
 }

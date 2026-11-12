@@ -21,6 +21,15 @@ export interface ClerkOAuthTokens {
   }
 }
 
+/** A member's Google token and the scopes it carries (null scopes: Clerk didn't say). */
+export interface GoogleGrant {
+  token: string
+  scopes: string[] | null
+}
+
+/** The member's Google grant, or null when they haven't granted one. */
+export type GoogleGrantSource = (principal: Principal) => Promise<GoogleGrant | null>
+
 /**
  * The token Clerk holds from the member's Google sign-in (needs the calendar.readonly scope).
  * The scopes it carries are logged once per member and whenever they change: they're the
@@ -30,6 +39,15 @@ export function clerkGoogleToken(
   clerk: ClerkOAuthTokens,
   log: (message: string) => void = console.log,
 ): AccessToken {
+  const grant = clerkGoogleGrant(clerk, log)
+  return async (principal) => (await grant(principal))?.token ?? null
+}
+
+/** `clerkGoogleToken` with the scopes: booking links need `calendar.events` (ARCHITECTURE §19). */
+export function clerkGoogleGrant(
+  clerk: ClerkOAuthTokens,
+  log: (message: string) => void = console.log,
+): GoogleGrantSource {
   const seenScopes = new Map<string, string>()
   return async (principal) => {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -52,7 +70,7 @@ export function clerkGoogleToken(
           log(`google token for ${principal.email}: scopes ${scopes}`)
         }
       }
-      return first?.token ?? null
+      return first ? { token: first.token, scopes: first.scopes ? [...first.scopes] : null } : null
     } catch (err) {
       if (err instanceof HearthError) throw err
       // Clerk's errors carry a fresh trace id each time; a stable message is logged once.

@@ -4,8 +4,10 @@ import { briefcastRoutes } from './apps/briefcast/routes'
 import { clipsRoutes } from './apps/clips/routes'
 import { dictateRoutes } from './apps/dictate/routes'
 import { filesRoutes } from './apps/files/routes'
+import { formsRoutes } from './apps/forms/routes'
 import { meetingsRoutes } from './apps/meetings/routes'
 import { notesRoutes } from './apps/notes/routes'
+import { pagesRoutes } from './apps/pages/routes'
 import { peopleRoutes } from './apps/people/routes'
 import { tasksRoutes } from './apps/tasks/routes'
 import { todayRoutes } from './apps/today/routes'
@@ -45,6 +47,23 @@ export const createAppRouter = () =>
         {
           path: '/desktop/finish',
           lazy: async () => ({ Component: (await import('./routes/DesktopFinishRoute')).default }),
+        },
+        {
+          // A booking link's public page (ARCHITECTURE §19): signed out, no app shell.
+          path: '/book/:handle/:slug',
+          lazy: async () => ({
+            Component: (await import('./apps/meetings/booking/BookPage')).default,
+          }),
+        },
+        {
+          // A read-only link (ARCHITECTURE §20): outside the shell, signed out when allowed.
+          path: '/s/:token',
+          lazy: async () => ({ Component: (await import('./routes/SharedLinkRoute')).default }),
+        },
+        {
+          // A form's fill page (ARCHITECTURE §21.3): outside the shell, signed out for a public form.
+          path: '/f/:link',
+          lazy: async () => ({ Component: (await import('./apps/forms/FillPage')).default }),
         },
         {
           path: '/sso-callback',
@@ -92,7 +111,9 @@ export const createAppRouter = () =>
             { path: '/people', children: peopleRoutes },
             { path: '/today', children: todayRoutes },
             { path: '/files', children: filesRoutes },
+            { path: '/forms', children: formsRoutes },
             { path: '/briefcast', children: briefcastRoutes },
+            { path: '/pages', children: pagesRoutes },
           ],
         },
         { path: '*', element: <Navigate to="/docs" replace /> },

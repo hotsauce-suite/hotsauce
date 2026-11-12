@@ -121,6 +121,10 @@ export const ConfigSchema = z
     VAPID_SUBJECT: z.string().optional(),
     // Google Calendar sync (ARCHITECTURE §7.8): every member's calendar this often.
     CALENDAR_SYNC_MINUTES: z.coerce.number().positive().default(5),
+    // Booking links' robot check (ARCHITECTURE §19.5): the site key is public (fly.toml), the
+    // secret is a Fly secret. Without both, production takes no bookings.
+    TURNSTILE_SITE_KEY: z.string().optional(),
+    TURNSTILE_SECRET_KEY: z.string().optional(),
     // Test only: `record` keeps reminder pushes in memory for e2e (GET /api/test/pushes).
     PUSH_SENDER: z.enum(['web', 'record']).default('web'),
     // A recording session with no socket for this long, or older than the maximum, is stopped

@@ -10,6 +10,8 @@ import { createPortal } from 'react-dom'
 import { HearthApiError } from '../../api/client'
 import { type NoteInput, type NoteView, notesApi } from '../../api/notes'
 import { AttachmentChips, FilePicker } from '../../components/FilePicker'
+import { below, Menu, type MenuAnchor } from '../../components/Menu'
+import { ReadOnlyLinkItems, useReadOnlyLink } from '../../components/ReadOnlyLink'
 import { ChecklistEditor } from './ChecklistEditor'
 import { editedLabel } from './logic'
 import { ColorPicker, LabelPicker, ToolButton } from './NoteTools'
@@ -328,6 +330,7 @@ export function NoteEditor({
               onClick={() => setPicking(true)}
             />
           )}
+          <NoteLinkButton space={note.space} path={note.path} before={flush} />
           <ToolButton
             icon="archive"
             label={note.archived ? 'Unarchive' : 'Archive'}
@@ -379,5 +382,40 @@ export function NoteEditor({
       ) : null}
     </div>,
     document.body,
+  )
+}
+
+/** The note's read-only link (ARCHITECTURE §20): make one, copy it, or turn it off. */
+function NoteLinkButton({
+  space,
+  path,
+  before,
+}: {
+  space: string
+  path: string
+  before: () => Promise<unknown>
+}) {
+  const link = useReadOnlyLink(space, path)
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
+  const ref = useRef<HTMLSpanElement>(null)
+  return (
+    <>
+      <span ref={ref} className="inline-flex">
+        <ToolButton
+          icon="share"
+          label="Read-only link"
+          testId="note-editor-link"
+          onClick={() => {
+            if (!anchor) link.refresh()
+            setAnchor(anchor || !ref.current ? null : below(ref.current))
+          }}
+        />
+      </span>
+      {anchor ? (
+        <Menu anchor={anchor} label="Read-only link" onClose={() => setAnchor(null)}>
+          <ReadOnlyLinkItems link={link} close={() => setAnchor(null)} before={before} />
+        </Menu>
+      ) : null}
+    </>
   )
 }

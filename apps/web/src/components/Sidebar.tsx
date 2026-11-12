@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, NavLink } from 'react-router'
 import type { AppManifest } from '../apps/registry'
 import { displayName, docUrl } from '../lib/paths'
 import { useSession } from '../state/session'
@@ -61,6 +61,18 @@ export function Sidebar({ activeSpace, activePath, onOpenSearch }: SidebarProps)
         <span className="flex-1 text-left">Search docs and meetings</span>
         <kbd className="font-mono text-[0.7rem] text-ink-faint">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
       </button>
+
+      <NavLink
+        to="/pages"
+        data-testid="sidebar-pages"
+        className={({ isActive }) =>
+          `mx-3 mb-1 flex h-8 items-center gap-2 rounded-lg px-2 text-sm hover:bg-paper/70 hover:text-ink ${isActive ? 'bg-paper/70 text-ink' : 'text-ink-soft'}`
+        }
+      >
+        <Icon name="book" className="size-4" />
+        Pages
+        <span className="ml-auto text-[0.7rem] text-ink-faint">from Claude</span>
+      </NavLink>
 
       <FileTree
         key={session.space}

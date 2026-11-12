@@ -56,6 +56,8 @@ export const OrgSettingsSchema = z.object({
   r2Bucket: z.string().trim().default(''),
   keepAudio: z.boolean().default(false),
   chatUrl: z.string().trim().default(''),
+  /** Read-only links open for anyone with the link, signed out too (ARCHITECTURE §20). */
+  publicShareLinks: z.boolean().default(false),
   /** Steps of the setup wizard the admin has been through, so it resumes where they left off. */
   stepsDone: z.array(z.string()).default([]),
   setupComplete: z.boolean().default(false),

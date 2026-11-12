@@ -10,6 +10,7 @@ import { clipsApp } from './clips/manifest'
 import { dictateApp } from './dictate/manifest'
 import { docsApp } from './docs/manifest'
 import { filesApp } from './files/manifest'
+import { formsApp } from './forms/manifest'
 import { meetingsApp } from './meetings/manifest'
 import { notesApp } from './notes/manifest'
 import { peopleApp } from './people/manifest'
@@ -27,6 +28,7 @@ export type AppId =
   | 'boards'
   | 'people'
   | 'files'
+  | 'forms'
   | 'briefcast'
 
 export interface AppManifest {
@@ -81,6 +83,7 @@ export const APPS: readonly AppManifest[] = [
   boardsApp,
   peopleApp,
   filesApp,
+  formsApp,
   briefcastApp,
 ]
 

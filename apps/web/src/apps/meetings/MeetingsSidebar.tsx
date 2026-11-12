@@ -65,6 +65,12 @@ export function MeetingsSidebar({
           active={location.pathname === '/meetings/brief'}
         />
         <NavItem
+          to="/meetings/booking"
+          icon="link"
+          label="Booking links"
+          active={location.pathname === '/meetings/booking'}
+        />
+        <NavItem
           to="/meetings/extension"
           icon="tab"
           label="Chrome extension"

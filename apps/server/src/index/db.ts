@@ -136,6 +136,14 @@ export class Index {
     return row ? toFileRow(row) : null
   }
 
+  /**
+   * Files (any space) whose frontmatter `share` is this read-only link token (ARCHITECTURE §20).
+   * Hearth Files pointers keep their own links (§18.3) and are left out.
+   */
+  filesByShareToken(token: string): FileRow[] {
+    return this.#q.byShareToken.all(token).map(toFileRow)
+  }
+
   /** Indexed files of one space; no limit unless given. */
   listFiles(opts: ListFilesOptions): FileRow[] {
     const limit = opts.limit === undefined ? -1 : Math.max(Math.trunc(opts.limit), 0)
@@ -314,6 +322,10 @@ function prepareStatements(db: Database.Database) {
     spacePaths: db.prepare<[string], { path: string }>('SELECT path FROM files WHERE space = ?'),
     getFile: db.prepare<[string, string], RawFileRow>(
       `SELECT ${FILE_COLUMNS} FROM files WHERE space = ? AND path = ?`,
+    ),
+    byShareToken: db.prepare<[string], RawFileRow>(
+      `SELECT ${FILE_COLUMNS} FROM files
+       WHERE json_extract(frontmatter, '$.share') = ? AND kind != 'file' LIMIT 5`,
     ),
     listFiles: db.prepare<
       { space: string; kind: string | null; prefix: string | null; order: string; limit: number },

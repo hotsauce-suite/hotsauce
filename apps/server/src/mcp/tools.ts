@@ -21,6 +21,9 @@ const KINDS = [
   'board',
   'person',
   'file',
+  'page',
+  'form',
+  'form-answer',
   'other',
 ] as const satisfies readonly FileKind[]
 

@@ -7,6 +7,8 @@ const MINUTE = 60_000
 const DAY = 24 * 60 * MINUTE
 export const FAKE_TEAM_CALENDAR = 'team@fake'
 const TOKEN_PREFIX = 'fake-token:'
+export const READONLY_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly'
+export const EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 
 /** The token the fake Google accepts for a member in dev and test. */
 export function fakeGoogleToken(principal: Principal): Promise<string> {
@@ -46,7 +48,10 @@ export class FakeGoogle {
   /** Per member: answer every request with this HTTP status instead (401, 403, 500…). */
   readonly #refusals = new Map<string, number>()
   readonly pageSize: number
-  /** Every request served: `<email> <calendar or list> full|incremental|list`. */
+  /** Members whose grant lacks `calendar.events` (booking links, ARCHITECTURE §19). */
+  readonly #readOnly = new Set<string>()
+  #inserted = 0
+  /** Every request served: `<email> <calendar or list> full|incremental|list|freebusy|insert`. */
   readonly requests: string[] = []
 
   constructor(opts: { now?: () => number; pageSize?: number; seed?: boolean } = {}) {
@@ -140,6 +145,19 @@ export class FakeGoogle {
     else this.#refusals.set(email.toLowerCase(), status)
   }
 
+  /** Take away (or give back) the member's write scope, as signing in without it would. */
+  readOnly(email: string, on = true): void {
+    if (on) this.#readOnly.add(email.toLowerCase())
+    else this.#readOnly.delete(email.toLowerCase())
+  }
+
+  /** The scopes the member's token carries. */
+  scopes(email: string): string[] {
+    return this.#readOnly.has(email.toLowerCase())
+      ? [READONLY_SCOPE]
+      : [READONLY_SCOPE, EVENTS_SCOPE]
+  }
+
   /** Google's REST API for this fake, as `fetch`. */
   fetch: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input))
@@ -155,6 +173,9 @@ export class FakeGoogle {
     }
 
     const path = url.pathname.replace(/^\/calendar\/v3/, '')
+    const method = (init?.method ?? 'GET').toUpperCase()
+    const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : null
+    if (method === 'POST' && path === '/freeBusy') return this.#freeBusy(email, body)
     if (path === '/users/me/calendarList') {
       this.requests.push(`${email} list`)
       return Response.json({
@@ -170,7 +191,85 @@ export class FakeGoogle {
     const id = decodeURIComponent(match[1])
     const calendar = this.member(email).calendars.get(id === email ? 'primary' : id)
     if (!calendar) return Response.json({ error: { code: 404 } }, { status: 404 })
+    if (method === 'POST') return this.#insert(email, id, calendar, url.searchParams, body)
     return this.#events(email, id, calendar, url.searchParams)
+  }
+
+  #calendarOf(email: string, id: string): FakeCalendarData | undefined {
+    return this.member(email).calendars.get(id === email || id === 'primary' ? 'primary' : id)
+  }
+
+  /** Busy periods only: no titles, attendees or ids (what Google's freeBusy gives). */
+  #freeBusy(email: string, body: unknown): Response {
+    const q = body as { timeMin: string; timeMax: string; items: Array<{ id: string }> }
+    const from = Date.parse(q.timeMin)
+    const to = Date.parse(q.timeMax)
+    this.requests.push(`${email} freebusy ${q.items.map((i) => i.id).join(',')}`)
+    const calendars: Record<string, unknown> = {}
+    for (const { id } of q.items) {
+      const calendar = this.#calendarOf(email, id)
+      if (!calendar) {
+        calendars[id] = { errors: [{ domain: 'global', reason: 'notFound' }], busy: [] }
+        continue
+      }
+      const busy = [...calendar.events.values()]
+        .map((s) => s.event)
+        .filter((e) => {
+          if (e.status === 'cancelled' || !e.start?.dateTime || !e.end?.dateTime) return false
+          if ((e as { transparency?: string }).transparency === 'transparent') return false
+          if (e.attendees?.some((a) => a.self && a.responseStatus === 'declined')) return false
+          return Date.parse(e.end.dateTime) > from && Date.parse(e.start.dateTime) < to
+        })
+        .map((e) => ({ start: e.start?.dateTime, end: e.end?.dateTime }))
+      calendars[id] = { busy }
+    }
+    return Response.json({ kind: 'calendar#freeBusy', calendars })
+  }
+
+  /** events.insert: a Meet link when asked for (with conferenceDataVersion=1). */
+  #insert(
+    email: string,
+    id: string,
+    calendar: FakeCalendarData,
+    q: URLSearchParams,
+    body: unknown,
+  ): Response {
+    if (this.#readOnly.has(email)) {
+      this.requests.push(`${email} ${id} insert refused`)
+      return Response.json(
+        { error: { code: 403, message: 'Request had insufficient authentication scopes.' } },
+        { status: 403 },
+      )
+    }
+    const input = body as GoogleEvent & {
+      conferenceData?: { createRequest?: unknown }
+    }
+    if (input.id && this.find(email, input.id)) {
+      this.requests.push(`${email} ${id} insert duplicate`)
+      return Response.json(
+        { error: { code: 409, message: 'The requested identifier already exists.' } },
+        { status: 409 },
+      )
+    }
+    const n = ++this.#inserted
+    const meet =
+      q.get('conferenceDataVersion') === '1' && input.conferenceData?.createRequest
+        ? `https://meet.google.com/fak-e${String(n).padStart(3, '0')}-mtg`
+        : undefined
+    const event: GoogleEvent = {
+      ...input,
+      id: input.id || `booked${n}`,
+      status: 'confirmed',
+      organizer: { email },
+      attendees: [
+        { email, self: true, responseStatus: 'accepted' },
+        ...(input.attendees ?? []).map((a) => ({ ...a, responseStatus: 'needsAction' })),
+      ],
+      ...(meet ? { hangoutLink: meet } : {}),
+    }
+    calendar.events.set(event.id, { event, seq: ++this.#seq })
+    this.requests.push(`${email} ${id} insert sendUpdates=${q.get('sendUpdates') ?? 'none'}`)
+    return Response.json(event)
   }
 
   #events(email: string, id: string, calendar: FakeCalendarData, q: URLSearchParams): Response {
@@ -197,6 +296,14 @@ export class FakeGoogle {
         const end = Date.parse(s.event.end?.dateTime ?? s.event.end?.date ?? '')
         return end > from && start < to
       })
+      for (const filter of q.getAll('privateExtendedProperty')) {
+        const [key, value] = filter.split('=')
+        items = items.filter(
+          (s) =>
+            (s.event as { extendedProperties?: { private?: Record<string, string> } })
+              .extendedProperties?.private?.[key ?? ''] === value,
+        )
+      }
       this.requests.push(`${email} ${id} full`)
     }
     items.sort((a, b) => a.seq - b.seq)

@@ -1278,3 +1278,103 @@ The text pulled out of the file, at most 200,000 characters (MAX_FILE_TEXT_CHARS
 - Signed links last up to an hour: turning a share link off stops new views at once, but a link already handed out works until it expires.
 - Deleting a file moves its pointer to `.trash/`; the bytes stay in the store and there is no restore in the Files app yet. Folder rename and delete work from the index (at most 5,000 files a space) and take no per-file base check.
 - Files isn't on the phone's bottom bar (it's full); on a phone it opens from links and attachments.
+
+## 19. Booking links (Scheduling)
+
+Personal booking links inside Meetings (plan `docs/plans/2026-11-12-next-tools.md` §4). Not its own rail icon: Meetings → "Booking links". The pure slot math and file schema are in `@hearth/format` (`packages/format/src/booking.ts`); the server is `apps/server/src/scheduling/` and `api/booking.ts`; the web app is `apps/web/src/apps/meetings/booking/` and the public page `/book/<handle>/<slug>`.
+
+### 19.1 A link is a file
+
+`.hearth/booking/<slug>.md` in the member's personal space (hidden, so not indexed; read with `listTree`/`readFile`). Frontmatter (`BookingFrontmatter`): `title`, `minutes` (15/30/45/60), `tz`, `hours` (per weekday, up to four `[HH:MM, HH:MM]` windows; default Mon–Fri 09:00–17:00), `buffer_before`, `buffer_after`, `notice_minutes` (default 240), `horizon_days` (default 30), `daily_cap` (null = none), `questions` (up to 3), `description`, `active`; unknown keys are kept. The slug is lowercase letters, digits and dashes (1–50). Hearth writes the whole file on each save (it's Hearth's own file); a save sends the version it edited (`blobOid`, null to create) and a different one is a 409. Commit `booking: edit "<title>"` / `booking: delete "<title>"`, authored by the member.
+
+### 19.2 Slots
+
+`openSlots(rules, busy, { now, from, to, booked })`: starts every `minutes` inside each working-hours window in the member's time zone (a start the clock skips at spring-forward doesn't exist; the earlier of a repeated fall-back time is used), not before now + notice, not after now + horizon, clear of every busy period by the buffers, and not on a local day that already has `daily_cap` bookings from this link. All instants are UTC; the booker's page shows them in the booker's own time zone.
+
+Busy comes from Google's `freeBusy` over the calendars the member syncs (Settings → Calendars; primary when none chosen), so the public page never reads an event's title, attendees or anything but busy times (S2). Google is asked in whole UTC days with a day either side (so every local day the range touches is complete for the daily cap), and that answer is kept for 60 s, so nearby page views share it. A calendar `freeBusy` reports an error for fails closed: the page says it isn't available rather than show its times as free. Booked counts for the daily cap come from the member's events carrying the private extended property `hearthBooking=<slug>`.
+
+### 19.3 Booking
+
+`POST /api/book/:handle/:slug` checks, in order: the server can take bookings (a Turnstile secret, or the fake outside production; else 503 `not_configured`, S8), the link exists and is active (404), the rate limits (5 per IP per hour, IPv6 counted per /64; 20 bookings per link per day, counted only for bookings that are made, so bad tokens can't close a link; in memory; 429, S5), the booker isn't the member, the Turnstile token with Cloudflare's `siteverify` (403, S3), the slot is one `openSlots` offers right now against a live `freeBusy` (409 "That time was just taken", S4). Then it creates one event on the member's primary calendar: `conferenceData.createRequest` (a Meet link, `conferenceDataVersion=1`), the booker as attendee, `sendUpdates=all` (Google emails both sides; Hearth sends no email), the booker's name, email and answers in the description, and `extendedProperties.private.hearthBooking=<slug>`. The event id is a hash of member, link, start and booker, so a retry after a timeout is Google's 409, never a second event; Google's error details are logged, not shown to the booker. The public POST body is capped at 16 KB. The answers reach Meetings through the calendar: the event syncs like any other, and its description is the meeting's context when the note is enhanced (S6). Cancel and reschedule are Google's own.
+
+The member's Google access is their Clerk Google token, looked up by the owner of the personal space named `<handle>` among the calendar's registered members (anyone who has opened Meetings). Writing needs the `calendar.events` scope: a member whose token lacks it can't create or edit a link and sees "Turn on booking links" with the steps (S7). Dev and test use the in-memory Google (`FakeGoogle`: `freeBusy`, event insert with a Meet link, extended-property filter) and a fake Turnstile that accepts the token `dev-pass`; production never uses the fake.
+
+### 19.4 API
+
+Signed in:
+- `GET /api/booking` → `{ ready, missing: 'scope' | null, canTakeBookings, handle, links: BookingLink[] }`.
+- `PUT /api/booking/:slug` `{ title, minutes, tz, hours, bufferBefore, bufferAfter, noticeMinutes, horizonDays, dailyCap, questions, description, active, blobOid | null }` → `BookingLink`. 403 without the scope.
+- `DELETE /api/booking/:slug?blobOid=` → 204.
+
+Public (`/api/book/`, no session):
+- `GET /api/book/:handle/:slug?from=&to=` (at most 31 days) → `{ title, minutes, description, ownerName, questions, slots: Slot[], siteKey, canTakeBookings }`. 404 for a missing or inactive link.
+- `POST /api/book/:handle/:slug` `{ start, name, email, answers, token }` → `{ start, end, meetLink }`.
+
+### 19.5 Config
+
+`TURNSTILE_SITE_KEY` (public, in `fly.toml`) and `TURNSTILE_SECRET_KEY` (Fly secret). The Google Cloud consent screen and Clerk's Google connection both carry `https://www.googleapis.com/auth/calendar.events`; members sign out and in once.
+
+### 19.6 Tests
+
+`packages/format/src/booking.test.ts` (S1), `test/integration/booking.test.ts` (S2–S8), `e2e/booking.spec.ts` (S9).
+## 20. Share pages: read-only links and published pages
+
+Pick 2 of the directory picks (plan `docs/plans/2026-11-12-share-pages.md`). Server `apps/server/src/shares/` and `pages/`, routes `api/shares.ts` and `api/pages.ts`, MCP `mcp/tools/pages.ts`; web `routes/SharedLinkRoute.tsx`, `components/ReadOnlyLink.tsx`, `components/PageFrame.tsx`, `apps/pages/`, `routes/org/LinkSharingSection.tsx`.
+
+### 20.1 Read-only links
+
+- A link is `share: <token>` (18 random bytes, base64url) in the frontmatter of a doc (kind `docs` or `other`), a meeting note, a note or a page pointer. Transcripts, tasks, boards, people and Files pointers are refused (Files keep their own links, §18.3). Git is the record: reindex rebuilds every link, a move keeps it, trashing the file ends it. `Index.filesByShareToken` finds the file; it is re-read from Git, so turning a link off counts before the index catches up.
+- `GET|POST /api/shares {space, path, on}` → `{ token, url }` (`/s/<token>`), one commit `<app>: share|unshare "<title>"` authored by the member (`Hearth-Via` for tokens and MCP), retried on a concurrent change; a repeat is a no-op.
+- `GET /api/shared/:token` → `{ kind: doc|meeting|note|page, title, markdown, html?, updated, updatedBy }` (the latest commit; never the space or path). `GET /api/shared/:token/asset?src=` serves a raster image only if the doc's markdown shows that exact `src` and it resolves under `assets/` (`Content-Security-Policy: sandbox`, `nosniff`). `authenticate` lets `/api/shared/` through with a session when there is one; without one both routes are 401 unless the organization setting `publicShareLinks` is on (checked before the token, so a guess from outside learns nothing). An unknown token is 404.
+- `GET /api/sharing` (any member) and `PUT /api/sharing {publicShareLinks}` (an admin in a session; saved in `org/settings.json`, live at once, no restart). Default off. `/api/health` doesn't carry it.
+- Web: the Share menu (docs and meeting notes) and the note editor's link button make a link (it is copied, with who can open it), copy it, or turn it off. `/s/:token` is outside the app shell: rendered markdown with links into the space shown as text and images through the asset route; a page in `PageFrame`; signed out and not allowed, a sign-in prompt that returns to the link.
+
+### 20.2 Published pages
+
+- A page is two files written in one commit: `pages/<ULID>.html` (as sent, at most 2 MB) and `pages/<ULID>.md` (frontmatter `id, type: page, title, created, created_by, updated, updated_by, share?`; body the page's visible text for search, kind `page`). Versions are the Git history of the `.html` file (`GET /api/pages/:space/:id?version=<oid>`). `writablePath` refuses `pages/**`, so Docs saves and MCP `write_file`, `move_file`, `delete_file`, `restore_file` can't touch them.
+- MCP: `publish_page {title, html, id?, space?}` (team by default; `id` publishes a new version) → `{ space, id, title, url, version, … }`, commit `pages: publish "<title>"`; `list_pages`; `get_page {space, id, version?}` (HTML, versions, link); `share_link {space, path, on}` for anything §20.1 can share.
+- `GET /api/pages` (every space the member can open, newest first), `GET /api/pages/:space/:id`, `DELETE` (both files to `.trash/<date>-<id8>/`, commit `pages: delete`).
+- A page is shown in `<iframe sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms" srcdoc>`, never `allow-same-origin`: its scripts run in an opaque origin with no access to Hearth's cookies, storage or API. Web `/pages` (linked from the Docs sidebar; Pages belongs to Docs, not the rail) and `/pages/:space/:id` with a version picker, the link controls and Delete.
+
+### 20.3 Known limits
+
+- A shared doc's links to other files in the space show as plain text; `tasks` blocks show as code. SVG images don't load on a shared page (an SVG can carry script).
+- A page's HTML is trusted to the publisher: it may load anything from the web inside its frame, and a signed-out reader (when the switch is on) sees it all.
+
+## 21. Hearth Forms
+
+Pick 3 of the directory picks (plan `docs/plans/2026-11-12-forms.md`). Written fresh: the good open-source form builders are AGPL and were looked at only. The pure parts are in `@hearth/format` (`packages/format/src/forms.ts`); the server is `apps/server/src/forms/` and `api/forms.ts`; the web app is `apps/web/src/apps/forms/` (rail app, no sidebar, off the phone bar) and the fill page `/f/<link>`.
+
+### 21.1 Files
+
+- A form is `forms/<ULID>.md` in the team space or a member's personal space. Frontmatter (`FormFrontmatter`): `id, type: form, title, description, questions, access (team|public), open, room (chat room id or null), link (the fill link's 24-character token), created, created_by, updated, updated_by`; unknown keys are kept. The body is the description and the question labels, for search. Index kind `form`.
+- A question: `id` (`[a-z0-9]{1,16}`), `type` (`short`, `long`, `email`, `choice`, `multi`, `dropdown`, `rating`, `date`, `file`), `label`, `help?`, `required`, `options` (choice types only, 1–50, no repeats), `scale` (rating: 5 or 10), `show_if?: {question, is}` (an earlier choice-type question and one of its options). At most 100 questions. `questionsProblem` checks the whole set.
+- An answer is `forms/<form id>/<ULID>.md` beside it: `id, type: form-answer, form, title ("Answer to <form>"), submitted, submitted_by (email, or null for someone signed out), answers ({question id: value})`; the body is the answers as text, for search and Ask. Index kind `form-answer`, so whoever can open the space can search it and nobody else.
+- Only the Forms service writes `forms/**`: `writablePath` refuses it, so Docs saves, moves, restores and MCP writes can't forge a form or an answer. Every write is one commit, `forms: create|edit|delete|answer "<title>"`, authored by the member; a signed-out answer is authored `<PRODUCT_NAME> Forms <forms@<host>>` with `Hearth-Via: forms (public link)`.
+
+### 21.2 Checking answers
+
+`visibleQuestions(questions, answers)` walks the questions in order: one with `show_if` is shown only when its source question is shown and its answer is (for `multi`: includes) the option. `checkAnswers` drops hidden questions' answers, requires shown required ones, and checks each value: text lengths (500 short, 10,000 long), email shape, options, whole ratings in range, real `YYYY-MM-DD` dates, and files (3 per answer in all, 10 MB each). The fill page and the server run the same function.
+
+### 21.3 The fill page
+
+- `GET /api/form/:link` → `{ title, description, questions, access, open, canTakeAnswers, robotCheck, maxFiles, maxFileBytes }`; never the space or path. `authenticate` lets `/api/form/` through with a session when there is one (like `/api/shared/`). A team form without a session is 401 ("Sign in to answer"); an unknown link is 404. The form is found from the index by its `link` and re-read from Git, so closing it counts at once. Two forms can share a link only through a copy made in Git: then the team space's wins, and otherwise the link opens neither.
+- `POST /api/form/:link`: JSON `{answers, token}`, or multipart with `payload` (that JSON) and `file:<question id>` parts. Before a byte of the body is read, a middleware runs the checks that need no body (the link, who may answer, open, a robot check on this server, the per-IP and per-form limits; `Forms.precheck`) and picks the body limit: 3 × 10 MB + 512 KB for a form with file questions, 512 KB for one without (the generic 12 MB limit skips this path). Checks, in order: the form exists, a team form has a member, it is `open` (409), a signed-out person on a public form has a robot check on this server (else 503 `not_configured`), 10 answers per IP per hour (429; requests with no client address share one count), the Turnstile token (403), 200 answers per form per day (counted when an answer is saved). File answers come only from uploaded parts: any file references in the JSON are replaced, so an answer can't point at another stored file. The files go to Hearth Files in the form's space, folder `Forms/<title>` (`Files.storeFormFile`, the same pointer and bytes as an upload, §18), then the answer is committed. A bad answer is 400 with `details.errors` per question.
+- Turnstile is the Booking links check (§19.5, `robotCheckFor`): Cloudflare's widget with `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY`, the dev stand-in (`dev-pass`) outside production, and nothing in production without the keys, where a public form says it can't take answers yet (a signed-in member still can). The widget is `components/TurnstileWidget.tsx`, shared with the booking page.
+
+### 21.4 Building and reading (signed in)
+
+- `GET /api/forms` → `{ forms, canSummarize }` (every space the member can open, newest change first, with answer counts); `POST /api/forms {space, title}` makes a form with one question ("Your name"); `GET|PUT|DELETE /api/forms/:space/:id`. A save sends the whole form and the `blobOid` it edited; another is a 409. Delete moves the form and every answer to `.trash/<date>-<id8>/` in one commit.
+- `GET …/answers` (newest first), `DELETE …/answers/:answer` (to the trash), `GET …/csv` (UTF-8 with BOM; one column per question; a cell starting `= + - @` gets a leading `'`), `POST …/summary` → `{ summary, tallies, read, total }`: counts for choice questions and the mean for ratings are worked out on the server; Claude (`ENHANCE_MODEL`) writes the themes of the newest 300 answers or 150,000 characters. 503 when AI isn't set up.
+- Web: `/forms` (list and New form, with a space picker), `/forms/:space/:id` (questions: add, type, options, help, required, scale, show-when, move, duplicate, delete), `…/answers` (counts, summary, table, one answer in a dialog with its files linked to Files, delete, CSV), `…/settings` (who can answer, accepting answers, chat room, delete). Save is a button and ⌘S; leaving with changes asks first. A search hit on a form or an answer opens here (`formFileUrl`).
+
+### 21.5 Chat rooms
+
+An admin (in a session, not a token) adds rooms in Settings → Organization: a name and a Slack-compatible incoming webhook URL (`https://` only). Slack and Slack-compatible chat apps give each bot one per room. They are kept in `DATA_DIR/forms/rooms.json` (mode 600), never in Git; `GET /api/chat-rooms` shows members the names and admins also the last four characters; `POST` and `DELETE /api/chat-rooms/:id` are admin only. A form picks a room or none. Each new answer posts `{text}`: the form's title, the first three answers (one line each, Slack's `& < >` escaped so an answer can't mention or link) and a link to the answer in Forms. The post runs after the answer is saved, in the background; a failed post is logged and never loses the answer or delays the reply.
+
+### 21.6 Known limits
+
+- Rate limits are in memory, per process: a restart resets them.
+- Answers can't be edited; a deleted answer's files stay in Files.
+- An uploaded file on a public form is stored as sent (Files previews never run HTML or SVG, §18.3).
+- No MCP tools of its own yet: Claude reads forms and answers with `search` and `read_file`. Tables (pick 4) will open answers as a table.

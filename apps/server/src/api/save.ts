@@ -3,6 +3,7 @@ import {
   extractTitle,
   FILES_FOLDER,
   FILES_FOLDERS_PATH,
+  FORMS_FOLDER,
   FrontmatterError,
   parseFrontmatter,
   patchFrontmatter,
@@ -17,6 +18,7 @@ import {
   withVia,
 } from '../git/index.js'
 import { normalizeRepoPath } from '../git/validate.js'
+import { PAGES_FOLDER } from '../pages/index.js'
 import type { AppDeps } from './env.js'
 
 /**
@@ -138,6 +140,14 @@ export function writablePath(rawPath: string): string {
   // Hearth Files' pointers say which stored bytes a file is; only the Files app writes them.
   if (path === '' || FILES_OWNED.some((p) => isAtOrUnder(path, p) || isAtOrUnder(p, path))) {
     throw new HearthError('forbidden', 'Files in Hearth Files are changed from the Files app')
+  }
+  // A published page's pointer and HTML change only by publishing it again (ARCHITECTURE §20.2).
+  if (isAtOrUnder(path, PAGES_FOLDER) || isAtOrUnder(PAGES_FOLDER, path)) {
+    throw new HearthError('forbidden', 'Pages change only when Claude publishes them again')
+  }
+  // Forms and their answers change only in the Forms app (ARCHITECTURE §21.1).
+  if (isAtOrUnder(path, FORMS_FOLDER) || isAtOrUnder(FORMS_FOLDER, path)) {
+    throw new HearthError('forbidden', 'Forms and their answers change only in the Forms app')
   }
   return path
 }

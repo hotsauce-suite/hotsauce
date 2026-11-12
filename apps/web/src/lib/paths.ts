@@ -41,6 +41,8 @@ export function fileUrl(space: string, path: string): string {
   if (isNoteFile(path)) return noteUrl(space, path)
   if (isBoardFile(path)) return boardUrl(space, path)
   if (isDriveFile(path)) return driveFileUrl(space, path)
+  const form = formFileUrl(space, path)
+  if (form) return form
   const kind = meetingFileKind(path)
   if (kind === 'meeting') return meetingUrl(space, path)
   if (kind === 'transcript') return meetingUrl(space, path.replace(/\.transcript\.md$/i, '.md'))
@@ -92,6 +94,14 @@ export function noteUrl(space: string, path: string): string {
 }
 
 /** A Hearth Files pointer, `files/<id>.md` (ARCHITECTURE §18.1). */
+/** A form opens in Forms, an answer on its form's Answers tab (ARCHITECTURE §21); else null. */
+export function formFileUrl(space: string, path: string): string | null {
+  const m = /^forms\/([0-9A-Z]{26})(?:\/([0-9A-Z]{26}))?\.md$/.exec(path)
+  if (!m) return null
+  const base = `/forms/${encodeURIComponent(space)}/${m[1]}`
+  return m[2] ? `${base}/answers?answer=${m[2]}` : base
+}
+
 export function isDriveFile(path: string): boolean {
   return /^files\/[0-9A-Z]{26}\.md$/.test(path)
 }

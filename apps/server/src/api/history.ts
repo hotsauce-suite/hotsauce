@@ -1,10 +1,13 @@
+import { FrontmatterError, parseFrontmatter, patchFrontmatter } from '@hearth/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { HearthError } from '../errors.js'
 import { type Author, withVia } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import {
   afterCommit,
   isMarkdown,
+  readIfExists,
   type SaveResult,
   saveFile,
   titleOf,
@@ -67,7 +70,11 @@ export async function restore(
   const message = (title: string) => `docs: restore "${title}" to ${args.oid.slice(0, 7)}`
   const { via, ...save } = args
   if (isMarkdown(args.path)) {
-    const content = await git.show(args.space, args.oid, args.path)
+    const old = await git.show(args.space, args.oid, args.path)
+    // A read-only link belongs to the file as it is now: restoring never revives one that was
+    // turned off, nor ends one that is on (ARCHITECTURE §20.1).
+    const current = await readIfExists(git, args.space, args.path)
+    const content = withShareOf(old, current?.content)
     return saveFile(deps, { ...save, content, message: message(titleOf(args.path, content)), via })
   }
   const path = writablePath(args.path)
@@ -79,4 +86,17 @@ export async function restore(
   })
   await afterCommit(deps, args.space, path, result)
   return result
+}
+
+/** The old text with the current file's read-only link (or none) in place of its own. */
+function withShareOf(content: string, current: string | undefined): string {
+  try {
+    const now = current === undefined ? undefined : parseFrontmatter(current).data.share
+    const share = typeof now === 'string' ? now : undefined
+    if (parseFrontmatter(content).data.share === share) return content
+    return patchFrontmatter(content, { share })
+  } catch (err) {
+    if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+    throw err
+  }
 }

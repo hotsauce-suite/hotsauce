@@ -3,9 +3,12 @@ import { createMiddleware } from 'hono/factory'
 import { authenticateDevice, deviceTokenFrom, MAX_DICTATION_BYTES } from '../dictation/index.js'
 import { type ErrorCode, HearthError } from '../errors.js'
 import { FILE_MEDIA_PREFIX } from '../files/index.js'
+import { PUBLIC_BOOKING_PREFIX } from './booking.js'
 import { BRIEFCAST_FEED_PREFIX } from './briefcast.js'
 import { CLIP_MEDIA_PREFIX } from './clips.js'
 import type { AppDeps, AppEnv } from './env.js'
+import { FORM_FILL_PREFIX } from './forms.js'
+import { SHARED_PREFIX } from './shares.js'
 
 // Above the 10 MB upload limit, which the assets route checks itself.
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024
@@ -39,7 +42,9 @@ function isPublic(path: string): boolean {
     // Hearth Files' local bytes: signed URLs, like clip media.
     path.startsWith(FILE_MEDIA_PREFIX) ||
     // A member's private podcast feed: podcast apps can't sign in; the URL's token is the key.
-    path.startsWith(BRIEFCAST_FEED_PREFIX)
+    path.startsWith(BRIEFCAST_FEED_PREFIX) ||
+    // The signed-out booking page (ARCHITECTURE §19): Turnstile and rate limits guard booking.
+    path.startsWith(PUBLIC_BOOKING_PREFIX)
   )
 }
 
@@ -56,6 +61,17 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
   const teamOnly = new Set<string>()
   return createMiddleware<AppEnv>(async (c, next) => {
     if (isPublic(c.req.path)) return next()
+    // A read-only link or a form's fill page: a session if there is one (the route decides
+    // whether it needs it).
+    if (c.req.path.startsWith(SHARED_PREFIX) || c.req.path.startsWith(FORM_FILL_PREFIX)) {
+      // An outsider's session (domain_not_allowed) counts as none; anything else is a real error.
+      const principal = await deps.auth.authenticate(c.req.raw).catch((err: unknown) => {
+        if (err instanceof HearthError) return null
+        throw err
+      })
+      if (principal) c.set('principal', principal)
+      return next()
+    }
     const deviceToken = deviceTokenFrom(c.req.header('authorization'))
     if (deviceToken !== null) {
       if (!deviceTokenMayCall(c.req.method, c.req.path)) {
@@ -99,7 +115,8 @@ export function limitBody() {
   // A dictation or a ramble is up to 15 MB of audio; the route checks it again.
   const audio = bodyLimit({ maxSize: MAX_DICTATION_BYTES, onError: tooLarge })
   return createMiddleware<AppEnv>((c, next) => {
-    if (isPublic(c.req.path)) return next()
+    // A form's answer can carry three 10 MB files; its route has its own limit.
+    if (isPublic(c.req.path) || c.req.path.startsWith(FORM_FILL_PREFIX)) return next()
     const isAudio = c.req.path === DICTATION_UPLOAD || c.req.path === RAMBLE_UPLOAD
     return isAudio ? audio(c, next) : limit(c, next)
   })
