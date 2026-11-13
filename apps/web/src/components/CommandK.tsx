@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router'
 import { api } from '../api/client'
 import type { SearchResult } from '../api/types'
 import { APPS, railLinks } from '../apps/registry'
+import { GO_KEYS, type GoTarget, SHORTCUTS } from '../keyboard/catalog'
+import {
+  type Command as Action,
+  type CommandGroup,
+  GROUP_TITLES,
+  matchCommands,
+  useCommandList,
+} from '../keyboard/commands'
+import { Keys } from '../keyboard/Keys'
 import { displayName, fileUrl, isTaskFile, meetingFileKind } from '../lib/paths'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
@@ -176,9 +185,35 @@ export default function CommandK({
   }
 
   const jumps = jumpsFor(query)
-  const jump = (target: Jump) => {
+  const [confirming, setConfirming] = useState<Action | null>(null)
+  const actions = matchCommands(useCommandList(), query)
+  const close = () => {
     onOpenChange(false)
     setQuery('')
+    setConfirming(null)
+  }
+  const runAction = (action: Action) => {
+    if (action.confirm && confirming?.id !== action.id) {
+      setConfirming(action)
+      return
+    }
+    const typed = query.trim()
+    close()
+    action.run(typed)
+  }
+  const actionGroup = (group: CommandGroup) => {
+    const items = actions.filter((a) => a.group === group)
+    if (!items.length) return null
+    return (
+      <Command.Group key={group} heading={GROUP_TITLES[group]}>
+        {items.map((action) => (
+          <ActionItem key={action.id} action={action} onSelect={() => runAction(action)} />
+        ))}
+      </Command.Group>
+    )
+  }
+  const jump = (target: Jump) => {
+    close()
     if (target.external) window.open(target.to, '_blank', 'noopener,noreferrer')
     else navigate(target.to)
   }
@@ -194,9 +229,11 @@ export default function CommandK({
         >
           <Icon name={target.icon} className="size-4 text-ink-faint" />
           <span className="min-w-0 flex-1 truncate">Go to {target.name}</span>
-          <span className="shrink-0 text-xs text-ink-faint">
-            {target.external ? 'Opens in a new tab' : 'App'}
-          </span>
+          {target.external ? (
+            <span className="shrink-0 text-xs text-ink-faint">Opens in a new tab</span>
+          ) : target.id in GO_KEYS ? (
+            <Keys spec={`g ${GO_KEYS[target.id as GoTarget]}`} className="shrink-0" />
+          ) : null}
         </Command.Item>
       ))}
     </Command.Group>
@@ -208,7 +245,14 @@ export default function CommandK({
   // Keep the top row selected as results arrive: the app jumps render at once and the doc
   // results a moment later, above them, and Enter should open the best doc, not an app.
   const topHit = query.trim() === '' ? recent[0] : (titles[0] ?? fullText[0])
-  const top = topHit ? `${topHit.space}:${topHit.path}` : jumps[0] ? `app:${jumps[0].id}` : ''
+  const firstAction = query.trim() === '' ? undefined : actions[0]
+  const top = topHit
+    ? `${topHit.space}:${topHit.path}`
+    : jumps[0]
+      ? `app:${jumps[0].id}`
+      : firstAction
+        ? `command:${firstAction.id}`
+        : ''
   const [selected, setSelected] = useState(top)
   useEffect(() => setSelected(top), [top])
 
@@ -218,7 +262,7 @@ export default function CommandK({
       onOpenChange={onOpenChange}
       value={selected}
       onValueChange={setSelected}
-      label="Search docs and meetings"
+      label="Search and commands"
       shouldFilter={false}
       loop
       data-testid="cmdk"
@@ -231,7 +275,7 @@ export default function CommandK({
           data-testid="cmdk-input"
           value={query}
           onValueChange={setQuery}
-          placeholder="Search titles and text"
+          placeholder="Search, or type a command"
           className="h-12 w-full bg-transparent text-[0.95rem] text-ink outline-none placeholder:text-ink-faint focus-visible:shadow-none"
         />
       </div>
@@ -281,11 +325,51 @@ export default function CommandK({
             ))}
           </Command.Group>
         ) : null}
-        {/* App jumps last, so Enter still opens the best doc when a title matches too. */}
+        {confirming ? (
+          <Command.Group heading={confirming.confirm}>
+            <Command.Item
+              value={`confirm:${confirming.id}`}
+              onSelect={() => runAction(confirming)}
+              data-testid="cmdk-confirm"
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ember-strong"
+            >
+              <Icon name="check" className="size-4" />
+              Yes, {confirming.title.toLowerCase()}
+            </Command.Item>
+            <Command.Item
+              value="confirm:cancel"
+              onSelect={() => setConfirming(null)}
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink"
+            >
+              <Icon name="close" className="size-4 text-ink-faint" />
+              Cancel
+            </Command.Item>
+          </Command.Group>
+        ) : null}
+        {query.trim() === '' ? (
+          <>
+            {actionGroup('page')}
+            {actionGroup('create')}
+          </>
+        ) : (
+          <>
+            {actionGroup('page')}
+            {actionGroup('create')}
+            {actionGroup('ask')}
+          </>
+        )}
+        {/* App jumps after the docs, so Enter still opens the best doc when a title matches too. */}
         {jumpGroup}
+        {query.trim() === '' ? null : (
+          <>
+            {actionGroup('go')}
+            {actionGroup('prefs')}
+          </>
+        )}
         {query.trim() &&
         !searching &&
         jumps.length === 0 &&
+        actions.length === 0 &&
         titles.length === 0 &&
         fullText.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-ink-faint">
@@ -334,6 +418,22 @@ function ResultItem({
       <span className="truncate font-mono text-[0.68rem] text-ink-faint">
         {hit.path.replace(/^(docs|meetings)\//, '')}
       </span>
+    </Command.Item>
+  )
+}
+
+function ActionItem({ action, onSelect }: { action: Action; onSelect: () => void }) {
+  const spec = action.shortcut ? SHORTCUTS[action.shortcut].keys[0] : undefined
+  return (
+    <Command.Item
+      value={`command:${action.id}`}
+      onSelect={onSelect}
+      data-testid={`cmdk-command-${action.id}`}
+      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink"
+    >
+      {action.icon ? <Icon name={action.icon} className="size-4 text-ink-faint" /> : null}
+      <span className="min-w-0 flex-1 truncate">{action.title}</span>
+      {spec ? <Keys spec={spec} className="shrink-0" /> : null}
     </Command.Item>
   )
 }

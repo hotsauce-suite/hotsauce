@@ -17,6 +17,7 @@ import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
 import { useAppShortcuts } from '../keyboard/useAppShortcuts'
+import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
 import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
 import { Icon } from './Icon'
@@ -130,6 +131,7 @@ function ShellLayout() {
     return true
   })
   useAppShortcuts({ app: app.id, openSearch })
+  useBuiltInCommands({ openShortcuts: () => setShortcutsOpen(true) })
 
   // Warm the palette's chunk while idle so the first Cmd-K opens instantly.
   useEffect(() => {

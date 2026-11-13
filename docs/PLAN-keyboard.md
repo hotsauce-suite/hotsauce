@@ -45,8 +45,8 @@ Each requirement maps to a test, named in brackets.
 
 **Slice 3: Command-K actions**
 
-- C1: Command-K lists commands from a registry: Create, Go to (apps, Settings sections, Starred, Recent), Preferences (theme, single-key switch, shortcuts sheet). Each row shows its keys. [CommandK.test]
-- C2: Typing filters commands by words and synonyms; search results still lead when a title matches. [CommandK.test]
-- C3: Pages and features register commands with `useCommands`; they show under "On this page" while mounted. [CommandK.test]
+- C1: Command-K lists commands from a registry: Create (doc, meeting, task, note, voice note, clip, board, form, table, link), Go to (every app, Settings, agent brief, Connect Claude, Mac app, feedback), Preferences (theme, single-key switch, shortcuts sheet). Rows show their keys. With nothing typed it shows Recent, On this page and Create. [commandK.test, AppRail.test]
+- C2: Typing filters commands: every typed word must start a word of the title, its synonyms or its group. Search results still lead when a title matches. [commandK.test, AppRail.test]
+- C3: Pages and features register commands with `useCommands`; they show under "On this page" while mounted. A command with `confirm` asks before it runs. A command gets what was typed (for "Ask the assistant"). [commandK.test]
 
 Slices 4 to 7 (page actions for Docs, Meetings and Tasks; the other apps and list keys; search every kind; accessibility, the Mac app and support materials) get their requirements here when they start.
