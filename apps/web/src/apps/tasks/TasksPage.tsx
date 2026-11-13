@@ -14,6 +14,7 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { useCommands } from '../../keyboard/commands'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
@@ -376,6 +377,73 @@ export default function TasksPage() {
     })
   useShortcut('tasks.dueToday', due(0))
   useShortcut('tasks.dueTomorrow', due(1))
+
+  // Command-K's "On this page": add, and act on the selected task.
+  const chosen = current().selected
+  const onChosen = (act: (task: TaskView) => void) => () => {
+    const t = current().selected
+    if (t) act(t)
+  }
+  useCommands(
+    [
+      {
+        id: 'tasks-add',
+        title: 'Add a task',
+        group: 'page',
+        icon: 'plus',
+        keywords: ['new', 'quick', 'create'],
+        shortcut: 'tasks.quickAdd',
+        run: () => setQuickOpen(true),
+      },
+      ...(chosen
+        ? (
+            [
+              {
+                id: 'tasks-complete',
+                title: chosen.status === 'done' ? `Reopen “${chosen.title}”` : `Complete “${chosen.title}”`,
+                icon: 'check',
+                keywords: ['done', 'finish', 'tick'],
+                shortcut: 'tasks.complete',
+                run: onChosen((t) => actions.current.toggle(t)),
+              },
+              {
+                id: 'tasks-due-today',
+                title: 'Due today',
+                icon: 'today',
+                keywords: ['schedule', 'date'],
+                shortcut: 'tasks.dueToday',
+                run: onChosen((t) => due(0)({ spec: 't' })),
+              },
+              {
+                id: 'tasks-due-tomorrow',
+                title: 'Due tomorrow',
+                icon: 'upcoming',
+                keywords: ['schedule', 'date', 'snooze'],
+                shortcut: 'tasks.dueTomorrow',
+                run: onChosen(() => due(1)({ spec: 'm' })),
+              },
+              {
+                id: 'tasks-open',
+                title: 'Open the task',
+                icon: 'pencil',
+                keywords: ['details', 'edit'],
+                shortcut: 'tasks.open',
+                run: onChosen((t) => actions.current.openTask(t)),
+              },
+              {
+                id: 'tasks-delete',
+                title: 'Delete the task',
+                icon: 'trash',
+                keywords: ['remove'],
+                shortcut: 'tasks.delete',
+                run: onChosen((t) => actions.current.setConfirmDelete(t)),
+              },
+            ] as const
+          ).map((c) => ({ ...c, group: 'page' as const }))
+        : []),
+    ],
+    chosen ? `${taskKey(chosen)}:${chosen.status}` : '',
+  )
 
   // --------------------------------------------------------------------------- render
   const title =

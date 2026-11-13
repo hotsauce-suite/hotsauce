@@ -49,4 +49,9 @@ Each requirement maps to a test, named in brackets.
 - C2: Typing filters commands: every typed word must start a word of the title, its synonyms or its group. Search results still lead when a title matches. [commandK.test, AppRail.test]
 - C3: Pages and features register commands with `useCommands`; they show under "On this page" while mounted. A command with `confirm` asks before it runs. A command gets what was typed (for "Ask the assistant"). [commandK.test]
 
-Slices 4 to 7 (page actions for Docs, Meetings and Tasks; the other apps and list keys; search every kind; accessibility, the Mac app and support materials) get their requirements here when they start.
+**Slice 4: on this page, for Docs, Meetings and Tasks**
+
+- P1: On a doc or a meeting note, Command-K's On this page has: star or unstar, copy link, reading view or edit, version history, properties, save a version, attach a file (while editing), download as Markdown, and the page's own panels (a meeting's transcript and the like). [pageCommands.test]
+- P2: In Tasks, On this page has Add a task, and for the selected task: complete or reopen, due today, due tomorrow, open, delete (which asks first, as the Delete key does). [pageCommands.test]
+
+Slices 5 to 7 (the other apps and list keys; search every kind; accessibility, the Mac app and support materials) get their requirements here when they start.
