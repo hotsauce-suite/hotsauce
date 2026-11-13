@@ -1,4 +1,4 @@
-import { cpSync, createReadStream, existsSync, statSync } from 'node:fs'
+import { cpSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, normalize } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
@@ -8,6 +8,21 @@ import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const API_TARGET = 'http://localhost:3000'
+
+/**
+ * The live demo (`vite build --mode demo`, docs/PLAN-live-demo.md) runs the mock API in the
+ * browser, so it ships MSW's worker script. Normal builds never include it.
+ */
+function mswWorkerFile(): Plugin {
+  const file = createRequire(import.meta.url).resolve('msw/mockServiceWorker.js')
+  return {
+    name: 'hearth-msw-worker-file',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'mockServiceWorker.js', source: readFileSync(file) })
+    },
+  }
+}
 
 /**
  * Whiteboard's fonts (ARCHITECTURE §15.4): Excalidraw fetches them from EXCALIDRAW_ASSET_PATH.
@@ -41,7 +56,7 @@ function excalidrawFonts(): Plugin {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   // Secrets (VITE_CLERK_PUBLISHABLE_KEY) live in the repo-root .env.local.
   envDir: '../../',
   plugins: [
@@ -50,82 +65,86 @@ export default defineConfig({
     tailwindcss(),
     // Serves /mockServiceWorker.js from the dev server only; production builds never ship it.
     { ...msw({ mode: 'worker-only' }), apply: 'serve' },
-    VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'script-defer',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-      manifest: {
-        // The server rewrites the names to the organization's (main.ts, serveWebApp).
-        name: 'Hotsauce',
-        short_name: 'Hotsauce',
-        description: 'Hotsauce: the open sauce office suite.',
-        // The app's identity stays the old start_url, so installed icons keep working.
-        id: '/docs',
-        // Docs on a computer; a phone or tablet opens straight to voice notes (routes/Launch).
-        start_url: '/?launch=home',
-        display: 'standalone',
-        background_color: '#f4ece0',
-        theme_color: '#1f1915',
-        // Android shows these when the home-screen icon is held; iPhone ignores them.
-        shortcuts: [
-          {
-            name: 'New voice note',
-            short_name: 'Voice note',
-            description: 'Start recording a voice note',
-            url: '/dictate/voice?start=1',
-            icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
-          },
-        ],
-        // Android's share sheet offers the installed app; a shared page is saved to Links.
-        share_target: {
-          action: '/links/save',
-          method: 'GET',
-          params: { title: 'title', text: 'text', url: 'url' },
-        },
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-          {
-            src: '/icon-maskable-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-        ],
-      },
-      workbox: {
-        // Take over open tabs as soon as a new deploy's worker installs; without these the
-        // new worker waits until every tab is closed and users keep the old build.
-        skipWaiting: true,
-        clientsClaim: true,
-        // Meeting reminders: push and notificationclick handlers (public/push-sw.js).
-        importScripts: ['/push-sw.js'],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/ws/, /^\/downloads\//],
-        // Precache the shell only. Route and language chunks (dozens of CodeMirror modes) are
-        // cached the first time they load; their names are content-hashed, so cache-first is safe.
-        globPatterns: ['index.html', 'assets/index-*.{js,css}', '*.{svg,png}'],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'hearth-assets',
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 60 },
+    // The demo has no PWA worker: it would fight MSW's worker, and nobody should install a demo.
+    mode === 'demo'
+      ? mswWorkerFile()
+      : VitePWA({
+          registerType: 'autoUpdate',
+          injectRegister: 'script-defer',
+          includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+          manifest: {
+            // The server rewrites the names to the organization's (main.ts, serveWebApp).
+            name: 'Hotsauce',
+            short_name: 'Hotsauce',
+            description: 'Hotsauce: the open sauce office suite.',
+            // The app's identity stays the old start_url, so installed icons keep working.
+            id: '/docs',
+            // Docs on a computer; a phone or tablet opens straight to voice notes (routes/Launch).
+            start_url: '/?launch=home',
+            display: 'standalone',
+            background_color: '#f4ece0',
+            theme_color: '#1f1915',
+            // Android shows these when the home-screen icon is held; iPhone ignores them.
+            shortcuts: [
+              {
+                name: 'New voice note',
+                short_name: 'Voice note',
+                description: 'Start recording a voice note',
+                url: '/dictate/voice?start=1',
+                icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+              },
+            ],
+            // Android's share sheet offers the installed app; a shared page is saved to Links.
+            share_target: {
+              action: '/links/save',
+              method: 'GET',
+              params: { title: 'title', text: 'text', url: 'url' },
             },
+            icons: [
+              { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+              { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+              {
+                src: '/icon-maskable-512.png',
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'maskable',
+              },
+            ],
           },
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
+          workbox: {
+            // Take over open tabs as soon as a new deploy's worker installs; without these the
+            // new worker waits until every tab is closed and users keep the old build.
+            skipWaiting: true,
+            clientsClaim: true,
+            // Meeting reminders: push and notificationclick handlers (public/push-sw.js).
+            importScripts: ['/push-sw.js'],
+            navigateFallback: '/index.html',
+            navigateFallbackDenylist: [/^\/api\//, /^\/ws/, /^\/downloads\//],
+            // Precache the shell only. Route and language chunks (dozens of CodeMirror modes) are
+            // cached the first time they load; their names are content-hashed, so cache-first is safe.
+            globPatterns: ['index.html', 'assets/index-*.{js,css}', '*.{svg,png}'],
+            runtimeCaching: [
+              {
+                urlPattern: ({ url, sameOrigin }) =>
+                  sameOrigin && url.pathname.startsWith('/assets/'),
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'hearth-assets',
+                  expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 60 },
+                },
+              },
+              {
+                urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'google-fonts',
+                  expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                  cacheableResponse: { statuses: [0, 200] },
+                },
+              },
+            ],
           },
-        ],
-      },
-    }),
+        }),
   ],
   server: {
     port: 5173,
@@ -136,6 +155,8 @@ export default defineConfig({
   },
   build: {
     target: 'es2023',
+    // The demo is served by the hotsauce.work site worker (site/worker.js) at demo.hotsauce.work.
+    ...(mode === 'demo' ? { outDir: '../../site/public/demo', emptyOutDir: true } : {}),
     rolldownOptions: {
       // @hearth/format is pure (ARCHITECTURE §2) but its package.json doesn't say so. Without
       // this, any import of it (slugify in the sidebar) keeps its top-level zod schemas, and so
@@ -143,4 +164,4 @@ export default defineConfig({
       treeshake: { moduleSideEffects: (id) => !id.includes('/packages/format/') },
     },
   },
-})
+}))

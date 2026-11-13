@@ -8,20 +8,20 @@ The video shows the real web app against its in-browser demo data (`VITE_MOCK_AP
 
 From the repo root, after `pnpm install && pnpm build`:
 
-1. Apply the demo-data touches (neutral names and a realistic agent brief):
-   `git apply scripts/tour-video/demo-data.patch`
-2. Start the server (dev auth, fake AI) and the mock web app:
+The demo data (neutral names, a realistic agent brief and briefing) lives in `apps/web/src/mocks/`, the same data as the live demo at demo.hotsauce.work.
+
+1. Start the server (dev auth, fake AI) and the mock web app:
    ```
    NODE_ENV=development AUTH_MODE=dev HOST_KIND=local PORT=3000 PUBLIC_URL=http://localhost:5191 \
      ALLOWED_EMAIL_DOMAINS=example.test ORG_NAME=Fieldwork DATA_DIR=/tmp/tour-data \
      LOCAL_HOST_DIR=/tmp/tour-data/remotes AUDIO_STORE=local node apps/server/dist/main.js
    cd apps/web && VITE_MOCK_API=1 npx vite --port 5191 --strictPort
    ```
-3. Record every shot. Each makes `<shot>.mp4` and a contact sheet:
+2. Record every shot. Each makes `<shot>.mp4` and a contact sheet:
    `DEMO_FILES=$PWD/scripts/tour-video/demo-files scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask tasks notes clipsRecorder clipsPlayer dictate boards people files forms booking briefcast`
 
    The `files` shot uploads the sample files in `demo-files/` into a new folder, so use a fresh `DATA_DIR` or change the folder name in `shots.mjs`.
-4. Voice, captions, overlays and the cut (needs `OPENAI_API_KEY`):
+3. Voice, captions, overlays and the cut (needs `OPENAI_API_KEY`):
    ```
    python3 scripts/tour-video/build.py voice /tmp/tour
    python3 scripts/tour-video/build.py caps  /tmp/tour
@@ -29,7 +29,6 @@ From the repo root, after `pnpm install && pnpm build`:
    python3 scripts/tour-video/build.py cut   /tmp/tour /tmp/tour-shots
    ```
    This writes `hotsauce-tour.mp4` and one short cut per app.
-5. Undo the patch: `git apply -R scripts/tour-video/demo-data.patch`
 
 ## Notes
 

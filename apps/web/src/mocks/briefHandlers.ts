@@ -26,11 +26,13 @@ export class FakeBriefs {
 
   write(user: FakeUser, meetings: number): AgentBrief {
     const notes = this.get(user.email).notes
-    const body = SECTIONS.map((h, i) =>
-      i === 0
-        ? `## ${h}\n\n- You are ${user.name}.${notes ? ` You said: ${notes.split('\n')[0]}` : ''}`
-        : `## ${h}\n\n- A fake ${h.toLowerCase()} line.`,
-    ).join('\n\n')
+    const body = [
+      `## Overview\n\n- You are ${user.name}, running pilots and customer onboarding at Acme. Most of your week is customer calls and the Q4 plan.${notes ? ` You said: ${notes.split('\n')[0]}` : ''}`,
+      '## Current priorities\n\n- Close the Acme pilot: send the pricing one-pager by Friday and answer their SSO questions.\n- Hire a second assay scientist; Priya drafts the posting Wednesday.\n- Rerun the Northwind pilot after the barcode label mix-up.',
+      '## People\n\n- **Dana Lee**, Acme ops: wants annual billing with a 60-day exit.\n- **Priya Natarajan**, your lab lead: owns hiring and reagent orders.\n- **Sam Okafor**: runs pilot logistics and the budget.',
+      '## Glossary\n\n- **Kit**: the assay kit shipped to each pilot site.\n- **Rerun**: repeating a pilot batch after a failed run.',
+      '## Communication style\n\n- Short answers first, detail after. Bullet points over paragraphs.',
+    ].join('\n\n')
     const brief: AgentBrief = {
       space: user.handle,
       path: '.hearth/brief/brief.md',

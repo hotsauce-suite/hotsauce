@@ -1,3 +1,4 @@
+import { HttpResponse, http } from 'msw'
 import { setupWorker } from 'msw/browser'
 import { createMockApi } from './handlers'
 import { PRIYA } from './seed'
@@ -8,8 +9,25 @@ import { PRIYA } from './seed'
  */
 export async function startMockApi(): Promise<void> {
   const mock = createMockApi({ latencyMs: 90 })
-  const worker = setupWorker(...mock.handlers)
-  await worker.start({ onUnhandledFrame: 'bypass', quiet: true })
+  // In the static demo there is no server behind the mock: answer anything it doesn't cover
+  // here instead of letting the request reach the network.
+  const fallback =
+    import.meta.env.MODE === 'demo'
+      ? [
+          http.all('/api/*', () =>
+            HttpResponse.json(
+              { error: { code: 'demo', message: 'This part of the app isn’t in the demo yet' } },
+              { status: 404 },
+            ),
+          ),
+        ]
+      : []
+  const worker = setupWorker(...mock.handlers, ...fallback)
+  await worker.start({
+    onUnhandledFrame: 'bypass',
+    quiet: true,
+    serviceWorker: { url: '/mockServiceWorker.js' },
+  })
 
   const outsideEdit = (space: string, path: string, find: string, replace: string) => {
     const commit = mock.repo.outsideEdit(space, path, {

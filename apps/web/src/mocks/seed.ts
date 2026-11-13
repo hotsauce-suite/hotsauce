@@ -18,12 +18,12 @@ const SKETCH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="
 
 const WELCOME = `---
 id: 01JA2Z8Q4M7V3K9R5T1XWYB6CD
-title: Welcome to Hearth Docs
+title: Welcome to Hotsauce Docs
 created: 2026-10-01T09:00:00Z
 tags: [guide]
 ---
 
-# Welcome to Hearth Docs
+# Welcome to Hotsauce Docs
 
 Every doc here is a **plain markdown file** in Git. Edit it here, in *Obsidian*, or with an agent, and it stays in sync.
 
@@ -40,9 +40,9 @@ Every doc here is a **plain markdown file** in Git. Edit it here, in *Obsidian*,
 - [ ] Star the docs you open every day
 
 > [!note] Saving
-> Hearth commits after a short pause, when you leave a doc, or when you choose **Save version**.
+> Hotsauce commits after a short pause, when you leave a doc, or when you choose **Save version**.
 
-![Hearth sketch](../assets/2026/10/hearth-sketch-01JA2Z.svg)
+![Sketch](../assets/2026/10/hearth-sketch-01JA2Z.svg)
 
 | Shortcut | Does |
 | --- | --- |
@@ -68,7 +68,7 @@ tags: [planning]
 
 ## Goals
 
-- Ship Hearth Docs to the whole team.
+- Move the whole team onto Hotsauce.
 - Close two pilot customers.
 
 ## Budget
@@ -119,7 +119,7 @@ See the [onboarding guide](onboarding.md) for local setup.
 const ONBOARDING = `# Onboarding
 
 - [ ] Get a example.test Google account
-- [ ] Sign in to Hearth
+- [ ] Sign in to Hotsauce
 - [ ] Read the [welcome doc](../welcome.md)
 `
 
@@ -172,6 +172,9 @@ function seedTeam(repo: FakeRepo): void {
   })
 
   seedTeamMeetings(repo, ADA)
+
+  // The live demo (docs/PLAN-live-demo.md) starts clean; dev and tests get the conflict cases.
+  if (import.meta.env.MODE === 'demo') return
 
   // A conflict left by an earlier save, so the banner and resolver show on open.
   repo.addConflict(

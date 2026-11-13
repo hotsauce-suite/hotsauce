@@ -43,7 +43,7 @@ describe('views', () => {
       'Renew the lab safety certificate',
       'Call Sam about the pilot budget',
       'Water the office plants',
-      'Read the biosafety audit draft',
+      'Read the security audit draft',
       'Book flights for the Boston visit',
       'Sort out October expense receipts',
     ])
@@ -91,7 +91,7 @@ describe('views', () => {
     await openList('/tasks/project/team/Launch')
     expect(screen.getByTestId('tasks-title')).toHaveTextContent('Launch')
     expect(titles()).toEqual([
-      'Ship the Hearth Tasks beta',
+      'Ship the pilot report',
       'Write the launch announcement',
       'Record a demo clip',
     ])
@@ -316,7 +316,7 @@ describe('completing', () => {
     )
     await userEvent.click(screen.getByRole('link', { name: 'Inbox' }))
     await waitFor(() => expect(screen.getByTestId('tasks-title')).toHaveTextContent('Inbox'))
-    expect(screen.getByText('Read the biosafety audit draft')).toBeInTheDocument()
+    expect(screen.getByText('Read the security audit draft')).toBeInTheDocument()
     release()
   })
 
@@ -492,18 +492,18 @@ describe('keyboard', () => {
     expect(selected()).toBe('Call Sam about the pilot budget')
 
     await userEvent.keyboard('{ArrowDown}{ArrowDown}')
-    expect(selected()).toBe('Read the biosafety audit draft')
+    expect(selected()).toBe('Read the security audit draft')
     await userEvent.keyboard('2')
-    await waitFor(() => expect(stored('Read the biosafety audit draft').priority).toBe(2))
+    await waitFor(() => expect(stored('Read the security audit draft').priority).toBe(2))
     await userEvent.keyboard('t')
-    await waitFor(() => expect(stored('Read the biosafety audit draft').due).toBe(today()))
+    await waitFor(() => expect(stored('Read the security audit draft').due).toBe(today()))
     await userEvent.keyboard('m')
     await waitFor(() =>
-      expect(stored('Read the biosafety audit draft').due).toBe(addDays(today(), 1)),
+      expect(stored('Read the security audit draft').due).toBe(addDays(today(), 1)),
     )
 
     await userEvent.keyboard('x')
-    await waitFor(() => expect(stored('Read the biosafety audit draft').status).toBe('done'))
+    await waitFor(() => expect(stored('Read the security audit draft').status).toBe('done'))
 
     await userEvent.keyboard('j')
     const target = selected()
@@ -579,7 +579,7 @@ describe('drag to reorder', () => {
     fireEvent.pointerUp(window, { clientY: 135, pointerId: 1 })
 
     const water = stored('Water the office plants')
-    const read = stored('Read the biosafety audit draft')
+    const read = stored('Read the security audit draft')
     const expected = (effectiveOrder(water) + effectiveOrder(read)) / 2
     await waitFor(() => expect(stored('Renew the lab safety certificate').order).toBe(expected))
     await waitFor(() =>
@@ -587,7 +587,7 @@ describe('drag to reorder', () => {
         'Call Sam about the pilot budget',
         'Water the office plants',
         'Renew the lab safety certificate',
-        'Read the biosafety audit draft',
+        'Read the security audit draft',
       ]),
     )
     // No other task changed.

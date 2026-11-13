@@ -37,26 +37,52 @@ export class FakeBriefcasts {
   }
 
   write(user: FakeUser, meetings: number, now = new Date()): Episode {
-    const date = now.toISOString().slice(0, 10)
+    const make = (d: Date, script: string, seconds: number): Episode => {
+      const label = d.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      })
+      return {
+        date: d.toISOString().slice(0, 10),
+        title: `Briefcast for ${label}`,
+        generated: d.toISOString(),
+        seconds,
+        audio: true,
+        audioExpired: false,
+        script,
+        model: 'fake',
+        voice: 'fake',
+        counts: { events: 3, meetings, tasks: 4, docs: 2 },
+      }
+    }
+    const first = user.name.split(' ')[0]
     const label = now.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
     })
-    const episode: Episode = {
-      date,
-      title: `Briefcast for ${label}`,
-      generated: now.toISOString(),
-      seconds: 1,
-      audio: true,
-      audioExpired: false,
-      script: `Good morning, ${user.name.split(' ')[0]}. It’s ${label}.\n\nYou have ${meetings} recent meetings to catch up on.\n\nHave a good day.`,
-      model: 'fake',
-      voice: 'fake',
-      counts: { events: 0, meetings, tasks: 0, docs: 0 },
-    }
-    const rest = (this.#episodes.get(user.email) ?? []).filter((e) => e.date !== date)
-    this.#episodes.set(user.email, [episode, ...rest])
+    const episode = make(
+      now,
+      `Good morning, ${first}. It\u2019s ${label}, and you have three meetings today.\n\nFirst up at ten is the Acme sync with Dana Lee. Last time you met, Dana asked for pricing on the larger plan and a date for the pilot. You promised the one-pager by Friday, and it\u2019s still on your list.\n\nAt one, it\u2019s your one-on-one with Priya. She\u2019s drafting the posting for the new scientist role, due Wednesday, so it\u2019s a good moment to look it over together.\n\nWeekly planning is at three. The Q1 plan changed yesterday: Sam moved the launch review up a week and added two risks to the list.\n\nOn your plate: one task is overdue, renewing the lab safety certificate, and three are due today, including calling Sam about the pilot budget.\n\nThat\u2019s your day. Have a good one.`,
+      312,
+    )
+    const day = 86_400_000
+    const older = [
+      make(
+        new Date(now.getTime() - day),
+        `Good morning, ${first}. Two meetings today, starting with the Acme kickoff at ten.`,
+        286,
+      ),
+      make(
+        new Date(now.getTime() - 2 * day),
+        `Good morning, ${first}. A quieter day: one meeting and a few docs to read.`,
+        241,
+      ),
+    ]
+    const rest = (this.#episodes.get(user.email) ?? []).filter((e) => e.date !== episode.date)
+    const list = rest.length ? rest : older
+    this.#episodes.set(user.email, [episode, ...list])
     return episode
   }
 
@@ -70,7 +96,7 @@ export class FakeBriefcasts {
   }
 
   makeFeed(email: string): string {
-    const url = `https://hearth.example.test/api/briefcast/feed/${Math.random().toString(36).slice(2).padEnd(24, 'x')}.xml`
+    const url = `https://office.fieldwork.example/api/briefcast/feed/${Math.random().toString(36).slice(2).padEnd(24, 'x')}.xml`
     this.#feeds.set(email, url)
     return url
   }
@@ -117,7 +143,7 @@ export function briefcastHandlers(deps: {
     http.get('/api/briefcast/episodes/:date/audio', async ({ request }) => {
       const user = principal(request)
       if (user instanceof Response) return user
-      return new HttpResponse(silentMp3(38), { headers: { 'content-type': 'audio/mpeg' } })
+      return new HttpResponse(silentMp3(38 * 312), { headers: { 'content-type': 'audio/mpeg' } })
     }),
     http.post('/api/briefcast/feed', async ({ request }) => {
       const user = principal(request)

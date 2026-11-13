@@ -15,3 +15,6 @@ test-results/
 # Made by scripts/deploy-fly.sh for each instance.
 /fly.*.toml
 .wrangler/
+
+# The live demo, built on each site deploy (site/wrangler.jsonc).
+/site/public/demo/

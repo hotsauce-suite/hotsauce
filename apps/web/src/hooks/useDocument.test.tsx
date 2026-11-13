@@ -238,7 +238,10 @@ describe('useDocument', () => {
 
   it('restoring a draft from an older version merges it forward on save', async () => {
     const before = await api.readFile(SPACE, Q4)
-    const draft = before.content.replace('- Ship Hearth Docs', '- Ship Hearth Docs (all of it)')
+    const draft = before.content.replace(
+      '- Move the whole team onto Hotsauce',
+      '- Move the whole team onto Hotsauce (all of it)',
+    )
     saveDraft(SPACE, Q4, before.blobOid, draft)
     mockApi().repo.outsideEdit(SPACE, Q4, {
       author: PRIYA,

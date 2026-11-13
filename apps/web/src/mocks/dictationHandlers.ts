@@ -4,7 +4,16 @@ import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { DictationDevice } from '../api/dictation'
 import type { FakeUser } from './fakeRepo'
 
-const TEAM_SEED = ['Acme', 'Hearth', 'Ember', 'Granola', 'Clerk', 'Deepgram', 'Anthropic', 'Claude']
+const TEAM_SEED = [
+  'Acme',
+  'Hotsauce',
+  'Ember',
+  'Granola',
+  'Clerk',
+  'Deepgram',
+  'Anthropic',
+  'Claude',
+]
 
 export function dictationHandlers(opts: {
   principal: (request: Request) => FakeUser | Response

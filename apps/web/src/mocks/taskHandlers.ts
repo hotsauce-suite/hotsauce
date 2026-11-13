@@ -189,7 +189,7 @@ export function seedTasks(fake: FakeTasks, user: FakeUser, today: string): void 
     space: personal,
     createdBy: me,
     created: created(4),
-    title: 'Read the biosafety audit draft',
+    title: 'Read the security audit draft',
     notes: 'Priya sent it Tuesday.\nFocus on section 4, the sample chain of custody.',
     priority: p(3),
   })
@@ -220,7 +220,7 @@ export function seedTasks(fake: FakeTasks, user: FakeUser, today: string): void 
     space: 'team',
     createdBy: me,
     created: created(8),
-    title: 'Ship the Hearth Tasks beta',
+    title: 'Ship the pilot report',
     project: 'Launch',
     assignee: me,
     due: at(5),
