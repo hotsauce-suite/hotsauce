@@ -137,16 +137,51 @@ describe('Updater', () => {
   })
 
   it('records a rollback, and automatic updates then skip that version', async () => {
-    const { make, store, fly } = setup()
+    const { make, store, fly, advance } = setup()
     await make('0.2.0').start()
-    // Rolled back: the old version starts again.
+    // Rolled back: the old version starts again, and is still running once the helper is done.
+    advance(8 * 60_000)
     const back = make('0.2.0')
     back.reconcile()
+    advance(5 * 60_000)
+    await back.tick()
     expect(store.get().failed).toMatchObject({ from: '0.2.0', to: '0.3.0' })
     expect(store.get().skip).toEqual(['0.3.0'])
     await back.tick()
     expect(fly.created).toHaveLength(1)
     expect(back.status().failed).toMatchObject({ to: '0.3.0' })
+  })
+
+  it('isn’t fooled by a restart of the old version before the helper swaps the image', async () => {
+    // Haven, 0.7.0 to 0.8.1: an admin applied saved settings seconds after pressing Update, the
+    // old version came back up, and the page said the update had failed while it went on to work.
+    const { make, store, advance } = setup()
+    await make('0.2.0').start()
+    advance(7_000)
+    const restarted = make('0.2.0')
+    restarted.reconcile()
+    expect(store.get().pending).toMatchObject({ to: '0.3.0' })
+    expect(store.get().failed).toBeNull()
+    expect(restarted.status().updating).toMatchObject({ to: '0.3.0' })
+    advance(20_000)
+    const next = make('0.3.0')
+    next.reconcile()
+    advance(13 * 60_000)
+    await next.tick()
+    expect(store.get()).toMatchObject({ pending: null, failed: null, skip: [] })
+  })
+
+  it('drops a failure notice once the server runs that version or a later one', async () => {
+    const { make, store } = setup()
+    store.set({
+      failed: { from: '0.2.0', to: '0.3.0', at: '2026-11-12T10:00:00Z' },
+      skip: ['0.3.0'],
+    })
+    expect(make('0.2.0').status().failed).toMatchObject({ to: '0.3.0' })
+    const now = make('0.3.0')
+    expect(now.status().failed).toBeNull()
+    now.reconcile()
+    expect(store.get().failed).toBeNull()
   })
 
   it('marks an update that never finished as failed on the next pass', async () => {

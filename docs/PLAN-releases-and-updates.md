@@ -47,11 +47,14 @@ R9. Automatic updates wait while a meeting is being recorded (subject to Morgan'
 - The helper (`updates/helper.ts`) updates each app machine's config to the new image (keeping
   services and mounts), waits for it to start, and polls `PUBLIC_URL/api/health` for
   `version` = the new one. After five minutes, or if Fly refuses, it puts the old image back.
-- On boot, the server compares its version with `pending`. Only the helper restarts it during an
-  update, so starting on the old version means a rollback: it records `failed` and adds the
-  version to `skip`, which automatic updates honour. Starting on the new version keeps `pending`
-  until the helper's window (12 minutes) has passed, since the helper can still roll back. A
-  pending update that never replaced the machine counts as failed after 30 minutes.
+- On boot, the server compares its version with `pending`. Starting on the new version marks it
+  `started` and keeps `pending` until the helper's window (12 minutes) has passed, since the
+  helper can still roll back. Starting on the old version after the new one ran is a rollback: it
+  records `failed` and adds the version to `skip`, which automatic updates honour. Starting on
+  the old version before that is not proof of anything, since other things restart the server
+  (applying saved settings, say) before the helper swaps the image; the next pass after the
+  window decides, and still being on the old version then counts as failed. A failure notice
+  disappears once the server runs that version or a later one.
 - Update refuses when `PUBLIC_URL` is localhost (the helper checks through it), and a second
   click while one is starting. Fly's one-minute start wait is retried up to four times.
 - Automatic updates run only on a single-machine app: each machine has its own volume and sees

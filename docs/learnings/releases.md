@@ -31,3 +31,8 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
 - **Porting from a fork is a three-way merge** with the last ported commit as the base
   (`git merge-recursive <base> -- HEAD <fork>`), then a scrub and an independent review for
   leftover names, private file pointers and decision logs.
+- **Don't treat "I started on the old version" as a rollback.** Haven's first real update (0.7.0
+  to 0.8.1) worked, but the page said it had failed: settings were applied seconds after Update,
+  the old version restarted before the helper had pulled its image, and the boot check called
+  that a rollback. Only a boot on the old version *after* the new one ran is proof; otherwise
+  wait out the helper's window. Read the Fly logs before believing the status line.

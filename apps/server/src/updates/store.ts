@@ -4,8 +4,8 @@ import path from 'node:path'
 export interface UpdateState {
   /** The admin's switch; null until they touch it, which means the default (on). */
   auto: boolean | null
-  /** An update this server started and hasn't seen finish. */
-  pending: { from: string; to: string; at: string } | null
+  /** An update this server started and hasn't seen finish; `started` once the new version ran. */
+  pending: { from: string; to: string; at: string; started?: boolean } | null
   /** The last update that didn't take, shown to admins until a later one does. */
   failed: { from: string; to: string; at: string } | null
   /** Versions that failed here; automatic updates skip them (an admin can still press Update). */
