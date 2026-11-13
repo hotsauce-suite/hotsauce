@@ -1,6 +1,6 @@
 import { expect, test, uid } from './fixtures'
 
-// Hearth Tables (docs/plans/2026-11-12-tables.md T8, T9, T11): a member makes a table, types
+// Hearth Tables (ARCHITECTURE §22): a member makes a table, types
 // numbers and a formula, sees the total, sorts, reloads and finds it saved; then opens a form's
 // answers as a table and copies them.
 

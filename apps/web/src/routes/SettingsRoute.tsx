@@ -25,7 +25,7 @@ const when = (iso: string | null) =>
 
 /**
  * `/settings`: the member's access tokens, for connecting Claude and scripts (ARCHITECTURE §8.1),
- * the Mac app's download (docs/PLAN-mac-app-download.md), and which Google calendars Hearth
+ * the Mac app's download, and which Google calendars Hearth
  * Meetings reads (§7.8).
  */
 export default function SettingsRoute() {

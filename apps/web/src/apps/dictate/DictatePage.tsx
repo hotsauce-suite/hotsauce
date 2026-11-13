@@ -25,7 +25,7 @@ type Connect =
 
 /**
  * `/dictate` on a computer, and `/dictate/mac` anywhere: connect this Mac, see connected Macs, edit
- * the word lists. The app's download is in Settings (docs/PLAN-mac-app-download.md).
+ * the word lists. The app's download is in Settings.
  */
 export default function DictatePage() {
   const [devices, setDevices] = useState<DictationDevice[] | null>(null)

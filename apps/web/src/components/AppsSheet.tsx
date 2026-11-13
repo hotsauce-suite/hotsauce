@@ -15,7 +15,7 @@ import { Icon } from './Icon'
 
 /**
  * The phone bar's last tab: opens the Apps sheet, which holds every app, the organization's
- * links, Settings, feedback and the account (docs/plans/2026-11-12-mobile-nav.md). It is the
+ * links, Settings, feedback and the account. It is the
  * current tab whenever the page belongs to no app on the bar.
  */
 export function AppsTab({ active, recording }: { active: AppId | null; recording: boolean }) {

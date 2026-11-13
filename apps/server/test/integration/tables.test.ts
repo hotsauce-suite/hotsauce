@@ -12,7 +12,7 @@ import { createServices, type Services } from '../../src/services.js'
 import { writeXlsx } from '../../src/tables/xlsx.js'
 import { catFile, makeTempDir, removeDir } from '../helpers/git.js'
 
-// Hearth Tables (docs/plans/2026-11-12-tables.md T1–T7, T10; ARCHITECTURE §22) through the API
+// Hearth Tables (ARCHITECTURE §22) through the API
 // and MCP with dev auth.
 
 const ALICE = 'alice@example.test'

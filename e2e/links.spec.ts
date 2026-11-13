@@ -1,6 +1,6 @@
 import { expect, test, uid } from './fixtures'
 
-// Saved links (docs/plans/2026-11-12-saved-links.md R5, R8, R12, R13): a member pastes a link,
+// Saved links (ARCHITECTURE §23): a member pastes a link,
 // sees the readable copy arrive, tags it, shares it with the team, marks it done; then the save
 // page (what the extension and the phone's share sheet open) saves a second one. Pages come
 // from the server's stand-in fetcher (LINK_FETCH=fake under NODE_ENV=test).

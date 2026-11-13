@@ -4,7 +4,7 @@ import { primaryButton, secondaryButton } from '../apps/meetings/components/comm
 import { product } from '../brand/product'
 import { Icon } from './Icon'
 
-// The Mac app's download (docs/PLAN-mac-app-download.md): offered in Settings, linked from Today.
+// The Mac app's download: offered in Settings, linked from Today.
 
 /** Served by the server from the web build; the Dockerfile puts it there. */
 export const MAC_APP_DOWNLOAD = '/downloads/Hotsauce.dmg'

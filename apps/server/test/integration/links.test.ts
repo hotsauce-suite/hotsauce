@@ -11,7 +11,7 @@ import { FakeLLM, scriptedResponse } from '../../src/meetings/index.js'
 import { createServices, type Services } from '../../src/services.js'
 import { catFile, makeTempDir, removeDir } from '../helpers/git.js'
 
-// Saved links (docs/plans/2026-11-12-saved-links.md R1–R10; ARCHITECTURE §23) through the API
+// Saved links (ARCHITECTURE §23) through the API
 // and MCP with dev auth, pages from the stand-in fetcher.
 
 const ALICE = 'alice@example.test'
