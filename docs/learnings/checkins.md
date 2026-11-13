@@ -8,3 +8,4 @@
 - **Push test endpoints must look like a real push service** (`https://fcm.googleapis.com/…`); the subscribe route refuses anything else.
 - **Web tests need new routes in `test/renderApp.tsx` too**, not just `router.tsx`; otherwise the page 404s in the test router and tests time out with no clear error.
 - **`VoiceNotes.test.tsx` can throw "window is not defined" after teardown in a full local run** (untouched by this work; passes alone and in CI). Re-run it alone before chasing it.
+- **`LiveMeeting.test.tsx` ("says so when the Meet tab stops sharing") failed once in CI on a docs-and-mocks change and passed on re-run.** Re-run the job before suspecting your change.
