@@ -80,7 +80,7 @@ Everything here is generic (no organization names in code) so it ports to public
   `git gc`) is backed up and restores to a repository git can read.
 - R14 `/api/health/backup` is public and answers 503 when the newest backup failed or none has
   worked for 26 hours, 200 otherwise (also when backups are off or none has run yet), without
-  the error text.
+  the error text or times. A backup cut off by a restart isn't recorded as a failure.
 
 ## Drill (not a unit test)
 

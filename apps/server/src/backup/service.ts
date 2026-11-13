@@ -45,7 +45,6 @@ export interface BackupHealth {
   /** off: no bucket. pending: none tried yet. failing: the newest attempt failed. stale: no good
    *  backup for 26 hours (the server was down, or the schedule stopped). */
   state: 'ok' | 'off' | 'pending' | 'failing' | 'stale'
-  lastSuccessAt?: string
 }
 
 /** Health of a day's 25-hour window plus an hour of retries; past it, something is wrong. */
@@ -53,21 +52,21 @@ const HEALTHY_MS = 26 * 60 * 60 * 1000
 
 /**
  * Whether backups are working, for a public uptime check (`/api/health/backup`). It never says
- * why a backup failed: the error can name paths and the bucket, and admins see it in Settings.
+ * why a backup failed or when it runs: the error can name paths and the bucket, and admins see
+ * both in Settings.
  */
 export function backupHealth(s: Partial<BackupStatus> | null, now: Date): BackupHealth {
   if (!s) return { ok: true, state: 'off' }
   const last = s.lastSuccessAt
   const tried = s.lastAttemptAt ? new Date(s.lastAttemptAt).getTime() : 0
-  const at = last ? { lastSuccessAt: last } : {}
   if (s.lastError && (!last || tried > new Date(last).getTime())) {
-    return { ok: false, state: 'failing', ...at }
+    return { ok: false, state: 'failing' }
   }
   if (!last) return { ok: true, state: 'pending' }
   if (now.getTime() - new Date(last).getTime() > HEALTHY_MS) {
-    return { ok: false, state: 'stale', ...at }
+    return { ok: false, state: 'stale' }
   }
-  return { ok: true, state: 'ok', ...at }
+  return { ok: true, state: 'ok' }
 }
 
 const CHECK_MS = 15 * 60 * 1000
@@ -208,13 +207,19 @@ export class BackupService {
       this.#log(`backup: ${key} (${snap.files} files, ${size} bytes)`)
       await this.#prune(now)
     } catch (err) {
-      status.lastError = (err as Error).message
-      this.#log(`backup failed: ${status.lastError}`)
+      if (signal.aborted) {
+        // Cut off by a restart (close()): not a failure, and it runs again after the restart, so
+        // the status (and /api/health/backup) stays as it was.
+        this.#log(`backup stopped: ${(err as Error).message}`)
+      } else {
+        status.lastError = (err as Error).message
+        this.#log(`backup failed: ${status.lastError}`)
+      }
     } finally {
       this.#abort = null
       if (archive) await rm(archive, { force: true })
       await rm(path.join(this.#o.dataDir, BACKUP_TMP), { recursive: true, force: true })
-      await writeJson(this.#statusFile, status)
+      if (!signal.aborted) await writeJson(this.#statusFile, status)
     }
     return status
   }

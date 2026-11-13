@@ -15,7 +15,8 @@ const run = promisify(execFile)
  * Git repositories (`repos/<space>/` clones and `remotes/<space>.git`) are staged while that
  * space's writes are held (`lockSpace`), then checked with `git fsck --connectivity-only`; a
  * repository that still comes out broken (a background `git gc` mid-repack) is staged again once,
- * and a second failure fails the backup rather than upload a repository that won't clone.
+ * and a second failure fails the backup rather than upload a repository that won't clone. Only
+ * files are linked, so the empty folders git needs (`refs/heads` after a gc) are made again first.
  */
 
 /** The working folder under DATA_DIR; never itself backed up. */

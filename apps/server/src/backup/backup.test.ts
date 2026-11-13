@@ -232,6 +232,16 @@ describe('snapshot safety', () => {
     expect(log.toString().trim()).toBe('docs')
   })
 
+  it('keeps a working copy whose branches git has packed (R13)', async () => {
+    const db = await seed()
+    db.close()
+    const clone = path.join(dataDir, 'repos/team')
+    execFileSync('git', ['clone', '-q', path.join(dataDir, 'remotes/team.git'), clone])
+    execFileSync('git', ['-C', clone, 'pack-refs', '--all'])
+    const snap = await createSnapshot(dataDir, { name: 't' })
+    expect(snap.files).toBeGreaterThan(5)
+  })
+
   it('fails rather than upload a repository with missing objects', async () => {
     const db = await seed()
     db.close()
@@ -290,6 +300,29 @@ describe('BackupService (R4–R6)', () => {
     const status = await service(s3, () => new Date('2026-11-13T03:10:00Z')).run()
     expect(status.lastError).toContain('bucket says no')
     expect(s3.objects.size).toBe(30)
+  })
+
+  it('a backup cut off by a restart is not recorded as a failure', async () => {
+    await put('org/settings.json', '{}')
+    const s3 = new MemoryObjectStore()
+    s3.putFile = (
+      _key: string,
+      _file: string,
+      _size: number,
+      _type: string,
+      signal?: AbortSignal,
+    ) =>
+      new Promise<void>((_, reject) => {
+        signal?.addEventListener('abort', () => reject(signal.reason ?? new Error('aborted')))
+      })
+    const svc = service(s3, () => new Date('2026-11-13T03:10:00Z'))
+    const running = svc.run()
+    await new Promise((r) => setTimeout(r, 200))
+    await svc.close()
+    await running
+    const status = await svc.status()
+    expect(status.lastError).toBeUndefined()
+    expect(backupHealth(status, new Date('2026-11-13T03:20:00Z')).ok).toBe(true)
   })
 
   it('waits an hour after a failure before trying again', async () => {
@@ -442,7 +475,6 @@ describe('backup health, for an outside monitor (R14)', () => {
     expect(backupHealth({ lastAttemptAt: at, lastSuccessAt: at }, late)).toEqual({
       ok: false,
       state: 'stale',
-      lastSuccessAt: at,
     })
   })
 
