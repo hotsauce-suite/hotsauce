@@ -17,14 +17,10 @@
 4. The demo makes no API requests that leave the browser. Unhandled `/api` calls get a polite error, not a network request.
 5. App routes such as `demo.hotsauce.work/tasks` load directly.
 6. Only hotsauce.work may frame the demo (`frame-ancestors`), and the landing page never frames anything else.
-7. The windows for Today, Docs, Meetings, Tasks, Notes, People, Booking links and Daily briefing have "Try it yourself". The other five keep the video only.
+7. Every window except Clips and Dictate has "Try it yourself"; those two need a camera, a microphone or the Mac app, so they keep the video only.
 8. A thin banner in the demo says it's sample data that resets on reload.
-
-## Later
-
-- Mock data for Whiteboard, Files and Forms, then turn on "Try it yourself" for them.
 
 ## Status
 
 - Done: requirements 1 to 7 (site/worker.test.js covers 5 and 6; the build and windows were checked in a real browser). Requirement 8: the window's "Live demo" bar on hotsauce.work, and a small notice in the app when it's opened on its own.
-- Next: Whiteboard, Files and Forms.
+- Done: Whiteboard, Files and Forms run on in-memory mocks too (apps/web/src/mocks/{board,file,form}Handlers.ts). Clips and Dictate keep their videos: they need a camera, a microphone or the Mac app.

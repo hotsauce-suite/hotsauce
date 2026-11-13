@@ -1,5 +1,6 @@
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
 import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
+import { boardHandlers, FakeBoards, seedBoards } from './boardHandlers'
 import { bookingHandlers } from './bookingHandlers'
 import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
 import { briefHandlers, FakeBriefs } from './briefHandlers'
@@ -7,6 +8,8 @@ import { checkinHandlers } from './checkinHandlers'
 import { dictationHandlers } from './dictationHandlers'
 import { FakeMeetings } from './fakeMeetings'
 import { FakeRepo, type FakeUser } from './fakeRepo'
+import { FakeFiles, fileHandlers, seedFiles } from './fileHandlers'
+import { FakeForms, formHandlers, seedForms } from './formHandlers'
 import { meetingHandlers } from './meetingHandlers'
 import { FakeNotes, noteHandlers } from './noteHandlers'
 import { peopleHandlers } from './peopleHandlers'
@@ -45,6 +48,9 @@ export interface MockApi {
   meetings: FakeMeetings
   tasks: FakeTasks
   notes: FakeNotes
+  boards: FakeBoards
+  files: FakeFiles
+  forms: FakeForms
   handlers: AnyHandler[]
   /** Pushes a server event to every authenticated socket, like the real broadcaster. */
   broadcast: (event: ServerEvent) => void
@@ -60,9 +66,10 @@ function createHandlers(
   meetings: FakeMeetings,
   tasks: FakeTasks,
   notes: FakeNotes,
+  work: { boards: FakeBoards; files: FakeFiles; forms: FakeForms },
   latencyMs: number,
   seeded: boolean,
-): Omit<MockApi, 'repo' | 'meetings' | 'tasks' | 'notes'> {
+): Omit<MockApi, 'repo' | 'meetings' | 'tasks' | 'notes' | 'boards' | 'files' | 'forms'> {
   const ready = new Set<{ send: (data: string) => void }>()
 
   const broadcast = (event: ServerEvent) => {
@@ -474,6 +481,9 @@ function createHandlers(
   })
   handlers.push(...meetingRoutes.handlers)
   handlers.push(...dictationHandlers({ principal }))
+  handlers.push(...boardHandlers({ boards: work.boards, latencyMs, principal, seeded }))
+  handlers.push(...fileHandlers({ files: work.files, latencyMs, principal }))
+  handlers.push(...formHandlers({ forms: work.forms, files: work.files, latencyMs, principal }))
   handlers.push(...todayHandlers())
   handlers.push(...checkinHandlers({ principal }))
   handlers.push(...peopleHandlers())
@@ -505,11 +515,18 @@ export function createMockApi(opts: { latencyMs?: number; seeded?: boolean } = {
   const tasks = new FakeTasks(repo)
   const notes = new FakeNotes()
   const seeded = opts.seeded ?? true
+  const work = { boards: new FakeBoards(), files: new FakeFiles(), forms: new FakeForms() }
+  if (seeded) {
+    seedBoards(work.boards)
+    seedFiles(work.files)
+    seedForms(work.forms)
+  }
   return {
     repo,
     meetings,
     tasks,
     notes,
-    ...createHandlers(repo, meetings, tasks, notes, opts.latencyMs ?? 0, seeded),
+    ...work,
+    ...createHandlers(repo, meetings, tasks, notes, work, opts.latencyMs ?? 0, seeded),
   }
 }
