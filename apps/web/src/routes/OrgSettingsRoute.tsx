@@ -7,7 +7,6 @@ import { product } from '../brand/product'
 import { ChatRoomsSection } from './org/ChatRoomsSection'
 import { Callout, messageOf } from './org/fields'
 import { LinkSharingSection } from './org/LinkSharingSection'
-import { UpdatesSection } from './org/UpdatesSection'
 import {
   AiSection,
   BrandSection,
@@ -17,6 +16,7 @@ import {
   StorageSection,
   Summary,
 } from './org/sections'
+import { UpdatesSection } from './org/UpdatesSection'
 
 /**
  * `/settings/organization`: the setup wizard's sections on one page, for admins (ARCHITECTURE

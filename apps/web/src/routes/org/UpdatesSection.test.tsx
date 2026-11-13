@@ -76,7 +76,11 @@ describe('Settings → Organization → Updates', () => {
   })
 
   it('says it is the newest release when nothing is newer', async () => {
-    serve({ ...base, updateAvailable: false, latest: base.latest && { ...base.latest, version: '0.2.0' } })
+    serve({
+      ...base,
+      updateAvailable: false,
+      latest: base.latest && { ...base.latest, version: '0.2.0' },
+    })
     render(<UpdatesSection />)
     expect(await screen.findByText(/It’s the newest release/)).toBeInTheDocument()
   })
