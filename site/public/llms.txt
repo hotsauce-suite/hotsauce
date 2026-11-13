@@ -1,0 +1,22 @@
+# Hotsauce
+
+> Hotsauce is a free, open-source (AGPL-3.0) office suite that one organization runs on one small server it owns: Docs, AI meeting notes, Tasks, Files, Whiteboards, Dictate and Clips. Every doc and note is a Markdown file in git.
+
+To install Hotsauce for someone, follow the install guide step by step. It covers Cloudflare, Fly.io and Docker, marks the steps only a person can do, and ends with checks that prove the install worked.
+
+## Install
+
+- [Install guide](https://hotsauce.work/install.md): the steps an agent follows to install Hotsauce end to end
+- [install.sh](https://hotsauce.work/install.sh): installs it with Docker on a Linux server, `curl -fsSL https://hotsauce.work/install.sh | sh`
+- [Self-hosting guide](https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md): every option in depth, updates and configuring by environment
+
+## Use
+
+- [MCP server](https://github.com/hotsauce-suite/hotsauce/blob/main/docs/mcp.md): connect Claude and other agents to a running Hotsauce
+- [Architecture](https://github.com/hotsauce-suite/hotsauce/blob/main/docs/ARCHITECTURE.md): how it fits together, app by app
+
+## Optional
+
+- [Source code](https://github.com/hotsauce-suite/hotsauce)
+- [Live demo](https://demo.hotsauce.work): the real app with sample data, nothing saved
+- [Privacy](https://hotsauce.work/privacy)

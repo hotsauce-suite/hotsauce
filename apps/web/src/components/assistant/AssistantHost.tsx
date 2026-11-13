@@ -1,5 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import type { PageContext } from '../../api/assistant'
+import { ariaKeys, formatSpec } from '../../keyboard/keys'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { Icon } from '../Icon'
 import { closeAssistant, openAssistant, toggleAssistant, useAssistantState } from './state'
 
@@ -14,16 +16,11 @@ export function AssistantHost({ page, compact }: { page: PageContext | null; com
   const [loaded, setLoaded] = useState(false)
   if (open && !loaded) setLoaded(true)
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.key.toLowerCase() !== 'j') return
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
-      event.preventDefault()
-      toggleAssistant()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  // ⌘J / Ctrl+J, through the app's one key listener (keyboard/catalog.ts).
+  useShortcut('global.assistant', () => {
+    toggleAssistant()
+    return true
+  })
 
   return (
     <>
@@ -31,8 +28,9 @@ export function AssistantHost({ page, compact }: { page: PageContext | null; com
         <button
           type="button"
           data-testid="assistant-open"
-          aria-label="Ask the assistant (⌘J)"
-          title="Ask the assistant (⌘J)"
+          aria-label="Ask the assistant"
+          aria-keyshortcuts={ariaKeys('mod+j')}
+          title={`Ask the assistant (${formatSpec('mod+j').join('')})`}
           onClick={() => openAssistant()}
           className={`fixed right-4 z-30 flex size-11 items-center justify-center rounded-full border border-ash bg-paper-raised text-ink shadow-float hover:bg-paper-sunk ${compact ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]' : 'bottom-4'}`}
         >

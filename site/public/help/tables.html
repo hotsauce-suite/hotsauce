@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tables · Hotsauce help</title>
+<meta name="description" content="Trackers and lists with spreadsheet formulas.">
+<link rel="canonical" href="https://hotsauce.work/help/tables">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Tables · Hotsauce help">
+<meta property="og:description" content="Trackers and lists with spreadsheet formulas.">
+<meta property="og:url" content="https://hotsauce.work/help/tables">
+<meta property="og:image" content="https://hotsauce.work/og.png">
+<meta name="theme-color" content="#fff4e2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101c1b" media="(prefers-color-scheme: dark)">
+<script>try{const t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch{}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/help/help.css">
+<script src="/help/help.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+<header class="top">
+  <a class="brand" href="/" aria-label="Hotsauce home"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="24" y="3" width="16" height="10" rx="3" fill="#1f4d3a" stroke="#16262d" stroke-width="2.5"/><path d="M27 13h10v7c0 3 11 6 11 16v18a7 7 0 0 1-7 7H23a7 7 0 0 1-7-7V36c0-10 11-13 11-16z" fill="#a94e26" stroke="#16262d" stroke-width="2.5" stroke-linejoin="round"/><rect x="20" y="34" width="24" height="17" rx="3" fill="#fff4e2" stroke="#16262d" stroke-width="2"/><path d="M33.5 37.5c2.4 2.4 3.6 4.1 3.6 6.1a5.1 5.1 0 0 1-10.2 0c0-1.4.7-2.5 1.6-3.5.3 1.2.8 1.8 1.6 2 0-1.6.9-3.3 3.4-4.6z" fill="#a94e26"/></svg>hotsauce</a>
+  <nav class="links" aria-label="Main">
+    <a href="/help/">Help</a>
+    <a href="/faq">FAQ</a>
+    <a class="m" href="https://demo.hotsauce.work">Live demo</a>
+    <a class="gh" href="https://github.com/hotsauce-suite/hotsauce"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+    <button class="mode" type="button" id="mode" aria-label="Switch to dark mode"><svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></button>
+  </nav>
+</header>
+<div class="layout">
+<nav class="side" id="help-nav" aria-label="Help topics"><a href="/help/">All help topics</a></nav>
+<main id="main" class="article" data-page="tables">
+<p class="crumbs"><a href="/help/">Help</a> <span aria-hidden="true">/</span> The apps</p>
+<h1>Tables</h1>
+<p class="lede">Tables is a simple spreadsheet for trackers, lists and budgets. Formulas work the way they do in Excel and Google Sheets.</p>
+<h2 id="use-it">Use it</h2>
+<ul><li><b>New table</b>, then give each column a type: text, number, date, checkbox, choice, person or link.</li><li>Type <code>=</code> to write a formula, like <code>=SUM(C2:C20)</code> or <code>=C2*D2</code>.</li><li>Arrow keys and Tab move around. Enter or F2 edits a cell, and typing replaces it.</li><li>Copy and paste to and from Google Sheets and Excel.</li><li><b>Import</b> a CSV, TSV or Excel file (the first sheet). Download any table as CSV or Excel.</li></ul>
+<h2 id="good-to-know">Good to know</h2>
+<ul><li>One person edits a table at a time. If two people save at once, the second is asked to reload.</li><li>A table keeps its values and formulas, not colors, bold or number formats.</li><li>Tables can hold up to 5,000 rows and 52 columns.</li></ul>
+<aside class="needs"><b>What it needs</b><p>Nothing extra.</p></aside>
+<nav class="pager" id="pager" aria-label="Next and previous"></nav>
+</main>
+</div>
+<footer class="foot">
+  <span>Free software under <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/LICENSE">AGPL-3.0</a>. © 2026 Morgan Holland.</span>
+  <span><a href="/">Home</a> · <a href="/help/">Help</a> · <a href="/faq">FAQ</a> · <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Self-host guide</a> · <a href="https://github.com/hotsauce-suite/hotsauce/issues">Report a problem</a></span>
+</footer>
+</div>
+</body>
+</html>

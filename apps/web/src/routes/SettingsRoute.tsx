@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router'
+import { Link, useLocation, useOutletContext } from 'react-router'
 import { calendarApi } from '../api/calendar'
 import { api, HearthApiError } from '../api/client'
 import { type AccessToken, claudeCodeCommand, claudeDesktopConfig, tokensApi } from '../api/tokens'
@@ -10,8 +10,11 @@ import {
   secondaryButton,
 } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
+import type { ShellContext } from '../components/AppShell'
 import { Icon } from '../components/Icon'
 import { MacAppSection } from '../components/MacApp'
+import { Keys } from '../keyboard/Keys'
+import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
 import { chooseTheme, currentTheme, type ThemeChoice } from '../lib/theme'
 
 const when = (iso: string | null) =>
@@ -107,6 +110,7 @@ export default function SettingsRoute() {
             </Link>
           ) : null}
           <AppearancePicker />
+          <KeyboardSettings />
           <MacAppSection />
 
           <h2 className="mt-12 font-display text-[1.6rem] font-semibold tracking-tight">
@@ -392,5 +396,49 @@ function AppearancePicker() {
         })}
       </div>
     </fieldset>
+  )
+}
+
+/** Single-key shortcuts on or off (WCAG 2.1.4), and the way to the full list. */
+function KeyboardSettings() {
+  const on = useSingleKeys()
+  const shell = useOutletContext<ShellContext | undefined>()
+  return (
+    <section id="keyboard" aria-labelledby="keyboard-title" className="mt-12 scroll-mt-6">
+      <h2 id="keyboard-title" className="font-display text-[1.6rem] font-semibold tracking-tight">
+        Keyboard
+      </h2>
+      <p className="mt-2 text-ink-soft">
+        Press <Keys spec="?" /> anywhere to see every shortcut, and <Keys spec="mod+k" /> to open
+        the command menu.
+      </p>
+      <label className="mt-4 flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={on}
+          data-testid="single-keys"
+          onChange={(e) => setSingleKeys(e.target.checked)}
+          className="mt-1 size-4 accent-ember"
+        />
+        <span>
+          <span className="block font-medium text-ink">Single-key shortcuts</span>
+          <span className="block text-sm text-ink-soft">
+            Keys like <Keys spec="j" /> <Keys spec="x" /> and <Keys spec="?" /> work when you aren't
+            typing. Turn them off if you use voice control or they get in your way. Shortcuts with ⌘
+            or Ctrl always work. On this device.
+          </span>
+        </span>
+      </label>
+      {shell ? (
+        <button
+          type="button"
+          data-testid="show-shortcuts"
+          onClick={shell.openShortcuts}
+          className={`${secondaryButton} mt-4`}
+        >
+          Show all shortcuts
+        </button>
+      ) : null}
+    </section>
   )
 }

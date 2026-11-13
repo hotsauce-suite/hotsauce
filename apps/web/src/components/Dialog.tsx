@@ -21,7 +21,8 @@ export function Dialog({ title, onClose, children, testId, wide = false }: Dialo
     const first = panel.current?.querySelector<HTMLElement>(
       'input, textarea, button:not([data-dialog-close]), [href], [tabindex]:not([tabindex="-1"])',
     )
-    first?.focus()
+    // Nothing to focus (a sheet of text): focus the panel, so keys and Tab stay inside it.
+    ;(first ?? panel.current)?.focus()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current()
     }
@@ -46,9 +47,10 @@ export function Dialog({ title, onClose, children, testId, wide = false }: Dialo
         ref={panel}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-labelledby={titleId}
         data-testid={testId}
-        className={`relative w-full rounded-xl border border-ash bg-paper-raised p-5 shadow-float ${wide ? 'max-w-5xl' : 'max-w-md'}`}
+        className={`relative w-full rounded-xl border border-ash bg-paper-raised p-5 shadow-float outline-none ${wide ? 'max-w-5xl' : 'max-w-md'}`}
       >
         <h2 id={titleId} className="mb-4 font-display text-xl font-semibold text-ink">
           {title}

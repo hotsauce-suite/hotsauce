@@ -13,6 +13,7 @@ import {
   type PageContext,
   type ToolView,
 } from '../../api/assistant'
+import { formatSpec } from '../../keyboard/keys'
 import { fileUrl } from '../../lib/paths'
 import { Icon } from '../Icon'
 import { takePrompt, useAssistantState } from './state'
@@ -291,7 +292,7 @@ export default function AssistantPanel({
         <button
           type="button"
           aria-label={`Close ${name}`}
-          title="Close (⌘J)"
+          title={`Close (${formatSpec('mod+j').join('')})`}
           onClick={onClose}
           className="flex size-8 items-center justify-center rounded-lg text-ink-soft hover:bg-paper-sunk hover:text-ink"
         >
@@ -461,7 +462,7 @@ function Empty({ name, configured }: { name: string; configured: boolean }) {
       </ul>
       <p className="mt-3 text-xs text-ink-faint">
         It sees what you can see. Edits can be undone; deleting or moving files waits for you to
-        confirm. ⌘J opens and closes this panel.
+        confirm. {formatSpec('mod+j').join('')} opens and closes this panel.
       </p>
     </div>
   )

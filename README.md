@@ -14,7 +14,9 @@
   <a href="#why-hotsauce">Why Hotsauce</a> ·
   <a href="#what-it-costs">What it costs</a> ·
   <a href="#get-started">Get started</a> ·
-  <a href="docs/self-host.md">Self-hosting guide</a>
+  <a href="docs/self-host.md">Self-hosting guide</a> ·
+  <a href="https://hotsauce.work/help/">Help</a> ·
+  <a href="https://hotsauce.work/faq">FAQ</a>
 </p>
 
 <picture>
@@ -152,23 +154,13 @@ you. Invite people from outside your company by email.
 
 ## Get started
 
-### Fly.io (about $6 a month)
-
-You need [Node 22](https://nodejs.org), [pnpm](https://pnpm.io) and a free [Fly.io](https://fly.io)
-account.
-
-```sh
-git clone https://github.com/hotsauce-suite/hotsauce && cd hotsauce
-pnpm install
-scripts/deploy-fly.sh acme-office          # your app name
-```
-
-Open the setup link it prints. A wizard walks you through your organization, brand, Google sign-in
-(through a free Clerk account), AI keys and storage, then launches. It takes about fifteen minutes.
+Three ways in, all following one step-by-step guide, [hotsauce.work/install.md](https://hotsauce.work/install.md).
+Each ends at a setup wizard in your browser that walks you through your organization, brand, Google
+sign-in (through a free Clerk account), AI keys and storage. It takes about fifteen minutes.
 
 ![The setup wizard's first page](docs/screenshots/setup.webp)
 
-### Cloudflare (new)
+### One click on Cloudflare (about $13–15 a month)
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hotsauce-suite/hotsauce)
 
@@ -183,9 +175,41 @@ On Cloudflare the server's disk is wiped whenever it restarts, so your repositor
 organization and videos and audio in R2. Hotsauce keeps its own settings in the R2 bucket. The
 [self-hosting guide](docs/self-host.md#cloudflare-about-1315-a-month-always-on) has the details.
 
-### Docker
+### Have your AI agent install it
 
-`cd deploy && docker compose up -d` runs the same thing anywhere Docker does. The
+Paste this into Claude Code, Codex, Cursor or any coding agent:
+
+```text
+Install Hotsauce for my company by following https://hotsauce.work/install.md. Ask me before anything that needs my accounts, payment or DNS.
+```
+
+The guide gives it exact steps for Cloudflare, Fly.io or Docker, marks the steps only you can do
+(sign-ups, payment, sign-in keys, DNS), and ends with checks that prove the install worked. An agent
+runs this same prompt from scratch after every release.
+
+### Fly.io (about $6 a month)
+
+You need [Node 22](https://nodejs.org), [pnpm](https://pnpm.io) and a free [Fly.io](https://fly.io)
+account.
+
+```sh
+git clone https://github.com/hotsauce-suite/hotsauce && cd hotsauce
+pnpm install
+scripts/deploy-fly.sh acme-office          # your app name
+```
+
+Open the setup link it prints.
+
+### Docker on your own server
+
+On any Linux server with Docker, this installs the newest release and prints your setup link. Give it
+a domain that points at the server and it sets up HTTPS with Caddy too:
+
+```sh
+curl -fsSL https://hotsauce.work/install.sh | sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh
+```
+
+Or run [`deploy/docker-compose.yml`](deploy/docker-compose.yml) yourself. The
 [self-hosting guide](docs/self-host.md) covers every option, plus custom domains and backups.
 
 ### Stay up to date
