@@ -4,11 +4,11 @@ import { parseFrontmatter } from '@hearth/format'
 import { stringify as toYaml } from 'yaml'
 import type { Authenticator, Principal } from '../auth/index.js'
 import { type BriefMembers, isDue } from '../brief/index.js'
+import type { Checkins } from '../checkins/index.js'
 import { HearthError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
 import { extractDoc, type Index, kindOf } from '../index/index.js'
-import type { Checkins } from '../checkins/index.js'
 import type { Links, LinkView } from '../links/index.js'
 import type { AudioStore } from '../meetings/audio/types.js'
 import type { CalendarSource } from '../meetings/calendar/types.js'
@@ -389,7 +389,12 @@ export class Briefcasts {
     const checkins = (this.#d.checkins?.answersSince(since, { limit: MAX_CHECKINS * 2 }) ?? [])
       .filter((a) => a.email.toLowerCase() !== principal.email.toLowerCase())
       .slice(0, MAX_CHECKINS)
-      .map((a) => ({ question: a.question, name: a.name, date: a.date, text: cut(a.text, CHECKIN_CHARS) }))
+      .map((a) => ({
+        question: a.question,
+        name: a.name,
+        date: a.date,
+        text: cut(a.text, CHECKIN_CHARS),
+      }))
     return { events, meetings, tasks, docs, links, checkins }
   }
 

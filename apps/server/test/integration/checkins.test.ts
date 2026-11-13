@@ -350,7 +350,11 @@ describe('readers (R11–R13)', () => {
       return JSON.parse(first?.type === 'text' ? first.text : 'null')
     }
     expect(await call('list_checkins')).toMatchObject([
-      { id: made.id, title: WEEKLY.title, appUrl: `https://hearth.example.test/checkins/${made.id}` },
+      {
+        id: made.id,
+        title: WEEKLY.title,
+        appUrl: `https://hearth.example.test/checkins/${made.id}`,
+      },
     ])
     const round = await call('get_checkin', { id: made.id, date: '2026-11-16' })
     expect(round.rounds).toHaveLength(1)

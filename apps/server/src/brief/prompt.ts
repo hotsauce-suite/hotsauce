@@ -118,7 +118,10 @@ export function buildBriefPrompt(input: BriefInput): { system: string; user: str
     })
     .join('\n')
   const checkins = (input.checkins ?? [])
-    .map((c) => `<checkin question="${attr(c.question)}" date="${attr(c.date)}">\n${text(c.text)}\n</checkin>`)
+    .map(
+      (c) =>
+        `<checkin question="${attr(c.question)}" date="${attr(c.date)}">\n${text(c.text)}\n</checkin>`,
+    )
     .join('\n')
   const user = [
     `Person: ${input.member.name} <${input.member.email}>${input.org ? `, at ${input.org}` : ''}`,

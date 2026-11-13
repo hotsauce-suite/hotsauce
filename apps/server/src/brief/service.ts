@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { parseFrontmatter, parseTranscript, transcriptPathFor } from '@hearth/format'
 import { stringify as toYaml } from 'yaml'
 import type { Authenticator, Principal } from '../auth/index.js'
+import type { Checkins } from '../checkins/index.js'
 import { HearthError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
@@ -13,7 +14,6 @@ import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import type { Tasks, TaskView } from '../tasks/index.js'
 import type { BriefMembers } from './members.js'
-import type { Checkins } from '../checkins/index.js'
 import {
   type BriefCheckin,
   type BriefMeeting,

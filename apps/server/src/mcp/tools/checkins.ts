@@ -20,7 +20,7 @@ export function registerCheckinTools(
     {
       title: 'List check-ins',
       description:
-        "The team's check-ins: questions asked on a schedule (e.g. Mondays at 9 AM \"What will you get done this week?\"), with the current round's date and how many have answered. Read the answers with get_checkin.",
+        'The team\'s check-ins: questions asked on a schedule (e.g. Mondays at 9 AM "What will you get done this week?"), with the current round\'s date and how many have answered. Read the answers with get_checkin.',
       inputSchema: {},
       annotations: READ_ONLY,
     },

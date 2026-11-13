@@ -9,7 +9,6 @@ import {
   CheckinSummaryFrontmatter,
   checkinAnswerPath,
   checkinPath,
-  checkinRoundFolder,
   checkinSummaryPath,
   isCheckinDate,
   isCheckinId,

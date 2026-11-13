@@ -3,6 +3,7 @@ import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
 import { bookingHandlers } from './bookingHandlers'
 import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
 import { briefHandlers, FakeBriefs } from './briefHandlers'
+import { checkinHandlers } from './checkinHandlers'
 import { dictationHandlers } from './dictationHandlers'
 import { FakeMeetings } from './fakeMeetings'
 import { FakeRepo, type FakeUser } from './fakeRepo'
@@ -474,6 +475,7 @@ function createHandlers(
   handlers.push(...meetingRoutes.handlers)
   handlers.push(...dictationHandlers({ principal }))
   handlers.push(...todayHandlers())
+  handlers.push(...checkinHandlers({ principal }))
   handlers.push(...peopleHandlers())
   handlers.push(...bookingHandlers())
   handlers.push(

@@ -6,6 +6,7 @@ import { chat, org, product } from '../brand/product'
 import type { IconName } from '../components/Icon'
 import { boardsApp } from './boards/manifest'
 import { briefcastApp } from './briefcast/manifest'
+import { checkinsApp } from './checkins/manifest'
 import { clipsApp } from './clips/manifest'
 import { dictateApp } from './dictate/manifest'
 import { docsApp } from './docs/manifest'
@@ -34,6 +35,7 @@ export type AppId =
   | 'tables'
   | 'links'
   | 'briefcast'
+  | 'checkins'
 
 export interface AppManifest {
   id: AppId
@@ -91,6 +93,7 @@ export const APPS: readonly AppManifest[] = [
   peopleApp,
   filesApp,
   formsApp,
+  checkinsApp,
   tablesApp,
   linksApp,
   briefcastApp,
