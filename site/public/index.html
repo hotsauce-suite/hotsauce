@@ -317,6 +317,7 @@ summary::-webkit-details-marker{display:none}
 summary::after{content:"+";position:absolute;right:18px;top:50%;width:26px;height:26px;margin-top:-13px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:700 18px/1 var(--sans);transition:transform .2s,background .2s}
 details[open] summary::after{transform:rotate(45deg);background:var(--rust);color:var(--rust-ink)}
 details p{margin:0;padding:0 22px 20px;color:var(--muted);max-width:44em}
+.faq-more{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:32px 0 0}
 
 /* closing */
 .closing{text-align:center;padding:0 0 96px}
@@ -388,6 +389,7 @@ footer.foot .brand svg{width:26px;height:26px}
     <a href="#cost">Cost</a>
     <a class="m" href="#run">Self-host</a>
     <a href="#faq">FAQ</a>
+    <a href="/help/">Help</a>
     <a class="gh" href="https://github.com/hotsauce-suite/hotsauce"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
     <button class="mode" type="button" id="mode" aria-label="Switch to dark mode"><svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></button>
   </nav>
@@ -718,6 +720,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
     <details><summary>Does a bot join my meetings?</summary><p>No. Meetings records from your own browser tab or the Chrome extension for Google Meet, so there's no extra attendee in the call.</p></details>
     <details><summary>How do I update it?</summary><p>With Docker, run the install command again. On Fly.io, pull the latest code and run the deploy script again. On Cloudflare, every push to your copy redeploys, and an optional workflow opens a pull request each Monday with the newest release (see <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md#staying-up-to-date">Staying up to date</a>). Your files and settings stay where they are.</p></details>
   </div>
+  <p class="faq-more"><a class="btn" href="/faq">See all questions</a> <a class="btn" href="/help/">Browse the help center</a></p>
 </section>
 
 <div class="closing">
@@ -740,7 +743,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
 <footer class="foot">
   <a class="brand" href="/" aria-label="Hotsauce home"><svg aria-hidden="true"><use href="#logo"/></svg>hotsauce</a>
   <span>Free software under <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/LICENSE">AGPL-3.0</a>. © 2026 Morgan Holland.</span>
-  <span><a href="https://github.com/hotsauce-suite/hotsauce">GitHub</a> · <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Self-host guide</a> · <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/CONTRIBUTING.md">Contributing</a> · <a href="https://github.com/hotsauce-suite/hotsauce/issues">Issues</a></span>
+  <span><a href="/help/">Help</a> · <a href="/faq">FAQ</a> · <a href="https://github.com/hotsauce-suite/hotsauce">GitHub</a> · <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Self-host guide</a> · <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/CONTRIBUTING.md">Contributing</a> · <a href="https://github.com/hotsauce-suite/hotsauce/issues">Issues</a></span>
 </footer>
 </div>
 <dialog id="app-info" aria-labelledby="app-info-title" data-demo="https://demo.hotsauce.work">

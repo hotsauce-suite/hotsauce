@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help · Hotsauce</title>
+<meta name="description" content="How to use every Hotsauce app: Docs, Meetings, Tasks, Notes, Files, Whiteboard, People, Forms, Tables, Links, Check-ins, Clips, Dictate and more.">
+<link rel="canonical" href="https://hotsauce.work/help/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Help · Hotsauce">
+<meta property="og:description" content="How to use every Hotsauce app: Docs, Meetings, Tasks, Notes, Files, Whiteboard, People, Forms, Tables, Links, Check-ins, Clips, Dictate and more.">
+<meta property="og:url" content="https://hotsauce.work/help/">
+<meta property="og:image" content="https://hotsauce.work/og.png">
+<meta name="theme-color" content="#fff4e2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101c1b" media="(prefers-color-scheme: dark)">
+<script>try{const t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch{}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/help/help.css">
+<script src="/help/help.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="wrap">
+<header class="top">
+  <a class="brand" href="/" aria-label="Hotsauce home"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="24" y="3" width="16" height="10" rx="3" fill="#1f4d3a" stroke="#16262d" stroke-width="2.5"/><path d="M27 13h10v7c0 3 11 6 11 16v18a7 7 0 0 1-7 7H23a7 7 0 0 1-7-7V36c0-10 11-13 11-16z" fill="#a94e26" stroke="#16262d" stroke-width="2.5" stroke-linejoin="round"/><rect x="20" y="34" width="24" height="17" rx="3" fill="#fff4e2" stroke="#16262d" stroke-width="2"/><path d="M33.5 37.5c2.4 2.4 3.6 4.1 3.6 6.1a5.1 5.1 0 0 1-10.2 0c0-1.4.7-2.5 1.6-3.5.3 1.2.8 1.8 1.6 2 0-1.6.9-3.3 3.4-4.6z" fill="#a94e26"/></svg>hotsauce</a>
+  <nav class="links" aria-label="Main">
+    <a href="/help/">Help</a>
+    <a href="/faq">FAQ</a>
+    <a class="m" href="https://demo.hotsauce.work">Live demo</a>
+    <a class="gh" href="https://github.com/hotsauce-suite/hotsauce"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+    <button class="mode" type="button" id="mode" aria-label="Switch to dark mode"><svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></button>
+  </nav>
+</header>
+<main id="main" class="hub">
+<div class="hub-hero">
+  <p class="kicker">Help center</p>
+  <h1>How can we help?</h1>
+  <p class="lede">Guides for every Hotsauce app, for your team and for the person who runs it.</p>
+  <label class="search"><span class="sr">Search help</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="help-search" type="search" placeholder="Search help, like “record a meeting”" autocomplete="off"></label>
+  <p class="none" id="help-none" hidden>Nothing matches. Try the <a href="/faq">FAQ</a>, or <a href="https://github.com/hotsauce-suite/hotsauce/issues">ask on GitHub</a>.</p>
+</div>
+<section class="group" aria-labelledby="g-start"><h2 id="g-start">Start here</h2><ul class="cards">
+<li data-k="hotsauce is your team’s office suite: docs, meeting notes, tasks, files and more, in one place with one sign-in. here’s the five-minute tour. 
+sign in
+open the address your admin sent you, like https://hotsauce.yourcompany.com.choose continue with google and pick your work account. only email addresses from your company’s domains can get in.invited from outside the company? sign in with the exact email address you were invited with, and hotsauce emails you a code.
+
+find your way around
+the left bar on a computer lists every app. hover an icon to see its name. the gear at the bottom opens settings, and your initials open your account menu.on a phone, the bar at the bottom holds today and your most-used apps. apps opens the rest.today is your home page. it pulls your meetings, tasks and changes from the other apps into one view. see today.search with ⌘ k (or ctrl k on windows) to find any doc, meeting, transcript or task by its title or the words inside it.
+
+team space and your own space
+most apps have two places to keep things. team is shared with everyone in your organization. my (your personal space) is only for you: nobody else can open it in hotsauce, admins included. you can move things from one to the other.
+
+where your work is saved
+docs, meeting notes, tasks, notes, tables and links are saved as plain text files with a full history of every change. you can always see who changed what, and bring back an older version. your organization owns those files outright and can "><a href="/help/getting-started"><b>Getting started</b><span>Sign in, find your way around, and where your work is saved.</span></a></li>
+<li data-k="hotsauce runs in any browser, and it installs like an app on phones, tablets and computers. installed, it opens full screen, gets its own icon, and can send you notifications. 
+on a phone or tablet
+the first time you open hotsauce in a phone’s browser, a bar at the top offers install hotsauce on your phone. tap install, or ✕ to hide the bar for good on that phone. you can always install later from settings → install app.
+iphone and ipad
+open hotsauce in safari.tap the share button (the square with an arrow pointing up).tap add to home screen, then add.
+on an iphone, notifications only work once hotsauce is on your home screen.
+android
+tap install in the bar or in settings, and confirm. that’s it. once installed, hotsauce also shows up in android’s share menu, so you can share a web page straight into links.
+
+on a computer
+mac: the mac app gives you hotsauce in its own window, plus dictate and recording any call.chrome or edge: click the install icon at the right end of the address bar, or choose install hotsauce from the browser menu.
+
+tipopened from the home screen on a phone, hotsauce goes straight to voice notes, so you can start talking in one tap. see dictate and voice notes.
+"><a href="/help/install-app"><b>Install it on your phone and computer<span class="badge">Coming soon</span></b><span>Put Hotsauce on your home screen, and get the Mac app.</span></a></li>
+<li data-k="settings is where you set things up for yourself on this device. open it from your picture at the bottom of the left bar on a computer, or from apps on a phone. 
+what’s in settings
+
+accountyour photo, name and email from your google sign-in, and sign out. sign out lives only here.
+install appinstall hotsauce on this phone or computer. shows installed when it already is. see install it.
+notificationsthe notifications on this device switch covers meeting reminders and task reminders. send test notification sends a real one, so you can check it arrives.
+appearancelight, dark, or match your device. it’s saved per device.
+mac app and chrome extensiondownload links and setup for the mac app and the chrome extension.
+connect claudemake a personal token so claude and other ai tools can work with your hotsauce. see connect claude and other agents.
+calendarsconnect google calendar, which feeds meeting names, attendees, reminders, today and people.
+helplinks to these help pages and the faq, and send feedback if your admin turned it on.
+aboutthe version you’re running. when a new version has arrived, a reload to update button appears.
+
+admins also see organization, for workspace-wide settings. see run hotsauce for your team.
+
+turn on notifications
+open settings.turn on notifications on this device and allow notifications when your browser asks.press send test notification. you should see it within a few seconds.
+each phone and computer is set up on its own. if the switch says notificatio"><a href="/help/settings"><b>Settings and notifications<span class="badge">Coming soon</span></b><span>Your account, notifications, appearance, and what each Settings section does.</span></a></li>
+<li data-k="press ⌘ k to search and jump to any app, and use the keys below to move faster. on windows and linux, use ctrl wherever this page shows ⌘. 
+works today
+
+keyswhat it does
+⌘ ksearch docs, meetings, transcripts and tasks, and go to any app
+escclose a dialog or menu
+docs: ⌘ b ⌘ ibold and italic. ⌘ k inside the editor makes a link; type [[ to link to another doc
+tasks: qquick add a task
+tasks: j kmove down and up the list. enter opens, e edits the title, x completes
+tasks: 1–4set priority. t due today, m due tomorrow
+clips: space or kplay and pause. j l jump 10 seconds, arrows 5 seconds, &lt; &gt; change speed
+tablesarrows and tab move, enter or f2 edits a cell, typing replaces it
+check-ins: ⌘ enterpost your answer
+
+
+coming in the next release
+these are being built now and will work once your hotsauce updates.
+
+keyswhat it does
+?show every shortcut for this page
+ccreate the main thing in this app: a doc, a task, a note, or start a meeting
+/search or filter in this app
+g then a lettergo to an app: g h today, d docs, m meetings, t tasks, n notes, v dictate, c clips, i check-ins, b whiteboard, p people, f files, o forms, e tables, l links, r briefcast, s settings
+⌘ \show or hide the sidebar
+⌘ jopen the ai assistant
+j k in any listmove through meetings, notes, links, files and people. enter opens
+
+command-k will also create things (“task call sam tomorrow” makes a task due tomorrow), act on what’s open (star, share, rename, delete with undo), search every kind of file, and hand a question t"><a href="/help/shortcuts"><b>Keyboard shortcuts and Command-K</b><span>Move faster with the keyboard: search, jump between apps, and app shortcuts.</span></a></li>
+<li data-k="the assistant knows what’s in your workspace: your docs, meetings, tasks, notes, tables, clips, links and calendar. ask it a question, or ask it to do something. it sees only what you can see. 
+open it
+press ⌘ j, or click ask in the top bar. it’s named after your workspace, like “ask hotsauce”.in ⌘ k, type your question and choose ask the assistant.
+it opens as a panel beside whatever you’re working on, on any page.
+
+it knows what you’re looking at
+when a doc or meeting is open, a small chip in the panel shows it, so “summarize this” or “turn this into tasks” just works. remove the chip if you want a question about everything instead.
+
+things to ask
+“prep me for my next meeting.”“what did we decide about pricing last month?”“turn the action items from this meeting into tasks for me.”“draft a project brief from these notes in a new doc.”“which of my tasks are overdue?”
+
+when it changes things
+making or editing a doc, task or note happens right away, with an undo button in the chat. every change is saved in history, under your name.deleting or moving a file always asks you to press confirm first.it only acts when you ask. it doesn’t search the internet: its answers come from your workspace.
+
+your conversations
+past conversations are saved in your personal space, visible only to you, and kept out of search. delete any of them whenever you like.
+what it needsan anthropic key, added by an admin. admins can see each person’s usage this month in settings, and can set a monthly limit"><a href="/help/assistant"><b>Ask: the AI assistant<span class="badge">Coming soon</span></b><span>Ask questions about anything in your workspace, and have it make docs and tasks for you.</span></a></li>
+</ul></section>
+<section class="group" aria-labelledby="g-apps"><h2 id="g-apps">The apps</h2><ul class="cards">
+<li data-k="today is the first thing you see when you open hotsauce. it pulls your day together from the other apps, so you can act without hunting around. 
+try it in the live demo →sample data, nothing is saved.
+what’s on it
+a live clock, your next meeting with a join button, and what’s due.today’s meetings with the call link, attendees and one click to take notes.tasks due today or overdue. tick them off right there.to-dos from your meeting notes that aren’t tasks yet. one click turns one into a task.check-in questions waiting for your answer, and docs that changed since yesterday.weather for where you are, if you turn it on.
+
+make it yours
+press edit today.add tiles: starred docs, dictate and clip shortcuts, people, recent files, a whiteboard, or this week.drag tiles to move them, or remove the ones you don’t use. press done.
+your layout follows you to every device.
+what it needsconnect google calendar in settings to see your meetings. the agent brief tile needs an anthropic key. weather comes from met norway and needs no key.
+"><a href="/help/today"><b>Today</b><span>Your day on one page: meetings, tasks, to-dos and changes.</span></a></li>
+<li data-k="docs is where your team writes things down: plans, specs, handbooks, notes. every doc is a markdown file, and every save is kept in its history. 
+try it in the live demo →sample data, nothing is saved.
+write a doc
+open docs and pick a space: team for everyone, or your own.choose a folder, then new doc.write. the editor shows markdown as you type: # for a heading, - for a list, - [ ] for a checkbox.flip to the reading view to see it the way others will.
+
+good to know
+working together. several people can edit the same doc. their changes merge when each person saves.history. open a doc’s history to see every version, who made it, and bring an old one back.links between docs. type [[ and start typing a title. links keep working when a doc is renamed or moved.stars. star the docs you use most to keep them at the top, and on today.live task lists. drop a list of tasks into a page; ticking them off there updates tasks.import. bring in markdown, word and html files.search covers every space you can see.share a read-only link to a doc. see share links and pages.
+what it needsnothing extra. docs works the moment the server is up.
+"><a href="/help/docs"><b>Docs</b><span>Write and organize your team’s documents, with full history.</span></a></li>
+<li data-k="meetings takes notes for you. record a call, jot a few notes as you go, and when it ends hotsauce writes clean notes from your jottings and the transcript. no bot joins your call. 
+try it in the live demo →sample data, nothing is saved.
+take notes on a call
+start recording in one of three ways: from meetings in your browser, with the chrome extension in google meet, or from the mac app for any call app.pick a template if you like: a customer call, an interview or a stand-up.jot a few notes while you talk. the transcript fills in live beside them.stop when the call ends. hotsauce writes the notes, and matches speakers to the names on the invite.
+
+more in meetings
+ask about this meeting, or ask across meetings to search everything ever said: “what did pat say about the budget?”agent brief: a page about what you’re working on, written from your meetings and tasks, that you can hand to an ai tool.action items turn into tasks in one click.reminders before each call, once google calendar is connected.voice notes from your phone: record a thought, a call or a talk. see dictate and voice notes.import from granola brings your old meeting notes in.booking links let people pick a time with you. see booking links.
+tipnames spelled wrong in transcripts? add them to your word list in dictate → words. meetings uses the same list.
+what it needsa deepgram key for transcripts and an anthropic key for the notes, added by an admin. connect google calendar for attendee names and reminders.
+"><a href="/help/meetings"><b>Meetings</b><span>Record calls, get a transcript, and get clean notes written for you.</span></a></li>
+<li data-k="a booking link lets anyone pick a time on your calendar without the back-and-forth. the invite, with a google meet link, goes out on its own. 
+try it in the live demo →sample data, nothing is saved.
+make a booking link
+open meetings → booking links and make a new link.set how long the meeting is and your weekly hours (up to four windows a day).add buffers before and after, the minimum notice, and how far ahead people can book.add any questions you want answered. the answers go into the invite.copy the link and share it.
+people see times in their own time zone. hotsauce checks your google calendar so only free times show. you can have several links, each with its own length.
+what it needsgoogle sign-in with calendar access, and a free cloudflare turnstile key (set by an admin) to keep out bots.
+"><a href="/help/booking"><b>Booking links</b><span>Share a link so people can book a time that’s really free.</span></a></li>
+<li data-k="tasks is your to-do list and your team’s. type a task the way you’d say it, and hotsauce sets the date, priority and project for you. 
+try it in the live demo →sample data, nothing is saved.
+quick add
+press q or click add task, then type:
+send the deck fri p1 #launch @calls +sam
+dates: today, tomorrow, fri, next week, nov 20 3pm.repeats: every friday, every weekday, every month. when you complete it, it moves to the next date.priority: p1 (most urgent) to p3.project: #launch. label: @calls. assign: +sam.
+
+ramble
+press ramble and talk through everything on your mind for up to five minutes. hotsauce lists the tasks it heard, and you pick the ones to keep.
+
+views
+inbox, today, upcoming, projects and done. drag to reorder. team tasks can be assigned and can carry files. you get a reminder on your phone or computer when a task is due, once notifications are on for that device (tick remind me a minute before in meetings).
+tipcoming from todoist? import from todoist is in the tasks sidebar.
+what it needsramble needs deepgram and anthropic keys. everything else works out of the box.
+"><a href="/help/tasks"><b>Tasks</b><span>A fast task list: type it the way you’d say it.</span></a></li>
+<li data-k="notes is for the small stuff that isn’t worth a doc: a phone number, a packing list, an idea. notes save as you type. 
+try it in the live demo →sample data, nothing is saved.
+use it
+make a text note or a checklist. it saves as you type.give it a color, pin the ones you need often, and add labels.archive what you’re done with, and search everything.move a note to the team space to share it.turn a checklist line into a task.
+tipcoming from google keep? import from google keep brings your notes in, colors and pins included.
+what it needsnothing extra.
+"><a href="/help/notes"><b>Notes</b><span>Quick notes and checklists on colored cards.</span></a></li>
+<li data-k="files holds your team’s files and folders. open them right in the browser, and search finds words inside pdfs, word files, slides and spreadsheets, not just their names. 
+try it in the live demo →sample data, nothing is saved.
+use it
+team files for everyone, my files for you. make folders in either.drag files or whole folders in. each file can be up to 2 gb.previews for images, pdfs, video, audio and text.recent shows what you touched last.share a file with a link your team can open.attach files to tasks.
+what it needsnothing extra on your own server. on cloudflare, files are stored in an r2 bucket your admin sets up.
+"><a href="/help/files"><b>Files</b><span>Upload, preview and share files, and search inside them.</span></a></li>
+<li data-k="whiteboard is a shared canvas. anyone who opens a board draws with you live, and you see each other’s cursors. 
+try it in the live demo →sample data, nothing is saved.
+use it
+make a board in my boards or team boards and start drawing: shapes, arrows, text and images.share the board’s address. everyone on it draws together, with live cursors.use the laser pointer to walk people through it.drop a board into a doc.boards save as you go, and every board is in a searchable list.
+what it needsnothing extra.
+"><a href="/help/whiteboard"><b>Whiteboard</b><span>Draw together live on hand-drawn boards.</span></a></li>
+<li data-k="people is a directory you never have to fill in. everyone you meet with shows up here, with your history together and anything still open. 
+try it in the live demo →sample data, nothing is saved.
+what you’ll find
+a page per person with past and next meetings.open tasks with each person.a shared note about each person, for the whole team.company pages, grouped by email domain.search across everyone.
+what it needsworks best with google calendar connected in settings.
+"><a href="/help/people"><b>People</b><span>Everyone you meet with, built from your calendar and notes.</span></a></li>
+<li data-k="forms collects answers from your team or from anyone with the link. answers land in hotsauce, where you can read, summarize and download them. 
+try it in the live demo →sample data, nothing is saved.
+make a form
+open forms and make a new form.add questions: short and long answers, email, choices, dropdowns, ratings, dates and file uploads.make a question appear only after a certain earlier answer, if you need to.choose who can answer: your team only, or anyone with the link.share the link. close the form when you’re done collecting.
+read the answers
+a summary, each answer on its own, a table, or a csv download.open as a table shows answers in tables, always up to date.post new answers to a team chat room, if your admin added one.
+what it needsforms open to the public need a free cloudflare turnstile key. an ai summary of the answers needs an anthropic key.
+"><a href="/help/forms"><b>Forms</b><span>Surveys, sign-ups and requests, with answers in one place.</span></a></li>
+<li data-k="tables is a simple spreadsheet for trackers, lists and budgets. formulas work the way they do in excel and google sheets. 
+use it
+new table, then give each column a type: text, number, date, checkbox, choice, person or link.type = to write a formula, like =sum(c2:c20) or =c2*d2.arrow keys and tab move around. enter or f2 edits a cell, and typing replaces it.copy and paste to and from google sheets and excel.import a csv, tsv or excel file (the first sheet). download any table as csv or excel.
+good to know
+one person edits a table at a time. if two people save at once, the second is asked to reload.a table keeps its values and formulas, not colors, bold or number formats.tables can hold up to 5,000 rows and 52 columns.
+what it needsnothing extra.
+"><a href="/help/tables"><b>Tables</b><span>Trackers and lists with spreadsheet formulas.</span></a></li>
+<li data-k="links is your read-later list. save a page from anywhere, and hotsauce keeps a clean, readable copy with a short summary and tags. 
+save a link
+in links: paste the address into the box at the top.in chrome: click the extension and choose save to hotsauce, or right-click a page or link.on android: share a page and pick hotsauce (once it’s installed).on iphone: use the “save to hotsauce” shortcut from your admin.
+read and sort
+unread and archive. press done when you’ve read something.open a link to read the saved copy, or open the original.links are private to you. share with team moves one to the team space.search reads the saved copies, and your daily briefing mentions what you saved.
+pages behind a paywall or a sign-in keep only what they show the public. pdfs keep the link without a copy.
+what it needsan anthropic key for summaries and tags. saving and reading work without it.
+"><a href="/help/links"><b>Links</b><span>Save web pages to read later, with a summary and tags.</span></a></li>
+<li data-k="check-ins asks the team a question on a schedule, like “what will you get done this week?” on mondays. everyone answers in a minute, and one summary goes to your chat room. 
+try it in the live demo →sample data, nothing is saved.
+answer a check-in
+when it’s time, you get a reminder and a card on today.type your answer or say it out loud.post it (⌘ enter works). teammates can reply under answers.
+set one up (admins)
+open check-ins and make a new one.write the question and pick the days and time. it’s asked at that time in each person’s own time zone.pick a chat room for the summary, if your admin added one.
+once everyone has answered, or by late afternoon, one summary goes to the chat room. you can pause a check-in, or leave someone out.
+what it needsnothing extra. a chat room for the summary is added in settings → organization, and an anthropic key writes the summary (without it, the answers are listed).
+"><a href="/help/checkins"><b>Check-ins</b><span>A question your team answers on a schedule.</span></a></li>
+<li data-k="clips records your screen with your camera in a bubble. when you stop, you get a link to share, with a transcript and summary. 
+record a clip
+open clips on a computer.pick your whole screen, a window or a tab, and turn the camera bubble on or off.press start recording. stop when you’re done, then copy the link and send it.
+watching
+every clip gets a transcript and a short summary.viewers can speed it up or slow it down.keys: space plays and pauses, j and l jump 10 seconds.my clips and team clips make a shared library.
+phone browsers can’t record the screen, so clips is for computers.
+what it needsa deepgram key turns on transcripts, and an anthropic key the summaries. on cloudflare, clips are stored in an r2 bucket.
+"><a href="/help/clips"><b>Clips</b><span>Record your screen and send a link instead of booking a meeting.</span></a></li>
+<li data-k="dictate turns speech into clean text. on a mac, hold a key, talk, and the text lands wherever your cursor is. on a phone, record a voice note and get back a title, summary and to-dos. 
+dictate on a mac
+get the mac app and connect it to your account.click into any app: slack, mail, a doc, the terminal.hold the right option key and talk. let go, and clean, punctuated text appears.
+dictate drops the “ums” and fixes corrections like “tuesday, no wait, wednesday”.
+word list
+open dictate → words to add names and terms it should spell your way. there’s a personal list and a shared team list, and meetings uses them too.
+voice notes on your phone
+add hotsauce to your home screen. opened from there, it starts on voice notes.tap record and talk, for as long as you need.you get back a title, a summary and any to-dos, saved in dictate → voice notes.
+what it needsa deepgram key for speech, and an anthropic key for the clean-up and summaries.
+"><a href="/help/dictate"><b>Dictate and voice notes</b><span>Talk instead of type on your Mac, and record voice notes on your phone.</span></a></li>
+<li data-k="each weekday morning, hotsauce writes a five-minute briefing about your day and reads it aloud. listen in the app, or in your podcast app on the way in. 
+try it in the live demo →sample data, nothing is saved.
+what’s in it
+today’s meetings, with notes from the last time you met each person.what’s due, and which docs changed.links you saved. monday’s briefing covers everything since friday.
+listen
+play it in briefcast, with speed controls, or read the script instead.listen in your podcast app gives you a private feed address to add to any podcast app.make a fresh one any time.
+your feed address is private: don’t share it.
+what it needsan anthropic key writes the briefing, and an openai key reads it aloud. without openai you get the script to read.
+"><a href="/help/briefcast"><b>Daily briefing</b><span>A five-minute audio briefing about your day, every weekday.</span></a></li>
+<li data-k="share a read-only copy of a doc, note or meeting with your team, or with anyone if your admin allows it. agents can also publish web pages here. 
+share a read-only link
+open a doc or meeting note and choose share (in a note, use read-only link).hotsauce makes a link and copies it, and tells you who can open it.turn the link off from the same menu whenever you like. it stops working at once.
+by default only signed-in members can open links. an admin can let people outside the organization open them too, in settings → organization.
+published pages
+claude and other agents can publish an html page to your workspace, like a report or a dashboard. find them under pages in the docs sidebar, with every version kept. pages run in a sealed frame with no access to your account.
+"><a href="/help/sharing"><b>Share links and pages</b><span>Send a read-only link to a doc, note or meeting, or publish a page.</span></a></li>
+</ul></section>
+<section class="group" aria-labelledby="g-devices"><h2 id="g-devices">Other devices and agents</h2><ul class="cards">
+<li data-k="the mac app puts hotsauce in its own window and menu bar, runs dictate in any app, and records any call with your mac’s audio. 
+install it
+in hotsauce, open settings → mac app (or dictate → get the mac app) and download it.open the download and drag hotsauce into applications.if macos says it can’t check the app, open system settings → privacy &amp; security and choose open anyway. you only do this once.sign in when it asks. it opens your browser to connect the app to your account.allow the microphone, and accessibility so dictate can type for you.
+what it does
+dictate: hold the right option key in any app.record any call, in zoom, teams, slack or anything else, with the whole mac’s audio.the whole suite in its own window. ⌘ , opens settings, ⌘ 1–⌘ 5 jump to the first apps.
+see which macs are connected, and disconnect one, in dictate → connected macs.
+"><a href="/help/mac-app"><b>Mac app</b><span>Hotsauce in its own window, plus Dictate and call recording.</span></a></li>
+<li data-k="the chrome extension records google meet calls without a bot, and saves any web page to links. 
+install it
+open meetings → chrome extension in hotsauce and follow the steps there. it shows the right install for your workspace.
+take notes in google meet
+join a call in google meet.click the extension (or press ⌥ ⇧ h to open it) and choose take notes.your notes and the live transcript open in hotsauce. stop when the call ends.
+no bot joins your call, and you don’t need chrome’s “share tab audio” dialog.
+save links
+on any page, click the extension and choose save to hotsauce, or right-click a page or a link. a ✓ on the icon means it’s saved in links.
+"><a href="/help/chrome-extension"><b>Chrome extension</b><span>Take notes in Google Meet, and save links from Chrome.</span></a></li>
+<li data-k="hotsauce has a built-in mcp server, so claude and other ai tools can search, read and write your docs, meetings, tasks, tables, clips and files, with exactly the access you have. 
+connect claude
+in hotsauce, open settings, find connect claude, name a token (say “claude code on my laptop”) and press create token.copy the command or config it shows. the token is shown only once.for claude code, paste the command into a terminal. for claude desktop, add the config shown to its settings file, then quit and reopen claude.
+a token is a password for your account: don’t paste it into a chat or a shared file. revoke it on the same page when you stop using it.
+things to try
+“prep me for my next meeting.”“what did pat say about the pilot budget across our meetings?”“summarise bob’s clip about the export bug and add a task for me to fix it by friday.”“i deleted the q4 plan by mistake. bring it back.”
+everything an agent writes is saved under your name, marked as coming from that token. the full guide, including the http api, is in docs/mcp.md.
+"><a href="/help/agents"><b>Connect Claude and other agents</b><span>Let Claude search, read and write your workspace as you.</span></a></li>
+</ul></section>
+<section class="group" aria-labelledby="g-admin"><h2 id="g-admin">For admins</h2><ul class="cards">
+<li data-k="admins manage the whole workspace in settings → organization. only admins see it. changes take effect when you apply them. 
+what each key turns on
+
+keyturns onwhere to get it
+anthropicmeeting notes, ask about meetings, dictate clean-up, summaries, the daily briefingconsole.anthropic.com
+deepgramtranscripts for meetings and clips, dictate, voice notes, rambleconsole.deepgram.com
+openai*reading the daily briefing aloudplatform.openai.com
+cloudflare turnstile*public forms and booking links, kept free of botscloudflare dashboard
+
+add the anthropic and deepgram keys in settings → organization → ai and transcription. each has a test button, and keys are stored encrypted and never shown again. *the openai and turnstile keys are set on the server itself (openai_api_key, turnstile_site_key and turnstile_secret_key; see the self-hosting guide). without a key, the features that need it say so, and everything else keeps working.
+
+who can sign in
+email domains that can sign in: anyone with a google account on these domains gets in.invited people: exact email addresses outside those domains. they sign in with a code sent to their email, and see everything the team can.admins: the people who can open settings → organization.
+
+your brand
+name the workspace, add a logo and icon, and pick colors, fonts and a default light or dark look. every app follows, and agents can read the brand kit too. how your organization writes tells the ai how your team sounds.
+
+chat rooms and sharing
+team chat link"><a href="/help/admin"><b>Run Hotsauce for your team</b><span>Keys, sign-in, invites, brand, chat rooms, updates and backups.</span></a></li>
+<li data-k="hotsauce runs on one small server your organization owns. pick one of three ways in. each ends at a setup wizard in your browser. 
+1. one click on cloudflare
+about $13–15 a month, always on, no server to look after.
+switch your cloudflare account to workers paid ($5 a month), and turn on r2 storage.click deploy to cloudflare. it copies hotsauce to your github and asks for a name, an r2 bucket, a setup password you make up, and a master key (a long random string you keep safe).when the first build finishes (about ten minutes), open your new address with /setup on the end and enter your setup password.
+
+2. have your ai agent do it
+paste this into claude code, codex, cursor or any coding agent. it stops and asks you before anything that needs your accounts, payment or dns.
+install hotsauce for my company by following https://hotsauce.work/install.md. ask me before anything that needs my accounts, payment or dns.
+
+3. fly.io or your own server
+fly.io costs about $6 a month: run scripts/deploy-fly.sh from a copy of the code. your own linux server with docker takes one command, with https handled for you. running it again updates hotsauce and keeps your settings:
+curl -fssl https://hotsauce.work/install.sh | sudo hotsauce_domain=hotsauce.acme.com sh
+step-by-step for each: the install guide and the self-hosting guide.
+
+the setup wizard
+organization: your name, the workspace name, the email domains that may sign in, and the admins.brand: logo, colors, fonts and default look. optional."><a href="/help/install"><b>Install Hotsauce</b><span>Set up your own Hotsauce in about fifteen minutes.</span></a></li>
+</ul></section>
+<section class="group" aria-labelledby="g-more"><h2 id="g-more">Still stuck?</h2><ul class="cards">
+<li data-k="faq questions"><a href="/faq"><b>FAQ</b><span>Short answers about cost, data, AI keys and running it.</span></a></li>
+<li data-k="demo try sample"><a href="https://demo.hotsauce.work"><b>Live demo</b><span>Click around the real app with sample data.</span></a></li>
+<li data-k="bug issue report github"><a href="https://github.com/hotsauce-suite/hotsauce/issues"><b>Report a problem</b><span>Open an issue on GitHub.</span></a></li>
+</ul></section>
+</main>
+<footer class="foot">
+  <span>Free software under <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/LICENSE">AGPL-3.0</a>. © 2026 Morgan Holland.</span>
+  <span><a href="/">Home</a> · <a href="/help/">Help</a> · <a href="/faq">FAQ</a> · <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Self-host guide</a> · <a href="https://github.com/hotsauce-suite/hotsauce/issues">Report a problem</a></span>
+</footer>
+</div>
+</body>
+</html>
