@@ -199,10 +199,7 @@ export const shots = {
     await startCapture()
     await moveTo(900, 450, 10)
     await wait(800)
-    await point(
-      page.getByRole('button', { name: 'Connect this Mac' }).first(),
-      { ms: 900 },
-    )
+    await point(page.getByRole('button', { name: 'Connect this Mac' }).first(), { ms: 900 })
     await wait(1800)
     await point(page.getByText('Record a voice note here').first(), { ms: 900 })
     await wait(1200)
