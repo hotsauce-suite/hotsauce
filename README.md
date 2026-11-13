@@ -204,7 +204,7 @@ On any Linux server with Docker, this installs the newest release and prints you
 a domain that points at the server and it sets up HTTPS with Caddy too:
 
 ```sh
-curl -fsSL https://hotsauce.work/install.sh | HOTSAUCE_DOMAIN=hotsauce.acme.com sh
+curl -fsSL https://hotsauce.work/install.sh | sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh
 ```
 
 Or run [`deploy/docker-compose.yml`](deploy/docker-compose.yml) yourself. The

@@ -17,13 +17,28 @@ Learnings from making Hotsauce one-click and agent installable (`docs/PLAN-one-c
   Caddyfile; it proxies WebSockets by default. With Caddy in front, publish the server on
   `127.0.0.1:3000` only. `HOTSAUCE_DOMAIN=localhost` exercises the whole path locally (Caddy's
   internal CA, `curl -k`).
+- **A rerun must remember the last run's settings.** The first install.sh rewrote `.env` from the
+  current environment only, so "run it again to update" silently dropped the domain and Caddy and
+  broke Clerk sign-in (its allowed origin is `PUBLIC_URL`). Unset settings now come from the last
+  `.env`; `none` clears one.
+- **`… | sudo VAR=x sh`, never `… | VAR=x sudo sh`.** sudo's env_reset drops variables written
+  before it, so the second form installs with no domain and reports success.
+- **Wrap a `curl | sh` script in `main(); main "$@"`** so a cut-off download runs nothing.
+- **Cloudflare wrangler path:** a clone needs `pnpm install` before `wrangler deploy` (the Worker
+  imports `@cloudflare/containers`); the Deploy button doesn't, Workers Builds installs. Deploy
+  with `--secrets-file` so the cron can't start the container before its secrets exist. Variables
+  set in the dashboard are deleted by the next deploy unless `--keep-vars`, so tell people to set
+  `PUBLIC_URL` and `HOTSAUCE_SLEEP` as secrets. `wrangler delete` leaves the container application
+  running and billing: delete it with `wrangler containers delete <id>` first. (The install test's
+  `containers list --json` filter was written from the CLI's help, untested until its first run.)
 - **Changing `PUBLIC_URL` keeps the setup token.** Rerunning with a domain recreates the container
   and the setup link keeps its token with the new address; the newest log line is the right one.
 - **Testing a shell script with fakes:** put fake `docker`, `curl`, `hostname` and `sleep` first on
   `PATH` and call `/bin/sh` by absolute path (Node resolves the command with the child's `PATH`).
   For "Docker missing", make `PATH` only the fakes folder: CI machines have a real docker.
-- **An unattended agent in CI gets a narrow tool list** (`--allowedTools` for WebFetch, curl, docker
-  and `sudo sh`), not a blanket permission skip. It also needs the person's answers up front in
+- **An unattended agent in CI gets a narrow tool list** (`--allowedTools` for WebFetch, curl,
+  `sudo sh` and `docker compose`, not bare `docker`, which would let it skip the guide with a
+  `docker run`), not a blanket permission skip. It also needs the person's answers up front in
   `--append-system-prompt`, since the guide tells it to ask.
 - **Cloudflare test buckets can't be deleted while the server's state is in them.** The test adds
   a one-day expiry rule on teardown and deletes emptied `hs-test-*` buckets at the start of the next

@@ -404,7 +404,7 @@ footer.foot .brand svg{width:26px;height:26px}
   </div>
   <a class="agentlink" href="#run" data-pick-host="agent">Or have your AI agent install it for you</a><br>
   <button type="button" class="watch" id="watch-tour" aria-haspopup="dialog"><span class="play" aria-hidden="true"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M0 0l12 7-12 7z" fill="currentColor"/></svg></span><u>Watch the tour</u> <small>2 min</small></button>
-  <ul class="chips"><li>Free forever</li><li>About $6 a month to host</li><li>Bring your own AI keys</li></ul>
+  <ul class="chips"><li>Free forever</li><li>From $6 a month to host</li><li>Bring your own AI keys</li></ul>
 
   <div class="tour" id="tour">
     <svg class="stamp" viewBox="0 0 128 128" aria-hidden="true"><circle cx="64" cy="64" r="62" fill="var(--t3)" stroke="var(--line)" stroke-width="2.5"/><g class="ring"><path id="ringpath" d="M64 64m-46 0a46 46 0 1 1 92 0a46 46 0 1 1-92 0" fill="none"/><text font-family="DM Mono, monospace" font-size="10" font-weight="500" fill="var(--ink)"><textPath href="#ringpath" textLength="286" lengthAdjust="spacing">SMALL BATCH · SELF-HOSTED · OPEN SOURCE ·</textPath></text></g><use href="#chili" x="44" y="44" width="40" height="40" style="color:var(--rust)"/></svg>
@@ -683,7 +683,7 @@ before the spring sampling season.
           <button type="button" role="tab" aria-selected="false" tabindex="-1" data-host="docker" id="h-docker" aria-controls="p-docker">Docker</button>
         </div>
         <div class="hostpanel" id="p-cloudflare" role="tabpanel" aria-labelledby="h-cloudflare">
-          <p>One click, no server to look after, about $13–15 a month. Switch your Cloudflare account to <a href="https://dash.cloudflare.com/?to=/:account/workers/plans">Workers Paid</a> first. Cloudflare copies Hotsauce to your GitHub and asks for a name, a <b>setup password</b> you make up and a <b>master key</b> (a long random string you keep safe). Then open your new address with <code>/setup</code> on the end.</p>
+          <p>One click, no server to look after, about $13–15 a month. Switch your Cloudflare account to <a href="https://dash.cloudflare.com/?to=/:account/workers/plans">Workers Paid</a> and turn on <a href="https://dash.cloudflare.com/?to=/:account/r2/overview">R2</a> first. Cloudflare copies Hotsauce to your GitHub and asks for a name, a <b>setup password</b> you make up and a <b>master key</b> (a long random string you keep safe). Then open your new address with <code>/setup</code> on the end.</p>
           <a class="btn primary" href="https://deploy.workers.cloudflare.com/?url=https://github.com/hotsauce-suite/hotsauce">Deploy to Cloudflare</a>
         </div>
         <div class="hostpanel" id="p-agent" role="tabpanel" aria-labelledby="h-agent" hidden>
@@ -698,7 +698,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
         </div>
         <div class="hostpanel" id="p-docker" role="tabpanel" aria-labelledby="h-docker" hidden>
           <p>Any Linux server with Docker. Give it a domain that points at the server and it sets up HTTPS too. It prints your setup link.</p>
-          <div class="cmd"><pre>curl -fsSL https://hotsauce.work/install.sh | HOTSAUCE_DOMAIN=hotsauce.acme.com sh</pre><button class="copy" type="button" aria-live="polite">Copy</button></div>
+          <div class="cmd"><pre>curl -fsSL https://hotsauce.work/install.sh | sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh</pre><button class="copy" type="button" aria-live="polite">Copy</button></div>
         </div></div></li>
       <li><div><h3>Open the setup link</h3><p>Name your workspace, add your brand, connect sign-in and keys, and launch. Then send your team the link. The <a href="/install.md">install guide</a> has every step, and <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">docs/self-host.md</a> every option.</p></div></li>
     </ol>
@@ -709,14 +709,14 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
   <div class="center"><p class="kicker">The back label</p><h2>Good to know.</h2></div>
   <div class="faq">
     <details><summary>Who is Hotsauce for?</summary><p>Teams of roughly 5 to 50 people who want their documents and meeting notes on infrastructure they control, without paying per seat. Nobody needs to be an engineer: install it with one click on Cloudflare, or hand one sentence to your AI agent. After that, everything is set up and managed in the browser.</p></details>
-    <details><summary>Can my AI agent install it?</summary><p>Yes. Give Claude Code, Codex, Cursor or another coding agent the prompt in <a href="#run">Ask your agent</a>. It follows <a href="/install.md">hotsauce.work/install.md</a>, a step-by-step guide written for agents, runs the commands, and stops to ask you whenever a step needs your accounts, payment or DNS. Before every release, an agent installs Hotsauce from scratch with that same prompt to check it still works.</p></details>
-    <details><summary>Is it really free?</summary><p>Yes. The code is free under AGPL-3.0 and every feature is included. You pay your own hosting (about $6 a month on Fly.io) and, if you turn them on, your own Anthropic, Deepgram and Cloudflare R2 usage.</p></details>
+    <details><summary>Can my AI agent install it?</summary><p>Yes. Give Claude Code, Codex, Cursor or another coding agent the prompt in <a href="#run">Ask your agent</a>. It follows <a href="/install.md">hotsauce.work/install.md</a>, a step-by-step guide written for agents, runs the commands, and stops to ask you whenever a step needs your accounts, payment or DNS. After every release, an agent installs Hotsauce from scratch with that same prompt to check it still works.</p></details>
+    <details><summary>Is it really free?</summary><p>Yes. The code is free under AGPL-3.0 and every feature is included. You pay your own hosting (about $6 a month on Fly.io, or $13–15 on Cloudflare) and, if you turn them on, your own Anthropic, Deepgram and Cloudflare R2 usage.</p></details>
     <details><summary>What does AGPL-3.0 mean for my company?</summary><p>You can run Hotsauce for your team, change it, and keep using it, with no fees. If you offer a modified version to people outside your organization over a network, you have to share your changes under the same license. Using it internally doesn't trigger that.</p></details>
     <details><summary>Do I need the AI keys?</summary><p>No. Docs, search and Clips recording work without them. A Deepgram key turns on transcripts for meetings and clips, and Dictate. An Anthropic key turns on AI meeting notes, Ask, and Dictate's clean-up of filler words. The app shows what each key turns on, and admins can add keys at any time in Settings.</p></details>
     <details><summary>Where does my data go?</summary><p>Your files live on your server, or in your GitHub organization if you choose that. Audio is sent to Deepgram for transcription and text to Anthropic for notes, using your own accounts. Clips and kept meeting audio stay on your server's disk, or in your own Cloudflare R2 bucket if you want more room.</p></details>
     <details><summary>How do people sign in?</summary><p>With Google, through a free Clerk application that the wizard walks you through. The server only lets in email addresses from the domains you choose.</p></details>
     <details><summary>Does a bot join my meetings?</summary><p>No. Meetings records from your own browser tab or the Chrome extension for Google Meet, so there's no extra attendee in the call.</p></details>
-    <details><summary>How do I update it?</summary><p>On Cloudflare and Fly.io, your copy gets a pull request every Monday with the newest release, and merging it deploys. With Docker, run the install command again. Either way your files and settings stay where they are.</p></details>
+    <details><summary>How do I update it?</summary><p>With Docker, run the install command again. On Fly.io, pull the latest code and run the deploy script again. On Cloudflare, every push to your copy redeploys, and an optional workflow opens a pull request each Monday with the newest release (see <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md#staying-up-to-date">Staying up to date</a>). Your files and settings stay where they are.</p></details>
   </div>
 </section>
 

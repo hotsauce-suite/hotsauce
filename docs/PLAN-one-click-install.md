@@ -12,8 +12,9 @@ button, the agent prompt, the curl script and the README can't drift apart.
   tests, the prompt in the install section, Cloudflare first, no Railway or Render button yet,
   Caddy for HTTPS in install.sh.
 - Owed by Morgan: the release test's repository secrets (`ANTHROPIC_API_KEY`,
-  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`). Without them the agent and Cloudflare jobs skip
-  and say so; the scripted Docker install still runs.
+  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`). Until they're in, the agent and Cloudflare jobs
+  fail with a warning naming the missing secrets (a red test is visible; a skipped one isn't);
+  the scripted Docker install still runs.
 
 ## Shape
 
@@ -58,7 +59,7 @@ button, the agent prompt, the curl script and the README can't drift apart.
     requirement 5 and the setup link; then, given `ANTHROPIC_API_KEY`, a Claude agent with only the
     landing page's prompt installs it again and the same checks run; and given the Cloudflare
     secrets, it deploys to a test account, checks `/api/health`, and deletes the Worker and bucket.
-    A missing secret skips that job with a notice, never a pass that hides it.
+    A missing secret fails that job with a warning naming it, never a pass or skip that hides it.
 13. README, docs/self-host.md and the landing page FAQ describe these paths and no longer say every
     install needs someone at a terminal.
 

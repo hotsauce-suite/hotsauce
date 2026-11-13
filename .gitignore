@@ -18,3 +18,4 @@ test-results/
 
 # The live demo, built on each site deploy (site/wrangler.jsonc).
 /site/public/demo/
+.hotsauce-secrets

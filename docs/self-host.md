@@ -41,7 +41,7 @@ Steps:
 2. Open `https://<worker>.<account>.workers.dev/setup` and paste your setup password. The first visit starts the server, which takes a minute or two.
 3. In the wizard's **Files and audio** step, give it a GitHub organization and token, and R2 keys for video (the bucket the button made is fine).
 
-From then on, every push to your copy's main branch deploys again (Workers Builds). The container stays on; a cron trigger restarts it within five minutes if it stops. To let it sleep when nobody uses it (cheaper; the first visit afterwards waits for it to start), add the variable `HOTSAUCE_SLEEP=true` to the Worker. To use your own domain, add it to the Worker under **Settings → Domains & Routes** and set the variable `PUBLIC_URL=https://hotsauce.acme.com`.
+From then on, every push to your copy's main branch deploys again (Workers Builds). The container stays on; a cron trigger restarts it within five minutes if it stops. To let it sleep when nobody uses it (cheaper; the first visit afterwards waits for it to start), add `HOTSAUCE_SLEEP=true` to the Worker as a secret. To use your own domain, add it to the Worker under **Settings → Domains & Routes** and set `PUBLIC_URL=https://hotsauce.acme.com` as a **secret** (a plain variable set in the dashboard is removed by the next deploy).
 
 Known limits: a meeting that is recording when the container restarts keeps its transcript but not the audio recorded so far. The Chrome extension offered for download carries your server's address (`PUBLIC_URL`) and name.
 
@@ -50,11 +50,11 @@ Known limits: a meeting that is recording when the container restarts keeps its 
 The quickest way, on any Linux server with Docker and the Compose plugin:
 
 ```sh
-curl -fsSL https://hotsauce.work/install.sh | sh                                     # http://<server>:3000
-curl -fsSL https://hotsauce.work/install.sh | HOTSAUCE_DOMAIN=hotsauce.acme.com sh   # with HTTPS
+curl -fsSL https://hotsauce.work/install.sh | sudo sh                                     # http://<server>:3000
+curl -fsSL https://hotsauce.work/install.sh | sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh   # with HTTPS
 ```
 
-It writes `compose.yml` to `/opt/hotsauce` (`HOTSAUCE_DIR` changes it), runs the newest release, adds Caddy in front for HTTPS when given a domain whose DNS points at the server (ports 80 and 443 open), waits for the server and prints the setup link. Running it again updates to the newest release and keeps your data. The script is `site/public/install.sh` in this repository.
+Settings go after `sudo`, which drops any written before it. It writes `compose.yml` to `/opt/hotsauce` (`HOTSAUCE_DIR` changes it), runs the newest release, adds Caddy in front for HTTPS when given a domain whose DNS points at the server (ports 80 and 443 open), checks HTTPS works, and prints the setup link. Without a domain it uses the server's first IP address; set `HOTSAUCE_URL=http://<public address>:3000` when that's a private one. Running it again with no settings updates to the newest release and keeps the domain and your data (`HOTSAUCE_DOMAIN=none` removes the domain). The script is `site/public/install.sh` in this repository.
 
 Or by hand, from a clone:
 

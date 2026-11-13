@@ -44,7 +44,7 @@ Then follow the section for that host.
 ## 2a. Cloudflare
 
 There are two ways. Use **the button** when you can't run commands for the person. Use **wrangler**
-when you have a terminal with Node 22, git and Docker running.
+when you have a terminal with Node 22, pnpm (`corepack enable`), git and Docker running.
 
 **First, either way:**
 
@@ -75,31 +75,35 @@ when you have a terminal with Node 22, git and Docker running.
 
 ```sh
 git clone --depth 1 https://github.com/hotsauce-suite/hotsauce && cd hotsauce
+corepack enable && pnpm install --frozen-lockfile
 npx wrangler@4 login                       # HUMAN: approve in the browser window it opens
 ```
 
 Pick the short name (`acme-hotsauce` below) and give the Worker and its bucket that name, then
-create the bucket and deploy. Docker must be running: wrangler builds the server's image.
+create the bucket:
 
 ```sh
 name=acme-hotsauce
 sed -i.bak -e "s/\"name\": \"hotsauce\"/\"name\": \"$name\"/" \
   -e "s/\"bucket_name\": \"hotsauce\"/\"bucket_name\": \"$name\"/" wrangler.jsonc
 npx wrangler@4 r2 bucket create "$name"
-npx wrangler@4 deploy
+```
+
+Generate the two secrets into a private file and deploy with them, so the server never starts
+without them. Docker must be running: wrangler builds the server's image.
+
+```sh
+umask 077
+printf 'HOTSAUCE_SETUP_TOKEN=%s\nHOTSAUCE_MASTER_KEY=%s\n' \
+  "$(openssl rand -base64 18 | tr -d '/+=')" "$(openssl rand -base64 32 | tr -d '/+=')" > .hotsauce-secrets
+npx wrangler@4 deploy --secrets-file .hotsauce-secrets
 ```
 
 The deploy prints the address, like `https://acme-hotsauce.<subdomain>.workers.dev`. That is
-`<url>` below. Now generate and set the two secrets, without echoing them anywhere else:
-
-```sh
-setup_password="$(openssl rand -base64 18 | tr -d '/+=')"
-openssl rand -base64 32 | npx wrangler@4 secret put HOTSAUCE_MASTER_KEY
-printf '%s' "$setup_password" | npx wrangler@4 secret put HOTSAUCE_SETUP_TOKEN
-```
-
-Show the person `$setup_password` once and tell them to keep it until setup is finished. The
-master key never needs to be seen again; it lives only in the Worker's secrets.
+`<url>` below. Show the person both values from `.hotsauce-secrets` once: the setup password is
+needed until setup is finished, and the master key is the only way to keep their saved keys if
+the Worker is ever rebuilt, so it belongs in their password manager. Then delete the file
+(`rm .hotsauce-secrets`).
 
 ### Then, either way
 
@@ -111,9 +115,10 @@ master key never needs to be seen again; it lives only in the Worker's secrets.
    organization and a fine-grained token with Contents read and write on it), and Clips videos in
    **R2**.
 3. For a company address: `HUMAN:` in Cloudflare, open the Worker, then **Settings → Domains &
-   Routes → Add → Custom domain**, and enter it (the domain's DNS must be on Cloudflare). Then add
-   the variable `PUBLIC_URL` with that address under **Settings → Variables and Secrets** and deploy
-   again.
+   Routes → Add → Custom domain**, and enter it (the domain's DNS must be on Cloudflare). Then set
+   `PUBLIC_URL` to that address as a **secret**, not a plain variable, because every deploy removes
+   variables set in the dashboard: `printf '%s' https://hotsauce.acme.com | npx wrangler@4 secret put PUBLIC_URL`,
+   or **Settings → Variables and Secrets → Add → Type: Secret**.
 
 ## 2b. Fly.io
 
@@ -143,21 +148,24 @@ setup link isn't printed, run `fly logs --app acme-hotsauce --no-tail | grep set
 On the server (Linux with Docker and the Docker Compose plugin), as a user that can run `docker`:
 
 ```sh
-curl -fsSL https://hotsauce.work/install.sh | sh
+curl -fsSL https://hotsauce.work/install.sh | sudo sh
 ```
 
-For a company address with HTTPS, point its DNS record (an `A` record to the server's IP address;
-`HUMAN:` if you can't change DNS) at the server first, make sure ports 80 and 443 are open, then:
+For a company address with HTTPS, point its DNS record (an `A` record to the server's public IP
+address; `HUMAN:` if you can't change DNS) at the server first, make sure ports 80 and 443 are
+open, then:
 
 ```sh
-curl -fsSL https://hotsauce.work/install.sh | HOTSAUCE_DOMAIN=hotsauce.acme.com sh
+curl -fsSL https://hotsauce.work/install.sh | sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh
 ```
 
-It installs to `/opt/hotsauce` (set `HOTSAUCE_DIR` to change it), runs the published release with
-Caddy in front for HTTPS when given a domain, waits for the server and prints the setup link.
-Without a domain, `<url>` is `http://<server>:3000`; put it behind HTTPS before the team uses it.
-Running it again updates to the newest release and keeps the data. Back up the `hotsauce-data`
-Docker volume.
+Settings go after `sudo`, which drops any written before it. It installs to `/opt/hotsauce` (set
+`HOTSAUCE_DIR` to change it), runs the published release with Caddy in front for HTTPS when given
+a domain, waits for the server, checks HTTPS works and prints the setup link. Without a domain,
+`<url>` is `http://<server>:3000`; if the address it prints isn't one the team can reach (a private
+cloud address), run it again with `HOTSAUCE_URL=http://<public address>:3000` after `sudo`, and put
+it behind HTTPS before the team uses it. Running it again with no settings updates to the newest
+release and keeps the domain and the data. Back up the `hotsauce_hotsauce-data` Docker volume.
 
 ## 3. The setup wizard
 
@@ -190,8 +198,15 @@ Run these against `<url>`:
    **Docs** and finding it in search proves storage and the index work.
 
 Then tell the person: share `<url>` with the team (only the email domains chosen in step 1 can sign
-in), admins change anything later under **Settings → Organization**, and updates arrive as a weekly
-pull request on Cloudflare and Fly, or by running the install command again on Docker.
+in), and admins change anything later under **Settings → Organization**. Then explain updates:
+
+- **Docker:** run the install command again.
+- **Fly.io or the wrangler path:** `git pull` in the clone and run the same deploy again.
+- **The Cloudflare button:** each push to their copy's main branch redeploys. For a weekly pull
+  request with each new release, `HUMAN:` add
+  https://github.com/hotsauce-suite/hotsauce/blob/main/.github/workflows/update-hotsauce.yml to
+  their copy at the same path, and tick "Allow GitHub Actions to create and approve pull requests"
+  in the copy's **Settings → Actions → General**.
 
 ## If something goes wrong
 

@@ -113,8 +113,8 @@ describe('install.sh', () => {
     env = {},
     health = '{"ok":true,"version":"9.9.9","setupRequired":true}',
     docker = true,
+    tmp = mkdtempSync(join(tmpdir(), 'hotsauce-install-')),
   } = {}) {
-    const tmp = mkdtempSync(join(tmpdir(), 'hotsauce-install-'))
     const bin = join(tmp, 'bin')
     const dir = join(tmp, 'hotsauce')
     const log = join(tmp, 'calls.log')
@@ -123,6 +123,9 @@ describe('install.sh', () => {
       writeFileSync(join(bin, name), `#!/bin/sh\necho "${name} $*" >> "${log}"\n${body}\n`)
       chmodSync(join(bin, name), 0o755)
     }
+    // Without Docker, PATH is only this folder: give it the few tools the script needs first.
+    if (!docker)
+      for (const t of ['sed', 'tail']) execFileSync('ln', ['-s', `/usr/bin/${t}`, join(bin, t)])
     if (docker) {
       fake(
         'docker',
@@ -150,6 +153,7 @@ describe('install.sh', () => {
     } catch {}
     return {
       ...res,
+      tmp,
       out: res.stdout + res.stderr,
       compose: file('compose.yml'),
       env: file('.env'),
@@ -187,6 +191,23 @@ describe('install.sh', () => {
     expect(r.compose).toContain('--from ${HOTSAUCE_DOMAIN} --to hotsauce:3000')
     expect(r.compose).toContain('"443:443"')
     expect(r.out).not.toContain('put it behind HTTPS')
+  })
+
+  it("keeps the last run's domain when run again to update, until told `none` (9)", () => {
+    const first = run({ env: { HOTSAUCE_DOMAIN: 'hotsauce.acme.com' } })
+    const again = run({ tmp: first.tmp })
+    expect(again.status, again.out).toBe(0)
+    expect(again.env).toContain('PUBLIC_URL=https://hotsauce.acme.com')
+    expect(again.compose).toContain('image: caddy:2')
+    const off = run({ tmp: first.tmp, env: { HOTSAUCE_DOMAIN: 'none' } })
+    expect(off.env).toContain('PUBLIC_URL=http://10.0.0.5:3000')
+    expect(off.compose).not.toContain('caddy')
+  })
+
+  it('without write access, says to rerun with sudo and the settings after it', () => {
+    const r = run({ env: { HOTSAUCE_DIR: '/proc/hotsauce', HOTSAUCE_DOMAIN: 'hotsauce.acme.com' } })
+    expect(r.status).not.toBe(0)
+    expect(r.out).toContain('| sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh')
   })
 
   it('rejects a domain that is not a plain host name', () => {
