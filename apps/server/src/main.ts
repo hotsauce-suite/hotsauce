@@ -6,6 +6,7 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { type Context, Hono } from 'hono'
 import { createApp } from './app.js'
 import { loadConfig } from './config.js'
+import { legacyHostRedirect } from './legacyHosts.js'
 import { OrgStore } from './org/store.js'
 import { createServices, loadEnvFile } from './services.js'
 import { rebuildRegistryFromClones } from './spaces/index.js'
@@ -92,6 +93,7 @@ async function main(): Promise<void> {
       )
     await next()
   })
+  app.use('*', legacyHostRedirect(config.PUBLIC_URL, config.LEGACY_HOSTS))
   const injectWebSocket = attachWebSocket(
     app,
     broadcaster,

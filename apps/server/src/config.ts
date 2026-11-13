@@ -20,6 +20,8 @@ export const ConfigSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
     PUBLIC_URL: z.string().url().default('http://localhost:3000'),
+    // Old addresses of this instance (comma-separated hosts): pages there redirect to PUBLIC_URL.
+    LEGACY_HOSTS: z.string().default('').transform(csv),
     DATA_DIR: z.string().default('./.data'),
 
     // Who this instance is for (ARCHITECTURE §11). The setup wizard saves these; env wins.
