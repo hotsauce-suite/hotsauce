@@ -41,14 +41,16 @@
 <p class="lede">Hotsauce runs on one small server your organization owns. Pick one of three ways in. Each ends at a setup wizard in your browser.</p>
 <h2 id="1-one-click-on-cloudflare">1. One click on Cloudflare</h2>
 <p>About $13–15 a month, always on, no server to look after.</p>
-<ol class="steps"><li>Switch your Cloudflare account to <a href="https://dash.cloudflare.com/?to=/:account/workers/plans">Workers Paid</a> ($5 a month).</li><li>Click <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/hotsauce-suite/hotsauce">Deploy to Cloudflare</a>. It copies Hotsauce to your GitHub and asks for a name, an R2 bucket, a setup password you make up, and a master key (a long random string you keep safe).</li><li>When the first build finishes (about ten minutes), open your new address with <code>/setup</code> on the end and enter your setup password.</li></ol>
+<ol class="steps"><li>Switch your Cloudflare account to <a href="https://dash.cloudflare.com/?to=/:account/workers/plans">Workers Paid</a> ($5 a month), and turn on <a href="https://dash.cloudflare.com/?to=/:account/r2/overview">R2 storage</a>.</li><li>Click <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/hotsauce-suite/hotsauce">Deploy to Cloudflare</a>. It copies Hotsauce to your GitHub and asks for a name, an R2 bucket, a setup password you make up, and a master key (a long random string you keep safe).</li><li>When the first build finishes (about ten minutes), open your new address with <code>/setup</code> on the end and enter your setup password.</li></ol>
 
 <h2 id="2-have-your-ai-agent-do-it">2. Have your AI agent do it</h2>
 <p>Paste this into Claude Code, Codex, Cursor or any coding agent. It stops and asks you before anything that needs your accounts, payment or DNS.</p>
 <pre class="ex">Install Hotsauce for my company by following https://hotsauce.work/install.md. Ask me before anything that needs my accounts, payment or DNS.</pre>
 
 <h2 id="3-fly-io-or-your-own-server">3. Fly.io or your own server</h2>
-<p>About $6 a month on Fly.io, or any Linux server with Docker. Follow <a href="/install.md">the install guide</a> or the <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">self-hosting guide</a>.</p>
+<p><b>Fly.io</b> costs about $6 a month: run <code>scripts/deploy-fly.sh</code> from a copy of the code. <b>Your own Linux server</b> with Docker takes one command, with HTTPS handled for you. Running it again updates Hotsauce and keeps your settings:</p>
+<pre class="ex">curl -fsSL https://hotsauce.work/install.sh | sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh</pre>
+<p>Step-by-step for each: <a href="/install.md">the install guide</a> and the <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">self-hosting guide</a>.</p>
 
 <h2 id="the-setup-wizard">The setup wizard</h2>
 <ol class="steps"><li><b>Organization</b>: your name, the workspace name, the email domains that may sign in, and the admins.</li><li><b>Brand</b>: logo, colors, fonts and default look. Optional.</li><li><b>Sign-in</b>: a free Clerk application with Google turned on. Paste its two keys.</li><li><b>AI and transcription</b>: your Anthropic and Deepgram keys. Optional.</li><li><b>Files and audio</b>: on the server’s disk, or in GitHub and R2.</li><li><b>Review and launch</b>. Then send your team the link.</li></ol>

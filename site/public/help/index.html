@@ -327,18 +327,19 @@ team chat link"><a href="/help/admin"><b>Run Hotsauce for your team</b><span>Key
 <li data-k="hotsauce runs on one small server your organization owns. pick one of three ways in. each ends at a setup wizard in your browser. 
 1. one click on cloudflare
 about $13–15 a month, always on, no server to look after.
-switch your cloudflare account to workers paid ($5 a month).click deploy to cloudflare. it copies hotsauce to your github and asks for a name, an r2 bucket, a setup password you make up, and a master key (a long random string you keep safe).when the first build finishes (about ten minutes), open your new address with /setup on the end and enter your setup password.
+switch your cloudflare account to workers paid ($5 a month), and turn on r2 storage.click deploy to cloudflare. it copies hotsauce to your github and asks for a name, an r2 bucket, a setup password you make up, and a master key (a long random string you keep safe).when the first build finishes (about ten minutes), open your new address with /setup on the end and enter your setup password.
 
 2. have your ai agent do it
 paste this into claude code, codex, cursor or any coding agent. it stops and asks you before anything that needs your accounts, payment or dns.
 install hotsauce for my company by following https://hotsauce.work/install.md. ask me before anything that needs my accounts, payment or dns.
 
 3. fly.io or your own server
-about $6 a month on fly.io, or any linux server with docker. follow the install guide or the self-hosting guide.
+fly.io costs about $6 a month: run scripts/deploy-fly.sh from a copy of the code. your own linux server with docker takes one command, with https handled for you. running it again updates hotsauce and keeps your settings:
+curl -fssl https://hotsauce.work/install.sh | sudo hotsauce_domain=hotsauce.acme.com sh
+step-by-step for each: the install guide and the self-hosting guide.
 
 the setup wizard
-organization: your name, the workspace name, the email domains that may sign in, and the admins.brand: logo, colors, fonts and default look. optional.sign-in: a free clerk application with google turned on. paste its two keys.ai and transcription: your anthropic and deepgram keys. optional.files and audio: on the server’s disk, or in github and r2.review and launch. then send your team the link.
-everything can be changed later. see run "><a href="/help/install"><b>Install Hotsauce</b><span>Set up your own Hotsauce in about fifteen minutes.</span></a></li>
+organization: your name, the workspace name, the email domains that may sign in, and the admins.brand: logo, colors, fonts and default look. optional."><a href="/help/install"><b>Install Hotsauce</b><span>Set up your own Hotsauce in about fifteen minutes.</span></a></li>
 </ul></section>
 <section class="group" aria-labelledby="g-more"><h2 id="g-more">Still stuck?</h2><ul class="cards">
 <li data-k="faq questions"><a href="/faq"><b>FAQ</b><span>Short answers about cost, data, AI keys and running it.</span></a></li>
