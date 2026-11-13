@@ -104,6 +104,7 @@ Import Markdown, Word and HTML files, and drop live task lists into a page.
 | **Whiteboard** | Hand-drawn boards the whole team can draw on at once, saved as files you can search. |
 | **Files** | Upload and share files and folders, with previews and search across what's inside them. |
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
+| **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note or meeting, or publish a page. |
 | **Clips** | Loom-style screen recordings with a camera bubble, a transcript, a summary, speed control and a shared library. |
 | **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is. Team word lists keep names spelled right. |

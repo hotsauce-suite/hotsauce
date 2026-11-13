@@ -35,18 +35,24 @@ describe('Check-ins', () => {
 
   it('R5, R6: answers the round, then replies under the answer', async () => {
     await openCheckin()
+    // The sample round: Grace has answered, with a reply; last week has a summary.
+    expect(screen.getAllByTestId('checkin-round')).toHaveLength(2)
+    expect(screen.getByTestId('checkin-summary')).toHaveTextContent('Nothing stuck this week')
     await userEvent.type(screen.getByTestId('checkin-answer'), 'Ship the report')
     await userEvent.click(screen.getByTestId('checkin-submit'))
     expect(await screen.findByTestId('checkin-edit-answer')).toBeInTheDocument()
-    const card = await screen.findByTestId('checkin-answer-card')
+    const mine = () =>
+      screen
+        .getAllByTestId('checkin-answer-card')
+        .find((c) => within(c).queryByText('You')) as HTMLElement
+    await waitFor(() => expect(mine()).toBeDefined())
+    const card = mine()
     expect(within(card).getByTestId('checkin-answer-text')).toHaveTextContent('Ship the report')
     await userEvent.click(within(card).getByTestId('checkin-reply-open'))
     await userEvent.type(within(card).getByTestId('checkin-reply-input'), 'Nice')
     await userEvent.click(within(card).getByTestId('checkin-reply-send'))
     await waitFor(() =>
-      expect(
-        within(screen.getByTestId('checkin-answer-card')).getByTestId('checkin-reply'),
-      ).toHaveTextContent('Nice'),
+      expect(within(mine()).getByTestId('checkin-reply')).toHaveTextContent('Nice'),
     )
   })
 

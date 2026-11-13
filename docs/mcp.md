@@ -109,6 +109,13 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | `add_note` | Add a note (a checklist is "- [ ] item" lines), personal by default |
 | `update_note` | Change a note's title, text, colour or pin; archive, trash or restore it |
 
+**Check-ins**
+
+| Tool | What it does |
+| --- | --- |
+| `list_checkins` | The team's scheduled questions, with the current round and how many have answered |
+| `get_checkin` | A check-in's recent rounds: everyone's answers, replies and the summary; or one round by date |
+
 **Clips**
 
 | Tool | What it does |
@@ -127,6 +134,7 @@ Every write is a commit authored by you with `Hearth-Via: mcp (token "<name>")`.
 - "Summarise Bob's clip about the export bug and add a task for me to fix it by Friday."
 - "Move last week's draft into docs/archive and show me who edited it."
 - "I deleted the Q4 plan by mistake. Bring it back."
+- "What did the team say was stuck in Friday's check-in?"
 
 ## The HTTP API
 
