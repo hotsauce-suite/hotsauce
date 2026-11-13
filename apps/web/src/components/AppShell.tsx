@@ -220,13 +220,24 @@ function ShellLayout() {
                 aria-label="Show the sidebar"
                 title={`Show the sidebar (${formatSpec('mod+\\').join('')})`}
                 onClick={() => setSidebarHidden(false)}
-                className="flex h-full w-3 shrink-0 items-center justify-center border-r border-ash/70 text-ink-faint hover:w-6 hover:bg-paper-raised focus-visible:w-6"
+                className="flex h-full w-3 shrink-0 items-center justify-center border-r border-ash/70 text-ink-faint hover:w-6 hover:bg-paper-raised focus-visible:w-6 [@media(pointer:coarse)]:w-7"
               >
                 <Icon name="chevron" className="size-3" />
               </button>
             ) : (
-              <div className="h-full w-[var(--sidebar-width)] shrink-0" data-sidebar-frame>
+              <div className="relative h-full w-[var(--sidebar-width)] shrink-0" data-sidebar-frame>
                 {sidebar}
+                {/* ⌘\ on a keyboard; this for a finger (an upright iPad wants the room). */}
+                <button
+                  type="button"
+                  data-testid="hide-sidebar"
+                  aria-label="Hide the sidebar"
+                  title={`Hide the sidebar (${formatSpec('mod+\\').join('')})`}
+                  onClick={() => setSidebarHidden(true)}
+                  className="tap-target absolute top-3 right-2 z-10 flex size-7 items-center justify-center rounded-md text-ink-faint hover:bg-paper-raised hover:text-ink"
+                >
+                  <Icon name="sidebar" className="size-4" />
+                </button>
               </div>
             )}
           </>

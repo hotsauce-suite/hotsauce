@@ -1,5 +1,6 @@
 const PATHS = {
   chevron: 'M6 4l4 4-4 4',
+  sidebar: 'M1.75 2.75h12.5v10.5H1.75zM6 2.75v10.5',
   file: 'M4 1.75h5.25L12.5 5v9.25h-8.5zM9 1.75V5.25h3.5',
   folder: 'M1.75 4.25v8.5h12.5V5.5H7.5L6 3.75H1.75z',
   form: 'M3.25 1.75h9.5v12.5h-9.5zM5.5 5h1M8 5h2.5M5.5 8h1M8 8h2.5M5.5 11h1M8 11h2.5',
