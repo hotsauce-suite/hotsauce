@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
-import { FakeClipTranscriber, probe } from '../../src/clips/index.js'
+import { bubbleGeometry, FakeClipTranscriber, probe } from '../../src/clips/index.js'
 import { type Config, loadConfig } from '../../src/config.js'
 import { HearthError } from '../../src/errors.js'
 import { FakeLLM, LocalAudioStore } from '../../src/meetings/index.js'
@@ -21,6 +21,8 @@ let fixtures: string
 let webm: Buffer
 let mp4: Buffer
 let silentWebm: Buffer
+/** A plain blue camera, so its pixels are easy to find in the composite. */
+let cameraWebm: Buffer
 
 /** What Chrome's MediaRecorder makes, near enough: a live-style WebM and a fragmented MP4. */
 beforeAll(async () => {
@@ -82,7 +84,50 @@ beforeAll(async () => {
   webm = await readFile(join(fixtures, 'rec.webm'))
   mp4 = await readFile(join(fixtures, 'rec.mp4'))
   silentWebm = await readFile(join(fixtures, 'silent.webm'))
+  await run('ffmpeg', [
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=0x0000ff:size=320x240:rate=15:duration=4',
+    '-c:v',
+    'libvpx',
+    '-b:v',
+    '200k',
+    '-live',
+    '1',
+    '-f',
+    'webm',
+    join(fixtures, 'camera.webm'),
+  ])
+  cameraWebm = await readFile(join(fixtures, 'camera.webm'))
 }, 60_000)
+
+/** The RGB colour of one pixel of `file` at `seconds`. */
+async function pixel(file: string, seconds: number, x: number, y: number): Promise<number[]> {
+  const { stdout } = await run(
+    'ffmpeg',
+    [
+      '-v',
+      'error',
+      '-ss',
+      String(seconds),
+      '-i',
+      file,
+      '-frames:v',
+      '1',
+      '-vf',
+      `crop=2:2:${x - (x % 2)}:${y - (y % 2)}`,
+      '-f',
+      'rawvideo',
+      '-pix_fmt',
+      'rgb24',
+      '-',
+    ],
+    { encoding: 'buffer' },
+  )
+  return [...(stdout as Buffer).subarray(0, 3)]
+}
 
 afterAll(async () => {
   await removeDir(fixtures)
@@ -156,6 +201,10 @@ interface Clip {
   mimeType: string
   isOwner: boolean
   transcriptStatus: string
+  compositeStatus: string
+  speakers: Array<{ id: number; name: string; named: boolean }>
+  aiSummary: string | null
+  aiActions: string | null
   videoUrl: string | null
   thumbUrl: string | null
   downloadUrl: string | null
@@ -198,9 +247,10 @@ async function record(
 }
 
 async function get(as: string, id: string) {
-  return json<{ clip: Clip; transcript: Array<{ start: number; end: number; text: string }> }>(
-    await call('GET', `/api/clips/${id}`, { as }),
-  )
+  return json<{
+    clip: Clip
+    transcript: Array<{ start: number; end: number; text: string; speaker?: number }>
+  }>(await call('GET', `/api/clips/${id}`, { as }))
 }
 
 describe('recording a clip', () => {
@@ -530,6 +580,528 @@ describe('playback', () => {
   })
 })
 
+describe('the camera bubble', () => {
+  async function recordWithCamera(cameraOffsetMs = 0) {
+    const clip = await json<Clip>(
+      await call('POST', '/api/clips', {
+        as: ALICE,
+        json: { mode: 'screen_camera', container: 'webm' },
+      }),
+      201,
+    )
+    const screen = slices(webm, 3)
+    const camera = slices(cameraWebm, 2)
+    for (const [seq, part] of screen.entries()) {
+      await json(
+        await call('PUT', `/api/clips/${clip.id}/chunks/${seq}`, { as: ALICE, body: part }),
+        204,
+      )
+    }
+    for (const [seq, part] of camera.entries()) {
+      await json(
+        await call('PUT', `/api/clips/${clip.id}/chunks/${seq}?track=camera`, {
+          as: ALICE,
+          body: part,
+        }),
+        204,
+      )
+    }
+    const finished = await json<Clip>(
+      await call('POST', `/api/clips/${clip.id}/finish`, {
+        as: ALICE,
+        json: {
+          chunks: 3,
+          camera: { chunks: 2, container: 'webm', offsetMs: cameraOffsetMs },
+          screenSurface: 'window',
+          screenLabel: 'Pricing – Google Chrome',
+        },
+      }),
+    )
+    expect(finished.compositeStatus).toBe('pending')
+    await services.clips.idle()
+    return clip.id
+  }
+
+  it('records the camera separately and puts it into the video as a round bubble', async () => {
+    const id = await recordWithCamera(500)
+    const { clip } = await get(ALICE, id)
+    expect(clip.compositeStatus).toBe('ready')
+    expect(clip.mimeType).toBe('video/mp4')
+    expect(clip.videoUrl).toContain('/composite?')
+    // A new thumbnail URL, so a cached screen-only one isn't shown.
+    expect(clip.thumbUrl).toContain('/camera-thumb?')
+    const thumb = await call('GET', clip.thumbUrl as string)
+    expect(thumb.status).toBe(200)
+    expect(thumb.headers.get('content-type')).toBe('image/jpeg')
+    expect(clip).toMatchObject({ screenSurface: 'window', screenLabel: 'Pricing – Google Chrome' })
+
+    const store = new LocalAudioStore(config.DATA_DIR)
+    const composite = store.pathOf(`clips/${id}/composite.mp4`)
+    const screen = store.pathOf(`clips/${id}/video.webm`)
+    expect(existsSync(store.pathOf(`clips/${id}/camera.webm`))).toBe(true)
+    // The page's length is the length of the video it now plays.
+    expect(clip.durationMs).toBe((await probe(FFMPEG, composite)).durationMs)
+    // 320×240 screen: the bubble is 58 px across, 8 px in from the bottom left (bubbleGeometry).
+    const { size, margin } = bubbleGeometry(240)
+    const [cx, cy] = [margin + size / 2, 240 - margin - size / 2]
+    const inBubble = await pixel(composite, 2, cx, cy)
+    const sameSpotOnScreen = await pixel(screen, 2, cx, cy)
+    // Blue camera in the bubble; the screen there is something else.
+    expect(inBubble[2]).toBeGreaterThan(180)
+    expect(inBubble[0]).toBeLessThan(80)
+    expect(inBubble).not.toEqual(sameSpotOnScreen)
+    // Before the camera starts (0.5 s late) the corner is the screen's.
+    const early = await pixel(composite, 0.1, cx, cy)
+    expect(early[2]).toBeLessThan(180)
+    // Outside the bubble the screen is untouched.
+    const corner = await pixel(composite, 2, 300, 20)
+    const screenCorner = await pixel(screen, 2, 300, 20)
+    for (const [i, v] of corner.entries()) {
+      expect(Math.abs(v - (screenCorner[i] ?? 0))).toBeLessThan(40)
+    }
+    // The camera's chunks are cleaned up once it's in.
+    expect(existsSync(join(config.DATA_DIR, 'clips', 'uploads', id))).toBe(false)
+
+    // Deleting removes the composite and the camera too.
+    await json(await call('DELETE', `/api/clips/${id}`, { as: ALICE }), 204)
+    expect(existsSync(composite)).toBe(false)
+    expect(existsSync(store.pathOf(`clips/${id}/camera.webm`))).toBe(false)
+  })
+
+  it('keeps the screen video when the camera can’t be put in', async () => {
+    const clip = await json<Clip>(
+      await call('POST', '/api/clips', {
+        as: ALICE,
+        json: { mode: 'screen_camera', container: 'webm' },
+      }),
+      201,
+    )
+    await call('PUT', `/api/clips/${clip.id}/chunks/0`, { as: ALICE, body: webm })
+    await call('PUT', `/api/clips/${clip.id}/chunks/0?track=camera`, {
+      as: ALICE,
+      body: new TextEncoder().encode('not a camera'.repeat(20)),
+    })
+    await json(
+      await call('POST', `/api/clips/${clip.id}/finish`, {
+        as: ALICE,
+        json: { chunks: 1, camera: { chunks: 1, container: 'webm', offsetMs: 0 } },
+      }),
+    )
+    await services.clips.idle()
+    const { clip: done } = await get(ALICE, clip.id)
+    expect(done.status).toBe('ready')
+    expect(done.compositeStatus).toBe('failed')
+    expect(done.mimeType).toBe('video/webm')
+    expect(done.videoUrl).toContain('/video?')
+  })
+
+  it('refuses to finish while camera chunks are missing', async () => {
+    const clip = await json<Clip>(
+      await call('POST', '/api/clips', {
+        as: ALICE,
+        json: { mode: 'screen_camera', container: 'webm' },
+      }),
+      201,
+    )
+    await call('PUT', `/api/clips/${clip.id}/chunks/0`, { as: ALICE, body: webm })
+    const res = await json<{ error: { message: string } }>(
+      await call('POST', `/api/clips/${clip.id}/finish`, {
+        as: ALICE,
+        json: { chunks: 1, camera: { chunks: 2, container: 'webm', offsetMs: 0 } },
+      }),
+      409,
+    )
+    expect(res.error.message).toBe('Camera chunks 0, 1 haven’t arrived')
+  })
+
+  it('makes one camera bubble at a time, in order', async () => {
+    // An ffmpeg that notes when a composite (the only call with -filter_complex) starts and ends.
+    const { writeFile, readFile: read, chmod } = await import('node:fs/promises')
+    const wrapper = join(root, 'ffmpeg-wrapper.sh')
+    const log = join(root, 'composites.log')
+    await writeFile(
+      wrapper,
+      `#!/bin/sh
+case "$*" in
+  *filter_complex*)
+    [ -e "${root}/busy" ] && echo overlap >> "${log}"
+    touch "${root}/busy"; echo start >> "${log}"
+    ffmpeg "$@"; code=$?
+    rm -f "${root}/busy"; echo end >> "${log}"; exit $code;;
+esac
+exec ffmpeg "$@"
+`,
+    )
+    await chmod(wrapper, 0o755)
+    services.clips.close()
+    services.clips.store.close()
+    services.index.close()
+    services.dictation.store.close()
+    config = loadConfig({
+      NODE_ENV: 'test',
+      AUTH_MODE: 'dev',
+      HOST_KIND: 'local',
+      DATA_DIR: join(root, 'data'),
+      LOCAL_HOST_DIR: join(root, 'remotes'),
+      ALLOWED_EMAIL_DOMAINS: 'example.test',
+      AUDIO_STORE: 'local',
+      FFMPEG_PATH: wrapper,
+    })
+    services = createServices(config, { llm, clipTranscriber: asr })
+    app = createApp(services)
+    // Three clips finished back to back, without waiting between them.
+    const ids: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const clip = await json<Clip>(
+        await call('POST', '/api/clips', {
+          as: i === 1 ? BOB : ALICE,
+          json: { mode: 'screen_camera', container: 'webm' },
+        }),
+        201,
+      )
+      const as = i === 1 ? BOB : ALICE
+      await call('PUT', `/api/clips/${clip.id}/chunks/0`, { as, body: webm })
+      await call('PUT', `/api/clips/${clip.id}/chunks/0?track=camera`, { as, body: cameraWebm })
+      await json(
+        await call('POST', `/api/clips/${clip.id}/finish`, {
+          as,
+          json: { chunks: 1, camera: { chunks: 1, container: 'webm', offsetMs: 0 } },
+        }),
+      )
+      ids.push(clip.id)
+    }
+    await services.clips.idle()
+    for (const id of ids) expect((await get(ALICE, id)).clip.compositeStatus).toBe('ready')
+    expect((await read(log, 'utf8')).trim().split('\n')).toEqual([
+      'start',
+      'end',
+      'start',
+      'end',
+      'start',
+      'end',
+    ])
+  })
+
+  it('a camera bubble still waiting in the queue at a restart is made after it', async () => {
+    const id = await recordWithCamera()
+    const store = new LocalAudioStore(config.DATA_DIR)
+    const { rm: remove } = await import('node:fs/promises')
+    await remove(store.pathOf(`clips/${id}/composite.mp4`))
+    // Queued, never started: the server stopped before its turn came.
+    services.clips.store.update(id, { compositeStatus: 'pending' }, new Date().toISOString())
+    services.clips.close()
+    services.clips.store.close()
+    services.index.close()
+    services.dictation.store.close()
+    services = createServices(config, { llm, clipTranscriber: asr })
+    app = createApp(services)
+    expect(services.clips.recover()).toBeGreaterThanOrEqual(1)
+    await services.clips.idle()
+    expect((await get(ALICE, id)).clip.compositeStatus).toBe('ready')
+    expect(existsSync(store.pathOf(`clips/${id}/composite.mp4`))).toBe(true)
+  })
+
+  it('a restart picks up a camera bubble that was being made', async () => {
+    const id = await recordWithCamera()
+    // As if it died part way: back to processing, its output gone (the kept camera file stays).
+    const store = new LocalAudioStore(config.DATA_DIR)
+    const { rm: remove } = await import('node:fs/promises')
+    await remove(store.pathOf(`clips/${id}/composite.mp4`))
+    services.clips.store.update(id, { compositeStatus: 'processing' }, new Date().toISOString())
+    expect(services.clips.recover()).toBeGreaterThanOrEqual(1)
+    await services.clips.idle()
+    expect((await get(ALICE, id)).clip.compositeStatus).toBe('ready')
+    expect(existsSync(store.pathOf(`clips/${id}/composite.mp4`))).toBe(true)
+  })
+
+  it('a restart before the camera was kept keeps its chunks and still makes the bubble', async () => {
+    const { cp, rm: remove } = await import('node:fs/promises')
+    const clip = await json<Clip>(
+      await call('POST', '/api/clips', {
+        as: ALICE,
+        json: { mode: 'screen_camera', container: 'webm' },
+      }),
+      201,
+    )
+    for (const [seq, part] of slices(webm, 3).entries()) {
+      await call('PUT', `/api/clips/${clip.id}/chunks/${seq}`, { as: ALICE, body: part })
+    }
+    for (const [seq, part] of slices(cameraWebm, 2).entries()) {
+      await call('PUT', `/api/clips/${clip.id}/chunks/${seq}?track=camera`, {
+        as: ALICE,
+        body: part,
+      })
+    }
+    const uploads = join(config.DATA_DIR, 'clips', 'uploads', clip.id)
+    const saved = `${uploads}-saved`
+    await cp(uploads, saved, { recursive: true })
+    await json(
+      await call('POST', `/api/clips/${clip.id}/finish`, {
+        as: ALICE,
+        json: { chunks: 3, camera: { chunks: 2, container: 'webm', offsetMs: 0 } },
+      }),
+    )
+    await services.clips.idle()
+    // As if the server died while making the bubble, before the camera file was kept.
+    const store = new LocalAudioStore(config.DATA_DIR)
+    await remove(store.pathOf(`clips/${clip.id}/composite.mp4`))
+    await remove(store.pathOf(`clips/${clip.id}/camera.webm`))
+    await cp(saved, uploads, { recursive: true })
+    await remove(saved, { recursive: true, force: true })
+    services.clips.store.update(
+      clip.id,
+      { compositeStatus: 'processing' },
+      new Date().toISOString(),
+    )
+    // recover() also sweeps leftovers; the camera's chunks aren't leftovers yet.
+    expect(services.clips.recover()).toBeGreaterThanOrEqual(1)
+    await services.clips.sweep()
+    await services.clips.idle()
+    expect((await get(ALICE, clip.id)).clip.compositeStatus).toBe('ready')
+    expect(existsSync(store.pathOf(`clips/${clip.id}/camera.webm`))).toBe(true)
+    expect(existsSync(uploads)).toBe(false)
+  })
+
+  it('the owner can try the camera bubble again after a failure', async () => {
+    const id = await recordWithCamera()
+    const store = new LocalAudioStore(config.DATA_DIR)
+    const { rm: remove } = await import('node:fs/promises')
+    await remove(store.pathOf(`clips/${id}/composite.mp4`))
+    services.clips.store.update(id, { compositeStatus: 'failed' }, new Date().toISOString())
+    await json(await call('POST', `/api/clips/${id}/camera/retry`, { as: BOB }), 403)
+    const retried = await json<Clip>(
+      await call('POST', `/api/clips/${id}/camera/retry`, { as: ALICE }),
+    )
+    expect(retried.compositeStatus).toBe('pending')
+    await services.clips.idle()
+    // Made again from the kept camera file: its chunks are long gone.
+    expect((await get(ALICE, id)).clip.compositeStatus).toBe('ready')
+    expect(existsSync(store.pathOf(`clips/${id}/composite.mp4`))).toBe(true)
+  })
+})
+
+describe('speakers, summaries, action items and notes', () => {
+  it('a transcript retry forgets speaker names, since speakers are numbered afresh', async () => {
+    const { id } = await record(ALICE, webm)
+    await json(
+      await call('PATCH', `/api/clips/${id}`, { as: ALICE, json: { speakers: { '0': 'Alex' } } }),
+    )
+    services.clips.store.update(id, { transcriptStatus: 'failed' }, new Date().toISOString())
+    await json(await call('POST', `/api/clips/${id}/transcript/retry`, { as: ALICE }))
+    await services.clips.idle()
+    const { clip } = await get(ALICE, id)
+    expect(clip.speakers.map((s) => s.name)).toEqual(['Speaker 1', 'Speaker 2'])
+  })
+
+  it('names speakers: two found, defaults, owner renames, others can’t', async () => {
+    const { id } = await record(ALICE, webm)
+    let { clip, transcript } = await get(ALICE, id)
+    expect(transcript.map((s) => s.speaker)).toEqual([0, 1, 0])
+    expect(clip.speakers).toEqual([
+      { id: 0, name: 'Speaker 1', named: false },
+      { id: 1, name: 'Speaker 2', named: false },
+    ])
+    await json(
+      await call('PATCH', `/api/clips/${id}`, { as: BOB, json: { speakers: { '0': 'x' } } }),
+      403,
+    )
+    await json(
+      await call('PATCH', `/api/clips/${id}`, { as: ALICE, json: { speakers: { '7': 'x' } } }),
+      400,
+    )
+    const renamed = await json<Clip>(
+      await call('PATCH', `/api/clips/${id}`, {
+        as: ALICE,
+        json: { speakers: { '1': '  Bob  B. ' } },
+      }),
+    )
+    expect(renamed.speakers[1]).toEqual({ id: 1, name: 'Bob B.', named: true })
+    // The prompts see the names.
+    await json(await call('POST', `/api/clips/${id}/ai`, { as: ALICE, json: { kind: 'summary' } }))
+    expect(llm.calls.at(-1)?.messages[0]?.content).toContain('[0:02] Bob B.: clip segment 2')
+    // An empty name goes back to the default.
+    const reset = await json<Clip>(
+      await call('PATCH', `/api/clips/${id}`, { as: ALICE, json: { speakers: { '1': '' } } }),
+    )
+    expect(reset.speakers[1]?.name).toBe('Speaker 2')
+    ;({ clip } = await get(BOB, id))
+    expect(clip.speakers.map((s) => s.name)).toEqual(['Speaker 1', 'Speaker 2'])
+  })
+
+  it('a clip with one speaker names them after the person who recorded it', async () => {
+    const one = new FakeClipTranscriber()
+    one.transcribe = async () => [{ start: 0, end: 1, text: 'just me', speaker: 0 }]
+    services.clips.close()
+    services.clips.store.close()
+    services.index.close()
+    services.dictation.store.close()
+    services = createServices(config, { llm, clipTranscriber: one })
+    app = createApp(services)
+    const { id } = await record(ALICE, webm)
+    const { clip } = await get(ALICE, id)
+    expect(clip.speakers).toEqual([{ id: 0, name: 'Alice', named: false }])
+  })
+
+  it('writes a summary and action items any member can ask for, and keeps them', async () => {
+    const { id } = await record(ALICE, webm)
+    const summary = await json<Clip>(
+      await call('POST', `/api/clips/${id}/ai`, { as: BOB, json: { kind: 'summary' } }),
+    )
+    expect(summary.aiSummary).toContain('A fake clip that opens with')
+    const actions = await json<Clip>(
+      await call('POST', `/api/clips/${id}/ai`, { as: ALICE, json: { kind: 'actions' } }),
+    )
+    expect(actions.aiActions).toBe(
+      '- [ ] Follow up on the first point\n- [ ] Reply about all 3 lines',
+    )
+    expect((await get(BOB, id)).clip.aiSummary).toBe(summary.aiSummary)
+  })
+
+  it('refuses AI notes before there is a transcript', async () => {
+    const silent = await record(ALICE, silentWebm)
+    await json(
+      await call('POST', `/api/clips/${silent.id}/ai`, { as: ALICE, json: { kind: 'summary' } }),
+      409,
+    )
+  })
+
+  it('drops images and anything but checklist lines from what the model writes', async () => {
+    services.clips.close()
+    services.clips.store.close()
+    services.index.close()
+    services.dictation.store.close()
+    const sly = new FakeLLM((req) =>
+      req.messages[0]?.content.includes('<task>actions</task>')
+        ? '<actions>Sure!\n- [ ] Do it ![x](https://evil.test/?leak)\n* [x] Done one\nignore me</actions>'
+        : '<summary_md>Hi ![p](https://evil.test/p.png) there <img src="https://evil.test/q"></summary_md>',
+    )
+    services = createServices(config, { llm: sly, clipTranscriber: asr })
+    app = createApp(services)
+    const { id } = await record(ALICE, webm)
+    const s1 = await json<Clip>(
+      await call('POST', `/api/clips/${id}/ai`, { as: ALICE, json: { kind: 'summary' } }),
+    )
+    // Images become plain links (nothing fetches them); raw <img> goes entirely.
+    expect(s1.aiSummary).toBe('Hi [p](https://evil.test/p.png) there')
+    const s2 = await json<Clip>(
+      await call('POST', `/api/clips/${id}/ai`, { as: ALICE, json: { kind: 'actions' } }),
+    )
+    expect(s2.aiActions).toBe('- [ ] Do it [x](https://evil.test/?leak)\n- [ ] Done one')
+    expect(s2.aiActions).not.toContain('![')
+  })
+
+  it('never overwrites a transcript file already beside a free note path', async () => {
+    const { id } = await record(ALICE, webm)
+    await json(await call('PATCH', `/api/clips/${id}`, { as: ALICE, json: { title: 'Standup' } }))
+    const first = await json<{ space: string; path: string }>(
+      await call('POST', `/api/clips/${id}/send`, {
+        as: ALICE,
+        json: { to: 'meeting', transcript: true },
+      }),
+      201,
+    )
+    // An orphaned transcript where the next note would go.
+    const orphan = first.path.replace(/\.md$/, '-2.transcript.md')
+    await services.git.commit(first.space, {
+      changes: [{ path: orphan, content: 'keep me' }],
+      author: { name: 'Alice', email: ALICE },
+      message: 'orphan',
+    })
+    // Two sends at once take different paths.
+    const [a, b] = await Promise.all(
+      [0, 1].map(async () =>
+        json<{ path: string }>(
+          await call('POST', `/api/clips/${id}/send`, {
+            as: ALICE,
+            json: { to: 'meeting', transcript: true },
+          }),
+          201,
+        ),
+      ),
+    )
+    expect(new Set([a?.path, b?.path]).size).toBe(2)
+    expect([a?.path, b?.path]).not.toContain(first.path.replace(/\.md$/, '-2.md'))
+    expect((await services.git.readFile(first.space, orphan)).content).toBe('keep me')
+  })
+
+  it('sends the clip to a new doc and to a Meetings note in the member’s own space', async () => {
+    const { id } = await record(ALICE, webm)
+    await json(
+      await call('PATCH', `/api/clips/${id}`, { as: ALICE, json: { title: 'Pricing bug' } }),
+    )
+    await json(await call('POST', `/api/clips/${id}/ai`, { as: ALICE, json: { kind: 'actions' } }))
+    await json(
+      await call('PATCH', `/api/clips/${id}`, { as: ALICE, json: { speakers: { '0': 'Alice' } } }),
+    )
+
+    const doc = await json<{ space: string; path: string }>(
+      await call('POST', `/api/clips/${id}/send`, {
+        as: ALICE,
+        json: { to: 'doc', transcript: true },
+      }),
+      201,
+    )
+    expect(doc.path).toBe('docs/clips/pricing-bug.md')
+    const { content } = await services.git.readFile(doc.space, doc.path)
+    expect(content).toMatch(/^---\nid: /)
+    expect(content).toContain(`clip: http://localhost:3000/clips/${id}`)
+    expect(content).toContain('# Pricing bug')
+    expect(content).toContain(`[Watch the clip](http://localhost:3000/clips/${id})`)
+    expect(content).toContain('## Action items\n\n- [ ] Follow up on the first point')
+    expect(content).toContain('**Alice** [0:00] clip segment 1')
+    expect(content).toContain('**Speaker 2** [0:02] clip segment 2')
+    const history = await services.git.log(doc.space, { path: doc.path })
+    expect(history[0]?.author.email).toBe(ALICE)
+    // The space is Alice's own.
+    expect(services.spaces.canAccess({ ...(await principalOf(ALICE)) }, doc.space)).toBe(true)
+    expect(doc.space).not.toBe('team')
+
+    // Again: a second file beside it, not an overwrite.
+    const again = await json<{ path: string }>(
+      await call('POST', `/api/clips/${id}/send`, { as: ALICE, json: { to: 'doc' } }),
+      201,
+    )
+    expect(again.path).toBe('docs/clips/pricing-bug-2.md')
+
+    const meeting = await json<{ space: string; path: string }>(
+      await call('POST', `/api/clips/${id}/send`, { as: BOB, json: { to: 'meeting' } }),
+      201,
+    )
+    expect(meeting.path).toMatch(/^meetings\/\d{4}\/\d{2}\/\d{4}-\d{2}-\d{2}-pricing-bug\.md$/)
+    const note = await services.git.readFile(meeting.space, meeting.path)
+    expect(note.content).toContain('type: meeting')
+    expect(note.content).not.toContain('## Transcript')
+    // With the transcript, a Meetings note gets its own transcript file, as Meetings writes one.
+    const withTranscript = await json<{ space: string; path: string }>(
+      await call('POST', `/api/clips/${id}/send`, {
+        as: BOB,
+        json: { to: 'meeting', transcript: true },
+      }),
+      201,
+    )
+    expect(withTranscript.path).toMatch(/-pricing-bug-2\.md$/)
+    const noteText = (await services.git.readFile(withTranscript.space, withTranscript.path))
+      .content
+    const transcriptName = withTranscript.path.split('/').pop()?.replace(/\.md$/, '.transcript.md')
+    expect(noteText).toContain(`transcript: ${transcriptName}`)
+    expect(noteText).not.toContain('## Transcript')
+    const transcriptFile = await services.git.readFile(
+      withTranscript.space,
+      withTranscript.path.replace(/\.md$/, '.transcript.md'),
+    )
+    expect(transcriptFile.content).toContain('# Pricing bug: transcript')
+    expect(transcriptFile.content).toContain('[00:00:00] **Alice:** clip segment 1')
+    expect(transcriptFile.content).toContain('[00:00:02] **Speaker 2:** clip segment 2')
+    // Its unticked items show on Bob's Meetings home.
+    const items = await json<Array<{ path: string; items: Array<{ text: string }> }>>(
+      await call('GET', '/api/meetings/action-items', { as: BOB }),
+    )
+    expect(items.find((m) => m.path === meeting.path)?.items.map((i) => i.text)).toContain(
+      'Follow up on the first point',
+    )
+  })
+})
+
 describe('deleting and cancelling', () => {
   it('removes the stored video, thumbnail and row', async () => {
     const { id } = await record(ALICE, webm)
@@ -575,6 +1147,22 @@ describe('deleting and cancelling', () => {
     )
   })
 
+  it('the sweep removes a ready clip’s leftover uploads, but not a recording’s', async () => {
+    const { mkdir, writeFile } = await import('node:fs/promises')
+    const { id } = await record(ALICE, webm)
+    const leftover = join(config.DATA_DIR, 'clips', 'uploads', id)
+    await mkdir(leftover, { recursive: true })
+    await writeFile(join(leftover, '000000.part'), 'x')
+    const live = await json<Clip>(
+      await call('POST', '/api/clips', { as: ALICE, json: { mode: 'screen', container: 'webm' } }),
+      201,
+    )
+    await call('PUT', `/api/clips/${live.id}/chunks/0`, { as: ALICE, body: webm })
+    await services.clips.sweep()
+    expect(existsSync(leftover)).toBe(false)
+    expect(existsSync(join(config.DATA_DIR, 'clips', 'uploads', live.id))).toBe(true)
+  })
+
   it('the sweep removes upload folders with no clip, and a failed clip leaves none', async () => {
     const orphan = join(config.DATA_DIR, 'clips', 'uploads', '01ORPHANORPHANORPHANORPHAN')
     const { mkdir, writeFile } = await import('node:fs/promises')
@@ -600,3 +1188,9 @@ describe('deleting and cancelling', () => {
     expect((await get(ALICE, clip.id)).clip.status).toBe('ready')
   })
 })
+
+async function principalOf(email: string) {
+  const res = await call('GET', '/api/me', { as: email })
+  return ((await res.json()) as { principal: import('../../src/auth/index.js').Principal })
+    .principal
+}

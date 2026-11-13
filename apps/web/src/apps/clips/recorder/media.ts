@@ -6,6 +6,8 @@ import type { ClipContainer, ClipMode } from '../../../api/clips'
 /** Bits per second. Screen content compresses well; this keeps an hour near 1 GB. */
 export const VIDEO_BITS = 2_500_000
 export const AUDIO_BITS = 128_000
+/** The camera's own track: it ends up a 260 px bubble, so a modest rate is plenty. */
+export const CAMERA_BITS = 1_000_000
 
 export interface RecordingFormat {
   mimeType: string
@@ -28,6 +30,22 @@ export function pickFormat(
     typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t),
 ): RecordingFormat | null {
   return CANDIDATES.find((f) => isSupported(f.mimeType)) ?? null
+}
+
+// The camera track has no sound: the same containers, video codecs only.
+const CAMERA_CANDIDATES: RecordingFormat[] = [
+  { mimeType: 'video/mp4;codecs=avc1.640028', container: 'mp4' },
+  { mimeType: 'video/webm;codecs=vp9', container: 'webm' },
+  { mimeType: 'video/webm;codecs=vp8', container: 'webm' },
+  { mimeType: 'video/webm', container: 'webm' },
+]
+
+/** The camera track's format, or null when the browser can't record one. */
+export function pickCameraFormat(
+  isSupported: (type: string) => boolean = (t) =>
+    typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t),
+): RecordingFormat | null {
+  return CAMERA_CANDIDATES.find((f) => isSupported(f.mimeType)) ?? null
 }
 
 /** Whether this browser can record clips at all (a computer's Chrome or Edge, in practice). */

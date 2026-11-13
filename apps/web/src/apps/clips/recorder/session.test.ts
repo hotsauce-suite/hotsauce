@@ -44,6 +44,7 @@ class FakeRecorder extends EventTarget {
   start(timeslice: number) {
     this.state = 'recording'
     this.timeslice = timeslice
+    this.dispatchEvent(new Event('start'))
   }
   pause() {
     this.state = 'paused'
@@ -68,7 +69,9 @@ const clip = (status: Clip['status'] = 'recording') =>
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
 let now: number
+/** The screen's recorder (made first), and the camera's when there is one. */
 let recorder: FakeRecorder
+let cameraRecorder: FakeRecorder | undefined
 let display: FakeStream
 let camera: FakeStream
 let mic: FakeStream
@@ -79,6 +82,7 @@ let deps: SessionDeps
 beforeEach(() => {
   vi.stubGlobal('MediaStream', FakeStream)
   now = 1000
+  cameraRecorder = undefined
   display = new FakeStream([
     new FakeTrack('video', { displaySurface: 'monitor' }),
     new FakeTrack('audio'),
@@ -101,11 +105,20 @@ beforeEach(() => {
   deps = {
     api,
     format: { mimeType: 'video/webm;codecs=vp9,opus', container: 'webm' },
+    cameraFormat: { mimeType: 'video/webm;codecs=vp9', container: 'webm' },
     requestDisplay: vi.fn(async () => display as unknown as MediaStream),
     openPip: vi.fn(async () => pip as unknown as Window),
     createRecorder: (stream, options) => {
-      recorder = new FakeRecorder(stream as unknown as FakeStream, options)
-      return recorder as unknown as MediaRecorder
+      const made = new FakeRecorder(stream as unknown as FakeStream, options)
+      if (
+        made.stream.getVideoTracks()[0] === camera.tracks[0] &&
+        made.options.mimeType === 'video/webm;codecs=vp9'
+      ) {
+        cameraRecorder = made
+      } else {
+        recorder = made
+      }
+      return made as unknown as MediaRecorder
     },
     mix: (sources) => ({
       track: (sources.flatMap((s) => s?.getAudioTracks() ?? [])[0] ?? null) as MediaStreamTrack,
@@ -161,6 +174,89 @@ describe('RecordingSession', () => {
     expect(vi.mocked(api.putChunk).mock.calls.map((c) => c[1])).toEqual([0, 1])
   })
 
+  it('records the camera on its own track, chunk-uploaded beside the screen', async () => {
+    const session = new RecordingSession(deps)
+    await session.start(opts())
+    expect(session.state.cameraTrack).toBe(true)
+    expect(cameraRecorder?.stream.getTracks()).toEqual([camera.tracks[0]])
+    expect(cameraRecorder?.options).toMatchObject({
+      mimeType: 'video/webm;codecs=vp9',
+      videoBitsPerSecond: 1_000_000,
+    })
+    expect(cameraRecorder?.timeslice).toBe(3000)
+    cameraRecorder?.emit('c0')
+    recorder.emit('s0')
+    await flush()
+    const calls = vi.mocked(api.putChunk).mock.calls.map((c) => [c[1], c[3]])
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        [0, 'camera'],
+        [0, 'screen'],
+      ]),
+    )
+    // Pause and resume hold both.
+    session.pause()
+    expect([recorder.state, cameraRecorder?.state]).toEqual(['paused', 'paused'])
+    session.resume()
+    expect([recorder.state, cameraRecorder?.state]).toEqual(['recording', 'recording'])
+  })
+
+  it('records no camera track for screen only, or without a camera format', async () => {
+    let session = new RecordingSession(deps)
+    await session.start(opts('screen'))
+    expect(cameraRecorder).toBeUndefined()
+    expect(session.state.cameraTrack).toBe(false)
+    session.cancel()
+    session = new RecordingSession({ ...deps, cameraFormat: null })
+    await session.start(opts())
+    expect(cameraRecorder).toBeUndefined()
+    await session.stop()
+    expect(vi.mocked(api.finish).mock.calls.at(-1)?.[1]).not.toHaveProperty('camera')
+  })
+
+  it('records the screen alone when the camera recorder can’t start', async () => {
+    const make = deps.createRecorder
+    deps.createRecorder = (stream, options) => {
+      const made = make(stream, options)
+      if (options.mimeType === 'video/webm;codecs=vp9') {
+        ;(made as unknown as FakeRecorder).start = () => {
+          throw new DOMException('format refused', 'NotSupportedError')
+        }
+      }
+      return made
+    }
+    const session = new RecordingSession(deps)
+    await session.start(opts())
+    expect(session.state).toMatchObject({ phase: 'recording', cameraTrack: false })
+    await session.stop()
+    expect(vi.mocked(api.finish).mock.calls[0]?.[1]).not.toHaveProperty('camera')
+  })
+
+  it('finishes without the camera when the server refused its upload', async () => {
+    api.putChunk = vi.fn(async (_id, _seq, _data, track) => {
+      if (track === 'camera') throw new HearthApiError('too_large', 'nope', 413)
+    })
+    const session = new RecordingSession(deps)
+    await session.start(opts())
+    await session.stop()
+    expect(session.state.phase).toBe('finished')
+    // Said, not silent: the page warns the camera won't be in the video.
+    expect(session.state.cameraLost).toBe(true)
+    expect(vi.mocked(api.finish).mock.calls[0]?.[1]).toEqual({
+      chunks: 1,
+      screenSurface: 'monitor',
+    })
+  })
+
+  it('says when the shared screen stops sending a picture', async () => {
+    const session = new RecordingSession(deps)
+    await session.start(opts())
+    display.tracks[0]?.dispatchEvent(new Event('mute'))
+    expect(session.state.screenMuted).toBe(true)
+    display.tracks[0]?.dispatchEvent(new Event('unmute'))
+    expect(session.state.screenMuted).toBe(false)
+  })
+
   it('times only the recorded stretches across a pause', async () => {
     const session = new RecordingSession(deps)
     await session.start(opts())
@@ -179,7 +275,11 @@ describe('RecordingSession', () => {
     await session.start(opts())
     recorder.emit('a')
     await session.stop()
-    expect(api.finish).toHaveBeenCalledWith('01CLIP', 2)
+    expect(api.finish).toHaveBeenCalledWith('01CLIP', {
+      chunks: 2,
+      screenSurface: 'monitor',
+      camera: { chunks: 1, container: 'webm', offsetMs: 0 },
+    })
     expect(session.state.phase).toBe('finished')
     expect(display.tracks.every((t) => t.stopped)).toBe(true)
     expect(pip.closed).toBe(true)

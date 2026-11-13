@@ -2,9 +2,10 @@
 // be tested with fakes; the page and the camera bubble's window both read it through `subscribe`.
 
 import { HearthApiError } from '../../../api/client'
-import type { Clip, ClipContainer, ClipMode } from '../../../api/clips'
+import type { Clip, ClipContainer, ClipMode, FinishBody } from '../../../api/clips'
 import {
   AUDIO_BITS,
+  CAMERA_BITS,
   isDenied,
   type MixedAudio,
   mixAudio,
@@ -39,8 +40,15 @@ export interface SessionState {
   upload: UploadState
   /** Shown above the controls: why the last start or stop didn't work. */
   error: string | null
-  /** What was shared: only `monitor` (a whole screen) shows the camera bubble in the video. */
+  /** What was shared (`monitor`, `window`, `browser`) and the browser's name for it. */
   surface: string | null
+  screenLabel: string | null
+  /** The shared screen stopped sending frames (a window minimised, sharing paused). */
+  screenMuted: boolean
+  /** The camera is being recorded on its own track, to go into the video as a bubble. */
+  cameraTrack: boolean
+  /** The server refused the camera's upload: the clip will be the screen alone. */
+  cameraLost: boolean
   /** The camera bubble's always-on-top window, while it's open. */
   pipWindow: Window | null
   clip: Clip | null
@@ -56,11 +64,13 @@ export interface StartOptions {
 export interface SessionDeps {
   api: {
     create: (body: { mode: ClipMode; container: ClipContainer; title?: string }) => Promise<Clip>
-    putChunk: (id: string, seq: number, data: Blob) => Promise<void>
-    finish: (id: string, chunks: number) => Promise<Clip>
+    putChunk: (id: string, seq: number, data: Blob, track?: 'screen' | 'camera') => Promise<void>
+    finish: (id: string, body: FinishBody) => Promise<Clip>
     remove: (id: string) => Promise<void>
   }
   format: RecordingFormat
+  /** Video-only format for the camera's own track; null records no camera track. */
+  cameraFormat: RecordingFormat | null
   requestDisplay: () => Promise<MediaStream>
   /** The bubble's window, or null where Document Picture-in-Picture isn't available. */
   openPip: (() => Promise<Window>) | null
@@ -76,6 +86,28 @@ const EMPTY_UPLOAD: UploadState = {
   pendingBytes: 0,
   retrying: false,
   fatal: null,
+}
+
+/** One MediaRecorder and the uploader sending its chunks. */
+interface Track {
+  recorder: MediaRecorder
+  uploader: ChunkUploader
+  stopped: Promise<void>
+  /** performance.now() when the recorder said it started. */
+  startedAt: number | null
+  unsubscribe: () => void
+}
+
+/** Both tracks' uploads as one: what's left to send, and whether either is struggling. */
+function combine(a: UploadState, b: UploadState | null): UploadState {
+  if (!b) return a
+  return {
+    chunks: a.chunks + b.chunks,
+    sent: a.sent + b.sent,
+    pendingBytes: a.pendingBytes + b.pendingBytes,
+    retrying: a.retrying || b.retrying,
+    fatal: a.fatal,
+  }
 }
 
 export function elapsedMs(state: SessionState, now: number): number {
@@ -95,15 +127,17 @@ export class RecordingSession {
     upload: EMPTY_UPLOAD,
     error: null,
     surface: null,
+    screenLabel: null,
+    screenMuted: false,
+    cameraTrack: false,
+    cameraLost: false,
     pipWindow: null,
     clip: null,
   }
   #display: MediaStream | null = null
   #mixed: MixedAudio | null = null
-  #recorder: MediaRecorder | null = null
-  #uploader: ChunkUploader | null = null
-  #unsubscribeUpload: (() => void) | null = null
-  #recorderStopped: Promise<void> = Promise.resolve()
+  #screen: Track | null = null
+  #camera: Track | null = null
   /** Bumped by cancel: a start still waiting on the picker or the countdown gives up. */
   #attempt = 0
   #last: StartOptions | null = null
@@ -189,14 +223,18 @@ export class RecordingSession {
       return
     }
     if (pip) pip.addEventListener('pagehide', () => this.#set({ pipWindow: null }), { once: true })
+    const shared = display?.getVideoTracks()[0]
     // Chrome's own "Stop sharing" ends the recording, as if Stop were pressed.
-    display?.getVideoTracks()[0]?.addEventListener('ended', () => void this.stop())
+    shared?.addEventListener('ended', () => void this.stop())
+    shared?.addEventListener('mute', () => this.#set({ screenMuted: true }))
+    shared?.addEventListener('unmute', () => this.#set({ screenMuted: false }))
     this.#set({
       clip,
       pipWindow: pip,
       surface:
-        (display?.getVideoTracks()[0]?.getSettings() as { displaySurface?: string })
-          ?.displaySurface ?? null,
+        (shared?.getSettings() as { displaySurface?: string } | undefined)?.displaySurface ?? null,
+      screenLabel: shared?.label || null,
+      screenMuted: false,
     })
 
     for (let n = COUNTDOWN_FROM; n > 0; n--) {
@@ -208,30 +246,89 @@ export class RecordingSession {
     const mixed = (this.#deps.mix ?? mixAudio)([opts.mic, display])
     this.#mixed = mixed
     const stream = new MediaStream(mixed.track ? [video, mixed.track] : [video])
-    const uploader = new ChunkUploader((seq, data) => this.#deps.api.putChunk(clip.id, seq, data))
-    this.#uploader = uploader
-    this.#unsubscribeUpload = uploader.subscribe((upload) => this.#set({ upload }))
-    const recorder = this.#deps.createRecorder(stream, {
+    // The camera is recorded on its own, never through the screen share: it goes into the video
+    // on the server, whatever was shared and whether or not the bubble's window was in it.
+    const cameraVideo =
+      opts.mode === 'screen_camera' ? (opts.camera?.getVideoTracks()[0] ?? null) : null
+    const cameraFormat = this.#deps.cameraFormat
+    this.#screen = this.#track(clip.id, 'screen', stream, attempt, {
       mimeType: this.#deps.format.mimeType,
       videoBitsPerSecond: VIDEO_BITS,
       audioBitsPerSecond: AUDIO_BITS,
     })
-    this.#recorder = recorder
-    this.#recorderStopped = new Promise((resolve) => {
-      recorder.addEventListener('stop', () => resolve(), { once: true })
+    // Started in the same task, so both clocks begin together; `start` events give the offset.
+    this.#screen.recorder.start(TIMESLICE_MS)
+    // A camera that can't record (unplugged since the preview, a format refused) costs the
+    // bubble, never the recording.
+    this.#camera = null
+    if (cameraVideo && cameraFormat && cameraVideo.readyState !== 'ended') {
+      try {
+        this.#camera = this.#track(clip.id, 'camera', new MediaStream([cameraVideo]), attempt, {
+          mimeType: cameraFormat.mimeType,
+          videoBitsPerSecond: CAMERA_BITS,
+        })
+        this.#camera.recorder.start(TIMESLICE_MS)
+      } catch {
+        this.#camera?.unsubscribe()
+        this.#camera = null
+      }
+    }
+    this.#set({
+      phase: 'recording',
+      countdown: null,
+      runningSince: this.#now(),
+      cameraTrack: this.#camera !== null,
+    })
+  }
+
+  #track(
+    clipId: string,
+    kind: 'screen' | 'camera',
+    stream: MediaStream,
+    attempt: number,
+    options: MediaRecorderOptions,
+  ): Track {
+    const recorder = this.#deps.createRecorder(stream, options)
+    const uploader = new ChunkUploader((seq, data) =>
+      this.#deps.api.putChunk(clipId, seq, data, kind),
+    )
+    const track: Track = {
+      recorder,
+      uploader,
+      startedAt: null,
+      stopped: new Promise((resolve) => {
+        recorder.addEventListener('stop', () => resolve(), { once: true })
+      }),
+      unsubscribe: uploader.subscribe(() => {
+        if (attempt !== this.#attempt || !this.#screen) return
+        this.#set({
+          upload: combine(this.#screen.uploader.state, this.#camera?.uploader.state ?? null),
+          cameraLost: Boolean(this.#camera?.uploader.state.fatal),
+        })
+      }),
+    }
+    recorder.addEventListener('start', () => {
+      track.startedAt = this.#now()
     })
     recorder.addEventListener('dataavailable', (event) => {
       if (attempt !== this.#attempt) return
       uploader.add(event.data)
-      if (elapsedMs(this.#state, this.#now()) >= MAX_RECORDING_MS) void this.stop()
+      if (kind === 'screen' && elapsedMs(this.#state, this.#now()) >= MAX_RECORDING_MS) {
+        void this.stop()
+      }
     })
-    recorder.start(TIMESLICE_MS)
-    this.#set({ phase: 'recording', countdown: null, runningSince: this.#now() })
+    return track
+  }
+
+  #recorders(): MediaRecorder[] {
+    return [this.#screen?.recorder, this.#camera?.recorder].filter(
+      (r): r is MediaRecorder => r !== undefined,
+    )
   }
 
   pause(): void {
-    if (this.#state.phase !== 'recording' || !this.#recorder) return
-    this.#recorder.pause()
+    if (this.#state.phase !== 'recording' || !this.#screen) return
+    for (const r of this.#recorders()) if (r.state === 'recording') r.pause()
     this.#set({
       phase: 'paused',
       recordedMs: elapsedMs(this.#state, this.#now()),
@@ -240,8 +337,8 @@ export class RecordingSession {
   }
 
   resume(): void {
-    if (this.#state.phase !== 'paused' || !this.#recorder) return
-    this.#recorder.resume()
+    if (this.#state.phase !== 'paused' || !this.#screen) return
+    for (const r of this.#recorders()) if (r.state === 'paused') r.resume()
     this.#set({ phase: 'recording', runningSince: this.#now() })
   }
 
@@ -249,14 +346,14 @@ export class RecordingSession {
   async stop(): Promise<void> {
     const { phase, clip } = this.#state
     if (phase === 'countdown' || phase === 'starting') return this.cancel()
-    if ((phase !== 'recording' && phase !== 'paused') || !clip || !this.#recorder) return
+    if ((phase !== 'recording' && phase !== 'paused') || !clip || !this.#screen) return
     this.#set({
       phase: 'finishing',
       recordedMs: elapsedMs(this.#state, this.#now()),
       runningSince: null,
     })
-    if (this.#recorder.state !== 'inactive') this.#recorder.stop()
-    await this.#recorderStopped
+    for (const r of this.#recorders()) if (r.state !== 'inactive') r.stop()
+    await Promise.all([this.#screen.stopped, this.#camera?.stopped])
     this.#releaseCapture()
     await this.#finish(clip)
   }
@@ -267,16 +364,41 @@ export class RecordingSession {
    * recorded, the clip refused or gone) discards the recording and says why.
    */
   async #finish(clip: Clip): Promise<void> {
-    const uploader = this.#uploader
+    const screen = this.#screen
+    const camera = this.#camera
     const attempt = this.#attempt
     try {
-      await uploader?.drain()
-      const chunks = uploader?.state.chunks ?? 0
+      await screen?.uploader.drain()
+      const chunks = screen?.uploader.state.chunks ?? 0
       if (chunks === 0) throw new Unrecoverable('Nothing was recorded. Try again.')
+      // A camera upload the server refused only costs the bubble, never the recording.
+      const cameraOk = camera
+        ? await camera.uploader.drain().then(
+            () => true,
+            () => false,
+          )
+        : false
+      const body: FinishBody = {
+        chunks,
+        ...(this.#state.surface ? { screenSurface: this.#state.surface } : {}),
+        ...(this.#state.screenLabel ? { screenLabel: this.#state.screenLabel } : {}),
+        ...(camera && cameraOk && this.#deps.cameraFormat
+          ? {
+              camera: {
+                chunks: camera.uploader.state.chunks,
+                container: this.#deps.cameraFormat.container,
+                offsetMs:
+                  camera.startedAt !== null && screen?.startedAt != null
+                    ? Math.round(camera.startedAt - screen.startedAt)
+                    : 0,
+              },
+            }
+          : {}),
+      }
       let tries = 0
       for (;;) {
         try {
-          const done = await this.#deps.api.finish(clip.id, chunks)
+          const done = await this.#deps.api.finish(clip.id, body)
           if (attempt === this.#attempt) this.#set({ phase: 'finished', clip: done, error: null })
           return
         } catch (err) {
@@ -318,8 +440,9 @@ export class RecordingSession {
   #discard(error: string | null): void {
     this.#attempt++
     const clip = this.#state.clip
-    this.#uploader?.stop()
-    if (this.#recorder && this.#recorder.state !== 'inactive') this.#recorder.stop()
+    this.#screen?.uploader.stop()
+    this.#camera?.uploader.stop()
+    for (const r of this.#recorders()) if (r.state !== 'inactive') r.stop()
     this.#cleanup()
     if (clip) void this.#deps.api.remove(clip.id).catch(() => {})
     this.#set({
@@ -330,6 +453,10 @@ export class RecordingSession {
       upload: EMPTY_UPLOAD,
       clip: null,
       surface: null,
+      screenLabel: null,
+      screenMuted: false,
+      cameraTrack: false,
+      cameraLost: false,
       error,
     })
   }
@@ -360,11 +487,11 @@ export class RecordingSession {
   }
 
   #cleanup(): void {
-    this.#unsubscribeUpload?.()
-    this.#unsubscribeUpload = null
+    this.#screen?.unsubscribe()
+    this.#camera?.unsubscribe()
     this.#releaseCapture()
-    this.#recorder = null
-    this.#uploader = null
+    this.#screen = null
+    this.#camera = null
   }
 }
 

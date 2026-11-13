@@ -20,7 +20,7 @@ export const FAKE_SEGMENT_SECONDS = 2
 
 /**
  * Deterministic stand-in (ASR_PROVIDER=fake): "clip segment n" for every two seconds of the clip,
- * starting at n × 2 − 2 seconds. Records each call's options for tests.
+ * starting at n × 2 − 2 seconds, said by speakers 0 and 1 in turn. Records each call's options.
  */
 export class FakeClipTranscriber implements ClipTranscriber {
   readonly calls: ClipTranscribeOptions[] = []
@@ -31,7 +31,12 @@ export class FakeClipTranscriber implements ClipTranscriber {
     const segments: TranscriptSegment[] = []
     for (let start = 0, n = 1; start < seconds; start += FAKE_SEGMENT_SECONDS, n++) {
       const end = Math.min(seconds, start + FAKE_SEGMENT_SECONDS)
-      segments.push({ start, end: Math.round(end * 100) / 100, text: `clip segment ${n}` })
+      segments.push({
+        start,
+        end: Math.round(end * 100) / 100,
+        text: `clip segment ${n}`,
+        speaker: (n - 1) % 2,
+      })
     }
     return segments
   }
@@ -42,6 +47,7 @@ const DEEPGRAM_LISTEN_URL = 'https://api.deepgram.com/v1/listen'
 const REQUEST_TIMEOUT_MS = 10 * 60_000
 
 const Sentence = z.object({ text: z.string(), start: z.number(), end: z.number() })
+const Speaker = z.number().int().nonnegative().optional()
 const DeepgramResponse = z.object({
   results: z.object({
     channels: z.array(
@@ -50,19 +56,23 @@ const DeepgramResponse = z.object({
           z.object({
             transcript: z.string(),
             paragraphs: z
-              .object({ paragraphs: z.array(z.object({ sentences: z.array(Sentence) })) })
+              .object({
+                paragraphs: z.array(z.object({ sentences: z.array(Sentence), speaker: Speaker })),
+              })
               .optional(),
           }),
         ),
       }),
     ),
     utterances: z
-      .array(z.object({ transcript: z.string(), start: z.number(), end: z.number() }))
+      .array(
+        z.object({ transcript: z.string(), start: z.number(), end: z.number(), speaker: Speaker }),
+      )
       .optional(),
   }),
 })
 
-/** The pre-recorded URL: nova-3, smart formatting, paragraphs and utterances, each keyterm. */
+/** The pre-recorded URL: nova-3, smart formatting, paragraphs, utterances, speakers, keyterms. */
 export function deepgramClipUrl(base: string, keyterms: string[]): string {
   const url = new URL(base)
   url.searchParams.set('model', 'nova-3')
@@ -70,6 +80,7 @@ export function deepgramClipUrl(base: string, keyterms: string[]): string {
   url.searchParams.set('punctuate', 'true')
   url.searchParams.set('paragraphs', 'true')
   url.searchParams.set('utterances', 'true')
+  url.searchParams.set('diarize', 'true')
   for (const term of keyterms) url.searchParams.append('keyterm', term)
   return url.href
 }
@@ -77,8 +88,9 @@ export function deepgramClipUrl(base: string, keyterms: string[]): string {
 const round = (s: number) => Math.round(s * 100) / 100
 
 /**
- * One line per sentence, from Deepgram's paragraphs; its utterances, or the whole transcript at
- * 0:00, when there are none. asr_error when the body isn't a Deepgram response.
+ * One line per sentence, from Deepgram's paragraphs, with the paragraph's speaker; its utterances,
+ * or the whole transcript at 0:00, when there are none. asr_error when the body isn't a Deepgram
+ * response.
  */
 export function mapDeepgramClip(body: unknown): TranscriptSegment[] {
   const parsed = DeepgramResponse.safeParse(body)
@@ -86,17 +98,25 @@ export function mapDeepgramClip(body: unknown): TranscriptSegment[] {
     throw new HearthError('asr_error', 'The transcription service answered oddly')
   }
   const alt = parsed.data.results.channels[0]?.alternatives[0]
-  const sentences = (alt?.paragraphs?.paragraphs ?? []).flatMap((p) => p.sentences)
+  const sentences = (alt?.paragraphs?.paragraphs ?? []).flatMap((p) =>
+    p.sentences.map((s) => ({ ...s, speaker: p.speaker })),
+  )
   const lines =
     sentences.length > 0
-      ? sentences.map((s) => ({ start: s.start, end: s.end, text: s.text }))
+      ? sentences
       : (parsed.data.results.utterances ?? []).map((u) => ({
           start: u.start,
           end: u.end,
           text: u.transcript,
+          speaker: u.speaker,
         }))
-  const segments = lines
-    .map((l) => ({ start: round(l.start), end: round(l.end), text: l.text.trim() }))
+  const segments: TranscriptSegment[] = lines
+    .map((l) => ({
+      start: round(l.start),
+      end: round(l.end),
+      text: l.text.trim(),
+      ...(l.speaker !== undefined ? { speaker: l.speaker } : {}),
+    }))
     .filter((l) => l.text !== '')
   if (segments.length > 0) return segments
   const text = alt?.transcript.trim() ?? ''

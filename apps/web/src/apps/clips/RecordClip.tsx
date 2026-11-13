@@ -21,10 +21,12 @@ import {
   getMic,
   isDenied,
   listDevices,
+  pickCameraFormat,
   pickFormat,
   requestDisplay,
   stopStream,
 } from './recorder/media'
+import { MicMeter, RecordingStatus } from './recorder/Status'
 import { elapsedMs, MAX_RECORDING_MS, RecordingSession } from './recorder/session'
 
 const MODES: Array<{ id: ClipMode; label: string; hint: string; icon: IconName }> = [
@@ -53,6 +55,7 @@ function defaultTitle(): string {
 export default function RecordClip() {
   const navigate = useNavigate()
   const format = useMemo(() => pickFormat(), [])
+  const cameraFormat = useMemo(() => pickCameraFormat(), [])
   const [mode, setMode] = useState<ClipMode>('screen_camera')
   const modeRef = useRef(mode)
   modeRef.current = mode
@@ -62,6 +65,7 @@ export default function RecordClip() {
         ? new RecordingSession({
             api: clipsApi,
             format,
+            cameraFormat,
             requestDisplay,
             openPip: pipSupported()
               ? () => openPipWindow(modeRef.current === 'screen' ? CONTROLS_SIZE : BUBBLE_SIZE)
@@ -69,7 +73,7 @@ export default function RecordClip() {
             createRecorder: (stream, options) => new MediaRecorder(stream, options),
           })
         : null,
-    [format],
+    [format, cameraFormat],
   )
   const state = useSyncExternalStore(
     session?.subscribe ?? noopSubscribe,
@@ -161,8 +165,12 @@ export default function RecordClip() {
   const pipWindow = state?.pipWindow ?? null
   useEffect(() => {
     if (!pipWindow || !session) return
-    return mountBubble(pipWindow, { session, camera: mode === 'screen_camera' ? camera : null })
-  }, [pipWindow, session, camera, mode])
+    return mountBubble(pipWindow, {
+      session,
+      camera: mode === 'screen_camera' ? camera : null,
+      mic: micId === NO_MIC ? null : mic,
+    })
+  }, [pipWindow, session, camera, mode, mic, micId])
 
   useEffect(() => {
     if (phase === 'finished' && state?.clip) navigate(`/clips/${state.clip.id}`, { replace: true })
@@ -259,8 +267,8 @@ export default function RecordClip() {
                   : state?.pipWindow
                     ? 'Recording. The controls float over your other windows; Stop is there too.'
                     : 'Recording. Come back to this tab to stop.'}{' '}
-                {mode === 'screen_camera' && state?.surface && state.surface !== 'monitor'
-                  ? 'You’re sharing one window or tab, so your camera bubble won’t be in the video.'
+                {state?.cameraTrack
+                  ? 'Your camera is recorded on its own and goes into the corner of the video when you stop.'
                   : ''}
               </p>
             ) : null}
@@ -310,7 +318,7 @@ export default function RecordClip() {
                   disabled={locked}
                   none="No microphone"
                 >
-                  {micId !== NO_MIC ? <MicLevel stream={mic} /> : null}
+                  {micId !== NO_MIC ? <MicMeter stream={mic} testId="setup-mic-level" /> : null}
                 </DeviceSelect>
 
                 {deviceError ? (
@@ -347,7 +355,7 @@ export default function RecordClip() {
                   <p className="text-xs leading-relaxed text-ink-faint">
                     Chrome asks what to share.{' '}
                     {mode === 'screen_camera'
-                      ? 'Pick “Entire screen” so your camera bubble is in the video. '
+                      ? 'Share your screen, a window or a tab: your camera bubble goes into the video either way. '
                       : ''}
                     On a Mac, Chrome needs Screen Recording permission (System Settings → Privacy
                     &amp; Security) the first time.
@@ -356,6 +364,13 @@ export default function RecordClip() {
               </>
             ) : null}
 
+            {active && state ? (
+              <RecordingStatus
+                state={state}
+                mic={micId === NO_MIC ? null : mic}
+                camera={wantsCamera ? camera : null}
+              />
+            ) : null}
             {active ? (
               <div className="flex flex-col gap-2">
                 <button
@@ -454,7 +469,7 @@ export default function RecordClip() {
 
       {active && mode === 'screen_camera' && !state?.pipWindow && session ? (
         <div className="clip-page-bubble">
-          <BubbleView session={session} camera={camera} inPage />
+          <BubbleView session={session} camera={camera} mic={null} inPage />
         </div>
       ) : null}
 
@@ -573,36 +588,5 @@ function DeviceSelect({
       </select>
       {children}
     </label>
-  )
-}
-
-/** A bar that moves with the microphone, so you know it hears you before you start. */
-function MicLevel({ stream }: { stream: MediaStream | null }) {
-  const bar = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!stream || stream.getAudioTracks().length === 0) return
-    const context = new AudioContext()
-    const analyser = context.createAnalyser()
-    analyser.fftSize = 512
-    context.createMediaStreamSource(stream).connect(analyser)
-    const data = new Uint8Array(analyser.fftSize)
-    let frame = 0
-    const draw = () => {
-      analyser.getByteTimeDomainData(data)
-      let peak = 0
-      for (const v of data) peak = Math.max(peak, Math.abs(v - 128))
-      if (bar.current) bar.current.style.transform = `scaleX(${Math.min(1, (peak / 128) * 2.2)})`
-      frame = requestAnimationFrame(draw)
-    }
-    draw()
-    return () => {
-      cancelAnimationFrame(frame)
-      void context.close().catch(() => {})
-    }
-  }, [stream])
-  return (
-    <span className="clip-level" aria-hidden="true">
-      <span ref={bar} />
-    </span>
   )
 }
