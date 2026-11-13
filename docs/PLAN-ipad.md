@@ -2,7 +2,7 @@
 
 ## Status
 
-QA pass done 2026-11-13 in WebKit (Playwright) at iPad mini, Air, Pro and Split View sizes, upright and sideways, touch and keyboard. The readable report is https://claude.ai/artifact/A6TuAUG1rZAndDJdp949Ep. Slice 1 in progress.
+QA pass done 2026-11-13 in WebKit (Playwright) at iPad mini, Air, Pro and Split View sizes, upright and sideways, touch and keyboard. The readable report is https://claude.ai/artifact/A6TuAUG1rZAndDJdp949Ep. All four slices merged (#59 panels, #60 site header, #61 Clips, #62 touch) and released in 0.11.1. Left for a real iPad: Safari zoom on small inputs, double-tap to edit a table cell, which ⌘ keys Safari keeps, a camera-only clip end to end, and Tab order (steps for Morgan in the thread). Settings still shows the Mac app section on an iPad; the install-prompt work (#44) owns that.
 
 ## What the QA found
 
