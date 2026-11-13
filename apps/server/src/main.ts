@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
@@ -8,6 +9,7 @@ import { createApp } from './app.js'
 import { loadConfig } from './config.js'
 import { EXTENSION_ZIP_PATH, extensionZip } from './extension/download.js'
 import { legacyHostRedirect } from './legacyHosts.js'
+import { MacAppDownloads, releaseAsset } from './macApp.js'
 import { OrgStore } from './org/store.js'
 import { createServices, loadEnvFile } from './services.js'
 import { rebuildRegistryFromClones } from './spaces/index.js'
@@ -127,7 +129,14 @@ async function main(): Promise<void> {
       return c.body(new Uint8Array(zipFile))
     })
   }
-  serveWebApp(app, WEB_DIST, config.PRODUCT_NAME)
+  serveWebApp(
+    app,
+    WEB_DIST,
+    config.PRODUCT_NAME,
+    config.NODE_ENV === 'production'
+      ? new MacAppDownloads({ cacheDir: path.join(config.DATA_DIR, 'downloads') })
+      : null,
+  )
 
   const poller = new Poller({
     syncer,
@@ -195,7 +204,12 @@ const NO_WEB_BUILD =
   '(http://localhost:5173); otherwise run `pnpm build` first.\n'
 
 /** The built SPA, with every other non-API GET falling back to index.html for client routing. */
-function serveWebApp(app: Hono, dir: string, productName: string): void {
+function serveWebApp(
+  app: Hono,
+  dir: string,
+  productName: string,
+  macApp: MacAppDownloads | null,
+): void {
   const built = existsSync(path.join(dir, 'index.html'))
   if (!built) console.warn(`No web app build at ${dir}; serving a placeholder page.`)
   // serveStatic resolves its root against the working directory.
@@ -274,6 +288,23 @@ function serveWebApp(app: Hono, dir: string, productName: string): void {
   // A built file that isn't there, such as an old build's chunk after a deploy, is a 404: the
   // app shell served in its place would be cached as that chunk by the service worker.
   app.get('/assets/*', (c) => c.notFound())
+  // No Mac app in this build (the release image): the published one, kept on the data volume.
+  app.on(['GET', 'HEAD'], '/downloads/:file', async (c, next) => {
+    const asset = releaseAsset(c.req.param('file'))
+    // Only production reaches GitHub for it; tests and dev show "build it yourself".
+    if (!asset || !macApp) return next()
+    const file = await macApp.file(asset)
+    if (!file) return next()
+    c.header(
+      'Content-Type',
+      asset.endsWith('.dmg') ? 'application/x-apple-diskimage' : 'application/zip',
+    )
+    c.header('Content-Length', String(statSync(file).size))
+    c.header('Content-Disposition', `attachment; filename="${asset}"`)
+    c.header('Cache-Control', 'no-cache')
+    if (c.req.method === 'HEAD') return c.body(null)
+    return c.body(Readable.toWeb(createReadStream(file)) as ReadableStream)
+  })
   app.get('/downloads/*', (c) => c.notFound())
   app.get('/excalidraw/*', (c) => c.notFound())
   app.get('*', sendShell)
