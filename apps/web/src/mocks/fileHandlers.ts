@@ -19,8 +19,7 @@ import { type SeedFile, seedFileContents } from './fileSeed'
 import { ADA, PRIYA, SAM, seedId } from './seed'
 
 export const MOCK_CHUNK_BYTES = 8 * 1024 * 1024
-/** Everything lives in the visitor's tab, so uploads stay modest. */
-// Kept small: the demo holds every file in the visitor's tab, a few copies each.
+/** Everything lives in the visitor's tab, a few copies per file, so uploads stay small. */
 export const MOCK_MAX_FILE_BYTES = 25 * 1024 * 1024
 const DAY = 86_400_000
 const ID = /^[0-9A-Z]{26}$/
