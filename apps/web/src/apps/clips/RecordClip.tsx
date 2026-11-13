@@ -56,7 +56,9 @@ export default function RecordClip() {
   const navigate = useNavigate()
   const format = useMemo(() => pickFormat(), [])
   const cameraFormat = useMemo(() => pickCameraFormat(), [])
-  const [mode, setMode] = useState<ClipMode>('screen_camera')
+  // An iPad or a phone can't record its screen from a browser: start on the camera there.
+  const canScreen = useMemo(() => canRecord('screen'), [])
+  const [mode, setMode] = useState<ClipMode>(canScreen ? 'screen_camera' : 'camera')
   const modeRef = useRef(mode)
   modeRef.current = mode
   const session = useMemo(
@@ -118,7 +120,7 @@ export default function RecordClip() {
         setCamera(null)
         setDeviceError(
           isDenied(err)
-            ? `${product()} can’t use your camera. Allow it from the camera icon in Chrome’s address bar.`
+            ? `${product()} can’t use your camera. Allow the camera for this site in your browser’s settings, then reload.`
             : 'No camera was found, or another app is using it.',
         )
       },
@@ -146,7 +148,7 @@ export default function RecordClip() {
         setMic(null)
         setDeviceError(
           isDenied(err)
-            ? `${product()} can’t use your microphone. Allow it from Chrome’s address bar, or record without sound.`
+            ? `${product()} can’t use your microphone. Allow it for this site in your browser’s settings, or record without sound.`
             : 'No microphone was found, or another app is using it.',
         )
       },
@@ -288,6 +290,7 @@ export default function RecordClip() {
                         name="mode"
                         value={m.id}
                         checked={mode === m.id}
+                        disabled={!canScreen && m.id !== 'camera'}
                         onChange={() => setMode(m.id)}
                       />
                       <Icon name={m.icon} className="size-4 text-ink-faint" />
@@ -297,6 +300,12 @@ export default function RecordClip() {
                       </span>
                     </label>
                   ))}
+                  {canScreen ? null : (
+                    <p className="mt-2 text-xs text-ink-faint" data-testid="clip-no-screen">
+                      This device can’t record its screen from a browser. For screen recordings, use
+                      Chrome or Edge on a computer.
+                    </p>
+                  )}
                 </fieldset>
 
                 {wantsCamera ? (
