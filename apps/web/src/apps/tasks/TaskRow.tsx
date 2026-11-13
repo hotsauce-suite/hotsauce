@@ -68,7 +68,7 @@ export function TaskRow({
             onSelect()
             onDragStart(event)
           }}
-          className="task-handle -ml-1 flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-ink-faint active:cursor-grabbing"
+          className="task-handle tap-target -ml-1 flex h-5 w-4 shrink-0 cursor-grab items-center justify-center text-ink-faint active:cursor-grabbing"
         >
           <Icon name="grip" className="size-3.5" />
         </button>
