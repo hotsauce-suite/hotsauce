@@ -12,3 +12,9 @@ Notes from recording the hotsauce.work tour (scripts in `scripts/tour-video/`).
 - **Footage longer than the voice leaves silent stretches.** Cap the speed-up at about 1.5×. When footage still runs long, start the voice later so it lands on the action.
 - **Safari needs byte ranges for video.** The site worker answers `Range` on `/video/` with 206 slices and leaves HEAD alone. Without that, the dialog plays in Chrome but not in Safari.
 - **An independent reviewer watching extracted frames (1 fps, tiled) caught what I missed.** It found the fake device name, the cut URL, raw Markdown in Ask citations, and silent gaps. Run that before anyone else sees a cut.
+
+- **The Files, Whiteboard and Forms shots now run against the in-browser mock** (since the live demo got them), not the dev server. The mock searches uploaded files by name only, so the Files shot searches "budget", not a word inside the PDF.
+- **The Dictate page no longer has a "Download for Mac" button**; the shot points at "Connect this Mac".
+- **Stills of a custom brand need the real dev server**, because the mock's `/api/org/brand` is fixed. Start it with `ADMIN_EMAILS` and `PRODUCT_NAME`, PUT `/api/admin/org/brand` and `/api/admin/org/assets/mark` with the `x-hearth-dev-user` header, and write docs with PUT `/api/spaces/team/file`. Brand fonts come from Google Fonts, so launch Chromium with `proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost' }` and `ignoreHTTPSErrors` in the cloud sandbox, or headings fall back to a serif.
+- **The meeting's Transcript button can show pressed with the panel closed on first load.** Click it twice before a still.
+- **The "This week" tile only shows in the demo build** (`build:demo`, served statically), not in the `VITE_MOCK_API=1` dev server.

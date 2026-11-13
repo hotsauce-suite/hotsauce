@@ -200,10 +200,7 @@ export const shots = {
     await moveTo(900, 450, 10)
     await wait(800)
     await point(
-      page
-        .getByRole('button', { name: /Download for Mac/ })
-        .or(page.getByRole('link', { name: /Download for Mac/ }))
-        .first(),
+      page.getByRole('button', { name: 'Connect this Mac' }).first(),
       { ms: 900 },
     )
     await wait(1800)
@@ -335,7 +332,8 @@ export const shots = {
     await page.keyboard.press('Escape')
     await wait(700)
     await click(page.getByRole('searchbox', { name: 'Search files' }), { after: 200 })
-    await type('courier', 80)
+    // The live demo's mock searches uploaded files by name (it has no PDF text).
+    await type('budget', 80)
     await wait(2200)
   },
 }
