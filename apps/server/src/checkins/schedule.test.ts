@@ -20,6 +20,13 @@ describe('instantOf', () => {
       '2026-11-16T03:30:00.000Z',
     )
   })
+
+  it('a time skipped by spring-forward moves on, never back', () => {
+    // 2:30 AM doesn't exist in Los Angeles on 8 March 2026: it is 3:30 AM PDT (10:30Z).
+    expect(instantOf('2026-03-08', '02:30', 'America/Los_Angeles').toISOString()).toBe(
+      '2026-03-08T10:30:00.000Z',
+    )
+  })
 })
 
 describe('currentRound (R4)', () => {

@@ -33,13 +33,14 @@ import {
   type GitStore,
   withVia,
 } from '../git/index.js'
+import { KeyedMutex } from '../git/mutex.js'
 import type { FileRow, Index } from '../index/index.js'
 import type { LLM } from '../meetings/llm/types.js'
 import { assertTimeZone } from '../meetings/zoned-time.js'
 import { TEAM_SPACE } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import type { CheckinMembers } from './members.js'
-import { currentRound, type Round, recentRounds, summaryDeadline } from './schedule.js'
+import { currentRound, instantOf, type Round, recentRounds, summaryDeadline } from './schedule.js'
 
 const WRITE_ATTEMPTS = 3
 /** Rounds shown on a check-in's page, newest first. */
@@ -47,6 +48,7 @@ export const ROUNDS_SHOWN = 12
 /** Today shows a round you haven't answered for this long after it opened. */
 const DUE_FOR_MS = 3 * 86_400_000
 const SUMMARY_MAX_CHARS = 60_000
+const HOUR = 3_600_000
 
 export interface CheckinInput {
   title: string
@@ -135,6 +137,9 @@ export class Checkins {
   readonly #d: CheckinsDeps
   readonly #now: () => Date
   readonly #log: (m: string) => void
+  readonly #answerLock = new KeyedMutex()
+  /** Rounds this process summarised, in case the index hasn't caught up with the file yet. */
+  readonly #summarized = new Set<string>()
 
   constructor(deps: CheckinsDeps) {
     this.#d = deps
@@ -339,41 +344,45 @@ export class Checkins {
     if (!existing && date !== round?.date) {
       throw new HearthError('bad_request', 'That round is over; answer the current one')
     }
-    const now = this.#iso()
-    for (let attempt = 1; ; attempt++) {
-      const prior = existing ? await this.#readAnswer(existing.row.path) : null
-      const answerId = prior?.fm.id ?? ulid()
-      const fmOut: CheckinAnswerFrontmatter = CheckinAnswerFrontmatter.parse({
-        ...(prior?.fm ?? {}),
-        id: answerId,
-        type: 'checkin-answer',
-        checkin: id,
-        date,
-        title: `${principal.name || me}: ${fm.title}`,
-        submitted: prior?.fm.submitted ?? now,
-        submitted_by: prior?.fm.submitted_by ?? principal.email,
-        name: principal.name || me,
-        ...(prior ? { edited: now } : {}),
-        replies: prior?.fm.replies ?? [],
-      })
-      const path = checkinAnswerPath(id, date, answerId)
-      try {
-        await this.#commit(principal, {
-          changes: [{ path, content: answerFile(fmOut, body) }],
-          verb: prior ? 'edit an answer to' : 'answer',
-          title: fm.title,
-          via: opts.via,
-          unchanged: { path, blobOid: prior?.blobOid ?? null },
+    return this.#answerLock.run(`${id} ${date} ${me}`, async () => {
+      // Re-read under the lock: a double submit finds the first answer and edits it.
+      const existing = this.#answerOf(id, date, me)
+      const now = this.#iso()
+      for (let attempt = 1; ; attempt++) {
+        const prior = existing ? await this.#readAnswer(existing.row.path) : null
+        const answerId = prior?.fm.id ?? ulid()
+        const fmOut: CheckinAnswerFrontmatter = CheckinAnswerFrontmatter.parse({
+          ...(prior?.fm ?? {}),
+          id: answerId,
+          type: 'checkin-answer',
+          checkin: id,
+          date,
+          title: `${principal.name || me}: ${fm.title}`,
+          submitted: prior?.fm.submitted ?? now,
+          submitted_by: prior?.fm.submitted_by ?? principal.email,
+          name: principal.name || me,
+          ...(prior ? { edited: now } : {}),
+          replies: prior?.fm.replies ?? [],
         })
-        break
-      } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS)
-          throw err
+        const path = checkinAnswerPath(id, date, answerId)
+        try {
+          await this.#commit(principal, {
+            changes: [{ path, content: answerFile(fmOut, body) }],
+            verb: prior ? 'edit an answer to' : 'answer',
+            title: fm.title,
+            via: opts.via,
+            unchanged: { path, blobOid: prior?.blobOid ?? null },
+          })
+          break
+        } catch (err) {
+          if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS)
+            throw err
+        }
       }
-    }
-    const saved = this.#answerOf(id, date, me)
-    if (!saved) throw new HearthError('conflict', 'Your answer was saved but can’t be read yet')
-    return this.#view(saved, principal)
+      const saved = this.#answerOf(id, date, me)
+      if (!saved) throw new HearthError('conflict', 'Your answer was saved but can’t be read yet')
+      return this.#view(saved, principal)
+    })
   }
 
   async reply(
@@ -459,54 +468,76 @@ export class Checkins {
   }
 
   async #summarizeRound(fm: CheckinFrontmatter, round: Round, now: Date): Promise<void> {
-    if (this.#d.index.getFile(TEAM_SPACE, checkinSummaryPath(fm.id, round.date))) return
+    const key = `${fm.id} ${round.date}`
+    const path = checkinSummaryPath(fm.id, round.date)
+    if (this.#summarized.has(key) || this.#d.index.getFile(TEAM_SPACE, path)) return
     const answers = this.#answerRows(fm.id).filter((a) => a.date === round.date)
     if (answers.length === 0) return
-    const asked = await this.#asked(fm)
+    const asked = await this.askedWithZones(fm)
     const answeredSet = new Set(answers.map((a) => a.fm.submitted_by.toLowerCase()))
     const missing = asked.filter((a) => !answeredSet.has(a.email))
-    if (missing.length > 0 && now.getTime() < summaryDeadline(fm, round.date).getTime()) return
-
+    if (missing.length > 0) {
+      // Never before everyone has been asked: a member west of the check-in's zone gets their
+      // round later, and two hours to answer it.
+      const lastAsked = Math.max(
+        ...missing.map((m) => instantOf(round.date, fm.time, m.tz).getTime()),
+      )
+      const deadline = Math.max(summaryDeadline(fm, round.date).getTime(), lastAsked + 2 * HOUR)
+      if (now.getTime() < deadline) return
+    }
+    const names = await this.#d.members.all()
+    const nameOf = (email: string) => names[email]?.name || email.split('@')[0] || email
     const text = await this.#summaryText(
       fm,
       round.date,
       answers,
-      missing.map((m) => m.name),
+      missing.map((m) => nameOf(m.email)),
     )
-    const link = `${this.#d.publicUrl}/checkins/${fm.id}?date=${round.date}`
-    const posted =
-      fm.room !== null && this.#d.rooms.has(fm.room)
-        ? await this.#d.rooms.post(
-            fm.room,
-            `*${slack(fm.title)}*\n${text}\n<${link}|Read every answer>`,
-          )
-        : false
-    const summary = CheckinSummaryFrontmatter.parse({
-      type: 'checkin-summary',
-      checkin: fm.id,
-      date: round.date,
-      title: `Summary: ${fm.title} (${round.date})`,
-      written: now.toISOString(),
-      answered: answers.map((a) => a.fm.submitted_by),
-      missing: missing.map((m) => m.email),
-      room: fm.room,
-      posted,
-    })
-    const path = checkinSummaryPath(fm.id, round.date)
+    // The file goes first: it is the once-only record, so a failed commit never posts at all and
+    // a second writer loses on "must not exist" before anything reaches the room.
+    const summary = (posted: boolean) =>
+      CheckinSummaryFrontmatter.parse({
+        type: 'checkin-summary',
+        checkin: fm.id,
+        date: round.date,
+        title: `Summary: ${fm.title} (${round.date})`,
+        written: now.toISOString(),
+        answered: answers.map((a) => a.fm.submitted_by),
+        missing: missing.map((m) => m.email),
+        room: fm.room,
+        posted,
+      })
+    const author = { name: 'Check-ins', email: fm.created_by }
     try {
-      await this.#commit(
-        { name: 'Check-ins', email: fm.created_by },
-        {
-          changes: [{ path, content: `---\n${toYaml(summary)}---\n${text}\n` }],
-          verb: 'summarize',
-          title: `${fm.title} ${round.date}`,
-          unchanged: { path, blobOid: null },
-        },
-      )
+      await this.#commit(author, {
+        changes: [{ path, content: `---\n${toYaml(summary(false))}---\n${text}\n` }],
+        verb: 'summarize',
+        title: `${fm.title} ${round.date}`,
+        unchanged: { path, blobOid: null },
+      })
     } catch (err) {
-      // Another pass wrote it first: the file exists, nothing to do.
-      if (!(err instanceof HearthError && err.code === 'conflict')) throw err
+      // Another pass wrote it first: nothing to do.
+      if (err instanceof HearthError && err.code === 'conflict') return
+      throw err
     }
+    this.#summarized.add(key)
+    if (fm.room === null || !this.#d.rooms.has(fm.room)) return
+    const link = `${this.#d.publicUrl}/checkins/${fm.id}?date=${round.date}`
+    const ok = await this.#d.rooms.post(
+      fm.room,
+      `*${slack(fm.title)}*\n${slack(text)}\n<${link}|Read every answer>`,
+    )
+    if (!ok) return
+    const written = await this.#d.git.readFile(TEAM_SPACE, path).catch(() => null)
+    if (!written) return
+    await this.#commit(author, {
+      changes: [{ path, content: `---\n${toYaml(summary(true))}---\n${text}\n` }],
+      verb: 'post',
+      title: `${fm.title} ${round.date}`,
+      unchanged: { path, blobOid: written.blobOid },
+    }).catch((err) =>
+      this.#log(`checkins: couldn't mark "${fm.title}" ${round.date} posted: ${err}`),
+    )
   }
 
   async #summaryText(
@@ -516,9 +547,9 @@ export class Checkins {
     missing: string[],
   ): Promise<string> {
     const plain = answers
-      .map((a) => `• *${slack(a.fm.name)}*: ${slack(oneLine(a.body, 300))}`)
+      .map((a) => `• *${a.fm.name.replace(/\*/g, '')}*: ${oneLine(a.body, 300)}`)
       .join('\n')
-    const tail = missing.length > 0 ? `\nStill to answer: ${slack(missing.join(', '))}.` : ''
+    const tail = missing.length > 0 ? `\nStill to answer: ${missing.join(', ')}.` : ''
     const llm = this.#d.llm
     if (!llm) return `${plain}${tail}`
     let material = ''
@@ -544,7 +575,7 @@ export class Checkins {
         .replace(/https?:\/\/\S+/g, '')
         .trim()
       if (!clean) return `${plain}${tail}`
-      return `${slack(clean)}${tail}`
+      return `${clean}${tail}`
     } catch (err) {
       this.#log(`checkins: summary model failed, posting the list: ${err}`)
       return `${plain}${tail}`
@@ -804,9 +835,13 @@ function answerFile(fm: CheckinAnswerFrontmatter, body: string): string {
   return `---\n${toYaml(data)}---\n${body}\n`
 }
 
-/** Slack's three escapes, so an answer can't mention or link. */
+/** Slack's three escapes, so an answer can't mention or link, and no plain-text @channel. */
 function slack(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/@(channel|here|everyone|all)\b/gi, '@\u200B$1')
 }
 
 function oneLine(text: string, max: number): string {

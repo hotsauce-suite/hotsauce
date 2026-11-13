@@ -30,12 +30,21 @@ export default function CheckinPage() {
   const [settings, setSettings] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  const asked = useRef(0)
   const load = useCallback(async () => {
+    const ask = ++asked.current
     try {
-      setView(await checkinsApi.get(id))
+      const next = await checkinsApi.get(id)
+      // A slower answer for another check-in, or an older one, is dropped.
+      if (ask === asked.current) setView(next)
     } catch (e) {
-      setError(message(e, 'Couldn’t load this check-in'))
+      if (ask === asked.current) setError(message(e, 'Couldn’t load this check-in'))
     }
+  }, [id])
+
+  useEffect(() => {
+    setView((v) => (v && v.id !== id ? null : v))
+    setError(null)
   }, [id])
 
   useEffect(() => {
@@ -255,6 +264,7 @@ function AnswerBox({
   }
 
   const submit = async () => {
+    if (busy || !text.trim()) return
     setBusy(true)
     setError(null)
     try {

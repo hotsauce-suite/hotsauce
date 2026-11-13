@@ -35,6 +35,10 @@ export function instantOf(date: string, time: string, tz: string): Date {
   let guess = wall
   // Two passes settle the offset, including across a DST change between guess and answer.
   for (let i = 0; i < 2; i++) guess = wall - offsetMs(new Date(guess), tz)
+  // In a spring-forward gap the clock never reads `time`: move on by the missing amount.
+  const p = zonedParts(new Date(guess), tz)
+  const read = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute)
+  if (read < wall) guess += wall - read
   return new Date(guess)
 }
 
@@ -77,7 +81,8 @@ export function recentRounds(fm: Schedule & { tz: string }, now: Date): Round[] 
     const date = addDays(today, -back)
     if (!fm.days.includes(weekdayOf(date))) continue
     const opensAt = instantOf(date, fm.time, fm.tz)
-    if (opensAt.getTime() > now.getTime() || opensAt.getTime() < Date.parse(fm.created)) continue
+    // Members in other zones may be asked later that day, so only days before it was set up go.
+    if (opensAt.getTime() > now.getTime() || date < localDate(new Date(fm.created), fm.tz)) continue
     out.push({ date, opensAt })
   }
   return out

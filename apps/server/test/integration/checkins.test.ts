@@ -191,6 +191,17 @@ describe('answering and replying (R4–R6)', () => {
     expect(JSON.stringify(hits)).toContain('checkins/')
   })
 
+  it('a double submit leaves one answer', async () => {
+    const made = await create()
+    now = new Date(MON_9AM)
+    await Promise.all([
+      api('POST', `/api/checkins/${made.id}/answers`, { json: { text: 'One' } }),
+      api('POST', `/api/checkins/${made.id}/answers`, { json: { text: 'Two' } }),
+    ])
+    const view = await api('GET', `/api/checkins/${made.id}`)
+    expect(view.rounds[0].answers).toHaveLength(1)
+  })
+
   it('anyone replies under an answer, in order', async () => {
     const made = await create()
     now = new Date(MON_9AM)
@@ -291,6 +302,30 @@ describe('the summary (R10)', () => {
     expect(posts).toHaveLength(1)
     expect(posts[0]?.body.text).toContain('Report')
     expect(posts[0]?.body.text).toMatch(/Still to answer: \S/)
+  })
+
+  it('waits for a member whose round opens later in their zone', async () => {
+    const room = await addRoom()
+    // Set up from London (deadline 5 PM there, 17:00Z); Bob is in Los Angeles, asked at 17:00Z.
+    await api('GET', '/api/checkins?tz=America/Los_Angeles', { as: BOB })
+    const made = await api('POST', '/api/checkins?tz=Europe/London', {
+      as: ADMIN,
+      json: { ...WEEKLY, room },
+    })
+    now = new Date(MON_9AM)
+    await api('POST', `/api/checkins/${made.id}/answers`, { json: { text: 'Q&A prep' } })
+    summaryText = '' // the plain list, so the answer's own words are in it
+    now = new Date('2026-11-16T17:30:00.000Z')
+    await services.checkinScheduler.tick()
+    expect(posts).toEqual([])
+    now = new Date('2026-11-16T19:01:00.000Z') // two hours after Bob was asked
+    await services.checkinScheduler.tick()
+    expect(posts).toHaveLength(1)
+    expect(posts[0]?.body.text).toContain('Q&amp;A prep')
+    // The page shows the summary as written, not Slack-escaped.
+    const view = await api('GET', `/api/checkins/${made.id}`)
+    expect(view.rounds[0].summary.text).toContain('Q&A prep')
+    expect(view.rounds[0].summary.posted).toBe(true)
   })
 
   it('without a room the summary is still written, not posted', async () => {
