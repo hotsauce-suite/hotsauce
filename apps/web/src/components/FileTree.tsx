@@ -291,7 +291,7 @@ export function FileTree({ space, activePath }: { space: string; activePath: str
                     const rect = event.currentTarget.getBoundingClientRect()
                     openMenu({ x: rect.left, y: rect.bottom + 4 }, entry)
                   }}
-                  className="flex size-6 shrink-0 items-center justify-center rounded text-ink-faint opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-paper-sunk hover:text-ink focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                  className="tap-target flex size-6 shrink-0 items-center justify-center rounded text-ink-faint opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-paper-sunk hover:text-ink focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
                 >
                   <Icon name="more" className="size-4" />
                 </button>

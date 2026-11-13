@@ -90,6 +90,15 @@ describe('c, / and the sidebar (G2)', () => {
     expect(screen.getByTestId('sidebar-app-name')).toBeInTheDocument()
   })
 
+  it('the sidebar hides and comes back by touch, without a keyboard (docs/PLAN-ipad.md T6)', async () => {
+    const user = userEvent.setup()
+    await openTasks()
+    await user.click(screen.getByTestId('hide-sidebar'))
+    expect(screen.queryByTestId('sidebar-app-name')).not.toBeInTheDocument()
+    await user.click(screen.getByTestId('show-sidebar'))
+    expect(screen.getByTestId('sidebar-app-name')).toBeInTheDocument()
+  })
+
   it('c makes a new doc in Docs, even with the sidebar hidden', async () => {
     const user = userEvent.setup()
     const { router } = renderApp('/docs')
