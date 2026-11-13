@@ -26,5 +26,5 @@
 
 ## Status
 
-- Done: requirements 1 to 7 (site/worker.test.js covers 5 and 6; the build and windows were checked in a real browser). Requirement 8 is covered by the window's "Live demo" bar on hotsauce.work rather than a banner inside the app.
+- Done: requirements 1 to 7 (site/worker.test.js covers 5 and 6; the build and windows were checked in a real browser). Requirement 8: the window's "Live demo" bar on hotsauce.work, and a small notice in the app when it's opened on its own.
 - Next: Whiteboard, Files and Forms.

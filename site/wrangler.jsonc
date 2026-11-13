@@ -4,9 +4,10 @@
   "name": "hotsauce-site",
   "main": "worker.js",
   "compatibility_date": "2026-10-01",
+  // Wrangler runs this from wherever it was started, so it finds the repo root itself, and
+  // stops the deploy if it isn't run inside the repository.
   "build": {
-    "command": "pnpm install --frozen-lockfile && pnpm build:format && pnpm --filter @hearth/web build:demo",
-    "cwd": ".."
+    "command": "root=$(git rev-parse --show-toplevel) && cd \"$root\" && pnpm install --frozen-lockfile && pnpm build:format && pnpm --filter @hearth/web build:demo"
   },
   "assets": {
     "binding": "ASSETS",

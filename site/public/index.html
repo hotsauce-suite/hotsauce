@@ -750,6 +750,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
     const frame = Object.assign(document.createElement('iframe'), {
       src: demoUrl,
       title: `Live demo of ${dlg.querySelector('h3').textContent}`,
+      allow: 'microphone; clipboard-write',
     })
     vid.hidden = true
     clip.classList.add('live')
@@ -757,7 +758,6 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
     tryBar.hidden = true
     liveBar.hidden = false
     dlg.scrollTop = 0
-    frame.focus()
   })
   const resetDemo = () => {
     clip.querySelector('iframe')?.remove()
