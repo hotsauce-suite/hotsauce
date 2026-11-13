@@ -18,7 +18,5 @@ export const peopleApp: AppManifest = {
   folder: 'people',
   urlFor: (_space, path) => personUrl(path.replace(/^people\//, '').replace(/\.md$/i, '')),
   sidebar: false,
-  // The phone bar is full; people open from a meeting's attendees or a link.
-  onPhoneBar: false,
   preload: () => import('./PeoplePages'),
 }

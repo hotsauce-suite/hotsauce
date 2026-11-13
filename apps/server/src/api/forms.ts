@@ -102,10 +102,10 @@ export function formRoutes(deps: Pick<AppDeps, 'forms' | 'chatRooms'>) {
       .post(
         '/chat-rooms',
         valid('json', z.object({ name: z.string().max(80), url: z.string().max(2000) })),
-        (c) => {
+        async (c) => {
           adminOnly(c.get('principal'))
           const { name, url } = c.req.valid('json')
-          return c.json(chatRooms.add(name, url))
+          return c.json(await chatRooms.add(name, url))
         },
       )
       .delete(

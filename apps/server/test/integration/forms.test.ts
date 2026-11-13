@@ -529,11 +529,12 @@ describe('chat rooms (R13)', () => {
     const { id } = await api('POST', `/api/form/${form.link}`, {
       json: { answers: { name: 'Ada <@here>', role: 'Office' } },
     })
-    expect(posts).toHaveLength(1)
-    expect(posts[0]?.url).toBe('https://chat.example.test/hook/abcd1234')
-    expect(posts[0]?.body.text).toContain('New answer to *Lab kit request*')
-    expect(posts[0]?.body.text).toContain('> Your name: Ada &lt;@here&gt;')
-    expect(posts[0]?.body.text).toContain(
+    expect(posts).toHaveLength(2)
+    expect(posts[0]?.body.text).toContain('Hearth Forms is connected')
+    expect(posts[1]?.url).toBe('https://chat.example.test/hook/abcd1234')
+    expect(posts[1]?.body.text).toContain('New answer to *Lab kit request*')
+    expect(posts[1]?.body.text).toContain('> Your name: Ada &lt;@here&gt;')
+    expect(posts[1]?.body.text).toContain(
       `<https://hearth.example.test/forms/team/${form.id}/answers?answer=${id}|Open the answer>`,
     )
     // Nothing about the webhook went into Git.
@@ -545,7 +546,48 @@ describe('chat rooms (R13)', () => {
     await api('POST', `/api/form/${form.link}`, {
       json: { answers: { name: 'B', role: 'Office' } },
     })
-    expect(posts).toHaveLength(1)
+    expect(posts).toHaveLength(2)
+  })
+
+  it('refuses a link that is not a Slack-compatible webhook, with the reason', async () => {
+    const msg = await api('POST', '/api/chat-rooms', {
+      as: ADMIN,
+      json: { name: 'Ops', url: 'https://chat.example.test/rooms/abc/key123/messages' },
+      status: 400,
+    })
+    expect(msg.error.message).toMatch(/Slack-compatible/)
+    expect(posts).toHaveLength(0)
+    for (const url of [
+      'https://localhost/x/slack',
+      'https://169.254.169.254/x',
+      'https://[::1]/x',
+      'https://10.0.0.5/x',
+    ]) {
+      await api('POST', '/api/chat-rooms', { as: ADMIN, json: { name: 'X', url }, status: 400 })
+    }
+    expect(posts).toHaveLength(0)
+    const failing = createServices(
+      loadConfig({
+        NODE_ENV: 'test',
+        AUTH_MODE: 'dev',
+        HOST_KIND: 'local',
+        DATA_DIR: join(root, 'data3'),
+        LOCAL_HOST_DIR: join(root, 'remotes3'),
+        ALLOWED_EMAIL_DOMAINS: 'example.test',
+      }),
+      { chatFetch: async () => new Response('invalid_payload', { status: 400 }) },
+    )
+    try {
+      await expect(
+        failing.chatRooms.add('Ops', 'https://chat.example.test/x/slack'),
+      ).rejects.toThrow(/didn’t take a test message \(it answered 400\)/)
+      expect(failing.chatRooms.list()).toEqual([])
+    } finally {
+      await failing.meetings.sessions.close()
+      failing.meetings.calendarSync?.cache.close()
+      failing.index.close()
+      failing.dictation.store.close()
+    }
   })
 
   it('keeps the answer when the chat post fails', async () => {

@@ -37,7 +37,7 @@ export function tokenRoutes(deps: Pick<AppDeps, 'tokens'>) {
  */
 export function sessionOnly(principal: AppEnv['Variables']['principal']) {
   if (principal.via?.kind === 'token') {
-    throw new HearthError('forbidden', 'This needs a signed-in Hearth session, not an access token')
+    throw new HearthError('forbidden', 'This needs a signed-in session, not an access token')
   }
   return principal
 }

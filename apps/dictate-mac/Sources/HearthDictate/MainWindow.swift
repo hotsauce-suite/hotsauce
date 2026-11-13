@@ -164,7 +164,7 @@ struct MainView: View {
             .navigationSplitViewColumnWidth(min: 170, ideal: 190)
             .safeAreaInset(edge: .bottom) {
                 Button(action: model.openWeb) {
-                    Label("Hearth on the web", systemImage: "arrow.up.right.square")
+                    Label("\(Brand.name) on the web", systemImage: "arrow.up.right.square")
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.plain)
@@ -475,7 +475,7 @@ private struct DictionaryPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Names and terms Hearth should hear and spell exactly as written. Yours apply to your dictations; the team’s apply to everyone on the team.")
+                Text("Names and terms \(Brand.name) should hear and spell exactly as written. Yours apply to your dictations; the team’s apply to everyone on the team.")
                     .font(.system(size: 13)).foregroundStyle(Hearth.inkSoft).fixedSize(horizontal: false, vertical: true)
                 if let state = model.wordsState {
                     Text(state).font(.system(size: 12)).foregroundStyle(Hearth.inkFaint)

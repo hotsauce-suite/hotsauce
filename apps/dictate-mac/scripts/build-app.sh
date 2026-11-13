@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-# Builds <Name>.app (universal, macOS 14+; the name from Brand.swift, "Hearth"), signs it, and
+# Builds <Name>.app (universal, macOS 14+; the name from Brand.swift, "Hotsauce"), signs it, and
 # packages it for the server's /downloads/: <Name>.dmg (the app and an Applications link) and
 # <Name>.zip. The bundle id stays dev.hotsauce.dictate: macOS keys the Microphone and
 # Accessibility permissions to it and the signature, not to the name.
 # Signs with, in order: a "Developer ID Application" identity (hardened runtime, timestamp);
 # "Hotsauce Local Code Signing" from scripts/create-signing-identity.sh (a stable self-signed
 # identity, so macOS keeps permissions across updates); else ad hoc.
+# With a Developer ID it also notarizes with Apple and staples the tickets, so the download opens
+# without a Gatekeeper warning. That needs a notarytool keychain profile (default "mac-notary",
+# override with NOTARY_PROFILE), saved once with
+#   xcrun notarytool store-credentials mac-notary --apple-id <id> --team-id <team>
+# which keeps the app-specific password in the login keychain; this script never sees it.
+# The disk image window (background, icon spots) comes from Resources/dmg/ via dmgbuild, run with
+# uvx; without uv it falls back to a plain window.
 #
-#   apps/dictate-mac/scripts/build-app.sh   → build/Hearth.app, release/Hearth.{dmg,zip}
+#   apps/dictate-mac/scripts/build-app.sh   → build/Hotsauce.app, release/Hotsauce.{dmg,zip}
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -81,17 +88,59 @@ else
 fi
 codesign --verify --deep --strict "$APP"
 
+NOTARY_PROFILE="${NOTARY_PROFILE:-mac-notary}"
+NOTARIZE=0
+if [[ -n "$IDENTITY" ]]; then
+  if xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+    NOTARIZE=1
+  else
+    echo "WARNING: no working notarytool profile \"$NOTARY_PROFILE\": the build is signed but NOT notarized," >&2
+    echo "         so Macs will still warn on first open. See the comment at the top of this script." >&2
+  fi
+fi
+notarize() { # <file>: send to Apple, wait for the verdict, staple the ticket on success.
+  local file="$1" target="${2:-$1}"
+  echo "Notarizing $(basename "$file") (usually a few minutes)"
+  xcrun notarytool submit "$file" --keychain-profile "$NOTARY_PROFILE" --wait --timeout 30m \
+    | tee build/notary.log || true
+  grep -q "status: Accepted" build/notary.log || { echo "Apple didn't accept $(basename "$file"); see the log above and 'xcrun notarytool log <id> --keychain-profile $NOTARY_PROFILE'" >&2; exit 1; }
+  xcrun stapler staple "$target"
+}
+
 rm -f release/*.zip release/*.dmg
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+if (( NOTARIZE )); then
+  # Notarize the app itself first and staple it, so a copy opened from the zip or dragged out of
+  # the disk image carries its ticket even offline; then zip the stapled app again.
+  notarize "$ZIP" "$APP"
+  rm -f "$ZIP"
+  ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+fi
 
-# The disk image: the app beside a link to Applications, to drag across.
-STAGE="build/dmg"
-mkdir -p "$STAGE"
-ditto "$APP" "$STAGE/${APP_NAME}.app"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -quiet -volname "$APP_NAME" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG"
-# The staging folder's Applications link would let other tools (test runners) walk /Applications.
-rm -rf "$STAGE"
-if [[ "$SIGNER" != "-" ]]; then codesign --force -s "$SIGNER" "$DMG"; fi
+# The disk image: the app beside a link to Applications, to drag across, on the background from
+# Resources/dmg/ (dmgbuild writes the window layout without driving Finder).
+if command -v uvx >/dev/null 2>&1 && uvx --quiet dmgbuild==1.6.7 -s Resources/dmg/settings.py \
+    -D app="$APP" -D background=Resources/dmg/background.tiff "$APP_NAME" "$DMG"; then
+  :
+else
+  echo "dmgbuild unavailable (uv missing or offline): building a plain disk image"
+  rm -f "$DMG"
+  STAGE="build/dmg"
+  mkdir -p "$STAGE"
+  ditto "$APP" "$STAGE/${APP_NAME}.app"
+  ln -s /Applications "$STAGE/Applications"
+  hdiutil create -quiet -volname "$APP_NAME" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG"
+  # The staging folder's Applications link would let other tools (test runners) walk /Applications.
+  rm -rf "$STAGE"
+fi
+if [[ -n "$IDENTITY" ]]; then
+  codesign --force --timestamp -s "$IDENTITY" "$DMG"
+elif [[ "$SIGNER" != "-" ]]; then
+  codesign --force -s "$SIGNER" "$DMG"
+fi
+if (( NOTARIZE )); then
+  notarize "$DMG"
+  spctl -a -t open --context context:primary-signature -v "$DMG"
+fi
 
 echo "Built $APP, $DMG ($(du -h "$DMG" | cut -f1)) and $ZIP ($(du -h "$ZIP" | cut -f1))"

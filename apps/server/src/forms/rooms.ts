@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { lookup } from 'node:dns/promises'
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
@@ -27,8 +28,17 @@ export class ChatRooms {
   readonly #file: string
   readonly #fetch: typeof fetch
   readonly #log: (message: string) => void
+  readonly #resolve: (host: string) => Promise<string[]>
 
-  constructor(opts: { dataDir: string; fetch?: typeof fetch; log?: (m: string) => void }) {
+  constructor(opts: {
+    dataDir: string
+    fetch?: typeof fetch
+    log?: (m: string) => void
+    /** The addresses a hostname resolves to; tests pass a fake. */
+    resolve?: (host: string) => Promise<string[]>
+  }) {
+    this.#resolve =
+      opts.resolve ?? (async (host) => (await lookup(host, { all: true })).map((a) => a.address))
     this.#file = path.join(opts.dataDir, 'forms', 'rooms.json')
     this.#fetch = opts.fetch ?? fetch
     this.#log = opts.log ?? console.warn
@@ -42,9 +52,14 @@ export class ChatRooms {
     return this.#read().some((r) => r.id === id)
   }
 
-  add(name: string, url: string): ChatRoom {
+  /**
+   * Adds a room after posting "connected" to it, so a wrong link is refused with the reason
+   * rather than saved and silently dropping every answer. Slack and Slack-compatible chat
+   * addresses answer a good post with `ok`.
+   */
+  async add(name: string, url: string): Promise<ChatRoom> {
     const clean = name.replace(/\s+/g, ' ').trim().slice(0, 80)
-    if (!clean) throw new HearthError('bad_request', 'A room needs a name')
+    if (!clean) throw new HearthError('bad_request', 'Give the room a name')
     let parsed: URL
     try {
       parsed = new URL(url.trim())
@@ -54,9 +69,49 @@ export class ChatRooms {
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
       throw new HearthError('bad_request', 'The webhook link must start with https://')
     }
+    // Only public chat services: never this server or anything on its private network.
+    const host = parsed.hostname.replace(/\.+$/, '')
+    const addresses = await this.#resolve(host.replace(/^\[|\]$/g, '')).catch(() => [] as string[])
+    if (addresses.length === 0)
+      throw new HearthError('bad_request', 'Couldn’t find that link’s server')
+    if (isPrivateHost(host) || addresses.some(isPrivateHost)) {
+      throw new HearthError('bad_request', 'That link points at a private address')
+    }
+    // Some chat apps' bots pages also offer a plain "message command" address, which takes text,
+    // not a Slack message. Their Slack-compatible one ends in /slack.
+    if (/\/rooms\/[^/]+\/[^/]+\/messages\/?$/.test(parsed.pathname)) {
+      throw new HearthError(
+        'bad_request',
+        'That’s the bot’s message address. Use “Copy Slack-compatible webhook URL” instead (it ends in /slack).',
+      )
+    }
     const rooms = this.#read()
-    if (rooms.length >= MAX_ROOMS)
+    if (rooms.length >= MAX_ROOMS) {
       throw new HearthError('bad_request', `At most ${MAX_ROOMS} rooms`)
+    }
+    let answer = ''
+    let status = 0
+    try {
+      const res = await this.#fetch(parsed.toString(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: `Hearth Forms is connected. New form answers will be posted here.`,
+        }),
+        signal: AbortSignal.timeout(10_000),
+        redirect: 'manual',
+      })
+      status = res.status
+      answer = (await res.text()).slice(0, 200).trim()
+    } catch {
+      throw new HearthError('bad_request', 'Couldn’t reach that link. Check it and try again.')
+    }
+    if (status < 200 || status >= 300 || answer.toLowerCase() !== 'ok') {
+      throw new HearthError(
+        'bad_request',
+        `That link didn’t take a test message (it answered ${status}). Copy the bot’s Slack-compatible webhook URL and try again.`,
+      )
+    }
     const room = { id: randomBytes(6).toString('base64url'), name: clean, url: parsed.toString() }
     this.#write([...rooms, room])
     return { id: room.id, name: room.name, last4: room.url.slice(-4) }
@@ -84,6 +139,7 @@ export class ChatRooms {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text }),
         signal: AbortSignal.timeout(10_000),
+        redirect: 'manual',
       })
       await res.body?.cancel()
       if (!res.ok) this.#log(`forms: chat room "${room.name}" answered ${res.status}`)
@@ -106,4 +162,42 @@ export class ChatRooms {
     chmodSync(tmp, 0o600)
     renameSync(tmp, this.#file)
   }
+}
+
+/** A hostname that names this machine or a private network: localhost, or a private IP literal. */
+export function isPrivateHost(host: string): boolean {
+  const h = host
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '')
+    .toLowerCase()
+  if (
+    h === 'localhost' ||
+    h.endsWith('.localhost') ||
+    h.endsWith('.internal') ||
+    h.endsWith('.local')
+  ) {
+    return true
+  }
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h)
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])]
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127)
+    )
+  }
+  if (h.includes(':'))
+    return (
+      h === '::1' ||
+      h === '::' ||
+      /^f[cd]/.test(h) ||
+      /^fe[89ab]/.test(h) ||
+      h.startsWith('::ffff:')
+    )
+  return false
 }

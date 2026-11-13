@@ -53,7 +53,7 @@ export function ChatRoomsSection() {
           Chat rooms for form answers
         </h2>
         <p className="mt-2 text-ink-soft">
-          A form can post each new answer to a chat room. Add a bot to the room in your team chat
+          A form can post each new answer to a chat room. Make a bot in your team chat
           {chatHome ? (
             <>
               {' '}
@@ -64,7 +64,10 @@ export function ChatRoomsSection() {
               )
             </>
           ) : null}
-          , copy its incoming webhook link, and paste it here. Slack webhook links work too.
+          , and under the room you want, copy its <b>Slack-compatible webhook URL</b> (it ends in
+          /slack) and paste it here. The link decides the room; the name is only how forms list it.
+          Hearth posts a test message to check the link before saving it. Slack webhook links work
+          too.
         </p>
       </div>
       {rooms && rooms.length > 0 ? (
@@ -98,8 +101,8 @@ export function ChatRoomsSection() {
         }}
       >
         <input
-          aria-label="Room name"
-          placeholder="Room name, like Ops"
+          aria-label="Name shown in Forms"
+          placeholder="Name, like Form answers"
           className={`${inputClass} sm:w-48`}
           value={name}
           maxLength={80}
@@ -121,7 +124,7 @@ export function ChatRoomsSection() {
           disabled={busy || !name.trim() || !url.trim()}
           data-testid="chat-room-add"
         >
-          Add room
+          {busy ? 'Checking…' : 'Add room'}
         </button>
       </form>
       {error ? (

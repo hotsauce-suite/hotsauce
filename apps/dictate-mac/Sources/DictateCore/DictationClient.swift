@@ -36,8 +36,8 @@ public enum DictationError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .notConnected: "Not connected to Hearth. Connect this Mac from your workspace’s /dictate page."
-        case let .network(detail): "Couldn’t reach Hearth (\(detail))."
+        case .notConnected: "Not connected to \(Brand.name). Connect this Mac from Dictate on the web."
+        case let .network(detail): "Couldn’t reach \(Brand.name) (\(detail))."
         case let .server(_, message): message
         }
     }
@@ -100,12 +100,12 @@ public struct DictationClient: Sendable {
         if status == 401 { throw DictationError.notConnected }
         guard (200..<300).contains(status) else {
             let message = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error.message
-            throw DictationError.server(status: status, message: message ?? "Hearth answered \(status)")
+            throw DictationError.server(status: status, message: message ?? "\(Brand.name) answered \(status)")
         }
         do {
             return try JSONDecoder().decode(DictationResult.self, from: body)
         } catch {
-            throw DictationError.server(status: status, message: "Hearth answered with something unexpected")
+            throw DictationError.server(status: status, message: "\(Brand.name) answered with something unexpected")
         }
     }
 
@@ -137,7 +137,7 @@ public struct DictationClient: Sendable {
         if status == 401 { throw DictationError.notConnected }
         struct Words: Decodable { let account: String }
         guard (200..<300).contains(status), let words = try? JSONDecoder().decode(Words.self, from: body) else {
-            throw DictationError.server(status: status, message: "Hearth answered \(status)")
+            throw DictationError.server(status: status, message: "\(Brand.name) answered \(status)")
         }
         return words.account
     }
@@ -157,7 +157,7 @@ public struct DictationClient: Sendable {
         let (body, status) = try await send(request, session: session)
         if status == 401 { throw DictationError.notConnected }
         guard (200..<300).contains(status), let words = try? JSONDecoder().decode(Words.self, from: body) else {
-            throw DictationError.server(status: status, message: "Hearth answered \(status)")
+            throw DictationError.server(status: status, message: "\(Brand.name) answered \(status)")
         }
         return words
     }
@@ -184,7 +184,7 @@ public struct DictationClient: Sendable {
         struct Saved: Decodable { let words: [String] }
         guard (200..<300).contains(status), let saved = try? JSONDecoder().decode(Saved.self, from: body) else {
             let message = (try? JSONDecoder().decode(ErrorBody.self, from: body))?.error.message
-            throw DictationError.server(status: status, message: message ?? "Hearth answered \(status)")
+            throw DictationError.server(status: status, message: message ?? "\(Brand.name) answered \(status)")
         }
         return saved.words
     }

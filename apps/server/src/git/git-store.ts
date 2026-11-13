@@ -511,7 +511,7 @@ export class GitStore {
         if (gone || (head !== null && head.oid !== args.unchanged.blobOid)) {
           throw new HearthError(
             'conflict',
-            `${args.unchanged.path} changed in ${space} while Hearth was working on it`,
+            `${args.unchanged.path} changed in ${space} while it was being saved`,
           )
         }
       }

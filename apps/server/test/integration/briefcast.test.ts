@@ -298,6 +298,62 @@ describe('briefcast', () => {
     expect(prompt).not.toContain('title="Mine"')
   })
 
+  it('mentions links saved since the last one, and on Mondays last week’s unread (§23)', async () => {
+    const link = (id: string, title: string, saved: string, by: string, archived = false) =>
+      `---\nid: ${id}\ntype: link\nurl: https://x.test/${id}\ntitle: ${title}\nsite: x.test\nsummary: About ${title.toLowerCase()}.\n${archived ? 'archived: true\n' : ''}saved: ${saved}\nsaved_by: ${by}\nfetched: ${saved}\n---\n\nText\n`
+    now = new Date('2026-11-16T10:00:00Z') // a Monday: "recent" is since Friday morning
+    const at = (h: number) => new Date(now.getTime() - h * 3_600_000).toISOString()
+    const ids = [
+      '01JC0000000000000000000001',
+      '01JC0000000000000000000002',
+      '01JC0000000000000000000003',
+      '01JC0000000000000000000004',
+    ]
+    await writeDoc(
+      'alice',
+      `links/${ids[0]}.md`,
+      link(ids[0] as string, 'Mirror life', at(20), ALICE),
+      ALICE,
+    )
+    await writeDoc(
+      'alice',
+      `links/${ids[1]}.md`,
+      link(ids[1] as string, 'Gene drives', at(120), ALICE),
+      ALICE,
+    )
+    await writeDoc(
+      'alice',
+      `links/${ids[2]}.md`,
+      link(ids[2] as string, 'Old done', at(130), ALICE, true),
+      ALICE,
+    )
+    await writeDoc(
+      'team',
+      `links/${ids[3]}.md`,
+      link(ids[3] as string, 'Bobs pick', at(5), BOB),
+      BOB,
+    )
+
+    // Saved links alone are enough for a briefing.
+    const res = await api('POST', '/api/briefcast/refresh', { json: { tz: 'UTC' } })
+    expect(res.status).toBe('written')
+    const prompt = lastPrompt()
+    expect(prompt).toContain(
+      '<link status="saved" title="Mirror life" site="x.test">About mirror life.</link>',
+    )
+    expect(prompt).toContain('<link status="unread" title="Gene drives"')
+    expect(prompt).not.toContain('Old done')
+    expect(prompt).not.toContain('Bobs pick')
+
+    now = new Date('2026-11-17T10:00:00Z') // Tuesday: only the last day, no unread list
+    const fresh = '01JC0000000000000000000005'
+    await writeDoc('alice', `links/${fresh}.md`, link(fresh, 'Fresh read', at(2), ALICE), ALICE)
+    await api('POST', '/api/briefcast/refresh', { json: { tz: 'UTC', force: true } })
+    expect(lastPrompt()).toContain('<link status="saved" title="Fresh read"')
+    expect(lastPrompt()).not.toContain('Gene drives')
+    expect(lastPrompt()).not.toContain('Mirror life')
+  })
+
   it('R7: a private podcast feed that needs its token and can be rotated', async () => {
     await writeMeeting('alice', 'Northwind pricing', hoursAgo(2), [`Alice <${ALICE}>`], 'Decided')
     await api('POST', '/api/briefcast/refresh', { json: { tz: 'UTC' } })

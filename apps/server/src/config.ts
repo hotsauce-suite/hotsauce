@@ -20,6 +20,8 @@ export const ConfigSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
     PUBLIC_URL: z.string().url().default('http://localhost:3000'),
+    // Old addresses of this instance (comma-separated hosts): pages there redirect to PUBLIC_URL.
+    LEGACY_HOSTS: z.string().default('').transform(csv),
     DATA_DIR: z.string().default('./.data'),
 
     // Who this instance is for (ARCHITECTURE §11). The setup wizard saves these; env wins.
@@ -85,6 +87,10 @@ export const ConfigSchema = z
     CLIPS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hearth Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
     TASKS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+    // Saved links (ARCHITECTURE §23): how pages are fetched (fake in development and test), and
+    // the model that summarizes and tags them.
+    LINK_FETCH: z.enum(['live', 'fake']).optional(),
+    LINKS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Agent briefs (ARCHITECTURE §13): the model that writes each member's nightly brief, and the
     // local hour after which it is due.
     BRIEF_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
@@ -174,6 +180,7 @@ export const ConfigSchema = z
         c.TTS_PROVIDER ?? (production ? (c.OPENAI_API_KEY ? 'openai' : 'none') : 'fake'),
       LLM_PROVIDER:
         c.LLM_PROVIDER ?? (production ? (c.ANTHROPIC_API_KEY ? 'anthropic' : 'none') : 'fake'),
+      LINK_FETCH: c.LINK_FETCH ?? (production ? ('live' as const) : ('fake' as const)),
       // Without R2, video and kept audio go on the data volume (DATA_DIR), which every
       // supported host persists; AUDIO_STORE=none turns Clips and kept audio off.
       AUDIO_STORE:
@@ -196,6 +203,13 @@ export const ConfigSchema = z
         code: 'custom',
         path: ['LLM_PROVIDER'],
         message: 'the fake language model is not allowed in production',
+      })
+    }
+    if (c.NODE_ENV === 'production' && c.LINK_FETCH === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LINK_FETCH'],
+        message: 'stand-in pages for saved links are not allowed in production',
       })
     }
     if (c.NODE_ENV === 'production' && c.TTS_PROVIDER === 'fake') {

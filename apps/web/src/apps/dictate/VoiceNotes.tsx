@@ -6,6 +6,7 @@ import { meetingsApi } from '../../api/meetings'
 import type { MeetingSession, MeetingSummary, TranscriptSegment } from '../../api/types'
 import { org, product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { MAC_APP_SETTINGS } from '../../components/MacApp'
 import { meetingUrl } from '../../lib/paths'
 import { CaptureError, captureAudio } from '../meetings/audio/capture'
 import type { MeetingSocket } from '../meetings/audio/socket'
@@ -211,7 +212,7 @@ export default function VoiceNotes() {
 
           <p className="mt-12 border-t border-ash/70 pt-4 text-center text-xs leading-relaxed text-ink-faint">
             On a Mac?{' '}
-            <Link to="/dictate/mac" className="text-ink-soft underline underline-offset-2">
+            <Link to={MAC_APP_SETTINGS} className="text-ink-soft underline underline-offset-2">
               Get the Mac app
             </Link>{' '}
             to dictate into any app.

@@ -147,7 +147,15 @@ describe('boardTexts and boardSearchText', () => {
     const text = boardSearchText(bodyOf(file.text))
     expect(text).toContain('Roadmap')
     expect(text).not.toContain('zebra')
-    expect(text).not.toContain('Hearth Whiteboard')
+    expect(text).not.toContain('Hotsauce Whiteboard')
+  })
+
+  it('search text also drops the marker comment older boards were written with', () => {
+    const body =
+      '<!-- A Hearth Whiteboard. Open it in Hearth to draw; the list is the text on the board. -->\n- Roadmap\n'
+    const text = boardSearchText(body)
+    expect(text).toContain('Roadmap')
+    expect(text).not.toContain('Whiteboard')
   })
 })
 

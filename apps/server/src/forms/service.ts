@@ -10,6 +10,7 @@ import {
   answerPath,
   answersCsv,
   answerText,
+  type Column,
   checkAnswers,
   displayValue,
   FORMS_FOLDER,
@@ -327,6 +328,31 @@ export class Forms {
     this.#assertAccess(principal, space)
     const { fm } = await this.#readForm(space, id)
     return { title: fm.title, csv: answersCsv(fm.questions, this.#answers(space, id)) }
+  }
+
+  /**
+   * Every answer as a table (ARCHITECTURE §22.6): a header row, then one row per answer, newest
+   * first, with a column type for each question so Tables shows it the same way.
+   */
+  async answerTable(
+    principal: Principal,
+    space: string,
+    id: string,
+  ): Promise<{ title: string; columns: Column[]; cells: string[][] }> {
+    this.#assertAccess(principal, space)
+    const { fm } = await this.#readForm(space, id)
+    const columns: Column[] = [{ type: 'text' }, { type: 'person' }, ...fm.questions.map(columnFor)]
+    const cells = [
+      ['Submitted', 'From', ...fm.questions.map((q) => q.label)],
+      ...this.#answers(space, id).map((a) => [
+        a.submitted.replace('T', ' ').replace(/:\d\dZ$/, ''),
+        a.submittedBy ?? '',
+        ...fm.questions.map((q) => displayValue(a.answers[q.id])),
+      ]),
+    ]
+    // Answers are data, never formulas: one starting `=` is shown and copied as text.
+    const text = cells.map((row) => row.map((c) => (c.startsWith('=') ? `'${c}` : c)))
+    return { title: fm.title, columns, cells: text }
   }
 
   /** Counts for choice and rating questions, and Claude's summary of the newest answers. */
@@ -699,6 +725,14 @@ function formFile(fm: FormFrontmatter): string {
   const data = Object.fromEntries(Object.entries(fm).filter(([, v]) => v !== undefined))
   const lines = [fm.description.trim(), ...fm.questions.map((q) => `- ${q.label}`)].filter(Boolean)
   return `---\n${toYaml(data)}---\n${lines.join('\n')}\n`
+}
+
+function columnFor(q: Question): Column {
+  if (q.type === 'choice' || q.type === 'dropdown')
+    return { type: 'choice', options: q.options ?? [] }
+  if (q.type === 'rating') return { type: 'number' }
+  if (q.type === 'date') return { type: 'date' }
+  return { type: 'text' }
 }
 
 function tally(questions: readonly Question[], rows: readonly AnswerRow[]): Tally[] {

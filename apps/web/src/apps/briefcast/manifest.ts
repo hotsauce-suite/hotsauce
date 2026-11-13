@@ -14,7 +14,5 @@ export const briefcastApp: AppManifest = {
   route: '/briefcast',
   folder: '',
   urlFor: docUrl,
-  // The phone bar is full; on a phone the briefing plays from the podcast feed or a link.
-  onPhoneBar: false,
   preload: () => import('./BriefcastPage'),
 }

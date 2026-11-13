@@ -5,6 +5,8 @@ name: Feedback board
 # variable set to on. Needs the FEEDBACK_PROJECT_TOKEN secret: a
 # fine-grained token with Projects read/write on the organization and Issues
 # read/write on this repository. Without it, only the labels are created.
+# It must live in the repository that receives the issues (FEEDBACK_REPO); for an
+# inbox in a separate private repository, that repository carries a copy of this file and the script.
 
 on:
   issues:

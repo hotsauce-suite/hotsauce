@@ -30,10 +30,6 @@ test('Dictate: connect this Mac, dictate with its token, words, disconnect', asy
   await expect(
     connectTab.getByRole('heading', { name: 'Talk anywhere you can type.' }),
   ).toBeVisible()
-  // This server was built without the Mac app (only the Docker image copies it in), so the
-  // page points to the source instead of a download that isn't there.
-  await expect(connectTab.getByTestId('dictate-build-from-source')).toBeVisible()
-  await expect(connectTab.getByTestId('dictate-download')).toHaveCount(0)
   await expect(connectTab.getByTestId('dictate-words-team')).toContainText('Hotsauce')
 
   await connectTab.getByTestId('dictate-connect').click()
@@ -103,4 +99,46 @@ test('Dictate on a computer: the Mac page links to recording a voice note here',
   // The home-screen start URL goes to Today on a computer.
   await page.goto('/?launch=home')
   await expect(page).toHaveURL(/\/today$/)
+})
+
+test('the Mac app: Today links to its download in Settings', async ({ page }) => {
+  // A server built without the Mac app (only the Docker image copies it in).
+  await page.route('**/downloads/Hotsauce.dmg', (route) => route.fulfill({ status: 404 }))
+  await page.goto('/today')
+  const card = page.getByTestId('today-mac-app')
+  // Nothing to download, so Today doesn't offer it.
+  await expect(page.getByTestId('today-tasks')).toBeVisible()
+  await expect(card).toHaveCount(0)
+
+  // Settings points to the source instead of a download that isn't there.
+  await page.goto('/dictate')
+  await page.getByTestId('dictate-get-app-link').click()
+  await expect(page).toHaveURL(/\/settings#mac-app$/)
+  await expect(page.getByRole('heading', { name: 'Mac app' })).toBeInViewport()
+  await expect(page.getByTestId('mac-app-build-from-source')).toBeVisible()
+  await expect(page.getByTestId('mac-app-download')).toHaveCount(0)
+})
+
+test('the Mac app: with a build, Today offers it until closed', async ({ page }) => {
+  // Stands in for the Docker image's copy of the app.
+  await page.route('**/downloads/Hotsauce.dmg', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/x-apple-diskimage', body: '' }),
+  )
+  await page.goto('/today')
+  const card = page.getByTestId('today-mac-app')
+  await expect(card).toBeVisible()
+  await card.getByTestId('today-mac-app-link').click()
+  await expect(page).toHaveURL(/\/settings#mac-app$/)
+  await expect(page.getByTestId('mac-app-download')).toHaveAttribute(
+    'href',
+    '/downloads/Hotsauce.dmg',
+  )
+  await expect(page.getByTestId('mac-app-install-steps')).toContainText('Open Anyway')
+
+  await page.goto('/today')
+  await page.getByTestId('today-mac-app-dismiss').click()
+  await expect(card).toHaveCount(0)
+  await page.reload()
+  await expect(page.getByTestId('today-tasks')).toBeVisible()
+  await expect(card).toHaveCount(0)
 })

@@ -17,6 +17,20 @@ window.addEventListener('message', (event) => {
     post({ type: 'hello', id: data.id, version })
     return
   }
+  if (data.type === 'may-save') {
+    const ask: WorkerMessage = { type: 'may-save' }
+    chrome.runtime.sendMessage(ask).then(
+      (reply: { ok?: boolean } | undefined) =>
+        post({ type: 'may-save', id: data.id, ok: reply?.ok === true }),
+      () => post({ type: 'may-save', id: data.id, ok: false }),
+    )
+    return
+  }
+  if (data.type === 'link-saved') {
+    const done: WorkerMessage = { type: 'link-saved', ok: data.ok }
+    chrome.runtime.sendMessage(done).catch(() => {})
+    return
+  }
   const ask: WorkerMessage = {
     type: 'capture-meet',
     ...(data.code === undefined ? {} : { code: data.code }),

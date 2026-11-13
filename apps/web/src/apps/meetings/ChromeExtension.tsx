@@ -38,6 +38,10 @@ export default function ChromeExtension() {
             call, matched to your calendar event, and listens to the Meet tab without Chrome’s “pick
             a tab, tick share audio” dialog. No bot joins the call.
           </p>
+          <p className="mt-2 text-ink-soft">
+            On any other page, the same icon saves the page to Links to read later; right-click a
+            link to save that instead.
+          </p>
 
           {installed ? (
             <p
@@ -68,16 +72,15 @@ export default function ChromeExtension() {
             </li>
             <li>Click Load unpacked and choose the unzipped folder.</li>
             <li>
-              Click the puzzle-piece icon in the toolbar and pin {product()} Meetings, so its icon
-              is always there. It shows a dot when you’re on a Meet call.
+              Click the puzzle-piece icon in the toolbar and pin {product()}, so its icon is always
+              there. It shows a dot when you’re on a Meet call.
             </li>
           </ol>
 
           <h3 className="mt-8 text-sm font-semibold text-ink-soft">Updating</h3>
           <p className="mt-2 text-ink-soft">
             Download it again, replace the folder’s contents, then click the reload arrow on{' '}
-            {product()}
-            Meetings in <code className={code}>chrome://extensions</code>.
+            {product()} in <code className={code}>chrome://extensions</code>.
           </p>
         </div>
       </div>

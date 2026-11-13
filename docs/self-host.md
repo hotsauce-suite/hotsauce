@@ -1,6 +1,8 @@
 # Run Hotsauce for your organization
 
-Hotsauce is one small server: a Node process, a folder of git repositories and a SQLite index on one disk. It needs about 1 GB of memory. Three ways to run it:
+Hotsauce is one small server: a Node process, a folder of git repositories and a SQLite index on one disk. It needs about 1 GB of memory.
+
+**Its address:** give it `hotsauce.` on your company's domain, like `https://hotsauce.acme.com`: one DNS record, and your team knows it's yours. Any other address works too. Three ways to run it:
 
 ## Fly.io (about $6 a month)
 
@@ -12,7 +14,7 @@ Hotsauce is one small server: a Node process, a folder of git repositories and a
    scripts/deploy-fly.sh acme-office            # your app name; optional region, default ewr
    ```
 
-   It creates the app and a 3 GB volume, generates the encryption and push keys as Fly secrets, deploys, and prints your setup link. To use your own domain, set `PUBLIC_URL=https://office.acme.com` before running it and follow `fly certs add office.acme.com`.
+   It creates the app and a 3 GB volume, generates the encryption and push keys as Fly secrets, deploys, and prints your setup link. To give it your company's address, set `PUBLIC_URL=https://hotsauce.acme.com` before running it, then run `fly certs add hotsauce.acme.com --app acme-office` and add the DNS record it prints.
 3. Open the setup link and follow the wizard.
 
 ## Cloudflare (about $13–15 a month, always on)
@@ -31,7 +33,7 @@ Steps:
 2. Open `https://<worker>.<account>.workers.dev/setup` and paste your setup password. The first visit starts the server, which takes a minute or two.
 3. In the wizard's **Files and audio** step, give it a GitHub organization and token, and R2 keys for video (the bucket the button made is fine).
 
-From then on, every push to your copy's main branch deploys again (Workers Builds). The container stays on; a cron trigger restarts it within five minutes if it stops. To let it sleep when nobody uses it (cheaper; the first visit afterwards waits for it to start), add the variable `HOTSAUCE_SLEEP=true` to the Worker. To use your own domain, add it to the Worker under **Settings → Domains & Routes** and set the variable `PUBLIC_URL=https://office.acme.com`.
+From then on, every push to your copy's main branch deploys again (Workers Builds). The container stays on; a cron trigger restarts it within five minutes if it stops. To let it sleep when nobody uses it (cheaper; the first visit afterwards waits for it to start), add the variable `HOTSAUCE_SLEEP=true` to the Worker. To use your own domain, add it to the Worker under **Settings → Domains & Routes** and set the variable `PUBLIC_URL=https://hotsauce.acme.com`.
 
 Known limits: a meeting that is recording when the container restarts keeps its transcript but not the audio recorded so far. The Chrome extension offered for download is built for `localhost`; build it for your address with `HEARTH_URL=https://… pnpm --filter @hearth/extension run build`.
 
@@ -39,7 +41,7 @@ Known limits: a meeting that is recording when the container restarts keeps its 
 
 ```sh
 cd deploy
-PUBLIC_URL=https://office.acme.com docker compose up -d --build
+PUBLIC_URL=https://hotsauce.acme.com docker compose up -d --build
 docker compose logs hotsauce | grep setup
 ```
 
@@ -76,4 +78,4 @@ Admins change any of it later in **Settings → Organization**. Keys are stored 
 
 Every setting can also come from the environment, which always wins over the wizard. That suits infrastructure-as-code. The variables are in `apps/server/src/config.ts`; the ones the wizard covers are `ORG_NAME`, `PRODUCT_NAME`, `ALLOWED_EMAIL_DOMAINS`, `ADMIN_EMAILS`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `ANTHROPIC_API_KEY`, `DEEPGRAM_API_KEY`, `HOST_KIND`, `GITHUB_ORG`, `GITHUB_TOKEN`, `WEBHOOK_SECRET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `KEEP_AUDIO` and `CHAT_URL`. With `CLERK_SECRET_KEY` set, the wizard never appears.
 
-Send feedback (members report bugs and ideas from the app) is configured only by environment: `FEEDBACK_REPO` (`owner/name` of the GitHub repository that receives the issues) and the secret `FEEDBACK_GITHUB_TOKEN` (a fine-grained token with Issues read/write on that repository and nothing else). Without both, the feature is hidden. To get the project board, add the same kind of token, plus Projects read/write on the organization, as the Actions secret `FEEDBACK_PROJECT_TOKEN` and run the "Feedback board" workflow once with mode `setup`. The API can't create board views, so then open the new "Feedback" project, switch its view to Board layout and set Column by to "Feedback status". Each member's list of their own feedback is keyed by `WEBHOOK_SECRET`; changing it hides earlier items from their senders (the issues stay). `docs/feedback-routine.md` is the instructions for an optional daily Claude review of the board.
+Send feedback (members report bugs and ideas from the app) is configured only by environment: `FEEDBACK_REPO` (`owner/name` of the GitHub repository that receives the issues) and the secret `FEEDBACK_GITHUB_TOKEN` (a fine-grained token with Issues read/write on that repository and nothing else). Without both, the feature is hidden. To get the project board, add the same kind of token, plus Projects read/write on the organization, as the Actions secret `FEEDBACK_PROJECT_TOKEN` and run the "Feedback board" workflow once with mode `setup`. The workflow runs on the issues' own events, so when `FEEDBACK_REPO` is not the code repository, copy `.github/workflows/feedback-board.yml` and `.github/scripts/feedback-board.mjs` into it and put the secret there. The API can't create board views, so then open the new "Feedback" project, switch its view to Board layout and set Column by to "Feedback status". Each member's list of their own feedback is keyed by `WEBHOOK_SECRET`; changing it hides earlier items from their senders (the issues stay). `docs/feedback-routine.md` is the instructions for an optional daily Claude review of the board.

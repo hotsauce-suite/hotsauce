@@ -33,18 +33,22 @@ RUN pnpm --filter @hearth/format --filter @hearth/web --filter @hearth/server ru
 # The Chrome extension, built for this instance and offered at /downloads/ (Meetings → Chrome
 # extension). After the web build, which empties apps/web/dist. Pass the instance's address:
 # fly.toml [build.args], deploy/docker-compose.yml and scripts/deploy-fly.sh all do.
+# PRODUCT_NAME is the name the extension shows; set it in [build.args] if the server's differs.
 ARG HEARTH_URL=http://localhost:3000
-RUN HEARTH_URL=$HEARTH_URL pnpm --filter @hearth/extension run build \
+ARG PRODUCT_NAME=Hotsauce
+RUN HEARTH_URL=$HEARTH_URL PRODUCT_NAME=$PRODUCT_NAME pnpm --filter @hearth/extension run build \
  && mkdir -p apps/web/dist/downloads \
  && cp apps/extension/release/hearth-meetings-chrome.zip apps/web/dist/downloads/
 # The Mac app can't be built on Linux: scripts/build-app.sh builds it on a Mac and the zip is
 # committed, so this copies them as they are (Dictate → Download for Mac).
 # A checkout without the built app (the public repository) simply offers no download.
-# Hearth.dmg and .zip, also under their old names (HearthDictate.*) so links already shared work.
+# Hotsauce.dmg and .zip, also under their old names (Hearth.*, HearthDictate.*) so links already
+# shared work.
 RUN for ext in dmg zip; do \
-      if [ -f "apps/dictate-mac/release/Hearth.$ext" ]; then \
-        cp "apps/dictate-mac/release/Hearth.$ext" apps/web/dist/downloads/ \
-        && cp "apps/dictate-mac/release/Hearth.$ext" "apps/web/dist/downloads/HearthDictate.$ext"; \
+      if [ -f "apps/dictate-mac/release/Hotsauce.$ext" ]; then \
+        cp "apps/dictate-mac/release/Hotsauce.$ext" apps/web/dist/downloads/ \
+        && cp "apps/dictate-mac/release/Hotsauce.$ext" "apps/web/dist/downloads/Hearth.$ext" \
+        && cp "apps/dictate-mac/release/Hotsauce.$ext" "apps/web/dist/downloads/HearthDictate.$ext"; \
       fi; \
     done
 # The server's production dependencies, with workspace packages copied in, not

@@ -2,11 +2,15 @@ import { parseQuickAdd } from '@hearth/format'
 import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { HearthApiError } from '../../api/client'
+import { dictationApi } from '../../api/dictation'
 import { memberTimeZone, type TaskView, tasksApi } from '../../api/tasks'
 import { type TodayMeeting, type TodayView, todayApi } from '../../api/today'
 import { hearthSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon, type IconName } from '../../components/Icon'
+import { MAC_APP_SETTINGS, useMacAppBuild } from '../../components/MacApp'
+import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
+import { desktopSignInBridge } from '../../lib/desktop'
 import { docUrl, fileUrl, meetingUrl, noteUrl } from '../../lib/paths'
 import { useSession } from '../../state/session'
 import { formatWhen } from '../clips/format'
@@ -115,12 +119,93 @@ export default function TodayPage() {
                     </Link>
                   </p>
                 </Card>
+                <MacAppCard />
               </div>
             </div>
           )}
         </div>
       </div>
     </>
+  )
+}
+
+/** This browser remembers that the member closed the Mac app card. */
+export const MAC_APP_CARD_DISMISSED = 'hearth.today.macAppCard.dismissed'
+
+function cardDismissed(): boolean {
+  try {
+    return localStorage.getItem(MAC_APP_CARD_DISMISSED) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * "Get the Mac app", until the member has it: not inside the app's own window, not on a phone or
+ * tablet, not on a server with no build, not once a Mac is connected, not once closed.
+ */
+function MacAppCard() {
+  const touch = useMediaQuery(TOUCH_QUERY)
+  const inApp = desktopSignInBridge() !== null
+  const [dismissed, setDismissed] = useState(cardDismissed)
+  const relevant = !touch && !inApp && !dismissed
+  const hasBuild = useMacAppBuild(relevant)
+  const [hasMac, setHasMac] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!relevant) return
+    let cancelled = false
+    dictationApi.devices().then(
+      (devices) => {
+        if (!cancelled) setHasMac(devices.length > 0)
+      },
+      // Not knowing is no reason to nag.
+      () => {
+        if (!cancelled) setHasMac(true)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [relevant])
+
+  if (!relevant || hasBuild !== true || hasMac !== false) return null
+  const dismiss = () => {
+    try {
+      localStorage.setItem(MAC_APP_CARD_DISMISSED, '1')
+    } catch {
+      // Hidden for this visit only.
+    }
+    setDismissed(true)
+  }
+  return (
+    <Card
+      title="Get the Mac app"
+      icon="download"
+      testId="today-mac-app"
+      action={
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Hide the Mac app card"
+          data-testid="today-mac-app-dismiss"
+          className="rounded-md p-1 text-ink-faint hover:bg-paper-sunk hover:text-ink"
+        >
+          <Icon name="close" className="size-3.5" />
+        </button>
+      }
+    >
+      <p className="text-sm text-ink-soft">
+        Dictate into any app, record any call and get a nudge before each meeting.{' '}
+        <Link
+          to={MAC_APP_SETTINGS}
+          data-testid="today-mac-app-link"
+          className="text-ember-strong underline"
+        >
+          Download it
+        </Link>
+      </p>
+    </Card>
   )
 }
 

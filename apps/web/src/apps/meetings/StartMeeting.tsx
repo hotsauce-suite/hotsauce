@@ -313,7 +313,7 @@ function StartForm() {
                 testId="capture-mac"
                 icon="laptop"
                 title="Any app on this Mac"
-                body="Zoom, Slack, FaceTime, a browser call, or a phone call on this Mac. It hears your mic and everything the Mac plays."
+                body={`Zoom, Slack, FaceTime, a browser call, or a phone call on this Mac. ${product()} hears your mic and everything the Mac plays.`}
                 selected={mode === 'mac'}
                 disabled={state.step === 'starting'}
                 onClick={() => void choose('mac')}

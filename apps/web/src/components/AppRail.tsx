@@ -8,6 +8,7 @@ import { forgetTaskLists } from '../apps/tasks/useTaskList'
 import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
 import { useSession } from '../state/session'
+import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
 import { Icon, type IconName } from './Icon'
 import { Menu, type MenuAnchor, MenuItem } from './Menu'
@@ -45,8 +46,9 @@ type Orientation = 'vertical' | 'horizontal'
 
 /**
  * The app rail: one icon per app in `APPS`, then the links that leave Hearth, then Settings
- * and the account menu. A column on the far left of the shell; on phones, a tab bar along
- * the bottom. The apps scroll when there are more than fit, so the window never does.
+ * and the account menu, in a column on the far left of the shell; the apps scroll when there
+ * are more than fit, so the window never does. On phones, a tab bar along the bottom with the
+ * apps marked `onPhoneBar` and an Apps tab whose sheet holds everything else.
  */
 export function AppRail({ orientation }: { orientation: Orientation }) {
   const location = useLocation()
@@ -56,7 +58,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   const recording = live !== null && (live.state === 'recording' || live.state === 'paused')
   const vertical = orientation === 'vertical'
 
-  const apps = APPS.filter((app) => vertical || app.onPhoneBar !== false).map((app) => {
+  const apps = APPS.filter((app) => vertical || app.onPhoneBar === true).map((app) => {
     const current = app.id === active
     const isRecording = app.id === 'meetings' && recording
     return (
@@ -74,19 +76,21 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       />
     )
   })
-  const links = railLinks().map((link) => (
-    <RailItem
-      key={link.id}
-      orientation={orientation}
-      href={link.href}
-      icon={link.icon}
-      label={link.label}
-      name={`${link.name} (opens in a new tab)`}
-      current={false}
-      testId={`app-link-${link.id}`}
-      external
-    />
-  ))
+  const links = !vertical
+    ? null
+    : railLinks().map((link) => (
+        <RailItem
+          key={link.id}
+          orientation={orientation}
+          href={link.href}
+          icon={link.icon}
+          label={link.label}
+          name={`${link.name} (opens in a new tab)`}
+          current={false}
+          testId={`app-link-${link.id}`}
+          external
+        />
+      ))
   const onFeedback = location.pathname === '/feedback'
   const feedbackHref = feedbackLink(location.pathname)
   const feedbackOn = useFeedbackEnabled()
@@ -115,10 +119,6 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       hideLabel
     />
   ) : null
-  // On a phone Settings moves into the account menu, and the account button stays pinned at
-  // the end of the bar while the apps scroll.
-  const account = <AccountButton orientation={orientation} onSettings={onSettings} />
-
   if (vertical) {
     return (
       <nav
@@ -134,7 +134,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
           {feedback}
           {settings}
-          {account}
+          <AccountButton />
         </div>
       </nav>
     )
@@ -147,17 +147,14 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       className="shell-tabbar shrink-0 border-t border-ash bg-paper-raised pb-[env(safe-area-inset-bottom)]"
     >
       <div className="flex">
-        <div className="flex min-w-0 flex-1 overflow-x-auto overscroll-contain [scrollbar-width:none]">
-          {apps}
-          {links}
-        </div>
-        <div className="flex shrink-0 border-l border-ash/60">{account}</div>
+        {apps}
+        <AppsTab active={active} recording={recording} />
       </div>
     </nav>
   )
 }
 
-function useFeedbackEnabled(): boolean {
+export function useFeedbackEnabled(): boolean {
   const [on, setOn] = useState(false)
   useEffect(() => {
     let live = true
@@ -174,7 +171,7 @@ export function feedbackLink(pathname: string): string {
   return pathname === '/feedback' ? '/feedback' : `/feedback?from=${encodeURIComponent(pathname)}`
 }
 
-function itemClass(orientation: Orientation, current: boolean): string {
+export function itemClass(orientation: Orientation, current: boolean): string {
   const shape =
     orientation === 'vertical' ? 'w-12 py-1.5' : 'h-14 min-w-12 flex-1 basis-0 px-0.5 py-1.5'
   const tone = current
@@ -256,17 +253,23 @@ function RailItem({
   )
 }
 
-function AccountButton({
-  orientation,
-  onSettings,
-}: {
-  orientation: Orientation
-  onSettings: boolean
-}) {
+/** Signs out after forgetting what this member left in memory (app places, task lists, reminders). */
+export function useSignOut(): () => void {
+  const auth = useAuthState()
+  return () => {
+    forgetAppLocations()
+    // Tasks keeps the last lists, people and projects in memory; they're this member's.
+    forgetTaskLists()
+    forgetTaskMeta()
+    void forgetRemindersHere().finally(auth.signOut)
+  }
+}
+
+/** The account button at the foot of the desktop rail (on phones, the Apps sheet holds it). */
+function AccountButton() {
   const session = useSession()
   const navigate = useNavigate()
-  const phone = orientation === 'horizontal'
-  const auth = useAuthState()
+  const signOut = useSignOut()
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const close = () => {
@@ -275,22 +278,11 @@ function AccountButton({
   }
   const principal = session.me?.principal
   const feedbackOn = useFeedbackEnabled()
-  const signOut = () => {
-    forgetAppLocations()
-    // Tasks keeps the last lists, people and projects in memory; they're this member's.
-    forgetTaskLists()
-    forgetTaskMeta()
-    void forgetRemindersHere().finally(auth.signOut)
-  }
   const label = principal ? `Account: ${principal.email}` : 'Account'
 
   const open = (button: HTMLElement) => {
     const rect = button.getBoundingClientRect()
-    setAnchor(
-      orientation === 'vertical'
-        ? { x: rect.right + 8, y: rect.bottom, above: true }
-        : { x: rect.right, y: rect.top - 6, above: true },
-    )
+    setAnchor({ x: rect.right + 8, y: rect.bottom, above: true })
   }
 
   return (
@@ -306,30 +298,15 @@ function AccountButton({
         // While open, the menu's outside-click close would race this button's toggle.
         onPointerDown={(event) => anchor && event.stopPropagation()}
         onClick={(event) => (anchor ? close() : open(event.currentTarget))}
-        className={itemClass(orientation, phone && onSettings)}
+        className={itemClass('vertical', false)}
       >
         <span className="grid size-6 place-items-center rounded-full bg-ash-strong text-[0.625rem] font-semibold text-paper-raised">
           {initials(principal?.name, principal?.email)}
         </span>
-        {phone ? (
-          <span className="text-[0.625rem] leading-tight font-medium tracking-tight">Account</span>
-        ) : null}
       </button>
       {anchor ? (
         <Menu anchor={anchor} onClose={close} label="Account">
           <AccountHeader name={principal?.name} email={principal?.email} />
-          {phone ? (
-            <MenuItem
-              icon="gear"
-              testId="settings-link"
-              onSelect={() => {
-                setAnchor(null)
-                navigate('/settings')
-              }}
-            >
-              Settings
-            </MenuItem>
-          ) : null}
           {feedbackOn ? (
             <MenuItem
               icon="chat"
@@ -351,7 +328,7 @@ function AccountButton({
   )
 }
 
-function AccountHeader({
+export function AccountHeader({
   name,
   email,
 }: {

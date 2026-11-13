@@ -298,7 +298,7 @@ function LiveView({ meeting, live }: { meeting: Meeting; live: LiveSnapshot }) {
         {keepAudio !== null ? (
           <label
             className="flex items-center gap-1.5 text-sm text-ink-soft"
-            title={`Keeps a recording of this meeting in ${product()}'s storage, never in Git. Otherwise the audio is deleted once the transcript is saved.`}
+            title={`Keeps a recording of this meeting in this workspace’s storage, never in Git. Otherwise the audio is deleted once the transcript is saved.`}
           >
             <input
               type="checkbox"

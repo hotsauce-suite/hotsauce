@@ -102,6 +102,18 @@ export function formFileUrl(space: string, path: string): string | null {
   return m[2] ? `${base}/answers?answer=${m[2]}` : base
 }
 
+/** A table opens in Tables (ARCHITECTURE §22); anything else null. */
+export function tableFileUrl(space: string, path: string): string | null {
+  const m = /^tables\/([0-9A-Z]{26})\.md$/.exec(path)
+  return m ? `/tables/${encodeURIComponent(space)}/${m[1]}` : null
+}
+
+/** A saved link opens in Links' reader (ARCHITECTURE §23); anything else null. */
+export function linkFileUrl(space: string, path: string): string | null {
+  const m = /^links\/([0-9A-Z]{26})\.md$/.exec(path)
+  return m ? `/links/${encodeURIComponent(space)}/${m[1]}` : null
+}
+
 export function isDriveFile(path: string): boolean {
   return /^files\/[0-9A-Z]{26}\.md$/.test(path)
 }

@@ -75,7 +75,7 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
     const deviceToken = deviceTokenFrom(c.req.header('authorization'))
     if (deviceToken !== null) {
       if (!deviceTokenMayCall(c.req.method, c.req.path)) {
-        throw new HearthError('unauthorized', 'A Hearth Dictate device can only dictate')
+        throw new HearthError('unauthorized', 'A Dictate device can only dictate')
       }
       const { principal, deviceId } = await authenticateDevice(
         deps.auth,

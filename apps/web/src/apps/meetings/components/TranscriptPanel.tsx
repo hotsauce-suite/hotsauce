@@ -9,6 +9,7 @@ import { Link } from 'react-router'
 import { api, HearthApiError } from '../../../api/client'
 import { meetingsApi } from '../../../api/meetings'
 import { hearthSocket } from '../../../api/ws'
+import { product } from '../../../brand/product'
 import { SidePanel } from '../../../components/SidePanel'
 import type { DocumentHandle } from '../../../hooks/useDocument'
 import { meetingUrl } from '../../../lib/paths'
@@ -62,7 +63,7 @@ export function TranscriptPanel({
     } catch (err) {
       setNameError(
         err instanceof HearthApiError && err.status === 409 && /cleaned up/.test(err.message)
-          ? 'We’re still tidying this transcript. Try again in a moment.'
+          ? `${product()} is still tidying this transcript. Try again in a moment.`
           : err instanceof HearthApiError && err.status === 409
             ? 'The transcript changed meanwhile. Look again, then try once more.'
             : err instanceof HearthApiError

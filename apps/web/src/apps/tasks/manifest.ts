@@ -14,5 +14,6 @@ export const tasksApp: AppManifest = {
   route: '/tasks',
   folder: 'tasks',
   urlFor: taskUrl,
+  onPhoneBar: true,
   preload: () => import('./TasksPage'),
 }

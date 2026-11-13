@@ -50,37 +50,37 @@ function validateSpaceConfig(value: unknown): SpaceConfig {
 function readme(name: string): string {
   return `# ${name}
 
-This is a Hearth space: a Git repository of plain files. Hearth reads and writes it, and you can
+This is a Hotsauce space: a Git repository of plain files. Hotsauce reads and writes it, and you can
 also clone it and work on it with any editor, script, or agent.
 
 ## Layout
 
-- \`docs/\`: documents from Hearth Docs. Folders here are the folders people see.
-- \`meetings/\`: meeting notes and transcripts from Hearth Meetings, once there are any.
+- \`docs/\`: documents from Hotsauce Docs. Folders here are the folders people see.
+- \`meetings/\`: meeting notes and transcripts from Hotsauce Meetings, once there are any.
 - \`assets/\`: images and small attachments, linked from documents with relative paths.
-- \`.hearth/\`: Hearth's own files. \`space.yaml\` names this space; each app keeps its metadata
+- \`.hearth/\`: Hotsauce's own files. \`space.yaml\` names this space; each app keeps its metadata
   in \`.hearth/<app>/\` and describes its file format in \`.hearth/<app>/FORMAT.md\`.
 - \`.trash/\`: deleted files, kept for 30 days.
 
 ## Conventions
 
 - Content is markdown with YAML frontmatter.
-- Files Hearth manages carry a stable \`id\` (a ULID) in their frontmatter. Keep it when you edit,
+- Files Hotsauce manages carry a stable \`id\` (a ULID) in their frontmatter. Keep it when you edit,
   rename, or move a file; links and history depend on it.
 - Large binaries (audio, video) are not stored here; they live in object storage with a small
   pointer file in the repo.
 `
 }
 
-const DOCS_FORMAT = `# Hearth Docs file format
+const DOCS_FORMAT = `# Hotsauce Docs file format
 
-How Hearth Docs stores documents in this space, for people, scripts, and agents working on the
+How Hotsauce Docs stores documents in this space, for people, scripts, and agents working on the
 files directly.
 
 ## Where documents live
 
 - Every document is a markdown file under \`docs/\`. Folders under \`docs/\` are the folders shown
-  in Hearth.
+  in Hotsauce.
 - File names come from the title when the document is created: lowercase \`a-z\`, \`0-9\`, and
   hyphens, for example \`docs/planning/q4-plan.md\`.
 - Images and attachments go in \`assets/YYYY/MM/<slug>-<shortid>.<ext>\`.
@@ -99,11 +99,11 @@ tags: [planning]
 # Q4 plan
 \`\`\`
 
-- \`id\` is a ULID (26 characters, uppercase Crockford base32). Hearth adds it on first save if it
+- \`id\` is a ULID (26 characters, uppercase Crockford base32). Hotsauce adds it on first save if it
   is missing. Never change or reuse an \`id\`: it keeps links, search, and history attached to the
   document across renames and moves. A new file may leave it out.
 - \`title\`, \`created\` (ISO 8601, UTC), and \`tags\` (a list of strings) are optional.
-- Any other keys are kept. Hearth edits only the keys it changes and leaves the rest of the
+- Any other keys are kept. Hotsauce edits only the keys it changes and leaves the rest of the
   file's text exactly as it was.
 
 ## Body
@@ -114,7 +114,7 @@ tags: [planning]
   \`[Q4 plan](../planning/q4-plan.md)\` or \`![Funnel](../../assets/2026/10/funnel-5T1XWYB6.png)\`.
   \`hearth://<id>\` links to a document by \`id\` and survives any move.
 - If you move a file yourself, update its own relative links so they still point at the same
-  targets. Hearth does this when the move happens in Hearth.
+  targets. Hotsauce does this when the move happens in Hotsauce.
 
 ## Style for files you create
 

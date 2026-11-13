@@ -14,7 +14,5 @@ export const boardsApp: AppManifest = {
   route: '/boards',
   folder: 'boards',
   urlFor: boardUrl,
-  // Drawing wants a computer; on a phone a board still opens from a link or a doc.
-  onPhoneBar: false,
   preload: () => import('./BoardsPage'),
 }

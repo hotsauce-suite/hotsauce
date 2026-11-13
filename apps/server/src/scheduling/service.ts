@@ -148,7 +148,7 @@ export class Bookings {
     if (!(await this.#deps.google.canWrite(principal))) {
       throw new HearthError(
         'forbidden',
-        'Turn on booking links first: sign out and back in so events can be added to your calendar',
+        'Turn on booking links first: sign out and back in to allow adding events to your calendar',
       )
     }
     const space = await this.#ownSpace(principal)

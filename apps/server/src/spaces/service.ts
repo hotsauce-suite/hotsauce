@@ -94,8 +94,8 @@ export function defaultInitialFiles(name: string): Array<{ path: string; content
     {
       path: 'README.md',
       content:
-        `# ${name}\n\nA Hearth space. Documents live in \`docs/\`, meeting notes in \`meetings/\`, ` +
-        'images in `assets/`. Hearth keeps its own metadata under `.hearth/`.\n',
+        `# ${name}\n\nA Hotsauce space. Documents live in \`docs/\`, meeting notes in \`meetings/\`, ` +
+        'images in `assets/`. Hotsauce keeps its own metadata under `.hearth/`.\n',
     },
     { path: '.hearth/space.yaml', content: `name: ${JSON.stringify(name)}\nschema: 1\n` },
   ]

@@ -24,6 +24,8 @@ const KINDS = [
   'page',
   'form',
   'form-answer',
+  'table',
+  'link',
   'other',
 ] as const satisfies readonly FileKind[]
 

@@ -33,7 +33,7 @@ describe('Settings: access tokens', () => {
     // The list never carries the secret.
     expect(item.textContent).not.toContain(secret)
 
-    await user.click(screen.getByText('Done'))
+    await user.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByTestId('token-secret')).not.toBeInTheDocument()
 
     vi.spyOn(window, 'confirm').mockReturnValue(true)
@@ -157,5 +157,42 @@ describe('Settings: calendars', () => {
       'Reconnect Google to change calendars.',
     )
     expect(box('team@fake')).not.toBeChecked()
+  })
+})
+
+describe('Settings: Mac app', () => {
+  it('offers the download, the zip and the first-install steps', async () => {
+    renderApp('/settings#mac-app')
+    const section = await screen.findByTestId('mac-app')
+    expect(within(section).getByRole('heading', { name: 'Mac app' })).toBeInTheDocument()
+    expect(await within(section).findByTestId('mac-app-download')).toHaveAttribute(
+      'href',
+      '/downloads/Hotsauce.dmg',
+    )
+    expect(within(section).getByTestId('mac-app-download-zip')).toHaveAttribute(
+      'href',
+      '/downloads/Hotsauce.zip',
+    )
+    expect(within(section).getByTestId('mac-app-install-steps')).toHaveTextContent('Open Anyway')
+    expect(within(section).getByTestId('mac-app-open-privacy')).toHaveAttribute(
+      'href',
+      'x-apple.systempreferences:com.apple.preference.security',
+    )
+    expect(within(section).getByRole('link', { name: 'Dictate page' })).toHaveAttribute(
+      'href',
+      '/dictate/mac',
+    )
+  })
+
+  it('points to the source when this server has no Mac app build', async () => {
+    server.use(http.head('/downloads/Hotsauce.dmg', () => new HttpResponse(null, { status: 404 })))
+    renderApp('/settings')
+    expect(await screen.findByTestId('mac-app-build-from-source')).toHaveAttribute(
+      'href',
+      expect.stringContaining('apps/dictate-mac/README.md'),
+    )
+    expect(screen.queryByTestId('mac-app-download')).toBeNull()
+    expect(screen.queryByTestId('mac-app-download-zip')).toBeNull()
+    expect(screen.queryByTestId('mac-app-install-steps')).toBeNull()
   })
 })

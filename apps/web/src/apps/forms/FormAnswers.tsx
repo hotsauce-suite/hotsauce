@@ -111,6 +111,14 @@ export function FormAnswers({ form, onCount }: { form: FormView; onCount: (n: nu
           <Icon name="download" />
           Download CSV
         </button>
+        <Link
+          to={`/tables/form/${encodeURIComponent(form.space)}/${form.id}`}
+          className={secondaryButton}
+          data-testid="answers-open-table"
+        >
+          <Icon name="table" />
+          Open as a table
+        </Link>
       </div>
       {error ? (
         <p role="alert" className="mt-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">

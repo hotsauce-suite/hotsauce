@@ -20,7 +20,7 @@ export interface Episode extends EpisodeSummary {
   audioExpired: boolean
   model: string
   voice: string
-  counts: { events: number; meetings: number; tasks: number; docs: number }
+  counts: { events: number; meetings: number; tasks: number; docs: number; links?: number }
 }
 
 export interface BriefcastOverview {

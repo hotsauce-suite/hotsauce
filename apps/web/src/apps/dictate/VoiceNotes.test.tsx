@@ -66,9 +66,9 @@ describe('Dictate on a phone', () => {
     const list = await screen.findByTestId('voice-notes')
     expect(within(list).getByText('Pricing ideas')).toBeInTheDocument()
     expect(within(list).queryByText('Acme sync')).toBeNull()
-    expect(screen.queryByTestId('dictate-download')).toBeNull()
+    expect(screen.queryByTestId('mac-app-download')).toBeNull()
     const macLinks = screen.getAllByRole('link', { name: 'Get the Mac app' })
-    expect(macLinks.map((a) => a.getAttribute('href'))).toContain('/dictate/mac')
+    expect(macLinks.map((a) => a.getAttribute('href'))).toContain('/settings#mac-app')
   })
 
   it('says how to allow the microphone when it was refused', async () => {

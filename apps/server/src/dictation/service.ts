@@ -233,7 +233,7 @@ export class Dictation {
     }
     if (req.mimeType.startsWith('audio/') && req.mimeType.includes('wav')) {
       const wav = readWav(req.audio)
-      if (!wav) throw new HearthError('bad_request', 'That isn’t a WAV file Hearth can read')
+      if (!wav) throw new HearthError('bad_request', 'That isn’t a WAV file this can read')
       if (wav.durationMs > MAX_DICTATION_MS) {
         throw new HearthError('bad_request', 'A dictation can be at most 10 minutes', {
           status: 413,

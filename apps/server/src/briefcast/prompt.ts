@@ -34,6 +34,14 @@ export interface CastDoc {
   excerpt: string
 }
 
+export interface CastLink {
+  title: string
+  site: string
+  summary: string
+  /** `saved`: saved since the last briefing; `unread`: from last week and still unread (Mondays). */
+  status: 'saved' | 'unread'
+}
+
 export interface CastInput {
   member: { name: string; email: string }
   org: string
@@ -47,6 +55,8 @@ export interface CastInput {
   meetings: CastMeeting[]
   tasks: CastTask[]
   docs: CastDoc[]
+  /** Saved links (§23): what the listener saved recently, and on Mondays what's still unread. */
+  links: CastLink[]
 }
 
 /** About five minutes spoken. */
@@ -65,6 +75,7 @@ Running order:
 2. What changed: decisions and action items from recent meetings, and documents others changed.
 3. What's due: tasks overdue or due today, most important first. Mention what was finished only briefly.
 4. Anything that looks stuck: a task overdue for a while, an action item with no task, a question raised twice. Say "seems" when it's a guess.
+5. Saved to read: one sentence each on the pages the listener saved recently (status "saved"), then, if any, a short line on the ones from last week still unread (status "unread"). Name them by title or site; never read out a web address.
 Leave out any section with nothing in it, without saying it's empty.
 
 Rules:
@@ -117,6 +128,12 @@ export function buildBriefcastPrompt(input: CastInput): { system: string; user: 
         `<doc title="${attr(d.title)}" space="${attr(d.space)}"${d.by.length > 0 ? ` changed_by="${attr(d.by.join(', '))}"` : ''}>\n${text(d.excerpt)}\n</doc>`,
     )
     .join('\n\n')
+  const links = input.links
+    .map(
+      (l) =>
+        `<link status="${l.status}" title="${attr(l.title)}" site="${attr(l.site)}">${text(l.summary)}</link>`,
+    )
+    .join('\n')
   const user = [
     `Listener: ${input.member.name}${input.org ? `, at ${input.org}` : ''}`,
     `Today: ${input.dayLabel} (${input.today})`,
@@ -129,6 +146,8 @@ export function buildBriefcastPrompt(input: CastInput): { system: string; user: 
     `<tasks>\n${tasks || '(none)'}\n</tasks>`,
     '',
     `<changed_docs>\n${docs || '(none)'}\n</changed_docs>`,
+    '',
+    `<saved_links>\n${links || '(none)'}\n</saved_links>`,
   ].join('\n')
   return { system: SYSTEM, user }
 }

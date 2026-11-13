@@ -13,5 +13,6 @@ export const meetingsApp: AppManifest = {
   route: '/meetings',
   folder: 'meetings',
   urlFor: meetingUrl,
+  onPhoneBar: true,
   preload: () => import('./MeetingsHome'),
 }

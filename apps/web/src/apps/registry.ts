@@ -11,9 +11,11 @@ import { dictateApp } from './dictate/manifest'
 import { docsApp } from './docs/manifest'
 import { filesApp } from './files/manifest'
 import { formsApp } from './forms/manifest'
+import { linksApp } from './links/manifest'
 import { meetingsApp } from './meetings/manifest'
 import { notesApp } from './notes/manifest'
 import { peopleApp } from './people/manifest'
+import { tablesApp } from './tables/manifest'
 import { tasksApp } from './tasks/manifest'
 import { todayApp } from './today/manifest'
 
@@ -29,6 +31,8 @@ export type AppId =
   | 'people'
   | 'files'
   | 'forms'
+  | 'tables'
+  | 'links'
   | 'briefcast'
 
 export interface AppManifest {
@@ -49,7 +53,10 @@ export interface AppManifest {
   urlFor: (space: string, path: string) => string
   /** False: the app has no sidebar, and its page takes the whole width. */
   sidebar?: boolean
-  /** False keeps it off the phone's bottom bar (it has room for seven); it still opens by link. */
+  /**
+   * True pins it to the phone's bottom bar, beside the Apps button. Keep it to four (a test
+   * holds it there); every app, pinned or not, is in the Apps sheet.
+   */
   onPhoneBar?: boolean
   /** Loads the app's first page, so its chunk is warm before the click lands. */
   preload: () => Promise<unknown>
@@ -84,6 +91,8 @@ export const APPS: readonly AppManifest[] = [
   peopleApp,
   filesApp,
   formsApp,
+  tablesApp,
+  linksApp,
   briefcastApp,
 ]
 

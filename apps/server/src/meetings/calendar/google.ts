@@ -80,7 +80,7 @@ export function clerkGoogleGrant(
       if (code === 'oauth_token_retrieval_error') {
         throw new HearthError(
           'forbidden',
-          `Hearth couldn't get a Google token for your account (Clerk: ${detail?.longMessage ?? code}). Sign out, then sign in with Google again and allow calendar access.`,
+          `Couldn't get a Google token for your account (Clerk: ${detail?.longMessage ?? code}). Sign out, then sign in with Google again and allow calendar access.`,
         )
       }
       throw new HearthError(
@@ -361,7 +361,7 @@ export function refusal(status: number, body: string): HearthError {
   if (has('accessNotConfigured', 'SERVICE_DISABLED')) {
     return new HearthError(
       'forbidden',
-      `The Google Calendar API is turned off in the Google Cloud project behind Hearth's sign-in${project ? ` (${project})` : ''}. Turn it on in Google Cloud console under APIs & Services. (${why})`,
+      `The Google Calendar API is turned off in the Google Cloud project behind sign-in${project ? ` (${project})` : ''}. Turn it on in Google Cloud console under APIs & Services. (${why})`,
     )
   }
   if (has('insufficientPermissions', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')) {

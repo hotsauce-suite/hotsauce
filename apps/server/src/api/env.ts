@@ -11,6 +11,7 @@ import type { ChatRooms, Forms } from '../forms/index.js'
 import type { Author, GitStore } from '../git/index.js'
 import type { HostAdapter } from '../hosts/index.js'
 import type { Index } from '../index/index.js'
+import type { Links } from '../links/index.js'
 import type { MeetingServices } from '../meetings/index.js'
 import type { Notes } from '../notes/index.js'
 import type { BrandStore } from '../org/brand.js'
@@ -21,6 +22,7 @@ import type { Bookings } from '../scheduling/index.js'
 import type { Shares } from '../shares/index.js'
 import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
+import type { Tables } from '../tables/index.js'
 import type { TaskServices } from '../tasks/index.js'
 import type { TokenStore } from '../tokens/index.js'
 
@@ -50,6 +52,8 @@ export interface AppDeps {
   pages: Pages
   forms: Forms
   chatRooms: ChatRooms
+  tables: Tables
+  links: Links
   org: OrgStore
   brand: BrandStore
   /** Stops gracefully and exits so the process manager starts us with the new settings. */

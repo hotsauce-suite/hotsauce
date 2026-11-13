@@ -19,11 +19,11 @@ test('a phone records a voice note: named, summarised, sent to Tasks, deleted', 
   await page.goto('/dictate')
   await page.waitForURL(/\/dictate\/voice$/)
   await expect(page.getByTestId('voice-record')).toBeVisible()
-  await expect(page.getByTestId('dictate-download')).toHaveCount(0)
+  await expect(page.getByTestId('mac-app-download')).toHaveCount(0)
   await expect(page.getByTestId('voice-none')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Get the Mac app' })).toHaveAttribute(
     'href',
-    '/dictate/mac',
+    '/settings#mac-app',
   )
   await expectNoSidewaysScroll(page)
 

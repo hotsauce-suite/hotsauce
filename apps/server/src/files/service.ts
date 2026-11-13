@@ -696,7 +696,8 @@ export class Files {
     }
     const fm = FileFrontmatter.safeParse(parsed.data)
     const view = fm.success ? toView(space, p, file.blobOid, parsed.data) : null
-    if (!fm.success || !view) throw new HearthError('bad_request', `${p} isn’t a Hearth file`)
+    if (!fm.success || !view)
+      throw new HearthError('bad_request', `${p} isn’t a file from the Files app`)
     return { content: file.content, body: parsed.body, fm: fm.data, view }
   }
 
