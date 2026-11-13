@@ -14,7 +14,9 @@
   <a href="#why-hotsauce">Why Hotsauce</a> ·
   <a href="#what-it-costs">What it costs</a> ·
   <a href="#get-started">Get started</a> ·
-  <a href="docs/self-host.md">Self-hosting guide</a>
+  <a href="docs/self-host.md">Self-hosting guide</a> ·
+  <a href="https://hotsauce.work/help/">Help</a> ·
+  <a href="https://hotsauce.work/faq">FAQ</a>
 </p>
 
 <picture>
