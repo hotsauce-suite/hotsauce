@@ -126,7 +126,7 @@ An AI assistant on every page. Press ⌘J (Ctrl+J), or the round button in the c
 anything in your workspace: “What did we decide about pricing?”, “Prep me for my next meeting”,
 “Turn this meeting’s action items into tasks”. It’s named after your workspace (“Ask Acme”), knows the
 doc or meeting you have open, answers with links to what it used, and makes docs, tasks and notes
-when you ask, each with an Undo. Deleting or moving a file waits for your Confirm. It works through
+when you ask, each with an Undo. Deleting or moving a file, sharing a link or publishing a page waits for your Confirm. It works through
 the same tools as [the MCP server](docs/mcp.md), as you, so it sees only what you can see.
 Conversations are private to each person. Admins pick the model (Claude Sonnet or Opus), see each
 person’s use this month, and can set a monthly limit, in Settings → Organization → Assistant.

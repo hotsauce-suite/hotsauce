@@ -65,7 +65,7 @@ R6. Asking a question shows tool activity and an answer with links to the files 
 R7. The open doc/meeting is sent as context and shown as a removable chip. (unit + e2e)
 R8. A write tool's result offers Undo; Undo restores each touched file to its previous
 version as a new commit by the member. (integration)
-R9. delete_file and move_file never run without Confirm; Confirm runs exactly that call. (integration)
+R9. delete_file, move_file, share_link and publish_page never run without Confirm (save_link is left out); Confirm runs exactly that call. (integration)
 R10. Conversations are listed, reopened and deleted by their owner only. (integration)
 R11. Usage is recorded per member per month; an admin sees it; a member over the limit gets
 429 `rate_limited` with a plain message. (integration)

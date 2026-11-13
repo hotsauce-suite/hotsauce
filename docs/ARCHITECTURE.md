@@ -1540,8 +1540,8 @@ The plan, decisions and requirements are in `docs/PLAN-assistant.md`.
   and connects an MCP client to it in-process over `InMemoryTransport`, so the assistant can do
   exactly what Claude can do through a member's token, as that member, and every write is a commit
   with a `Hearth-Via: assistant` trailer. Tools with `readOnlyHint` run in parallel; writes run one
-  at a time so each one's Undo covers only its own files. `delete_file` and `move_file` never run
-  in the loop: the model is told they wait, and `POST …/confirm` runs the stored call once.
+  at a time so each one's Undo covers only its own files. `delete_file`, `move_file`, `share_link`
+  and `publish_page` never run in the loop (`save_link` is left out: it fetches the web): the model is told they wait, and `POST …/confirm` runs the stored call once.
 - **Loop.** `apps/server/src/assistant/agent.ts`: up to 20 model turns, streamed to the browser as
   Server-Sent Events (text deltas, tool start and result, confirm, done, error). The model is
   `ASSISTANT_MODEL` or the admin's choice (default Claude Sonnet 5.5), through the Anthropic beta
