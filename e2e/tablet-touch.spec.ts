@@ -6,7 +6,12 @@ test.use({ viewport: { width: 820, height: 1180 }, hasTouch: true })
 test('T6: a finger hides the sidebar and brings it back', async ({ page }) => {
   await page.goto('/tasks')
   await expect(page.getByTestId('sidebar-app-name')).toBeVisible()
-  await page.getByTestId('hide-sidebar').tap()
+  expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
+  const hide = page.getByTestId('hide-sidebar')
+  // In the sidebar's top corner, where a finger finds it, not pushed out of the frame.
+  await expect(hide).toBeInViewport()
+  expect((await hide.boundingBox())?.y).toBeLessThan(80)
+  await hide.tap()
   await expect(page.getByTestId('sidebar-app-name')).toBeHidden()
   const strip = page.getByTestId('show-sidebar')
   expect((await strip.boundingBox())?.width).toBeGreaterThanOrEqual(28)

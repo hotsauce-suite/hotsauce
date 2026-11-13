@@ -1204,14 +1204,17 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
 /* ------------------------------------------------------------- tap targets */
 
 /* Small controls (a 24 px "…" button, a drag grip) get a bigger touch area on a touch screen,
-   with no change in how they look. */
-@media (pointer: coarse) {
-  .tap-target {
-    position: relative;
-  }
-  .tap-target::after {
-    content: "";
-    position: absolute;
-    inset: -0.375rem;
+   with no change in how they look. In the components layer, so a control's own absolute or
+   fixed utility still wins over the relative here. */
+@layer components {
+  @media (pointer: coarse) {
+    .tap-target {
+      position: relative;
+    }
+    .tap-target::after {
+      content: "";
+      position: absolute;
+      inset: -0.375rem;
+    }
   }
 }

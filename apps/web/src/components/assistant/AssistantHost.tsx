@@ -16,7 +16,7 @@ const AssistantPanel = lazy(() => import('./AssistantPanel'))
 export function AssistantHost({ page, compact }: { page: PageContext | null; compact: boolean }) {
   const { open } = useAssistantState()
   const [loaded, setLoaded] = useState(false)
-  // A whiteboard keeps its undo and zoom buttons in the bottom corner: sit above them.
+  // On a whiteboard the board's help button sits in the bottom-right corner: sit above it.
   const onBoard = /^\/boards\/[^/]+\/[^/]+/.test(useLocation().pathname)
   if (open && !loaded) setLoaded(true)
 
