@@ -36,6 +36,9 @@ test('a phone switches apps from the bottom tab bar, and nothing scrolls sideway
       return box && Math.round(box.y + box.height)
     })
     .toBe(viewport?.height)
+  // The phone bar keeps its 20px icons; only the desktop rail's grew (Morgan, Nov 13).
+  const icon = await bar.getByTestId('app-switch-docs').locator('svg').first().boundingBox()
+  expect(icon?.width).toBeCloseTo(20, 1)
 
   await bar.getByTestId('app-switch-meetings').tap()
   await expect(page).toHaveURL(/\/meetings$/)

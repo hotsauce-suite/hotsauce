@@ -68,3 +68,37 @@ test('the account menu shows the email and signs out', async ({ page, user }) =>
   await expect(page).toHaveURL(/\/sign-in/)
   await expect(page.getByTestId('app-rail')).toHaveCount(0)
 })
+
+test('the desktop rail icons are half again the phone bar size, and every label fits', async ({
+  page,
+}) => {
+  await page.goto('/docs')
+  const rail = page.getByTestId('app-rail')
+  await expect(rail).toBeVisible()
+  const railBox = await rail.boundingBox()
+  const icon = await rail.getByTestId('app-switch-docs').locator('svg').first().boundingBox()
+  // 20px on the phone bar; 30px on the desktop rail (Morgan, Nov 13: "maybe 50%").
+  expect(icon?.width).toBeCloseTo(30, 1)
+  expect(Math.round(railBox?.width ?? 0)).toBeGreaterThanOrEqual(68)
+  // No label is cut off: each one's text fits inside its item.
+  const clipped = await rail
+    .locator('a span.truncate')
+    .evaluateAll((spans) =>
+      spans.filter((s) => s.scrollWidth > s.clientWidth).map((s) => s.textContent),
+    )
+  expect(clipped).toEqual([])
+})
+
+test('a short window fades the rail out at the bottom until it is scrolled to the end', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 600 })
+  await page.goto('/docs')
+  const list = page.getByTestId('rail-apps')
+  await expect(list).toHaveAttribute('data-more', 'true')
+  await list.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
+  await expect(list).not.toHaveAttribute('data-more')
+  await page.setViewportSize({ width: 1280, height: 2000 })
+  await list.evaluate((el) => el.scrollTo({ top: 0 }))
+  await expect(list).not.toHaveAttribute('data-more')
+})
