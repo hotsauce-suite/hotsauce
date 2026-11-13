@@ -3,8 +3,8 @@ import { type ObjectStore, S3Client } from '../storage/s3.js'
 import { BackupService } from './service.js'
 
 export { restoreBackup } from './restore.js'
-export type { BackupInfo, BackupStatus } from './service.js'
-export { BackupService } from './service.js'
+export type { BackupHealth, BackupInfo, BackupStatus } from './service.js'
+export { BackupService, backupHealth } from './service.js'
 
 /** The instance's folder name in the bucket: its public host. */
 export function backupInstance(config: Config): string {

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { MemoryObjectStore } from '../storage/s3.js'
 import { restoreBackup } from './restore.js'
 import { backupsToDelete, dateOfKey, stampOf } from './retention.js'
-import { BackupService } from './service.js'
+import { BackupService, backupHealth } from './service.js'
 import { createSnapshot, inBackup } from './snapshot.js'
 
 let root: string
@@ -208,6 +208,40 @@ describe('snapshot safety', () => {
     expect(snap.files).toBeGreaterThan(5)
   })
 
+  it('keeps a repository whose branches git has packed (empty refs folders) (R13)', async () => {
+    const db = await seed()
+    db.close()
+    // A gc packs every ref into packed-refs and leaves refs/heads and refs/tags empty.
+    const remote = path.join(dataDir, 'remotes/team.git')
+    execFileSync('git', ['--git-dir', remote, 'pack-refs', '--all'])
+    expect(await readdir(path.join(remote, 'refs/heads'))).toEqual([])
+    const s3 = new MemoryObjectStore()
+    const status = await new BackupService({
+      dataDir,
+      s3,
+      prefix: 'backups/',
+      instance: 'h',
+      hour: 3,
+      log: () => {},
+    }).run()
+    expect(status.lastError).toBeUndefined()
+    const target = path.join(root, 'restored')
+    await restoreBackup({ s3, key: status.lastKey as string, target })
+    const restored = path.join(target, 'remotes/team.git')
+    const log = execFileSync('git', ['--git-dir', restored, 'log', '--format=%s', 'HEAD'])
+    expect(log.toString().trim()).toBe('docs')
+  })
+
+  it('keeps a working copy whose branches git has packed (R13)', async () => {
+    const db = await seed()
+    db.close()
+    const clone = path.join(dataDir, 'repos/team')
+    execFileSync('git', ['clone', '-q', path.join(dataDir, 'remotes/team.git'), clone])
+    execFileSync('git', ['-C', clone, 'pack-refs', '--all'])
+    const snap = await createSnapshot(dataDir, { name: 't' })
+    expect(snap.files).toBeGreaterThan(5)
+  })
+
   it('fails rather than upload a repository with missing objects', async () => {
     const db = await seed()
     db.close()
@@ -266,6 +300,29 @@ describe('BackupService (R4–R6)', () => {
     const status = await service(s3, () => new Date('2026-11-13T03:10:00Z')).run()
     expect(status.lastError).toContain('bucket says no')
     expect(s3.objects.size).toBe(30)
+  })
+
+  it('a backup cut off by a restart is not recorded as a failure', async () => {
+    await put('org/settings.json', '{}')
+    const s3 = new MemoryObjectStore()
+    s3.putFile = (
+      _key: string,
+      _file: string,
+      _size: number,
+      _type: string,
+      signal?: AbortSignal,
+    ) =>
+      new Promise<void>((_, reject) => {
+        signal?.addEventListener('abort', () => reject(signal.reason ?? new Error('aborted')))
+      })
+    const svc = service(s3, () => new Date('2026-11-13T03:10:00Z'))
+    const running = svc.run()
+    await new Promise((r) => setTimeout(r, 200))
+    await svc.close()
+    await running
+    const status = await svc.status()
+    expect(status.lastError).toBeUndefined()
+    expect(backupHealth(status, new Date('2026-11-13T03:20:00Z')).ok).toBe(true)
   })
 
   it('waits an hour after a failure before trying again', async () => {
@@ -406,5 +463,47 @@ describe('restore (R7, R8)', () => {
     await expect(
       restoreBackup({ s3, key: 'missing', target: path.join(root, 'r') }),
     ).rejects.toThrow(/no backup/)
+  })
+})
+
+describe('backup health, for an outside monitor (R14)', () => {
+  const now = new Date('2026-11-13T12:00:00Z')
+  it('is ok after a good backup, and stale after 26 hours without one', () => {
+    const at = '2026-11-13T03:10:00Z'
+    expect(backupHealth({ lastAttemptAt: at, lastSuccessAt: at }, now).state).toBe('ok')
+    const late = new Date('2026-11-14T05:20:00Z')
+    expect(backupHealth({ lastAttemptAt: at, lastSuccessAt: at }, late)).toEqual({
+      ok: false,
+      state: 'stale',
+    })
+  })
+
+  it('is failing as soon as the newest attempt failed, and ok again after a good one', () => {
+    const failed = backupHealth(
+      {
+        lastSuccessAt: '2026-11-13T03:10:00Z',
+        lastAttemptAt: '2026-11-13T11:00:00Z',
+        lastError: 'bucket says no',
+      },
+      now,
+    )
+    expect(failed.ok).toBe(false)
+    expect(failed.state).toBe('failing')
+    // The error text stays private: the check is public.
+    expect(JSON.stringify(failed)).not.toContain('bucket')
+    expect(
+      backupHealth(
+        {
+          lastSuccessAt: '2026-11-13T11:30:00Z',
+          lastAttemptAt: '2026-11-13T11:30:00Z',
+        },
+        now,
+      ).ok,
+    ).toBe(true)
+  })
+
+  it('is pending before the first backup, and off without a bucket', () => {
+    expect(backupHealth({}, now)).toEqual({ ok: true, state: 'pending' })
+    expect(backupHealth(null, now)).toEqual({ ok: true, state: 'off' })
   })
 })

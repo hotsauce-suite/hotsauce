@@ -29,11 +29,12 @@ function deviceTokenMayCall(method: string, path: string): boolean {
   )
 }
 
-// Reachable without a session: the health check, host webhooks, and clip media (both carry a
+// Reachable without a session: the health checks, host webhooks, and clip media (both carry a
 // signature; a <video> element can't send a bearer token).
 function isPublic(path: string): boolean {
   return (
     path === '/api/health' ||
+    path === '/api/health/backup' ||
     path.startsWith('/api/webhooks/') ||
     // The brand kit (the sign-in page shows it) and the setup wizard, which checks its own token.
     path.startsWith('/api/org/') ||

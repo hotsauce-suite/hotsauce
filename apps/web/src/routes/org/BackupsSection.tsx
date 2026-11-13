@@ -44,7 +44,9 @@ export function BackupsSection() {
         </h2>
         <p className="mt-2 text-ink-soft">
           Every night the server copies its documents, settings and records to your storage bucket.
-          The last 14 days are kept, plus one a week for 8 weeks.
+          The last 14 days are kept, plus one a week for 8 weeks. To be told when one fails, point
+          an uptime monitor at <code className="font-mono text-sm">/api/health/backup</code> on this
+          server.
         </p>
       </div>
       {state === null && !error ? <p className="text-sm text-ink-faint">Loading…</p> : null}

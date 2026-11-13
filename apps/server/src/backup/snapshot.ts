@@ -15,7 +15,8 @@ const run = promisify(execFile)
  * Git repositories (`repos/<space>/` clones and `remotes/<space>.git`) are staged while that
  * space's writes are held (`lockSpace`), then checked with `git fsck --connectivity-only`; a
  * repository that still comes out broken (a background `git gc` mid-repack) is staged again once,
- * and a second failure fails the backup rather than upload a repository that won't clone.
+ * and a second failure fails the backup rather than upload a repository that won't clone. Only
+ * files are linked, so the empty folders git needs (`refs/heads` after a gc) are made again first.
  */
 
 /** The working folder under DATA_DIR; never itself backed up. */
@@ -177,6 +178,7 @@ export async function createSnapshot(
           await stageOne(rel)
         }
       })
+      await restoreGitSkeleton(path.join(stage, ...dir.split('/')))
       const problem = await fsckProblem(path.join(stage, ...dir.split('/')))
       if (!problem) break
       if (attempt === 2) throw new Error(`${dir} didn't copy cleanly: ${problem}`)
@@ -192,6 +194,20 @@ export async function createSnapshot(
   await tar(['-czf', archive, '-C', stage, '.'], opts.signal)
   await rm(stage, { recursive: true, force: true })
   return { ...manifest, archive }
+}
+
+/**
+ * Only files are staged, so a folder with nothing in it is lost. Git needs `refs/` and `objects/`
+ * to exist to call a folder a repository, and after a `git gc` packs every branch into
+ * `packed-refs`, `refs/heads` and `refs/tags` are empty. Put those folders back.
+ */
+async function restoreGitSkeleton(dir: string): Promise<void> {
+  const dotGit = path.join(dir, '.git')
+  const gitDir = (await stat(dotGit).catch(() => null)) ? dotGit : dir
+  if (!(await stat(path.join(gitDir, 'HEAD')).catch(() => null))) return // not a repository
+  for (const sub of ['refs/heads', 'refs/tags', 'objects/info', 'objects/pack']) {
+    await mkdir(path.join(gitDir, ...sub.split('/')), { recursive: true })
+  }
 }
 
 /** null when the staged repository is whole; otherwise git's complaint. */
