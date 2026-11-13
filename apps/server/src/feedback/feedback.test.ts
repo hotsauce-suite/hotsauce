@@ -206,6 +206,51 @@ describe('review fixes', () => {
   })
 })
 
+describe('a just-filed item', () => {
+  // GitHub's issue list can lag a fresh issue by a few seconds; the sender should still see it.
+  class LaggingTracker extends MemoryTracker {
+    hide = new Set<number>()
+    override async file(issue: { title: string; body: string; labels: string[] }) {
+      const filed = await super.file(issue)
+      this.hide.add(filed.number)
+      return filed
+    }
+    override async list() {
+      return (await super.list()).filter((i) => !this.hide.has(i.number))
+    }
+  }
+  const make = (now: () => number) => {
+    const tracker = new LaggingTracker()
+    const feedback = new Feedback({
+      clarifier: new Clarifier({ llm: new FakeLLM(), model: 'm' }),
+      tracker,
+      secret: 's',
+      now,
+    })
+    return { tracker, feedback }
+  }
+
+  it('shows in Your feedback even before GitHub lists it', async () => {
+    let t = 0
+    const { tracker, feedback } = make(() => t)
+    const filed = await feedback.submit(ALICE, {
+      kind: 'bug',
+      text: 'Save is broken',
+      answers: [],
+      context: {},
+    })
+    const mine = await feedback.mine(ALICE)
+    expect(mine.map((i) => [i.number, i.status, i.kind])).toEqual([[filed.number, 'new', 'bug']])
+    expect(await feedback.mine({ ...ALICE, userId: 'u2', email: 'bob@example.test' })).toEqual([])
+
+    // Once GitHub lists it, the listed copy wins (it carries later status changes).
+    tracker.hide.clear()
+    await tracker.setStatus(filed.number, 'needs decision')
+    t += 31_000
+    expect((await feedback.mine(ALICE)).map((i) => i.status)).toEqual(['needs decision'])
+  })
+})
+
 describe('statusOf', () => {
   it('reads the status label, and closed without one as shipped', () => {
     expect(statusOf({ labels: ['feedback', 'status: approved'], state: 'open' })).toBe('approved')

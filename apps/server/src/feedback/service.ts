@@ -27,6 +27,8 @@ export const MAX_CLARIFY_ROUNDS = 2
 
 const HOUR = 60 * 60 * 1000
 const LIST_TTL_MS = 30_000
+/** How long a just-filed issue is shown before GitHub lists it; after that, GitHub is the truth. */
+const FILED_TTL_MS = 10 * 60_000
 /** A reply Hearth posts for a member carries this, so it isn't read as the team's question. */
 export const REPLY_MARKER = '<!-- hearth-feedback-reply -->'
 const ISSUE_MARKER = '<!-- hearth-feedback v1 -->'
@@ -55,6 +57,8 @@ export class Feedback {
   readonly #now: () => number
   readonly #hits = new Map<string, number[]>()
   #listed: { at: number; issues: Promise<TrackedIssue[]> } | null = null
+  /** Issues filed here that GitHub's list may not show yet (it lags a new issue by seconds). */
+  #filed: { at: number; issue: TrackedIssue }[] = []
 
   constructor(opts: {
     clarifier: Clarifier
@@ -130,11 +134,22 @@ export class Feedback {
       tag: this.#tag(p),
     })
     this.#listed = null
-    return tracker.file({
-      title: title.slice(0, 200),
-      body,
-      labels: [FEEDBACK_LABEL, input.kind, statusLabel('new')],
+    const labels = [FEEDBACK_LABEL, input.kind, statusLabel('new')]
+    const filed = await tracker.file({ title: title.slice(0, 200), body, labels })
+    const at = this.#now()
+    this.#filed.push({
+      at,
+      issue: {
+        number: filed.number,
+        url: filed.url,
+        title: title.slice(0, 200),
+        body,
+        labels,
+        state: 'open',
+        createdAt: new Date(at).toISOString(),
+      },
     })
+    return filed
   }
 
   async mine(p: Principal): Promise<FeedbackItem[]> {
@@ -184,8 +199,17 @@ export class Feedback {
     this.#listed = null
   }
 
+  /** The board's issues, plus any filed here that GitHub doesn't list yet (newest first). */
+  async #list(tracker: FeedbackTracker, fresh = false): Promise<TrackedIssue[]> {
+    const listed = await this.#cachedList(tracker, fresh)
+    const now = this.#now()
+    const shown = new Set(listed.map((i) => i.number))
+    this.#filed = this.#filed.filter((f) => !shown.has(f.issue.number) && now - f.at < FILED_TTL_MS)
+    return [...this.#filed.map((f) => f.issue).reverse(), ...listed]
+  }
+
   /** The board's issues, reused for 30 s so a busy page doesn't hammer GitHub. */
-  #list(tracker: FeedbackTracker, fresh = false): Promise<TrackedIssue[]> {
+  #cachedList(tracker: FeedbackTracker, fresh = false): Promise<TrackedIssue[]> {
     const now = this.#now()
     if (fresh || !this.#listed || now - this.#listed.at > LIST_TTL_MS) {
       const issues = tracker.list()
