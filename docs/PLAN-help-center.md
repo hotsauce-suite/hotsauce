@@ -1,7 +1,7 @@
 # Plan: help center and FAQ on hotsauce.work
 
 Status: built 2026-11-13. Pages for features still in flight (phone install bar, Settings and
-notifications, the AI assistant, one-click install, the new keyboard keys) are written ahead and
+notifications, the AI assistant, the new keyboard keys; one-click install shipped with PR #40) are written ahead and
 marked "coming soon"; each feature's PR removes the mark when it ships.
 
 Before this there were no help docs: only eight FAQ entries at the bottom of the landing page and

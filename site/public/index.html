@@ -317,7 +317,7 @@ summary::-webkit-details-marker{display:none}
 summary::after{content:"+";position:absolute;right:18px;top:50%;width:26px;height:26px;margin-top:-13px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:700 18px/1 var(--sans);transition:transform .2s,background .2s}
 details[open] summary::after{transform:rotate(45deg);background:var(--rust);color:var(--rust-ink)}
 details p{margin:0;padding:0 22px 20px;color:var(--muted);max-width:44em}
-.faq + .more{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:32px 0 0}
+.faq-more{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:32px 0 0}
 
 /* closing */
 .closing{text-align:center;padding:0 0 96px}
@@ -720,7 +720,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
     <details><summary>Does a bot join my meetings?</summary><p>No. Meetings records from your own browser tab or the Chrome extension for Google Meet, so there's no extra attendee in the call.</p></details>
     <details><summary>How do I update it?</summary><p>With Docker, run the install command again. On Fly.io, pull the latest code and run the deploy script again. On Cloudflare, every push to your copy redeploys, and an optional workflow opens a pull request each Monday with the newest release (see <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md#staying-up-to-date">Staying up to date</a>). Your files and settings stay where they are.</p></details>
   </div>
-  <p class="more"><a class="btn" href="/faq">See all questions</a> <a class="btn" href="/help/">Browse the help center</a></p>
+  <p class="faq-more"><a class="btn" href="/faq">See all questions</a> <a class="btn" href="/help/">Browse the help center</a></p>
 </section>
 
 <div class="closing">

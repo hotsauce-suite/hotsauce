@@ -48,7 +48,7 @@ const PAGES = [
   { slug: 'chrome-extension', title: 'Chrome extension', group: 'devices' },
   { slug: 'agents', title: 'Connect Claude and other agents', group: 'devices' },
   { slug: 'admin', title: 'Run Hotsauce for your team', group: 'admin' },
-  { slug: 'install', title: 'Install Hotsauce', group: 'admin', soon: true },
+  { slug: 'install', title: 'Install Hotsauce', group: 'admin' },
 ]
 
 {
