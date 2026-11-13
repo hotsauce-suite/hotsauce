@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { type OrgState, orgEditor, waitForRestart } from '../api/org'
 import { MeetingsPageHeader, primaryButton } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
+import { AssistantSection } from './org/AssistantSection'
 import { BackupsSection } from './org/BackupsSection'
 import { ChatRoomsSection } from './org/ChatRoomsSection'
 import { Callout, messageOf } from './org/fields'
@@ -119,6 +120,7 @@ export default function OrgSettingsRoute() {
               <LinkSharingSection />
               <ChatRoomsSection />
               <AiSection {...(props('restart') as SectionProps)} />
+              <AssistantSection />
               <StorageSection {...(props('restart') as SectionProps)} />
               <UpdatesSection />
               <BackupsSection />

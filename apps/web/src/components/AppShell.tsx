@@ -19,8 +19,10 @@ import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
 import { useAppShortcuts } from '../keyboard/useAppShortcuts'
 import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
+import { displayName } from '../lib/paths'
 import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
+import { AssistantHost } from './assistant/AssistantHost'
 import { Icon } from './Icon'
 import { Sidebar, SidebarFrame } from './Sidebar'
 
@@ -207,7 +209,7 @@ function ShellLayout() {
                 type="button"
                 data-testid="show-sidebar"
                 aria-label="Show the sidebar"
-                title={`Show the sidebar (${formatSpec('mod+\\')})`}
+                title={`Show the sidebar (${formatSpec('mod+\\').join('')})`}
                 onClick={() => setSidebarHidden(false)}
                 className="flex h-full w-3 shrink-0 items-center justify-center border-r border-ash/70 text-ink-faint hover:w-6 hover:bg-paper-raised focus-visible:w-6"
               >
@@ -228,6 +230,15 @@ function ShellLayout() {
       </div>
 
       {compact ? <AppRail orientation="horizontal" /> : null}
+
+      <AssistantHost
+        compact={compact}
+        page={
+          activeSpace && activePath
+            ? { space: activeSpace, path: activePath, title: displayName(activePath) }
+            : null
+        }
+      />
 
       {searchLoaded ? (
         <Suspense fallback={null}>

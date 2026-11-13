@@ -177,3 +177,14 @@ describe('page commands (C3)', () => {
     act(() => off())
   })
 })
+
+describe('the assistant in Command-K', () => {
+  it('Ask the assistant takes what was typed as the question', async () => {
+    const { user } = await openPalette()
+    await user.type(screen.getByTestId('cmdk-input'), 'what did we decide')
+    const row = await screen.findByTestId('cmdk-command-ask-assistant', {}, { timeout: 3000 })
+    await user.click(row)
+    await waitFor(() => expect(screen.queryByTestId('cmdk')).not.toBeInTheDocument())
+    expect(await screen.findByText('what did we decide', {}, { timeout: 4000 })).toBeInTheDocument()
+  })
+})

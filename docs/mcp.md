@@ -8,6 +8,8 @@ never anyone else's), and everything it writes is a Git commit authored by you w
 
 The design is in `docs/ARCHITECTURE.md` §8.
 
+You don't need any of this to use AI inside the app: the built-in assistant (Ask, ⌘J on any page) runs these same tools as the member who asks, with the server's own Anthropic key. This page is for connecting Claude or another agent from outside.
+
 ## 1. Make a token
 
 Open Hearth, click **Settings** at the bottom of the sidebar, give the token a name (say "Claude

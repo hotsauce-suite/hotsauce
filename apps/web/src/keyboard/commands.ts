@@ -17,7 +17,7 @@ export const GROUP_TITLES: Record<CommandGroup, string> = {
 }
 
 /** The order Command-K shows the groups in. */
-export const GROUP_ORDER: readonly CommandGroup[] = ['page', 'create', 'ask', 'go', 'prefs']
+export const GROUP_ORDER: readonly CommandGroup[] = ['page', 'create', 'go', 'prefs', 'ask']
 
 export interface Command {
   /** Unique; also its Command-K value and test id (`cmdk-command-<id>`). */
@@ -31,6 +31,8 @@ export interface Command {
   shortcut?: ShortcutId
   /** For a step that can't be undone: the question Command-K asks before running it. */
   confirm?: string
+  /** Offered whatever is typed, taking it as its input (Ask the assistant). */
+  anyQuery?: boolean
   /** Gets what was typed, for commands that use it ("Ask the assistant: …"). */
   run: (query: string) => void
 }
@@ -107,6 +109,7 @@ export function matchCommands(commands: readonly Command[], query: string): Comm
   const typed = words(query)
   if (typed.length === 0) return [...commands]
   return commands.filter((command) => {
+    if (command.anyQuery) return true
     const vocabulary = [
       ...words(command.title),
       ...(command.keywords ?? []).flatMap(words),

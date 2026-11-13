@@ -68,6 +68,9 @@ export const OrgSettingsSchema = z.object({
   chatUrl: z.string().trim().default(''),
   /** Read-only links open for anyone with the link, signed out too (ARCHITECTURE §20). */
   publicShareLinks: z.boolean().default(false),
+  /** The built-in assistant's model ('' = the default) and monthly limit per member in USD (0 = none). */
+  assistantModel: z.string().trim().max(100).default(''),
+  assistantMonthlyLimitUsd: z.number().min(0).max(100_000).default(0),
   /** Steps of the setup wizard the admin has been through, so it resumes where they left off. */
   stepsDone: z.array(z.string()).default([]),
   setupComplete: z.boolean().default(false),

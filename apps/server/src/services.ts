@@ -5,6 +5,16 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hearth/format'
 import dotenv from 'dotenv'
+import {
+  AnthropicAssistantModel,
+  Assistant,
+  type AssistantModel,
+  type AssistantSettings,
+  AssistantStore,
+  DEFAULT_ASSISTANT_MODEL,
+  FakeAssistantModel,
+  UnconfiguredAssistantModel,
+} from './assistant/index.js'
 import { type Authenticator, createAuthenticator, type Principal } from './auth/index.js'
 import { createBackups } from './backup/index.js'
 import { BoardRooms, Boards } from './boards/index.js'
@@ -134,6 +144,8 @@ export type Services = ReturnType<typeof createServices>
 export interface ServiceOverrides {
   transcriber?: Transcriber
   llm?: LLM
+  /** The built-in assistant's model (docs/PLAN-assistant.md); tests script it. */
+  assistantModel?: AssistantModel
   calendar?: CalendarSource
   /** null turns kept audio off. */
   audioStore?: AudioStore | null
@@ -417,7 +429,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     publicUrl: config.PUBLIC_URL,
     busy: () => meetings.sessions.openCount > 0,
   })
-  return {
+  const services = {
     config,
     git,
     updates,
@@ -481,6 +493,15 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       git.withSpaceLocked(space, fn),
     ),
   }
+  // The built-in assistant (docs/PLAN-assistant.md): the member's own MCP tools, in-process.
+  const assistant = new Assistant({
+    deps: services,
+    store: new AssistantStore(path.join(config.DATA_DIR, 'assistant.sqlite')),
+    model: overrides.assistantModel ?? createAssistantModel(config),
+    settings: () => assistantSettings(config, org),
+    names: () => ({ org: config.ORG_NAME, product: config.PRODUCT_NAME }),
+  })
+  return { ...services, assistant }
 }
 /**
  * Booking links' robot check: Cloudflare Turnstile with both keys; otherwise the dev stand-in, or
@@ -534,6 +555,25 @@ function createFeedbackTracker(config: Config): FeedbackTracker | null {
     return new GitHubTracker({ repo: config.FEEDBACK_REPO, token: config.FEEDBACK_GITHUB_TOKEN })
   }
   return config.NODE_ENV === 'production' ? null : new MemoryTracker()
+}
+
+/** The assistant's model: Claude with the instance's key, the scripted stand-in, or none. */
+function createAssistantModel(config: Config): AssistantModel {
+  if (config.LLM_PROVIDER === 'anthropic') {
+    return new AnthropicAssistantModel(new Anthropic({ apiKey: config.ANTHROPIC_API_KEY }))
+  }
+  return config.LLM_PROVIDER === 'none'
+    ? new UnconfiguredAssistantModel()
+    : new FakeAssistantModel()
+}
+
+/** The environment wins over what an admin saved in Settings (CLAUDE.md). Read on every request. */
+function assistantSettings(config: Config, org: OrgStore): AssistantSettings {
+  const saved = org.settings()
+  return {
+    model: config.ASSISTANT_MODEL ?? (saved.assistantModel || DEFAULT_ASSISTANT_MODEL),
+    monthlyLimitUsd: config.ASSISTANT_MONTHLY_LIMIT_USD ?? saved.assistantMonthlyLimitUsd,
+  }
 }
 
 /** Claude, with the key from config (env or the organization's saved key). */

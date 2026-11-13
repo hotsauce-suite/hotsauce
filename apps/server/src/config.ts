@@ -137,6 +137,10 @@ export const ConfigSchema = z
     // Agent briefs (ARCHITECTURE §13): the model that writes each member's nightly brief, and the
     // local hour after which it is due.
     BRIEF_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+    // The built-in assistant (docs/PLAN-assistant.md). Unset, an admin picks in Settings (default
+    // Claude Sonnet 5.5); set, it wins. The limit is US dollars per member per month, 0 for none.
+    ASSISTANT_MODEL: z.string().min(1).optional(),
+    ASSISTANT_MONTHLY_LIMIT_USD: z.coerce.number().min(0).optional(),
     BRIEF_HOUR: z.coerce.number().int().min(0).max(23).default(4),
     BRIEF_REFRESH_GAP_SECONDS: z.coerce.number().int().min(0).default(60),
     // Briefcast (docs/plans/2026-11-12-briefcast.md): the morning audio briefing. The script

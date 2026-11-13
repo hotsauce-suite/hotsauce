@@ -100,6 +100,11 @@ const goShortcuts = Object.fromEntries(
 export const SHORTCUTS = def({
   // Everywhere
   'global.commandK': { keys: ['mod+k'], label: 'Open the command menu', section: 'everywhere' },
+  'global.assistant': {
+    keys: ['mod+j'],
+    label: 'Ask the assistant',
+    section: 'everywhere',
+  },
   'global.help': { keys: ['?'], label: 'Show keyboard shortcuts', section: 'everywhere' },
   'global.create': {
     keys: ['c'],

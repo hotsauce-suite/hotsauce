@@ -381,9 +381,10 @@ export default function CommandK({
                 {jumpGroup}
                 {actionGroup('page')}
                 {actionGroup('create')}
-                {actionGroup('ask')}
                 {actionGroup('go')}
                 {actionGroup('prefs')}
+                {/* Last: offered for anything typed, so it never takes Enter from a real match. */}
+                {actionGroup('ask')}
               </>
             )}
             {query.trim() &&
