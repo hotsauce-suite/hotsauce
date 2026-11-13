@@ -18,7 +18,9 @@ From the repo root, after `pnpm install && pnpm build`:
    cd apps/web && VITE_MOCK_API=1 npx vite --port 5191 --strictPort
    ```
 3. Record every shot. Each makes `<shot>.mp4` and a contact sheet:
-   `scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask tasks notes clipsRecorder clipsPlayer dictate boards people files forms booking briefcast`
+   `DEMO_FILES=$PWD/scripts/tour-video/demo-files scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask tasks notes clipsRecorder clipsPlayer dictate boards people files forms booking briefcast`
+
+   The `files` shot uploads the sample files in `demo-files/` into a new folder, so use a fresh `DATA_DIR` or change the folder name in `shots.mjs`.
 4. Voice, captions, overlays and the cut (needs `OPENAI_API_KEY`):
    ```
    python3 scripts/tour-video/build.py voice /tmp/tour
@@ -34,3 +36,7 @@ From the repo root, after `pnpm install && pnpm build`:
 - The Clips player shot needs a clip with real footage. Record one clip (`clipsRecorder` won't save one), then replace its `video.mp4` and transcript under `DATA_DIR`. Use another shot, such as `docs.mp4`, as the footage.
 - `script.json` holds the narration. `SHOTS` in `build.py` maps each line to its footage. In the "And more" montage, each shot starts when the voice says its cue word, timed from Whisper word timestamps.
 - `explore.mjs` takes screenshots of a few steps, for finding selectors before writing a shot.
+
+- **The website's app windows** use the same shots. Re-encode each for `site/public/video/apps/` with
+  `ffmpeg -i <shot>.mp4 -an -vf scale=1280:-2 -c:v libx264 -crf 27 -preset slow -pix_fmt yuv420p -movflags +faststart`,
+  plus a poster from the last frame (`-sseof -0.1 -frames:v 1`).

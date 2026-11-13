@@ -240,14 +240,23 @@ export const shots = {
     await wait(1200)
   },
 
-  async people({ page, signIn, startCapture, wait, moveTo, point, click }) {
+  async people({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
     await signIn()
     await page.goto(`${B}/people`)
     await wait(1500)
     await startCapture()
     await moveTo(900, 450, 10)
-    await point(page.getByText('Dana Lee').first(), { ms: 700 })
-    await click(page.getByText('Dana Lee').first(), { after: 2200 })
+    await wait(600)
+    await point(page.getByText('Priya Natarajan').first(), { ms: 700 })
+    await wait(400)
+    await click(page.getByText('Dana Lee').first(), { after: 1400 })
+    await click(page.getByRole('button', { name: /Add a note/ }), { after: 500 })
+    await type('Head of ops at Acme. Likes a short agenda the day before.', 38)
+    await wait(300)
+    await click(page.getByRole('button', { name: 'Save' }), { after: 1400 })
+    await point(page.getByText('Acme sync').first(), { ms: 700 })
+    await wait(900)
+    await click(page.getByRole('link', { name: 'acme.com', exact: true }).last(), { after: 2200 })
   },
 
   async forms({ page, signIn, startCapture, wait, moveTo, click, type }) {
@@ -274,31 +283,51 @@ export const shots = {
     await wait(1500)
   },
 
-  async briefcast({ page, signIn, startCapture, wait, moveTo, point }) {
+  async briefcast({ page, signIn, startCapture, wait, moveTo, point, click }) {
     await signIn()
     await page.goto(`${B}/briefcast`)
     await wait(1500)
     await startCapture()
     await moveTo(900, 450, 10)
-    await point(page.getByText('Your morning briefing').first(), { ms: 700 })
-    await wait(1200)
+    await wait(600)
+    await click(page.getByRole('button', { name: /Make today/ }), { after: 2200 })
+    const play = page.getByRole('button', { name: /^Play/ }).first()
+    if (await play.count()) await click(play, { after: 900 })
+    await point(page.getByText(/three meetings today/).first(), { ms: 900 })
+    await page.mouse.wheel(0, 260)
+    await wait(1800)
+    await page.mouse.wheel(0, 300)
+    await wait(1600)
     await point(page.getByRole('button', { name: 'Get my private feed link' }), { ms: 700 })
-    await wait(1500)
+    await click(page.getByRole('button', { name: 'Get my private feed link' }), { after: 2000 })
   },
 
-  async files({ page, signIn, startCapture, wait, moveTo, point }) {
+  async files({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
+    const DIR = process.env.DEMO_FILES
     await signIn()
     await page.goto(`${B}/files`)
     await wait(2000)
     await startCapture()
     await moveTo(900, 450, 10)
     await wait(500)
+    await click(page.getByRole('button', { name: 'New folder' }), { after: 400 })
+    await type('Launch', 70)
+    await click(page.getByRole('button', { name: 'Create' }), { after: 1000 })
+    await click(page.getByRole('button', { name: /^Launch/ }).first(), { after: 1000 })
     const chooser = page.waitForEvent('filechooser')
     await point(page.getByRole('button', { name: 'Upload' }).last(), { ms: 600 })
     await page.getByRole('button', { name: 'Upload' }).last().click()
-    await (await chooser).setFiles('e2e/files/quarterly-plan.docx')
+    await (await chooser).setFiles([
+      `${DIR}/Pilot budget.pdf`,
+      `${DIR}/Quarterly plan.docx`,
+      `${DIR}/Sign-ups chart.png`,
+    ])
     await wait(2500)
-    await point(page.getByText(/quarterly-plan/).first(), { ms: 700 })
-    await wait(1200)
+    await click(page.getByRole('button', { name: /^Sign-ups chart/ }).first(), { after: 2600 })
+    await page.keyboard.press('Escape')
+    await wait(700)
+    await click(page.getByRole('searchbox', { name: 'Search files' }), { after: 200 })
+    await type('courier', 80)
+    await wait(2200)
   },
 }
