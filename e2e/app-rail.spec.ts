@@ -88,3 +88,17 @@ test('the desktop rail icons are half again the phone bar size, and every label 
     )
   expect(clipped).toEqual([])
 })
+
+test('a short window fades the rail out at the bottom until it is scrolled to the end', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 600 })
+  await page.goto('/docs')
+  const list = page.getByTestId('rail-apps')
+  await expect(list).toHaveAttribute('data-more', 'true')
+  await list.evaluate((el) => el.scrollTo({ top: el.scrollHeight }))
+  await expect(list).not.toHaveAttribute('data-more')
+  await page.setViewportSize({ width: 1280, height: 2000 })
+  await list.evaluate((el) => el.scrollTo({ top: 0 }))
+  await expect(list).not.toHaveAttribute('data-more')
+})

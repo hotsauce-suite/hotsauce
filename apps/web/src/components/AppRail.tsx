@@ -127,10 +127,10 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         className="shell-rail flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center border-r border-ash bg-paper pt-3 pb-2"
       >
         <BrandMark className="mb-3 size-9 shrink-0" />
-        <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
+        <RailApps>
           {apps}
           {links}
-        </div>
+        </RailApps>
         <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
           {feedback}
           {settings}
@@ -154,6 +154,38 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   )
 }
 
+/**
+ * The rail's scrolling list of apps. The scrollbar is hidden, so while more apps sit below the
+ * fold the list fades out at the bottom (`data-more`), as a hint to scroll.
+ */
+function RailApps({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState(false)
+  useEffect(() => {
+    const list = ref.current
+    if (!list) return
+    const check = () => setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 1)
+    check()
+    list.addEventListener('scroll', check, { passive: true })
+    const observer = new ResizeObserver(check)
+    observer.observe(list)
+    return () => {
+      list.removeEventListener('scroll', check)
+      observer.disconnect()
+    }
+  }, [])
+  return (
+    <div
+      ref={ref}
+      data-testid="rail-apps"
+      data-more={more ? 'true' : undefined}
+      className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain [scrollbar-width:none] data-[more]:[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]"
+    >
+      {children}
+    </div>
+  )
+}
+
 export function useFeedbackEnabled(): boolean {
   const [on, setOn] = useState(false)
   useEffect(() => {
@@ -173,7 +205,7 @@ export function feedbackLink(pathname: string): string {
 
 export function itemClass(orientation: Orientation, current: boolean): string {
   const shape =
-    orientation === 'vertical' ? 'w-15 py-2' : 'h-14 min-w-12 flex-1 basis-0 px-0.5 py-1.5'
+    orientation === 'vertical' ? 'w-15 py-1.5' : 'h-14 min-w-12 flex-1 basis-0 px-0.5 py-1.5'
   const tone = current
     ? 'bg-ember-wash text-ember'
     : 'text-ink-faint hover:bg-paper-sunk hover:text-ink-soft'
