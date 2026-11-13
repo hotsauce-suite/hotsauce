@@ -317,7 +317,11 @@ export const shots = {
     const chooser = page.waitForEvent('filechooser')
     await point(page.getByRole('button', { name: 'Upload' }).last(), { ms: 600 })
     await page.getByRole('button', { name: 'Upload' }).last().click()
-    await (await chooser).setFiles([`${DIR}/Pilot budget.pdf`, `${DIR}/Quarterly plan.docx`, `${DIR}/Sign-ups chart.png`])
+    await (await chooser).setFiles([
+      `${DIR}/Pilot budget.pdf`,
+      `${DIR}/Quarterly plan.docx`,
+      `${DIR}/Sign-ups chart.png`,
+    ])
     await wait(2500)
     await click(page.getByRole('button', { name: /^Sign-ups chart/ }).first(), { after: 2600 })
     await page.keyboard.press('Escape')
