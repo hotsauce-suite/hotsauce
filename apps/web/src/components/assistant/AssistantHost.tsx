@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import type { PageContext } from '../../api/assistant'
+import { useCommands } from '../../keyboard/commands'
 import { ariaKeys, formatSpec } from '../../keyboard/keys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { Icon } from '../Icon'
@@ -21,6 +22,19 @@ export function AssistantHost({ page, compact }: { page: PageContext | null; com
     toggleAssistant()
     return true
   })
+  // In Command-K, under Ask: what was typed becomes the question.
+  useCommands([
+    {
+      id: 'ask-assistant',
+      title: 'Ask the assistant',
+      group: 'ask',
+      icon: 'sparkle',
+      keywords: ['ai', 'chat', 'question', 'claude', 'help'],
+      shortcut: 'global.assistant',
+      anyQuery: true,
+      run: (query) => openAssistant(query),
+    },
+  ])
 
   return (
     <>

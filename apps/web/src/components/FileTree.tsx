@@ -6,9 +6,11 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import type { Entry } from '../api/types'
+import { appForPath } from '../apps/registry'
+import { useShortcut } from '../keyboard/shortcuts'
 import { saveOpenDocUnder } from '../lib/openDoc'
 import {
   basename,
@@ -88,6 +90,16 @@ export function FileTree({ space, activePath }: { space: string; activePath: str
     const path = await untitledDocPath(tree, space, dir)
     navigate(docUrl(space, path), { state: { newDoc: true } })
   }
+  // `c` in Docs: a new doc beside the open one, as the New doc button does.
+  const inDocs = appForPath(useLocation().pathname).id === 'docs'
+  useShortcut(
+    'global.create',
+    () => {
+      void newDoc(activePath ? dirname(activePath) : DOCS_ROOT)
+      return true
+    },
+    inDocs,
+  )
 
   // Import: a hidden file picker, aimed at the folder the member chose.
   const importInput = useRef<HTMLInputElement>(null)

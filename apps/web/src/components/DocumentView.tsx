@@ -24,6 +24,7 @@ import type { AppManifest } from '../apps/registry'
 import { product } from '../brand/product'
 import type { LinkTarget } from '../editor/wikiLink'
 import { type DocumentHandle, GONE_WHILE_EDITING, useDocument } from '../hooks/useDocument'
+import { useCommands } from '../keyboard/commands'
 import { ImageUrls } from '../lib/assets'
 import { firstHeading, isUntitledPath, NEW_DOC_TITLE, renameTarget } from '../lib/format'
 import { registerOpenDoc } from '../lib/openDoc'
@@ -388,6 +389,102 @@ export function DocumentView({
     })
   }
 
+  // Command-K's "On this page" for the open doc or meeting note.
+  const starred = session.isStarred(space, path)
+  const editable = state.status === 'ready' && !readOnly
+  useCommands(
+    [
+      {
+        id: 'doc-star',
+        title: starred ? 'Unstar this doc' : 'Star this doc',
+        group: 'page',
+        icon: 'star',
+        keywords: ['favorite', 'pin'],
+        run: () => void session.toggleStar(space, path),
+      },
+      {
+        id: 'doc-copy-link',
+        title: 'Copy link to this doc',
+        group: 'page',
+        icon: 'link',
+        keywords: ['share', 'url'],
+        run: () => {
+          void navigator.clipboard?.writeText(window.location.href).then(
+            () => notify('Link copied.'),
+            () => notify('Couldn’t copy the link.'),
+          )
+        },
+      },
+      {
+        id: 'doc-reading',
+        title: reading ? 'Edit this doc' : 'Reading view',
+        group: 'page',
+        icon: reading ? 'pencil' : 'book',
+        keywords: ['read', 'preview', 'edit', 'toggle'],
+        run: () => setReading((r) => !r),
+      },
+      {
+        id: 'doc-history',
+        title: 'Version history',
+        group: 'page',
+        icon: 'history',
+        keywords: ['versions', 'changes', 'restore', 'diff'],
+        run: () => setPanel('history'),
+      },
+      {
+        id: 'doc-properties',
+        title: 'Properties',
+        group: 'page',
+        icon: 'sliders',
+        keywords: ['frontmatter', 'tags', 'metadata'],
+        run: () => setPanel('properties'),
+      },
+      {
+        id: 'doc-save-version',
+        title: 'Save a version',
+        group: 'page',
+        icon: 'flag',
+        keywords: ['commit', 'snapshot', 'checkpoint'],
+        run: () => void saveVersion(''),
+      },
+      ...(editable && !reading
+        ? [
+            {
+              id: 'doc-attach',
+              title: 'Attach a file',
+              group: 'page' as const,
+              icon: 'paperclip' as const,
+              keywords: ['insert', 'image', 'upload', 'embed'],
+              run: () => setPicking(true),
+            },
+          ]
+        : []),
+      {
+        id: 'doc-download',
+        title: 'Download as Markdown',
+        group: 'page',
+        icon: 'download',
+        keywords: ['export', 'md', 'save'],
+        run: () => {
+          const blob = new Blob([doc.getText()], { type: 'text/markdown' })
+          const a = document.createElement('a')
+          a.href = URL.createObjectURL(blob)
+          a.download = path.split('/').pop() ?? 'doc.md'
+          a.click()
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+        },
+      },
+      ...(panels ?? []).map((toggle) => ({
+        id: `doc-panel-${toggle.id}`,
+        title: toggle.label,
+        group: 'page' as const,
+        icon: toggle.icon,
+        run: () => setPanel(toggle.id),
+      })),
+    ],
+    `${space}:${path}:${starred}:${reading}:${editable}`,
+  )
+
   return (
     <>
       <TopBar
@@ -409,7 +506,7 @@ export function DocumentView({
         beforeShare={() => doc.commit()}
         getText={() => doc.getText()}
         onOpenDrawer={shell.openDrawer}
-        {...(state.status === 'ready' && !reading ? { onAttachFile: () => setPicking(true) } : {})}
+        {...(editable && !reading ? { onAttachFile: () => setPicking(true) } : {})}
         rename={
           !untitled && renameTo && renameTo !== keptName && !conflict && !renaming
             ? {

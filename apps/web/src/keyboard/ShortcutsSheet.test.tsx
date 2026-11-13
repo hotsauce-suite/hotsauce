@@ -17,7 +17,7 @@ describe('the keyboard shortcuts sheet (K7)', () => {
     const sections = within(sheet)
       .getAllByRole('region')
       .map((s) => s.getAttribute('aria-label'))
-    expect(sections.slice(0, 2)).toEqual(['Everywhere', 'Tasks'])
+    expect(sections.slice(0, 3)).toEqual(['Everywhere', 'Go to', 'Tasks'])
     const tasks = within(sheet).getByRole('region', { name: 'Tasks' })
     expect(within(tasks).getByText('On this page')).toBeInTheDocument()
     expect(within(tasks).getByText('Complete or reopen')).toBeInTheDocument()

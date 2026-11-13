@@ -4,6 +4,7 @@ import { type BoardSummary, boardsApi } from '../../api/boards'
 import { hearthSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { boardUrl } from '../../lib/paths'
 import { formatWhen } from '../clips/format'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
@@ -20,6 +21,10 @@ export default function BoardsPage() {
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
   const newBoard = useNewBoard()
+  useShortcut('global.create', () => {
+    void newBoard.create(scope === 'team')
+    return true
+  })
 
   useEffect(() => {
     document.title = `${product()} Whiteboard`

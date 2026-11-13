@@ -2,7 +2,7 @@
 
 ## Status
 
-Slice 1 in progress on branch `claude/project-thread-0ulpa9`. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
+Slice 1 shipped (#42). Slices 2–4 in #47, with the independent review's fixes: Command-K's confirm step starts on Cancel and only its "Yes" row runs the step; a question is forgotten when Command-K closes; `c` in Docs works with the sidebar hidden; a strip brings a hidden sidebar back. Slices 5–6 are built on the same branch next. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
 
 ## Decisions
 
@@ -19,8 +19,10 @@ Settled with the owner on 2026-11-13. He accepted every recommendation.
 
 - `apps/web/src/keyboard/catalog.ts` is the one list of shortcuts: id, keys, label and section. The key listener, the `?` sheet, Command-K's key hints and tooltips all read it. A test fails when two shortcuts in one scope share keys, or one uses a key the browser or the Mac owns.
 - `keyboard/keys.ts` is pure: parse a key spec (`mod+k`, `g d`, `?`, `shift+mod+8`), match a `KeyboardEvent`, and format keycaps for Mac (⌘ ⌥ ⇧) and others (Ctrl Alt Shift).
-- `keyboard/KeyboardProvider.tsx` owns one window `keydown` listener. Pages bind a handler to a catalog id with `useShortcut(id, run)`. The listener skips an event something else already handled (the editor's own ⌘K), skips plain keys while typing, while a dialog or menu is open, and Enter or Space on a control, and skips character keys when the member turned them off.
+- `keyboard/shortcuts.ts` owns one window `keydown` listener. Pages bind a handler to a catalog id with `useShortcut(id, run)`. The listener skips an event something else already handled (the editor's own ⌘K), skips plain keys while typing, while a dialog or menu is open, and Enter or Space on a control, and skips character keys when the member turned them off.
 - Keys that CodeMirror or the Tables grid handle themselves are in the catalog as `handledBy: 'editor' | 'grid'`, so the sheet lists them; the listener never binds them.
+
+- No two files may differ only in letter case (`keys.ts` and `Keys.tsx` collide on a Mac disk); `pnpm lint` runs `scripts/check-filename-case.mjs`. The keycaps component is `keyboard/KeyCaps.tsx`.
 
 ## Requirements
 
@@ -39,14 +41,19 @@ Each requirement maps to a test, named in brackets.
 
 **Slice 2: go anywhere, create from the keyboard**
 
-- G1: `g` then a letter opens that app (h Today, d Docs, m Meetings, t Tasks, n Notes, v Dictate, c Clips, i Check-ins, b Boards, p People, f Files, o Forms, e Tables, l Links, r Briefcast, s Settings). A pause over 1.2 s cancels the `g`. [KeyboardProvider.test, AppShell test]
-- G2: `c` creates the app's main thing where it has one; `/` focuses the app's search or opens Command-K; ⌘\ hides and shows the sidebar. [AppShell test]
-- G3: The rail's tooltips show each app's `g` keys. [AppRail.test]
+- G1: `g` then a letter opens that app (h Today, d Docs, m Meetings, t Tasks, n Notes, v Dictate, c Clips, i Check-ins, b Boards, p People, f Files, o Forms, e Tables, l Links, r Briefcast, s Settings). A pause over 1.2 s cancels the `g`; typing in a field never triggers it. [appShortcuts.test]
+- G2: `c` creates the app's main thing where it has one (Docs: new doc, Tasks: quick add, Notes: new note, Meetings: start, Clips: record, Dictate: voice note, Boards: new board, Forms and Tables: the new-title box); `/` opens Command-K; ⌘\ hides and shows the sidebar (the drawer on a phone). A page's own binding wins over the app-wide default. [appShortcuts.test, shortcuts.test]
+- G3: The rail's tooltips show each app's `g` keys. [appShortcuts.test]
 
 **Slice 3: Command-K actions**
 
-- C1: Command-K lists commands from a registry: Create, Go to (apps, Settings sections, Starred, Recent), Preferences (theme, single-key switch, shortcuts sheet). Each row shows its keys. [CommandK.test]
-- C2: Typing filters commands by words and synonyms; search results still lead when a title matches. [CommandK.test]
-- C3: Pages and features register commands with `useCommands`; they show under "On this page" while mounted. [CommandK.test]
+- C1: Command-K lists commands from a registry: Create (doc, meeting, task, note, voice note, clip, board, form, table, link), Go to (every app, Settings, agent brief, Connect Claude, Mac app, feedback), Preferences (theme, single-key switch, shortcuts sheet). Rows show their keys. With nothing typed it shows Recent, On this page and Create. [commandK.test, AppRail.test]
+- C2: Typing filters commands: every typed word must start a word of the title, its synonyms or its group. Search results still lead when a title matches. [commandK.test, AppRail.test]
+- C3: Pages and features register commands with `useCommands`; they show under "On this page" while mounted. A command with `confirm` asks before it runs. A command gets what was typed (for "Ask the assistant"). [commandK.test]
 
-Slices 4 to 7 (page actions for Docs, Meetings and Tasks; the other apps and list keys; search every kind; accessibility, the Mac app and support materials) get their requirements here when they start.
+**Slice 4: on this page, for Docs, Meetings and Tasks**
+
+- P1: On a doc or a meeting note, Command-K's On this page has: star or unstar, copy link, reading view or edit, version history, properties, save a version, attach a file (while editing), download as Markdown, and the page's own panels (a meeting's transcript and the like). [pageCommands.test]
+- P2: In Tasks, On this page has Add a task, and for the selected task: complete or reopen, due today, due tomorrow, open, delete (which asks first, as the Delete key does). [pageCommands.test]
+
+Slices 5 to 7 (the other apps and list keys; search every kind; accessibility, the Mac app and support materials) get their requirements here when they start.

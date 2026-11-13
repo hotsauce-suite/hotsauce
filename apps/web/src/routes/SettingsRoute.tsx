@@ -13,7 +13,7 @@ import { product } from '../brand/product'
 import type { ShellContext } from '../components/AppShell'
 import { Icon } from '../components/Icon'
 import { MacAppSection } from '../components/MacApp'
-import { Keys } from '../keyboard/Keys'
+import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
 import { chooseTheme, currentTheme, type ThemeChoice } from '../lib/theme'
 

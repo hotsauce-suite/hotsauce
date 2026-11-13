@@ -7,6 +7,7 @@ import { APPS, type AppId, type AppManifest, ownerOfPath, railLinks } from '../a
 import { forgetTaskLists } from '../apps/tasks/useTaskList'
 import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
+import { GO_KEYS } from '../keyboard/catalog'
 import { useSession } from '../state/session'
 import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
@@ -71,6 +72,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         name={isRecording ? `${app.name} (recording)` : app.name}
         current={current}
         testId={`app-switch-${app.id}`}
+        goKey={GO_KEYS[app.id]}
         onWarm={() => void app.preload().catch(() => {})}
         dot={isRecording}
       />
@@ -116,6 +118,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       name="Settings"
       current={onSettings}
       testId="settings-link"
+      goKey={GO_KEYS.settings}
       hideLabel
     />
   ) : null
@@ -225,6 +228,7 @@ function RailItem({
   dot = false,
   external = false,
   hideLabel = false,
+  goKey,
 }: {
   orientation: Orientation
   to?: string
@@ -238,6 +242,8 @@ function RailItem({
   dot?: boolean
   external?: boolean
   hideLabel?: boolean
+  /** Its `g` shortcut's letter, shown in the tooltip. */
+  goKey?: string
 }) {
   const vertical = orientation === 'vertical'
   const body = (
@@ -265,7 +271,7 @@ function RailItem({
   )
   const common = {
     'aria-label': name,
-    title: name,
+    title: goKey ? `${name} (g then ${goKey})` : name,
     'data-testid': testId,
     className: itemClass(orientation, current),
   }

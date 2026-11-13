@@ -27,9 +27,9 @@ describe('the shortcut list (K3)', () => {
         if (a >= b) continue
         const sa = SHORTCUTS[a]
         const sb = SHORTCUTS[b]
-        // Sections of different apps are never on screen together; Everywhere is always there.
+        // Sections of different apps are never on screen together; Everywhere and Go to always are.
         const together =
-          sa.section === sb.section || sa.section === 'everywhere' || sb.section === 'everywhere'
+          sa.section === sb.section || SECTIONS[sa.section].always || SECTIONS[sb.section].always
         if (!together) continue
         for (const ka of sa.keys.map(canonical)) {
           for (const kb of sb.keys.map(canonical)) {

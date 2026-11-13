@@ -11,7 +11,7 @@
     "dev": "pnpm build:format && pnpm -r --parallel --filter @hearth/format --filter @hearth/server --filter @hearth/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "biome check .",
+    "lint": "node scripts/check-filename-case.mjs && biome check .",
     "lint:fix": "biome check --write .",
     "test": "pnpm build:format && vitest run",
     "test:unit": "pnpm build:format && vitest run --project format --project server-unit --project web --project extension --project cloudflare --project site",

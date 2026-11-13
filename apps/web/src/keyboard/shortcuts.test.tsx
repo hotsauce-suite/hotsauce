@@ -192,3 +192,25 @@ describe('single-key shortcuts off (K6)', () => {
     expect(localStorage.getItem('hearth:single-keys')).toBe('off')
   })
 })
+
+describe('fallback bindings (G2)', () => {
+  it("a page's own binding outranks the app-wide default, whatever mounted first", () => {
+    const page = vi.fn(() => true)
+    const fallback = vi.fn(() => true)
+    bind('global.create', page)
+    bind('global.create', fallback, { fallback: true })
+    press('c')
+    expect(page).toHaveBeenCalledOnce()
+    expect(fallback).not.toHaveBeenCalled()
+  })
+
+  it('g then a letter runs the sequence, and a lone g does nothing', () => {
+    const go = vi.fn(() => true)
+    bind('go.tasks', go)
+    expect(press('g')).toBe(false)
+    press('t')
+    expect(go).toHaveBeenCalledOnce()
+    press('t')
+    expect(go).toHaveBeenCalledOnce()
+  })
+})
