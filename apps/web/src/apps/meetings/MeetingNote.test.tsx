@@ -3,8 +3,9 @@ import { parseFrontmatter } from '@hearth/format'
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { meetingsApi } from '../../api/meetings'
+import { PANES_QUERY } from '../../hooks/useMediaQuery'
 import { PRIYA } from '../../mocks/seed'
 import { mockApi, server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
@@ -30,7 +31,28 @@ function replaceInEditor(find: string, replace: string) {
 const lineWith = (text: string) =>
   [...document.querySelectorAll<HTMLElement>('.cm-line')].find((l) => l.textContent?.includes(text))
 
+/** A laptop-wide window, or an upright iPad's (docs/PLAN-ipad.md), as far as media queries go. */
+function setWide(wide: boolean) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: query === PANES_QUERY ? wide : false,
+      media: query,
+      onchange: null,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList
+}
+
 describe('Meeting note page', () => {
+  const original = window.matchMedia
+  beforeEach(() => setWide(true))
+  afterEach(() => {
+    window.matchMedia = original
+  })
+
   it('mutes the AI-written lines from ai_ranges and leaves the member’s own lines alone', async () => {
     const path = await acmeKickoff()
     renderApp(`/meetings/ada/${path}`)
@@ -70,6 +92,16 @@ describe('Meeting note page', () => {
     expect(within(panel).getByText('0:31')).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('transcript-toggle'))
     expect(screen.queryByTestId('transcript-panel')).toBeNull()
+  })
+
+  it('on an upright iPad, opens on the note with the transcript a tap away', async () => {
+    setWide(false)
+    const path = await acmeKickoff()
+    renderApp(`/meetings/ada/${path}`)
+    await screen.findByTestId('transcript-toggle')
+    expect(screen.queryByTestId('transcript-panel')).toBeNull()
+    await userEvent.click(screen.getByTestId('transcript-toggle'))
+    expect(await screen.findByTestId('transcript-panel')).toBeInTheDocument()
   })
 
   it('finds the transcript from frontmatter `transcript`, not from the note’s file name', async () => {
@@ -226,7 +258,8 @@ describe('Meeting note page', () => {
     await waitFor(() => expect(content).toHaveTextContent('More from the transcript'))
     await waitFor(() => expect(content).toHaveAttribute('contenteditable', 'true'))
     expect(mockApi().repo.space('ada').files.get(path)).not.toContain('typed while enhancing')
-  })
+    // Types 21 keys into the editor: about 2 s here, past 5 s on a busy CI runner.
+  }, 15_000)
 
   it('asks before re-enhancing over edits made since the last enhance', async () => {
     const path = await acmeKickoff()

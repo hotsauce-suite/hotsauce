@@ -501,7 +501,7 @@ export function TaskDetail(props: TaskDetailProps) {
   return (
     <aside
       aria-label="Task"
-      className="flex h-full w-[var(--panel-width)] shrink-0 flex-col border-l border-ash bg-paper/70"
+      className="side-pane flex h-full w-[var(--panel-width)] shrink-0 flex-col border-l border-ash bg-paper/70"
     >
       {body}
     </aside>

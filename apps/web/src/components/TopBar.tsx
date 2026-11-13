@@ -1,4 +1,5 @@
 import type { CommitOutcome, SaveState as SaveStateValue } from '../hooks/useDocument'
+import { PANES_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { basename, displayName } from '../lib/paths'
 import { useSession } from '../state/session'
 import { Icon, type IconName } from './Icon'
@@ -45,6 +46,8 @@ interface TopBarProps {
 export function TopBar(props: TopBarProps) {
   const { space, path, compact } = props
   const session = useSession()
+  // Narrower than PANES_QUERY (an upright iPad), labels would push Share off the screen.
+  const iconOnly = !useMediaQuery(PANES_QUERY) || compact
   const starred = session.isStarred(space, path)
   const folders = path.split('/').slice(1, -1)
 
@@ -99,7 +102,7 @@ export function TopBar(props: TopBarProps) {
 
       <SaveState {...props.save} compact={compact} />
 
-      <div className="flex items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-0.5">
         {props.extraPanels?.map((toggle) => (
           <IconButton
             key={toggle.id}
@@ -146,13 +149,13 @@ export function TopBar(props: TopBarProps) {
             onClick={() => props.onTogglePanel('properties')}
           />
         )}
-        <SaveVersion onSave={props.onSaveVersion} iconOnly={compact} />
+        <SaveVersion onSave={props.onSaveVersion} iconOnly={iconOnly} />
         <ShareMenu
           space={space}
           path={path}
           beforeShare={props.beforeShare}
           getText={props.getText}
-          iconOnly={compact}
+          iconOnly={iconOnly}
         />
       </div>
     </header>
