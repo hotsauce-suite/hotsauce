@@ -1,4 +1,5 @@
 import type { Authenticator, Principal } from '../auth/index.js'
+import type { BackupService } from '../backup/index.js'
 import type { Boards } from '../boards/index.js'
 import type { AgentBriefs } from '../brief/index.js'
 import type { Briefcasts } from '../briefcast/index.js'
@@ -58,6 +59,8 @@ export interface AppDeps {
   org: OrgStore
   brand: BrandStore
   updates: Updater
+  /** Daily backups; null when there's no bucket or BACKUP=off. */
+  backups: BackupService | null
   /** Stops gracefully and exits so the process manager starts us with the new settings. */
   restart?: () => void
 }

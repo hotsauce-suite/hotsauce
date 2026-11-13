@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { type OrgState, orgEditor, waitForRestart } from '../api/org'
 import { MeetingsPageHeader, primaryButton } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
+import { BackupsSection } from './org/BackupsSection'
 import { ChatRoomsSection } from './org/ChatRoomsSection'
 import { Callout, messageOf } from './org/fields'
 import { LinkSharingSection } from './org/LinkSharingSection'
@@ -120,6 +121,7 @@ export default function OrgSettingsRoute() {
               <AiSection {...(props('restart') as SectionProps)} />
               <StorageSection {...(props('restart') as SectionProps)} />
               <UpdatesSection />
+              <BackupsSection />
               <Callout>
                 Values set in the server’s environment always win and show as locked here. Keys are
                 stored encrypted on the server and are never shown again.

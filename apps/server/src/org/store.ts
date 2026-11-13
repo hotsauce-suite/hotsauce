@@ -36,6 +36,7 @@ export const SECRET_NAMES = [
   'ANTHROPIC_API_KEY',
   'DEEPGRAM_API_KEY',
   'GITHUB_TOKEN',
+  'FORGEJO_TOKEN',
   'R2_SECRET_ACCESS_KEY',
   'WEBHOOK_SECRET',
 ] as const
@@ -49,8 +50,17 @@ export const OrgSettingsSchema = z.object({
   allowedEmails: z.array(z.string()).default([]),
   adminEmails: z.array(z.string()).default([]),
   clerkPublishableKey: z.string().trim().default(''),
-  hostKind: z.enum(['local', 'github']).default('local'),
+  hostKind: z.enum(['local', 'github', 'forgejo']).default('local'),
   githubOrg: z.string().trim().default(''),
+  /** A self-hosted Forgejo (or Gitea-compatible) server: its address and organization. */
+  forgejoUrl: z.string().trim().default(''),
+  forgejoOrg: z.string().trim().default(''),
+  /**
+   * Big files' bucket. Cloudflare R2 by account id, or any S3-compatible service by endpoint (which
+   * wins); the access key, secret and bucket fields serve both.
+   */
+  s3Endpoint: z.string().trim().default(''),
+  s3Region: z.string().trim().default(''),
   r2AccountId: z.string().trim().default(''),
   r2AccessKeyId: z.string().trim().default(''),
   r2Bucket: z.string().trim().default(''),
@@ -216,7 +226,17 @@ export class OrgStore {
     put('CHAT_URL', s.chatUrl)
     put('HOST_KIND', s.hostKind)
     if (s.hostKind === 'github') put('GITHUB_ORG', s.githubOrg)
-    if (s.r2AccountId && s.r2AccessKeyId && s.r2Bucket) {
+    if (s.hostKind === 'forgejo') {
+      put('FORGEJO_URL', s.forgejoUrl)
+      put('FORGEJO_ORG', s.forgejoOrg)
+    }
+    if (s.s3Endpoint && s.r2AccessKeyId && s.r2Bucket) {
+      put('S3_ENDPOINT', s.s3Endpoint)
+      put('S3_REGION', s.s3Region || 'auto')
+      put('S3_BUCKET', s.r2Bucket)
+      put('S3_ACCESS_KEY_ID', s.r2AccessKeyId)
+      put('S3_SECRET_ACCESS_KEY', this.savedSecret('R2_SECRET_ACCESS_KEY'))
+    } else if (s.r2AccountId && s.r2AccessKeyId && s.r2Bucket) {
       put('R2_ACCOUNT_ID', s.r2AccountId)
       put('R2_ACCESS_KEY_ID', s.r2AccessKeyId)
       put('R2_BUCKET', s.r2Bucket)

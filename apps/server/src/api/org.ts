@@ -8,7 +8,7 @@ import { CLOUDFLARE_MEDIA, CLOUDFLARE_REPOS, loadConfig } from '../config.js'
 import { HearthError } from '../errors.js'
 import { ASSET_TYPES, BrandPatchSchema, FONT_CHOICES, MAX_ASSET_BYTES } from '../org/brand.js'
 import { type OrgSettings, SECRET_NAMES, type SecretName } from '../org/store.js'
-import { testProvider } from '../org/test-keys.js'
+import { testForgejo, testProvider, testStorage } from '../org/test-keys.js'
 import type { AppDeps, AppEnv } from './env.js'
 
 /**
@@ -50,11 +50,32 @@ const SettingsPatch = z
       .refine((k) => k === '' || /^pk_(test|live)_[A-Za-z0-9+/=_-]+$/.test(k), {
         message: 'A Clerk publishable key starts with pk_test_ or pk_live_',
       }),
-    hostKind: z.enum(['local', 'github']),
+    hostKind: z.enum(['local', 'github', 'forgejo']),
     githubOrg: z
       .string()
       .trim()
       .refine((s) => s === '' || /^[A-Za-z0-9-]{1,39}$/.test(s), 'Not a GitHub organization name'),
+    forgejoUrl: z
+      .string()
+      .trim()
+      .refine(
+        (u) => u === '' || /^https?:\/\/[^\s/]+(\/[^\s]*)?$/.test(u),
+        'Use the full address, like https://git.example.com',
+      )
+      .transform((u) => u.replace(/\/+$/, '')),
+    forgejoOrg: z
+      .string()
+      .trim()
+      .refine((s) => s === '' || /^[A-Za-z0-9._-]{1,40}$/.test(s), 'Not an organization name'),
+    s3Endpoint: z
+      .string()
+      .trim()
+      .refine(
+        (u) => u === '' || /^https?:\/\/[^\s]+$/.test(u),
+        'Use the full address, like https://s3.us-east-1.amazonaws.com',
+      )
+      .transform((u) => u.replace(/\/+$/, '')),
+    s3Region: z.string().trim().max(40),
     r2AccountId: z.string().trim(),
     r2AccessKeyId: z.string().trim(),
     r2Bucket: z.string().trim(),
@@ -73,6 +94,23 @@ const SettingsPatch = z
   .strict()
 
 const TestBody = z.object({ key: z.string().max(4000).optional(), extra: z.string().optional() })
+const httpUrl = z
+  .string()
+  .max(500)
+  .refine((u) => u === '' || /^https?:\/\/[^\s]+$/.test(u), 'Use a full http(s):// address')
+const ForgejoTestBody = z.object({
+  key: z.string().max(4000).optional(),
+  url: httpUrl.optional(),
+  org: z.string().max(100).optional(),
+})
+const StorageTestBody = z.object({
+  key: z.string().max(4000).optional(),
+  endpoint: httpUrl.optional(),
+  region: z.string().max(40).optional(),
+  accountId: z.string().max(100).optional(),
+  accessKeyId: z.string().max(200).optional(),
+  bucket: z.string().max(100).optional(),
+})
 
 /** The editor's view: settings, which secrets are set (last four characters only), env overrides. */
 function stateOf(deps: AppDeps) {
@@ -99,9 +137,13 @@ function stateOf(deps: AppDeps) {
       hostKind: Boolean(env.HOST_KIND),
       chatUrl: Boolean(env.CHAT_URL),
       githubOrg: Boolean(env.GITHUB_ORG),
-      r2AccountId: Boolean(env.R2_ACCOUNT_ID),
-      r2AccessKeyId: Boolean(env.R2_ACCESS_KEY_ID),
-      r2Bucket: Boolean(env.R2_BUCKET),
+      forgejoUrl: Boolean(env.FORGEJO_URL),
+      forgejoOrg: Boolean(env.FORGEJO_ORG),
+      s3Endpoint: Boolean(env.S3_ENDPOINT),
+      s3Region: Boolean(env.S3_ENDPOINT),
+      r2AccountId: Boolean(env.R2_ACCOUNT_ID || env.S3_ENDPOINT),
+      r2AccessKeyId: Boolean(env.R2_ACCESS_KEY_ID || env.S3_ACCESS_KEY_ID),
+      r2Bucket: Boolean(env.R2_BUCKET || env.S3_BUCKET),
       keepAudio: Boolean(env.KEEP_AUDIO),
     },
     effective: {
@@ -156,11 +198,21 @@ export function missingForFinish(deps: AppDeps): string[] {
   if (s.hostKind === 'github' && !(s.githubOrg && deps.org.effectiveSecret('GITHUB_TOKEN'))) {
     missing.push('GitHub organization and token (or choose “On this server”)')
   }
+  if (
+    s.hostKind === 'forgejo' &&
+    !(s.forgejoUrl && s.forgejoOrg && deps.org.effectiveSecret('FORGEJO_TOKEN'))
+  ) {
+    missing.push('Forgejo address, organization and token (or choose “On this server”)')
+  }
   const r2 = partialR2(deps)
   if (r2) missing.push(r2)
   if ((env.HOTSAUCE_PLATFORM ?? '') === 'cloudflare') {
     if ((env.HOST_KIND ?? s.hostKind) === 'local') missing.push(CLOUDFLARE_REPOS)
-    const r2Set = Boolean(env.R2_BUCKET || (s.r2AccountId && s.r2AccessKeyId && s.r2Bucket))
+    const r2Set = Boolean(
+      env.R2_BUCKET ||
+        env.S3_BUCKET ||
+        ((s.r2AccountId || s.s3Endpoint) && s.r2AccessKeyId && s.r2Bucket),
+    )
     if (!r2Set && env.AUDIO_STORE !== 'none') missing.push(CLOUDFLARE_MEDIA)
   }
   // Every admin must be able to sign in. The environment's lists win, as they will at startup.
@@ -188,9 +240,10 @@ export function missingForFinish(deps: AppDeps): string[] {
 /** Some R2 values but not all four: without the rest, video would quietly go to the disk. */
 function partialR2(deps: AppDeps): string | null {
   const s = deps.org.settings()
-  const r2 = [s.r2AccountId, s.r2AccessKeyId, s.r2Bucket].filter(Boolean).length
+  const where = s.s3Endpoint || s.r2AccountId
+  const r2 = [where, s.r2AccessKeyId, s.r2Bucket].filter(Boolean).length
   if (r2 > 0 && (r2 < 3 || !deps.org.effectiveSecret('R2_SECRET_ACCESS_KEY'))) {
-    return 'All four Cloudflare R2 values (or clear them to keep videos and audio on this server’s disk)'
+    return 'All the storage bucket values: account ID or endpoint, access key ID, secret and bucket (or clear them to keep videos and audio on this server’s disk)'
   }
   return null
 }
@@ -286,6 +339,34 @@ function editorRoutes(deps: AppDeps, opts: { onSaved: () => void; validate: bool
       if (current) rmSync(deps.org.assetPath(current), { force: true })
       deps.brand.save({ [kind]: null })
       return c.json(stateOf(deps))
+    })
+    .post('/test/forgejo', async (c) => {
+      const body = ForgejoTestBody.parse(await c.req.json().catch(() => ({})))
+      const s = deps.org.settings()
+      const url = (body.url ?? s.forgejoUrl).trim().replace(/\/+$/, '')
+      // The saved token only ever goes to the saved address, so this button can't send it elsewhere.
+      const saved = url === s.forgejoUrl ? deps.org.effectiveSecret('FORGEJO_TOKEN') : null
+      const token = body.key?.trim() || saved || ''
+      return c.json(await testForgejo(url, body.org ?? s.forgejoOrg, token))
+    })
+    .post('/test/storage', async (c) => {
+      const body = StorageTestBody.parse(await c.req.json().catch(() => ({})))
+      const s = deps.org.settings()
+      const endpoint = (body.endpoint ?? s.s3Endpoint).trim().replace(/\/+$/, '')
+      const accountId = (body.accountId ?? s.r2AccountId).trim()
+      // The saved secret signs requests only for the saved endpoint (or saved R2 account).
+      const sameTarget = endpoint ? endpoint === s.s3Endpoint : accountId === s.r2AccountId
+      const saved = sameTarget ? deps.org.effectiveSecret('R2_SECRET_ACCESS_KEY') : null
+      return c.json(
+        await testStorage({
+          endpoint,
+          region: body.region ?? s.s3Region,
+          accountId,
+          accessKeyId: body.accessKeyId ?? s.r2AccessKeyId,
+          bucket: body.bucket ?? s.r2Bucket,
+          secretAccessKey: body.key?.trim() || saved || '',
+        }),
+      )
     })
     .post('/test/:provider{anthropic|deepgram|clerk|github}', async (c) => {
       const provider = c.req.param('provider') as 'anthropic' | 'deepgram' | 'clerk' | 'github'
@@ -407,6 +488,29 @@ export function adminOrgRoutes(deps: AppDeps) {
           },
         }),
       )
+      .get('/admin/org/backups', async (c) => {
+        // Backups (docs/PLAN-backups-storage.md R9): the last result and the ones in the bucket.
+        const b = deps.backups
+        if (!b) return c.json({ enabled: false as const })
+        let backups: Awaited<ReturnType<typeof b.list>>
+        try {
+          backups = await b.list()
+        } catch (err) {
+          throw new HearthError('internal', `Couldn’t list backups: ${(err as Error).message}`)
+        }
+        return c.json({
+          enabled: true as const,
+          folder: b.folder,
+          status: await b.status(),
+          backups,
+        })
+      })
+      .post('/admin/org/backups/run', async (c) => {
+        const b = deps.backups
+        if (!b)
+          throw new HearthError('bad_request', 'Backups need a storage bucket (Files and audio)')
+        return c.json({ status: await b.run() })
+      })
       // Updates (docs/PLAN-releases-and-updates.md): the running and newest release, the
       // automatic-updates switch, and the Update button.
       .get('/admin/org/updates', async (c) => {

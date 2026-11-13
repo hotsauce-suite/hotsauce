@@ -130,7 +130,19 @@ function useTest(editor: OrgEditor) {
       setTesting(null)
     }
   }
-  return { results, testing, test }
+  /** A test that isn't a single key: Forgejo (address, org, token) or a storage bucket. */
+  const testWith = async (name: string, fn: () => Promise<KeyTest>) => {
+    setTesting(name)
+    try {
+      const r = await fn()
+      setResults((rs) => ({ ...rs, [name]: r }))
+    } catch (err) {
+      setResults((rs) => ({ ...rs, [name]: { ok: false, message: messageOf(err) } }))
+    } finally {
+      setTesting(null)
+    }
+  }
+  return { results, testing, test, testWith }
 }
 
 function TestButton({
@@ -811,6 +823,13 @@ export function StorageSection(props: SectionProps) {
   const [hostKind, setHostKind] = useState(onCloudflare ? 'github' : s.hostKind)
   const [githubOrg, setGithubOrg] = useState(s.githubOrg)
   const [githubToken, setGithubToken] = useState('')
+  const [forgejoUrl, setForgejoUrl] = useState(s.forgejoUrl)
+  const [forgejoOrg, setForgejoOrg] = useState(s.forgejoOrg)
+  const [forgejoToken, setForgejoToken] = useState('')
+  // Cloudflare R2 by account ID, or any other S3-compatible service by its endpoint.
+  const [provider, setProvider] = useState<'r2' | 's3'>(s.s3Endpoint ? 's3' : 'r2')
+  const [s3Endpoint, setS3Endpoint] = useState(s.s3Endpoint)
+  const [s3Region, setS3Region] = useState(s.s3Region)
   const [r2AccountId, setR2AccountId] = useState(s.r2AccountId)
   const [r2AccessKeyId, setR2AccessKeyId] = useState(s.r2AccessKeyId)
   const [r2Bucket, setR2Bucket] = useState(s.r2Bucket)
@@ -818,8 +837,9 @@ export function StorageSection(props: SectionProps) {
   const [keepAudio, setKeepAudio] = useState(s.keepAudio)
   const L = state.lockedByEnv
   const { busy, error, run } = useSave(props)
-  const { results, testing, test } = useTest(editor)
+  const { results, testing, test, testWith } = useTest(editor)
   const hostLocked = state.lockedByEnv.hostKind
+  const storageLocked = Boolean(L.s3Endpoint || L.r2AccountId)
 
   return (
     <SectionForm
@@ -835,11 +855,21 @@ export function StorageSection(props: SectionProps) {
           editor.saveSettings({
             ...(hostLocked ? {} : { hostKind }),
             githubOrg,
-            r2AccountId,
+            forgejoUrl,
+            forgejoOrg,
+            ...(storageLocked
+              ? {}
+              : provider === 's3'
+                ? { s3Endpoint, s3Region, r2AccountId: '' }
+                : { s3Endpoint: '', s3Region: '', r2AccountId }),
             r2AccessKeyId,
             r2Bucket,
             keepAudio,
-            secrets: typedSecrets({ GITHUB_TOKEN: githubToken, R2_SECRET_ACCESS_KEY: r2Secret }),
+            secrets: typedSecrets({
+              GITHUB_TOKEN: githubToken,
+              FORGEJO_TOKEN: forgejoToken,
+              R2_SECRET_ACCESS_KEY: r2Secret,
+            }),
           }),
         )
       }
@@ -864,12 +894,17 @@ export function StorageSection(props: SectionProps) {
             [
               'local',
               'On this server',
-              'Simplest. Repositories live on the server’s disk; back the disk up.',
+              'Simplest. Repositories live on the server’s disk, backed up every night once you add a storage bucket below.',
             ],
             [
               'github',
               'In a GitHub organization',
               'Each space is a private repository you can also open on GitHub.',
+            ],
+            [
+              'forgejo',
+              'On your own Forgejo server',
+              'Each space is a private repository on a Forgejo (or Gitea) server you run.',
             ],
           ] as const
         )
@@ -946,48 +981,172 @@ export function StorageSection(props: SectionProps) {
         </div>
       ) : null}
 
+      {hostKind === 'forgejo' ? (
+        <div
+          className="flex flex-col gap-3 rounded-xl border border-ash p-4"
+          data-testid="forgejo-fields"
+        >
+          <p className="text-sm text-ink-soft">
+            Create an organization on your Forgejo server, then an access token (Settings →
+            Applications) for an owner of it with read and write access to organizations and
+            repositories.
+          </p>
+          <Field label="Forgejo address" locked={L.forgejoUrl}>
+            {(id) => (
+              <input
+                id={id}
+                data-testid="forgejo-url"
+                className={inputClass}
+                value={forgejoUrl}
+                disabled={L.forgejoUrl}
+                placeholder="https://git.example.com"
+                onChange={(e) => setForgejoUrl(e.target.value.trim())}
+              />
+            )}
+          </Field>
+          <Field label="Organization" locked={L.forgejoOrg}>
+            {(id) => (
+              <input
+                id={id}
+                data-testid="forgejo-org"
+                className={inputClass}
+                value={forgejoOrg}
+                disabled={L.forgejoOrg}
+                placeholder="acme"
+                onChange={(e) => setForgejoOrg(e.target.value.trim())}
+              />
+            )}
+          </Field>
+          <SecretField
+            label="Access token"
+            testId="forgejo-token"
+            status={state.secrets.FORGEJO_TOKEN}
+            value={forgejoToken}
+            onChange={setForgejoToken}
+          />
+          <TestButton
+            testId="test-forgejo"
+            busy={testing === 'forgejo'}
+            onClick={() =>
+              void testWith('forgejo', () =>
+                editor.testForgejo({
+                  ...(forgejoToken ? { key: forgejoToken } : {}),
+                  url: forgejoUrl,
+                  org: forgejoOrg,
+                }),
+              )
+            }
+          />
+          <TestResult result={results.forgejo ?? null} />
+        </div>
+      ) : null}
+
       <details
         className="rounded-xl border border-ash p-4"
         open={onCloudflare || Boolean(s.r2Bucket)}
       >
         <summary className="cursor-pointer text-sm font-medium text-ink">
-          {onCloudflare ? 'Video and audio storage' : 'Video and audio storage (optional)'}
+          {onCloudflare ? 'Storage bucket' : 'Storage bucket (optional)'}
         </summary>
         <div className="mt-3 flex flex-col gap-3">
           <p className="text-sm text-ink-soft">
             {onCloudflare
               ? 'Clips videos, and meeting audio you choose to keep, go in a Cloudflare R2 bucket (10 GB free). You can use the bucket the Deploy button made.'
-              : 'Clips videos, and meeting audio you choose to keep, are stored on this server’s disk. For more room, use a Cloudflare R2 bucket instead (10 GB free).'}
+              : 'Clips videos, files and meeting audio you choose to keep are stored on this server’s disk. For more room, use a storage bucket: Cloudflare R2 (10 GB free) or any S3-compatible service. With a bucket, the server also backs itself up there every night.'}
           </p>
-          <ol className="flex flex-col gap-3">
-            <StepLink
-              n={1}
-              href="https://dash.cloudflare.com/?to=/:account/r2/new"
-              cta="New bucket"
+          {onCloudflare ? null : (
+            <div
+              className="flex gap-4 text-sm text-ink"
+              role="radiogroup"
+              aria-label="Storage service"
             >
-              Create an R2 bucket, for example{' '}
-              <code className="font-mono text-xs">meeting-audio</code>.
-            </StepLink>
-            <StepLink
-              n={2}
-              href="https://dash.cloudflare.com/?to=/:account/r2/api-tokens"
-              cta="R2 tokens"
-            >
-              Create an API token with Object Read &amp; Write on that bucket, and copy the account
-              ID, access key ID and secret.
-            </StepLink>
-          </ol>
-          <Field label="Account ID" locked={L.r2AccountId}>
-            {(id) => (
-              <input
-                id={id}
-                className={inputClass}
-                value={r2AccountId}
-                disabled={L.r2AccountId}
-                onChange={(e) => setR2AccountId(e.target.value.trim())}
-              />
-            )}
-          </Field>
+              {(
+                [
+                  ['r2', 'Cloudflare R2'],
+                  ['s3', 'Another S3-compatible service'],
+                ] as const
+              ).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="storageProvider"
+                    data-testid={`storage-${value}`}
+                    checked={provider === value}
+                    disabled={storageLocked}
+                    onChange={() => setProvider(value)}
+                    className="accent-[var(--ember)]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          )}
+          {provider === 'r2' || onCloudflare ? (
+            <>
+              <ol className="flex flex-col gap-3">
+                <StepLink
+                  n={1}
+                  href="https://dash.cloudflare.com/?to=/:account/r2/new"
+                  cta="New bucket"
+                >
+                  Create an R2 bucket, for example{' '}
+                  <code className="font-mono text-xs">meeting-audio</code>.
+                </StepLink>
+                <StepLink
+                  n={2}
+                  href="https://dash.cloudflare.com/?to=/:account/r2/api-tokens"
+                  cta="R2 tokens"
+                >
+                  Create an API token with Object Read &amp; Write on that bucket, and copy the
+                  account ID, access key ID and secret.
+                </StepLink>
+              </ol>
+              <Field label="Account ID" locked={L.r2AccountId}>
+                {(id) => (
+                  <input
+                    id={id}
+                    className={inputClass}
+                    value={r2AccountId}
+                    disabled={L.r2AccountId}
+                    onChange={(e) => setR2AccountId(e.target.value.trim())}
+                  />
+                )}
+              </Field>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-ink-faint">
+                AWS S3, Backblaze B2, Wasabi, MinIO, Garage and others: create a private bucket and
+                an access key that can read and write it.
+              </p>
+              <Field label="Endpoint" locked={L.s3Endpoint}>
+                {(id) => (
+                  <input
+                    id={id}
+                    data-testid="s3-endpoint"
+                    className={inputClass}
+                    value={s3Endpoint}
+                    disabled={L.s3Endpoint}
+                    placeholder="https://s3.us-east-1.amazonaws.com"
+                    onChange={(e) => setS3Endpoint(e.target.value.trim())}
+                  />
+                )}
+              </Field>
+              <Field label="Region" locked={L.s3Region}>
+                {(id) => (
+                  <input
+                    id={id}
+                    data-testid="s3-region"
+                    className={inputClass}
+                    value={s3Region}
+                    disabled={L.s3Region}
+                    placeholder="us-east-1 (auto if the service doesn’t use regions)"
+                    onChange={(e) => setS3Region(e.target.value.trim())}
+                  />
+                )}
+              </Field>
+            </>
+          )}
           <Field label="Access key ID" locked={L.r2AccessKeyId}>
             {(id) => (
               <input
@@ -1016,6 +1175,23 @@ export function StorageSection(props: SectionProps) {
               />
             )}
           </Field>
+          <TestButton
+            testId="test-storage"
+            busy={testing === 'storage'}
+            onClick={() =>
+              void testWith('storage', () =>
+                editor.testStorage({
+                  ...(r2Secret ? { key: r2Secret } : {}),
+                  endpoint: provider === 's3' ? s3Endpoint : '',
+                  region: provider === 's3' ? s3Region : '',
+                  accountId: provider === 'r2' ? r2AccountId : '',
+                  accessKeyId: r2AccessKeyId,
+                  bucket: r2Bucket,
+                }),
+              )
+            }
+          />
+          <TestResult result={results.storage ?? null} />
           <label className="flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
@@ -1073,7 +1249,11 @@ export function Summary({ state }: { state: OrgState }) {
     ],
     [
       'Files',
-      s.hostKind === 'github' ? `GitHub: ${s.githubOrg || 'not set'}` : 'On this server',
+      s.hostKind === 'github'
+        ? `GitHub: ${s.githubOrg || 'not set'}`
+        : s.hostKind === 'forgejo'
+          ? `Forgejo: ${s.forgejoOrg || 'not set'}`
+          : 'On this server',
       true,
     ],
     [
@@ -1081,7 +1261,7 @@ export function Summary({ state }: { state: OrgState }) {
       s.r2Bucket
         ? s.keepAudio
           ? `Kept in ${s.r2Bucket}`
-          : `R2 ${s.r2Bucket}, not kept`
+          : `${s.s3Endpoint ? 'Bucket' : 'R2'} ${s.r2Bucket}, not kept`
         : 'Not kept',
       true,
     ],

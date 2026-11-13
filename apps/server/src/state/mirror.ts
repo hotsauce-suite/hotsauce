@@ -20,6 +20,8 @@ const SKIP_DIRS = new Set([
   'clips/work',
   'file-uploads',
   '.state-tmp',
+  // Backups' staging folder (backup/snapshot.ts): large, temporary, and already off-site.
+  '.backup-tmp',
 ])
 const TMP_DIR = '.state-tmp'
 
@@ -27,6 +29,8 @@ const TMP_DIR = '.state-tmp'
 export function isDurable(rel: string): boolean {
   const parts = rel.split('/')
   if (parts.some((p) => p === '' || p === '.' || p === '..')) return false
+  // What a backup restore with --force moved aside (backup/restore.ts).
+  if ((parts[0] as string).startsWith('.before-restore-')) return false
   for (let i = 1; i <= parts.length; i++) {
     if (SKIP_DIRS.has(parts.slice(0, i).join('/'))) return false
   }

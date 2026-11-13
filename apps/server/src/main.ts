@@ -86,6 +86,7 @@ async function main(): Promise<void> {
   // An update this server started either took or was rolled back; then keep checking.
   services.updates.reconcile()
   services.updates.startTimer()
+  services.backups?.start()
 
   const app = new Hono()
   // Once shutdown starts, requests on still-open connections are refused (the client retries
@@ -169,6 +170,7 @@ async function main(): Promise<void> {
     await services.tasks.reminders?.close()
     await services.briefs.close()
     await services.briefcasts.close()
+    await services.backups?.close()
     await meetings.calendarSync?.close()
     // Requests that were mid-flight when shutdown began may queue a write after the first
     // drain; a second pass, a moment later, waits for those too.

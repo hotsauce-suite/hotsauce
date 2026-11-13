@@ -110,6 +110,23 @@ test('walks a new organization from the setup link to a branded sign-in page', a
   // Files: on this server.
   await expect(page.getByTestId('setup-step-storage')).toBeVisible()
   await expect(page.getByTestId('host-local')).toBeChecked()
+  // A Forgejo server and any S3-compatible bucket are on offer too (docs/PLAN-backups-storage.md).
+  await page.getByTestId('host-forgejo').check()
+  await expect(page.getByTestId('forgejo-url')).toBeVisible()
+  await expect(page.getByTestId('test-forgejo')).toBeVisible()
+  await page.getByTestId('host-local').check()
+  await expect(page.getByTestId('forgejo-fields')).toHaveCount(0)
+  await page.getByText('Storage bucket (optional)').click()
+  await page.getByTestId('storage-s3').check()
+  await expect(page.getByTestId('s3-endpoint')).toBeVisible()
+  await expect(page.getByTestId('s3-region')).toBeVisible()
+  if (process.env.HOTSAUCE_E2E_SHOTS) {
+    await page.screenshot({
+      path: `${process.env.HOTSAUCE_E2E_SHOTS}/wizard-storage.png`,
+      fullPage: true,
+    })
+  }
+  await page.getByTestId('storage-r2').check()
   await page.getByTestId('storage-section-save').click()
 
   // Review and launch.

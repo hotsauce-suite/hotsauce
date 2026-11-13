@@ -13,6 +13,7 @@
     "build": "tsc -p tsconfig.build.json && mkdir -p dist/meetings/templates && cp src/meetings/templates/*.md dist/meetings/templates/",
     "start": "NODE_ENV=${NODE_ENV:-production} node dist/main.js",
     "reindex": "NODE_ENV=${NODE_ENV:-development} AUTH_MODE=${AUTH_MODE:-dev} HOST_KIND=${HOST_KIND:-local} DATA_DIR=${DATA_DIR:-../../.data} tsx src/cli/reindex.ts",
+    "restore": "NODE_ENV=${NODE_ENV:-development} AUTH_MODE=${AUTH_MODE:-dev} HOST_KIND=${HOST_KIND:-local} DATA_DIR=${DATA_DIR:-../../.data} tsx src/cli/restore.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
