@@ -17,7 +17,7 @@ Each requirement maps to a test, named in brackets.
 
 **Slice 1: panels and the top bar between phone and laptop widths**
 
-- T1: From 768 to 1099 px wide, a side panel (History, Properties, a meeting's transcript, the live transcript, task details) floats over the right of the page, under the top bar, and the page keeps its full width. [tablet.spec: history panel, task details]
+- T1: From 768 to 1099 px wide, a side panel (History, Properties, a meeting's transcript, the live transcript, task details) floats over the right of the page, under the top bar, and the page keeps its full width. With a live meeting's recording strip showing, it starts under the strip too. Voice notes keeps its transcript inside its card. [tablet.spec: history panel, task details; LiveTranscript.test]
 - T2: From 1100 px up, the panel sits beside the page as before. [tablet.spec: wide history]
 - T3: On a doc, the whole top bar fits the screen from 768 px up: below 1100 px, Save version and Share show as icons with the same names. [tablet.spec: top bar fits]
 

@@ -1217,4 +1217,8 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
     background: var(--paper-raised);
     box-shadow: var(--shadow-float);
   }
+  /* A live meeting's recording strip (h-9) sits above the top bar on other pages. */
+  main[data-strip] .side-pane {
+    top: calc(var(--topbar-height) + 2.25rem);
+  }
 }

@@ -258,7 +258,8 @@ describe('Meeting note page', () => {
     await waitFor(() => expect(content).toHaveTextContent('More from the transcript'))
     await waitFor(() => expect(content).toHaveAttribute('contenteditable', 'true'))
     expect(mockApi().repo.space('ada').files.get(path)).not.toContain('typed while enhancing')
-  })
+    // Types 21 keys into the editor: about 2 s here, past 5 s on a busy CI runner.
+  }, 15_000)
 
   it('asks before re-enhancing over edits made since the last enhance', async () => {
     const path = await acmeKickoff()

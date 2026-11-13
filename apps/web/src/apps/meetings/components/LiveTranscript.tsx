@@ -38,10 +38,14 @@ export function LiveTranscript({
   segments,
   expanded,
   onToggle,
+  floating = false,
 }: {
   segments: readonly TranscriptSegment[]
   expanded: boolean
   onToggle: () => void
+  /** The live meeting's side panel: floats over the page on an upright iPad (docs/PLAN-ipad.md
+   * T1). Voice notes shows the same transcript inside a card, so it leaves this off. */
+  floating?: boolean
 }) {
   const list = useRef<HTMLOListElement>(null)
   const atBottom = useRef(true)
@@ -100,7 +104,7 @@ export function LiveTranscript({
       data-testid="live-transcript"
       data-expanded="true"
       aria-label="Live transcript"
-      className="side-pane fixed inset-x-0 bottom-0 z-30 flex h-[55vh] flex-col border-t border-ash bg-paper-raised shadow-float md:static md:z-auto md:h-auto md:w-[var(--panel-width)] md:shrink-0 md:border-t-0 md:border-l md:bg-paper-raised/60 md:shadow-none"
+      className={`${floating ? 'side-pane ' : ''}fixed inset-x-0 bottom-0 z-30 flex h-[55vh] flex-col border-t border-ash bg-paper-raised shadow-float md:static md:z-auto md:h-auto md:w-[var(--panel-width)] md:shrink-0 md:border-t-0 md:border-l md:bg-paper-raised/60 md:shadow-none`}
     >
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-ash/70 px-4">
         <h2 className="font-display text-base font-semibold text-ink">Transcript</h2>
