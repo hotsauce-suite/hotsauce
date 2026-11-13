@@ -1,3 +1,5 @@
+<p align="center"><img src="site/public/favicon.svg" width="96" height="96" alt=""></p>
+
 <h1 align="center">Hotsauce</h1>
 
 <p align="center">

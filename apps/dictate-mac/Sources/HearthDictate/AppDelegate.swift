@@ -420,9 +420,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Status item
 
-    /// The menu bar icon is the Hearth mark. Dimmed until Dictate is ready, ember while it listens,
+    /// The menu bar icon is the Hotsauce bottle. Dimmed until Dictate is ready, ember while it listens,
     /// orange while it writes up; a warning triangle only for an error.
-    private static let markImage = HearthMark.menuBarImage()
+    private static let markImage = ProductMark.menuBarImage()
     private static let errorImage = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: Brand.name) ?? markImage
     private static let accent = NSColor(name: nil) { appearance in
         let hex = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? Brand.accentDark : Brand.accentLight
