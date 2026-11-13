@@ -400,7 +400,10 @@ export default function TasksPage() {
             [
               {
                 id: 'tasks-complete',
-                title: chosen.status === 'done' ? `Reopen “${chosen.title}”` : `Complete “${chosen.title}”`,
+                title:
+                  chosen.status === 'done'
+                    ? `Reopen “${chosen.title}”`
+                    : `Complete “${chosen.title}”`,
                 icon: 'check',
                 keywords: ['done', 'finish', 'tick'],
                 shortcut: 'tasks.complete',
