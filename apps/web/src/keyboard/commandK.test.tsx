@@ -46,6 +46,14 @@ describe('Command-K commands (C1)', () => {
     expect(screen.queryByTestId('cmdk')).not.toBeInTheDocument()
   })
 
+  it('highlights the first row shown, with or without a query', async () => {
+    const { user, palette } = await openPalette()
+    const first = () => palette.querySelector('[cmdk-item]')
+    await waitFor(() => expect(first()).toHaveAttribute('aria-selected', 'true'))
+    await user.type(screen.getByTestId('cmdk-input'), 'notes')
+    await waitFor(() => expect(first()).toHaveAttribute('aria-selected', 'true'))
+  })
+
   it('goes to Settings, showing its keys', async () => {
     const { user, router } = await openPalette()
     await user.type(screen.getByTestId('cmdk-input'), 'settings')

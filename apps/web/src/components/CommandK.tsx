@@ -256,16 +256,22 @@ export default function CommandK({
   // Keep the top row selected as results arrive: the app jumps render at once and the doc
   // results a moment later, above them, and Enter should open the best doc, not an app.
   const topHit = query.trim() === '' ? recent[0] : (titles[0] ?? fullText[0])
-  const firstAction = query.trim() === '' ? undefined : actions[0]
+  // The highlighted row is the first one shown. With nothing typed: recent docs, then this
+  // page's commands and Create, then the apps. With a query: docs, the apps, then commands.
+  const firstAction = actions[0]
+  const firstRow =
+    query.trim() === ''
+      ? firstAction
+        ? `command:${firstAction.id}`
+        : jumps[0] && `app:${jumps[0].id}`
+      : jumps[0]
+        ? `app:${jumps[0].id}`
+        : firstAction && `command:${firstAction.id}`
   const top = confirming
     ? 'confirm:cancel'
     : topHit
       ? `${topHit.space}:${topHit.path}`
-      : jumps[0]
-        ? `app:${jumps[0].id}`
-        : firstAction
-          ? `command:${firstAction.id}`
-          : ''
+      : (firstRow ?? '')
   const [selected, setSelected] = useState(top)
   useEffect(() => setSelected(top), [top])
 
@@ -367,18 +373,15 @@ export default function CommandK({
               <>
                 {actionGroup('page')}
                 {actionGroup('create')}
+                {jumpGroup}
               </>
             ) : (
               <>
+                {/* Apps after the docs, so Enter still opens the best doc when a title matches. */}
+                {jumpGroup}
                 {actionGroup('page')}
                 {actionGroup('create')}
                 {actionGroup('ask')}
-              </>
-            )}
-            {/* App jumps after the docs, so Enter still opens the best doc when a title matches too. */}
-            {jumpGroup}
-            {query.trim() === '' ? null : (
-              <>
                 {actionGroup('go')}
                 {actionGroup('prefs')}
               </>
