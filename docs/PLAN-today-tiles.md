@@ -2,14 +2,14 @@
 
 ## Status
 
-Built 2026-11-13 in PR #31 (branch `claude/project-thread-05iemt`). Every requirement has a passing test, and the independent review's findings are fixed. Not stubbed: nothing. Not in this PR: a Check-ins tile, which waits for #27.
+Built 2026-11-13 in PR #31 (branch `claude/project-thread-05iemt`). Every requirement has a passing test, and the independent review's findings are fixed. Not stubbed: nothing. Check-ins (#27) merged first; its card became the Check-in tile, first in the default layout.
 
 ## Decisions
 
 These were settled with the owner on 2026-11-13. He accepted every recommendation and added weather.
 
 - The header shows a live clock (in the computer's 12 or 24 hour setting), the weekday and date, a greeting, a "next up" line and the weather.
-- The tiles are: Coming up, Tasks, From your meetings, Unfiled notes, Docs changed, Agent brief, Starred docs, Dictate, Record a clip, People, Recent files, Board and This week.
+- The tiles are: Check-in (from #27, shown only when a check-in is waiting), Coming up, Tasks, From your meetings, Unfiled notes, Docs changed, Agent brief, Starred docs, Dictate, Record a clip, People, Recent files, Board and This week.
 - Board is the only tile you can add more than once. Each copy shows the board you pick for it.
 - Edit mode has "+ Add tile", a drag handle that moves tiles between the two columns, ✕ to remove, up and down arrows for phones and keyboards, and "Reset to default".
 - The layout is per person and lives in Git, in the member's personal space at `.hearth/today.json`. It survives a reindex and follows the member to every device.
@@ -33,7 +33,7 @@ Each requirement maps to a test, named in brackets.
 
 - L1: `packages/format` parses and serializes `.hearth/today.json`. It drops unknown tile kinds and duplicate single-use tiles, and keeps up to 40 tiles. Text that isn't a layout is an error. [format today.test]
 - L2: `GET /api/today/layout` returns the member's saved layout, or the default when they have none. `PUT` validates and commits it to the member's personal space. A member with no personal space gets a clear 400. [integration today-layout.test]
-- L3: With no saved layout, Today looks exactly as it did before. [TodayPage.test]
+- L3: With no saved layout, Today looks exactly as it did before: Check-in, Meetings, Tasks and From your meetings on the left, and Unfiled notes, Docs changed and Agent brief on the right. [TodayPage.test, Checkins.test]
 
 **Editing**
 

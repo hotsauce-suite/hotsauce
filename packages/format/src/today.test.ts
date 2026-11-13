@@ -76,11 +76,11 @@ describe('Today layout edits (E1, E2)', () => {
   it('adds to the shorter column, left on a tie, with a fresh id for a second board', () => {
     let l = defaultTodayLayout()
     l = addTile(l, 'starred')
-    expect(ids(l)[0]).toEqual(['meetings', 'tasks', 'action-items', 'starred'])
+    expect(ids(l)[1]).toEqual(['notes', 'docs', 'brief', 'starred'])
     l = addTile(l, 'board')
     l = addTile(l, 'board')
-    expect(ids(l)[1]).toEqual(['notes', 'docs', 'brief', 'board'])
-    expect(ids(l)[0]?.at(-1)).toBe('board-2')
+    expect(ids(l)[0]).toEqual(['checkins', 'meetings', 'tasks', 'action-items', 'board'])
+    expect(ids(l)[1]?.at(-1)).toBe('board-2')
     expect(addTile(l, 'starred')).toBe(l)
   })
 
@@ -99,7 +99,7 @@ describe('Today layout edits (E1, E2)', () => {
   })
 
   it('removes, nudges, moves across and updates', () => {
-    let l = defaultTodayLayout()
+    let l = removeTile(defaultTodayLayout(), 'checkins')
     l = nudgeTile(l, 'tasks', -1)
     expect(ids(l)[0]).toEqual(['tasks', 'meetings', 'action-items'])
     expect(nudgeTile(l, 'tasks', -1)).toBe(l)

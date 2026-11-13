@@ -9,6 +9,7 @@ export const TODAY_LAYOUT_PATH = '.hearth/today.json'
 export const MAX_TODAY_TILES = 40
 
 export const TODAY_TILE_KINDS = [
+  'checkins',
   'meetings',
   'tasks',
   'action-items',
@@ -47,7 +48,7 @@ export function defaultTodayLayout(): TodayLayout {
   return {
     schema: 1,
     columns: [
-      [tile('meetings'), tile('tasks'), tile('action-items')],
+      [tile('checkins'), tile('meetings'), tile('tasks'), tile('action-items')],
       [tile('notes'), tile('docs'), tile('brief')],
     ],
   }

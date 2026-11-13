@@ -3,25 +3,33 @@
 const B = 'http://localhost:5191'
 
 export const shots = {
-  async today({ page, signIn, startCapture, wait, moveTo, point }) {
+  async today({ page, signIn, startCapture, wait, moveTo, point, click }) {
     await signIn()
     await page.goto(`${B}/today`)
     await wait(1800)
     await startCapture()
     await moveTo(700, 500, 10)
+    await wait(600)
+    await point(page.getByTestId('today-greeting'), { ms: 700 })
     await wait(700)
-    await point(page.getByText('Acme sync').first(), { ms: 700 })
+    await click(page.getByTestId('today-weather-on'), { ms: 700 })
     await wait(900)
-    await point(page.getByText('Take notes').first(), { ms: 600 })
-    await wait(900)
-    await point(page.getByText('Water the office plants'), { ms: 700 })
-    await wait(900)
-    await point(page.getByRole('heading', { name: 'From your meetings' }), { ms: 700 })
+    await point(page.getByTestId('today-time'), { ms: 600 })
     await wait(800)
-    await point(page.getByText('Ada: send pricing one-pager (Fri)'), { ms: 600 })
-    await wait(1000)
-    await point(page.getByText('Agent brief').first(), { ms: 700 })
-    await wait(1200)
+    await point(page.getByText('Take notes').first(), { ms: 600 })
+    await wait(800)
+    await point(page.getByText('Water the office plants'), { ms: 700 })
+    await wait(800)
+    await click(page.getByTestId('today-edit'), { ms: 700 })
+    await wait(700)
+    await click(page.getByTestId('today-add-tile'), { ms: 600 })
+    await wait(700)
+    await click(page.getByTestId('today-add-week'), { ms: 700 })
+    await wait(700)
+    await click(page.getByTestId('today-done'), { ms: 700 })
+    await wait(900)
+    await point(page.getByTestId('today-week'), { ms: 800 })
+    await wait(1400)
   },
 
   async docs({ page, signIn, startCapture, wait, moveTo, click, type }) {

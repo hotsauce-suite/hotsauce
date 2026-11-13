@@ -1188,7 +1188,7 @@ Today is two columns of tiles the member arranges (`apps/web/src/apps/today/Toda
 
 `GET /api/today/layout` returns `{ layout, saved }`, the default (Today as it was before tiles) until the member saves. `PUT /api/today/layout` validates and commits it (`TodayLayouts`, `apps/server/src/today/layout.ts`); saving an unchanged layout makes no commit. A file that no longer parses reads as the default.
 
-Edit Today waits for the saved layout (so a stand-in never overwrites it), edits a draft, and saves on Done. Tiles being arranged are `inert`. Tiles with their own data (People, Recent files, Board, This week) load it themselves and reload whenever the page does. The day-summary tiles (From your meetings, Unfiled notes) hide on days they're empty, and show a placeholder in edit mode.
+Edit Today waits for the saved layout (so a stand-in never overwrites it), edits a draft, and saves on Done. Tiles being arranged are `inert`. Tiles with their own data (People, Recent files, Board, This week) load it themselves and reload whenever the page does. The day-summary tiles (Check-in, From your meetings, Unfiled notes) hide when they're empty, and show a placeholder in edit mode. Tiles render with no wrapper element, so a hidden one leaves no gap.
 
 ### 16.5 Header and weather
 

@@ -13,11 +13,12 @@ import {
   type TodayTileKind,
   updateTile,
 } from '@hearth/format'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 import type { TaskView } from '../../api/tasks'
 import type { TodayView } from '../../api/today'
 import { Icon, type IconName } from '../../components/Icon'
 import { Card } from './tiles/Card'
+import { CheckinsTile } from './tiles/CheckinsTile'
 import { ActionItemsCard, DocsCard, MeetingsCard, NotesCard, TasksCard } from './tiles/DayTiles'
 import {
   BoardTile,
@@ -32,6 +33,11 @@ import {
 
 export const TILE_CATALOG: Record<TodayTileKind, { label: string; icon: IconName; about: string }> =
   {
+    checkins: {
+      label: 'Check-in',
+      icon: 'checklist',
+      about: 'Check-in questions waiting for your answer',
+    },
     meetings: { label: 'Meetings', icon: 'calendar', about: 'Today’s meetings, with Take notes' },
     tasks: { label: 'Tasks', icon: 'tasks', about: 'Due today and overdue, and a quick add' },
     'action-items': {
@@ -96,7 +102,8 @@ export function TodayTiles(props: TodayTilesProps) {
         >
           {layout.columns[column].map((tile, index) => {
             const body = hiddenToday(tile, props.view) ? null : <TileBody tile={tile} {...props} />
-            if (!editing) return body ? <div key={tile.id}>{body}</div> : null
+            // No wrapper: a tile that renders nothing must leave no gap in the column.
+            if (!editing) return body ? <Fragment key={tile.id}>{body}</Fragment> : null
             return (
               <EditFrame
                 key={tile.id}
@@ -140,12 +147,15 @@ function TileBody({
   view,
   now,
   refresh,
+  editing,
   layout,
   onChange,
   onTaskDone,
   onTaskAdded,
 }: TodayTilesProps & { tile: TodayTile }): ReactNode {
   switch (tile.kind) {
+    case 'checkins':
+      return <CheckinsTile editing={editing} />
     case 'meetings':
       return <MeetingsCard meetings={view.meetings} now={now} />
     case 'tasks':

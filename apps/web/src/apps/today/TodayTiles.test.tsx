@@ -68,21 +68,23 @@ describe('Today tiles: editing (E1–E3)', () => {
     expect(within(menu).queryByTestId('today-add-tasks')).toBeNull()
     expect(within(menu).getByTestId('today-add-board')).toBeInTheDocument()
     await userEvent.click(within(menu).getByTestId('today-add-starred'))
-    expect(tileIds(0)).toEqual(['meetings', 'tasks', 'action-items', 'starred'])
+    expect(tileIds(1)).toEqual(['notes', 'docs', 'brief', 'starred'])
     await addTile('board')
     await addTile('board')
-    expect(tileIds(1).at(-1)).toBe('board')
-    expect(tileIds(0).at(-1)).toBe('board-2')
+    expect(tileIds(0).at(-1)).toBe('board')
+    expect(tileIds(1).at(-1)).toBe('board-2')
   })
 
-  it('E2: arrows, To right and ✕ rearrange tiles', async () => {
+  it('E2: arrows, Other column and ✕ rearrange tiles', async () => {
     await startEditing()
     const tasks = () =>
       screen
         .getAllByTestId('today-edit-tile')
         .find((t) => t.dataset.tileId === 'tasks') as HTMLElement
     await userEvent.click(within(tasks()).getByTestId('today-tile-up'))
-    expect(tileIds(0)).toEqual(['tasks', 'meetings', 'action-items'])
+    expect(tileIds(0)).toEqual(['checkins', 'tasks', 'meetings', 'action-items'])
+    await userEvent.click(within(tasks()).getByTestId('today-tile-up'))
+    expect(tileIds(0)).toEqual(['tasks', 'checkins', 'meetings', 'action-items'])
     expect(within(tasks()).getByTestId('today-tile-up')).toBeDisabled()
     await userEvent.click(within(tasks()).getByTestId('today-tile-across'))
     expect(tileIds(1)).toEqual(['notes', 'docs', 'brief', 'tasks'])
@@ -103,11 +105,11 @@ describe('Today tiles: editing (E1–E3)', () => {
     expect(screen.queryByTestId('today-edit-bar')).toBeNull()
     const saved = await todayApi.layout()
     expect(saved.saved).toBe(true)
-    expect(saved.layout.columns[0].map((t) => t.kind)).toContain('dictate')
+    expect(saved.layout.columns[1].map((t) => t.kind)).toContain('dictate')
 
     await userEvent.click(screen.getByTestId('today-edit'))
     await userEvent.click(screen.getByTestId('today-reset'))
-    expect(tileIds(0)).toEqual(['meetings', 'tasks', 'action-items'])
+    expect(tileIds(0)).toEqual(['checkins', 'meetings', 'tasks', 'action-items'])
   })
 
   it('E3: a failed save says so and stays in edit mode', async () => {
