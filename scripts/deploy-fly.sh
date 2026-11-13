@@ -37,7 +37,7 @@ if ! fly secrets list --app "$app" 2>/dev/null | grep -q HOTSAUCE_MASTER_KEY; th
   echo "Set HOTSAUCE_MASTER_KEY and push notification keys as Fly secrets."
 fi
 
-fly deploy --config "$config" --app "$app" --build-arg "HEARTH_URL=${url}"
+fly deploy --config "$config" --app "$app"
 
 # Your company's address (PUBLIC_URL=https://hotsauce.acme.com): Fly issues its certificate once
 # the DNS record points at the app.

@@ -1,21 +1,21 @@
 # Hotsauce on your own server, with Docker.
 #
 #   cd deploy
-#   PUBLIC_URL=https://office.example.com docker compose up -d --build
+#   PUBLIC_URL=https://office.example.com docker compose up -d
 #   docker compose logs hotsauce | grep setup     # open the setup link it prints
 #
 # Put it behind a reverse proxy that terminates HTTPS (Caddy, nginx, Traefik) and forwards
 # WebSockets. Everything lives in the `hotsauce-data` volume: back it up.
+#
+# It runs the published release; to update, `docker compose pull && docker compose up -d`.
+# To run your own changes instead, uncomment `build:` and add --build.
 name: hotsauce
 
 services:
   hotsauce:
-    build:
-      context: ..
-      args:
-        # The Chrome extension it offers talks to this address.
-        HEARTH_URL: ${PUBLIC_URL:-http://localhost:3000}
-    image: hotsauce:local
+    image: ghcr.io/hotsauce-suite/hotsauce:latest
+    # build:
+    #   context: ..
     restart: unless-stopped
     ports:
       - "3000:3000"

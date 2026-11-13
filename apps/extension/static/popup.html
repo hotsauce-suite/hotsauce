@@ -73,6 +73,38 @@
         margin: 10px 0 0;
         font-size: 12px;
       }
+      input {
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0 0 8px;
+        padding: 8px 10px;
+        border: 1px solid var(--ash);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+      }
+      .error {
+        margin: 8px 0 0;
+        color: var(--ember-strong);
+        font-size: 12px;
+      }
+      .footer {
+        margin-top: 12px;
+        font-size: 12px;
+      }
+      button.link {
+        width: auto;
+        padding: 0;
+        background: none;
+        color: var(--ember-strong);
+        font-size: 12px;
+        font-weight: 400;
+        text-decoration: underline;
+      }
+      button.link:hover {
+        background: none;
+      }
     </style>
   </head>
   <body>
@@ -86,12 +118,24 @@
       <h1>Save this page</h1>
       <p id="page-title" class="title"></p>
       <button id="save-page" type="button">Save to <span class="product">Hotsauce</span></button>
-      <p class="hint"><span class="product">Hotsauce</span> keeps a readable copy. <a id="open-links" href="http://localhost:3000/links" target="_blank" rel="noreferrer">Your saved links</a></p>
+      <p class="hint"><span class="product">Hotsauce</span> keeps a readable copy. <a id="open-links" href="about:blank" target="_blank" rel="noreferrer">Your saved links</a></p>
     </section>
     <section id="elsewhere" hidden>
       <h1><span class="product">Hotsauce</span> Meetings</h1>
       <p>Join a Google Meet call, then click this icon to take notes on it.</p>
-      <a id="open-hearth" href="http://localhost:3000/meetings" target="_blank" rel="noreferrer">Open <span class="product">Hotsauce</span> Meetings</a>
+      <a id="open-hearth" href="about:blank" target="_blank" rel="noreferrer">Open <span class="product">Hotsauce</span> Meetings</a>
+    </section>
+    <section id="setup" hidden>
+      <h1>Connect to your server</h1>
+      <p>Enter the address you use for <span class="product">Hotsauce</span>, like hotsauce.acme.com.</p>
+      <form id="server-form">
+        <input id="server-url" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="hotsauce.acme.com" />
+        <button id="server-connect" type="submit">Connect</button>
+      </form>
+      <p id="server-error" class="error" role="alert" hidden></p>
+    </section>
+    <section id="change-server" class="footer" hidden>
+      <button id="change-server-button" type="button" class="link">Change server</button>
     </section>
     <script src="popup.js" type="module"></script>
   </body>

@@ -6,6 +6,7 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { type Context, Hono } from 'hono'
 import { createApp } from './app.js'
 import { loadConfig } from './config.js'
+import { EXTENSION_ZIP_PATH, extensionZip } from './extension/download.js'
 import { legacyHostRedirect } from './legacyHosts.js'
 import { OrgStore } from './org/store.js'
 import { createServices, loadEnvFile } from './services.js'
@@ -15,6 +16,8 @@ import { attachWebSocket, Poller } from './sync/index.js'
 
 // apps/server/{src,dist}/main.{ts,js} → apps/web/dist, whatever the working directory.
 const WEB_DIST = fileURLToPath(new URL('../../web/dist', import.meta.url))
+// The Chrome extension's generic build, stamped with this server's address on download.
+const EXTENSION_DIST = fileURLToPath(new URL('../../extension/dist', import.meta.url))
 
 async function main(): Promise<void> {
   loadEnvFile()
@@ -111,6 +114,18 @@ async function main(): Promise<void> {
     void shutdown(75)
   }
   app.route('/', createApp({ ...services, restart }))
+  const zipFile = extensionZip(EXTENSION_DIST, {
+    url: config.PUBLIC_URL,
+    name: config.PRODUCT_NAME,
+  })
+  if (zipFile) {
+    app.get(EXTENSION_ZIP_PATH, (c) => {
+      c.header('Content-Type', 'application/zip')
+      c.header('Content-Disposition', 'attachment; filename="hearth-meetings-chrome.zip"')
+      c.header('Cache-Control', 'no-cache')
+      return c.body(new Uint8Array(zipFile))
+    })
+  }
   serveWebApp(app, WEB_DIST, config.PRODUCT_NAME)
 
   const poller = new Poller({
