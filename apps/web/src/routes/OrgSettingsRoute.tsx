@@ -16,6 +16,7 @@ import {
   StorageSection,
   Summary,
 } from './org/sections'
+import { UpdatesSection } from './org/UpdatesSection'
 
 /**
  * `/settings/organization`: the setup wizard's sections on one page, for admins (ARCHITECTURE
@@ -118,6 +119,7 @@ export default function OrgSettingsRoute() {
               <ChatRoomsSection />
               <AiSection {...(props('restart') as SectionProps)} />
               <StorageSection {...(props('restart') as SectionProps)} />
+              <UpdatesSection />
               <Callout>
                 Values set in the server’s environment always win and show as locked here. Keys are
                 stored encrypted on the server and are never shown again.

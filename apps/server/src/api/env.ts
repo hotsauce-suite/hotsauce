@@ -25,6 +25,7 @@ import type { Syncer } from '../sync/index.js'
 import type { Tables } from '../tables/index.js'
 import type { TaskServices } from '../tasks/index.js'
 import type { TokenStore } from '../tokens/index.js'
+import type { Updater } from '../updates/index.js'
 
 /** Everything the API is built from; tests pass a temp data dir, LocalHost and DevAuth. */
 export interface AppDeps {
@@ -56,6 +57,7 @@ export interface AppDeps {
   links: Links
   org: OrgStore
   brand: BrandStore
+  updates: Updater
   /** Stops gracefully and exits so the process manager starts us with the new settings. */
   restart?: () => void
 }
