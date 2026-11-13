@@ -10,7 +10,12 @@ export type SectionId =
   | 'everywhere'
   | 'go'
   | 'docs-editor'
+  | 'lists'
   | 'tasks'
+  | 'notes'
+  | 'links'
+  | 'files'
+  | 'recording'
   | 'clips'
   | 'tables'
   | 'forms'
@@ -28,7 +33,12 @@ export const SECTIONS: Record<SectionId, Section> = {
   everywhere: { title: 'Everywhere', always: true },
   go: { title: 'Go to', always: true },
   'docs-editor': { title: 'Writing a doc', app: 'docs' },
+  lists: { title: 'Lists' },
   tasks: { title: 'Tasks', app: 'tasks' },
+  notes: { title: 'Notes', app: 'notes' },
+  links: { title: 'Links', app: 'links' },
+  files: { title: 'Files', app: 'files' },
+  recording: { title: 'Recording' },
   clips: { title: 'Watching a clip', app: 'clips' },
   tables: { title: 'Tables', app: 'tables' },
   forms: { title: 'Forms', app: 'forms' },
@@ -149,6 +159,74 @@ export const SHORTCUTS = def({
     handledBy: 'editor',
   },
 
+  'docs.code': {
+    keys: ['mod+e'],
+    label: 'Inline code',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+  'docs.strike': {
+    keys: ['shift+mod+x'],
+    label: 'Strikethrough',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+  'docs.heading': {
+    keys: ['alt+mod+1', 'alt+mod+2', 'alt+mod+3'],
+    label: 'Heading 1 to 3',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+  'docs.paragraph': {
+    keys: ['alt+mod+0'],
+    label: 'Plain text',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+  'docs.numbered': {
+    keys: ['shift+mod+7'],
+    label: 'Numbered list',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+  'docs.bullets': {
+    keys: ['shift+mod+8'],
+    label: 'Bulleted list',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+  'docs.checklist': {
+    keys: ['shift+mod+9'],
+    label: 'Checklist',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+  'docs.tick': {
+    keys: ['mod+Enter'],
+    label: 'Tick or untick the checklist item',
+    section: 'docs-editor',
+    handledBy: 'editor',
+  },
+
+  // Lists in Meetings, Notes, Links, Files and People (listKeys.ts)
+  'list.next': { keys: ['j'], label: 'Next item', section: 'lists' },
+  'list.previous': { keys: ['k'], label: 'Previous item', section: 'lists' },
+  'list.open': { keys: ['Enter'], label: 'Open it', section: 'lists', handledBy: 'page' },
+
+  'notes.pin': { keys: ['p'], label: 'Pin or unpin the note', section: 'notes' },
+  'notes.archive': { keys: ['a'], label: 'Archive or unarchive the note', section: 'notes' },
+  'links.done': { keys: ['a'], label: 'Mark done, or back to Unread', section: 'links' },
+  'links.original': { keys: ['o'], label: 'Open the original page', section: 'links' },
+  'files.upload': { keys: ['u'], label: 'Upload files', section: 'files' },
+
+  // Meetings and voice notes while recording
+  'recording.toggle': { keys: ['r'], label: 'Start or stop a voice note', section: 'recording' },
+  'recording.pause': {
+    keys: ['alt+mod+p'],
+    label: 'Pause or resume recording',
+    section: 'recording',
+  },
+
   // Tasks (TasksPage)
   'tasks.quickAdd': { keys: ['q'], label: 'Add a task', section: 'tasks' },
   'tasks.next': { keys: ['j', 'ArrowDown'], label: 'Next task', section: 'tasks' },
@@ -174,6 +252,8 @@ export const SHORTCUTS = def({
   'clips.forward10': { keys: ['l'], label: 'Forward 10 seconds', section: 'clips' },
   'clips.faster': { keys: ['>'], label: 'Faster', section: 'clips' },
   'clips.slower': { keys: ['<'], label: 'Slower', section: 'clips' },
+  'clips.fullscreen': { keys: ['f'], label: 'Full screen', section: 'clips' },
+  'clips.mute': { keys: ['m'], label: 'Mute or unmute', section: 'clips' },
 
   // Tables: the grid's own handler (tables/Grid.tsx).
   'tables.move': {

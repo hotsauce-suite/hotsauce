@@ -84,3 +84,15 @@ describe('People', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No one by that address')
   })
 })
+
+describe('keys (slice 5)', () => {
+  it('j and k move through the people list', async () => {
+    const user = userEvent.setup()
+    renderApp('/people')
+    const rows = await screen.findAllByTestId('people-row')
+    await user.keyboard('j')
+    expect(within(rows[0] as HTMLElement).getByRole('link')).toHaveFocus()
+    await user.keyboard('jk')
+    expect(within(rows[0] as HTMLElement).getByRole('link')).toHaveFocus()
+  })
+})

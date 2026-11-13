@@ -1,7 +1,10 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { HttpResponse, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
+import { mockApi, server } from '../test/mockServer'
 import { renderApp } from '../test/renderApp'
+
 import { matchCommands, registerCommands } from './commands'
 
 async function openPalette(path = '/tasks') {
@@ -186,5 +189,63 @@ describe('the assistant in Command-K', () => {
     await user.click(row)
     await waitFor(() => expect(screen.queryByTestId('cmdk')).not.toBeInTheDocument())
     expect(await screen.findByText('what did we decide', {}, { timeout: 4000 })).toBeInTheDocument()
+  })
+})
+
+describe('search and quick rows (slice 6)', () => {
+  it('a pasted link offers Save link first, and Enter saves it', async () => {
+    const { user, router } = await openPalette()
+    await user.type(screen.getByTestId('cmdk-input'), 'https://example.org/read-me')
+    const row = await screen.findByTestId('cmdk-save-link')
+    await waitFor(() => expect(row).toHaveAttribute('aria-selected', 'true'))
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/links/save'))
+    expect(router.state.location.search).toBe(
+      `?url=${encodeURIComponent('https://example.org/read-me')}`,
+    )
+  })
+
+  it('"task …" adds a task without leaving the page', async () => {
+    const { user, router } = await openPalette('/notes')
+    await user.type(screen.getByTestId('cmdk-input'), 'task buy oat milk')
+    const row = await screen.findByTestId('cmdk-add-task')
+    expect(row).toHaveTextContent('Add task “buy oat milk”')
+    await user.keyboard('{Enter}')
+    await waitFor(() =>
+      expect([...mockApi().tasks.tasks.values()].some((t) => t.title === 'buy oat milk')).toBe(
+        true,
+      ),
+    )
+    expect(router.state.location.pathname).toBe('/notes')
+  })
+
+  it('labels results from every app and opens each in its own app', async () => {
+    const id = '01JKEYBOARDSEARCHLINK00001'
+    const hit = (path: string, title: string) => ({
+      space: 'ada',
+      path,
+      title,
+      snippet: '',
+      score: 1,
+    })
+    server.use(
+      http.get('/api/search', () =>
+        HttpResponse.json([
+          hit(`links/${id}.md`, 'Zebra finch songs'),
+          hit('notes/01JKEYBOARDSEARCHNOTE00001.md', 'Zebra crossing note'),
+          hit('people/dana@acme.com.md', 'Zebra Dana'),
+        ]),
+      ),
+    )
+    const { user, router, palette } = await openPalette()
+    await user.type(screen.getByTestId('cmdk-input'), 'zebra')
+    const rows = await within(palette).findAllByTestId('search-result')
+    expect(rows.map((r) => r.textContent)).toEqual([
+      expect.stringContaining('Link ·'),
+      expect.stringContaining('Note ·'),
+      expect.stringContaining('Person ·'),
+    ])
+    await user.click(rows[0] as HTMLElement)
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/links/ada/${id}`))
   })
 })

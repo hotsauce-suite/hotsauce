@@ -104,6 +104,11 @@ export function ownerOfPath(pathname: string): AppManifest | undefined {
   return APPS.find((app) => pathname === app.route || pathname.startsWith(`${app.route}/`))
 }
 
+/** The app whose folder holds the file at `path` (`tasks/…` is Tasks'); Docs for anything else. */
+export function appForFile(path: string): AppManifest {
+  return APPS.find((app) => app.folder !== '' && path.startsWith(`${app.folder}/`)) ?? docsApp
+}
+
 /** The app whose routes contain `pathname`; Docs for anything else. */
 export function appForPath(pathname: string): AppManifest {
   return ownerOfPath(pathname) ?? docsApp

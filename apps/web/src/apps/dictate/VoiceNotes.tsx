@@ -7,6 +7,7 @@ import type { MeetingSession, MeetingSummary, TranscriptSegment } from '../../ap
 import { org, product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { meetingUrl } from '../../lib/paths'
 import { CaptureError, captureAudio } from '../meetings/audio/capture'
 import type { MeetingSocket } from '../meetings/audio/socket'
@@ -98,6 +99,13 @@ export default function VoiceNotes() {
     setParams({}, { replace: true })
     if (!currentLive()) void start()
   }, [params, setParams, start])
+
+  // r starts a voice note here; while one records, r stops and saves it (Recording below).
+  useShortcut(
+    'recording.toggle',
+    () => void start(),
+    !recordingHere && otherMeeting === null && phase.name !== 'starting',
+  )
 
   const saveUnsaved = async (session: MeetingSession) => {
     try {
@@ -248,6 +256,9 @@ function Recording({ meeting, live }: { meeting: LiveMeeting; live: LiveSnapshot
       setResuming(false)
     }
   }
+
+  useShortcut('recording.toggle', () => void stop(), !stopping && !ended)
+  useShortcut('recording.pause', () => void (paused ? meeting.resume() : meeting.pause()), !ended)
 
   const stop = async () => {
     setStopping(true)

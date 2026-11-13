@@ -7,6 +7,7 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { focusedRow, followRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
@@ -191,6 +192,26 @@ export default function NotesPage() {
       void leaves(note, () => notesApi.restore(note.space, note.id), 'Note restored'),
     deleteForever: (note) => setConfirmDelete(note),
   }
+
+  // j and k move between notes; p pins and a archives the one with focus (not in the trash).
+  useListKeys()
+  const focusedNote = () => {
+    const key = focusedRow('data-note-key')
+    const note = list.notes?.find((n) => noteKey(n) === key)
+    return note && note.trashed === null ? note : undefined
+  }
+  useShortcut('notes.pin', () => {
+    const note = focusedNote()
+    if (!note) return false
+    actions.pin(note)
+    followRow('data-note-key', noteKey(note))
+  })
+  useShortcut('notes.archive', () => {
+    const note = focusedNote()
+    if (!note) return false
+    holdListPlace()
+    actions.archive(note)
+  })
 
   const create = async (input: NoteInput) => {
     try {

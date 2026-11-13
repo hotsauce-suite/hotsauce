@@ -1,5 +1,5 @@
 import { notePreview, parseChecklist } from '@hearth/format'
-import type { NoteColor, NoteView } from '../../api/notes'
+import { type NoteColor, type NoteView, noteKey } from '../../api/notes'
 import { AttachmentChips, withoutAttachmentLinks } from '../../components/FilePicker'
 import { daysLeftInTrash } from './logic'
 import { ColorPicker, ToolButton } from './NoteTools'
@@ -36,6 +36,7 @@ export function NoteCard({
     <article
       data-testid="note-card"
       data-note-id={note.id}
+      data-note-key={noteKey(note)}
       {...(note.color ? { 'data-color': note.color } : {})}
       className="note-card note-surface group relative rounded-xl border transition-shadow hover:shadow-float"
     >
@@ -43,6 +44,7 @@ export function NoteCard({
         type="button"
         aria-label={`Open note ${note.title || notePreview(note.body, 40) || 'Empty note'}`}
         data-testid="note-card-open"
+        data-list-item
         onClick={() => actions.open(note)}
         className="absolute inset-0 rounded-xl"
       />

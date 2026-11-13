@@ -2,7 +2,7 @@
 
 ## Status
 
-Slice 1 shipped (#42). Slices 2–4 in #47, with the independent review's fixes: Command-K's confirm step starts on Cancel and only its "Yes" row runs the step; a question is forgotten when Command-K closes; `c` in Docs works with the sidebar hidden; a strip brings a hidden sidebar back. Slices 5–6 are built on the same branch next. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
+Slice 1 shipped (#42, 0.8.1). Slices 2–4 merged (#47). Slices 5–7 in the next PR, then a release. Not built from the plan: `/` filtering inside Tasks (`/` opens Command-K everywhere instead), Tasks ⌘Z undo, and arrow keys in the Docs file tree. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
 
 ## Decisions
 
@@ -56,4 +56,21 @@ Each requirement maps to a test, named in brackets.
 - P1: On a doc or a meeting note, Command-K's On this page has: star or unstar, copy link, reading view or edit, version history, properties, save a version, attach a file (while editing), download as Markdown, and the page's own panels (a meeting's transcript and the like). [pageCommands.test]
 - P2: In Tasks, On this page has Add a task, and for the selected task: complete or reopen, due today, due tomorrow, open, delete (which asks first, as the Delete key does). [pageCommands.test]
 
-Slices 5 to 7 (the other apps and list keys; search every kind; accessibility, the Mac app and support materials) get their requirements here when they start.
+**Slice 5: the other apps, list keys and the editor**
+
+- L1: `j` and `k` move the focus through the list in Meetings, Notes, Links, Files and People; Enter opens what has focus. [listKeys.test, NotesPage.test, PeoplePages.test, links.test]
+- L2: Notes: `p` pins and `a` archives the note with focus; with none focused both do nothing. Links: `a` marks done, `o` opens the original page. Focus moves to the next row when one leaves the list. [NotesPage.test, links.test]
+- L3: Files `u` opens the upload picker. Voice notes `r` starts a note, and stops and saves it while recording. ⌥⌘P pauses and resumes a recording. Clips `f` full screen, `m` mute. [listKeys.test, VoiceNotes.test]
+- L4: Docs editor: ⌥⌘1–3 headings, ⌥⌘0 plain text, ⇧⌘7/8/9 numbered, bulleted and checklist (toggling off when already that kind), ⌘E inline code, ⇧⌘X strikethrough, ⌘Enter ticks a checklist item. [editor/commands.test]
+
+**Slice 6: Command-K finds and does more**
+
+- S1: Search results from every app say what they are (Doc, Meeting, Task, Note, File, Link, Person, …) and open in their own app. [commandK.test]
+- S2: A pasted `http(s)` link offers Save link first; Enter opens Save link with it. "task …" or "todo …" offers Add task, which adds it through quick add without leaving the page. [commandK.test]
+- S3: "Ask the assistant" is offered for anything typed, last, and hands the text over. [commandK.test]
+
+**Slice 7: moving without a mouse, the Mac app, help**
+
+- A1: The first Tab on any page reaches Skip to content, which focuses the page. Arrow keys, Home and End move along the rail. [a11y.test]
+- A2: The Mac app's Go menu lists every rail app and Settings; ⌘1–⌘9 open the first nine. It mirrors `APPS`. [macRail.test]
+- A3: The help page lists every key (site/public/help/shortcuts.html). [site/help.test]

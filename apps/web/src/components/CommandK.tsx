@@ -2,8 +2,9 @@ import { Command } from 'cmdk'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../api/client'
+import { memberTimeZone, tasksApi } from '../api/tasks'
 import type { SearchResult } from '../api/types'
-import { APPS, railLinks } from '../apps/registry'
+import { APPS, type AppId, appForFile, railLinks } from '../apps/registry'
 import { GO_KEYS, type GoTarget, SHORTCUTS } from '../keyboard/catalog'
 import {
   type Command as Action,
@@ -14,7 +15,7 @@ import {
   useCommandList,
 } from '../keyboard/commands'
 import { Keys } from '../keyboard/KeyCaps'
-import { displayName, fileUrl, isTaskFile, meetingFileKind } from '../lib/paths'
+import { displayName, fileUrl, meetingFileKind } from '../lib/paths'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
 import { Icon, type IconName } from './Icon'
@@ -29,12 +30,34 @@ interface Hit {
   snippet?: string
 }
 
-const KIND_LABEL = {
-  doc: 'Doc',
-  meeting: 'Meeting',
-  transcript: 'Transcript',
-  task: 'Task',
-} as const
+/** What each app calls one of its files, on a search result. */
+const KIND_LABEL: Partial<Record<AppId, string>> = {
+  docs: 'Doc',
+  meetings: 'Meeting',
+  tasks: 'Task',
+  notes: 'Note',
+  boards: 'Board',
+  files: 'File',
+  forms: 'Form',
+  tables: 'Table',
+  links: 'Link',
+  people: 'Person',
+  checkins: 'Check-in',
+}
+
+function kindLabel(path: string): string {
+  if (meetingFileKind(path) === 'transcript') return 'Transcript'
+  return KIND_LABEL[appForFile(path).id] ?? 'Doc'
+}
+
+/** Where a search result opens: in the app that owns its folder. */
+export function hitUrl(space: string, path: string): string {
+  const app = appForFile(path)
+  return app.id === 'docs' || app.id === 'meetings' ? fileUrl(space, path) : app.urlFor(space, path)
+}
+
+const URL_RE = /^https?:\/\/\S+$/i
+const TASK_RE = /^(?:task|todo)[:\s]\s*(.+)$/i
 
 const terms = (query: string) => query.toLowerCase().split(/\s+/).filter(Boolean)
 
@@ -182,7 +205,7 @@ export default function CommandK({
   const openDoc = (hit: { space: string; path: string }) => {
     onOpenChange(false)
     setQuery('')
-    navigate(fileUrl(hit.space, hit.path))
+    navigate(hitUrl(hit.space, hit.path))
   }
 
   const jumps = jumpsFor(query)
@@ -256,6 +279,51 @@ export default function CommandK({
   // Keep the top row selected as results arrive: the app jumps render at once and the doc
   // results a moment later, above them, and Enter should open the best doc, not an app.
   const topHit = query.trim() === '' ? recent[0] : (titles[0] ?? fullText[0])
+  // A pasted link saves; "task …" adds a task. Either goes first and is highlighted.
+  const typed = query.trim()
+  const pastedUrl = URL_RE.test(typed) ? typed : null
+  const taskText = TASK_RE.exec(typed)?.[1]?.trim() || null
+  const quick = pastedUrl ? 'quick:save-link' : taskText ? 'quick:add-task' : null
+  const saveLink = (url: string) => {
+    close()
+    navigate(`/links/save?url=${encodeURIComponent(url)}`)
+  }
+  const addTask = (text: string) => {
+    close()
+    tasksApi.quick({ text, tz: memberTimeZone() }).then(
+      (task) => session.notify(`Added “${task.title}” to Tasks`),
+      (err: unknown) =>
+        session.notify(err instanceof Error ? err.message : 'Couldn’t add the task. Try again.'),
+    )
+  }
+  const quickGroup =
+    pastedUrl || taskText ? (
+      <Command.Group heading="Quick">
+        {pastedUrl ? (
+          <Command.Item
+            value="quick:save-link"
+            onSelect={() => saveLink(pastedUrl)}
+            data-testid="cmdk-save-link"
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink"
+          >
+            <Icon name="bookmark" className="size-4 text-ink-faint" />
+            <span className="min-w-0 flex-1 truncate">Save link to read later</span>
+          </Command.Item>
+        ) : null}
+        {taskText ? (
+          <Command.Item
+            value="quick:add-task"
+            onSelect={() => addTask(taskText)}
+            data-testid="cmdk-add-task"
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink"
+          >
+            <Icon name="tasks" className="size-4 text-ink-faint" />
+            <span className="min-w-0 flex-1 truncate">Add task “{taskText}”</span>
+          </Command.Item>
+        ) : null}
+      </Command.Group>
+    ) : null
+
   // The highlighted row is the first one shown. With nothing typed: recent docs, then this
   // page's commands and Create, then the apps. With a query: docs, the apps, then commands.
   const firstAction = actions[0]
@@ -269,9 +337,11 @@ export default function CommandK({
         : firstAction && `command:${firstAction.id}`
   const top = confirming
     ? 'confirm:cancel'
-    : topHit
-      ? `${topHit.space}:${topHit.path}`
-      : (firstRow ?? '')
+    : quick
+      ? quick
+      : topHit
+        ? `${topHit.space}:${topHit.path}`
+        : (firstRow ?? '')
   const [selected, setSelected] = useState(top)
   useEffect(() => setSelected(top), [top])
 
@@ -324,6 +394,7 @@ export default function CommandK({
           </Command.Group>
         ) : (
           <>
+            {quickGroup}
             {query.trim() === '' ? (
               recent.length ? (
                 <Command.Group heading="Recent">
@@ -339,7 +410,7 @@ export default function CommandK({
                 </Command.Group>
               ) : (
                 <p className="px-3 py-6 text-center text-sm text-ink-faint">
-                  Type to search every doc and meeting you can see.
+                  Type to search everything you can see, or paste a link to save it.
                 </p>
               )
             ) : null}
@@ -433,8 +504,7 @@ function ResultItem({
           {highlight(hit.title, query)}
         </span>
         <span className="shrink-0 text-xs text-ink-faint">
-          {KIND_LABEL[isTaskFile(hit.path) ? 'task' : (meetingFileKind(hit.path) ?? 'doc')]} ·{' '}
-          {spaceLabel}
+          {kindLabel(hit.path)} · {spaceLabel}
         </span>
       </span>
       {hit.snippet ? (

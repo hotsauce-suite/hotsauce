@@ -18,6 +18,7 @@ import {
 import { hearthSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon, type IconName } from '../../components/Icon'
+import { useListKeys } from '../../keyboard/listKeys'
 import { meetingUrl, taskUrl } from '../../lib/paths'
 import { MeetingsPageHeader } from '../meetings/components/common'
 import { dayLabel, timeLabel } from '../meetings/format'
@@ -190,6 +191,7 @@ function MeetingList({ meetings, testId }: { meetings: MeetingRef[]; testId: str
 
 /** `/people`: everyone, most recent meeting first, with a search box. */
 export function PeopleList() {
+  useListKeys()
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   useEffect(() => {
@@ -233,6 +235,7 @@ export function PeopleList() {
             <li key={p.email} data-testid="people-row" data-email={p.email}>
               <Link
                 to={personUrl(p.email)}
+                data-list-item
                 className="flex items-center gap-3 py-2.5 hover:text-ember-strong"
               >
                 <Avatar person={p} />

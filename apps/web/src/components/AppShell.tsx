@@ -185,6 +185,15 @@ function ShellLayout() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* The first Tab stop: past the rail and sidebar to the page. */}
+      <button
+        type="button"
+        data-testid="skip-link"
+        onClick={() => document.getElementById('main')?.focus()}
+        className="sr-only z-50 rounded-lg bg-paper-raised px-3 py-2 text-sm font-medium text-ink shadow-float focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >
+        Skip to content
+      </button>
       <div className="flex min-h-0 flex-1">
         {compact ? (
           drawerOpen ? (
@@ -223,7 +232,11 @@ function ShellLayout() {
           </>
         )}
 
-        <main tabIndex={-1} className="shell-main flex h-full min-w-0 flex-1 flex-col outline-none">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="shell-main flex h-full min-w-0 flex-1 flex-col outline-none"
+        >
           {live && !onLivePage ? <RecordingIndicator live={live} variant="strip" /> : null}
           <Outlet context={context} />
         </main>

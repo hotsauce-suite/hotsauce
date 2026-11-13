@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LinkView, LinkWithBody } from '../../api/links'
 import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
@@ -245,5 +245,24 @@ describe('the save page', () => {
       timeout: 4000,
     })
     expect(posted).toEqual([])
+  })
+})
+
+describe('keys (slice 5)', () => {
+  it('j moves to a link, o opens the original page and a marks it done', async () => {
+    const user = userEvent.setup()
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    renderApp('/links')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(2))
+    await user.keyboard('j')
+    expect(screen.getAllByTestId('link-title')[0]).toHaveFocus()
+    const first = store.find((l) => l.title === 'Mirror life, explained')
+    await user.keyboard('o')
+    expect(open).toHaveBeenCalledWith(first?.url, '_blank', 'noopener')
+    await user.keyboard('a')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(1))
+    expect(first?.archived).toBe(true)
+    await waitFor(() => expect(screen.getAllByTestId('link-title')[0]).toHaveFocus())
+    open.mockRestore()
   })
 })
