@@ -1166,3 +1166,37 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
 .cm-lp-task-list-edit:hover {
   color: var(--ember-strong);
 }
+
+/* The assistant's answers (components/assistant): compact Markdown. */
+.assistant-answer > * + * {
+  margin-top: 0.6em;
+}
+
+.assistant-answer ul,
+.assistant-answer ol {
+  padding-left: 1.25rem;
+}
+
+.assistant-answer ul {
+  list-style: disc;
+}
+
+.assistant-answer ol {
+  list-style: decimal;
+}
+
+.assistant-answer a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.assistant-answer h1,
+.assistant-answer h2,
+.assistant-answer h3 {
+  font-weight: 600;
+}
+
+.assistant-answer code {
+  font-size: 0.9em;
+}

@@ -1,5 +1,6 @@
 export { accountRoutes } from './account.js'
 export { assetRoutes, MAX_ASSET_BYTES } from './assets.js'
+export { assistantRoutes } from './assistant.js'
 export { boardRoutes } from './boards.js'
 export { bookingRoutes, PUBLIC_BOOKING_PREFIX, publicBookingRoutes } from './booking.js'
 export { briefRoutes } from './brief.js'

@@ -1531,3 +1531,43 @@ POST   /api/checkins/:id/answers/:answer/replies { text } → AnswerView
 ### 24.7 Tests and known limits
 
 Server unit `checkins/schedule.test.ts`; integration `test/integration/checkins.test.ts` (R1–R13, MCP); web `apps/checkins/Checkins.test.tsx` (R5, R6, R8, R9, R14). Limits: a member far from the check-in's zone may be asked after its summary went (their answer still lands in the round); a removed member keeps being asked until an admin unticks them; a failed chat post isn't retried; nobody is told when someone replies to their answer yet.
+
+## 25. The assistant (Ask)
+
+The plan, decisions and requirements are in `docs/PLAN-assistant.md`.
+
+- **Tools.** No tools of its own: each request builds the member's MCP server (`createMcpServer`, §8)
+  and connects an MCP client to it in-process over `InMemoryTransport`, so the assistant can do
+  exactly what Claude can do through a member's token, as that member, and every write is a commit
+  with a `Hearth-Via: assistant` trailer. Tools with `readOnlyHint` run in parallel; writes run one
+  at a time so each one's Undo covers only its own files. `delete_file`, `move_file`, `share_link`
+  and `publish_page` never run in the loop (`save_link` is left out: it fetches the web): the model is told they wait, and `POST …/confirm` runs the stored call once.
+- **Loop.** `apps/server/src/assistant/agent.ts`: up to 20 model turns, streamed to the browser as
+  Server-Sent Events (text deltas, tool start and result, confirm, done, error). The model is
+  `ASSISTANT_MODEL` or the admin's choice (default Claude Sonnet 5.5), through the Anthropic beta
+  Messages stream with prompt caching and adaptive thinking. `LLM_PROVIDER=none` answers 503.
+- **Undo.** Before a write, the HEAD of each visible space is noted; after it, the paths changed by
+  the member's own commits since then are stored as an undo record. Undo restores each path to its
+  earlier version (or deletes a file the tool created) as a new commit, and refuses with 409 if
+  someone changed the file since.
+- **State.** `DATA_DIR/assistant.sqlite` (backed up nightly, not rebuildable from Git): conversations
+  (owner, title, the API message history and the transcript the panel shows), undo records, and
+  usage per member per month with an estimated cost from list prices. Conversations are per-member
+  private state, like Dictate history, so they are not committed and never indexed.
+- **Web.** `components/assistant/`: one panel mounted in the app shell, opened by `global.assistant`
+  (⌘J) in the shortcut list or the corner button; `openAssistant(prompt?)` opens it from anywhere.
+  The open doc or meeting is sent as context. Answers link files as `[title](<hearth:SPACE/PATH>)`,
+  which the panel turns into in-app links.
+
+```
+GET    /api/assistant                          → { name, configured }
+GET    /api/assistant/conversations            → { conversations }          (own only)
+GET    /api/assistant/conversations/:id        → { id, title, display, … }
+DELETE /api/assistant/conversations/:id
+POST   /api/assistant/conversations/:id/messages  { text, context?, tz? } → text/event-stream
+POST   /api/assistant/conversations/:id/confirm   { toolId } → { isError, text }
+POST   /api/assistant/undo/:undoId             → { restored }               (409 if changed since)
+GET    /api/assistant/usage?month=             → { month, members }         (admin)
+GET    /api/assistant/settings                 → { model, monthlyLimitUsd, models, fromEnv }  (admin)
+PUT    /api/assistant/settings                 { model?, monthlyLimitUsd? }  (admin; env wins)
+```

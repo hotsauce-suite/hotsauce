@@ -16,8 +16,10 @@ import { useAuthState } from '../auth/AuthContext'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
+import { displayName } from '../lib/paths'
 import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
+import { AssistantHost } from './assistant/AssistantHost'
 import { Icon } from './Icon'
 import { Sidebar, SidebarFrame } from './Sidebar'
 
@@ -198,6 +200,15 @@ function ShellLayout() {
       </div>
 
       {compact ? <AppRail orientation="horizontal" /> : null}
+
+      <AssistantHost
+        compact={compact}
+        page={
+          activeSpace && activePath
+            ? { space: activeSpace, path: activePath, title: displayName(activePath) }
+            : null
+        }
+      />
 
       {searchLoaded ? (
         <Suspense fallback={null}>

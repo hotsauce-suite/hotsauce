@@ -48,6 +48,11 @@ const def = <T extends Record<string, ShortcutDef>>(defs: T): Record<keyof T, Sh
 export const SHORTCUTS = def({
   // Everywhere
   'global.commandK': { keys: ['mod+k'], label: 'Open the command menu', section: 'everywhere' },
+  'global.assistant': {
+    keys: ['mod+j'],
+    label: 'Ask the assistant',
+    section: 'everywhere',
+  },
   'global.help': { keys: ['?'], label: 'Show keyboard shortcuts', section: 'everywhere' },
   'global.close': {
     keys: ['Escape'],
