@@ -2,10 +2,10 @@
 // clicks "Take notes", and hands the Hearth page a stream id for the Meet tab's audio, which
 // spares the person Chrome's "pick a tab, tick share audio" dialog.
 
-import { HEARTH_ORIGINS, HEARTH_URL, isHearthPage, PRODUCT_NAME } from './config'
 import { type Invoked, meetCode, pickTarget, remember } from './meet'
 import type { CaptureReply, WorkerMessage } from './protocol'
 import { rememberSaveTab, type SaveTab, savable, savePageUrl, takeSaveTab } from './save'
+import { DEFAULT_NAME, getServer, isServerPage, originsFor } from './server'
 
 const INVOKED_KEY = 'invoked'
 const SAVE_TABS_KEY = 'save-tabs'
@@ -19,32 +19,47 @@ async function invokedTabs(): Promise<Invoked[]> {
 
 // --- The toolbar icon: a dot on Meet calls ----------------------------------------------------
 
+async function productName(): Promise<string> {
+  return (await getServer())?.name ?? DEFAULT_NAME
+}
+
 function markTab(tabId: number, url: string | undefined): void {
   const onCall = meetCode(url) !== null
   void chrome.action.setBadgeText({ tabId, text: onCall ? ' ' : '' })
-  void chrome.action.setTitle({
-    tabId,
-    title: onCall ? `Take notes on this call with ${PRODUCT_NAME}` : PRODUCT_NAME,
+  void productName().then((name) =>
+    chrome.action.setTitle({
+      tabId,
+      title: onCall ? `Take notes on this call with ${name}` : name,
+    }),
+  )
+}
+
+async function makeMenus(): Promise<void> {
+  const name = await productName()
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'save-page',
+      title: `Save page to ${name}`,
+      contexts: ['page'],
+    })
+    chrome.contextMenus.create({
+      id: 'save-link',
+      title: `Save link to ${name}`,
+      contexts: ['link'],
+    })
   })
 }
 
 chrome.runtime.onInstalled.addListener(() => {
   void chrome.action.setBadgeBackgroundColor({ color: '#c63d19' })
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: 'save-page',
-      title: `Save page to ${PRODUCT_NAME}`,
-      contexts: ['page'],
-    })
-    chrome.contextMenus.create({
-      id: 'save-link',
-      title: `Save link to ${PRODUCT_NAME}`,
-      contexts: ['link'],
-    })
-  })
+  void makeMenus()
+})
+// Connecting to another server renames the menus.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.server) void makeMenus()
 })
 
-// --- Save to Hearth -----------------------------------------------------------------------------
+// --- Save to the server -----------------------------------------------------------------------------
 
 async function saveTabs(): Promise<SaveTab[]> {
   await saveTabsChain
@@ -67,14 +82,16 @@ function changeSaveTabs<T>(
   return run
 }
 
-/** Opens Hearth's save page for `page` in a background tab beside `from`. */
+/** Opens the server's save page for `page` in a background tab beside `from`. */
 async function saveToHearth(
   page: { url: string; title?: string },
   from: chrome.tabs.Tab | undefined,
 ): Promise<void> {
-  if (!savable(page.url, HEARTH_ORIGINS)) return
+  const server = await getServer()
+  // Not connected yet: the popup asks which server first.
+  if (!server || !savable(page.url, originsFor(server.url))) return
   const tab = await chrome.tabs.create({
-    url: savePageUrl(HEARTH_URL, page),
+    url: savePageUrl(server.url, page),
     active: false,
     ...(from?.windowId !== undefined ? { windowId: from.windowId } : {}),
     ...(from?.index !== undefined ? { index: from.index + 1 } : {}),
@@ -110,7 +127,8 @@ async function linkSaved(saveTabId: number, ok: boolean): Promise<void> {
   const tabId = entry.fromTabId
   if (tabId === null) return
   await chrome.action.setBadgeText({ tabId, text: '✓' }).catch(() => {})
-  await chrome.action.setTitle({ tabId, title: `Saved to ${PRODUCT_NAME}` }).catch(() => {})
+  const name = await productName()
+  await chrome.action.setTitle({ tabId, title: `Saved to ${name}` }).catch(() => {})
   setTimeout(() => {
     void chrome.tabs.get(tabId).then(
       (tab) => markTab(tabId, tab.url),
@@ -139,9 +157,11 @@ async function takeNotes(tabId: number): Promise<void> {
   const tab = await chrome.tabs.get(tabId)
   const code = meetCode(tab.url)
   if (!code) return
+  const server = await getServer()
+  if (!server) return
   const list = remember(await invokedTabs(), { tabId, code, at: Date.now() })
   await chrome.storage.session.set({ [INVOKED_KEY]: list })
-  const url = new URL('/meetings/start', HEARTH_URL)
+  const url = new URL('/meetings/start', server.url)
   url.searchParams.set('via', 'extension')
   url.searchParams.set('meet', code)
   await chrome.tabs.create({
@@ -162,7 +182,7 @@ async function captureMeet(consumerTabId: number, code: string | null): Promise<
     return {
       ok: false,
       reason: 'not-invoked',
-      message: `Click the ${PRODUCT_NAME} icon on the Meet tab, then “Take notes”.`,
+      message: `Click the ${await productName()} icon on the Meet tab, then “Take notes”.`,
     }
   }
   try {
@@ -199,20 +219,29 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendRespon
     )
     return true
   }
-  // The save page asks before saving on its own: only a tab this worker opened may skip the
-  // page's Save button, so another site can't make a signed-in member save something.
-  if (message.type === 'may-save' && sender.tab?.id !== undefined && isHearthPage(sender.url)) {
+  // Messages from pages are answered only on the server's own pages.
+  if (
+    (message.type === 'may-save' ||
+      message.type === 'link-saved' ||
+      message.type === 'capture-meet') &&
+    sender.tab?.id !== undefined
+  ) {
     const tabId = sender.tab.id
-    void saveTabs().then((list) => sendResponse({ ok: list.some((s) => s.saveTabId === tabId) }))
-    return true
-  }
-  if (message.type === 'link-saved' && sender.tab?.id !== undefined && isHearthPage(sender.url)) {
-    void linkSaved(sender.tab.id, message.ok === true).then(() => sendResponse({ ok: true }))
-    return true
-  }
-  if (message.type === 'capture-meet' && sender.tab?.id !== undefined && isHearthPage(sender.url)) {
-    const code = typeof message.code === 'string' ? message.code : null
-    void captureMeet(sender.tab.id, code).then(sendResponse)
+    void getServer().then(async (server) => {
+      if (!isServerPage(server, sender.url)) return sendResponse(undefined)
+      // The save page asks before saving on its own: only a tab this worker opened may skip the
+      // page's Save button, so another site can't make a signed-in member save something.
+      if (message.type === 'may-save') {
+        const list = await saveTabs()
+        return sendResponse({ ok: list.some((s) => s.saveTabId === tabId) })
+      }
+      if (message.type === 'link-saved') {
+        await linkSaved(tabId, message.ok === true)
+        return sendResponse({ ok: true })
+      }
+      const code = typeof message.code === 'string' ? message.code : null
+      sendResponse(await captureMeet(tabId, code))
+    })
     return true
   }
   return false

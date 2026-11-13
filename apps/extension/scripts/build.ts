@@ -10,6 +10,7 @@ import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } f
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
+import { stampForServer } from './stamp.js'
 import { zip } from './zip.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -18,19 +19,17 @@ const release = path.join(root, 'release')
 const ZIP_NAME = 'hearth-meetings-chrome.zip'
 
 const productName = process.env.PRODUCT_NAME?.trim() || 'Hotsauce'
-const hearthUrl = new URL(process.env.HEARTH_URL ?? 'http://localhost:3000')
-const origins =
-  hearthUrl.hostname === 'localhost'
-    ? ['http://localhost:3000', 'http://localhost:5173']
-    : [hearthUrl.origin]
-if (!origins.includes(hearthUrl.origin)) origins.unshift(hearthUrl.origin)
+// Set for a copy that talks to one server (local dev). Otherwise the build is generic: a
+// Hotsauce server writes its own address into the zip it offers (apps/server/src/extension), and
+// a Chrome Web Store copy asks on first use.
+const hearthUrl = process.env.HEARTH_URL ? new URL(process.env.HEARTH_URL).origin : null
 
 const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as {
   version: string
 }
 
 const icons = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png' }
-const manifest = {
+const manifest: Record<string, unknown> = {
   manifest_version: 3,
   name: productName,
   version,
@@ -39,20 +38,15 @@ const manifest = {
   icons: { ...icons, 128: 'icons/icon-128.png' },
   action: { default_title: productName, default_popup: 'popup.html', default_icon: icons },
   background: { service_worker: 'background.js', type: 'module' },
-  permissions: ['tabCapture', 'storage', 'activeTab', 'contextMenus'],
+  permissions: ['tabCapture', 'storage', 'activeTab', 'contextMenus', 'scripting'],
   host_permissions: ['https://meet.google.com/*'],
-  content_scripts: [
-    {
-      // Chrome match patterns carry no port: http://localhost/* covers every dev port.
-      matches: [...new Set(origins.map((o) => `${new URL(o).protocol}//${new URL(o).hostname}/*`))],
-      js: ['bridge.js'],
-      run_at: 'document_start',
-    },
-  ],
+  // Asked for one site at a time, when the person connects to their server.
+  optional_host_permissions: ['https://*/*', 'http://localhost/*'],
   commands: {
     _execute_action: { suggested_key: { default: 'Alt+Shift+H' } },
   },
 }
+const stamped = hearthUrl ? stampForServer(manifest, { url: hearthUrl, name: productName }) : null
 
 rmSync(dist, { recursive: true, force: true })
 await build({
@@ -63,15 +57,14 @@ await build({
   target: 'chrome116',
   minify: false,
   legalComments: 'none',
-  define: {
-    __HEARTH_URL__: JSON.stringify(hearthUrl.origin),
-    __HEARTH_ORIGINS__: JSON.stringify(origins),
-    __PRODUCT_NAME__: JSON.stringify(productName),
-  },
   logLevel: 'warning',
 })
 cpSync(path.join(root, 'static'), dist, { recursive: true })
-writeFileSync(path.join(dist, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+writeFileSync(
+  path.join(dist, 'manifest.json'),
+  `${JSON.stringify(stamped?.manifest ?? manifest, null, 2)}\n`,
+)
+if (stamped) writeFileSync(path.join(dist, 'server.json'), stamped.serverJson)
 
 const files = readdirSync(dist, { recursive: true, withFileTypes: true })
   .filter((f) => f.isFile())
@@ -82,4 +75,6 @@ writeFileSync(
   path.join(release, ZIP_NAME),
   zip(files.map((name) => ({ name, data: readFileSync(path.join(dist, name)) }))),
 )
-console.log(`${productName} extension ${version} for ${hearthUrl.origin}: release/${ZIP_NAME}`)
+console.log(
+  `${productName} extension ${version} ${hearthUrl ? `for ${hearthUrl}` : '(any server)'}: release/${ZIP_NAME}`,
+)

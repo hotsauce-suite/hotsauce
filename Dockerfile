@@ -30,13 +30,10 @@ FROM deps AS build
 ARG VITE_CLERK_PUBLISHABLE_KEY
 # Packages without a build script are skipped; pnpm builds in dependency order.
 RUN pnpm --filter @hearth/format --filter @hearth/web --filter @hearth/server run build
-# The Chrome extension, built for this instance and offered at /downloads/ (Meetings → Chrome
-# extension). After the web build, which empties apps/web/dist. Pass the instance's address:
-# fly.toml [build.args], deploy/docker-compose.yml and scripts/deploy-fly.sh all do.
-# PRODUCT_NAME is the name the extension shows; set it in [build.args] if the server's differs.
-ARG HEARTH_URL=http://localhost:3000
-ARG PRODUCT_NAME=Hotsauce
-RUN HEARTH_URL=$HEARTH_URL PRODUCT_NAME=$PRODUCT_NAME pnpm --filter @hearth/extension run build \
+# The Chrome extension, built for any server: the server writes its own address and name into
+# the zip it offers at /downloads/ (apps/server/src/extension), so one image serves everyone.
+# The zip copied here is the unstamped fallback.
+RUN pnpm --filter @hearth/extension run build \
  && mkdir -p apps/web/dist/downloads \
  && cp apps/extension/release/hearth-meetings-chrome.zip apps/web/dist/downloads/
 # The Mac app can't be built on Linux: scripts/build-app.sh builds it on a Mac and the zip is
@@ -72,6 +69,7 @@ COPY --from=build /prod/server/package.json apps/server/package.json
 COPY --from=build /prod/server/node_modules apps/server/node_modules
 COPY --from=build /repo/apps/server/dist apps/server/dist
 COPY --from=build /repo/apps/web/dist apps/web/dist
+COPY --from=build /repo/apps/extension/dist apps/extension/dist
 # The release this image is, reported by /api/health and compared with newer releases.
 COPY HOTSAUCE_VERSION ./HOTSAUCE_VERSION
 COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/hearth-entrypoint

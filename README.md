@@ -179,7 +179,7 @@ organization and videos and audio in R2. Hotsauce keeps its own settings in the 
 
 ### Docker
 
-`cd deploy && docker compose up -d --build` runs the same thing anywhere Docker does. The
+`cd deploy && docker compose up -d` runs the same thing anywhere Docker does. The
 [self-hosting guide](docs/self-host.md) covers every option, plus custom domains and backups.
 
 ### Stay up to date

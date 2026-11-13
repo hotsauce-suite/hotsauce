@@ -35,13 +35,13 @@ Steps:
 
 From then on, every push to your copy's main branch deploys again (Workers Builds). The container stays on; a cron trigger restarts it within five minutes if it stops. To let it sleep when nobody uses it (cheaper; the first visit afterwards waits for it to start), add the variable `HOTSAUCE_SLEEP=true` to the Worker. To use your own domain, add it to the Worker under **Settings → Domains & Routes** and set the variable `PUBLIC_URL=https://hotsauce.acme.com`.
 
-Known limits: a meeting that is recording when the container restarts keeps its transcript but not the audio recorded so far. The Chrome extension offered for download is built for `localhost`; build it for your address with `HEARTH_URL=https://… pnpm --filter @hearth/extension run build`.
+Known limits: a meeting that is recording when the container restarts keeps its transcript but not the audio recorded so far. The Chrome extension offered for download carries your server's address (`PUBLIC_URL`) and name.
 
 ## Docker on your own server
 
 ```sh
 cd deploy
-PUBLIC_URL=https://hotsauce.acme.com docker compose up -d --build
+PUBLIC_URL=https://hotsauce.acme.com docker compose up -d
 docker compose logs hotsauce | grep setup
 ```
 
