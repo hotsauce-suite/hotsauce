@@ -126,7 +126,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         data-testid="app-rail"
         className="shell-rail flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center border-r border-ash bg-paper pt-3 pb-2"
       >
-        <BrandMark className="mb-3 size-7 shrink-0" />
+        <BrandMark className="mb-3 size-9 shrink-0" />
         <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
           {apps}
           {links}
@@ -173,7 +173,7 @@ export function feedbackLink(pathname: string): string {
 
 export function itemClass(orientation: Orientation, current: boolean): string {
   const shape =
-    orientation === 'vertical' ? 'w-12 py-1.5' : 'h-14 min-w-12 flex-1 basis-0 px-0.5 py-1.5'
+    orientation === 'vertical' ? 'w-15 py-2' : 'h-14 min-w-12 flex-1 basis-0 px-0.5 py-1.5'
   const tone = current
     ? 'bg-ember-wash text-ember'
     : 'text-ink-faint hover:bg-paper-sunk hover:text-ink-soft'
@@ -207,10 +207,12 @@ function RailItem({
   external?: boolean
   hideLabel?: boolean
 }) {
+  const vertical = orientation === 'vertical'
   const body = (
     <>
       <span className="relative">
-        <Icon name={icon} className="size-5" />
+        {/* The desktop rail's icons are half again the phone bar's (Morgan, Nov 13). */}
+        <Icon name={icon} className={vertical ? 'size-7.5' : 'size-5'} />
         {dot ? (
           <span
             data-testid="rail-recording"
@@ -220,7 +222,9 @@ function RailItem({
         ) : null}
       </span>
       {hideLabel ? null : (
-        <span className="flex max-w-full items-center gap-px text-[0.625rem] leading-tight font-medium tracking-tight">
+        <span
+          className={`flex max-w-full items-center gap-px leading-tight font-medium tracking-tight ${vertical ? 'text-[0.6875rem]' : 'text-[0.625rem]'}`}
+        >
           <span className="truncate">{label}</span>
           {external ? <Icon name="external" className="size-2 shrink-0 opacity-75" /> : null}
         </span>
@@ -300,7 +304,7 @@ function AccountButton() {
         onClick={(event) => (anchor ? close() : open(event.currentTarget))}
         className={itemClass('vertical', false)}
       >
-        <span className="grid size-6 place-items-center rounded-full bg-ash-strong text-[0.625rem] font-semibold text-paper-raised">
+        <span className="grid size-9 place-items-center rounded-full bg-ash-strong text-xs font-semibold text-paper-raised">
           {initials(principal?.name, principal?.email)}
         </span>
       </button>
