@@ -31,6 +31,7 @@ async function instance(overrides: ServiceOverrides) {
     LOCAL_HOST_DIR: join(root, 'remotes'),
     ALLOWED_EMAIL_DOMAINS: 'acme.example',
     ADMIN_EMAILS: ADMIN,
+    PUBLIC_URL: 'https://office.example.com',
   })
   const services = createServices(config, {
     version: '0.2.0',

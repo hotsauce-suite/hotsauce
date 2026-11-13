@@ -20,6 +20,7 @@ const base: UpdateStatus = {
   auto: true,
   updating: null,
   failed: null,
+  flyApp: 'acme-office',
 }
 
 function serve(status: UpdateStatus) {
@@ -73,6 +74,14 @@ describe('Settings → Organization → Updates', () => {
     expect(await screen.findByTestId('update-steps')).toHaveTextContent('docker compose pull')
     expect(screen.queryByTestId('update-now')).toBeNull()
     expect(screen.getByTestId('auto-updates')).toBeDisabled()
+  })
+
+  it('on Fly without a token, shows the command with the app’s name', async () => {
+    serve({ ...base, mode: 'fly-needs-token' })
+    render(<UpdatesSection />)
+    expect(await screen.findByTestId('update-steps')).toHaveTextContent(
+      'fly secrets set -a acme-office FLY_API_TOKEN="$(fly tokens create deploy -a acme-office)"',
+    )
   })
 
   it('says it is the newest release when nothing is newer', async () => {

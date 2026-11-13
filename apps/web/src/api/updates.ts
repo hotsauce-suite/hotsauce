@@ -11,6 +11,7 @@ export interface UpdateStatus {
   auto: boolean
   updating: { from: string; to: string; at: string } | null
   failed: { from: string; to: string; at: string } | null
+  flyApp: string | null
 }
 
 export const updatesApi = {

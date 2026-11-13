@@ -28,6 +28,25 @@ const base = (fly: FakeFly, fetchFn: typeof fetch) => ({
 })
 
 describe('runHelper', () => {
+  it('waits again when a first pull outlasts Fly’s one-minute wait', async () => {
+    const fly = new FakeFly()
+    fly.add('app1', OLD)
+    let waits = 0
+    const wait = fly.waitStarted.bind(fly)
+    fly.waitStarted = async (id: string) => {
+      waits++
+      if (waits < 3) throw new Error('Fly GET /wait: 408 timeout')
+      return wait(id)
+    }
+    const result = await runHelper(
+      base(
+        fly,
+        site(() => '0.3.0'),
+      ),
+    )
+    expect(result).toEqual({ ok: true, version: '0.3.0' })
+  })
+
   it('moves the app machines to the new image and stops once health reports it', async () => {
     const fly = new FakeFly()
     fly.add('app1', OLD)
@@ -85,7 +104,10 @@ describe('runHelper', () => {
       ),
     )
     expect(result).toMatchObject({ ok: false, rolledBack: true })
-    expect(fly.calls.filter((c) => c.startsWith('update'))).toEqual([`update app1 ${NEW}`])
+    expect(fly.calls.filter((c) => c.startsWith('update'))).toEqual([
+      `update app1 ${NEW}`,
+      `update app1 ${OLD}`,
+    ])
     expect(fly.image('app1')).toBe(OLD)
   })
 })

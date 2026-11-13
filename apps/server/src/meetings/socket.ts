@@ -69,11 +69,6 @@ export class MeetingSocketServer {
     this.#heartbeatMs = opts.heartbeatMs ?? 30_000
   }
 
-  /** Open meeting sockets: meetings being recorded right now (the updater waits for none). */
-  get recording(): number {
-    return this.#clients.size
-  }
-
   start(): void {
     if (this.#heartbeat) return
     this.#heartbeat = setInterval(() => {

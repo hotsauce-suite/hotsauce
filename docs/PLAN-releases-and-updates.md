@@ -47,9 +47,19 @@ R9. Automatic updates wait while a meeting is being recorded (subject to Morgan'
 - The helper (`updates/helper.ts`) updates each app machine's config to the new image (keeping
   services and mounts), waits for it to start, and polls `PUBLIC_URL/api/health` for
   `version` = the new one. After five minutes, or if Fly refuses, it puts the old image back.
-- On boot, the server compares its version with `pending`: the new one clears it; the old one
-  records `failed` and adds the version to `skip`, which automatic updates honour. A pending
-  update older than 30 minutes counts as failed.
+- On boot, the server compares its version with `pending`. Only the helper restarts it during an
+  update, so starting on the old version means a rollback: it records `failed` and adds the
+  version to `skip`, which automatic updates honour. Starting on the new version keeps `pending`
+  until the helper's window (12 minutes) has passed, since the helper can still roll back. A
+  pending update that never replaced the machine counts as failed after 30 minutes.
+- Update refuses when `PUBLIC_URL` is localhost (the helper checks through it), and a second
+  click while one is starting. Fly's one-minute start wait is retried up to four times.
+- Automatic updates run only on a single-machine app: each machine has its own volume and sees
+  only its own meetings. With more machines an admin presses Update.
+- An instance that also deploys from source (`deploy-fly.yml`, `scripts/deploy-fly.sh`) replaces
+  the release image on every deploy; use one or the other.
+- A rollback runs the old version on data the new one may have touched. Releases keep stored data
+  readable by the previous release; a release that can't says so in its notes and in the PR.
 - Automatic updates (on unless an admin turns them off) check GitHub every six hours and try
   every ten minutes, never while a meeting socket is open.
 - Health is checked through the public address, so with several machines the check passes only

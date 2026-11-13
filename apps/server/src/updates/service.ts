@@ -6,6 +6,8 @@ import { isNewer } from './version.js'
 const CHECK_EVERY_MS = 6 * 60 * 60_000
 /** An update that hasn't finished in this long failed somewhere nobody saw. */
 const STALE_PENDING_MS = 30 * 60_000
+/** The helper is done by then: four start waits of a minute each, then five minutes of health. */
+const HELPER_WINDOW_MS = 12 * 60_000
 
 export type UpdateMode = 'fly' | 'fly-needs-token' | 'manual'
 
@@ -18,6 +20,8 @@ export interface UpdateStatus {
   auto: boolean
   updating: UpdateState['pending']
   failed: UpdateState['failed']
+  /** The Fly app, for the command that adds a token. */
+  flyApp: string | null
 }
 
 export interface UpdaterOptions {
@@ -42,6 +46,8 @@ export class Updater {
   #latest: Release | null = null
   #checkedAt: Date | null = null
   #timer: ReturnType<typeof setInterval> | null = null
+  /** Set from the click until `pending` is saved, so a second click or a tick can't race it. */
+  #starting = false
 
   constructor(opts: UpdaterOptions) {
     this.#o = opts
@@ -72,6 +78,7 @@ export class Updater {
       auto: state.auto ?? true,
       updating: state.pending,
       failed: state.failed,
+      flyApp: this.#o.flyEnv.app ?? null,
     }
   }
 
@@ -101,13 +108,13 @@ export class Updater {
     if (!state.pending) return
     const { pending } = state
     if (this.#o.current === pending.to) {
-      this.#log(`now on ${pending.to}`)
-      this.#o.store.set({ pending: null, failed: null })
+      // Not done yet: the helper may still roll back if the public address never answers.
+      // tick() clears it once the helper's window has passed.
+      this.#log(`started on ${pending.to}`)
       return
     }
-    const startedAt = Date.parse(pending.at)
-    const stale = !Number.isFinite(startedAt) || this.#now.getTime() - startedAt > STALE_PENDING_MS
-    if (this.#o.current === pending.from && !stale) return
+    // Only the helper restarts this server during an update, so starting again on the old
+    // version means it put the old version back.
     this.#markFailed(state, pending)
   }
 
@@ -127,8 +134,27 @@ export class Updater {
     if (this.mode() !== 'fly' || !fly || !app || !imageRef) {
       throw new Error('This server can’t update itself; see the steps for your host')
     }
+    if (this.#starting) throw new Error('Already starting an update')
     const state = this.#o.store.get()
     if (state.pending) throw new Error(`Already updating to ${state.pending.to}`)
+    const host = new URL(this.#o.publicUrl).hostname
+    if (host === 'localhost' || host === '127.0.0.1') {
+      // The helper checks the new version through this address.
+      throw new Error('Set PUBLIC_URL to this server’s real address before updating from here')
+    }
+    this.#starting = true
+    try {
+      return await this.#start(fly, { app, region, imageRef })
+    } finally {
+      this.#starting = false
+    }
+  }
+
+  async #start(
+    fly: FlyApi,
+    env: { app: string; region: string | undefined; imageRef: string },
+  ): Promise<UpdateStatus> {
+    const { app, region, imageRef } = env
     const latest = await this.check(true)
     if (!latest || !isNewer(latest.version, this.#o.current)) {
       throw new Error('Already on the newest release')
@@ -167,10 +193,14 @@ export class Updater {
   async tick(): Promise<void> {
     const state = this.#o.store.get()
     if (state.pending) {
-      // The helper replaces this machine when it works; still being here long after means it
-      // never got that far.
       const startedAt = Date.parse(state.pending.at)
-      if (!Number.isFinite(startedAt) || this.#now.getTime() - startedAt > STALE_PENDING_MS) {
+      const age = Number.isFinite(startedAt) ? this.#now.getTime() - startedAt : Infinity
+      if (this.#o.current === state.pending.to && age > HELPER_WINDOW_MS) {
+        this.#log(`now on ${state.pending.to}`)
+        this.#o.store.set({ pending: null, failed: null })
+      } else if (this.#o.current !== state.pending.to && age > STALE_PENDING_MS) {
+        // The helper replaces this machine when it works; still being here long after means it
+        // never got that far.
         this.#markFailed(state, state.pending)
       }
       return
@@ -181,6 +211,17 @@ export class Updater {
     if (state.skip.includes(latest.version)) return
     if (this.#o.busy()) {
       this.#log(`${latest.version} is out; waiting until no meeting is being recorded`)
+      return
+    }
+    // Each machine keeps its own state and sees only its own meetings, so only a single-machine
+    // app updates itself; with more, an admin presses Update.
+    try {
+      const apps = (await this.#o.fly?.list())?.filter(
+        (m) => m.config.metadata?.role !== HELPER_ROLE,
+      )
+      if ((apps?.length ?? 0) > 1) return
+    } catch (err) {
+      this.#log(`couldn’t list machines: ${err instanceof Error ? err.message : err}`)
       return
     }
     try {

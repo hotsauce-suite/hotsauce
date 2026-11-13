@@ -101,7 +101,7 @@ export function UpdatesSection() {
                 Update to {status.latest.version}
               </button>
             ) : (
-              <HowToUpdate mode={status.mode} />
+              <HowToUpdate mode={status.mode} app={status.flyApp} />
             )}
           </div>
         </div>
@@ -151,16 +151,16 @@ export function UpdatesSection() {
   )
 }
 
-function HowToUpdate({ mode }: { mode: UpdateStatus['mode'] }) {
+function HowToUpdate({ mode, app }: { mode: UpdateStatus['mode']; app: string | null }) {
   if (mode === 'fly-needs-token') {
     return (
       <p className="text-sm text-ink-soft" data-testid="update-steps">
         To update from here, give this server a Fly token for its app. On a computer with flyctl,
         run{' '}
         <code className="rounded bg-paper-sunk px-1">
-          fly secrets set FLY_API_TOKEN="$(fly tokens create deploy)"
+          fly secrets set -a {app ?? 'your-app'} FLY_API_TOKEN="$(fly tokens create deploy -a{' '}
+          {app ?? 'your-app'})"
         </code>{' '}
-        in the folder with your fly.toml.
       </p>
     )
   }

@@ -387,7 +387,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     flyEnv,
     image: RELEASE_IMAGE,
     publicUrl: config.PUBLIC_URL,
-    busy: () => meetings.sockets.recording > 0,
+    busy: () => meetings.sessions.openCount > 0,
   })
   return {
     config,

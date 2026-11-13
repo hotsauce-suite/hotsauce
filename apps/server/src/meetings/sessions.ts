@@ -175,6 +175,15 @@ export class MeetingSessions {
   /** Meetings deleted while their kept audio was uploading: the upload throws it away. */
   readonly #discarded = new Set<string>()
 
+  /** Meetings open right now, recording or paused (the updater waits until there are none). */
+  get openCount(): number {
+    let n = 0
+    for (const l of this.#sessions.values()) {
+      if (l.meta.state === 'recording' || l.meta.state === 'paused') n++
+    }
+    return n
+  }
+
   constructor(opts: MeetingSessionsOptions) {
     this.#opts = opts
     this.#store = new SessionStore(opts.dataDir)

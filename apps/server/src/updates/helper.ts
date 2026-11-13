@@ -40,6 +40,18 @@ async function healthy(
   }
 }
 
+/** Fly's wait gives up after 60 s; a first pull of a new image can take longer. */
+async function waitStarted(fly: FlyApi, id: string, instanceId: string): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await fly.waitStarted(id, instanceId)
+      return
+    } catch (err) {
+      if (attempt >= 4) throw err
+    }
+  }
+}
+
 /**
  * Moves every app machine to `target` and waits for the site to report the new version. If it
  * doesn't within the timeout, or Fly refuses, puts `previous` back on every machine it touched.
@@ -59,9 +71,12 @@ export async function runHelper(input: HelperInput): Promise<HelperResult> {
   try {
     for (const m of machines) {
       log(`updating machine ${m.id} to ${input.target}`)
-      const updated = await input.fly.update(m.id, { ...m.config, image: input.target })
-      touched.push(m)
-      await input.fly.waitStarted(m.id, updated.instance_id)
+      // The full config, just before changing it: updates replace the whole config.
+      const full = await input.fly.get(m.id)
+      // Counted as touched before the call: a request that times out may still have landed.
+      touched.push(full)
+      const updated = await input.fly.update(m.id, { ...full.config, image: input.target })
+      await waitStarted(input.fly, m.id, updated.instance_id)
     }
     for (let waited = 0; waited <= timeoutMs; waited += pollMs) {
       if (await healthy(input.publicUrl, input.targetVersion, fetchFn)) {
@@ -76,11 +91,11 @@ export async function runHelper(input: HelperInput): Promise<HelperResult> {
   }
 
   log(`rolling back: ${reason}`)
-  let rolledBack = true
+  let rolledBack = touched.length > 0
   for (const m of touched) {
     try {
       const back = await input.fly.update(m.id, { ...m.config, image: input.previous })
-      await input.fly.waitStarted(m.id, back.instance_id)
+      await waitStarted(input.fly, m.id, back.instance_id)
     } catch (err) {
       rolledBack = false
       log(`rollback of ${m.id} failed: ${err instanceof Error ? err.message : String(err)}`)

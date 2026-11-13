@@ -93,18 +93,53 @@ describe('Updater', () => {
     await expect(make('0.2.0').start()).rejects.toThrow(/Already updating/)
   })
 
-  it('clears the update when the server comes back on the new version', async () => {
-    const { make, store } = setup()
+  it('clears the update once the new version has outlasted the helper’s checks', async () => {
+    const { make, store, advance } = setup()
     await make('0.2.0').start()
-    make('0.3.0').reconcile()
+    const next = make('0.3.0')
+    next.reconcile()
+    // Still pending: the helper can put the old version back if the address never answers.
+    expect(store.get().pending).not.toBeNull()
+    advance(13 * 60_000)
+    await next.tick()
     expect(store.get()).toMatchObject({ pending: null, failed: null })
   })
 
-  it('records a rollback, and automatic updates then skip that version', async () => {
-    const { make, store, fly, advance } = setup()
+  it('never loops: a rollback after the new version started still counts as a failure', async () => {
+    const { make, store, fly } = setup()
     await make('0.2.0').start()
-    // Rolled back: the old version again, a while after the update began.
-    advance(31 * 60_000)
+    make('0.3.0').reconcile()
+    const back = make('0.2.0')
+    back.reconcile()
+    expect(store.get()).toMatchObject({ pending: null, failed: { to: '0.3.0' }, skip: ['0.3.0'] })
+    await back.tick()
+    expect(fly.created).toHaveLength(1)
+  })
+
+  it('refuses to update a server whose PUBLIC_URL is localhost', async () => {
+    const { make } = setup({ publicUrl: 'http://localhost:3000' })
+    await expect(make('0.2.0').start()).rejects.toThrow(/PUBLIC_URL/)
+  })
+
+  it('starts one helper when Update is pressed twice at once', async () => {
+    const { make, fly } = setup()
+    const u = make('0.2.0')
+    const results = await Promise.allSettled([u.start(), u.start()])
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected'])
+    expect(fly.created).toHaveLength(1)
+  })
+
+  it('leaves automatic updates to an admin when the app runs more than one machine', async () => {
+    const { make, fly } = setup()
+    fly.add('app2', OLD)
+    await make('0.2.0').tick()
+    expect(fly.created).toHaveLength(0)
+  })
+
+  it('records a rollback, and automatic updates then skip that version', async () => {
+    const { make, store, fly } = setup()
+    await make('0.2.0').start()
+    // Rolled back: the old version starts again.
     const back = make('0.2.0')
     back.reconcile()
     expect(store.get().failed).toMatchObject({ from: '0.2.0', to: '0.3.0' })
