@@ -6,6 +6,7 @@ import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hearth/format'
 import dotenv from 'dotenv'
 import { type Authenticator, createAuthenticator, type Principal } from './auth/index.js'
+import { createBackups } from './backup/index.js'
 import { BoardRooms, Boards } from './boards/index.js'
 import { AgentBriefs, BriefMembers } from './brief/index.js'
 import {
@@ -102,6 +103,7 @@ import {
 } from './scheduling/index.js'
 import { Shares } from './shares/index.js'
 import { SpaceService } from './spaces/index.js'
+import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
 import { Tables } from './tables/index.js'
 import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from './tasks/index.js'
@@ -134,6 +136,8 @@ export interface ServiceOverrides {
   calendar?: CalendarSource
   /** null turns kept audio off. */
   audioStore?: AudioStore | null
+  /** Where backups go; null turns them off (docs/PLAN-backups-storage.md). */
+  backupStore?: ObjectStore | null
   /** Briefcast's voice; tests pass a FakeSpeaker to see what was read. */
   speaker?: Speaker
   /** Briefcast's clock, so tests can step through mornings. */
@@ -447,6 +451,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     links,
     org,
     brand,
+    backups: createBackups(config, overrides.backupStore, (space, fn) =>
+      git.withSpaceLocked(space, fn),
+    ),
   }
 }
 /**

@@ -530,7 +530,7 @@ describe('chat rooms (R13)', () => {
       json: { answers: { name: 'Ada <@here>', role: 'Office' } },
     })
     expect(posts).toHaveLength(2)
-    expect(posts[0]?.body.text).toContain('Hearth Forms is connected')
+    expect(posts[0]?.body.text).toContain('Forms is connected')
     expect(posts[1]?.url).toBe('https://chat.example.test/hook/abcd1234')
     expect(posts[1]?.body.text).toContain('New answer to *Lab kit request*')
     expect(posts[1]?.body.text).toContain('> Your name: Ada &lt;@here&gt;')

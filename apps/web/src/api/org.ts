@@ -7,6 +7,7 @@ export const SECRET_NAMES = [
   'ANTHROPIC_API_KEY',
   'DEEPGRAM_API_KEY',
   'GITHUB_TOKEN',
+  'FORGEJO_TOKEN',
   'R2_SECRET_ACCESS_KEY',
   'WEBHOOK_SECRET',
 ] as const
@@ -19,8 +20,13 @@ export interface OrgSettings {
   allowedEmails: string[]
   adminEmails: string[]
   clerkPublishableKey: string
-  hostKind: 'local' | 'github'
+  hostKind: 'local' | 'github' | 'forgejo'
   githubOrg: string
+  forgejoUrl: string
+  forgejoOrg: string
+  /** Any S3-compatible service's endpoint; empty means Cloudflare R2 by account ID. */
+  s3Endpoint: string
+  s3Region: string
   r2AccountId: string
   r2AccessKeyId: string
   r2Bucket: string
@@ -114,6 +120,16 @@ export function orgEditor(setupToken: string | null) {
       }),
     removeAsset: (kind: 'logo' | 'mark') =>
       request<OrgState>(`${base}/assets/${kind}`, { method: 'DELETE', headers }),
+    testForgejo: (body: { key?: string; url: string; org: string }) =>
+      request<KeyTest>(`${base}/test/forgejo`, { method: 'POST', json: body, headers }),
+    testStorage: (body: {
+      key?: string
+      endpoint: string
+      region: string
+      accountId: string
+      accessKeyId: string
+      bucket: string
+    }) => request<KeyTest>(`${base}/test/storage`, { method: 'POST', json: body, headers }),
     test: (provider: TestProvider, key?: string, extra?: string) =>
       request<KeyTest>(`${base}/test/${provider}`, {
         method: 'POST',
@@ -146,4 +162,28 @@ export async function waitForRestart(timeoutMs = 60_000): Promise<boolean> {
     await new Promise((r) => setTimeout(r, 1000))
   }
   return false
+}
+
+/** Daily backups (docs/PLAN-backups-storage.md). */
+export interface BackupStatus {
+  lastAttemptAt?: string
+  lastSuccessAt?: string
+  lastKey?: string
+  lastBytes?: number
+  lastFiles?: number
+  lastError?: string
+  running?: boolean
+}
+export type BackupsState =
+  | { enabled: false }
+  | {
+      enabled: true
+      folder: string
+      status: BackupStatus
+      backups: Array<{ key: string; at: string; size: number }>
+    }
+
+export const backupsApi = {
+  get: () => request<BackupsState>('/api/admin/org/backups'),
+  run: () => request<{ status: BackupStatus }>('/api/admin/org/backups/run', { method: 'POST' }),
 }

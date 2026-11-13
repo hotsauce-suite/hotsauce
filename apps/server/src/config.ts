@@ -12,6 +12,47 @@ const csv = (s: string) =>
     .map((x) => x.trim().toLowerCase())
     .filter(Boolean)
 
+/** An S3-compatible bucket, from the S3_* variables or, failing those, the R2_* ones. */
+export interface ObjectStoreConfig {
+  endpoint: string
+  region: string
+  bucket: string
+  accessKeyId: string
+  secretAccessKey: string
+}
+
+function objectStore(c: {
+  S3_ENDPOINT?: string | undefined
+  S3_REGION: string
+  S3_BUCKET?: string | undefined
+  S3_ACCESS_KEY_ID?: string | undefined
+  S3_SECRET_ACCESS_KEY?: string | undefined
+  R2_ACCOUNT_ID?: string | undefined
+  R2_ACCESS_KEY_ID?: string | undefined
+  R2_SECRET_ACCESS_KEY?: string | undefined
+  R2_BUCKET?: string | undefined
+}): ObjectStoreConfig | null {
+  if (c.S3_ENDPOINT && c.S3_BUCKET && c.S3_ACCESS_KEY_ID && c.S3_SECRET_ACCESS_KEY) {
+    return {
+      endpoint: c.S3_ENDPOINT,
+      region: c.S3_REGION,
+      bucket: c.S3_BUCKET,
+      accessKeyId: c.S3_ACCESS_KEY_ID,
+      secretAccessKey: c.S3_SECRET_ACCESS_KEY,
+    }
+  }
+  if (c.R2_ACCOUNT_ID && c.R2_ACCESS_KEY_ID && c.R2_SECRET_ACCESS_KEY && c.R2_BUCKET) {
+    return {
+      endpoint: `https://${c.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      region: 'auto',
+      bucket: c.R2_BUCKET,
+      accessKeyId: c.R2_ACCESS_KEY_ID,
+      secretAccessKey: c.R2_SECRET_ACCESS_KEY,
+    }
+  }
+  return null
+}
+
 const DEV_WEBHOOK_SECRET = 'dev-webhook-secret'
 const MIN_WEBHOOK_SECRET_LENGTH = 32
 
@@ -117,11 +158,27 @@ export const ConfigSchema = z
     // Where kept audio goes: Cloudflare R2, a folder on the volume (dev and test), or nowhere, in
     // which case "Keep audio" isn't offered. Defaults to r2 when its keys are set, else local in
     // development and test and none in production.
-    AUDIO_STORE: z.enum(['none', 'local', 'r2']).optional(),
+    // `s3` is the same as `r2`: any S3-compatible bucket (the R2_* or S3_* variables below).
+    AUDIO_STORE: z
+      .enum(['none', 'local', 'r2', 's3'])
+      .optional()
+      .transform((v) => (v === 's3' ? ('r2' as const) : v)),
     R2_ACCOUNT_ID: z.string().optional(),
     R2_ACCESS_KEY_ID: z.string().optional(),
     R2_SECRET_ACCESS_KEY: z.string().optional(),
     R2_BUCKET: z.string().optional(),
+    // Any S3-compatible service (AWS S3, Backblaze B2, Wasabi, MinIO, Garage, R2): these win over
+    // the R2_* ones. Path-style URLs: <endpoint>/<bucket>/<key>.
+    S3_ENDPOINT: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+    S3_REGION: z.string().min(1).default('auto'),
+    S3_BUCKET: z.string().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    // Daily backups of DATA_DIR to the object store (docs/PLAN-backups-storage.md): on whenever a
+    // bucket is configured, after BACKUP_HOUR (UTC) each day, under BACKUP_PREFIX.
+    BACKUP: z.enum(['on', 'off']).default('on'),
+    BACKUP_HOUR: z.coerce.number().int().min(0).max(23).default(3),
+    BACKUP_PREFIX: z.string().default('backups/'),
     // Web push for meeting reminders (PRD §6.1); reminders are off without both keys.
     // Generate a pair with `npx web-push generate-vapid-keys`.
     VAPID_PUBLIC_KEY: z.string().optional(),
@@ -183,13 +240,10 @@ export const ConfigSchema = z
       LLM_PROVIDER:
         c.LLM_PROVIDER ?? (production ? (c.ANTHROPIC_API_KEY ? 'anthropic' : 'none') : 'fake'),
       LINK_FETCH: c.LINK_FETCH ?? (production ? ('live' as const) : ('fake' as const)),
-      // Without R2, video and kept audio go on the data volume (DATA_DIR), which every
+      OBJECT_STORE: objectStore(c),
+      // Without a bucket, video and kept audio go on the data volume (DATA_DIR), which every
       // supported host persists; AUDIO_STORE=none turns Clips and kept audio off.
-      AUDIO_STORE:
-        c.AUDIO_STORE ??
-        (c.R2_ACCOUNT_ID && c.R2_ACCESS_KEY_ID && c.R2_SECRET_ACCESS_KEY && c.R2_BUCKET
-          ? ('r2' as const)
-          : ('local' as const)),
+      AUDIO_STORE: c.AUDIO_STORE ?? (objectStore(c) ? ('r2' as const) : ('local' as const)),
     }
   })
   .superRefine((c, ctx) => {
@@ -235,15 +289,12 @@ export const ConfigSchema = z
         message: 'DEEPGRAM_API_KEY is required when ASR_PROVIDER=deepgram',
       })
     }
-    if (
-      c.AUDIO_STORE === 'r2' &&
-      !(c.R2_ACCOUNT_ID && c.R2_ACCESS_KEY_ID && c.R2_SECRET_ACCESS_KEY && c.R2_BUCKET)
-    ) {
+    if (c.AUDIO_STORE === 'r2' && !c.OBJECT_STORE) {
       ctx.addIssue({
         code: 'custom',
         path: ['AUDIO_STORE'],
         message:
-          'R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET are required when AUDIO_STORE=r2',
+          'a bucket is required when AUDIO_STORE=r2: S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET',
       })
     }
     // A Cloudflare Container's disk is wiped on every restart: repositories and video can't live

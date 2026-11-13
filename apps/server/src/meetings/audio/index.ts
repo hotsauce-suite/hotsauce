@@ -16,12 +16,8 @@ export function createAudioStore(config: Config): AudioStore | null {
     case 'local':
       return new LocalAudioStore(config.DATA_DIR)
     case 'r2':
-      return new R2AudioStore({
-        // superRefine in config.ts guarantees these with AUDIO_STORE=r2.
-        accountId: config.R2_ACCOUNT_ID ?? '',
-        accessKeyId: config.R2_ACCESS_KEY_ID ?? '',
-        secretAccessKey: config.R2_SECRET_ACCESS_KEY ?? '',
-        bucket: config.R2_BUCKET ?? '',
-      })
+      // superRefine in config.ts guarantees a bucket with AUDIO_STORE=r2.
+      if (!config.OBJECT_STORE) return null
+      return new R2AudioStore(config.OBJECT_STORE)
   }
 }

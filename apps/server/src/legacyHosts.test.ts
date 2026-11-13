@@ -39,6 +39,17 @@ describe('legacyHostRedirect', () => {
     }
   })
 
+  it('answers an old copy’s service worker check with one that retires it and reloads at the new address', async () => {
+    const res = await at('old.example', '/sw.js')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('javascript')
+    const js = await res.text()
+    expect(js).toContain('registration.unregister()')
+    expect(js).toContain('"https://hotsauce.acme.example" + url.pathname')
+    // On the current address the real service worker is served.
+    expect(await (await at('hotsauce.acme.example', '/sw.js')).text()).toBe('served')
+  })
+
   it('serves everything that is not a GET or HEAD', async () => {
     expect((await at('old.example', '/f/abc', 'POST')).status).toBe(200)
   })

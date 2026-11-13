@@ -3,6 +3,8 @@
  * the key works, without spending money. Never logs or returns the key.
  */
 
+import { r2Endpoint, S3Client, S3Error } from '../storage/s3.js'
+
 export interface KeyTestResult {
   ok: boolean
   /** One line for the admin: what worked, or what to fix. */
@@ -89,4 +91,98 @@ function rejected(name: string, status: number): string {
     return `${name} rejected the key (${status}): check you copied all of it`
   if (status === 429) return `${name} is rate limiting this server; try again in a minute`
   return `${name} answered ${status}; try again`
+}
+
+/** Forgejo: the token can see the organization (GET /api/v1/orgs/:org). */
+export async function testForgejo(
+  url: string,
+  org: string,
+  token: string,
+  fetchImpl: Fetch = fetch,
+): Promise<KeyTestResult> {
+  if (!url.trim()) return { ok: false, message: 'Enter the Forgejo address first' }
+  if (!org.trim()) return { ok: false, message: 'Enter the Forgejo organization first' }
+  if (!token) return { ok: false, message: 'Paste a token first' }
+  const base = url.trim().replace(/\/+$/, '')
+  try {
+    const res = await fetchImpl(`${base}/api/v1/orgs/${encodeURIComponent(org.trim())}`, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/json' },
+      // A redirect must not carry the token somewhere else.
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (res.status === 404) {
+      return { ok: false, message: `Forgejo can’t find the organization ${org} with this token` }
+    }
+    if (!res.ok) return { ok: false, message: rejected('Forgejo', res.status) }
+    return { ok: true, message: `The token can reach ${org}` }
+  } catch (err) {
+    return { ok: false, message: unreachable(err, 'the Forgejo server') }
+  }
+}
+
+/**
+ * A storage bucket: writes, reads back and deletes one small object, so a key that can list but
+ * not write (or the wrong bucket or region) fails here instead of on the first upload.
+ */
+export async function testStorage(
+  opts: {
+    endpoint: string
+    region: string
+    accountId: string
+    accessKeyId: string
+    bucket: string
+    secretAccessKey: string
+  },
+  fetchImpl: Fetch = fetch,
+): Promise<KeyTestResult> {
+  const endpoint =
+    opts.endpoint.trim() || (opts.accountId.trim() ? r2Endpoint(opts.accountId.trim()) : '')
+  if (!endpoint) return { ok: false, message: 'Enter the account ID (R2) or endpoint first' }
+  if (!opts.accessKeyId.trim() || !opts.bucket.trim()) {
+    return { ok: false, message: 'Enter the access key ID and bucket first' }
+  }
+  if (!opts.secretAccessKey) return { ok: false, message: 'Paste the secret access key first' }
+  const s3 = new S3Client({
+    endpoint,
+    region: opts.region.trim() || 'auto',
+    bucket: opts.bucket.trim(),
+    accessKeyId: opts.accessKeyId.trim(),
+    secretAccessKey: opts.secretAccessKey,
+    fetch: ((input: RequestInfo | URL, init?: RequestInit) =>
+      fetchImpl(input, {
+        ...init,
+        redirect: 'manual',
+        signal: AbortSignal.timeout(10_000),
+      })) as Fetch,
+  })
+  const key = `.hotsauce-test/${Date.now().toString(36)}`
+  const body = new TextEncoder().encode('ok')
+  try {
+    await s3.put(key, body, body.length, 'text/plain')
+    const back = await s3.get(key)
+    if (!back)
+      return { ok: false, message: 'The bucket took a test file but couldn’t read it back' }
+    await back.body.cancel()
+    await s3.delete(key)
+    return { ok: true, message: `Wrote, read and deleted a test file in ${opts.bucket.trim()}` }
+  } catch (err) {
+    if (err instanceof S3Error) {
+      if (err.status === 404) return { ok: false, message: `No bucket ${opts.bucket} there` }
+      if (err.status === 301 || err.status === 400) {
+        return {
+          ok: false,
+          message: `The bucket answered ${err.status}: check the region and endpoint`,
+        }
+      }
+      return { ok: false, message: rejected('The bucket', err.status) }
+    }
+    return { ok: false, message: unreachable(err, 'the storage service') }
+  }
+}
+
+function unreachable(err: unknown, what: string): string {
+  return (err as Error).name === 'TimeoutError'
+    ? `${what} didn’t answer within 10 seconds; try again`
+    : `Couldn’t reach ${what} from this server; check the address`
 }

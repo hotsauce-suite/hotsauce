@@ -96,7 +96,7 @@ export class ChatRooms {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          text: `Hearth Forms is connected. New form answers will be posted here.`,
+          text: `Forms is connected. New form answers will be posted here.`,
         }),
         signal: AbortSignal.timeout(10_000),
         redirect: 'manual',

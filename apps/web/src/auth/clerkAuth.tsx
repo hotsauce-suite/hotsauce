@@ -9,9 +9,9 @@
 import { AuthenticateWithRedirectCallback, ClerkFailed, ClerkProvider, useAuth } from '@clerk/react'
 import { isClerkAPIResponseError } from '@clerk/react/errors'
 import { useSignIn, useSignUp } from '@clerk/react/legacy'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useRouteLoaderData } from 'react-router'
-import { setAuthHeaders } from '../api/client'
+import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import type { Health } from '../api/types'
 import { AuthContext, type AuthState } from './AuthContext'
 
@@ -50,6 +50,18 @@ function ClerkBridge({ children }: { children: ReactNode }) {
     const token = await getToken()
     return token ? { Authorization: `Bearer ${token}` } : {}
   })
+  // Clerk says signed in but the server refuses the session (it expired, or it belongs to another
+  // address of this site): sign out, which lands on the sign-in page, instead of showing errors.
+  useEffect(() => {
+    if (!isSignedIn) return
+    let done = false
+    setUnauthorizedHandler(() => {
+      if (done) return
+      done = true
+      void signOut()
+    })
+    return () => setUnauthorizedHandler(null)
+  }, [isSignedIn, signOut])
   const value = useMemo<AuthState>(
     () => ({
       mode: 'clerk',

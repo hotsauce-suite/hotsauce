@@ -848,6 +848,14 @@ export class GitStore {
     }
   }
 
+  /**
+   * Runs `fn` while no write can touch `space`'s clone (or push to its remote): a backup copies the
+   * repository in a consistent state this way.
+   */
+  withSpaceLocked<T>(space: string, fn: () => Promise<T>): Promise<T> {
+    return this.locks.run(space, fn)
+  }
+
   /** Waits for every queued write on every clone to finish (shutdown). */
   async drain(): Promise<void> {
     await Promise.all(

@@ -321,7 +321,7 @@ describe('a running instance', () => {
       json: { r2AccountId: 'acct', r2AccessKeyId: 'id', r2Bucket: 'videos' },
     })
     expect(res.status).toBe(400)
-    expect(JSON.stringify(await res.json())).toContain('All four Cloudflare R2 values')
+    expect(JSON.stringify(await res.json())).toContain('All the storage bucket values')
     const state = await (await call('GET', '/api/admin/org/state', { headers: admin })).json()
     expect(state.settings.r2Bucket).toBe('')
   })
