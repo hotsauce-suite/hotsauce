@@ -106,7 +106,7 @@ enum ProductMark {
         NSGraphicsContext.restoreGraphicsState()
         NSGradient(colorsAndLocations: (NSColor(srgbHex: 0xF6C48A), 0), (NSColor(srgbHex: 0xFFF4E2), 0.6))!
             .draw(in: tile, relativeCenterPosition: NSPoint(x: 0, y: -0.84))
-        // The bottle's ink is 61 of its 64 units tall: drawn at 80% of the tile it stands about
+        // The bottle spans 58 of its 64 units (about 60 with its outline): drawn at 80% of the tile it stands about
         // three quarters of the tile's height, centred.
         let side = tileRect.width * 0.8
         let m = shapes(in: NSRect(x: tileRect.midX - side / 2, y: tileRect.midY - side / 2, width: side, height: side))
