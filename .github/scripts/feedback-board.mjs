@@ -184,21 +184,22 @@ async function findProject(github, owner) {
   return { id: node.id, url: node.url, field: node.field?.id ? node.field : null }
 }
 
-async function createProject(github, owner, repo) {
+async function createProject(github, owner, _repo) {
+  // No repositoryId: linking the board to a repository needs more than the token's
+  // Issues + Projects permissions, and GitHub refuses the whole mutation without it.
   const ids = await github.graphql(
-    `query($owner: String!, $repo: String!) {
+    `query($owner: String!) {
       organization(login: $owner) { id }
-      repository(owner: $owner, name: $repo) { id }
     }`,
-    { owner, repo },
+    { owner },
   )
   const created = await github.graphql(
-    `mutation($ownerId: ID!, $repositoryId: ID!, $title: String!) {
-      createProjectV2(input: { ownerId: $ownerId, repositoryId: $repositoryId, title: $title }) {
+    `mutation($ownerId: ID!, $title: String!) {
+      createProjectV2(input: { ownerId: $ownerId, title: $title }) {
         projectV2 { id url }
       }
     }`,
-    { ownerId: ids.organization.id, repositoryId: ids.repository.id, title: PROJECT_TITLE },
+    { ownerId: ids.organization.id, title: PROJECT_TITLE },
   )
   const project = created.createProjectV2.projectV2
   return { id: project.id, url: project.url, field: await createField(github, project.id) }
