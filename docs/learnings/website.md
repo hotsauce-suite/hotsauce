@@ -13,3 +13,12 @@
 - **The help center is plain static pages with one list in `help/help.js`.** The sidebar and next/previous links are drawn from that list, so a new page is one file plus one line, and `site/help.test.js` fails if a page, its card on the help home page and its "coming soon" note disagree. Links are written without `.html` (`/help/docs`): Workers assets serve `docs.html` for them and redirect the `.html` form.
 - **Write help for an unreleased feature behind `soon: true`.** It shows a "Coming in the next release" note and badge, so the help can be ready the day a feature ships without describing something the live product can't do yet. Take the flag off in the PR that releases the feature.
 - **Settings for OpenAI and Turnstile are server environment only.** The Settings page covers the Anthropic and Deepgram keys; don't tell people to add the others there.
+
+## Help pages drift when a feature ships in pieces (2026-11-13)
+
+- The shortcuts page was written ahead with everything under "Coming in the next release". Slice 1
+  of the keyboard work (the `?` sheet, ⌘J, the single-key switch) shipped in 0.8.1 and 0.9.0, but
+  the page still called them "coming", because the `soon` flag is per page and the page wasn't
+  flagged. A partly shipped feature needs its help page checked against the code
+  (`apps/web/src/keyboard/catalog.ts` is the one list of keys) at each release, not only when the
+  last slice lands.
