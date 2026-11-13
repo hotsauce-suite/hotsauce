@@ -4,9 +4,10 @@ import type { UpdateState, UpdateStore } from './store.js'
 import { isNewer } from './version.js'
 
 const CHECK_EVERY_MS = 6 * 60 * 60_000
-/** An update that hasn't finished in this long failed somewhere nobody saw. */
-const STALE_PENDING_MS = 30 * 60_000
-/** The helper is done by then: four start waits of a minute each, then five minutes of health. */
+/**
+ * The helper is done by then: four start waits of a minute each, then five minutes of health.
+ * Still on the old version after this means it rolled back or never got that far.
+ */
 const HELPER_WINDOW_MS = 12 * 60_000
 
 export type UpdateMode = 'fly' | 'fly-needs-token' | 'manual'
@@ -77,7 +78,8 @@ export class Updater {
       mode: this.mode(),
       auto: state.auto ?? true,
       updating: state.pending,
-      failed: state.failed,
+      // A failure is old news once this server runs that version or a later one.
+      failed: state.failed && isNewer(state.failed.to, this.#o.current) ? state.failed : null,
       flyApp: this.#o.flyEnv.app ?? null,
     }
   }
@@ -105,24 +107,38 @@ export class Updater {
    */
   reconcile(): void {
     const state = this.#o.store.get()
+    if (state.failed && !isNewer(state.failed.to, this.#o.current)) {
+      this.#o.store.set({ failed: null })
+    }
     if (!state.pending) return
     const { pending } = state
     if (this.#o.current === pending.to) {
       // Not done yet: the helper may still roll back if the public address never answers.
       // tick() clears it once the helper's window has passed.
       this.#log(`started on ${pending.to}`)
+      this.#o.store.set({ pending: { ...pending, started: true } })
       return
     }
-    // Only the helper restarts this server during an update, so starting again on the old
-    // version means it put the old version back.
-    this.#markFailed(state, pending)
+    // The old version starting again after the new one ran means the helper put it back.
+    if (pending.started || this.#age(pending) > HELPER_WINDOW_MS) {
+      this.#markFailed(state, pending)
+      return
+    }
+    // Something else restarted this server (applying saved settings, say) before the helper
+    // swapped the image; tick() decides once the helper's window has passed.
+    this.#log(`restarted on ${this.#o.current} while updating to ${pending.to}; waiting for it`)
+  }
+
+  #age(pending: { at: string }): number {
+    const startedAt = Date.parse(pending.at)
+    return Number.isFinite(startedAt) ? this.#now.getTime() - startedAt : Infinity
   }
 
   #markFailed(state: UpdateState, pending: NonNullable<UpdateState['pending']>): void {
     this.#log(`update to ${pending.to} didn't take; still on ${this.#o.current}`)
     this.#o.store.set({
       pending: null,
-      failed: pending,
+      failed: { from: pending.from, to: pending.to, at: pending.at },
       skip: [...new Set([...state.skip, pending.to])],
     })
   }
@@ -193,14 +209,13 @@ export class Updater {
   async tick(): Promise<void> {
     const state = this.#o.store.get()
     if (state.pending) {
-      const startedAt = Date.parse(state.pending.at)
-      const age = Number.isFinite(startedAt) ? this.#now.getTime() - startedAt : Infinity
+      const age = this.#age(state.pending)
       if (this.#o.current === state.pending.to && age > HELPER_WINDOW_MS) {
         this.#log(`now on ${state.pending.to}`)
         this.#o.store.set({ pending: null, failed: null })
-      } else if (this.#o.current !== state.pending.to && age > STALE_PENDING_MS) {
-        // The helper replaces this machine when it works; still being here long after means it
-        // never got that far.
+      } else if (this.#o.current !== state.pending.to && age > HELPER_WINDOW_MS) {
+        // The helper replaces this machine when it works; still being here after its window
+        // means it rolled back or never got that far.
         this.#markFailed(state, state.pending)
       }
       return

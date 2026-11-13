@@ -80,6 +80,30 @@ describe('runHelper', () => {
     expect(fly.image('app1')).toBe(OLD)
   })
 
+  it('gives up on time even when each health check is slow to answer', async () => {
+    // Sleeps alone would allow 61 checks of up to 10 s each: 15 minutes, past the window after
+    // which the new version stops expecting a rollback.
+    const fly = new FakeFly()
+    fly.add('app1', OLD)
+    let clock = 0
+    let checks = 0
+    const slow = (async () => {
+      checks++
+      clock += 10_000
+      return new Response('down', { status: 502 })
+    }) as unknown as typeof fetch
+    const result = await runHelper({
+      ...base(fly, slow),
+      timeoutMs: 60_000,
+      now: () => clock,
+      sleep: async (ms: number) => {
+        clock += ms
+      },
+    })
+    expect(result).toMatchObject({ ok: false, rolledBack: true })
+    expect(checks).toBeLessThanOrEqual(5)
+  })
+
   it('rolls back when the new version starts but reports the wrong version', async () => {
     const fly = new FakeFly()
     fly.add('app1', OLD)
