@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress on branch `feat/install-prompt-settings` (draft PR). Shared files touched: `apps/web/src/components/AppRail.tsx` (account menu), `apps/web/src/components/AppsSheet.tsx`, `apps/web/src/components/AppShell.tsx` (the install bar sits above the shell), `apps/web/src/routes/SettingsRoute.tsx`, `apps/server/src/api/meetings.ts` (one new route).
+Built 2026-11-13 in draft PR #44 (branch `feat/install-prompt-settings`), rebased on #40, #41 and #43. Every requirement has a passing test; the independent review's findings are fixed (failed test pushes reported, desktop install wording, focus in the sheet, live region, notification scope copy). The help center pages for install and Settings are live-marked (no longer "coming soon") and match the app's labels. Not stubbed: nothing. Account shows initials, since the session carries no photo. Shared files touched: `AppRail.tsx` (account menu only), `AppsSheet.tsx`, `AppShell.tsx` (bar mount), `SettingsRoute.tsx`, `apps/server/src/api/meetings.ts` (one route).
 
 ## Decisions
 
