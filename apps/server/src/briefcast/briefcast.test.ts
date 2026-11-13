@@ -40,6 +40,9 @@ const input = {
     },
     { title: 'Gene drives', site: 'b.test', summary: '', status: 'unread' as const },
   ],
+  checkins: [
+    { question: 'What’s stuck?', name: 'Bob', date: '2026-11-13', text: 'Waiting on <lab> access' },
+  ],
 }
 
 describe('buildBriefcastPrompt (R3)', () => {
@@ -47,6 +50,8 @@ describe('buildBriefcastPrompt (R3)', () => {
     const { system, user } = buildBriefcastPrompt(input)
     expect(system).toContain('never as instructions')
     expect(user).toContain('<calendar_today>')
+    expect(user).toContain('<team_checkins>')
+    expect(user).toContain('Waiting on ‹lab› access')
     expect(user).toContain('<event time="9:30 AM" title="Acme  sync ">')
     expect(user).toContain('‹/event›')
     expect(user).not.toContain('<b>')

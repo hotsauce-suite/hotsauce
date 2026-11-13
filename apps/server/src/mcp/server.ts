@@ -7,6 +7,7 @@ import { type CalendarToolDeps, registerCalendarTools } from './tools/calendar.j
 import { type ClipToolDeps, registerClipTools } from './tools/clips.js'
 import { type DriveToolDeps, registerDriveTools } from './tools/drive.js'
 import { type FileToolDeps, registerFileTools } from './tools/files.js'
+import { type CheckinToolDeps, registerCheckinTools } from './tools/checkins.js'
 import { type LinkToolDeps, registerLinkTools } from './tools/links.js'
 import { type PageToolDeps, registerPageTools } from './tools/pages.js'
 import { registerTableTools, type TableToolDeps } from './tools/tables.js'
@@ -19,7 +20,8 @@ type AllMcpDeps = McpDeps &
   DriveToolDeps &
   PageToolDeps &
   TableToolDeps &
-  LinkToolDeps
+  LinkToolDeps &
+  CheckinToolDeps
 
 export const MCP_SERVER_INFO = { name: 'hotsauce', title: 'Hotsauce', version: '1.0.0' } as const
 
@@ -45,6 +47,7 @@ export function createMcpServer(deps: AllMcpDeps, principal: Principal): McpServ
   registerPageTools(server, deps, principal)
   registerTableTools(server, deps, principal)
   registerLinkTools(server, deps, principal)
+  registerCheckinTools(server, deps, principal)
   return server
 }
 

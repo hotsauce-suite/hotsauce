@@ -8,6 +8,7 @@ import { HearthError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
 import { extractDoc, type Index, kindOf } from '../index/index.js'
+import type { Checkins } from '../checkins/index.js'
 import type { Links, LinkView } from '../links/index.js'
 import type { AudioStore } from '../meetings/audio/types.js'
 import type { CalendarSource } from '../meetings/calendar/types.js'
@@ -21,6 +22,7 @@ import type { Syncer } from '../sync/index.js'
 import type { Tasks } from '../tasks/index.js'
 import {
   buildBriefcastPrompt,
+  type CastCheckin,
   type CastDoc,
   type CastEvent,
   type CastLink,
@@ -50,6 +52,9 @@ const TICK_MS = 15 * 60_000
 const PROMPT_VERSION = 2
 /** Saved links read out in one briefing, and last week's unread ones on Mondays. */
 const MAX_LINKS = 8
+/** Teammates' check-in answers read in one briefing, each cut to this many characters. */
+const MAX_CHECKINS = 12
+const CHECKIN_CHARS = 600
 const MAX_UNREAD_LINKS = 5
 const NIGHTLY_ATTEMPTS = 3
 const FORCED_PER_DAY = 10
@@ -70,7 +75,14 @@ export interface Episode extends EpisodeSummary {
   audioExpired: boolean
   model: string
   voice: string
-  counts: { events: number; meetings: number; tasks: number; docs: number; links: number }
+  counts: {
+    events: number
+    meetings: number
+    tasks: number
+    docs: number
+    links: number
+    checkins: number
+  }
 }
 
 export interface BriefcastOverview {
@@ -94,6 +106,8 @@ type Deps = {
   tasks: Pick<Tasks, 'list'>
   /** Saved links (§23); null leaves them out. */
   links: Pick<Links, 'list'> | null
+  /** Check-in answers (§24); null leaves them out. */
+  checkins?: Pick<Checkins, 'answersSince'> | null
   calendar: CalendarSource
   llm: LLM
   model: string
@@ -198,8 +212,9 @@ export class Briefcasts {
       tasks: material.tasks.length,
       docs: material.docs.length,
       links: material.links.length,
+      checkins: material.checkins.length,
     }
-    if (counts.events + counts.meetings + counts.tasks + counts.docs + counts.links === 0) {
+    if (Object.values(counts).every((n) => n === 0)) {
       return { status: 'empty', date: null }
     }
     const { system, user } = buildBriefcastPrompt({
@@ -271,6 +286,7 @@ export class Briefcasts {
     tasks: CastTask[]
     docs: CastDoc[]
     links: CastLink[]
+    checkins: CastCheckin[]
   }> {
     const since = new Date(now.getTime() - (weekday === 'Mon' ? 72 : 24) * 3_600_000)
     const spaces = await this.#d.spaces.visibleSpaces(principal)
@@ -369,7 +385,12 @@ export class Briefcasts {
 
     const docs = await this.#changedDocs(principal, spaces, since)
     const links = await this.#savedLinks(principal, since, weekday === 'Mon')
-    return { events, meetings, tasks, docs, links }
+    // Teammates' check-in answers since the last briefing; the listener's own add nothing.
+    const checkins = (this.#d.checkins?.answersSince(since, { limit: MAX_CHECKINS * 2 }) ?? [])
+      .filter((a) => a.email.toLowerCase() !== principal.email.toLowerCase())
+      .slice(0, MAX_CHECKINS)
+      .map((a) => ({ question: a.question, name: a.name, date: a.date, text: cut(a.text, CHECKIN_CHARS) }))
+    return { events, meetings, tasks, docs, links, checkins }
   }
 
   /** Links the member saved since `since`; on Mondays also last week's still unread. */
@@ -690,6 +711,7 @@ export class Briefcasts {
         tasks: num(data.tasks),
         docs: num(data.docs),
         links: num(data.links),
+        checkins: num(data.checkins),
       },
     }
   }

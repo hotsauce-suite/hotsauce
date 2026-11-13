@@ -13,7 +13,14 @@ import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import type { Tasks, TaskView } from '../tasks/index.js'
 import type { BriefMembers } from './members.js'
-import { type BriefMeeting, type BriefTask, buildBriefPrompt, cleanBrief } from './prompt.js'
+import type { Checkins } from '../checkins/index.js'
+import {
+  type BriefCheckin,
+  type BriefMeeting,
+  type BriefTask,
+  buildBriefPrompt,
+  cleanBrief,
+} from './prompt.js'
 
 /** Where a member's brief and their corrections live, in their personal space. */
 export const BRIEF_PATH = '.hearth/brief/brief.md'
@@ -29,6 +36,9 @@ const MATERIAL_CHARS = 180_000
 const MAX_OPEN_TASKS = 60
 const MAX_DONE_TASKS = 30
 const DONE_WINDOW_DAYS = 14
+/** Their own check-in answers in the window, each cut to this many characters. */
+const MAX_CHECKINS = 10
+const CHECKIN_CHARS = 1_500
 export const MAX_NOTES_CHARS = 20_000
 const TICK_MS = 15 * 60_000
 /** Bumped when the prompt changes, so every brief is rewritten the next night. */
@@ -64,6 +74,8 @@ type BriefDeps = {
   spaces: Pick<SpaceService, 'visibleSpaces' | 'ensurePersonalSpace'>
   syncer: Pick<Syncer, 'afterHeadChanged'>
   tasks: Pick<Tasks, 'list'>
+  /** Check-ins (§24): the member's own answers; absent leaves them out. */
+  checkins?: Pick<Checkins, 'answersSince'> | null
   llm: LLM
   model: string
   members: BriefMembers
@@ -215,7 +227,12 @@ export class AgentBriefs {
   ): Promise<RefreshStatus> {
     const now = this.#now()
     const material = await this.#material(principal, space, now)
-    if (material.meetings.length === 0 && material.tasks.length === 0) return 'empty'
+    if (
+      material.meetings.length === 0 &&
+      material.tasks.length === 0 &&
+      material.checkins.length === 0
+    )
+      return 'empty'
     const notes = (await this.#readText(space, BRIEF_NOTES_PATH))?.content ?? ''
     const previous = await this.#readBrief(space)
     const hash = createHash('sha256')
@@ -233,6 +250,7 @@ export class AgentBriefs {
       today,
       meetings: material.meetings,
       tasks: material.tasks,
+      checkins: material.checkins,
       notes,
       previous: previous?.body ?? null,
     })
@@ -263,7 +281,12 @@ export class AgentBriefs {
     principal: Principal,
     personal: string,
     now: Date,
-  ): Promise<{ meetings: BriefMeeting[]; tasks: BriefTask[]; fingerprint: string[] }> {
+  ): Promise<{
+    meetings: BriefMeeting[]
+    tasks: BriefTask[]
+    checkins: BriefCheckin[]
+    fingerprint: string[]
+  }> {
     const since = now.getTime() - BRIEF_WINDOW_DAYS * 86_400_000
     const spaces = (await this.#d.spaces.visibleSpaces(principal)).map((s) => s.name)
     const rows = spaces
@@ -329,7 +352,15 @@ export class AgentBriefs {
       .slice(0, MAX_DONE_TASKS)
     const tasks = [...open, ...recentDone].map(toBriefTask)
     for (const t of [...open, ...recentDone]) fingerprint.push(`${t.space}/${t.id}@${t.blobOid}`)
-    return { meetings, tasks, fingerprint }
+    // Their own check-in answers of the window: what they said they'd do and what was stuck.
+    const checkins = (
+      this.#d.checkins?.answersSince(new Date(now.getTime() - BRIEF_WINDOW_DAYS * 86_400_000), {
+        by: principal.email,
+        limit: MAX_CHECKINS,
+      }) ?? []
+    ).map((a) => ({ question: a.question, date: a.date, text: a.text.slice(0, CHECKIN_CHARS) }))
+    for (const a of checkins) fingerprint.push(`checkin ${a.date} ${a.question}:${a.text}`)
+    return { meetings, tasks, checkins, fingerprint }
   }
 
   /** Refuses a forced rewrite past the member's limits (each is a large model call). */

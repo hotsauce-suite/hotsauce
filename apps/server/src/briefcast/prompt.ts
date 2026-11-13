@@ -42,6 +42,14 @@ export interface CastLink {
   status: 'saved' | 'unread'
 }
 
+/** A teammate's answer to a check-in (§24): what they said they're doing or stuck on. */
+export interface CastCheckin {
+  question: string
+  name: string
+  date: string
+  text: string
+}
+
 export interface CastInput {
   member: { name: string; email: string }
   org: string
@@ -57,6 +65,8 @@ export interface CastInput {
   docs: CastDoc[]
   /** Saved links (§23): what the listener saved recently, and on Mondays what's still unread. */
   links: CastLink[]
+  /** Teammates' check-in answers since the last briefing (§24). */
+  checkins: CastCheckin[]
 }
 
 /** About five minutes spoken. */
@@ -76,6 +86,7 @@ Running order:
 3. What's due: tasks overdue or due today, most important first. Mention what was finished only briefly.
 4. Anything that looks stuck: a task overdue for a while, an action item with no task, a question raised twice. Say "seems" when it's a guess.
 5. Saved to read: one sentence each on the pages the listener saved recently (status "saved"), then, if any, a short line on the ones from last week still unread (status "unread"). Name them by title or site; never read out a web address.
+6. Team check-ins: in a few sentences, what teammates said in their check-in answers, leading with anything stuck or waiting on the listener. Name people by first name.
 Leave out any section with nothing in it, without saying it's empty.
 
 Rules:
@@ -134,6 +145,12 @@ export function buildBriefcastPrompt(input: CastInput): { system: string; user: 
         `<link status="${l.status}" title="${attr(l.title)}" site="${attr(l.site)}">${text(l.summary)}</link>`,
     )
     .join('\n')
+  const checkins = input.checkins
+    .map(
+      (c) =>
+        `<checkin question="${attr(c.question)}" name="${attr(c.name)}" date="${attr(c.date)}">\n${text(c.text)}\n</checkin>`,
+    )
+    .join('\n')
   const user = [
     `Listener: ${input.member.name}${input.org ? `, at ${input.org}` : ''}`,
     `Today: ${input.dayLabel} (${input.today})`,
@@ -148,6 +165,8 @@ export function buildBriefcastPrompt(input: CastInput): { system: string; user: 
     `<changed_docs>\n${docs || '(none)'}\n</changed_docs>`,
     '',
     `<saved_links>\n${links || '(none)'}\n</saved_links>`,
+    '',
+    `<team_checkins>\n${checkins || '(none)'}\n</team_checkins>`,
   ].join('\n')
   return { system: SYSTEM, user }
 }

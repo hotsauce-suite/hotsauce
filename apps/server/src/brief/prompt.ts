@@ -56,6 +56,13 @@ export interface BriefTask {
   completed: string | null
 }
 
+/** One of the member's own check-in answers (§24). */
+export interface BriefCheckin {
+  question: string
+  date: string
+  text: string
+}
+
 export interface BriefInput {
   member: { name: string; email: string }
   org: string
@@ -63,6 +70,8 @@ export interface BriefInput {
   today: string
   meetings: BriefMeeting[]
   tasks: BriefTask[]
+  /** Their own answers to team check-ins, newest first (§24). */
+  checkins?: BriefCheckin[]
   /** The member's own corrections and notes, verbatim. */
   notes: string
   /** The previous brief's body, for continuity and "What changed". */
@@ -108,6 +117,9 @@ export function buildBriefPrompt(input: BriefInput): { system: string; user: str
       return `- ${text(t.title)} (${text(bits.join(', '))})`
     })
     .join('\n')
+  const checkins = (input.checkins ?? [])
+    .map((c) => `<checkin question="${attr(c.question)}" date="${attr(c.date)}">\n${text(c.text)}\n</checkin>`)
+    .join('\n')
   const user = [
     `Person: ${input.member.name} <${input.member.email}>${input.org ? `, at ${input.org}` : ''}`,
     `Today: ${input.today}`,
@@ -121,6 +133,8 @@ export function buildBriefPrompt(input: BriefInput): { system: string; user: str
     `<previous_brief>\n${text(input.previous?.trim() ?? '') || '(none: this is the first brief)'}\n</previous_brief>`,
     '',
     `<tasks>\n${tasks || '(none)'}\n</tasks>`,
+    '',
+    `<their_checkin_answers>\n${checkins || '(none)'}\n</their_checkin_answers>`,
     '',
     `<meetings count="${input.meetings.length}">\n${meetings || '(none)'}\n</meetings>`,
   ].join('\n')

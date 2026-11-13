@@ -1,4 +1,7 @@
 import { join } from 'node:path'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { writablePath } from '../../src/api/save.js'
 import { createApp } from '../../src/app.js'
@@ -96,12 +99,12 @@ const WEEKLY = {
   title: 'What will you get done this week?',
   days: ['mon'],
   time: '09:00',
-  room: null,
+  room: null as string | null,
   skip: [ADMIN],
   paused: false,
 }
 
-async function create(input: Partial<typeof WEEKLY> & { room?: string | null } = {}) {
+async function create(input: Partial<typeof WEEKLY> = {}) {
   return api('POST', `/api/checkins?tz=${NY}`, { as: ADMIN, json: { ...WEEKLY, ...input } })
 }
 
@@ -299,5 +302,62 @@ describe('the summary (R10)', () => {
     expect(posts).toEqual([])
     const view = await api('GET', `/api/checkins/${made.id}`)
     expect(view.rounds[0].summary).toMatchObject({ posted: false })
+  })
+})
+
+describe('readers (R11–R13)', () => {
+  async function answered() {
+    const made = await create()
+    now = new Date(MON_9AM)
+    await api('POST', `/api/checkins/${made.id}/answers`, { json: { text: 'Finish the lab SOP' } })
+    await api('POST', `/api/checkins/${made.id}/answers`, {
+      as: BOB,
+      json: { text: 'Blocked on the freezer quote' },
+    })
+    return made
+  }
+  const lastPrompt = () => llm.calls.at(-1)?.messages[0]?.content ?? ''
+
+  it('Briefcast reads teammates’ answers, not your own', async () => {
+    await answered()
+    await api('POST', '/api/briefcast/refresh', { json: { tz: NY } })
+    const prompt = lastPrompt()
+    expect(prompt).toContain('<team_checkins>')
+    expect(prompt).toContain('Blocked on the freezer quote')
+    expect(prompt).not.toContain('Finish the lab SOP')
+  })
+
+  it('the Agent brief reads your own answers', async () => {
+    await answered()
+    await api('POST', '/api/brief/refresh', { json: { tz: NY } })
+    const prompt = lastPrompt()
+    expect(prompt).toContain('<their_checkin_answers>')
+    expect(prompt).toContain('Finish the lab SOP')
+    expect(prompt).not.toContain('Blocked on the freezer quote')
+  })
+
+  it('MCP lists check-ins and reads a round', async () => {
+    const made = await answered()
+    const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {
+      requestInit: { headers: { 'x-hearth-dev-user': ALICE } },
+      fetch: async (input, init) => app.request(new Request(input, init)),
+    })
+    const client = new Client({ name: 'test', version: '1.0.0' })
+    await client.connect(transport)
+    const call = async (name: string, args: Record<string, unknown> = {}) => {
+      const result = (await client.callTool({ name, arguments: args })) as CallToolResult
+      const first = result.content[0]
+      return JSON.parse(first?.type === 'text' ? first.text : 'null')
+    }
+    expect(await call('list_checkins')).toMatchObject([
+      { id: made.id, title: WEEKLY.title, appUrl: `https://hearth.example.test/checkins/${made.id}` },
+    ])
+    const round = await call('get_checkin', { id: made.id, date: '2026-11-16' })
+    expect(round.rounds).toHaveLength(1)
+    expect(round.rounds[0].answers.map((a: { text: string }) => a.text).sort()).toEqual([
+      'Blocked on the freezer quote',
+      'Finish the lab SOP',
+    ])
+    await client.close()
   })
 })
