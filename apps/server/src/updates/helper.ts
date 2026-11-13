@@ -13,6 +13,8 @@ export interface HelperInput {
   pollMs?: number
   fetchFn?: typeof fetch
   sleep?: (ms: number) => Promise<void>
+  /** Milliseconds, for the health deadline; Date.now by default. */
+  now?: () => number
   log?: (line: string) => void
 }
 
@@ -63,6 +65,7 @@ export async function runHelper(input: HelperInput): Promise<HelperResult> {
   const log = input.log ?? ((line: string) => console.log(line))
   const timeoutMs = input.timeoutMs ?? 5 * 60_000
   const pollMs = input.pollMs ?? 5_000
+  const now = input.now ?? Date.now
   const machines = (await input.fly.list()).filter(isApp)
   if (machines.length === 0) return { ok: false, rolledBack: false, reason: 'no app machines' }
 
@@ -78,7 +81,10 @@ export async function runHelper(input: HelperInput): Promise<HelperResult> {
       const updated = await input.fly.update(m.id, { ...full.config, image: input.target })
       await waitStarted(input.fly, m.id, updated.instance_id)
     }
-    for (let waited = 0; waited <= timeoutMs; waited += pollMs) {
+    // A deadline in real time as well as counted sleeps: each health call can take 10 s on its
+    // own, and the server clears its pending update once the helper's window has passed.
+    const deadline = now() + timeoutMs
+    for (let waited = 0; waited <= timeoutMs && now() <= deadline; waited += pollMs) {
       if (await healthy(input.publicUrl, input.targetVersion, fetchFn)) {
         log(`healthy on ${input.targetVersion}`)
         return { ok: true, version: input.targetVersion }
