@@ -8,8 +8,8 @@ brief and MCP read the answers.
 
 ## Status
 
-- 2026-11-13: plan written, building. Decisions put to Morgan with recommendations, built on the
-  recommendations until he says otherwise: every member is asked (admin can leave people out);
+- 2026-11-13: plan written and built. Morgan said yes to all five recommendations:
+  every member is asked (admin can leave people out);
   each person's own time zone; the summary posts when everyone has answered or at 5 PM, whichever
   comes first, naming who hasn't answered; Claude writes the summary (plain list without AI);
   every member can read every answer.
