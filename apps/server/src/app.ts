@@ -12,6 +12,7 @@ import {
   briefcastRoutes,
   briefRoutes,
   calendarRoutes,
+  checkinRoutes,
   clipRoutes,
   conflictRoutes,
   desktopRoutes,
@@ -87,6 +88,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', formFillRoutes(deps))
     .route('/api', tableRoutes(deps))
     .route('/api', linkRoutes(deps))
+    .route('/api', checkinRoutes(deps))
   // e2e hooks (ARCHITECTURE §7.8); never mounted outside NODE_ENV=test.
   if (deps.config.NODE_ENV === 'test') app.route('/api', testRoutes(deps))
   // The MCP endpoint for agents (ARCHITECTURE §8.2): same authentication and body limit as /api.

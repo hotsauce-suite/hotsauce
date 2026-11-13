@@ -1,6 +1,7 @@
 import { parseQuickAdd } from '@hearth/format'
 import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { checkinsApi, type DueCheckin } from '../../api/checkins'
 import { HearthApiError } from '../../api/client'
 import { dictationApi } from '../../api/dictation'
 import { memberTimeZone, type TaskView, tasksApi } from '../../api/tasks'
@@ -99,6 +100,7 @@ export default function TodayPage() {
           ) : (
             <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
               <div className="flex min-w-0 flex-col gap-5">
+                <CheckinsCard />
                 <MeetingsCard meetings={view.meetings} now={now} />
                 <TasksCard
                   tasks={view.tasks}
@@ -126,6 +128,49 @@ export default function TodayPage() {
         </div>
       </div>
     </>
+  )
+}
+
+/** Check-ins asked of the member that they haven't answered yet (ARCHITECTURE §24.6). */
+function CheckinsCard() {
+  const [due, setDue] = useState<DueCheckin[]>([])
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      checkinsApi.due().then(
+        (r) => {
+          if (!cancelled) setDue(r.due)
+        },
+        // Today still works without it.
+        () => undefined,
+      )
+    void load()
+    const off = hearthSocket.onChanged(() => void load())
+    const every = setInterval(() => void load(), REFRESH_EVERY_MS)
+    return () => {
+      cancelled = true
+      off()
+      clearInterval(every)
+    }
+  }, [])
+  if (due.length === 0) return null
+  return (
+    <Card title="Check-in" icon="checklist" testId="today-checkins">
+      <ul className="flex flex-col gap-2">
+        {due.map((c) => (
+          <li key={`${c.id}-${c.date}`}>
+            <Link
+              to={`/checkins/${c.id}`}
+              className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-paper-sunk"
+              data-testid="today-checkin"
+            >
+              <span className="min-w-0 flex-1 text-sm font-medium text-ink">{c.title}</span>
+              <span className="shrink-0 text-sm text-ember-strong">Answer</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }
 

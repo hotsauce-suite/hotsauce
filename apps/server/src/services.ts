@@ -17,6 +17,7 @@ import {
   type Speaker,
   UnconfiguredSpeaker,
 } from './briefcast/index.js'
+import { CheckinMembers, CheckinScheduler, Checkins } from './checkins/index.js'
 import {
   ClipStore,
   Clips,
@@ -142,6 +143,8 @@ export interface ServiceOverrides {
   speaker?: Speaker
   /** Briefcast's clock, so tests can step through mornings. */
   briefcastNow?: () => Date
+  /** The clock Check-ins and its scheduler read; tests pin it. */
+  checkinsNow?: () => Date
   /** Stands in for Web Push; reminders run with it even without VAPID keys. */
   pushSender?: PushSender
   dictationTranscriber?: DictationTranscriber
@@ -277,6 +280,31 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
         })
       : null,
   }
+  const chatRooms = new ChatRooms({
+    dataDir: config.DATA_DIR,
+    ...(overrides.chatFetch
+      ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
+      : {}),
+  })
+  // Check-ins (§24): scheduled team questions in the team space; summaries go to a chat room.
+  const checkins = new Checkins({
+    git,
+    index,
+    syncer,
+    rooms: chatRooms,
+    members: new CheckinMembers(config.DATA_DIR),
+    llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+    model: config.ENHANCE_MODEL,
+    publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
+    ...(overrides.checkinsNow ? { now: overrides.checkinsNow } : {}),
+  })
+  const checkinScheduler = new CheckinScheduler({
+    checkins,
+    push: meetings.pushSender
+      ? { store: meetings.reminderStore, sender: meetings.pushSender }
+      : null,
+    ...(overrides.checkinsNow ? { now: overrides.checkinsNow } : {}),
+  })
   // Agent briefs (ARCHITECTURE §13): written nightly from each member's meetings and tasks.
   const briefs = new AgentBriefs({
     git,
@@ -284,6 +312,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     spaces,
     syncer,
     tasks: taskService,
+    checkins,
     llm,
     model: config.BRIEF_MODEL,
     members: new BriefMembers(config.DATA_DIR),
@@ -324,6 +353,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     syncer,
     tasks: taskService,
     links,
+    checkins,
     calendar: meetings.calendar,
     llm,
     model: config.BRIEFCAST_MODEL,
@@ -350,12 +380,6 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     store: meetings.audioStore,
     dataDir: config.DATA_DIR,
     ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
-  })
-  const chatRooms = new ChatRooms({
-    dataDir: config.DATA_DIR,
-    ...(overrides.chatFetch
-      ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
-      : {}),
   })
   const forms = new Forms({
     git,
@@ -449,6 +473,8 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     // Tables: a CSV block in Git, formulas by IronCalc (§22).
     tables: new Tables({ git, index, spaces, syncer, forms }),
     links,
+    checkins,
+    checkinScheduler,
     org,
     brand,
     backups: createBackups(config, overrides.backupStore, (space, fn) =>

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { boardsRoutes } from './apps/boards/routes'
 import { briefcastRoutes } from './apps/briefcast/routes'
+import { checkinsRoutes } from './apps/checkins/routes'
 import { clipsRoutes } from './apps/clips/routes'
 import { dictateRoutes } from './apps/dictate/routes'
 import { filesRoutes } from './apps/files/routes'
@@ -114,6 +115,7 @@ export const createAppRouter = () =>
             { path: '/today', children: todayRoutes },
             { path: '/files', children: filesRoutes },
             { path: '/forms', children: formsRoutes },
+            { path: '/checkins', children: checkinsRoutes },
             { path: '/tables', children: tablesRoutes },
             { path: '/links', children: linksRoutes },
             { path: '/briefcast', children: briefcastRoutes },

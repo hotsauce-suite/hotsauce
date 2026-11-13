@@ -85,6 +85,7 @@ async function main(): Promise<void> {
   meetings.calendarSync?.start()
   services.briefs.start()
   services.briefcasts.start()
+  services.checkinScheduler.start()
   // An update this server started either took or was rolled back; then keep checking.
   services.updates.reconcile()
   services.updates.startTimer()
@@ -179,6 +180,7 @@ async function main(): Promise<void> {
     await services.tasks.reminders?.close()
     await services.briefs.close()
     await services.briefcasts.close()
+    await services.checkinScheduler.close()
     await services.backups?.close()
     await meetings.calendarSync?.close()
     // Requests that were mid-flight when shutdown began may queue a write after the first

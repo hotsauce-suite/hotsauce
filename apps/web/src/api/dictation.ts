@@ -27,6 +27,14 @@ export const dictationApi = {
   revoke: (id: string) =>
     request<void>(`/api/dictation/devices/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   words: () => request<DictationWords>('/api/dictation/words'),
+  /** Speech in, cleaned-up text out (the browser's recording; nothing is kept on the server). */
+  transcribe: (audio: Blob) =>
+    request<{ text: string }>('/api/dictation/transcribe', {
+      method: 'POST',
+      query: { mode: 'clean', app_name: 'Check-ins' },
+      body: audio,
+      contentType: (audio.type || 'audio/webm').split(';')[0] ?? 'audio/webm',
+    }),
   setWords: (scope: WordScope, words: string[]) =>
     request<{ scope: WordScope; words: string[] }>('/api/dictation/words', {
       method: 'PUT',

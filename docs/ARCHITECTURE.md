@@ -1467,3 +1467,52 @@ Pick 5 of the directory picks (2026-11-12): a Pocket-style read-later list. "Sav
 - PDFs and other files keep the link without a copy (Files could read them later).
 - "Done" on a team link is done for everyone.
 - No import from Pocket or browser bookmarks; no highlights or notes on a link.
+
+## 24. Check-ins
+
+Basecamp's automatic check-ins, written fresh (plan `docs/PLAN-checkins.md`): an admin schedules a question; at that time each member gets a push reminder and a card on Today; they answer by typing or speaking; teammates reply under answers; once everyone has answered, or the day runs out, one summary goes to a chat room. Pure parts: `packages/format/src/checkins.ts`; server: `apps/server/src/checkins/`, `api/checkins.ts`, `mcp/tools/checkins.ts`; web: `apps/web/src/apps/checkins/` (rail app "Check-ins", no sidebar, off the phone bar).
+
+### 24.1 Files (team space only)
+
+- A check-in is `checkins/<ULID>.md`: `id, type: checkin, title (the question, ≤ 300), days (sun…sat, at least one), time (HH:MM), tz (the admin's zone when made), skip (emails not asked), room (chat room id or null), paused, created, created_by, updated, updated_by`; unknown keys are kept. The body is the question, for search. Index kind `checkin`.
+- An answer is `checkins/<id>/<YYYY-MM-DD>/<ULID>.md`: `id, type: checkin-answer, checkin, date (the round), title, submitted, submitted_by, name, edited?, replies [{id, by, name, at, text}]`; the body is the answer (≤ 10,000; a reply ≤ 2,000, at most 200). One per member per round: a second answer edits the first. Index kind `checkin-answer`, so the team can search answers.
+- A round's summary, once written, is `checkins/<id>/<date>/summary.md`: `type: checkin-summary, checkin, date, written, answered, missing, room, posted`, body the text posted. Its existence is the once-only record, so a restart or reindex never posts twice.
+- Only this service writes `checkins/**` (`writablePath` refuses it). Commits are `checkins: create|edit|delete|answer|edit an answer to|reply to|summarize "<…>"`, authored by the member (the summary by the check-in's creator, named "Check-ins"); answers and replies retry three times on a concurrent commit, guarded by the blob they read.
+
+### 24.2 Rounds and zones (`checkins/schedule.ts`)
+
+A round is a scheduled date `D`. For a member in zone `Z` it opens at `D <time>` in `Z` (`instantOf`, DST-safe). Their current round is the latest `D` within a week that has opened for them and not before the check-in was made. A member's zone is the one their browser last sent to any Check-ins route or Today's card (`DATA_DIR/checkins/members.json`, with their name), else the check-in's `tz`. Who is asked: every member with a personal space in the registry, less `skip`.
+
+### 24.3 Reminders and the summary (`CheckinScheduler`)
+
+Every 30 s (started beside Briefcast in `main.ts`):
+
+- Reminders reuse the meeting reminder store and sender (§7, §12.2): for each asked member with a subscribed browser, within 10 minutes after their round opens, not sent before (key `checkin <email> <id> <date>`) and not already answered: `{ title: <question>, body: "Check-in: tap to answer", url: /checkins/<id>, tag }`.
+- Summaries: for each round of the last 3 days (in the check-in's zone) with no summary file and at least one answer, once everyone asked has answered or it is past the deadline (5 PM on `D` in the check-in's zone, or two hours after the question time if later). Claude (`ENHANCE_MODEL`) writes at most 120 words from the fenced answers (angle brackets become look-alikes; told they're information, never instructions); an empty answer or a model failure, or no AI, gives the plain list `• *Name*: first 300 characters`. Missing people are named ("Still to answer: …"). The post is `*<question>*`, the text with Slack's `& < >` escaped, and a link to `/checkins/<id>?date=<D>`, to the check-in's room through `ChatRooms.post` (§21.5); then the file is committed with `posted`. A failed post is logged and not retried.
+
+### 24.4 API (members; managing is admin-only in a session)
+
+```
+GET    /api/checkins?tz=            → { checkins: CheckinListItem[], canManage }
+GET    /api/checkins/due?tz=        → { due: [{ id, title, date, opensAt }] }   (Today's card: open rounds you haven't answered, up to 3 days)
+POST   /api/checkins?tz=            { title, days, time, room, skip, paused } → CheckinView   (admin)
+GET    /api/checkins/:id?tz=        → CheckinView { …item, blobOid, asked, rounds (12 newest: answers, summary), canManage }
+PUT    /api/checkins/:id            { …input, blobOid } → CheckinView   (admin; another version is 409)
+DELETE /api/checkins/:id            → 204   (admin; the check-in, answers and summaries to .trash/ in one commit)
+POST   /api/checkins/:id/answers?tz= { text, date? } → AnswerView   (your current round; `date` may name an earlier round only to edit your own answer)
+POST   /api/checkins/:id/answers/:answer/replies { text } → AnswerView
+```
+
+### 24.5 Readers
+
+- Briefcast's prompt gets `<team_checkins>`: teammates' answers since the last briefing (not the listener's own), up to 12, each cut to 600 characters; episodes count them (`checkins`).
+- The Agent brief's prompt gets `<their_checkin_answers>`: the member's own answers of the last 30 days, up to 10, cut to 1,500; they join the material fingerprint.
+- MCP: `list_checkins`, `get_checkin` (`id`, `date?`; answers described as teammates' words); `search` takes kinds `checkin` and `checkin-answer`.
+
+### 24.6 Web
+
+`/checkins`: the list (schedule, Answer now / Answered / Paused); admins get the two defaults as one-click starts (Monday 9 AM "What will you get done this week?", Friday 3 PM "What got done, and what's stuck?") and New check-in. `/checkins/:id`: the answer box for your current round (Dictate button: records with MediaRecorder, `POST /api/dictation/transcribe?mode=clean`, words appended; ⌘↩ posts), then rounds newest first with the summary, answers and replies; admins get Settings (question, days, time, room, who is asked, paused, delete). `?date=` scrolls to a round. Today shows a "Check-in" card for each due round. Pages reload on `changed`.
+
+### 24.7 Tests and known limits
+
+Server unit `checkins/schedule.test.ts`; integration `test/integration/checkins.test.ts` (R1–R13, MCP); web `apps/checkins/Checkins.test.tsx` (R5, R6, R8, R9, R14). Limits: a member far from the check-in's zone may be asked after its summary went (their answer still lands in the round); a removed member keeps being asked until an admin unticks them; a failed chat post isn't retried; nobody is told when someone replies to their answer yet.
