@@ -418,6 +418,9 @@ main .crumbs a {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.tip a {
+  color: var(--ink);
+}
 .needs p,
 .tip p {
   margin: 4px 0 0;
@@ -522,7 +525,7 @@ main .pager small {
 }
 @media (max-width: 860px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
   .side {

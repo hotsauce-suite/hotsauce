@@ -25,7 +25,7 @@ function fileFor(path) {
   if (path === '/help/' || path === '/help') return join(HELP, 'index.html')
   if (path === '/faq') return join(PUBLIC, 'faq.html')
   if (path === '/') return join(PUBLIC, 'index.html')
-  if (/\.(css|js)$/.test(path)) return join(PUBLIC, path)
+  if (/\.(css|js|md|txt|sh)$/.test(path)) return join(PUBLIC, path)
   const m = /^\/help\/([a-z0-9-]+)$/.exec(path)
   return m ? join(HELP, `${m[1]}.html`) : null
 }
@@ -79,7 +79,7 @@ describe('links in the help center and FAQ', () => {
     ['/faq', read(join(PUBLIC, 'faq.html'))],
   ]
   it.each(pages)('%s links only to help pages and sections that exist', (_path, html) => {
-    for (const [, href] of html.matchAll(/href="(\/(?:help|faq)[^"]*)"/g)) {
+    for (const [, href] of html.matchAll(/href="(\/(?:help|faq|install\.md)[^"]*)"/g)) {
       const [path, hash] = href.split('#')
       const file = fileFor(path)
       expect(file && existsSync(file), href).toBe(true)

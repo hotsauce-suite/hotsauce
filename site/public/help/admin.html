@@ -42,7 +42,7 @@
 <h2 id="what-each-key-turns-on">What each key turns on</h2>
 <div class="tbl"><table>
 <tr><th>Key</th><th>Turns on</th><th>Where to get it</th></tr>
-<tr><td>Anthropic</td><td>Meeting notes, Ask, the assistant, Dictate clean-up, summaries, the daily briefing</td><td><a href="https://console.anthropic.com/settings/keys">console.anthropic.com</a></td></tr>
+<tr><td>Anthropic</td><td>Meeting notes, Ask about meetings, Dictate clean-up, summaries, the daily briefing</td><td><a href="https://console.anthropic.com/settings/keys">console.anthropic.com</a></td></tr>
 <tr><td>Deepgram</td><td>Transcripts for meetings and clips, Dictate, voice notes, Ramble</td><td><a href="https://console.deepgram.com/">console.deepgram.com</a></td></tr>
 <tr><td>OpenAI*</td><td>Reading the daily briefing aloud</td><td><a href="https://platform.openai.com/api-keys">platform.openai.com</a></td></tr>
 <tr><td>Cloudflare Turnstile*</td><td>Public forms and booking links, kept free of bots</td><td><a href="https://dash.cloudflare.com/?to=/:account/turnstile">Cloudflare dashboard</a></td></tr>
@@ -56,10 +56,10 @@
 <p>Name the workspace, add a logo and icon, and pick colors, fonts and a default light or dark look. Every app follows, and agents can read the brand kit too. <b>How your organization writes</b> tells the AI how your team sounds.</p>
 
 <h2 id="chat-rooms-and-sharing">Chat rooms and sharing</h2>
-<ul><li><b>Team chat link</b> puts your chat on the left bar.</li><li><b>Chat rooms</b>: add a Slack-compatible webhook so Forms and Check-ins can post to it.</li><li><b>Link sharing</b>: let people outside the organization open shared links they’re sent. Off by default.</li></ul>
+<ul><li><b>Team chat link</b> puts your chat on the left bar.</li><li><b>Chat rooms</b>: add a Slack-compatible webhook so Forms and Check-ins can post to it.</li><li><b>Read-only links</b>: let anyone with a shared link read it without signing in. Off by default.</li></ul>
 
 <h2 id="updates">Updates</h2>
-<p>On Fly.io with a Fly token, Hotsauce can update itself: <b>Settings → Organization → Updates</b> installs each new release within a few hours, never while a meeting is being recorded. Turn it off to update only when you press <b>Update</b>. With Docker, run <code>docker compose pull</code> then <code>docker compose up -d</code>. Copies made from GitHub get a pull request for each release.</p>
+<p>On Fly.io with a Fly token, Hotsauce can update itself: <b>Settings → Organization → Updates</b> installs each new release within a few hours, never while a meeting is being recorded. Turn it off to update only when you press <b>Update</b>. With Docker, run <code>docker compose pull</code> then <code>docker compose up -d</code>. Copies made from GitHub get a weekly pull request with the newest release.</p>
 
 <h2 id="backups">Backups</h2>
 <p>With storage set up (Cloudflare R2 or any S3-compatible bucket), the server backs itself up every day to your own bucket. Recent backups are listed in Settings → Organization.</p>
