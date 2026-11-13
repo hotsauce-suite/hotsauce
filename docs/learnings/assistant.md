@@ -10,3 +10,4 @@
 - **`BetaMessageStreamParams` is imported from `@anthropic-ai/sdk/resources/beta/messages/messages`**, not from the `Anthropic.Beta.Messages` namespace.
 - **Register keys in `keyboard/catalog.ts`.** Since the shortcut list landed, a page binds with `useShortcut(id, run)`; a separate `keydown` listener would fight the one listener and miss the `?` sheet. Use `formatSpec('mod+j')` for labels so Windows shows Ctrl+J.
 - **The help center's search text (`data-k` in `site/public/help/index.html`) is hand-kept.** It's the page's main text, lowercased, tags stripped, capped at about 1,500 characters. Regenerate it when a page changes.
+- **`meetings.test.ts` "picks up an unsaved session after a restart" can fail under a full local `pnpm test`** (segments come back out of order). It doesn't touch the assistant, passes alone and in CI. Re-run it alone before chasing it.
