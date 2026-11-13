@@ -14,6 +14,7 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { useNow } from '../meetings/components/RecordingIndicator'
@@ -65,16 +66,6 @@ const EMPTY: Record<TaskViewSpec['id'], string> = {
   all: 'No open tasks anywhere.',
   done: 'Nothing done in the last 30 days yet.',
   project: 'No open tasks in this project.',
-}
-
-function isTyping(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
-  if (target instanceof HTMLInputElement) {
-    return !['checkbox', 'radio', 'button', 'submit'].includes(target.type)
-  }
-  return false
 }
 
 function useRouteKind(): TasksRouteKind {
@@ -306,57 +297,81 @@ export default function TasksPage() {
   const actions = useRef({ toggle, patch, openTask, setConfirmDelete, today })
   actions.current = { toggle, patch, openTask, setConfirmDelete, today }
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
-      if (isTyping(event.target)) return
-      // Enter and Space on a focused button or link do what that control does.
-      if (
-        (event.key === 'Enter' || event.key === ' ') &&
-        event.target instanceof Element &&
-        event.target.closest('button, a, [role="checkbox"]')
-      )
-        return
-      if (document.querySelector('[role="dialog"], [role="menu"]')) return
-      const { flat: rows, selectedKey: sel, detail: open } = keyState.current
+  // Bound through the one key listener (keyboard/shortcuts.ts), which skips typing, open
+  // dialogs and menus, and Enter or Space on a focused control.
+  const current = () => {
+    const { flat: rows, selectedKey: sel, detail: open } = keyState.current
+    const index = rows.findIndex((t) => taskKey(t) === sel)
+    const selected = rows[index] ?? (open && taskKey(open) === sel ? open : undefined)
+    return { rows, index, selected }
+  }
+  const select = (i: number) => {
+    const { rows } = current()
+    const t = rows[Math.max(0, Math.min(rows.length - 1, i))]
+    if (!t) return
+    setSelectedKey(taskKey(t))
+    document
+      .querySelector(`[data-testid="task-row"][data-key="${CSS.escape(taskKey(t))}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }
+  /** Runs `act` on the selected task; with none selected the key is left alone. */
+  const onSelected = (act: (task: TaskView, spec: string) => void) => (e: { spec: string }) => {
+    const { selected } = current()
+    if (!selected) return false
+    act(selected, e.spec)
+    return true
+  }
+  useShortcut('tasks.quickAdd', () => {
+    setQuickOpen(true)
+    return true
+  })
+  useShortcut('tasks.next', () => {
+    const { index } = current()
+    select(index === -1 ? 0 : index + 1)
+    return true
+  })
+  useShortcut('tasks.previous', () => {
+    const { index } = current()
+    select(index === -1 ? 0 : index - 1)
+    return true
+  })
+  useShortcut(
+    'tasks.complete',
+    onSelected((t) => actions.current.toggle(t)),
+  )
+  useShortcut(
+    'tasks.open',
+    onSelected((t) => actions.current.openTask(t)),
+  )
+  useShortcut(
+    'tasks.edit',
+    onSelected((t) => {
+      actions.current.openTask(t)
+      const k = taskKey(t)
+      setFocusTitle((f) => ({ key: k, n: (f?.n ?? 0) + 1 }))
+    }),
+  )
+  useShortcut(
+    'tasks.delete',
+    onSelected((t) => actions.current.setConfirmDelete(t)),
+  )
+  useShortcut(
+    'tasks.priority',
+    onSelected((t, spec) => {
+      const p = Number(spec) as Priority
+      if (p !== t.priority) actions.current.patch(t, { priority: p })
+    }),
+  )
+  const due = (days: number) =>
+    onSelected((t) => {
       const a = actions.current
-      const index = rows.findIndex((t) => taskKey(t) === sel)
-      const selected = rows[index] ?? (open && taskKey(open) === sel ? open : undefined)
-      const select = (i: number) => {
-        const t = rows[Math.max(0, Math.min(rows.length - 1, i))]
-        if (!t) return
-        setSelectedKey(taskKey(t))
-        document
-          .querySelector(`[data-testid="task-row"][data-key="${CSS.escape(taskKey(t))}"]`)
-          ?.scrollIntoView({ block: 'nearest' })
-      }
-      const key = event.key
-      let handled = true
-      if (key === 'q') setQuickOpen(true)
-      else if (key === 'j' || key === 'ArrowDown') select(index === -1 ? 0 : index + 1)
-      else if (key === 'k' || key === 'ArrowUp') select(index === -1 ? 0 : index - 1)
-      else if (!selected) handled = false
-      else if (key === 'x' || key === ' ') a.toggle(selected)
-      else if (key === 'Enter') a.openTask(selected)
-      else if (key === 'e') {
-        a.openTask(selected)
-        const k = taskKey(selected)
-        setFocusTitle((f) => ({ key: k, n: (f?.n ?? 0) + 1 }))
-      } else if (key === 'Delete' || key === 'Backspace') a.setConfirmDelete(selected)
-      else if (key >= '1' && key <= '4') {
-        const p = Number(key) as Priority
-        if (p !== selected.priority) a.patch(selected, { priority: p })
-      } else if (key === 't' || key === 'm') {
-        const date = key === 't' ? a.today : addDays(a.today, 1)
-        const time = selected.due && selected.due.length > 10 ? selected.due.slice(10) : ''
-        // A timed task keeps its own zone (a PATCH's tz is otherwise the member's).
-        a.patch(selected, { due: date + time, ...(time && selected.tz ? { tz: selected.tz } : {}) })
-      } else handled = false
-      if (handled) event.preventDefault()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+      const date = days === 0 ? a.today : addDays(a.today, days)
+      const time = t.due && t.due.length > 10 ? t.due.slice(10) : ''
+      // A timed task keeps its own zone (a PATCH's tz is otherwise the member's).
+      a.patch(t, { due: date + time, ...(time && t.tz ? { tz: t.tz } : {}) })
+    })
+  useShortcut('tasks.dueToday', due(0))
+  useShortcut('tasks.dueTomorrow', due(1))
 
   // --------------------------------------------------------------------------- render
   const title =

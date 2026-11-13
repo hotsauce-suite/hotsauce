@@ -10,10 +10,12 @@ import { useLive } from '../apps/meetings/live/liveState'
 import { useRecordingTitle } from '../apps/meetings/live/useRecordingTitle'
 import { MeetingsSidebar } from '../apps/meetings/MeetingsSidebar'
 import { NotesSidebar } from '../apps/notes/NotesSidebar'
-import { appForPath } from '../apps/registry'
+import { appForPath, ownerOfPath } from '../apps/registry'
 import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
+import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
 import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
 import { Icon } from './Icon'
@@ -25,6 +27,8 @@ export interface ShellContext {
   compact: boolean
   openDrawer: () => void
   openSearch: () => void
+  /** Opens the keyboard shortcuts sheet (`?`). */
+  openShortcuts: () => void
 }
 
 export function useShell(): ShellContext {
@@ -70,6 +74,7 @@ function ShellLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchLoaded, setSearchLoaded] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const activeSpace = params.space ?? null
   const activePath = decodePath(params['*'])
   const { setSpace } = session
@@ -102,26 +107,34 @@ function ShellLayout() {
     setDrawerOpen(false)
   }, [])
 
+  // The one key listener for the whole app (keyboard/shortcuts.ts); pages bind to it.
+  useKeyListener()
+
   // Cmd/Ctrl-K anywhere. The editor claims it first when text is selected (make a link),
-  // and marks the event handled; otherwise it lands here.
+  // and marks the event handled, so the listener leaves it alone.
+  useShortcut('global.commandK', () => {
+    setSearchLoaded(true)
+    setSearchOpen((open) => !open)
+    setShortcutsOpen(false)
+    return true
+  })
+  useShortcut('global.help', () => {
+    setShortcutsOpen(true)
+    return true
+  })
+
+  // Warm the palette's chunk while idle so the first Cmd-K opens instantly.
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.key.toLowerCase() !== 'k') return
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
-      event.preventDefault()
-      setSearchLoaded(true)
-      setSearchOpen((open) => !open)
-    }
-    window.addEventListener('keydown', onKey)
-    // Warm the palette's chunk while idle so the first Cmd-K opens instantly.
     const warm = setTimeout(() => void import('./CommandK'), 2500)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      clearTimeout(warm)
-    }
+    return () => clearTimeout(warm)
   }, [])
 
-  const context: ShellContext = { compact, openDrawer: () => setDrawerOpen(true), openSearch }
+  const context: ShellContext = {
+    compact,
+    openDrawer: () => setDrawerOpen(true),
+    openSearch,
+    openShortcuts: () => setShortcutsOpen(true),
+  }
 
   // One frame for every app, so switching apps swaps the body without replaying the warm-up.
   const sidebar = (
@@ -190,6 +203,13 @@ function ShellLayout() {
         <Suspense fallback={null}>
           <CommandK open={searchOpen} onOpenChange={setSearchOpen} />
         </Suspense>
+      ) : null}
+
+      {shortcutsOpen ? (
+        <ShortcutsSheet
+          app={ownerOfPath(location.pathname)?.id ?? null}
+          onClose={() => setShortcutsOpen(false)}
+        />
       ) : null}
 
       <div
