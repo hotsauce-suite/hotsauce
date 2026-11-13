@@ -39,9 +39,9 @@ Each requirement maps to a test, named in brackets.
 
 **Slice 2: go anywhere, create from the keyboard**
 
-- G1: `g` then a letter opens that app (h Today, d Docs, m Meetings, t Tasks, n Notes, v Dictate, c Clips, i Check-ins, b Boards, p People, f Files, o Forms, e Tables, l Links, r Briefcast, s Settings). A pause over 1.2 s cancels the `g`. [KeyboardProvider.test, AppShell test]
-- G2: `c` creates the app's main thing where it has one; `/` focuses the app's search or opens Command-K; ⌘\ hides and shows the sidebar. [AppShell test]
-- G3: The rail's tooltips show each app's `g` keys. [AppRail.test]
+- G1: `g` then a letter opens that app (h Today, d Docs, m Meetings, t Tasks, n Notes, v Dictate, c Clips, i Check-ins, b Boards, p People, f Files, o Forms, e Tables, l Links, r Briefcast, s Settings). A pause over 1.2 s cancels the `g`; typing in a field never triggers it. [appShortcuts.test]
+- G2: `c` creates the app's main thing where it has one (Docs: new doc, Tasks: quick add, Notes: new note, Meetings: start, Clips: record, Dictate: voice note, Boards: new board, Forms and Tables: the new-title box); `/` opens Command-K; ⌘\ hides and shows the sidebar (the drawer on a phone). A page's own binding wins over the app-wide default. [appShortcuts.test, shortcuts.test]
+- G3: The rail's tooltips show each app's `g` keys. [appShortcuts.test]
 
 **Slice 3: Command-K actions**
 

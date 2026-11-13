@@ -67,7 +67,7 @@ export const GO_KEYS = {
   links: 'l',
   briefcast: 'r',
   settings: 's',
-} as const satisfies Partial<Record<AppId | 'settings', string>>
+} as const satisfies Record<AppId | 'settings', string>
 
 export type GoTarget = keyof typeof GO_KEYS
 
