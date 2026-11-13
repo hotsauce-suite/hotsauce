@@ -1,21 +1,30 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useOutletContext } from 'react-router'
+import { Link, useLocation, useOutletContext, useRouteLoaderData } from 'react-router'
 import { calendarApi } from '../api/calendar'
 import { api, HearthApiError } from '../api/client'
 import { type AccessToken, claudeCodeCommand, claudeDesktopConfig, tokensApi } from '../api/tokens'
-import type { CalendarChoice } from '../api/types'
+import type { CalendarChoice, Health } from '../api/types'
 import {
   MeetingsPageHeader,
   primaryButton,
   secondaryButton,
 } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
+import { feedbackLink, initials, useFeedbackEnabled, useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
 import { Icon } from '../components/Icon'
+import { InstallButton, InstallSheet } from '../components/InstallBar'
 import { MacAppSection } from '../components/MacApp'
+import { NotificationsSection } from '../components/NotificationsSection'
 import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
+import { useInstallPrompt } from '../lib/install'
 import { chooseTheme, currentTheme, type ThemeChoice } from '../lib/theme'
+import { useSession } from '../state/session'
+
+/** The help center, and its frequently asked questions. */
+export const HELP_DOCS = 'https://hotsauce.work/help'
+export const HELP_FAQ = 'https://hotsauce.work/faq'
 
 const when = (iso: string | null) =>
   iso
@@ -27,9 +36,10 @@ const when = (iso: string | null) =>
     : 'Never'
 
 /**
- * `/settings`: the member's access tokens, for connecting Claude and scripts (ARCHITECTURE §8.1),
- * the Mac app's download, and which Google calendars Hearth
- * Meetings reads (§7.8).
+ * `/settings`, top to bottom (docs/PLAN-install-and-settings.md): the account, installing the
+ * app, notifications on this device, appearance, the Mac app and Chrome extension, access tokens
+ * for connecting Claude and scripts (ARCHITECTURE §8.1), which Google calendars Meetings reads
+ * (§7.8), help, and the version.
  */
 export default function SettingsRoute() {
   const [tokens, setTokens] = useState<AccessToken[] | null>(null)
@@ -109,9 +119,15 @@ export default function SettingsRoute() {
               <Icon name="chevron" className="size-4 text-ink-faint" />
             </Link>
           ) : null}
-          <AppearancePicker />
+          <AccountSection />
+          <InstallSection />
+          <NotificationsSection />
+          <div className="mt-12">
+            <AppearancePicker />
+          </div>
           <KeyboardSettings />
           <MacAppSection />
+          <ExtensionCard />
 
           <h2 className="mt-12 font-display text-[1.6rem] font-semibold tracking-tight">
             Connect Claude to {product()}
@@ -196,9 +212,199 @@ export default function SettingsRoute() {
           )}
 
           <CalendarPicker />
+          <HelpSection />
+          <AboutSection />
         </div>
       </div>
     </>
+  )
+}
+
+const sectionTitle = 'font-display text-[1.6rem] font-semibold tracking-tight'
+const card = 'mt-4 flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4'
+
+/** Who is signed in, and Sign out (which forgets this browser's reminders first). */
+function AccountSection() {
+  const session = useSession()
+  const signOut = useSignOut()
+  const principal = session.me?.principal
+  return (
+    <section aria-labelledby="account-title" data-testid="settings-account">
+      <h2 id="account-title" className={sectionTitle}>
+        Account
+      </h2>
+      <div className={card}>
+        <span
+          aria-hidden="true"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-ash-strong text-sm font-semibold text-paper-raised"
+        >
+          {initials(principal?.name, principal?.email)}
+        </span>
+        <span className="min-w-0 flex-1">
+          {principal?.name ? (
+            <span className="block truncate font-medium text-ink">{principal.name}</span>
+          ) : null}
+          <span data-testid="settings-email" className="block truncate text-sm text-ink-soft">
+            {principal?.email ?? ''}
+          </span>
+        </span>
+        <button
+          type="button"
+          data-testid="settings-sign-out"
+          onClick={signOut}
+          className={`${secondaryButton} h-9 shrink-0`}
+        >
+          Sign out
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/** Install the app: the browser's dialog, or how to add it to the Home Screen. */
+function InstallSection() {
+  const install = useInstallPrompt()
+  const [howTo, setHowTo] = useState(false)
+  return (
+    <section aria-labelledby="install-title" data-testid="settings-install" className="mt-12">
+      <h2 id="install-title" className={sectionTitle}>
+        Install app
+      </h2>
+      <div className={card}>
+        <Icon name={install.isMobile ? 'phone' : 'laptop'} className="size-5 shrink-0 text-ember" />
+        <span className="min-w-0 flex-1 text-sm text-ink-soft">
+          {install.isInstalled
+            ? `You’re using the installed ${product()} app.`
+            : `Put ${product()} on your ${install.isMobile ? 'Home Screen' : 'dock or taskbar'} so it opens in its own window, like any other app.`}
+        </span>
+        {install.isInstalled ? (
+          <span
+            data-testid="settings-installed"
+            className="flex shrink-0 items-center gap-1 text-sm font-medium text-moss"
+          >
+            <Icon name="check" className="size-4" />
+            Installed
+          </span>
+        ) : (
+          <InstallButton
+            install={install}
+            onHowTo={() => setHowTo(true)}
+            testId="settings-install-button"
+            className={`${primaryButton} h-9 shrink-0`}
+          />
+        )}
+      </div>
+      {howTo ? <InstallSheet isIOS={install.isIOS} onClose={() => setHowTo(false)} /> : null}
+    </section>
+  )
+}
+
+/** The Chrome extension, beside the Mac app: its own page says how to install it. */
+function ExtensionCard() {
+  return (
+    <Link
+      to="/meetings/extension"
+      data-testid="settings-extension"
+      className="mt-4 flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4 hover:border-ember"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium text-ink">Chrome extension</span>
+        <span className="block text-sm text-ink-soft">
+          Take notes on a Google Meet call in one click, and save any page to Links.
+        </span>
+      </span>
+      <Icon name="chevron" className="size-4 text-ink-faint" />
+    </Link>
+  )
+}
+
+function HelpSection() {
+  const feedbackOn = useFeedbackEnabled()
+  const { pathname } = useLocation()
+  return (
+    <section aria-labelledby="help-title" data-testid="settings-help" className="mt-12">
+      <h2 id="help-title" className={sectionTitle}>
+        Help
+      </h2>
+      <div className="mt-4 flex flex-wrap gap-3">
+        {feedbackOn ? (
+          <Link
+            to={feedbackLink(pathname)}
+            data-testid="settings-feedback"
+            className={secondaryButton}
+          >
+            <Icon name="chat" />
+            Send feedback
+          </Link>
+        ) : null}
+        <a
+          href={HELP_DOCS}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="settings-help-docs"
+          className={secondaryButton}
+        >
+          <Icon name="book" />
+          Help center
+          <Icon name="external" className="size-3 opacity-75" />
+        </a>
+        <a
+          href={HELP_FAQ}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="settings-help-faq"
+          className={secondaryButton}
+        >
+          FAQ
+          <Icon name="external" className="size-3 opacity-75" />
+        </a>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * The version this server runs. Updates apply on their own (vite.config.ts: autoUpdate with
+ * skipWaiting), so Reload just checks for a newer build and reloads the page.
+ */
+function AboutSection() {
+  const health = useRouteLoaderData('root') as Health | undefined
+  const [reloading, setReloading] = useState(false)
+  const reload = async () => {
+    setReloading(true)
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration()
+      await reg?.update()
+    } catch {
+      // Offline or no worker: reloading still picks up whatever is cached.
+    }
+    window.location.reload()
+  }
+  return (
+    <section aria-labelledby="about-title" data-testid="settings-about" className="mt-12">
+      <h2 id="about-title" className={sectionTitle}>
+        About
+      </h2>
+      <div className={card}>
+        <span className="min-w-0 flex-1 text-sm text-ink-soft">
+          {product()}{' '}
+          <span data-testid="settings-version" className="font-mono text-ink">
+            {health?.version ? `version ${health.version}` : ''}
+          </span>
+          <span className="block">New versions install themselves; reload to get one now.</span>
+        </span>
+        <button
+          type="button"
+          data-testid="settings-reload"
+          disabled={reloading}
+          onClick={() => void reload()}
+          className={`${secondaryButton} h-9 shrink-0`}
+        >
+          <Icon name="restart" />
+          Reload
+        </button>
+      </div>
+    </section>
   )
 }
 

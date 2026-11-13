@@ -21,7 +21,6 @@ import { ActionItems } from './ActionItems'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from './components/common'
 import { useNow } from './components/RecordingIndicator'
 import { attendeeName, dayKey, dayLabel, startOfDay, timeLabel } from './format'
-import { disableReminders, enableReminders, type ReminderState, reminderState } from './reminders'
 import { useMeetingList } from './useMeetingList'
 
 const CALENDAR_REFRESH_MS = 60_000
@@ -189,7 +188,7 @@ export default function MeetingsHome() {
               >
                 Coming up
               </h2>
-              <ReminderToggle />
+              <ReminderLink />
             </div>
             {failed ? (
               <p data-testid="calendar-failed" className="mt-2 text-sm text-ink-soft">
@@ -313,50 +312,17 @@ function RecentMeetings({ items, now }: { items: CoverageItem[]; now: number }) 
   )
 }
 
-const reminderNote = (): Partial<Record<ReminderState, string>> => ({
-  blocked: `Notifications are blocked for ${product()} in this browser’s settings.`,
-  unsupported: `This browser can’t show reminders. On iPhone, add ${product()} to your Home Screen first.`,
-})
-
-/** A notification a minute before each meeting with attendees, on this browser. */
-function ReminderToggle() {
-  const [state, setState] = useState<ReminderState | null>(null)
-  const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    let live = true
-    reminderState().then(
-      (s) => live && setState(s),
-      () => live && setState('unavailable'),
-    )
-    return () => {
-      live = false
-    }
-  }, [])
-  if (state === null || state === 'unavailable') return null
-  const note = reminderNote()[state]
-  if (note) return <p className="text-xs text-ink-faint">{note}</p>
-
-  const toggle = async () => {
-    setBusy(true)
-    try {
-      setState(state === 'on' ? await disableReminders() : await enableReminders())
-    } catch {
-      setState(await reminderState().catch(() => 'off' as const))
-    } finally {
-      setBusy(false)
-    }
-  }
+/** Reminders are switched on per device in Settings, alongside task reminders. */
+function ReminderLink() {
   return (
-    <label className="flex items-center gap-1.5 text-sm text-ink-soft">
-      <input
-        type="checkbox"
-        data-testid="meeting-reminders"
-        checked={state === 'on'}
-        disabled={busy}
-        onChange={() => void toggle()}
-      />
-      Remind me a minute before
-    </label>
+    <Link
+      to="/settings#notifications"
+      data-testid="meeting-reminders-link"
+      className="flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink"
+    >
+      <Icon name="bell" className="size-4" />
+      Reminders
+    </Link>
   )
 }
 

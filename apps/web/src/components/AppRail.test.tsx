@@ -77,16 +77,17 @@ describe('the app rail', () => {
     )
   }, 20_000)
 
-  it('opens the account menu with the email, and signs out after forgetting reminders', async () => {
-    const signOut = vi.fn()
-    renderApp('/docs', { signOut })
+  it('opens the account menu with the email and Settings, and no Sign out', async () => {
+    const { router } = renderApp('/docs')
     const button = await screen.findByTestId('account-menu')
     await waitFor(() => expect(button).toHaveTextContent(/^[A-Z?]{1,2}$/))
     await userEvent.click(button)
     const menu = screen.getByRole('menu', { name: 'Account' })
     expect(within(menu).getByTestId('account-email')).toHaveTextContent('ada@example.test')
-    await userEvent.click(within(menu).getByTestId('sign-out'))
-    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
+    // Sign out lives in Settings only (docs/PLAN-install-and-settings.md, M2).
+    expect(within(menu).queryByTestId('sign-out')).toBeNull()
+    await userEvent.click(within(menu).getByTestId('menu-settings'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
   })
 
   it('puts a dot on Meetings while a meeting is recording', async () => {
@@ -131,8 +132,7 @@ describe('the app rail', () => {
 
   it('opens every app, Chat and the account from the Apps sheet on a phone', async () => {
     phone()
-    const signOut = vi.fn()
-    const { router } = renderApp('/docs', { signOut })
+    const { router } = renderApp('/docs')
     const button = await screen.findByTestId('apps-menu')
     expect(button).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(button)
@@ -156,14 +156,12 @@ describe('the app rail', () => {
     await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
     await waitFor(() => expect(button).toHaveClass('text-ember'))
 
-    // Escape closes it and hands focus back; Sign out signs out.
+    // Escape closes it and hands focus back. Sign out isn't here: it's in Settings (M1).
     await userEvent.click(button)
+    expect(screen.queryByTestId('sign-out')).toBeNull()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
     expect(button).toHaveFocus()
-    await userEvent.click(button)
-    await userEvent.click(screen.getByTestId('sign-out'))
-    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
   })
 
   it('keeps your place when the open app is tapped in the sheet, and shows a recording', async () => {

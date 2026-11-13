@@ -98,6 +98,33 @@ export function meetingRoutes(deps: AppDeps) {
           return c.body(null, 204)
         },
       )
+      /** Settings' "Send test notification": one push to each of the caller's browsers. */
+      .post('/reminders/test', async (c) => {
+        const principal = sessionOnly(c.get('principal'))
+        const sender = meetings.pushSender
+        if (!sender) {
+          throw new HearthError('bad_request', 'Notifications aren’t set up on this server')
+        }
+        const mine = (await meetings.reminderStore.subscribers()).filter(
+          (s) => s.principal.email === principal.email,
+        )
+        let sent = 0
+        for (const { subscription } of mine) {
+          const result = await sender
+            .send(subscription, {
+              title: 'Test notification',
+              body: 'Notifications are working.',
+              url: '/settings',
+              tag: 'hotsauce-test',
+            })
+            .catch(() => 'failed' as const)
+          if (result === 'sent') sent++
+          if (result === 'gone') {
+            await meetings.reminderStore.unsubscribe(subscription.endpoint, principal.email)
+          }
+        }
+        return c.json({ sent })
+      })
       .delete('/reminders', valid('json', z.object({ endpoint: z.string().url() })), async (c) => {
         sessionOnly(c.get('principal'))
         await meetings.reminderStore.unsubscribe(

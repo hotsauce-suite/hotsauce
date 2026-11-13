@@ -60,11 +60,18 @@ test('Cmd-K jumps to an app by name', async ({ page }) => {
   await expect(page).toHaveURL(/\/dictate$/)
 })
 
-test('the account menu shows the email and signs out', async ({ page, user }) => {
+test('the account menu shows the email and opens Settings, where Sign out is', async ({
+  page,
+  user,
+}) => {
   await page.goto('/docs')
   await page.getByTestId('account-menu').click()
   await expect(page.getByTestId('account-email')).toHaveText(user.email)
-  await page.getByTestId('sign-out').click()
+  await expect(page.getByTestId('sign-out')).toHaveCount(0)
+  await page.getByTestId('menu-settings').click()
+  await expect(page).toHaveURL(/\/settings$/)
+  await expect(page.getByTestId('settings-email')).toHaveText(user.email)
+  await page.getByTestId('settings-sign-out').click()
   await expect(page).toHaveURL(/\/sign-in/)
   await expect(page.getByTestId('app-rail')).toHaveCount(0)
 })

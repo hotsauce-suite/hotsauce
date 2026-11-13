@@ -169,6 +169,7 @@ function createHandlers(
         chatUrl: 'https://chat.example.test',
         signInDomain: 'example.test',
         features: { ai: true, transcription: true },
+        version: '0.8.0',
       }),
     ),
 

@@ -331,11 +331,10 @@ export function useSignOut(): () => void {
   }
 }
 
-/** The account button at the foot of the desktop rail (on phones, the Apps sheet holds it). */
+/** The account button at the foot of the desktop rail: who's signed in, Settings (where Sign out is) and feedback. */
 function AccountButton() {
   const session = useSession()
   const navigate = useNavigate()
-  const signOut = useSignOut()
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const close = () => {
@@ -373,6 +372,16 @@ function AccountButton() {
       {anchor ? (
         <Menu anchor={anchor} onClose={close} label="Account">
           <AccountHeader name={principal?.name} email={principal?.email} />
+          <MenuItem
+            icon="gear"
+            testId="menu-settings"
+            onSelect={() => {
+              setAnchor(null)
+              navigate('/settings')
+            }}
+          >
+            Settings
+          </MenuItem>
           {feedbackOn ? (
             <MenuItem
               icon="chat"
@@ -385,9 +394,6 @@ function AccountButton() {
               Send feedback
             </MenuItem>
           ) : null}
-          <MenuItem testId="sign-out" onSelect={signOut}>
-            Sign out
-          </MenuItem>
         </Menu>
       ) : null}
     </>

@@ -241,6 +241,14 @@ export function meetingHandlers(deps: MeetingHandlerDeps): {
       return HttpResponse.json({ publicKey: null })
     }),
 
+    // The demo has no push service, so no browser is ever subscribed.
+    http.post('/api/meetings/reminders/test', async ({ request }) => {
+      await wait()
+      const user = principal(request)
+      if (user instanceof Response) return user
+      return HttpResponse.json({ sent: 0 })
+    }),
+
     http.get('/api/meetings/settings', async () => {
       await wait()
       return HttpResponse.json({ keepAudio: { available: true, byDefault: false } })
