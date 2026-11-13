@@ -5,6 +5,7 @@ import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { IconButton } from '../../components/TopBar'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { activeLine, formatDuration, formatTimestamp, formatWhen } from './format'
 import { loadSpeed, SPEEDS, saveSpeed, speedLabel, stepSpeed } from './speed'
@@ -17,17 +18,6 @@ function working(clip: Clip): boolean {
     clip.status === 'processing' ||
     (clip.status === 'ready' &&
       (clip.transcriptStatus === 'pending' || clip.transcriptStatus === 'processing'))
-  )
-}
-
-function isTyping(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null
-  return (
-    !!el &&
-    (el.tagName === 'INPUT' ||
-      el.tagName === 'TEXTAREA' ||
-      el.tagName === 'SELECT' ||
-      el.isContentEditable)
   )
 }
 
@@ -95,34 +85,45 @@ export default function ClipPage() {
     if (play) void el.play().catch(() => {})
   }, [])
 
-  // Space or k plays and pauses, ← and → skip 5 s, j and l 10 s, < and > change speed.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const el = video.current
-      if (!el || isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey) return
-      const key = event.key
-      if (key === ' ' || key === 'k') {
-        // The video's own controls handle Space when they have focus.
-        if (key === ' ' && event.target === el) return
-        event.preventDefault()
-        if (el.paused) void el.play().catch(() => {})
-        else el.pause()
-      } else if (key === 'ArrowLeft' || key === 'j') {
-        if (event.target === el) return
-        event.preventDefault()
-        seek(el.currentTime - (key === 'j' ? 10 : 5))
-      } else if (key === 'ArrowRight' || key === 'l') {
-        if (event.target === el) return
-        event.preventDefault()
-        seek(el.currentTime + (key === 'l' ? 10 : 5))
-      } else if (key === '>' || key === '<') {
-        event.preventDefault()
-        changeSpeed(stepSpeed(el.playbackRate, key === '>' ? 1 : -1))
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [seek, changeSpeed])
+  // Space or k plays and pauses, ← and → skip 5 s, j and l 10 s, < and > change speed. The key
+  // listener leaves Space and the arrows to the video's own controls when they have focus.
+  const withVideo = (act: (el: HTMLVideoElement) => void) => () => {
+    const el = video.current
+    if (!el) return false
+    act(el)
+    return true
+  }
+  useShortcut(
+    'clips.play',
+    withVideo((el) => {
+      if (el.paused) void el.play().catch(() => {})
+      else el.pause()
+    }),
+  )
+  useShortcut(
+    'clips.back5',
+    withVideo((el) => seek(el.currentTime - 5)),
+  )
+  useShortcut(
+    'clips.forward5',
+    withVideo((el) => seek(el.currentTime + 5)),
+  )
+  useShortcut(
+    'clips.back10',
+    withVideo((el) => seek(el.currentTime - 10)),
+  )
+  useShortcut(
+    'clips.forward10',
+    withVideo((el) => seek(el.currentTime + 10)),
+  )
+  useShortcut(
+    'clips.faster',
+    withVideo((el) => changeSpeed(stepSpeed(el.playbackRate, 1))),
+  )
+  useShortcut(
+    'clips.slower',
+    withVideo((el) => changeSpeed(stepSpeed(el.playbackRate, -1))),
+  )
 
   const copyLink = async () => {
     await navigator.clipboard?.writeText(`${window.location.origin}/clips/${id}`).catch(() => {})
