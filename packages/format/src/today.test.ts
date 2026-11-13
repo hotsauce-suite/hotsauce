@@ -80,7 +80,7 @@ describe('Today layout edits (E1, E2)', () => {
     l = addTile(l, 'board')
     l = addTile(l, 'board')
     expect(ids(l)[1]).toEqual(['notes', 'docs', 'brief', 'board'])
-    expect(ids(l)[0].at(-1)).toBe('board-2')
+    expect(ids(l)[0]?.at(-1)).toBe('board-2')
     expect(addTile(l, 'starred')).toBe(l)
   })
 
