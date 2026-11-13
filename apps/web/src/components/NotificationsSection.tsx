@@ -11,8 +11,9 @@ import { product } from '../brand/product'
 import { installContext } from '../lib/install'
 
 /**
- * Settings' "Notifications on this device": one switch for meeting and task reminders, which
- * share this browser's push subscription (docs/PLAN-install-and-settings.md, N1–N3).
+ * Settings' "Notifications on this device": one switch for everything pushed to this browser
+ * (meeting and task reminders, check-in questions, the daily briefing), which all share its push
+ * subscription (docs/PLAN-install-and-settings.md, N1–N3).
  */
 export function NotificationsSection() {
   const [state, setState] = useState<ReminderState | null>(null)
@@ -47,12 +48,8 @@ export function NotificationsSection() {
     setBusy(true)
     setTested(null)
     try {
-      const { sent } = await meetingsApi.testNotification()
-      setTested(
-        sent === 0
-          ? 'No device is set up for notifications yet.'
-          : `Sent to ${sent} ${sent === 1 ? 'device' : 'devices'}. It should arrive in a few seconds.`,
-      )
+      const { sent, failed } = await meetingsApi.testNotification()
+      setTested(testMessage(sent, failed))
     } catch (err) {
       setTested(err instanceof Error ? err.message : 'That didn’t send. Try again.')
     } finally {
@@ -74,7 +71,8 @@ export function NotificationsSection() {
         Notifications
       </h2>
       <p className="mt-2 text-ink-soft">
-        A reminder a minute before each meeting with other people, and when a timed task is due.
+        A reminder a minute before each meeting with other people and when a timed task is due,
+        check-in questions when they’re asked, and your daily briefing when it’s ready.
       </p>
       {state === null ? null : state === 'on' || state === 'off' ? (
         <>
@@ -107,15 +105,14 @@ export function NotificationsSection() {
               >
                 Send test notification
               </button>
-              {tested ? (
-                <p
-                  role="status"
-                  data-testid="notifications-test-result"
-                  className="text-sm text-ink-soft"
-                >
-                  {tested}
-                </p>
-              ) : null}
+              {/* Always there, so screen readers announce the text when it changes. */}
+              <p
+                role="status"
+                data-testid="notifications-test-result"
+                className="text-sm text-ink-soft"
+              >
+                {tested ?? ''}
+              </p>
             </div>
           ) : null}
         </>
@@ -124,6 +121,16 @@ export function NotificationsSection() {
       )}
     </section>
   )
+}
+
+function testMessage(sent: number, failed: number): string {
+  const devices = (n: number) => `${n} ${n === 1 ? 'device' : 'devices'}`
+  if (failed > 0) {
+    const reached = sent > 0 ? `Sent to ${devices(sent)}, but couldn’t reach ` : 'Couldn’t reach '
+    return `${reached}${devices(failed)}. Try again in a minute.`
+  }
+  if (sent === 0) return 'No device is set up for notifications yet.'
+  return `Sent to ${devices(sent)}. It should arrive in a few seconds.`
 }
 
 function Note({ state, children }: { state: ReminderState; children: ReactNode }) {

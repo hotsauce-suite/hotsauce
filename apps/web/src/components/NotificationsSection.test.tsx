@@ -71,7 +71,7 @@ describe('Notifications on this device', () => {
   })
 
   it('sends a test notification and says how many devices got it', async () => {
-    let answer = { sent: 2 }
+    let answer = { sent: 2, failed: 0 }
     server.use(http.post('/api/meetings/reminders/test', () => HttpResponse.json(answer)))
     reminders.state = 'on'
     render(<NotificationsSection />)
@@ -79,11 +79,19 @@ describe('Notifications on this device', () => {
     expect(await screen.findByTestId('notifications-test-result')).toHaveTextContent(
       'Sent to 2 devices',
     )
-    answer = { sent: 0 }
+    answer = { sent: 0, failed: 0 }
     await userEvent.click(screen.getByTestId('notifications-test'))
     await waitFor(() =>
       expect(screen.getByTestId('notifications-test-result')).toHaveTextContent(
         'No device is set up',
+      ),
+    )
+    // A push service that errors isn't mistaken for no device.
+    answer = { sent: 0, failed: 1 }
+    await userEvent.click(screen.getByTestId('notifications-test'))
+    await waitFor(() =>
+      expect(screen.getByTestId('notifications-test-result')).toHaveTextContent(
+        'Couldn’t reach 1 device',
       ),
     )
   })

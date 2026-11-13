@@ -246,7 +246,7 @@ export function meetingHandlers(deps: MeetingHandlerDeps): {
       await wait()
       const user = principal(request)
       if (user instanceof Response) return user
-      return HttpResponse.json({ sent: 0 })
+      return HttpResponse.json({ sent: 0, failed: 0 })
     }),
 
     http.get('/api/meetings/settings', async () => {

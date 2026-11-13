@@ -9,8 +9,8 @@ In progress on branch `feat/install-prompt-settings` (draft PR). Shared files to
 - The install bar shows on phones and tablets only, in the browser (never in the installed app), once per browser until dismissed. ✕ hides it for good on that browser.
 - Android and other Chromium browsers get the browser's own install dialog. iPhone and iPad Safari, and every browser without one, get a short how-to sheet.
 - Settings, top to bottom: Account, Install app, Notifications, Appearance, Mac app and Chrome extension, Connect Claude, Calendars, Help, About. Admins still see the Organization link first.
-- Sign out lives in Settings (Account card) and the desktop account menu. The phone Apps sheet no longer has it.
-- One "Notifications on this device" switch covers meeting reminders and task reminders: both already go to the same browser subscription.
+- Sign out lives in Settings only (Account card). Neither the phone Apps sheet nor the desktop account menu has it; the account menu gets a Settings item instead (Morgan, 2026-11-13).
+- One "Notifications on this device" switch covers everything pushed to a browser: meeting and task reminders, check-in questions and the daily briefing all go to the same subscription.
 - "Send test notification" is `POST /api/meetings/reminders/test`, next to the existing subscribe and unsubscribe routes, and sends through the same push sender.
 - About shows the server's version (from `/api/health`) and a Reload button. Updates already apply on their own (`registerType: 'autoUpdate'` with `skipWaiting`), so there is never a waiting update to offer; Reload asks the service worker to check and reloads.
 - Account shows initials, not a photo: the session carries no picture today.
@@ -39,7 +39,7 @@ Each requirement maps to a test, named in brackets.
 **Sign out and menus**
 
 - M1: The phone Apps sheet has no Sign out. [AppsSheet / app-rail test]
-- M2: The desktop account menu has Settings and Sign out. [app-rail test]
+- M2: The desktop account menu has Settings and no Sign out. [AppRail.test, e2e app-rail.spec]
 
 **Notifications**
 

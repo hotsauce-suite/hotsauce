@@ -1,9 +1,10 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resetInstallPrompt } from '../lib/install'
 import { DESKTOP, firePrompt, IPHONE, PIXEL, pretend } from '../test/devices'
-import { InstallBar } from './InstallBar'
+import { InstallBar, InstallSheet } from './InstallBar'
 
 // docs/PLAN-install-and-settings.md, I3–I5.
 
@@ -78,5 +79,43 @@ describe('the install bar', () => {
     const sheet = screen.getByTestId('install-sheet')
     expect(sheet).toHaveAttribute('data-platform', 'other')
     expect(sheet).toHaveTextContent('Install app or Add to Home Screen')
+  })
+})
+
+describe('the install sheet', () => {
+  it('on a computer, says where each browser keeps install, unnumbered', () => {
+    render(<InstallSheet isIOS={false} isMobile={false} onClose={() => {}} />)
+    const sheet = screen.getByTestId('install-sheet')
+    expect(sheet).toHaveAttribute('data-platform', 'computer')
+    expect(sheet).toHaveTextContent('Install Hotsauce on this computer')
+    expect(sheet).toHaveTextContent('Add to Dock')
+    expect(sheet).toHaveTextContent('Firefox can’t install web apps')
+    expect(sheet).not.toHaveTextContent('Home Screen')
+  })
+
+  it('keeps Tab inside, and gives focus back to what opened it', async () => {
+    function Opener() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open
+          </button>
+          {open ? <InstallSheet isIOS onClose={() => setOpen(false)} /> : null}
+        </>
+      )
+    }
+    render(<Opener />)
+    const opener = screen.getByRole('button', { name: 'Open' })
+    await userEvent.click(opener)
+    const sheet = screen.getByTestId('install-sheet')
+    expect(sheet.contains(document.activeElement)).toBe(true)
+    await userEvent.tab()
+    expect(sheet.contains(document.activeElement)).toBe(true)
+    await userEvent.tab({ shift: true })
+    expect(sheet.contains(document.activeElement)).toBe(true)
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByTestId('install-sheet')).toBeNull()
+    expect(opener).toHaveFocus()
   })
 })

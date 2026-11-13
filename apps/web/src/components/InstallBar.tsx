@@ -78,29 +78,70 @@ export function InstallButton({
   )
 }
 
-/** Two steps to add the app to the home screen, for browsers with no install dialog. */
-export function InstallSheet({ isIOS, onClose }: { isIOS: boolean; onClose: () => void }) {
+/**
+ * How to install, for browsers with no install dialog: two steps on a phone or tablet, and where
+ * each desktop browser keeps it on a computer. Focus stays inside while it's open and goes back
+ * to whatever opened it.
+ */
+export function InstallSheet({
+  isIOS,
+  isMobile = true,
+  onClose,
+}: {
+  isIOS: boolean
+  isMobile?: boolean
+  onClose: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     ref.current?.querySelector<HTMLElement>('button')?.focus()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current()
+      if (event.key !== 'Tab' || !ref.current) return
+      const focusable = [...ref.current.querySelectorAll<HTMLElement>('button, a[href]')]
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) return
+      const inside = ref.current.contains(document.activeElement)
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      opener?.focus()
+    }
   }, [])
 
-  const steps = isIOS
+  const steps = !isMobile
     ? [
-        { icon: <ShareGlyph />, text: 'Tap the Share button in Safari’s toolbar.' },
-        { icon: <AddGlyph />, text: 'Scroll down and tap Add to Home Screen, then Add.' },
+        {
+          icon: <AddGlyph />,
+          text: 'In Chrome or Edge, click the install icon at the right of the address bar, or open the ⋮ menu and choose Install.',
+        },
+        { icon: <ShareGlyph />, text: 'In Safari on a Mac, choose File, then Add to Dock.' },
+        {
+          icon: <MenuGlyph />,
+          text: 'Firefox can’t install web apps. Use Chrome, Edge or Safari, or the Mac app below.',
+        },
       ]
-    : [
-        { icon: <MenuGlyph />, text: 'Open your browser’s menu (often ⋮ or the Share button).' },
-        { icon: <AddGlyph />, text: 'Tap Install app or Add to Home Screen.' },
-      ]
+    : isIOS
+      ? [
+          { icon: <ShareGlyph />, text: 'Tap the Share button in Safari’s toolbar.' },
+          { icon: <AddGlyph />, text: 'Scroll down and tap Add to Home Screen, then Add.' },
+        ]
+      : [
+          { icon: <MenuGlyph />, text: 'Open your browser’s menu (often ⋮ or the Share button).' },
+          { icon: <AddGlyph />, text: 'Tap Install app or Add to Home Screen.' },
+        ]
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -117,7 +158,7 @@ export function InstallSheet({ isIOS, onClose }: { isIOS: boolean; onClose: () =
         aria-modal="true"
         aria-labelledby="install-sheet-title"
         data-testid="install-sheet"
-        data-platform={isIOS ? 'ios' : 'other'}
+        data-platform={!isMobile ? 'computer' : isIOS ? 'ios' : 'other'}
         className="relative rounded-t-2xl border-t border-ash bg-paper-raised px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-float"
       >
         <div className="flex items-start gap-3">
@@ -125,7 +166,9 @@ export function InstallSheet({ isIOS, onClose }: { isIOS: boolean; onClose: () =
             id="install-sheet-title"
             className="min-w-0 flex-1 font-display text-xl font-semibold tracking-tight"
           >
-            Add {product()} to your Home Screen
+            {isMobile
+              ? `Add ${product()} to your Home Screen`
+              : `Install ${product()} on this computer`}
           </h2>
           <button
             type="button"
@@ -137,14 +180,19 @@ export function InstallSheet({ isIOS, onClose }: { isIOS: boolean; onClose: () =
           </button>
         </div>
         <p className="mt-1 text-sm text-ink-soft">
-          It opens full screen like any other app, and can send you reminders.
+          {isMobile
+            ? 'It opens full screen like any other app, and can send you reminders.'
+            : 'It opens in its own window, with its own icon in your dock or taskbar.'}
         </p>
         <ol className="mt-4 space-y-3">
           {steps.map((step, i) => (
             <li key={step.text} className="flex items-center gap-3 text-sm text-ink">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-paper-sunk text-xs font-semibold text-ink-soft">
-                {i + 1}
-              </span>
+              {/* On a computer the lines are alternatives, one per browser, not steps. */}
+              {isMobile ? (
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-paper-sunk text-xs font-semibold text-ink-soft">
+                  {i + 1}
+                </span>
+              ) : null}
               <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-ash text-ember">
                 {step.icon}
               </span>

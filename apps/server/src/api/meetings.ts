@@ -109,6 +109,7 @@ export function meetingRoutes(deps: AppDeps) {
           (s) => s.principal.email === principal.email,
         )
         let sent = 0
+        let failed = 0
         for (const { subscription } of mine) {
           const result = await sender
             .send(subscription, {
@@ -119,11 +120,12 @@ export function meetingRoutes(deps: AppDeps) {
             })
             .catch(() => 'failed' as const)
           if (result === 'sent') sent++
+          if (result === 'failed') failed++
           if (result === 'gone') {
             await meetings.reminderStore.unsubscribe(subscription.endpoint, principal.email)
           }
         }
-        return c.json({ sent })
+        return c.json({ sent, failed })
       })
       .delete('/reminders', valid('json', z.object({ endpoint: z.string().url() })), async (c) => {
         sessionOnly(c.get('principal'))

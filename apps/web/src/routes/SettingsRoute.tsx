@@ -265,6 +265,8 @@ function AccountSection() {
 function InstallSection() {
   const install = useInstallPrompt()
   const [howTo, setHowTo] = useState(false)
+  // The live demo ships no service worker, and nobody should install a demo (vite.config.ts).
+  if (import.meta.env.MODE === 'demo') return null
   return (
     <section aria-labelledby="install-title" data-testid="settings-install" className="mt-12">
       <h2 id="install-title" className={sectionTitle}>
@@ -294,7 +296,13 @@ function InstallSection() {
           />
         )}
       </div>
-      {howTo ? <InstallSheet isIOS={install.isIOS} onClose={() => setHowTo(false)} /> : null}
+      {howTo ? (
+        <InstallSheet
+          isIOS={install.isIOS}
+          isMobile={install.isMobile}
+          onClose={() => setHowTo(false)}
+        />
+      ) : null}
     </section>
   )
 }

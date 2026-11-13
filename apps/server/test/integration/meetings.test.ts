@@ -1106,7 +1106,7 @@ describe('templates, calendar and the meeting list', () => {
       keys: { p256dh: 'p', auth: 'a' },
     })
     // Nothing subscribed yet: nothing sent, and that's not an error.
-    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 0 })
+    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 0, failed: 0 })
     await api('POST', '/api/meetings/reminders', {
       json: { subscription: sub('phone') },
       status: 204,
@@ -1124,7 +1124,11 @@ describe('templates, calendar and the meeting list', () => {
     // The push service has dropped the laptop: it's forgotten, not counted.
     sender.gone.add(sub('laptop').endpoint)
 
-    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 1 })
+    // A push service that errors is counted, not mistaken for no device.
+    sender.failing.add(sub('phone').endpoint)
+    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 0, failed: 1 })
+    sender.failing.delete(sub('phone').endpoint)
+    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 1, failed: 0 })
     expect(sender.sent).toEqual([
       {
         endpoint: sub('phone').endpoint,

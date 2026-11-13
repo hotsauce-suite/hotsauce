@@ -99,7 +99,7 @@ The link works only while the instance is new. It walks you through:
 
 Admins change any of it later in **Settings → Organization**. Keys are stored encrypted on the volume and are never shown again.
 
-Each member's own **Settings** holds their account and Sign out, Install app, and **Notifications**: one switch per device for meeting and task reminders, with a **Send test notification** button to check it works. Push needs no setup: the server makes its own push keys on first start (or uses `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` if you set them). On iPhone and iPad, notifications work only after the app is added to the Home Screen.
+Each member's own **Settings** holds their account and Sign out, Install app, and **Notifications**: one switch per device for everything it pushes (meeting and task reminders, check-in questions and the daily briefing), with a **Send test notification** button to check it works. Push needs no setup: the server makes its own push keys on first start (or uses `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` if you set them). On iPhone and iPad, notifications work only after the app is added to the Home Screen.
 
 ## Configuring by environment instead
 
