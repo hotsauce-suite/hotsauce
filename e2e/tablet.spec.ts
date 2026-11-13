@@ -15,10 +15,12 @@ test('T3: the doc top bar fits an upright iPad', async ({ page, api, user }) => 
   await api.writeFile(user.team, file, '# Tablet\n\nHello from an iPad.\n')
   await page.goto(docUrl(user.team, file))
   await expect(page.getByTestId('editor-content')).toContainText('Hello from an iPad.')
-  const share = page.getByRole('button', { name: 'Share' })
+  const share = page.getByTestId('share-menu')
   await expect(share).toBeVisible()
   expect(await right(share)).toBeLessThanOrEqual(820)
-  expect(await right(page.getByRole('button', { name: 'Save version' }))).toBeLessThanOrEqual(820)
+  expect(
+    await right(page.getByRole('button', { name: 'Save version', exact: true })),
+  ).toBeLessThanOrEqual(820)
 })
 
 test('T1: History floats over the page instead of squeezing it', async ({ page, api, user }) => {
