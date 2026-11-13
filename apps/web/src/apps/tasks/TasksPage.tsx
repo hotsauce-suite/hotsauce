@@ -325,6 +325,10 @@ export default function TasksPage() {
     setQuickOpen(true)
     return true
   })
+  useShortcut('global.create', () => {
+    setQuickOpen(true)
+    return true
+  })
   useShortcut('tasks.next', () => {
     const { index } = current()
     select(index === -1 ? 0 : index + 1)

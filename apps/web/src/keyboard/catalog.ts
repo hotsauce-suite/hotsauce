@@ -1,4 +1,4 @@
-// Every keyboard shortcut in the web app, in one list. The key listener (KeyboardProvider),
+// Every keyboard shortcut in the web app, in one list. The key listener (shortcuts.ts),
 // the `?` sheet, Command-K's key hints and tooltips all read it, so they never disagree.
 // A page binds a handler to an id with `useShortcut(id, run)`; an entry with `handledBy` is
 // handled by its own component (CodeMirror, the Tables grid) and is listed here only so the
@@ -8,6 +8,7 @@ import type { AppId } from '../apps/registry'
 
 export type SectionId =
   | 'everywhere'
+  | 'go'
   | 'docs-editor'
   | 'tasks'
   | 'clips'
@@ -19,10 +20,13 @@ export interface Section {
   title: string
   /** The app the section belongs to; none for Everywhere. */
   app?: AppId
+  /** Live on every page: its keys clash with every other section's. */
+  always?: boolean
 }
 
 export const SECTIONS: Record<SectionId, Section> = {
-  everywhere: { title: 'Everywhere' },
+  everywhere: { title: 'Everywhere', always: true },
+  go: { title: 'Go to', always: true },
   'docs-editor': { title: 'Writing a doc', app: 'docs' },
   tasks: { title: 'Tasks', app: 'tasks' },
   clips: { title: 'Watching a clip', app: 'clips' },
@@ -45,10 +49,65 @@ export interface ShortcutDef {
 
 const def = <T extends Record<string, ShortcutDef>>(defs: T): Record<keyof T, ShortcutDef> => defs
 
+/** `g` then a letter opens an app (or Settings), as in Gmail, GitHub and Linear. */
+export const GO_KEYS = {
+  today: 'h',
+  docs: 'd',
+  meetings: 'm',
+  tasks: 't',
+  notes: 'n',
+  dictate: 'v',
+  clips: 'c',
+  checkins: 'i',
+  boards: 'b',
+  people: 'p',
+  files: 'f',
+  forms: 'o',
+  tables: 'e',
+  links: 'l',
+  briefcast: 'r',
+  settings: 's',
+} as const satisfies Partial<Record<AppId | 'settings', string>>
+
+export type GoTarget = keyof typeof GO_KEYS
+
+const GO_NAMES: Record<GoTarget, string> = {
+  today: 'Today',
+  docs: 'Docs',
+  meetings: 'Meetings',
+  tasks: 'Tasks',
+  notes: 'Notes',
+  dictate: 'Dictate',
+  clips: 'Clips',
+  checkins: 'Check-ins',
+  boards: 'Boards',
+  people: 'People',
+  files: 'Files',
+  forms: 'Forms',
+  tables: 'Tables',
+  links: 'Links',
+  briefcast: 'Briefcast',
+  settings: 'Settings',
+}
+
+const goShortcuts = Object.fromEntries(
+  (Object.keys(GO_KEYS) as GoTarget[]).map((target) => [
+    `go.${target}`,
+    { keys: [`g ${GO_KEYS[target]}`], label: GO_NAMES[target], section: 'go' },
+  ]),
+) as unknown as Record<`go.${GoTarget}`, ShortcutDef>
+
 export const SHORTCUTS = def({
   // Everywhere
   'global.commandK': { keys: ['mod+k'], label: 'Open the command menu', section: 'everywhere' },
   'global.help': { keys: ['?'], label: 'Show keyboard shortcuts', section: 'everywhere' },
+  'global.create': {
+    keys: ['c'],
+    label: 'Create something new in this app',
+    section: 'everywhere',
+  },
+  'global.search': { keys: ['/'], label: 'Search', section: 'everywhere' },
+  'global.sidebar': { keys: ['mod+\\'], label: 'Show or hide the sidebar', section: 'everywhere' },
   'global.close': {
     keys: ['Escape'],
     label: 'Close the dialog, menu or panel',
@@ -148,6 +207,8 @@ export const SHORTCUTS = def({
     section: 'checkins',
     handledBy: 'page',
   },
+
+  ...goShortcuts,
 })
 
 export type ShortcutId = keyof typeof SHORTCUTS

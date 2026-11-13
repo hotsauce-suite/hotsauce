@@ -25,6 +25,12 @@ export type ShortcutHandler = (e: ShortcutEvent) => boolean | undefined
 
 interface Binding {
   run: ShortcutHandler
+  /** The app-wide default (AppShell's): any page's own binding wins over it. */
+  fallback: boolean
+}
+
+export interface BindOptions {
+  fallback?: boolean
 }
 
 /** A second stroke must follow the first within this long ("g", then "d"). */
@@ -40,8 +46,12 @@ function changed() {
 }
 
 /** Binds `run` to a shortcut; the newest binding wins until it is removed. */
-export function bindShortcut(id: ShortcutId, run: ShortcutHandler): () => void {
-  const binding: Binding = { run }
+export function bindShortcut(
+  id: ShortcutId,
+  run: ShortcutHandler,
+  { fallback = false }: BindOptions = {},
+): () => void {
+  const binding: Binding = { run, fallback }
   const stack = bindings.get(id) ?? []
   stack.push(binding)
   bindings.set(id, stack)
@@ -77,13 +87,19 @@ export function useBoundIds(): ShortcutId[] {
  * Binds `run` to a shortcut while the component is mounted. `run` may change every render;
  * the binding always calls the latest one. `enabled: false` unbinds.
  */
-export function useShortcut(id: ShortcutId, run: ShortcutHandler, enabled = true): void {
+export function useShortcut(
+  id: ShortcutId,
+  run: ShortcutHandler,
+  enabled = true,
+  options: BindOptions = {},
+): void {
   const ref = useRef(run)
   ref.current = run
+  const fallback = options.fallback ?? false
   useEffect(() => {
     if (!enabled) return
-    return bindShortcut(id, (e) => ref.current(e))
-  }, [id, enabled])
+    return bindShortcut(id, (e) => ref.current(e), { fallback })
+  }, [id, enabled, fallback])
 }
 
 const parsed = new Map<string, Stroke[]>()
@@ -132,8 +148,8 @@ function blockedFor(strokes: Stroke[], event: KeyboardEvent, onControls = false)
 let pending: { stroke: KeyInput; at: number } | null = null
 
 function run(id: ShortcutId, spec: string, event: KeyboardEvent): boolean {
-  const stack = bindings.get(id)
-  const binding = stack?.[stack.length - 1]
+  const stack = bindings.get(id) ?? []
+  const binding = stack.findLast((b) => !b.fallback) ?? stack[stack.length - 1]
   if (!binding) return false
   const result = binding.run({ spec, event })
   if (result === false) return false

@@ -16,6 +16,7 @@ import { useAuthState } from '../auth/AuthContext'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
+import { useAppShortcuts } from '../keyboard/useAppShortcuts'
 import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
 import { Icon } from './Icon'
@@ -75,6 +76,7 @@ function ShellLayout() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchLoaded, setSearchLoaded] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [sidebarHidden, setSidebarHidden] = useState(false)
   const activeSpace = params.space ?? null
   const activePath = decodePath(params['*'])
   const { setSpace } = session
@@ -122,6 +124,12 @@ function ShellLayout() {
     setShortcutsOpen(true)
     return true
   })
+  useShortcut('global.sidebar', () => {
+    if (compact) setDrawerOpen((open) => !open)
+    else setSidebarHidden((hidden) => !hidden)
+    return true
+  })
+  useAppShortcuts({ app: app.id, openSearch })
 
   // Warm the palette's chunk while idle so the first Cmd-K opens instantly.
   useEffect(() => {
@@ -185,7 +193,7 @@ function ShellLayout() {
         ) : (
           <>
             <AppRail orientation="vertical" />
-            {app.sidebar === false ? null : (
+            {app.sidebar === false || sidebarHidden ? null : (
               <div className="h-full w-[var(--sidebar-width)] shrink-0">{sidebar}</div>
             )}
           </>

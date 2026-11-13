@@ -7,6 +7,7 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { Composer } from './Composer'
@@ -68,6 +69,10 @@ export default function NotesPage() {
   const [confirmDelete, setConfirmDelete] = useState<NoteView | null>(null)
 
   useEffect(() => notesBus.on((e) => e.type === 'new-note' && setComposerOpen(true)), [])
+  useShortcut('global.create', () => {
+    setComposerOpen(true)
+    return true
+  })
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 6000)

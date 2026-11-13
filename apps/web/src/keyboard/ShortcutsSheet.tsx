@@ -7,7 +7,7 @@ import { useSingleKeys } from './prefs'
 import { useBoundIds } from './shortcuts'
 
 /**
- * The `?` sheet: every shortcut, Everywhere first, then what works on this page (sections with
+ * The `?` sheet: every shortcut, Everywhere and Go to first, then what works on this page (sections with
  * a bound shortcut, or the open app's own), then the rest.
  */
 export function ShortcutsSheet({ app, onClose }: { app: AppId | null; onClose: () => void }) {
@@ -17,11 +17,9 @@ export function ShortcutsSheet({ app, onClose }: { app: AppId | null; onClose: (
   const here = (s: SectionId) =>
     (app !== null && SECTIONS[s].app === app) ||
     shortcutIds.some((id) => SHORTCUTS[id].section === s && bound.has(id))
-  const ordered = [
-    'everywhere' as const,
-    ...sections.filter((s) => s !== 'everywhere' && here(s)),
-    ...sections.filter((s) => s !== 'everywhere' && !here(s)),
-  ]
+  const always = sections.filter((s) => SECTIONS[s].always)
+  const rest = sections.filter((s) => !SECTIONS[s].always)
+  const ordered = [...always, ...rest.filter(here), ...rest.filter((s) => !here(s))]
 
   return (
     <Dialog title="Keyboard shortcuts" onClose={onClose} testId="shortcuts-sheet" wide>
@@ -46,7 +44,7 @@ export function ShortcutsSheet({ app, onClose }: { app: AppId | null; onClose: (
             >
               <h3 className="mb-2 flex items-baseline gap-2 text-sm font-semibold text-ink">
                 {SECTIONS[s].title}
-                {s !== 'everywhere' && here(s) ? (
+                {!SECTIONS[s].always && here(s) ? (
                   <span className="text-xs font-normal text-ember-strong">On this page</span>
                 ) : null}
               </h3>
