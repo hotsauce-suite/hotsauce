@@ -9,7 +9,7 @@ if let index = CommandLine.arguments.firstIndex(of: "--render-previews"), index 
     exit(MainActor.assumeIsolated { Previews.render(to: folder, dark: dark) })
 }
 if let index = CommandLine.arguments.firstIndex(of: "--render-app-icon"), index + 1 < CommandLine.arguments.count {
-    exit(MainActor.assumeIsolated { HearthMark.renderIconset(to: CommandLine.arguments[index + 1]) })
+    exit(MainActor.assumeIsolated { ProductMark.renderIconset(to: CommandLine.arguments[index + 1]) })
 }
 if CommandLine.arguments.contains("--self-test") {
     exit(MainActor.assumeIsolated { SelfTest.run(arguments: CommandLine.arguments) })

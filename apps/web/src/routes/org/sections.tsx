@@ -10,7 +10,7 @@ import type {
 } from '../../api/org'
 import { primaryButton, secondaryButton } from '../../apps/meetings/components/common'
 import { brandCss, ensureFonts } from '../../brand/applyBrand'
-import { HearthMark, Icon } from '../../components/Icon'
+import { Icon, ProductMark } from '../../components/Icon'
 import {
   Callout,
   CopyValue,
@@ -614,7 +614,7 @@ function BrandPreview({
             {markUrl ? (
               <img src={markUrl} alt="" className="size-6 object-contain" />
             ) : (
-              <HearthMark className="size-6" />
+              <ProductMark className="size-6" />
             )}
             <span className="size-5 rounded-md bg-ember-wash" />
             <span className="size-5 rounded-md bg-ash/60" />

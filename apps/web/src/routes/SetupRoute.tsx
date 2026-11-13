@@ -4,7 +4,7 @@ import { HearthApiError } from '../api/client'
 import { type OrgState, orgEditor, waitForRestart } from '../api/org'
 import type { Health } from '../api/types'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
-import { HearthMark, Icon } from '../components/Icon'
+import { Icon, ProductMark } from '../components/Icon'
 import { Callout, CopyValue, inputClass, messageOf } from './org/fields'
 import {
   AiSection,
@@ -177,7 +177,7 @@ export default function SetupRoute() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 md:flex-row md:gap-10 md:px-6 md:py-12">
         <nav aria-label="Setup steps" className="md:w-56 md:shrink-0">
           <div className="flex items-center gap-2.5">
-            <HearthMark className="size-8" />
+            <ProductMark className="size-8" />
             <span className="font-display text-lg font-semibold tracking-tight">
               Hotsauce setup
             </span>
@@ -270,7 +270,7 @@ function Frame({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full items-center justify-center p-6">
       <div className="w-full max-w-md">
-        <HearthMark className="mb-5 size-10" />
+        <ProductMark className="mb-5 size-10" />
         {children}
       </div>
     </div>

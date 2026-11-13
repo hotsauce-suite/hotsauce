@@ -89,20 +89,40 @@ export function Icon({ name, className = 'size-4' }: { name: IconName; className
   )
 }
 
-/** The default mark: a single flame inside an arch. */
-export function HearthMark({ className = 'size-6' }: { className?: string }) {
+/** The default mark: the Hotsauce bottle, the same drawing as public/favicon.svg and hotsauce.work. */
+export function ProductMark({ className = 'size-6' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <path
-        d="M4 29V14a12 12 0 0 1 24 0v15"
-        fill="none"
-        stroke="var(--ink)"
-        strokeWidth="2.4"
-        strokeLinecap="round"
+    <svg viewBox="0 0 64 64" aria-hidden="true" className={className}>
+      <rect
+        x="24"
+        y="3"
+        width="16"
+        height="10"
+        rx="3"
+        fill="#1f4d3a"
+        stroke="#16262d"
+        strokeWidth="2.5"
       />
       <path
-        d="M16 9c3.6 4 5.6 6.8 5.6 10a5.6 5.6 0 0 1-11.2 0c0-2.1 1-3.6 2.3-5.1.4 1.7 1.1 2.6 2.3 3-.6-2.8 0-5.4 1-7.9z"
-        fill="var(--ember)"
+        d="M27 13h10v7c0 3 11 6 11 16v18a7 7 0 0 1-7 7H23a7 7 0 0 1-7-7V36c0-10 11-13 11-16z"
+        fill="#a94e26"
+        stroke="#16262d"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <rect
+        x="20"
+        y="34"
+        width="24"
+        height="17"
+        rx="3"
+        fill="#fff4e2"
+        stroke="#16262d"
+        strokeWidth="2"
+      />
+      <path
+        d="M33.5 37.5c2.4 2.4 3.6 4.1 3.6 6.1a5.1 5.1 0 0 1-10.2 0c0-1.4.7-2.5 1.6-3.5.3 1.2.8 1.8 1.6 2 0-1.6.9-3.3 3.4-4.6z"
+        fill="#a94e26"
       />
     </svg>
   )
