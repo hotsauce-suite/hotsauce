@@ -1,4 +1,5 @@
 import {
+  CHECKINS_FOLDER,
   ensureId,
   extractTitle,
   FILES_FOLDER,
@@ -149,6 +150,13 @@ export function writablePath(rawPath: string): string {
   // Forms and their answers change only in the Forms app (ARCHITECTURE §21.1).
   if (isAtOrUnder(path, FORMS_FOLDER) || isAtOrUnder(FORMS_FOLDER, path)) {
     throw new HearthError('forbidden', 'Forms and their answers change only in the Forms app')
+  }
+  // Check-ins, their answers and replies change only in the Check-ins app (ARCHITECTURE §24.1).
+  if (isAtOrUnder(path, CHECKINS_FOLDER) || isAtOrUnder(CHECKINS_FOLDER, path)) {
+    throw new HearthError(
+      'forbidden',
+      'Check-ins and their answers change only in the Check-ins app',
+    )
   }
   // A table's cells and columns change in the Tables app or its MCP tools (ARCHITECTURE §22.1).
   if (isAtOrUnder(path, TABLES_FOLDER) || isAtOrUnder(TABLES_FOLDER, path)) {

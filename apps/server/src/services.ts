@@ -17,6 +17,7 @@ import {
   type Speaker,
   UnconfiguredSpeaker,
 } from './briefcast/index.js'
+import { CheckinMembers, CheckinScheduler, Checkins } from './checkins/index.js'
 import {
   ClipStore,
   Clips,
@@ -142,6 +143,8 @@ export interface ServiceOverrides {
   speaker?: Speaker
   /** Briefcast's clock, so tests can step through mornings. */
   briefcastNow?: () => Date
+  /** The clock Check-ins and its scheduler read; tests pin it. */
+  checkinsNow?: () => Date
   /** Stands in for Web Push; reminders run with it even without VAPID keys. */
   pushSender?: PushSender
   dictationTranscriber?: DictationTranscriber
@@ -370,6 +373,25 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
     productName: config.PRODUCT_NAME,
   })
+  // Check-ins (§24): scheduled team questions in the team space; summaries go to a chat room.
+  const checkins = new Checkins({
+    git,
+    index,
+    syncer,
+    rooms: chatRooms,
+    members: new CheckinMembers(config.DATA_DIR),
+    llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+    model: config.ENHANCE_MODEL,
+    publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
+    ...(overrides.checkinsNow ? { now: overrides.checkinsNow } : {}),
+  })
+  const checkinScheduler = new CheckinScheduler({
+    checkins,
+    push: meetings.pushSender
+      ? { store: meetings.reminderStore, sender: meetings.pushSender }
+      : null,
+    ...(overrides.checkinsNow ? { now: overrides.checkinsNow } : {}),
+  })
   // In tests nothing reaches GitHub or Fly unless the test hands in stand-ins.
   const flyEnv = overrides.flyEnv ?? {
     ...(process.env.FLY_APP_NAME ? { app: process.env.FLY_APP_NAME } : {}),
@@ -449,6 +471,8 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     // Tables: a CSV block in Git, formulas by IronCalc (§22).
     tables: new Tables({ git, index, spaces, syncer, forms }),
     links,
+    checkins,
+    checkinScheduler,
     org,
     brand,
     backups: createBackups(config, overrides.backupStore, (space, fn) =>

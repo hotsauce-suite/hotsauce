@@ -3,6 +3,7 @@ import type { BackupService } from '../backup/index.js'
 import type { Boards } from '../boards/index.js'
 import type { AgentBriefs } from '../brief/index.js'
 import type { Briefcasts } from '../briefcast/index.js'
+import type { CheckinScheduler, Checkins } from '../checkins/index.js'
 import type { Clips } from '../clips/index.js'
 import type { Config } from '../config.js'
 import type { Dictation } from '../dictation/index.js'
@@ -56,6 +57,8 @@ export interface AppDeps {
   chatRooms: ChatRooms
   tables: Tables
   links: Links
+  checkins: Checkins
+  checkinScheduler: CheckinScheduler
   org: OrgStore
   brand: BrandStore
   updates: Updater
