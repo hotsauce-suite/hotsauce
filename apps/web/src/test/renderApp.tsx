@@ -3,6 +3,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { briefcastRoutes } from '../apps/briefcast/routes'
 import { checkinsRoutes } from '../apps/checkins/routes'
 import { dictateRoutes } from '../apps/dictate/routes'
+import { filesRoutes } from '../apps/files/routes'
 import { linksRoutes } from '../apps/links/routes'
 import { meetingsRoutes } from '../apps/meetings/routes'
 import { notesRoutes } from '../apps/notes/routes'
@@ -61,6 +62,7 @@ export function renderApp(
           { path: '/dictate', children: dictateRoutes },
           { path: '/tasks', children: tasksRoutes },
           { path: '/notes', children: notesRoutes },
+          { path: '/files', children: filesRoutes },
           { path: '/links', children: linksRoutes },
           { path: '/checkins', children: checkinsRoutes },
           { path: '/people', children: peopleRoutes },

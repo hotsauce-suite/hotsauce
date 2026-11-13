@@ -14,6 +14,7 @@ import type {
 } from '../../api/types'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { useListKeys } from '../../keyboard/listKeys'
 import { meetingUrl } from '../../lib/paths'
 import { useSession } from '../../state/session'
 import { ActionItems } from './ActionItems'
@@ -592,6 +593,7 @@ function MeetingList({
   now: number
 }) {
   const session = useSession()
+  useListKeys()
   const dated = list.filter((m) => m.date)
   return (
     <div data-testid="meeting-list" aria-busy={status === 'loading'} className="mt-4">
@@ -612,6 +614,7 @@ function MeetingList({
                 <Link
                   to={meetingUrl(m.space, m.path)}
                   data-testid="meeting-item"
+                  data-list-item
                   data-path={m.path}
                   className="flex items-center gap-4 px-4 py-3 hover:bg-paper-raised"
                 >

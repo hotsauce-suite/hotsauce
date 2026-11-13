@@ -210,6 +210,19 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
       .poll(async () => (await videoState(page)).currentTime, { timeout: 5_000 })
       .toBeGreaterThan(3.2)
     await video(page).evaluate((el: HTMLVideoElement) => el.pause())
+
+    // m mutes and unmutes; f goes full screen and back.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+    const muted = () => video(page).evaluate((el: HTMLVideoElement) => el.muted)
+    await page.keyboard.press('m')
+    await expect.poll(muted).toBe(false)
+    await page.keyboard.press('m')
+    await expect.poll(muted).toBe(true)
+    const full = () => page.evaluate(() => document.fullscreenElement?.tagName ?? null)
+    await page.keyboard.press('f')
+    await expect.poll(full).toBe('VIDEO')
+    await page.keyboard.press('f')
+    await expect.poll(full).toBe(null)
   })
 
   await test.step('speed: the buttons set the rate, the keyboard steps it, and it is remembered', async () => {

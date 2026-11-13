@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { feedbackEnabled } from '../api/feedback'
 import { useLive } from '../apps/meetings/live/liveState'
@@ -127,6 +127,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       <nav
         aria-label="Apps"
         data-testid="app-rail"
+        onKeyDown={(e) => moveInRail(e, 'ArrowDown', 'ArrowUp')}
         className="shell-rail flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center border-r border-ash bg-paper pt-3 pb-2"
       >
         <BrandMark className="mb-3 size-9 shrink-0" />
@@ -147,6 +148,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
     <nav
       aria-label="Apps"
       data-testid="app-rail"
+      onKeyDown={(e) => moveInRail(e, 'ArrowRight', 'ArrowLeft')}
       className="shell-tabbar shrink-0 border-t border-ash bg-paper-raised pb-[env(safe-area-inset-bottom)]"
     >
       <div className="flex">
@@ -155,6 +157,28 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
       </div>
     </nav>
   )
+}
+
+/**
+ * Arrow keys move between the rail's items (down and up on the desktop rail, right and left on
+ * the phone bar), and Home and End go to the first and last, as in a toolbar.
+ */
+function moveInRail(e: KeyboardEvent<HTMLElement>, next: string, previous: string) {
+  if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return
+  if (![next, previous, 'Home', 'End'].includes(e.key)) return
+  const items = [...e.currentTarget.querySelectorAll<HTMLElement>('a[href], button')].filter(
+    (el) => !el.hasAttribute('disabled'),
+  )
+  const at = items.indexOf(document.activeElement as HTMLElement)
+  if (at === -1) return
+  const to =
+    e.key === 'Home'
+      ? 0
+      : e.key === 'End'
+        ? items.length - 1
+        : Math.min(items.length - 1, Math.max(0, at + (e.key === next ? 1 : -1)))
+  e.preventDefault()
+  items[to]?.focus()
 }
 
 /**

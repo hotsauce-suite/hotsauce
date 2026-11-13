@@ -5,6 +5,8 @@ import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon, type IconName } from '../../components/Icon'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
+import { useListKeys } from '../../keyboard/listKeys'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { filesBus } from './bus'
@@ -188,6 +190,11 @@ export default function FilesPage() {
   const crumbs = folder ? folder.split('/') : []
   const files = kind === 'recent' ? (recent ?? []) : (listing?.files ?? [])
   const folders = kind === 'recent' ? [] : (listing?.folders ?? [])
+  useListKeys()
+  useShortcut('files.upload', () => {
+    input.current?.click()
+    return true
+  })
   const loading = kind === 'recent' ? recent === null : listing === null
 
   return (
@@ -309,9 +316,15 @@ export default function FilesPage() {
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="files-list">
             {folders.map((f) => (
-              <li key={f} className="flex items-center gap-3 py-2" data-testid="files-folder">
+              <li
+                key={f}
+                className="flex items-center gap-3 py-2"
+                data-testid="files-folder"
+                data-list-row
+              >
                 <button
                   type="button"
+                  data-list-item
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   onClick={() => goFolder(f)}
                 >
@@ -331,10 +344,12 @@ export default function FilesPage() {
                 key={`${f.space}/${f.id}`}
                 className="flex items-center gap-3 py-2"
                 data-testid="files-row"
+                data-list-row
               >
                 <button
                   type="button"
                   data-testid="files-open"
+                  data-list-item
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   onClick={() => openFile(f)}
                 >

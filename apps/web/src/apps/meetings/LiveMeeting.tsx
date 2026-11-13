@@ -20,6 +20,7 @@ import { Icon } from '../../components/Icon'
 import { MarkdownEditor } from '../../components/MarkdownEditor'
 import { IconButton } from '../../components/TopBar'
 import { MOBILE_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { isExternalHref, meetingUrl, openExternal } from '../../lib/paths'
 import { useSession } from '../../state/session'
 import { CaptureError, type CaptureMode, captureAudio, supportsTabCapture } from './audio/capture'
@@ -240,6 +241,7 @@ function LiveView({ meeting, live }: { meeting: Meeting; live: LiveSnapshot }) {
 
   // Holds here at once; the server catches up when it can.
   const togglePause = () => void (live.state === 'paused' ? meeting.resume() : meeting.pause())
+  useShortcut('recording.pause', togglePause, live.state === 'recording' || live.state === 'paused')
 
   const resumeCapture = async (mode: CaptureMode) => {
     try {

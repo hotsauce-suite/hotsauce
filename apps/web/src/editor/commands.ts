@@ -55,3 +55,85 @@ export const insertLink: StateCommand = ({ state, dispatch }) => {
   )
   return true
 }
+
+/** The lines the selections touch, each once, top to bottom. */
+function selectedLines(state: Parameters<StateCommand>[0]['state']) {
+  const seen = new Set<number>()
+  const lines = []
+  for (const range of state.selection.ranges) {
+    for (let n = state.doc.lineAt(range.from).number; n <= state.doc.lineAt(range.to).number; n++) {
+      if (seen.has(n)) continue
+      seen.add(n)
+      lines.push(state.doc.line(n))
+    }
+  }
+  return lines
+}
+
+const HEADING = /^#{1,6}[ \t]+/
+const LIST = /^(\s*)(?:[-*+][ \t]+\[[ xX]\][ \t]+|[-*+][ \t]+|\d+[.)][ \t]+)/
+
+/** ⌥⌘1–⌥⌘3 make the lines headings of that level; ⌥⌘0 makes them plain text again. */
+export function setHeading(level: number): StateCommand {
+  return ({ state, dispatch }) => {
+    const changes = selectedLines(state).map((line) => {
+      const old = HEADING.exec(line.text)?.[0] ?? ''
+      return {
+        from: line.from,
+        to: line.from + old.length,
+        insert: level ? `${'#'.repeat(level)} ` : '',
+      }
+    })
+    dispatch(state.update({ changes, scrollIntoView: true, userEvent: 'input.format' }))
+    return true
+  }
+}
+
+export type ListKind = 'bullet' | 'numbered' | 'checklist'
+const MARKERS: Record<ListKind, (i: number) => string> = {
+  bullet: () => '- ',
+  numbered: (i) => `${i + 1}. `,
+  checklist: () => '- [ ] ',
+}
+const kindOf = (marker: string): ListKind =>
+  /\[[ xX]\]/.test(marker) ? 'checklist' : /\d/.test(marker) ? 'numbered' : 'bullet'
+
+/**
+ * ⇧⌘7 numbered, ⇧⌘8 bullets, ⇧⌘9 checklist (as in Google Docs). Lines already in that kind of
+ * list become plain text; any other list marker is swapped.
+ */
+export function toggleList(kind: ListKind): StateCommand {
+  return ({ state, dispatch }) => {
+    const lines = selectedLines(state).filter((l, _, all) => all.length === 1 || l.text.trim())
+    const allThisKind = lines.every((l) => {
+      const m = LIST.exec(l.text)
+      return m && kindOf(m[0]) === kind
+    })
+    const changes = lines.map((line, i) => {
+      const m = LIST.exec(line.text)
+      const indent = m?.[1] ?? /^\s*/.exec(line.text)?.[0] ?? ''
+      const old = m?.[0] ?? indent
+      return {
+        from: line.from,
+        to: line.from + old.length,
+        insert: allThisKind ? indent : indent + MARKERS[kind](i),
+      }
+    })
+    dispatch(state.update({ changes, scrollIntoView: true, userEvent: 'input.format' }))
+    return true
+  }
+}
+
+/** ⌘Enter ticks or unticks the checklist item the cursor is on. Elsewhere it does nothing. */
+export const toggleCheckbox: StateCommand = ({ state, dispatch }) => {
+  const changes = []
+  for (const line of selectedLines(state)) {
+    const m = /^(\s*[-*+][ \t]+\[)([ xX])\]/.exec(line.text)
+    if (!m) continue
+    const at = line.from + (m[1]?.length ?? 0)
+    changes.push({ from: at, to: at + 1, insert: m[2] === ' ' ? 'x' : ' ' })
+  }
+  if (changes.length === 0) return false
+  dispatch(state.update({ changes, userEvent: 'input.format' }))
+  return true
+}

@@ -11,12 +11,25 @@ public enum Brand {
     /// `<scheme>://<path>` opens that path in the app's window.
     public static let urlScheme = "hearth"
 
-    /// The rail's apps, in rail order, for ⌘1…⌘9 (apps/web/src/apps/registry.ts, then Settings).
+    /// The rail's apps, in rail order (apps/web/src/apps/registry.ts), then Settings. The Go menu
+    /// lists them all; the first nine get ⌘1…⌘9. apps/web/src/apps/macRail.test.ts keeps the two
+    /// lists in step.
     public static let railShortcuts: [(title: String, path: String)] = [
+        ("Today", "/today"),
         ("Docs", "/docs"),
         ("Meetings", "/meetings"),
         ("Dictate", "/dictate"),
         ("Clips", "/clips"),
+        ("Tasks", "/tasks"),
+        ("Notes", "/notes"),
+        ("Boards", "/boards"),
+        ("People", "/people"),
+        ("Files", "/files"),
+        ("Forms", "/forms"),
+        ("Check-ins", "/checkins"),
+        ("Tables", "/tables"),
+        ("Links", "/links"),
+        ("Briefcast", "/briefcast"),
         ("Settings", "/settings"),
     ]
 }

@@ -7,7 +7,7 @@ import { search, searchKeymap } from '@codemirror/search'
 import { Annotation, type Extension, type Text } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
-import { insertLink, toggleMarker } from './commands'
+import { insertLink, setHeading, toggleCheckbox, toggleList, toggleMarker } from './commands'
 import { imageUpload } from './imagePaste'
 import { type LivePreviewOptions, livePreview } from './livePreview'
 import { type LinkTarget, wikiLinkSource } from './wikiLink'
@@ -61,6 +61,16 @@ export function editorExtensions(services: EditorServices): Extension[] {
       { key: 'Mod-b', run: toggleMarker('**') },
       { key: 'Mod-i', run: toggleMarker('*') },
       { key: 'Mod-k', run: insertLink },
+      { key: 'Mod-e', run: toggleMarker('`') },
+      { key: 'Shift-Mod-x', run: toggleMarker('~~') },
+      { key: 'Alt-Mod-1', run: setHeading(1) },
+      { key: 'Alt-Mod-2', run: setHeading(2) },
+      { key: 'Alt-Mod-3', run: setHeading(3) },
+      { key: 'Alt-Mod-0', run: setHeading(0) },
+      { key: 'Shift-Mod-7', run: toggleList('numbered') },
+      { key: 'Shift-Mod-8', run: toggleList('bullet') },
+      { key: 'Shift-Mod-9', run: toggleList('checklist') },
+      { key: 'Mod-Enter', run: toggleCheckbox },
       ...searchKeymap,
       ...historyKeymap,
       ...defaultKeymap,

@@ -205,3 +205,47 @@ describe('the editor', () => {
     await waitFor(() => expect(stored('Board meeting ideas').body).toMatch(/ mine$/))
   })
 })
+
+describe('keys (slice 5)', () => {
+  it('j and k move between notes, p pins the one in focus and a archives it', async () => {
+    const user = userEvent.setup()
+    await openBoard()
+    const opens = () => screen.getAllByTestId('note-card-open')
+    await user.keyboard('j')
+    expect(opens()[0]).toHaveFocus()
+    await user.keyboard('j')
+    expect(opens()[1]).toHaveFocus()
+    await user.keyboard('k')
+    expect(opens()[0]).toHaveFocus()
+
+    const unpinned = screen
+      .getAllByTestId('note-card')
+      .find((card) => card.getAttribute('data-note-id') === stored('Board meeting ideas').id)
+    within(unpinned as HTMLElement)
+      .getByTestId('note-card-open')
+      .focus()
+    const wasPinned = stored('Board meeting ideas').pinned
+    await user.keyboard('p')
+    await waitFor(() => expect(stored('Board meeting ideas').pinned).toBe(!wasPinned))
+
+    const before = screen.getAllByTestId('note-card').length
+    const card = screen
+      .getAllByTestId('note-card')
+      .find((c) => c.getAttribute('data-note-id') === stored('Board meeting ideas').id)
+    within(card as HTMLElement)
+      .getByTestId('note-card-open')
+      .focus()
+    await user.keyboard('a')
+    await waitFor(() => expect(stored('Board meeting ideas').archived).toBe(true))
+    await waitFor(() => expect(screen.getAllByTestId('note-card')).toHaveLength(before - 1))
+  })
+
+  it('p and a do nothing without a note in focus', async () => {
+    const user = userEvent.setup()
+    await openBoard()
+    const wasPinned = stored('Board meeting ideas').pinned
+    await user.keyboard('pa')
+    expect(stored('Board meeting ideas').pinned).toBe(wasPinned)
+    expect(stored('Board meeting ideas').archived).toBeFalsy()
+  })
+})

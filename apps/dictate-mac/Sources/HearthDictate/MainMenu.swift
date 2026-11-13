@@ -55,8 +55,9 @@ extension AppDelegate: NSMenuItemValidation {
         let home = entry("Home", #selector(goHome), "H")
         go.addItem(home)
         go.addItem(.separator())
-        for (index, shortcut) in Brand.railShortcuts.prefix(9).enumerated() {
-            let item = entry(shortcut.title, #selector(openRailApp(_:)), "\(index + 1)")
+        for (index, shortcut) in Brand.railShortcuts.enumerated() {
+            let key = index < 9 ? "\(index + 1)" : ""
+            let item = entry(shortcut.title, #selector(openRailApp(_:)), key)
             item.tag = index
             go.addItem(item)
         }

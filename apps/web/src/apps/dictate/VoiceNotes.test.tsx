@@ -82,6 +82,15 @@ describe('Dictate on a phone', () => {
     )
   })
 
+  it('r starts a voice note from the keyboard', async () => {
+    const { CaptureError } = await import('../meetings/audio/capture')
+    capture.fail = new CaptureError('denied', 'no')
+    renderApp('/dictate/voice')
+    await screen.findByTestId('voice-record')
+    await userEvent.keyboard('r')
+    expect(await screen.findByTestId('voice-error')).toHaveTextContent(/microphone/)
+  })
+
   it('folds the word lists away until opened', async () => {
     asPhone()
     renderApp('/dictate/voice')

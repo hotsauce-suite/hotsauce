@@ -108,7 +108,8 @@ export default function ClipPage() {
     if (play) void el.play().catch(() => {})
   }, [])
 
-  // Space or k plays and pauses, ← and → skip 5 s, j and l 10 s, < and > change speed. The key
+  // Space or k plays and pauses, ← and → skip 5 s, j and l 10 s, < and > change speed, f goes
+  // full screen and m mutes. The key
   // listener leaves Space and the arrows to the video's own controls when they have focus.
   const withVideo = (act: (el: HTMLVideoElement) => void) => () => {
     const el = video.current
@@ -146,6 +147,31 @@ export default function ClipPage() {
   useShortcut(
     'clips.slower',
     withVideo((el) => changeSpeed(stepSpeed(el.playbackRate, -1))),
+  )
+  // iPhone Safari has no requestFullscreen on a video, only webkitEnterFullscreen. With
+  // neither, the key is left alone rather than swallowed.
+  useShortcut('clips.fullscreen', () => {
+    const el = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null
+    if (!el) return false
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => {})
+      return true
+    }
+    if (typeof el.requestFullscreen === 'function') {
+      void el.requestFullscreen().catch(() => {})
+      return true
+    }
+    if (typeof el.webkitEnterFullscreen === 'function') {
+      el.webkitEnterFullscreen()
+      return true
+    }
+    return false
+  })
+  useShortcut(
+    'clips.mute',
+    withVideo((el) => {
+      el.muted = !el.muted
+    }),
   )
 
   const copyLink = async () => {

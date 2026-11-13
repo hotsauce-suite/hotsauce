@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router'
 import { type LinkView, linksApi, readingTime, webUrl } from '../../api/links'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
+import { useShortcut } from '../../keyboard/shortcuts'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
@@ -79,6 +81,23 @@ export default function LinksPage() {
       load()
     }
   }
+
+  useListKeys()
+  const focusedLink = () => {
+    const key = focusedRow('data-link-key')
+    return links?.find((l) => `${l.space}/${l.id}` === key)
+  }
+  useShortcut('links.done', () => {
+    const l = focusedLink()
+    if (!l) return false
+    holdListPlace()
+    void toggleDone(l)
+  })
+  useShortcut('links.original', () => {
+    const l = focusedLink()
+    if (!l) return false
+    window.open(l.url, '_blank', 'noopener')
+  })
 
   const retry = async (l: LinkView) => {
     try {
@@ -231,11 +250,17 @@ function LinkRow({
   const { spaceLabel } = useSession()
   const blurb = l.summary || l.description
   return (
-    <li className="group flex gap-3 py-4" data-testid="link-row">
+    <li
+      className="group flex gap-3 py-4"
+      data-testid="link-row"
+      data-link-key={`${l.space}/${l.id}`}
+      data-list-row
+    >
       <div className="min-w-0 flex-1">
         <Link
           to={linkTo(l)}
           data-testid="link-title"
+          data-list-item
           className="line-clamp-2 font-medium text-ink hover:text-ember-strong"
         >
           {l.title || l.url}
