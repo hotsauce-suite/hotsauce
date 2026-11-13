@@ -25,8 +25,12 @@ window.addEventListener('vite:preloadError', (event) => {
 })
 
 async function boot() {
-  // Statically false in production builds, so the mock layer is tree-shaken away.
-  if (import.meta.env.DEV && import.meta.env.VITE_MOCK_API === '1') {
+  // Statically false in production builds, so the mock layer is tree-shaken away. The demo
+  // build (`vite build --mode demo`, the live demo on hotsauce.work) keeps it.
+  if (
+    (import.meta.env.DEV && import.meta.env.VITE_MOCK_API === '1') ||
+    import.meta.env.MODE === 'demo'
+  ) {
     const { startMockApi } = await import('./mocks/browser')
     await startMockApi()
   }

@@ -6,6 +6,8 @@ import { AuthContext, type AuthState } from './AuthContext'
 // reloads in localStorage; the server still enforces the domain lock.
 
 const STORAGE_KEY = 'hearth.devUser'
+// The live demo starts signed in, even where an embedded page can't use storage.
+const DEMO_USER = import.meta.env.MODE === 'demo' ? 'ada@example.test' : null
 
 function readDevUser(): string | null {
   try {
@@ -29,7 +31,7 @@ function signRequestsAs(email: string | null) {
 }
 
 export function DevAuthProvider({ children }: { children: ReactNode }) {
-  const [email, setEmail] = useState(readDevUser)
+  const [email, setEmail] = useState(() => readDevUser() ?? DEMO_USER)
   // Set synchronously during render so the first API calls of children are signed.
   signRequestsAs(email)
 
