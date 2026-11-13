@@ -54,6 +54,6 @@ export function todayRoutes(
     })
     .get('/today/weather', valid('query', Place), async (c) => {
       const { lat, lon } = c.req.valid('query')
-      return c.json(await weather.forecast(lat, lon))
+      return c.json(await weather.forecast(lat, lon, c.get('principal').email))
     })
 }

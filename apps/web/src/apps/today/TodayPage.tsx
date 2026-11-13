@@ -109,7 +109,7 @@ export default function TodayPage() {
               {layouts.error}
             </p>
           ) : null}
-          {view === null ? (
+          {view === null || layouts.shown === null ? (
             error ? null : (
               <p className="text-sm text-ink-faint" data-testid="today-loading">
                 Loading your day…
@@ -120,15 +120,18 @@ export default function TodayPage() {
               layout={layouts.shown}
               view={view}
               now={now}
+              refresh={loadedAt.getTime()}
               editing={layouts.draft !== null}
               onChange={layouts.change}
               onTaskDone={removeTask}
               onTaskAdded={addTask}
             />
           )}
-          <div className="mt-5 lg:ml-auto lg:w-2/5">
-            <MacAppCard />
-          </div>
+          {view ? (
+            <div className="mt-5 lg:ml-auto lg:w-2/5">
+              <MacAppCard />
+            </div>
+          ) : null}
         </div>
       </div>
     </>
@@ -137,7 +140,9 @@ export default function TodayPage() {
 
 /** The member's saved layout, and the draft while they edit it (plan E1–E3). */
 function useLayout() {
-  const [layout, setLayout] = useState<TodayLayout>(defaultTodayLayout)
+  // Null until the saved layout arrives: editing a stand-in would save over the real one.
+  const [layout, setLayout] = useState<TodayLayout | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [draft, setDraft] = useState<TodayLayout | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -148,8 +153,10 @@ function useLayout() {
       (r) => {
         if (!cancelled) setLayout(r.layout)
       },
-      // The default layout stands in.
-      () => undefined,
+      () => {
+        // The default stands in for this visit, read-only.
+        if (!cancelled) setLoadFailed(true)
+      },
     )
     return () => {
       cancelled = true
@@ -174,12 +181,18 @@ function useLayout() {
     }
   }
 
+  const current = layout ?? (loadFailed ? defaultTodayLayout() : null)
   return {
-    shown: draft ?? layout,
+    shown: draft ?? current,
     draft,
     saving,
-    error,
+    error:
+      error ??
+      (loadFailed ? 'Your Today layout didn’t load, so you’re seeing the default for now.' : null),
+    /** Editing waits for the saved layout. */
+    canEdit: layout !== null,
     edit: () => {
+      if (!layout) return
       setError(null)
       setDraft(layout)
     },
@@ -194,7 +207,7 @@ function useLayout() {
     /** In edit mode it changes the draft; outside it (a Board tile's pick) it saves at once. */
     change: (next: TodayLayout) => {
       if (draft) setDraft(next)
-      else {
+      else if (layout) {
         setLayout(next)
         void save(next)
       }
@@ -205,7 +218,13 @@ function useLayout() {
 function EditBar(l: ReturnType<typeof useLayout>) {
   if (!l.draft)
     return (
-      <button type="button" onClick={l.edit} className={toolButton} data-testid="today-edit">
+      <button
+        type="button"
+        onClick={l.edit}
+        disabled={!l.canEdit}
+        className={toolButton}
+        data-testid="today-edit"
+      >
         <Icon name="pencil" className="mr-1.5 size-4" />
         Edit Today
       </button>

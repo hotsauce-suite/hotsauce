@@ -91,6 +91,13 @@ describe('Today layout edits (E1, E2)', () => {
     expect(addableTiles(l)).toEqual(['board'])
   })
 
+  it(`offers nothing once Today holds ${MAX_TODAY_TILES} tiles`, () => {
+    let l: TodayLayout = { schema: 1, columns: [[], []] }
+    for (let i = 0; i < MAX_TODAY_TILES + 5; i++) l = addTile(l, 'board')
+    expect(l.columns[0].length + l.columns[1].length).toBe(MAX_TODAY_TILES)
+    expect(addableTiles(l)).toEqual([])
+  })
+
   it('removes, nudges, moves across and updates', () => {
     let l = defaultTodayLayout()
     l = nudgeTile(l, 'tasks', -1)

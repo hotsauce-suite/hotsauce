@@ -127,9 +127,11 @@ export function layoutTiles(layout: TodayLayout): TodayTile[] {
   return [...layout.columns[0], ...layout.columns[1]]
 }
 
-/** Kinds the "+ Add tile" picker offers: those not shown yet, and the repeatable ones. */
+/** Kinds the "+ Add tile" picker offers: those not shown yet, and the repeatable ones; none when full. */
 export function addableTiles(layout: TodayLayout): TodayTileKind[] {
-  const shown = new Set(layoutTiles(layout).map((t) => t.kind))
+  const tiles = layoutTiles(layout)
+  if (tiles.length >= MAX_TODAY_TILES) return []
+  const shown = new Set(tiles.map((t) => t.kind))
   return TODAY_TILE_KINDS.filter((k) => REPEATABLE_TILES.has(k) || !shown.has(k))
 }
 

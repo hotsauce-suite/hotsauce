@@ -51,6 +51,8 @@ describe('Today header (H1–H4)', () => {
     expect(greeting(new Date(2026, 10, 13, 8), 'Morgan Holland')).toBe('Good morning, Morgan')
     expect(greeting(new Date(2026, 10, 13, 13))).toBe('Good afternoon')
     expect(greeting(new Date(2026, 10, 13, 19), 'Sam')).toBe('Good evening, Sam')
+    // Still up in the small hours: evening, not morning.
+    expect(greeting(new Date(2026, 10, 13, 2))).toBe('Good evening')
   })
 
   it('H3: names the next meeting, with Join only when it is close and has a link', () => {

@@ -33,6 +33,34 @@ describe('Today tiles: editing (E1–E3)', () => {
     expect(screen.queryByTestId('today-starred')).toBeNull()
   })
 
+  it('a tile with nothing today hides, leaving no gap, and shows a placeholder in edit mode', async () => {
+    server.use(http.get('/api/tasks/from-meetings', () => HttpResponse.json([])))
+    renderApp('/today')
+    await screen.findByTestId('today-tasks')
+    // Meetings and Tasks only: From your meetings leaves no empty wrapper behind.
+    expect(screen.getByTestId('today-column-0').children).toHaveLength(2)
+    await userEvent.click(screen.getByTestId('today-edit'))
+    expect(screen.getByTestId('today-placeholder-action-items')).toBeInTheDocument()
+  })
+
+  it('if the saved layout does not load, shows the default and does not allow editing', async () => {
+    server.use(http.get('/api/today/layout', () => HttpResponse.json({}, { status: 500 })))
+    renderApp('/today')
+    expect(await screen.findByTestId('today-layout-error')).toHaveTextContent('didn’t load')
+    expect(await screen.findByTestId('today-tasks')).toBeInTheDocument()
+    expect(screen.getByTestId('today-edit')).toBeDisabled()
+  })
+
+  it('tiles being arranged are inert, and Escape closes Add tile', async () => {
+    await startEditing()
+    const tasks = screen.getByTestId('today-tasks')
+    expect(tasks.closest('[inert]')).not.toBeNull()
+    await userEvent.click(screen.getByTestId('today-add-tile'))
+    expect(screen.getByTestId('today-add-tile-menu')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByTestId('today-add-tile-menu')).toBeNull()
+  })
+
   it('E1: Add tile offers only what is not shown, plus Board, and adds to the shorter column', async () => {
     await startEditing()
     await userEvent.click(screen.getByTestId('today-add-tile'))

@@ -2,7 +2,7 @@
 
 ## Status
 
-Building, 2026-11-13. Branch `claude/project-thread-05iemt`. All slices are in progress in one PR.
+Built 2026-11-13 in PR #31 (branch `claude/project-thread-05iemt`). Every requirement has a passing test, and the independent review's findings are fixed. Not stubbed: nothing. Not in this PR: a Check-ins tile, which waits for #27.
 
 ## Decisions
 
@@ -23,11 +23,11 @@ Each requirement maps to a test, named in brackets.
 **Header**
 
 - H1: The header shows the time as hours and minutes, and the full weekday and date. It updates when the minute changes. [TodayHeader.test]
-- H2: The greeting follows the hour of the day: morning before 12, afternoon before 17, evening otherwise. It uses the member's first name. [TodayHeader.test]
+- H2: The greeting follows the hour of the day: morning from 5 until 12, afternoon until 17, and evening otherwise (including the small hours). It uses the member's first name. [TodayHeader.test]
 - H3: The next-up line names the next meeting that hasn't ended, as "Title in N min", "Title now", or "Title at 3:00 PM". A Join link appears when the meeting has a Meet link and starts within 15 minutes. With no more meetings, it says "No more meetings today". [TodayHeader.test]
 - H4: The next-up line counts the tasks due today, and the overdue ones separately, for example "3 tasks due · 1 overdue". Zero shows nothing. [TodayHeader.test]
-- H5: Weather is off until the member clicks "Show weather". The browser then asks for their location, and the header shows the current temperature, the conditions, and today's high and low. It uses °F for a US locale and °C everywhere else. If location is refused, the header says so quietly. [TodayHeader.test, weather.test]
-- H6: `GET /api/today/weather?lat&lon` rounds the position to 2 decimals. It asks MET Norway with an identifying User-Agent and caches each place for 20 minutes. If MET fails, it answers 502 with a plain message. [server weather.test]
+- H5: Weather is off until the member clicks "Show weather". The browser then asks for their location, and the header shows the current temperature, the conditions, and the high and low over the next 24 hours. It uses °F for a US locale and °C everywhere else. If location is refused, the header says so quietly. [TodayHeader.test, weather.test]
+- H6: `GET /api/today/weather?lat&lon` rounds the position to 2 decimals. It asks MET Norway with an identifying User-Agent and caches each place for 20 minutes (oldest dropped first). If MET fails, it answers 502 with a plain message and doesn't ask again for that place for a minute. Each member gets 10 new places a minute, so one person can't get the instance throttled. [server weather.test]
 
 **Layout**
 
@@ -38,7 +38,8 @@ Each requirement maps to a test, named in brackets.
 **Editing**
 
 - E1: "Edit Today" turns on edit mode. "+ Add tile" lists only the tiles that aren't already shown, plus Board. Picking one adds it to the end of the shorter column. [TodayTiles.test]
-- E2: ✕ removes a tile. The up and down arrows move it within its column, and "Move to other column" moves it across. Drag and drop does the same on a computer. [TodayTiles.test, layout logic test]
+- E2: ✕ removes a tile. The up and down arrows move it within its column, and "Other column" moves it across. Drag and drop does the same on a computer. [TodayTiles.test, layout logic test]
+- E5: Tiles being arranged can't be clicked or reached by keyboard (except a Board tile asking which board). Edit Today waits until the saved layout has loaded; if it fails to load, Today shows the default with a note and editing is off. Today holds at most 40 tiles. [TodayTiles.test, format today.test]
 - E3: "Done" saves the layout. "Cancel" throws the changes away. "Reset to default" restores the default. A failed save shows an error and keeps edit mode open. [TodayTiles.test]
 - E4: A Board tile with no board chosen asks you to pick one from your boards. [TodayTiles.test]
 

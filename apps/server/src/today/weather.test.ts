@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { HearthError } from '../errors.js'
-import { roundPlace, summarize, WEATHER_TTL_MS, Weather } from './weather.js'
+import {
+  roundPlace,
+  summarize,
+  WEATHER_FAILURE_TTL_MS,
+  WEATHER_MISSES_PER_MINUTE,
+  WEATHER_TTL_MS,
+  Weather,
+} from './weather.js'
 
 // H6: the header's weather, from MET Norway, rounded and cached.
 
@@ -48,9 +55,8 @@ describe('Weather', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
     const [url, init] = fetch.mock.calls[0] ?? []
     expect(String(url)).toContain('lat=44.48&lon=-73.21')
-    expect((init?.headers as Record<string, string>)['User-Agent']).toBe(
-      'Hotsauce/0.8.0 https://hotsauce.work',
-    )
+    const headers = (init?.headers ?? {}) as Record<string, string>
+    expect(headers['User-Agent']).toBe('Hotsauce/0.8.0 https://hotsauce.work')
     now += WEATHER_TTL_MS + 1
     await weather.forecast(44.48, -73.21)
     expect(fetch).toHaveBeenCalledTimes(2)
@@ -70,5 +76,29 @@ describe('Weather', () => {
     down = true
     now += WEATHER_TTL_MS + 1
     await expect(weather.forecast(1, 2)).resolves.toMatchObject({ temperature: 7 })
+  })
+
+  it('does not ask MET again for a place that just failed', async () => {
+    let now = NOW
+    const fetch = fakeFetch({}, 500)
+    const weather = new Weather({ fetch, now: () => now })
+    await expect(weather.forecast(1, 2)).rejects.toThrow(HearthError)
+    await expect(weather.forecast(1, 2)).rejects.toThrow(HearthError)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    now += WEATHER_FAILURE_TTL_MS + 1
+    await expect(weather.forecast(1, 2)).rejects.toThrow(HearthError)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('limits each member’s new places per minute, but not cached ones or other members', async () => {
+    let now = NOW
+    const fetch = fakeFetch(met([5]))
+    const weather = new Weather({ fetch, now: () => now })
+    for (let i = 0; i < WEATHER_MISSES_PER_MINUTE; i++) await weather.forecast(i, 0, 'a@x')
+    await expect(weather.forecast(50, 0, 'a@x')).rejects.toMatchObject({ code: 'rate_limited' })
+    await expect(weather.forecast(0, 0, 'a@x')).resolves.toMatchObject({ temperature: 5 })
+    await expect(weather.forecast(50, 0, 'b@x')).resolves.toMatchObject({ temperature: 5 })
+    now += 60_001
+    await expect(weather.forecast(51, 0, 'a@x')).resolves.toMatchObject({ temperature: 5 })
   })
 })

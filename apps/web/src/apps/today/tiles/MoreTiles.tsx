@@ -2,7 +2,7 @@
 // one that fails leaves the rest of Today alone.
 
 import type { TodayTile } from '@hearth/format'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { type BoardSummary, type BoardView, boardsApi } from '../../../api/boards'
 import { calendarApi } from '../../../api/calendar'
@@ -27,25 +27,32 @@ export const TILE_LIST_LIMIT = 8
 
 type Loaded<T> = { kind: 'loading' } | { kind: 'error' } | { kind: 'done'; value: T }
 
-/** Loads once per `key`, again when `key` changes. */
-function useLoad<T>(load: () => Promise<T>, key: string): Loaded<T> {
+/**
+ * Loads per `key`, and again quietly (keeping what's shown) whenever `refresh` changes, so these
+ * tiles stay as current as the rest of Today.
+ */
+function useLoad<T>(load: () => Promise<T>, key: string, refresh = 0): Loaded<T> {
   const [state, setState] = useState<Loaded<T>>({ kind: 'loading' })
+  const shownKey = useRef<string | null>(null)
   // biome-ignore lint/correctness/useExhaustiveDependencies: `key` names what `load` reads
   useEffect(() => {
     let cancelled = false
-    setState({ kind: 'loading' })
+    if (shownKey.current !== key) setState({ kind: 'loading' })
     load().then(
       (value) => {
-        if (!cancelled) setState({ kind: 'done', value })
+        if (cancelled) return
+        shownKey.current = key
+        setState({ kind: 'done', value })
       },
       () => {
-        if (!cancelled) setState({ kind: 'error' })
+        // A failed refresh keeps the last good answer.
+        if (!cancelled && shownKey.current !== key) setState({ kind: 'error' })
       },
     )
     return () => {
       cancelled = true
     }
-  }, [key])
+  }, [key, refresh])
   return state
 }
 
@@ -174,8 +181,8 @@ export function ClipTile() {
 }
 
 /** T3. */
-export function PeopleTile() {
-  const state = useLoad(async () => (await peopleApi.list()).people, 'people')
+export function PeopleTile({ refresh }: { refresh: number }) {
+  const state = useLoad(async () => (await peopleApi.list()).people, 'people', refresh)
   return (
     <Card
       title="People"
@@ -208,8 +215,8 @@ export function PeopleTile() {
 }
 
 /** T3. */
-export function FilesTile({ now }: { now: Date }) {
-  const state = useLoad(() => filesApi.recent(), 'files')
+export function FilesTile({ now, refresh }: { now: Date; refresh: number }) {
+  const state = useLoad(() => filesApi.recent(), 'files', refresh)
   return (
     <Card
       title="Recent files"
@@ -245,10 +252,12 @@ export function FilesTile({ now }: { now: Date }) {
 export function BoardTile({
   tile,
   now,
+  refresh,
   onChoose,
 }: {
   tile: TodayTile
   now: Date
+  refresh: number
   onChoose: (board: { space: string; id: string }) => void
 }) {
   const board = tile.board
@@ -259,13 +268,29 @@ export function BoardTile({
       testId="today-board"
       action={board ? allLink('/boards', 'All boards') : undefined}
     >
-      {board ? <BoardPreview board={board} now={now} /> : <BoardPicker onChoose={onChoose} />}
+      {board ? (
+        <BoardPreview board={board} now={now} refresh={refresh} />
+      ) : (
+        <BoardPicker onChoose={onChoose} />
+      )}
     </Card>
   )
 }
 
-function BoardPreview({ board, now }: { board: { space: string; id: string }; now: Date }) {
-  const state = useLoad(() => boardsApi.get(board.space, board.id), `${board.space}/${board.id}`)
+function BoardPreview({
+  board,
+  now,
+  refresh,
+}: {
+  board: { space: string; id: string }
+  now: Date
+  refresh: number
+}) {
+  const state = useLoad(
+    () => boardsApi.get(board.space, board.id),
+    `${board.space}/${board.id}`,
+    refresh,
+  )
   return (
     <Loading state={state} failed="That board didn’t load. It may have been deleted.">
       {(b: BoardView) => (
@@ -351,25 +376,31 @@ interface WeekData {
 }
 
 /** T5: this week, Monday to Sunday, with meetings and due tasks. */
-export function WeekTile({ now }: { now: Date }) {
+export function WeekTile({ now, refresh }: { now: Date; refresh: number }) {
   const days = weekDays(now)
   const first = days[0] as Date
   const last = days[6] as Date
   const end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1)
   const today = isoDate(now)
   const [picked, setPicked] = useState(today)
-  const state = useLoad<WeekData>(async () => {
-    const [events, tasks] = await Promise.all([
-      calendarApi.upcoming({ from: first.toISOString(), to: end.toISOString() }).catch(() => []),
-      tasksApi.list({
-        status: 'open',
-        mine: true,
-        dueAfter: isoDate(first),
-        dueBefore: isoDate(last),
-      }),
-    ])
-    return { events, tasks }
-  }, isoDate(first))
+  // Past midnight, the new day is the one shown.
+  useEffect(() => setPicked(today), [today])
+  const state = useLoad<WeekData>(
+    async () => {
+      const [events, tasks] = await Promise.all([
+        calendarApi.upcoming({ from: first.toISOString(), to: end.toISOString() }).catch(() => []),
+        tasksApi.list({
+          status: 'open',
+          mine: true,
+          dueAfter: isoDate(first),
+          dueBefore: isoDate(last),
+        }),
+      ])
+      return { events, tasks }
+    },
+    isoDate(first),
+    refresh,
+  )
 
   const on = (date: string, data: WeekData) => ({
     events: data.events
@@ -401,6 +432,9 @@ export function WeekTile({ now }: { now: Date }) {
                       type="button"
                       onClick={() => setPicked(date)}
                       aria-pressed={picked === date}
+                      aria-label={`${d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}: ${
+                        count === 0 ? 'nothing on' : count === 1 ? '1 item' : `${count} items`
+                      }`}
                       data-testid="today-week-day"
                       data-date={date}
                       className={`flex flex-col items-center rounded-lg py-1.5 text-xs ${

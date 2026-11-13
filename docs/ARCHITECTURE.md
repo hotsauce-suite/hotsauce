@@ -1182,6 +1182,20 @@ One read, `GET /api/today?from&to&date` (`apps/server/src/today/service.ts`, `ap
 
 Everything comes from spaces the member can read (`visibleSpaces`), never another member's personal space. The page refreshes on any `changed` event (debounced 500 ms), on reconnect, and every minute.
 
+### 16.4 Tiles and the layout
+
+Today is two columns of tiles the member arranges (`apps/web/src/apps/today/TodayTiles.tsx`, plan `docs/PLAN-today-tiles.md`). The layout is one JSON file per member, `.hearth/today.json` in their personal space (`TODAY_LAYOUT_PATH`), so it is in Git and follows them everywhere. `packages/format/src/today.ts` parses it and does every edit (add, remove, nudge, move across, update). Parsing drops what it doesn't understand rather than failing: unknown kinds (from a newer version), a second copy of a single-use tile, repeated ids, and anything past 40 tiles. Only `board` may repeat; each Board tile keeps `{ space, id }` of the board it shows.
+
+`GET /api/today/layout` returns `{ layout, saved }`, the default (Today as it was before tiles) until the member saves. `PUT /api/today/layout` validates and commits it (`TodayLayouts`, `apps/server/src/today/layout.ts`); saving an unchanged layout makes no commit. A file that no longer parses reads as the default.
+
+Edit Today waits for the saved layout (so a stand-in never overwrites it), edits a draft, and saves on Done. Tiles being arranged are `inert`. Tiles with their own data (People, Recent files, Board, This week) load it themselves and reload whenever the page does. The day-summary tiles (From your meetings, Unfiled notes) hide on days they're empty, and show a placeholder in edit mode.
+
+### 16.5 Header and weather
+
+The top bar has the time (the browser's 12 or 24 hour format, ticking on the minute) and the day. Under it are a greeting and a "next up" line (next meeting with Join within 15 minutes, tasks due and overdue), worked out from `GET /api/today`.
+
+Weather is opt-in per device. "Show weather" asks the browser for its position, rounds it to 2 decimals (about 1 km), and keeps it in `localStorage` only. `GET /api/today/weather?lat&lon` (`apps/server/src/today/weather.ts`) asks MET Norway's Locationforecast (free, no key; its terms want a User-Agent naming us, at most 4 decimals, caching and credit). Answers are cached 20 minutes per place (LRU, 500 places). A failure isn't retried for that place for a minute, and each member gets 10 uncached places a minute, since MET throttles by User-Agent and one member could otherwise get the whole instance blocked. The answer is in °C; the browser shows °F for US-style locales.
+
 
 ## 17. People
 

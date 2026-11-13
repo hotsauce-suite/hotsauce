@@ -13,7 +13,7 @@ import {
   type TodayTileKind,
   updateTile,
 } from '@hearth/format'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import type { TaskView } from '../../api/tasks'
 import type { TodayView } from '../../api/today'
 import { Icon, type IconName } from '../../components/Icon'
@@ -59,6 +59,8 @@ export interface TodayTilesProps {
   layout: TodayLayout
   view: TodayView
   now: Date
+  /** Changes each time Today reloads, so tiles with their own data reload too. */
+  refresh: number
   editing: boolean
   onChange: (layout: TodayLayout) => void
   onTaskDone: (task: TaskView) => void
@@ -93,7 +95,7 @@ export function TodayTiles(props: TodayTilesProps) {
           }
         >
           {layout.columns[column].map((tile, index) => {
-            const body = <TileBody tile={tile} {...props} />
+            const body = hiddenToday(tile, props.view) ? null : <TileBody tile={tile} {...props} />
             if (!editing) return body ? <div key={tile.id}>{body}</div> : null
             return (
               <EditFrame
@@ -125,11 +127,19 @@ export function TodayTiles(props: TodayTilesProps) {
   )
 }
 
-/** A tile's content, or null for a tile with nothing to show today (it hides). */
+/** Tiles that hide on a day they have nothing to show; edit mode shows a placeholder instead. */
+function hiddenToday(tile: TodayTile, view: TodayView): boolean {
+  if (tile.kind === 'action-items') return view.actionItems.length === 0
+  if (tile.kind === 'notes') return view.notes.length === 0
+  return false
+}
+
+/** A tile's content. */
 function TileBody({
   tile,
   view,
   now,
+  refresh,
   layout,
   onChange,
   onTaskDone,
@@ -143,9 +153,9 @@ function TileBody({
         <TasksCard tasks={view.tasks} date={view.date} onDone={onTaskDone} onAdded={onTaskAdded} />
       )
     case 'action-items':
-      return view.actionItems.length > 0 ? <ActionItemsCard view={view} /> : null
+      return <ActionItemsCard view={view} />
     case 'notes':
-      return view.notes.length > 0 ? <NotesCard notes={view.notes} now={now} /> : null
+      return <NotesCard notes={view.notes} now={now} />
     case 'docs':
       return <DocsCard docs={view.docs} now={now} />
     case 'brief':
@@ -157,19 +167,20 @@ function TileBody({
     case 'clip':
       return <ClipTile />
     case 'people':
-      return <PeopleTile />
+      return <PeopleTile refresh={refresh} />
     case 'files':
-      return <FilesTile now={now} />
+      return <FilesTile now={now} refresh={refresh} />
     case 'board':
       return (
         <BoardTile
           tile={tile}
           now={now}
+          refresh={refresh}
           onChoose={(board) => onChange(updateTile(layout, { ...tile, board }))}
         />
       )
     case 'week':
-      return <WeekTile now={now} />
+      return <WeekTile now={now} refresh={refresh} />
   }
 }
 
@@ -213,6 +224,7 @@ function EditFrame({
   onRemove: () => void
 }) {
   const label = TILE_CATALOG[tile.kind].label
+  const picking = tile.kind === 'board' && !tile.board
   const [over, setOver] = useState(false)
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: drag and drop is a pointer extra; the buttons do the same by keyboard
@@ -271,7 +283,7 @@ function EditFrame({
           aria-label={`Move ${label} to the ${column === 0 ? 'right' : 'left'} column`}
           data-testid="today-tile-across"
         >
-          {column === 0 ? 'To right →' : '← To left'}
+          Other column
         </button>
         <button
           type="button"
@@ -283,9 +295,8 @@ function EditFrame({
           <Icon name="close" className="size-4" />
         </button>
       </div>
-      <div
-        className={tile.kind === 'board' && !tile.board ? '' : 'pointer-events-none select-none'}
-      >
+      {/* Arranging, not using: no clicks, no keyboard focus. An unpicked Board still asks. */}
+      <div inert={!picking} className={picking ? '' : 'select-none'}>
         {children}
       </div>
     </div>
@@ -302,8 +313,27 @@ export function AddTileMenu({
 }) {
   const [open, setOpen] = useState(false)
   const kinds = addableTiles(layout)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    box.current
+      ?.querySelector<HTMLButtonElement>('[data-testid="today-add-tile-menu"] button')
+      ?.focus()
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', key)
+    }
+  }, [open])
   return (
-    <div className="relative">
+    <div className="relative" ref={box}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -319,6 +349,11 @@ export function AddTileMenu({
           className="absolute right-0 z-20 mt-2 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-ash bg-paper-raised p-1 shadow-lg"
           data-testid="today-add-tile-menu"
         >
+          {kinds.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-ink-faint">
+              Today is full. Remove a tile first.
+            </li>
+          ) : null}
           {kinds.map((kind) => {
             const info = TILE_CATALOG[kind]
             return (

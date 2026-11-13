@@ -1,0 +1,8 @@
+# Learnings: Today
+
+- **A stand-in layout must never be editable.** Today first showed the default layout while the saved one loaded, and Edit Today copied whatever was showing. A quick click (or a slow server) saved the default over the member's own layout. Hold editing until the real layout arrives, and make a failed load read-only.
+- **`<Component />` is always truthy.** `const body = <TileBody />` followed by `body ? … : null` never hides anything, even when `TileBody` returns null. That left an empty wrapper (a 20 px gap) at the top of a column. Decide "hidden today" with a plain function before you make the element.
+- **Capture `fetch` lazily in services that tests stub.** `deps.fetch ?? fetch` binds the real fetch when the app is built, so a later `vi.spyOn(globalThis, 'fetch')` doesn't take effect and the test quietly hits the network (here MET Norway really answered, which hid the bug). Use `(i, o) => globalThis.fetch(i, o)`.
+- **MET Norway's Locationforecast is reachable from the cloud sandbox and needs no key.** It wants an identifying User-Agent and at most 4 decimals. It throttles per User-Agent, so a self-hosted instance's whole user base shares one budget: rate limit per member and cache failures.
+- **`pointer-events-none` isn't "can't use".** Tab still reaches the links and inputs inside. Use `inert` (React 19 takes it as a boolean) for anything shown but not usable, such as tiles in edit mode.
+- **Biome on main flags pre-existing problems** in `site/public/index.html`, `ramble.test.ts` and `briefHandlers.ts`. Lint the files you touched to see your own state, and don't "fix" theirs in a feature PR.
