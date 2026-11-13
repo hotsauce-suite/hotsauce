@@ -1,5 +1,6 @@
 // Client for `GET /api/today` (ARCHITECTURE §16): the Today page in one read.
 
+import type { TodayLayout } from '@hearth/format'
 import { request } from './client'
 import type { TaskView } from './tasks'
 import type { MeetingActionItems } from './types'
@@ -44,6 +45,29 @@ export function localDay(now = new Date()): { from: string; to: string; date: st
   }
 }
 
+/** The member's tile layout (ARCHITECTURE §16.4); `saved` is false while it's the default. */
+export interface TodayLayoutView {
+  layout: TodayLayout
+  saved: boolean
+}
+
+/** The header's weather (ARCHITECTURE §16.5), in °C. */
+export interface TodayWeather {
+  temperature: number
+  symbol: string
+  high: number
+  low: number
+  updated: string
+  credit: string
+}
+
 export const todayApi = {
   get: (now = new Date()) => request<TodayView>('/api/today', { query: localDay(now) }),
+  layout: () => request<TodayLayoutView>('/api/today/layout'),
+  saveLayout: (layout: TodayLayout) =>
+    request<TodayLayoutView>('/api/today/layout', { method: 'PUT', json: { layout } }),
+  weather: (place: { lat: number; lon: number }) =>
+    request<TodayWeather>('/api/today/weather', {
+      query: { lat: String(place.lat), lon: String(place.lon) },
+    }),
 }

@@ -1,34 +1,39 @@
-import { parseQuickAdd } from '@hearth/format'
-import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { defaultTodayLayout, type TodayLayout } from '@hearth/format'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { checkinsApi, type DueCheckin } from '../../api/checkins'
 import { HearthApiError } from '../../api/client'
 import { dictationApi } from '../../api/dictation'
-import { memberTimeZone, type TaskView, tasksApi } from '../../api/tasks'
-import { type TodayMeeting, type TodayView, todayApi } from '../../api/today'
+import type { TaskView } from '../../api/tasks'
+import { type TodayView, todayApi } from '../../api/today'
 import { hearthSocket } from '../../api/ws'
 import { product } from '../../brand/product'
-import { Icon, type IconName } from '../../components/Icon'
+import { Icon } from '../../components/Icon'
 import { MAC_APP_SETTINGS, useMacAppBuild } from '../../components/MacApp'
 import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { desktopSignInBridge } from '../../lib/desktop'
-import { docUrl, fileUrl, meetingUrl, noteUrl } from '../../lib/paths'
 import { useSession } from '../../state/session'
-import { formatWhen } from '../clips/format'
-import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
-import { attendeeName, timeLabel } from '../meetings/format'
-import { PersonLinks } from '../people/PersonLinks'
+import { MeetingsPageHeader } from '../meetings/components/common'
+import { TodayClock, TodayGreeting, useMinuteClock } from './TodayHeader'
+import { AddTileMenu, TodayTiles } from './TodayTiles'
+import { Card } from './tiles/Card'
 
 /** Changes from elsewhere (a task done on the phone, a doc saved) refresh Today this soon. */
 const REFRESH_DEBOUNCE_MS = 500
 /** Today also refreshes on its own, so "In 5 min" and the calendar stay current. */
 const REFRESH_EVERY_MS = 60_000
 
+const toolButton =
+  'inline-flex h-9 items-center rounded-lg border border-ash-strong px-3 text-sm text-ink hover:border-ember disabled:opacity-50'
+
 /** `/today`: the home page. The member's day on one screen, nothing written by AI. */
 export default function TodayPage() {
+  const session = useSession()
   const [view, setView] = useState<TodayView | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [now, setNow] = useState(() => new Date())
+  const clock = useMinuteClock()
+  const [loadedAt, setLoadedAt] = useState(() => new Date())
+  // Whichever is newer: the minute clock or the last load.
+  const now = clock > loadedAt ? clock : loadedAt
 
   // Only the newest request's answer is shown: an older one finishing late would bring back a
   // task completed in between.
@@ -44,7 +49,7 @@ export default function TodayPage() {
       if (ask !== latest.current) return
       setError(err instanceof HearthApiError ? err.message : 'Today didn’t load.')
     } finally {
-      setNow(new Date())
+      setLoadedAt(new Date())
     }
   }, [])
 
@@ -77,18 +82,31 @@ export default function TodayPage() {
     setView((v) => (v ? { ...v, tasks: [...v.tasks, task] } : v))
   }
 
+  const layouts = useLayout()
+
   return (
     <>
       <MeetingsPageHeader title="Today" menu={false}>
-        <span className="hidden text-sm text-ink-soft sm:inline" data-testid="today-date">
-          {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-        </span>
+        <TodayClock />
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="today">
         <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">
+          <div className="mb-5 flex flex-wrap items-start gap-3">
+            <TodayGreeting view={view} name={session.me?.principal.name} now={now} />
+            <EditBar {...layouts} />
+          </div>
           {error ? (
             <p role="alert" className="mb-4 text-sm text-ember-strong">
               {error}
+            </p>
+          ) : null}
+          {layouts.error ? (
+            <p
+              role="alert"
+              className="mb-4 text-sm text-ember-strong"
+              data-testid="today-layout-error"
+            >
+              {layouts.error}
             </p>
           ) : null}
           {view === null ? (
@@ -98,79 +116,125 @@ export default function TodayPage() {
               </p>
             )
           ) : (
-            <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
-              <div className="flex min-w-0 flex-col gap-5">
-                <CheckinsCard />
-                <MeetingsCard meetings={view.meetings} now={now} />
-                <TasksCard
-                  tasks={view.tasks}
-                  date={view.date}
-                  onDone={removeTask}
-                  onAdded={addTask}
-                />
-                {view.actionItems.length > 0 ? <ActionItemsCard view={view} /> : null}
-              </div>
-              <div className="flex min-w-0 flex-col gap-5">
-                {view.notes.length > 0 ? <NotesCard notes={view.notes} now={now} /> : null}
-                <DocsCard docs={view.docs} now={now} />
-                <Card title="Agent brief" icon="sparkle" testId="today-brief">
-                  <p className="text-sm text-ink-soft">
-                    What you're working on, written from your meetings and tasks.{' '}
-                    <Link to="/meetings/brief" className="text-ember-strong underline">
-                      Read your brief
-                    </Link>
-                  </p>
-                </Card>
-                <MacAppCard />
-              </div>
-            </div>
+            <TodayTiles
+              layout={layouts.shown}
+              view={view}
+              now={now}
+              editing={layouts.draft !== null}
+              onChange={layouts.change}
+              onTaskDone={removeTask}
+              onTaskAdded={addTask}
+            />
           )}
+          <div className="mt-5 lg:ml-auto lg:w-2/5">
+            <MacAppCard />
+          </div>
         </div>
       </div>
     </>
   )
 }
 
-/** Check-ins asked of the member that they haven't answered yet (ARCHITECTURE §24.6). */
-function CheckinsCard() {
-  const [due, setDue] = useState<DueCheckin[]>([])
+/** The member's saved layout, and the draft while they edit it (plan E1–E3). */
+function useLayout() {
+  const [layout, setLayout] = useState<TodayLayout>(defaultTodayLayout)
+  const [draft, setDraft] = useState<TodayLayout | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
-    const load = () =>
-      checkinsApi.due().then(
-        (r) => {
-          if (!cancelled) setDue(r.due)
-        },
-        // Today still works without it.
-        () => undefined,
-      )
-    void load()
-    const off = hearthSocket.onChanged(() => void load())
-    const every = setInterval(() => void load(), REFRESH_EVERY_MS)
+    todayApi.layout().then(
+      (r) => {
+        if (!cancelled) setLayout(r.layout)
+      },
+      // The default layout stands in.
+      () => undefined,
+    )
     return () => {
       cancelled = true
-      off()
-      clearInterval(every)
     }
   }, [])
-  if (due.length === 0) return null
+
+  const save = async (next: TodayLayout): Promise<boolean> => {
+    setSaving(true)
+    setError(null)
+    try {
+      setLayout((await todayApi.saveLayout(next)).layout)
+      return true
+    } catch (err) {
+      setError(
+        err instanceof HearthApiError
+          ? `Your Today layout didn’t save: ${err.message}`
+          : 'Your Today layout didn’t save. Try again.',
+      )
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return {
+    shown: draft ?? layout,
+    draft,
+    saving,
+    error,
+    edit: () => {
+      setError(null)
+      setDraft(layout)
+    },
+    cancel: () => {
+      setError(null)
+      setDraft(null)
+    },
+    reset: () => setDraft(defaultTodayLayout()),
+    done: async () => {
+      if (draft && (await save(draft))) setDraft(null)
+    },
+    /** In edit mode it changes the draft; outside it (a Board tile's pick) it saves at once. */
+    change: (next: TodayLayout) => {
+      if (draft) setDraft(next)
+      else {
+        setLayout(next)
+        void save(next)
+      }
+    },
+  }
+}
+
+function EditBar(l: ReturnType<typeof useLayout>) {
+  if (!l.draft)
+    return (
+      <button type="button" onClick={l.edit} className={toolButton} data-testid="today-edit">
+        <Icon name="pencil" className="mr-1.5 size-4" />
+        Edit Today
+      </button>
+    )
   return (
-    <Card title="Check-in" icon="checklist" testId="today-checkins">
-      <ul className="flex flex-col gap-2">
-        {due.map((c) => (
-          <li key={`${c.id}-${c.date}`}>
-            <Link
-              to={`/checkins/${c.id}`}
-              className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-paper-sunk"
-              data-testid="today-checkin"
-            >
-              <span className="min-w-0 flex-1 text-sm font-medium text-ink">{c.title}</span>
-              <span className="shrink-0 text-sm text-ember-strong">Answer</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Card>
+    <div className="flex flex-wrap items-center gap-2" data-testid="today-edit-bar">
+      <AddTileMenu layout={l.draft} onChange={l.change} />
+      <button
+        type="button"
+        onClick={l.reset}
+        className="px-2 text-sm text-ink-soft underline hover:text-ink"
+        data-testid="today-reset"
+      >
+        Reset to default
+      </button>
+      <button type="button" onClick={l.cancel} className={toolButton} data-testid="today-cancel">
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={() => void l.done()}
+        disabled={l.saving}
+        aria-busy={l.saving}
+        className="inline-flex h-9 items-center rounded-lg bg-ember px-4 text-sm font-medium text-paper-raised hover:bg-ember-strong disabled:opacity-50"
+        data-testid="today-done"
+      >
+        {l.saving ? 'Saving…' : 'Done'}
+      </button>
+    </div>
   )
 }
 
@@ -250,405 +314,6 @@ function MacAppCard() {
           Download it
         </Link>
       </p>
-    </Card>
-  )
-}
-
-function Card({
-  title,
-  icon,
-  testId,
-  action,
-  children,
-}: {
-  title: string
-  icon: IconName
-  testId: string
-  action?: ReactNode
-  children: ReactNode
-}) {
-  return (
-    <section
-      data-testid={testId}
-      aria-label={title}
-      className="rounded-2xl border border-ash bg-paper-raised/60 px-4 py-4 md:px-5"
-    >
-      <div className="mb-3 flex items-center gap-2">
-        <Icon name={icon} className="size-4 text-ink-faint" />
-        <h2 className="flex-1 text-sm font-semibold text-ink">{title}</h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function Empty({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-ink-faint">{children}</p>
-}
-
-function MeetingsCard({ meetings, now }: { meetings: TodayView['meetings']; now: Date }) {
-  const upcoming = meetings.events.filter((e) => Date.parse(e.end) > now.getTime())
-  const done = meetings.events.length - upcoming.length
-  return (
-    <Card
-      title="Meetings"
-      icon="calendar"
-      testId="today-meetings"
-      action={
-        <Link to="/meetings" className="text-xs text-ink-soft hover:text-ink">
-          All meetings
-        </Link>
-      }
-    >
-      {meetings.error ? (
-        <p className="text-sm text-ink-soft" data-testid="today-calendar-error">
-          {meetings.error}{' '}
-          <Link to="/settings" className="text-ember-strong underline">
-            Settings
-          </Link>
-        </p>
-      ) : upcoming.length === 0 ? (
-        <Empty>{done > 0 ? 'No more meetings today.' : 'No meetings today.'}</Empty>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {upcoming.map((e) => (
-            <MeetingRow key={e.id} event={e} now={now} />
-          ))}
-        </ul>
-      )}
-    </Card>
-  )
-}
-
-function MeetingRow({ event, now }: { event: TodayMeeting; now: Date }) {
-  const session = useSession()
-  const me = session.me?.principal.email.toLowerCase()
-  const start = Date.parse(event.start)
-  const minutes = Math.ceil((start - now.getTime()) / 60_000)
-  const soon = minutes <= 15
-  const others = event.attendees.filter((a) => a.email.toLowerCase() !== me)
-  return (
-    <li
-      data-testid="today-meeting"
-      data-event-id={event.id}
-      className={`rounded-xl border px-3 py-3 ${soon ? 'border-ember/40 bg-ember-wash' : 'border-ash'}`}
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="w-16 shrink-0 text-sm">
-          <span className="block font-medium text-ink tabular-nums">
-            {timeLabel(new Date(event.start))}
-          </span>
-          <span className={`block text-xs ${soon ? 'text-ember-strong' : 'text-ink-faint'}`}>
-            {minutes <= 0 ? 'Now' : soon ? `In ${minutes} min` : timeLabel(new Date(event.end))}
-          </span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-ink">{event.title}</p>
-          <p className="truncate text-sm text-ink-soft">
-            {others.length > 0 ? (
-              <PersonLinks
-                people={others.map((a) => ({
-                  email: a.email.toLowerCase(),
-                  name: a.name ?? attendeeName(a.email),
-                }))}
-                testId="today-attendee"
-              />
-            ) : (
-              'Just you'
-            )}
-            {event.meetLink ? (
-              <>
-                {' · '}
-                <a href={event.meetLink} target="_blank" rel="noreferrer" className="underline">
-                  Meet link
-                </a>
-              </>
-            ) : null}
-          </p>
-        </div>
-        {event.note ? (
-          <Link
-            to={meetingUrl(event.note.space, event.note.path)}
-            data-testid="today-open-notes"
-            className="inline-flex h-9 items-center rounded-lg border border-ash-strong px-3 text-sm text-ink hover:border-ember"
-          >
-            Open notes
-          </Link>
-        ) : (
-          <Link
-            to={`/meetings/start?event=${encodeURIComponent(event.id)}`}
-            data-testid="today-take-notes"
-            className={
-              soon
-                ? `${primaryButton} h-9 px-3`
-                : 'inline-flex h-9 items-center rounded-lg border border-ash-strong px-3 text-sm text-ink hover:border-ember'
-            }
-          >
-            Take notes
-          </Link>
-        )}
-      </div>
-      {event.prep ? (
-        <p className="mt-2 text-sm text-ink-soft" data-testid="today-prep">
-          <span className="font-medium text-ink">Last time</span>{' '}
-          <Link to={meetingUrl(event.prep.space, event.prep.path)} className="underline">
-            {event.prep.title}
-          </Link>
-          {event.prep.line ? `: ${event.prep.line}` : null}
-        </p>
-      ) : null}
-    </li>
-  )
-}
-
-function TasksCard({
-  tasks,
-  date,
-  onDone,
-  onAdded,
-}: {
-  tasks: TaskView[]
-  date: string
-  onDone: (task: TaskView) => void
-  onAdded: (task: TaskView) => void
-}) {
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const overdue = tasks.filter((t) => t.due !== null && t.due.slice(0, 10) < date)
-  const due = tasks.filter((t) => !overdue.includes(t))
-
-  const add = async (e: FormEvent) => {
-    e.preventDefault()
-    const line = text.trim()
-    if (!line || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      // Added on Today means due today, unless the line names its own date.
-      const dated = parseQuickAdd(line, { today: date }).due !== undefined
-      const task = await tasksApi.quick({
-        text: dated ? line : `${line} today`,
-        tz: memberTimeZone(),
-      })
-      setText('')
-      if (task.mine && task.due !== null && task.due.slice(0, 10) <= date) onAdded(task)
-    } catch (err) {
-      setError(err instanceof HearthApiError ? err.message : 'That task didn’t save.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Card
-      title="Tasks"
-      icon="tasks"
-      testId="today-tasks"
-      action={
-        <Link to="/tasks" className="text-xs text-ink-soft hover:text-ink">
-          All tasks
-        </Link>
-      }
-    >
-      <form onSubmit={(e) => void add(e)} className="mb-3">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Add a task for today"
-          aria-label="Add a task for today"
-          data-testid="today-quick-add"
-          disabled={busy}
-          className="h-10 w-full rounded-lg border border-ash bg-paper px-3 text-sm text-ink placeholder:text-ink-faint focus:border-ember focus:outline-none"
-        />
-      </form>
-      {error ? (
-        <p role="alert" className="mb-2 text-sm text-ember-strong">
-          {error}
-        </p>
-      ) : null}
-      {tasks.length === 0 ? (
-        <Empty>Nothing due today.</Empty>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {overdue.length > 0 ? (
-            <TaskGroup label="Overdue" tasks={overdue} onDone={onDone} late />
-          ) : null}
-          {due.length > 0 ? <TaskGroup label="Due today" tasks={due} onDone={onDone} /> : null}
-        </div>
-      )}
-    </Card>
-  )
-}
-
-function TaskGroup({
-  label,
-  tasks,
-  onDone,
-  late = false,
-}: {
-  label: string
-  tasks: TaskView[]
-  onDone: (task: TaskView) => void
-  late?: boolean
-}) {
-  return (
-    <div>
-      <p className={`mb-1 text-xs font-medium ${late ? 'text-ember-strong' : 'text-ink-faint'}`}>
-        {label}
-      </p>
-      <ul className="flex flex-col">
-        {tasks.map((t) => (
-          <TaskLine key={`${t.space}/${t.id}`} task={t} onDone={onDone} />
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function TaskLine({ task, onDone }: { task: TaskView; onDone: (task: TaskView) => void }) {
-  const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const complete = async () => {
-    setBusy(true)
-    setFailed(false)
-    try {
-      await tasksApi.complete(task.space, task.id, memberTimeZone())
-      onDone(task)
-    } catch {
-      setFailed(true)
-      setBusy(false)
-    }
-  }
-  return (
-    <li data-testid="today-task" className="flex items-center gap-3 py-1.5">
-      <button
-        type="button"
-        aria-busy={busy}
-        aria-label={`Complete “${task.title}”`}
-        data-testid="today-task-done"
-        disabled={busy}
-        onClick={() => void complete()}
-        className="flex size-5 shrink-0 items-center justify-center rounded-full border border-ash-strong text-paper-raised hover:border-ember disabled:bg-ember"
-      >
-        {busy ? <Icon name="check" className="size-3" /> : null}
-      </button>
-      <Link
-        to={fileUrl(task.space, task.path)}
-        className="min-w-0 flex-1 truncate text-sm text-ink hover:underline"
-      >
-        {task.title}
-      </Link>
-      {task.dueAt ? (
-        <span className="shrink-0 text-xs text-ink-faint tabular-nums">
-          {timeLabel(new Date(task.dueAt))}
-        </span>
-      ) : null}
-      {failed ? (
-        <span role="alert" className="shrink-0 text-xs text-ember-strong">
-          Didn’t save
-        </span>
-      ) : null}
-    </li>
-  )
-}
-
-function ActionItemsCard({ view }: { view: TodayView }) {
-  const count = view.actionItems.reduce((n, m) => n + m.items.length, 0)
-  return (
-    <Card
-      title="From your meetings"
-      icon="checklist"
-      testId="today-action-items"
-      action={
-        <Link to="/tasks/today" className="text-xs text-ink-soft hover:text-ink">
-          Make tasks
-        </Link>
-      }
-    >
-      <p className="mb-2 text-xs text-ink-faint">
-        {count === 1 ? '1 to-do' : `${count} to-dos`} from meeting notes that aren’t tasks yet.
-      </p>
-      <ul className="flex flex-col gap-2">
-        {view.actionItems.slice(0, 5).map((m) => (
-          <li key={`${m.space}/${m.path}`} className="text-sm">
-            <Link to={meetingUrl(m.space, m.path)} className="font-medium text-ink hover:underline">
-              {m.title}
-            </Link>
-            <ul className="mt-0.5 list-disc pl-5 text-ink-soft">
-              {m.items.slice(0, 3).map((i) => (
-                <li key={i.line}>{i.text}</li>
-              ))}
-              {m.items.length > 3 ? (
-                <li className="text-ink-faint">and {m.items.length - 3} more</li>
-              ) : null}
-            </ul>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  )
-}
-
-function NotesCard({ notes, now }: { notes: TodayView['notes']; now: Date }) {
-  return (
-    <Card
-      title="Unfiled notes"
-      icon="notes"
-      testId="today-notes"
-      action={
-        <Link to="/notes" className="text-xs text-ink-soft hover:text-ink">
-          All notes
-        </Link>
-      }
-    >
-      <p className="mb-2 text-xs text-ink-faint">From the last day, not pinned or labelled.</p>
-      <ul className="flex flex-col gap-2">
-        {notes.map((n) => (
-          <li key={`${n.space}/${n.id}`}>
-            <Link
-              to={noteUrl(n.space, n.path)}
-              className="block rounded-lg border border-ash px-3 py-2 hover:border-ember"
-            >
-              {n.title ? (
-                <span className="block truncate text-sm font-medium text-ink">{n.title}</span>
-              ) : null}
-              <span className="line-clamp-2 text-sm text-ink-soft">{n.body}</span>
-              <span className="mt-1 block text-xs text-ink-faint">
-                {formatWhen(n.created, now)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  )
-}
-
-function DocsCard({ docs, now }: { docs: TodayView['docs']; now: Date }) {
-  return (
-    <Card title="Docs changed" icon="docs" testId="today-docs">
-      {docs.length === 0 ? (
-        <Empty>No docs changed since yesterday.</Empty>
-      ) : (
-        <ul className="flex flex-col">
-          {docs.map((d) => (
-            <li key={`${d.space}/${d.path}`} className="flex items-center gap-3 py-1">
-              <Link
-                to={docUrl(d.space, d.path)}
-                className="min-w-0 flex-1 truncate text-sm text-ink hover:underline"
-              >
-                {d.title}
-              </Link>
-              <span className="shrink-0 text-xs text-ink-faint">
-                {d.team ? 'Team · ' : ''}
-                {formatWhen(d.changed, now)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
     </Card>
   )
 }
