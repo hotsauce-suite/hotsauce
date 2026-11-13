@@ -125,13 +125,25 @@ export default function ClipPage() {
     'clips.slower',
     withVideo((el) => changeSpeed(stepSpeed(el.playbackRate, -1))),
   )
-  useShortcut(
-    'clips.fullscreen',
-    withVideo((el) => {
-      if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {})
-      else void el.requestFullscreen?.().catch(() => {})
-    }),
-  )
+  // iPhone Safari has no requestFullscreen on a video, only webkitEnterFullscreen. With
+  // neither, the key is left alone rather than swallowed.
+  useShortcut('clips.fullscreen', () => {
+    const el = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null
+    if (!el) return false
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => {})
+      return true
+    }
+    if (typeof el.requestFullscreen === 'function') {
+      void el.requestFullscreen().catch(() => {})
+      return true
+    }
+    if (typeof el.webkitEnterFullscreen === 'function') {
+      el.webkitEnterFullscreen()
+      return true
+    }
+    return false
+  })
   useShortcut(
     'clips.mute',
     withVideo((el) => {

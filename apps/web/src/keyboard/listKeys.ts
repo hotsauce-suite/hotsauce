@@ -7,10 +7,47 @@ import { useShortcut } from './shortcuts'
 
 export const LIST_ITEM = '[data-list-item]'
 
-/** The list items on the page, in order, skipping hidden ones. */
+/**
+ * The list items on the page, in reading order, skipping hidden ones. A grid drawn column by
+ * column (the Notes board) marks its container `data-list-group` and each item
+ * `data-list-order`, so j goes along the rows, not down a column.
+ */
 export function listItems(root: ParentNode = document): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(LIST_ITEM)].filter(
+  const found = [...root.querySelectorAll<HTMLElement>(LIST_ITEM)].filter(
     (el) => !el.closest('[hidden],[aria-hidden="true"],[inert]'),
+  )
+  const out: HTMLElement[] = []
+  let run: HTMLElement[] = []
+  let group: Element | null = null
+  const flush = () => {
+    const order = (el: HTMLElement) => Number(el.dataset.listOrder ?? 0)
+    out.push(...(group ? [...run].sort((a, b) => order(a) - order(b)) : run))
+    run = []
+  }
+  for (const el of found) {
+    const g = el.closest('[data-list-group]')
+    if (g !== group) {
+      flush()
+      group = g
+    }
+    run.push(el)
+  }
+  flush()
+  return out
+}
+
+/**
+ * Where the focus is in `items`: on an item, or anywhere in the row (`data-list-row`) that
+ * holds one, such as a note's pin button beside its open button. -1 when outside the list.
+ */
+export function focusedIndex(items: HTMLElement[]): number {
+  const active = document.activeElement
+  if (!(active instanceof Element)) return -1
+  return items.findIndex(
+    (item) =>
+      item === active ||
+      item.contains(active) ||
+      !!item.closest('[data-list-row]')?.contains(active),
   )
 }
 
@@ -18,9 +55,7 @@ export function listItems(root: ParentNode = document): HTMLElement[] {
 export function moveInList(step: 1 | -1): boolean {
   const items = listItems()
   if (items.length === 0) return false
-  const active = document.activeElement
-  const current = active instanceof Element ? active.closest<HTMLElement>(LIST_ITEM) : null
-  const at = current ? items.indexOf(current) : -1
+  const at = focusedIndex(items)
   const next =
     at === -1
       ? step === 1
@@ -50,10 +85,10 @@ export function useListKeys(enabled = true): void {
  * and the focus lands on the row that takes its place once the list redraws.
  */
 export function holdListPlace(): void {
-  const active = document.activeElement
-  const current = active instanceof Element ? active.closest<HTMLElement>(LIST_ITEM) : null
-  const at = current ? listItems().indexOf(current) : -1
+  const before = listItems()
+  const at = focusedIndex(before)
   if (at === -1) return
+  const current = before[at]
   requestAnimationFrame(() => {
     if (current?.isConnected && document.activeElement === current) return
     const items = listItems()

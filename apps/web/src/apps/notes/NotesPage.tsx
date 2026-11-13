@@ -486,12 +486,18 @@ function Section({
           {title}
         </h2>
       ) : null}
-      <div ref={ref} className="notes-board">
+      <div ref={ref} className="notes-board" data-list-group>
         {dealColumns(notes, cols).map((col, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: columns are positional
           <div key={i} className="notes-col">
-            {col.map((n) => (
-              <NoteCard key={noteKey(n)} note={n} team={n.space === teamSpace} actions={actions} />
+            {col.map((n, row) => (
+              <NoteCard
+                key={noteKey(n)}
+                note={n}
+                order={row * cols + i}
+                team={n.space === teamSpace}
+                actions={actions}
+              />
             ))}
           </div>
         ))}

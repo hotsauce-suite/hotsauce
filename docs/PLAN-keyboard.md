@@ -2,7 +2,7 @@
 
 ## Status
 
-Slice 1 shipped (#42, 0.8.1). Slices 2–4 merged (#47). Slices 5–7 in the next PR, then a release. Not built from the plan: `/` filtering inside Tasks (`/` opens Command-K everywhere instead), Tasks ⌘Z undo, and arrow keys in the Docs file tree. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
+Slice 1 shipped (#42, 0.8.1). Slices 2–4 merged (#47). Slices 5–7 in the next PR, then a release. Known gaps: the catalog clash test treats sections without an app (list keys, recording) as one app's own, so it would not catch a page mounting list keys beside Tasks' own j/k. Not built from the plan: `/` filtering inside Tasks (`/` opens Command-K everywhere instead), Tasks ⌘Z undo, and arrow keys in the Docs file tree. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
 
 ## Decisions
 
@@ -58,19 +58,19 @@ Each requirement maps to a test, named in brackets.
 
 **Slice 5: the other apps, list keys and the editor**
 
-- L1: `j` and `k` move the focus through the list in Meetings, Notes, Links, Files and People; Enter opens what has focus. [listKeys.test, NotesPage.test, PeoplePages.test, links.test]
+- L1: `j` and `k` move the focus through the list in Meetings, Notes, Links, Files and People, in reading order (along the rows of the Notes board), also from a control beside a row's main button; Enter opens what has focus. [listKeys.test, NotesPage.test, PeoplePages.test, links.test]
 - L2: Notes: `p` pins and `a` archives the note with focus; with none focused both do nothing. Links: `a` marks done, `o` opens the original page. Focus moves to the next row when one leaves the list. [NotesPage.test, links.test]
-- L3: Files `u` opens the upload picker. Voice notes `r` starts a note, and stops and saves it while recording. ⌥⌘P pauses and resumes a recording. Clips `f` full screen, `m` mute. [listKeys.test, VoiceNotes.test]
+- L3: Files `u` opens the upload picker. Voice notes `r` starts a note, and stops and saves it while recording. ⌥⌘P pauses and resumes a recording. Clips `f` full screen, `m` mute. [listKeys.test, VoiceNotes.test, e2e/keyboard-recording.spec, e2e/clips.spec]
 - L4: Docs editor: ⌥⌘1–3 headings, ⌥⌘0 plain text, ⇧⌘7/8/9 numbered, bulleted and checklist (toggling off when already that kind), ⌘E inline code, ⇧⌘X strikethrough, ⌘Enter ticks a checklist item. [editor/commands.test]
 
 **Slice 6: Command-K finds and does more**
 
-- S1: Search results from every app say what they are (Doc, Meeting, Task, Note, File, Link, Person, …) and open in their own app. [commandK.test]
-- S2: A pasted `http(s)` link offers Save link first; Enter opens Save link with it. "task …" or "todo …" offers Add task, which adds it through quick add without leaving the page. [commandK.test]
+- S1: Search results from every app say what they are (Doc, Meeting, Task, Note, File, Link, Person, Page, …) and open in their own app; a file that app can't show (`tasks/archive/x.md`) opens in Docs. [commandK.test]
+- S2: A pasted `http(s)` link offers Save link first; Enter opens Save link with it. "task …" or "todo …" offers Add task, which adds it through quick add without leaving the page. With a colon ("task: …") it is highlighted; without one, only when no title matches, so "task list" still opens a doc called Task list. [commandK.test]
 - S3: "Ask the assistant" is offered for anything typed, last, and hands the text over. [commandK.test]
 
 **Slice 7: moving without a mouse, the Mac app, help**
 
 - A1: The first Tab on any page reaches Skip to content, which focuses the page. Arrow keys, Home and End move along the rail. [a11y.test]
 - A2: The Mac app's Go menu lists every rail app and Settings; ⌘1–⌘9 open the first nine. It mirrors `APPS`. [macRail.test]
-- A3: The help page lists every key (site/public/help/shortcuts.html). [site/help.test]
+- A3: The help page lists every key (site/public/help/shortcuts.html). [checked by hand against the catalog; no test reads it yet]

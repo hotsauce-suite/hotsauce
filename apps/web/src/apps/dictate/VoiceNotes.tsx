@@ -258,7 +258,11 @@ function Recording({ meeting, live }: { meeting: LiveMeeting; live: LiveSnapshot
   }
 
   useShortcut('recording.toggle', () => void stop(), !stopping && !ended)
-  useShortcut('recording.pause', () => void (paused ? meeting.resume() : meeting.pause()), !ended)
+  useShortcut(
+    'recording.pause',
+    () => void (paused ? meeting.resume() : meeting.pause()),
+    !ended && !stopping,
+  )
 
   const stop = async () => {
     setStopping(true)

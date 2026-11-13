@@ -2,8 +2,10 @@ import { Command } from 'cmdk'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../api/client'
+import { personUrl } from '../api/people'
 import { memberTimeZone, tasksApi } from '../api/tasks'
 import type { SearchResult } from '../api/types'
+import { checkinFileUrl } from '../apps/checkins/manifest'
 import { APPS, type AppId, appForFile, railLinks } from '../apps/registry'
 import { GO_KEYS, type GoTarget, SHORTCUTS } from '../keyboard/catalog'
 import {
@@ -15,7 +17,7 @@ import {
   useCommandList,
 } from '../keyboard/commands'
 import { Keys } from '../keyboard/KeyCaps'
-import { displayName, fileUrl, meetingFileKind } from '../lib/paths'
+import { displayName, fileUrl, linkFileUrl, meetingFileKind, tableFileUrl } from '../lib/paths'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
 import { Icon, type IconName } from './Icon'
@@ -45,19 +47,42 @@ const KIND_LABEL: Partial<Record<AppId, string>> = {
   checkins: 'Check-in',
 }
 
+/** A shared page, `pages/<ULID>.md`, lives at `/pages/<space>/<id>`. */
+const PAGE_FILE = /^pages\/([0-9A-Z]{26})\.md$/i
+
 function kindLabel(path: string): string {
+  if (PAGE_FILE.test(path)) return 'Page'
   if (meetingFileKind(path) === 'transcript') return 'Transcript'
+  if (/^checkins\/[^/]+\/[^/]+\//.test(path)) return 'Check-in answer'
+  if (/^forms\/[^/]+\/[^/]+\.md$/.test(path)) return 'Form answer'
   return KIND_LABEL[appForFile(path).id] ?? 'Doc'
 }
 
-/** Where a search result opens: in the app that owns its folder. */
+/**
+ * Where a search result opens: in the app that owns it. Only a file that app can show goes
+ * there (`tasks/archive/x.md` is not a task); anything else opens in Docs, as `fileUrl` does.
+ */
 export function hitUrl(space: string, path: string): string {
-  const app = appForFile(path)
-  return app.id === 'docs' || app.id === 'meetings' ? fileUrl(space, path) : app.urlFor(space, path)
+  const page = PAGE_FILE.exec(path)
+  if (page) return `/pages/${encodeURIComponent(space)}/${page[1]}`
+  switch (appForFile(path).id) {
+    case 'links':
+      return linkFileUrl(space, path) ?? fileUrl(space, path)
+    case 'tables':
+      return tableFileUrl(space, path) ?? fileUrl(space, path)
+    case 'people':
+      return /^people\/[^/]+\.md$/i.test(path)
+        ? personUrl(path.replace(/^people\//, '').replace(/\.md$/i, ''))
+        : fileUrl(space, path)
+    case 'checkins':
+      return checkinFileUrl(path)
+    default:
+      return fileUrl(space, path)
+  }
 }
 
 const URL_RE = /^https?:\/\/\S+$/i
-const TASK_RE = /^(?:task|todo)[:\s]\s*(.+)$/i
+const TASK_RE = /^(?:task|todo)(:|\s)\s*(.+)$/i
 
 const terms = (query: string) => query.toLowerCase().split(/\s+/).filter(Boolean)
 
@@ -282,8 +307,12 @@ export default function CommandK({
   // A pasted link saves; "task …" adds a task. Either goes first and is highlighted.
   const typed = query.trim()
   const pastedUrl = URL_RE.test(typed) ? typed : null
-  const taskText = TASK_RE.exec(typed)?.[1]?.trim() || null
-  const quick = pastedUrl ? 'quick:save-link' : taskText ? 'quick:add-task' : null
+  const taskMatch = TASK_RE.exec(typed)
+  const taskText = taskMatch?.[2]?.trim() || null
+  // "task: …" always means a new task. "task list" may be a search for a doc called that, so
+  // it is only highlighted once the search is back and found nothing by that title.
+  const taskFirst = !!taskText && (taskMatch?.[1] === ':' || (!searching && titles.length === 0))
+  const quick = pastedUrl ? 'quick:save-link' : taskFirst ? 'quick:add-task' : null
   const saveLink = (url: string) => {
     close()
     navigate(`/links/save?url=${encodeURIComponent(url)}`)

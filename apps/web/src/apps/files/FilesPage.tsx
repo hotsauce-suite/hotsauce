@@ -316,7 +316,12 @@ export default function FilesPage() {
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="files-list">
             {folders.map((f) => (
-              <li key={f} className="flex items-center gap-3 py-2" data-testid="files-folder">
+              <li
+                key={f}
+                className="flex items-center gap-3 py-2"
+                data-testid="files-folder"
+                data-list-row
+              >
                 <button
                   type="button"
                   data-list-item
@@ -339,6 +344,7 @@ export default function FilesPage() {
                 key={`${f.space}/${f.id}`}
                 className="flex items-center gap-3 py-2"
                 data-testid="files-row"
+                data-list-row
               >
                 <button
                   type="button"

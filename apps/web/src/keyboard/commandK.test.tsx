@@ -2,9 +2,9 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
+import { hitUrl } from '../components/CommandK'
 import { mockApi, server } from '../test/mockServer'
 import { renderApp } from '../test/renderApp'
-
 import { matchCommands, registerCommands } from './commands'
 
 async function openPalette(path = '/tasks') {
@@ -247,5 +247,43 @@ describe('search and quick rows (slice 6)', () => {
     ])
     await user.click(rows[0] as HTMLElement)
     await waitFor(() => expect(router.state.location.pathname).toBe(`/links/ada/${id}`))
+  })
+
+  it('"task list" still opens a doc called Task list; "task:" always adds a task', async () => {
+    server.use(
+      http.get('/api/search', () =>
+        HttpResponse.json([
+          { space: 'ada', path: 'docs/task-list.md', title: 'Task list', snippet: '', score: 1 },
+        ]),
+      ),
+    )
+    const { user, router, palette } = await openPalette('/notes')
+    await user.type(screen.getByTestId('cmdk-input'), 'task list')
+    const doc = await within(palette).findByTestId('search-result')
+    await waitFor(() => expect(doc).toHaveAttribute('aria-selected', 'true'))
+    expect(screen.getByTestId('cmdk-add-task')).toHaveAttribute('aria-selected', 'false')
+    await user.clear(screen.getByTestId('cmdk-input'))
+    await user.type(screen.getByTestId('cmdk-input'), 'task: list')
+    await waitFor(() =>
+      expect(screen.getByTestId('cmdk-add-task')).toHaveAttribute('aria-selected', 'true'),
+    )
+    await user.clear(screen.getByTestId('cmdk-input'))
+    await user.type(screen.getByTestId('cmdk-input'), 'task list')
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(router.state.location.pathname).toBe('/docs/ada/docs/task-list.md'))
+  })
+})
+
+describe('where a search result opens (S1)', () => {
+  const page = '01JKEYBOARDPAGE00000000001'
+  it.each([
+    [`pages/${page}.md`, `/pages/ada/${page}`],
+    ['tasks/archive/old.md', '/docs/ada/tasks/archive/old.md'],
+    ['links/notes.md', '/docs/ada/links/notes.md'],
+    ['people/dana@acme.com.md', '/people/dana%40acme.com'],
+    ['people/teams/x.md', '/docs/ada/people/teams/x.md'],
+    ['docs/plan.md', '/docs/ada/docs/plan.md'],
+  ])('%s opens at %s', (path, url) => {
+    expect(hitUrl('ada', path)).toBe(url)
   })
 })

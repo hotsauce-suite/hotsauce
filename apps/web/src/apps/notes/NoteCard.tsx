@@ -20,10 +20,13 @@ export interface CardActions {
 /** One note on the board: title, text or the first open items, labels, and tools on hover. */
 export function NoteCard({
   note,
+  order,
   team,
   actions,
 }: {
   note: NoteView
+  /** Its place in reading order on the board, for j and k. */
+  order?: number
   /** Shows a "Team" chip: the note is in the shared space. */
   team: boolean
   actions: CardActions
@@ -37,6 +40,7 @@ export function NoteCard({
       data-testid="note-card"
       data-note-id={note.id}
       data-note-key={noteKey(note)}
+      data-list-row
       {...(note.color ? { 'data-color': note.color } : {})}
       className="note-card note-surface group relative rounded-xl border transition-shadow hover:shadow-float"
     >
@@ -45,6 +49,7 @@ export function NoteCard({
         aria-label={`Open note ${note.title || notePreview(note.body, 40) || 'Empty note'}`}
         data-testid="note-card-open"
         data-list-item
+        data-list-order={order}
         onClick={() => actions.open(note)}
         className="absolute inset-0 rounded-xl"
       />

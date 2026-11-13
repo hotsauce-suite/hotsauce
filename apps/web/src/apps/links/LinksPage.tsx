@@ -254,6 +254,7 @@ function LinkRow({
       className="group flex gap-3 py-4"
       data-testid="link-row"
       data-link-key={`${l.space}/${l.id}`}
+      data-list-row
     >
       <div className="min-w-0 flex-1">
         <Link
