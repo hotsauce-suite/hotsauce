@@ -2,7 +2,7 @@
 
 ## Status
 
-Slice 1 in progress on branch `claude/project-thread-0ulpa9`. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
+Slice 1 shipped (#42). Slices 2–4 in #47, with the independent review's fixes: Command-K's confirm step starts on Cancel and only its "Yes" row runs the step; a question is forgotten when Command-K closes; `c` in Docs works with the sidebar hidden; a strip brings a hidden sidebar back. Slices 5–6 are built on the same branch next. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
 
 ## Decisions
 
@@ -19,8 +19,10 @@ Settled with the owner on 2026-11-13. He accepted every recommendation.
 
 - `apps/web/src/keyboard/catalog.ts` is the one list of shortcuts: id, keys, label and section. The key listener, the `?` sheet, Command-K's key hints and tooltips all read it. A test fails when two shortcuts in one scope share keys, or one uses a key the browser or the Mac owns.
 - `keyboard/keys.ts` is pure: parse a key spec (`mod+k`, `g d`, `?`, `shift+mod+8`), match a `KeyboardEvent`, and format keycaps for Mac (⌘ ⌥ ⇧) and others (Ctrl Alt Shift).
-- `keyboard/KeyboardProvider.tsx` owns one window `keydown` listener. Pages bind a handler to a catalog id with `useShortcut(id, run)`. The listener skips an event something else already handled (the editor's own ⌘K), skips plain keys while typing, while a dialog or menu is open, and Enter or Space on a control, and skips character keys when the member turned them off.
+- `keyboard/shortcuts.ts` owns one window `keydown` listener. Pages bind a handler to a catalog id with `useShortcut(id, run)`. The listener skips an event something else already handled (the editor's own ⌘K), skips plain keys while typing, while a dialog or menu is open, and Enter or Space on a control, and skips character keys when the member turned them off.
 - Keys that CodeMirror or the Tables grid handle themselves are in the catalog as `handledBy: 'editor' | 'grid'`, so the sheet lists them; the listener never binds them.
+
+- No two files may differ only in letter case (`keys.ts` and `Keys.tsx` collide on a Mac disk); `pnpm lint` runs `scripts/check-filename-case.mjs`. The keycaps component is `keyboard/KeyCaps.tsx`.
 
 ## Requirements
 
