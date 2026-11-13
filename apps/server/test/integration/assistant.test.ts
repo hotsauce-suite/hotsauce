@@ -126,7 +126,7 @@ describe('the assistant with the stand-in model', () => {
       .filter((e) => e.type === 'text')
       .map((e) => e.delta)
       .join('')
-    expect(answer).toContain('(hearth:team/docs/quokka-plan.md)')
+    expect(answer).toContain('(<hearth:team/docs/quokka-plan.md>)')
 
     const list = await (await call('GET', '/api/assistant/conversations', { as: ALICE })).json()
     expect(list.conversations).toMatchObject([{ id: CONV, title: 'When is the quokka launch?' }])

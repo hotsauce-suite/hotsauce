@@ -212,12 +212,13 @@ function answerFrom(results: string[]): string {
   try {
     value = JSON.parse(raw)
   } catch {
+    if (raw.startsWith('Not done yet')) return "I'll do that as soon as you click Confirm above."
     return `That didn't work: ${raw}`
   }
   if (Array.isArray(value)) {
     if (value.length === 0) return "I couldn't find anything about that in your workspace."
     const lines = value.slice(0, 3).map((hit: { space: string; path: string; title?: string }) => {
-      return `- [${hit.title || hit.path}](hearth:${hit.space}/${hit.path})`
+      return `- [${hit.title || hit.path}](<hearth:${hit.space}/${hit.path}>)`
     })
     return `Here's what I found:\n\n${lines.join('\n')}`
   }
