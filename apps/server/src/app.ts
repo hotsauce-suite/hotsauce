@@ -5,6 +5,7 @@ import {
   accountRoutes,
   adminOrgRoutes,
   assetRoutes,
+  assistantRoutes,
   authenticate,
   authorizeSpace,
   boardRoutes,
@@ -89,6 +90,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', tableRoutes(deps))
     .route('/api', linkRoutes(deps))
     .route('/api', checkinRoutes(deps))
+    .route('/api', assistantRoutes(deps))
   // e2e hooks (ARCHITECTURE §7.8); never mounted outside NODE_ENV=test.
   if (deps.config.NODE_ENV === 'test') app.route('/api', testRoutes(deps))
   // The MCP endpoint for agents (ARCHITECTURE §8.2): same authentication and body limit as /api.

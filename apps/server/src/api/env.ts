@@ -1,3 +1,4 @@
+import type { Assistant } from '../assistant/index.js'
 import type { Authenticator, Principal } from '../auth/index.js'
 import type { BackupService } from '../backup/index.js'
 import type { Boards } from '../boards/index.js'
@@ -41,6 +42,7 @@ export interface AppDeps {
   syncer: Syncer
   meetings: MeetingServices
   dictation: Dictation
+  assistant: Assistant
   clips: Clips
   tasks: TaskServices
   notes: Notes
