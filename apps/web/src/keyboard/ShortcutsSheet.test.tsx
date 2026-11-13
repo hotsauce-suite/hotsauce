@@ -9,8 +9,11 @@ describe('the keyboard shortcuts sheet (K7)', () => {
     renderApp('/tasks')
     await waitFor(() => expect(screen.getAllByTestId('task-row').length).toBeGreaterThan(0))
 
+    const before = document.activeElement
     await user.keyboard('?')
     const sheet = await screen.findByTestId('shortcuts-sheet')
+    // The sheet takes focus, so Space or Enter can't press a button behind it.
+    expect(sheet.contains(document.activeElement)).toBe(true)
     const sections = within(sheet)
       .getAllByRole('region')
       .map((s) => s.getAttribute('aria-label'))
@@ -27,6 +30,7 @@ describe('the keyboard shortcuts sheet (K7)', () => {
 
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByTestId('shortcuts-sheet')).not.toBeInTheDocument())
+    expect(document.activeElement).toBe(before)
   })
 
   it('⌘K opens the command menu from the same listener', async () => {

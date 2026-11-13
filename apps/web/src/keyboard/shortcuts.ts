@@ -114,13 +114,17 @@ function closest(target: EventTarget | null, selector: string): boolean {
   return target instanceof Element && target.closest(selector) !== null
 }
 
-function blockedFor(strokes: Stroke[], event: KeyboardEvent): boolean {
+function blockedFor(strokes: Stroke[], event: KeyboardEvent, onControls = false): boolean {
   if (!isPlainSpec(strokes)) return false
   if (isTypingTarget(event.target) || overlayOpen()) return true
   if (!singleKeysEnabled() && strokes.some(isCharacterStroke)) return true
   const last = strokes[strokes.length - 1]
   if (!last) return true
-  if ((last.key === 'enter' || last.key === ' ') && closest(event.target, CONTROL)) return true
+  if (
+    (last.key === 'enter' || last.key === ' ') &&
+    closest(event.target, onControls ? MEDIA : CONTROL)
+  )
+    return true
   if (last.key.startsWith('arrow') && closest(event.target, MEDIA)) return true
   return false
 }
@@ -149,7 +153,8 @@ function input(event: KeyboardEvent): KeyInput {
 }
 
 export function handleKeyDown(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.isComposing) return
+  // keyCode 229: Safari's key that commits an IME composition, with isComposing already false.
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) return
   const now = Date.now()
   const first = pending && now - pending.at <= SEQUENCE_MS ? pending.stroke : null
@@ -162,7 +167,7 @@ export function handleKeyDown(event: KeyboardEvent): void {
       if (!stack.length) continue
       for (const spec of SHORTCUTS[id].keys) {
         const strokes = strokesOf(spec)
-        if (strokes.length !== 2 || blockedFor(strokes, event)) continue
+        if (strokes.length !== 2 || blockedFor(strokes, event, SHORTCUTS[id].onControls)) continue
         const [a, b] = strokes as [Stroke, Stroke]
         if (matchStroke(a, first) && matchStroke(b, keyInput) && run(id, spec, event)) return
       }
@@ -174,7 +179,7 @@ export function handleKeyDown(event: KeyboardEvent): void {
     if (!stack.length) continue
     for (const spec of SHORTCUTS[id].keys) {
       const strokes = strokesOf(spec)
-      if (blockedFor(strokes, event)) continue
+      if (blockedFor(strokes, event, SHORTCUTS[id].onControls)) continue
       const [a] = strokes as [Stroke]
       if (!matchStroke(a, keyInput)) continue
       if (strokes.length === 1) {

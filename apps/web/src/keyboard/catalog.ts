@@ -39,6 +39,8 @@ export interface ShortcutDef {
   section: SectionId
   /** Handled by the component itself, not the key listener. */
   handledBy?: 'editor' | 'page'
+  /** Space and Enter run it even on a focused button (play and pause, as on YouTube). */
+  onControls?: boolean
 }
 
 const def = <T extends Record<string, ShortcutDef>>(defs: T): Record<keyof T, ShortcutDef> => defs
@@ -96,7 +98,12 @@ export const SHORTCUTS = def({
   'tasks.delete': { keys: ['Delete', 'Backspace'], label: 'Delete the task', section: 'tasks' },
 
   // Clips (ClipPage)
-  'clips.play': { keys: ['Space', 'k'], label: 'Play or pause', section: 'clips' },
+  'clips.play': {
+    keys: ['Space', 'k'],
+    label: 'Play or pause',
+    section: 'clips',
+    onControls: true,
+  },
   'clips.back5': { keys: ['ArrowLeft'], label: 'Back 5 seconds', section: 'clips' },
   'clips.forward5': { keys: ['ArrowRight'], label: 'Forward 5 seconds', section: 'clips' },
   'clips.back10': { keys: ['j'], label: 'Back 10 seconds', section: 'clips' },

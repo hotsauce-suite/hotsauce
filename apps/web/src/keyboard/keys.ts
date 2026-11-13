@@ -71,8 +71,10 @@ export function matchStroke(stroke: Stroke, input: KeyInput): boolean {
   const mod = input.metaKey || input.ctrlKey
   if (mod !== stroke.mod || input.altKey !== stroke.alt) return false
   let key = normalizeKey(input.key)
-  // With Alt held a Mac types another character (⌥1 is ¡): fall back to the physical key.
-  if (input.altKey && input.code) {
+  // With Alt held a Mac types another character (⌥1 is ¡), and a non-Latin layout types its
+  // own letter for Ctrl-K (л): fall back to the physical key, but only for a key that isn't
+  // already ASCII, so Dvorak and AZERTY keep their own letters.
+  if ((input.altKey || mod) && input.code && !/^[\x20-\x7e]$/.test(key)) {
     const m = /^(?:Key([A-Z])|Digit([0-9]))$/.exec(input.code)
     if (m) key = (m[1] ?? m[2] ?? '').toLowerCase()
   }

@@ -97,6 +97,32 @@ describe('the key listener (K4)', () => {
     expect(open).toHaveBeenCalledOnce()
   })
 
+  it('Space plays a clip even from a focused button, but not from the video itself', () => {
+    const play = vi.fn(() => true)
+    bind('clips.play', play)
+    const button = document.createElement('button')
+    const video = document.createElement('video')
+    document.body.append(button, video)
+    expect(press(' ', {}, button)).toBe(true)
+    expect(play).toHaveBeenCalledOnce()
+    press(' ', {}, video)
+    expect(play).toHaveBeenCalledOnce()
+  })
+
+  it('ignores the key that commits an IME composition', () => {
+    const run = vi.fn(() => true)
+    bind('global.commandK', run)
+    press('k', { metaKey: true, keyCode: 229 })
+    expect(run).not.toHaveBeenCalled()
+  })
+
+  it('finds ⌘K by its physical key on a non-Latin layout', () => {
+    const run = vi.fn(() => true)
+    bind('global.commandK', run)
+    press('л', { ctrlKey: true, code: 'KeyK' })
+    expect(run).toHaveBeenCalledOnce()
+  })
+
   it('leaves the arrow keys to a focused video', () => {
     const run = vi.fn(() => true)
     bind('clips.back5', run)

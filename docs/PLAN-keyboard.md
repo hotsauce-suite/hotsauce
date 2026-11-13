@@ -31,11 +31,11 @@ Each requirement maps to a test, named in brackets.
 - K1: A key spec parses into strokes; `mod` matches ⌘ or Ctrl; a symbol key like `?` matches whatever Shift it took; with Alt held, letters and digits match by physical key. [keys.test]
 - K2: Keycaps format as ⌘K / ⌥⌘1 / ⇧⌘8 on a Mac and Ctrl+K / Ctrl+Alt+1 elsewhere; a sequence shows each stroke. [keys.test]
 - K3: The catalog has no two shortcuts with the same keys in one scope (global collides with every section), and none uses a browser- or Mac-owned key (⌘T ⌘W ⌘N ⌘L ⌘R ⌘Q ⌘H ⌘M ⌘1–9, ⇧⌘T, ⇧⌘N, devtools keys). [catalog.test]
-- K4: The listener runs the bound handler and prevents the default; it ignores plain keys while typing in a field, while a dialog or menu is open, and Enter or Space on a button, link or checkbox; ⌘ keys still work while typing; an event already handled is left alone. [KeyboardProvider.test]
-- K5: A handler that returns false lets the key through (not prevented). The most recently mounted handler for an id wins, and unmounting restores the previous one. [KeyboardProvider.test]
-- K6: With single-key shortcuts off (Settings), character keys do nothing; ⌘ keys, arrows and Enter still work. The choice is kept on this device. [KeyboardProvider.test, SettingsRoute.test]
-- K7: `?` opens the keyboard shortcuts sheet, listing Everywhere first, then the sections active on this page, then the rest. Esc closes it and focus returns. [ShortcutsSheet.test]
-- K8: ⌘K, the Tasks keys and the Clips keys run through the shortcut list with no change in behavior. [CommandK/AppShell, TasksPage.test, ClipPage test]
+- K4: The listener runs the bound handler and prevents the default; it ignores plain keys while typing in a field, while a dialog or menu is open, and Enter or Space on a button, link or checkbox (except play and pause, which only leaves Space to the video); ⌘ keys still work while typing, also by physical key on a non-Latin layout; an event already handled, or an IME commit, is left alone. [shortcuts.test]
+- K5: A handler that returns false lets the key through (not prevented). The most recently mounted handler for an id wins, and unmounting restores the previous one. [shortcuts.test]
+- K6: With single-key shortcuts off (Settings), character keys do nothing; ⌘ keys, arrows and Enter still work. The choice is kept on this device. [shortcuts.test, ShortcutsSheet.test]
+- K7: `?` opens the keyboard shortcuts sheet, listing Everywhere first, then the sections active on this page, then the rest. The sheet takes focus; Esc closes it and focus returns. [ShortcutsSheet.test]
+- K8: ⌘K, the Tasks keys and the Clips keys run through the shortcut list with no change in behavior. [ShortcutsSheet.test (⌘K), TasksPage.test (keyboard), shortcuts.test (Clips' Space rule); the Clips page has no web test harness yet, so its keys were checked in a real browser]
 
 **Slice 2: go anywhere, create from the keyboard**
 
