@@ -60,6 +60,14 @@ export interface MemberUsage {
   costUsd: number
 }
 
+export interface AssistantSettings {
+  model: string
+  monthlyLimitUsd: number
+  models: Array<{ id: string; label: string }>
+  /** Set in the server's environment, which wins: shown locked. */
+  fromEnv: { model: boolean; monthlyLimitUsd: boolean }
+}
+
 const base = '/api/assistant'
 const conv = (id: string) => `${base}/conversations/${encodeURIComponent(id)}`
 
@@ -79,6 +87,9 @@ export const assistantApi = {
     }),
   usage: (month?: string) =>
     request<{ month: string; members: MemberUsage[] }>(`${base}/usage`, { query: { month } }),
+  settings: () => request<AssistantSettings>(`${base}/settings`),
+  saveSettings: (patch: { model?: string; monthlyLimitUsd?: number }) =>
+    request<AssistantSettings>(`${base}/settings`, { method: 'PUT', json: patch }),
 }
 
 /** A new conversation's id (the client picks it, so the first message can create it). */

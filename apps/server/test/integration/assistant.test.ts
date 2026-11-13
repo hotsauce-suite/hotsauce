@@ -326,6 +326,44 @@ describe('the assistant with a scripted model', () => {
     expect(usage.members).toMatchObject([{ email: BOB, questions: 1, input: 1000, output: 100 }])
     expect(usage.members[0].costUsd).toBeCloseTo(0.003, 6)
   })
+  it('lets only admins choose the model and limit, live, with the environment winning', async () => {
+    const model = new Scripted([])
+    await start({}, { assistantModel: model })
+    expect((await call('GET', '/api/assistant/settings', { as: BOB })).status).toBe(403)
+    const bobPut = await call('PUT', '/api/assistant/settings', {
+      as: BOB,
+      json: { model: 'claude-opus-5-5' },
+    })
+    expect(bobPut.status).toBe(403)
+    const before = await (await call('GET', '/api/assistant/settings', { as: ALICE })).json()
+    expect(before).toMatchObject({ model: 'claude-sonnet-5-5', monthlyLimitUsd: 0 })
+    expect(before.fromEnv).toEqual({ model: false, monthlyLimitUsd: false })
+    const put = await call('PUT', '/api/assistant/settings', {
+      as: ALICE,
+      json: { model: 'claude-opus-5-5', monthlyLimitUsd: 0.006 },
+    })
+    expect(put.status).toBe(200)
+    expect(await put.json()).toMatchObject({ model: 'claude-opus-5-5', monthlyLimitUsd: 0.006 })
+    const unknown = await call('PUT', '/api/assistant/settings', {
+      as: ALICE,
+      json: { model: 'gpt-9' },
+    })
+    expect(unknown.status).toBe(400)
+    // Opus: 1000 input + 100 output is $0.006, so the new limit applies to the next question.
+    expect((await ask(BOB, CONV, 'one')).status).toBe(200)
+    expect(model.requests[0]?.model).toBe('claude-opus-5-5')
+    expect((await ask(BOB, 'conv0000002', 'two')).status).toBe(429)
+  })
+
+  it('shows a model set in the environment as fixed', async () => {
+    await start({ ASSISTANT_MODEL: 'claude-opus-5-5' })
+    await call('PUT', '/api/assistant/settings', {
+      as: ALICE,
+      json: { model: 'claude-sonnet-5-5' },
+    })
+    const s = await (await call('GET', '/api/assistant/settings', { as: ALICE })).json()
+    expect(s).toMatchObject({ model: 'claude-opus-5-5', fromEnv: { model: true } })
+  })
 })
 
 describe('without an Anthropic key', () => {

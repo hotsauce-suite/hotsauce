@@ -1,5 +1,6 @@
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
 import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
+import { assistantHandlers } from './assistantHandlers'
 import { boardHandlers, FakeBoards, seedBoards } from './boardHandlers'
 import { bookingHandlers } from './bookingHandlers'
 import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
@@ -486,6 +487,7 @@ function createHandlers(
   handlers.push(...formHandlers({ forms: work.forms, files: work.files, latencyMs, principal }))
   handlers.push(...todayHandlers())
   handlers.push(...checkinHandlers({ principal }))
+  handlers.push(...assistantHandlers({ repo, principal, latencyMs }))
   handlers.push(...peopleHandlers())
   handlers.push(...bookingHandlers())
   handlers.push(

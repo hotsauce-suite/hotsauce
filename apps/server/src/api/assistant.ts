@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import type { AssistantEvent } from '../assistant/agent.js'
+import { DEFAULT_ASSISTANT_MODEL } from '../assistant/index.js'
+import { ASSISTANT_MODELS } from '../assistant/pricing.js'
 import { MAX_QUESTION_CHARS } from '../assistant/service.js'
 import { monthOf } from '../assistant/store.js'
 import { HearthError } from '../errors.js'
@@ -23,8 +25,24 @@ const Ask = z.object({
 })
 
 /** The built-in assistant (docs/PLAN-assistant.md). Each member sees only their own conversations. */
-export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config'>) {
-  const { assistant, config } = deps
+export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config' | 'org'>) {
+  const { assistant, config, org } = deps
+  const settingsView = () => {
+    const saved = org.settings()
+    return {
+      model: config.ASSISTANT_MODEL ?? (saved.assistantModel || DEFAULT_ASSISTANT_MODEL),
+      monthlyLimitUsd: config.ASSISTANT_MONTHLY_LIMIT_USD ?? saved.assistantMonthlyLimitUsd,
+      models: ASSISTANT_MODELS,
+      // A value set in the environment wins over Settings, so the page shows it read-only.
+      fromEnv: {
+        model: config.ASSISTANT_MODEL !== undefined,
+        monthlyLimitUsd: config.ASSISTANT_MONTHLY_LIMIT_USD !== undefined,
+      },
+    }
+  }
+  const adminOnly = (p: { isAdmin: boolean; via?: unknown }, what: string) => {
+    if (!p.isAdmin || p.via) throw new HearthError('forbidden', `Only an admin can ${what}`)
+  }
   return (
     new Hono<AppEnv>()
       .basePath('/assistant')
@@ -123,11 +141,30 @@ export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config'>) {
           }),
         ),
         (c) => {
-          if (!c.get('principal').isAdmin) {
-            throw new HearthError('forbidden', 'Only admins can see assistant usage')
-          }
+          adminOnly(c.get('principal'), 'see assistant usage')
           const month = c.req.valid('query').month ?? monthOf(new Date())
           return c.json({ month, members: assistant.store.usage(month) })
+        },
+      )
+      // Model and monthly limit (R12): live at once, admins only, and the environment wins.
+      .get('/settings', (c) => {
+        adminOnly(c.get('principal'), 'see the assistant settings')
+        return c.json(settingsView())
+      })
+      .put(
+        '/settings',
+        valid(
+          'json',
+          z.object({
+            model: z.enum(ASSISTANT_MODELS.map((m) => m.id) as [string, ...string[]]).optional(),
+            monthlyLimitUsd: z.number().min(0).max(100_000).optional(),
+          }),
+        ),
+        (c) => {
+          adminOnly(c.get('principal'), 'change the assistant settings')
+          const { model, monthlyLimitUsd } = c.req.valid('json')
+          org.saveSettings({ assistantModel: model, assistantMonthlyLimitUsd: monthlyLimitUsd })
+          return c.json(settingsView())
         },
       )
   )

@@ -1,4 +1,4 @@
-import { docUrl, expect, test, uid } from './fixtures'
+import { docUrl, expect, signIn, test, uid } from './fixtures'
 
 // The built-in assistant (docs/PLAN-assistant.md) with the dev stand-in model, which searches
 // for the question's two longest words and answers with links, adds a task for "add a task …",
@@ -75,4 +75,31 @@ test('an added task offers Undo, and a delete waits for Confirm', async ({ page,
     'confirmed',
   )
   expect(await api.readFile(user.team, file)).toBeNull()
+})
+
+test.describe('as an admin', () => {
+  test.use({ signedIn: false })
+
+  test('Settings shows each member’s use and saves the model', async ({ page }) => {
+    await signIn(page, 'e2e-admin@example.test')
+    await page.goto('/docs')
+    await page.getByTestId('assistant-open').click()
+    const panel = page.getByTestId('assistant-panel')
+    await panel.getByTestId('assistant-input').fill(`anything about ${uid()}`)
+    await panel.getByTestId('assistant-send').click()
+    await expect(panel.getByTestId('assistant-tool').first()).toHaveAttribute('data-status', 'done')
+
+    await page.goto('/settings/organization')
+    const section = page.getByTestId('org-assistant')
+    await expect(section.getByTestId('assistant-usage')).toContainText(/e2e.?admin/i)
+    const model = section.getByTestId('assistant-model')
+    await expect(model).toHaveValue('claude-sonnet-5-5')
+    await model.selectOption('claude-opus-5-5')
+    await section.getByRole('button', { name: 'Save' }).click()
+    await expect(section).toContainText('It applies at once')
+    // Put it back for the other tests on this server.
+    await model.selectOption('claude-sonnet-5-5')
+    await section.getByRole('button', { name: 'Save' }).click()
+    await expect(model).toHaveValue('claude-sonnet-5-5')
+  })
 })
