@@ -32,7 +32,8 @@ function askForServer(current: Server | null): void {
   const button = document.getElementById('server-connect') as HTMLButtonElement
   if (current) input.value = current.url
   input.focus()
-  form.addEventListener('submit', (event) => {
+  // Assigned, not added: the form can be shown again by Change server.
+  form.onsubmit = (event) => {
     event.preventDefault()
     button.disabled = true
     error.hidden = true
@@ -45,7 +46,7 @@ function askForServer(current: Server | null): void {
       }
       void main()
     })
-  })
+  }
 }
 
 async function main(): Promise<void> {
@@ -56,11 +57,10 @@ async function main(): Promise<void> {
     return
   }
   setName(server.name)
-  const change = show('change-server')
-  change.querySelector('a')?.addEventListener('click', (event) => {
-    event.preventDefault()
-    askForServer(server)
-  })
+  show('change-server')
+  document
+    .getElementById('change-server-button')
+    ?.addEventListener('click', () => askForServer(server))
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   const code = meetCode(tab?.url)
   if (tab?.id !== undefined && !code && savable(tab.url, originsFor(server.url))) {
