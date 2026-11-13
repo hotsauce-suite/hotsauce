@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · Hotsauce Chrome extension</title>
+<meta name="description" content="What the Hotsauce Chrome extension handles, where it sends it, and what it never does.">
+<link rel="canonical" href="https://hotsauce.work/privacy">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script>try{const t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
+<style>
+:root{--paper:#fff4e2;--card:#fffbf4;--ink:#16262d;--muted:#46565b;--hair:#16262d29;--ember:#a94e26;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#101c1b;--card:#172624;--ink:#f3efe8;--muted:#b3c0bd;--hair:#f3efe829;--ember:#ef8052;color-scheme:dark}}
+:root[data-theme=dark]{--paper:#101c1b;--card:#172624;--ink:#f3efe8;--muted:#b3c0bd;--hair:#f3efe829;--ember:#ef8052;color-scheme:dark}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:42rem;margin:0 auto;padding:56px 20px 80px}
+h1{font:800 clamp(30px,6vw,42px)/1.1 ui-sans-serif,system-ui,sans-serif;letter-spacing:-.03em;margin:0 0 10px;text-wrap:balance}
+h2{font:700 20px/1.3 ui-sans-serif,system-ui,sans-serif;margin:36px 0 8px}
+p,ul{margin:0 0 12px}
+ul{padding-left:1.2rem}
+li{margin:4px 0}
+a{color:var(--ember)}
+.lede{color:var(--muted)}
+.box{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:16px 20px;margin:24px 0}
+.box p:last-child{margin:0}
+small{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<p><a href="/">Hotsauce</a></p>
+<h1>Privacy in the Hotsauce Chrome extension</h1>
+<p class="lede">Last updated 13 November 2026.</p>
+
+<div class="box">
+<p><strong>Short version.</strong> The extension works only with the Hotsauce server you choose. That server is run by your organization. Nothing goes to us, the extension's publisher, or to anyone else. We don't sell or share data, and the extension has no analytics or tracking.</p>
+</div>
+
+<h2>What the extension does</h2>
+<p>It does two things. It takes notes on Google Meet calls, and it saves pages to read later, all in your organization's Hotsauce server.</p>
+
+<h2>What it handles</h2>
+<ul>
+<li><strong>Your server's address.</strong> You enter it once. It's stored in Chrome on your computer so the extension knows where to send things.</li>
+<li><strong>Meet call audio.</strong> This happens only after you click Take notes on a Google Meet tab. The extension passes that tab's audio to your Hotsauce page in the same browser. Your server then transcribes it, using the speech service your organization set up. Audio is never captured until you click, and capture stops when the meeting ends.</li>
+<li><strong>The Meet code.</strong> The code in a Meet tab's address (like abc-defg-hij) lets your server match the call to your calendar. To spot a call, the extension checks tab addresses on your computer. Those addresses never leave it unless you save the page.</li>
+<li><strong>Pages you save.</strong> When you choose Save page or Save link, the extension sends that page's address and title to your server. It does nothing with pages you don't save.</li>
+</ul>
+
+<h2>What it never does</h2>
+<ul>
+<li>It never sends anything to the extension's publisher or to any third party.</li>
+<li>It never sells, rents or shares your data, or uses it for advertising or credit decisions.</li>
+<li>It never reads your browsing history or pages you haven't asked it to save.</li>
+<li>It never records a tab you haven't chosen.</li>
+</ul>
+
+<h2>Who holds your data</h2>
+<p>Notes, transcripts and saved links live on your organization's Hotsauce server, under its own privacy terms. Ask your administrator to see or delete them. Remove the extension in Chrome to delete what it stored on your computer.</p>
+
+<h2>Permissions it asks for</h2>
+<ul>
+<li><strong>Tab audio capture</strong> records the Meet tab you choose.</li>
+<li><strong>meet.google.com</strong> lets it notice that a call is on.</li>
+<li><strong>Your server's site</strong> (asked for when you enter the address) lets it talk to your Hotsauce pages.</li>
+<li><strong>Active tab and context menu</strong> power Save page and Save link.</li>
+<li><strong>Storage</strong> holds your server's address and short-lived tab state.</li>
+</ul>
+
+<h2>Questions</h2>
+<p>Hotsauce is open source, so anyone can read exactly what the extension does in <a href="https://github.com/hotsauce-suite/hotsauce/tree/main/apps/extension">its code</a>. Ask questions or report a problem on <a href="https://github.com/hotsauce-suite/hotsauce/issues">GitHub</a>.</p>
+<p><small>If this policy changes, the date above changes with it.</small></p>
+</main>
+</body>
+</html>
