@@ -77,7 +77,7 @@ describe('c, / and the sidebar (G2)', () => {
     expect(await screen.findByTestId('cmdk-input')).toBeInTheDocument()
   })
 
-  it('⌘\\ hides and shows the sidebar', async () => {
+  it('⌘\\ hides and shows the sidebar, and a strip brings it back by mouse', async () => {
     const user = userEvent.setup()
     await openTasks()
     expect(screen.getByTestId('sidebar-app-name')).toBeInTheDocument()
@@ -85,6 +85,43 @@ describe('c, / and the sidebar (G2)', () => {
     expect(screen.queryByTestId('sidebar-app-name')).not.toBeInTheDocument()
     await user.keyboard('{Meta>}\\{/Meta}')
     expect(screen.getByTestId('sidebar-app-name')).toBeInTheDocument()
+    await user.keyboard('{Meta>}\\{/Meta}')
+    await user.click(screen.getByTestId('show-sidebar'))
+    expect(screen.getByTestId('sidebar-app-name')).toBeInTheDocument()
+  })
+
+  it('c makes a new doc in Docs, even with the sidebar hidden', async () => {
+    const user = userEvent.setup()
+    const { router } = renderApp('/docs')
+    await screen.findByTestId('sidebar-app-name')
+    await user.keyboard('{Meta>}\\{/Meta}')
+    await user.keyboard('c')
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/untitled/i))
+  })
+
+  it('c, g and / do nothing while a dialog is open or single keys are off', async () => {
+    const user = userEvent.setup()
+    const { router } = await openTasks()
+    await user.keyboard('?')
+    await screen.findByTestId('shortcuts-sheet')
+    await user.keyboard('gn')
+    expect(router.state.location.pathname).toMatch(/^\/tasks/)
+    await user.keyboard('{Escape}')
+    localStorage.setItem('hearth:single-keys', 'off')
+    await user.keyboard('gn/')
+    expect(router.state.location.pathname).toMatch(/^\/tasks/)
+    expect(screen.queryByTestId('cmdk-input')).not.toBeInTheDocument()
+    localStorage.removeItem('hearth:single-keys')
+  })
+
+  it('a g pressed outside a field does not fire with a letter typed inside one', async () => {
+    const user = userEvent.setup()
+    const { router } = await openTasks()
+    await user.keyboard('g')
+    await user.keyboard('q')
+    const input = await screen.findByTestId('quick-add-input')
+    await user.type(input, 'n')
+    expect(router.state.location.pathname).toMatch(/^\/tasks/)
   })
 })
 

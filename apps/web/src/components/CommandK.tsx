@@ -8,6 +8,7 @@ import { GO_KEYS, type GoTarget, SHORTCUTS } from '../keyboard/catalog'
 import {
   type Command as Action,
   type CommandGroup,
+  GROUP_ORDER,
   GROUP_TITLES,
   matchCommands,
   useCommandList,
@@ -186,20 +187,30 @@ export default function CommandK({
 
   const jumps = jumpsFor(query)
   const [confirming, setConfirming] = useState<Action | null>(null)
-  const actions = matchCommands(useCommandList(), query)
+  // In the order the groups show, so the highlighted command is the first one on screen.
+  const actions = matchCommands(useCommandList(), query).sort(
+    (a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group),
+  )
+  // A question asked and left (Esc, a click outside, a new search) is forgotten, so a later
+  // "Yes" can never act on something else.
+  useEffect(() => {
+    if (!open) setConfirming(null)
+  }, [open])
   const close = () => {
     onOpenChange(false)
     setQuery('')
     setConfirming(null)
   }
-  const runAction = (action: Action) => {
-    if (action.confirm && confirming?.id !== action.id) {
-      setConfirming(action)
-      return
-    }
+  const perform = (action: Action) => {
     const typed = query.trim()
     close()
     action.run(typed)
+  }
+  // A command that can't be undone only asks here; only the "Yes" row runs it, and the
+  // question starts on Cancel, so a second Enter can't say yes by accident.
+  const runAction = (action: Action) => {
+    if (action.confirm) setConfirming(action)
+    else perform(action)
   }
   const actionGroup = (group: CommandGroup) => {
     const items = actions.filter((a) => a.group === group)
@@ -246,13 +257,15 @@ export default function CommandK({
   // results a moment later, above them, and Enter should open the best doc, not an app.
   const topHit = query.trim() === '' ? recent[0] : (titles[0] ?? fullText[0])
   const firstAction = query.trim() === '' ? undefined : actions[0]
-  const top = topHit
-    ? `${topHit.space}:${topHit.path}`
-    : jumps[0]
-      ? `app:${jumps[0].id}`
-      : firstAction
-        ? `command:${firstAction.id}`
-        : ''
+  const top = confirming
+    ? 'confirm:cancel'
+    : topHit
+      ? `${topHit.space}:${topHit.path}`
+      : jumps[0]
+        ? `app:${jumps[0].id}`
+        : firstAction
+          ? `command:${firstAction.id}`
+          : ''
   const [selected, setSelected] = useState(top)
   useEffect(() => setSelected(top), [top])
 
@@ -274,68 +287,17 @@ export default function CommandK({
         <Command.Input
           data-testid="cmdk-input"
           value={query}
-          onValueChange={setQuery}
+          onValueChange={(next) => {
+            setQuery(next)
+            setConfirming(null)
+          }}
           placeholder="Search, or type a command"
           className="h-12 w-full bg-transparent text-[0.95rem] text-ink outline-none placeholder:text-ink-faint focus-visible:shadow-none"
         />
       </div>
       <Command.List className="max-h-[min(60vh,28rem)] overflow-y-auto p-1.5">
-        {query.trim() === '' ? (
-          recent.length ? (
-            <Command.Group heading="Recent">
-              {recent.map((r) => (
-                <ResultItem
-                  key={`${r.space}:${r.path}`}
-                  hit={{ space: r.space, path: r.path, title: r.title ?? displayName(r.path) }}
-                  spaceLabel={session.spaceLabel(r.space)}
-                  query=""
-                  onSelect={openDoc}
-                />
-              ))}
-            </Command.Group>
-          ) : (
-            <p className="px-3 py-6 text-center text-sm text-ink-faint">
-              Type to search every doc and meeting you can see.
-            </p>
-          )
-        ) : null}
-        {titles.length ? (
-          <Command.Group heading="Titles">
-            {titles.map((hit) => (
-              <ResultItem
-                key={`t:${hit.space}:${hit.path}`}
-                hit={hit}
-                spaceLabel={session.spaceLabel(hit.space)}
-                query={query}
-                onSelect={openDoc}
-              />
-            ))}
-          </Command.Group>
-        ) : null}
-        {fullText.length ? (
-          <Command.Group heading="In the text">
-            {fullText.map((hit) => (
-              <ResultItem
-                key={`b:${hit.space}:${hit.path}`}
-                hit={hit}
-                spaceLabel={session.spaceLabel(hit.space)}
-                query={query}
-                onSelect={openDoc}
-              />
-            ))}
-          </Command.Group>
-        ) : null}
         {confirming ? (
           <Command.Group heading={confirming.confirm}>
-            <Command.Item
-              value={`confirm:${confirming.id}`}
-              onSelect={() => runAction(confirming)}
-              data-testid="cmdk-confirm"
-              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ember-strong"
-            >
-              <Icon name="check" className="size-4" />
-              Yes, {confirming.title.toLowerCase()}
-            </Command.Item>
             <Command.Item
               value="confirm:cancel"
               onSelect={() => setConfirming(null)}
@@ -344,41 +306,100 @@ export default function CommandK({
               <Icon name="close" className="size-4 text-ink-faint" />
               Cancel
             </Command.Item>
+            <Command.Item
+              value={`confirm:${confirming.id}`}
+              onSelect={() => perform(confirming)}
+              data-testid="cmdk-confirm"
+              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ember-strong"
+            >
+              <Icon name="check" className="size-4" />
+              Yes, {confirming.title.toLowerCase()}
+            </Command.Item>
           </Command.Group>
-        ) : null}
-        {query.trim() === '' ? (
-          <>
-            {actionGroup('page')}
-            {actionGroup('create')}
-          </>
         ) : (
           <>
-            {actionGroup('page')}
-            {actionGroup('create')}
-            {actionGroup('ask')}
+            {query.trim() === '' ? (
+              recent.length ? (
+                <Command.Group heading="Recent">
+                  {recent.map((r) => (
+                    <ResultItem
+                      key={`${r.space}:${r.path}`}
+                      hit={{ space: r.space, path: r.path, title: r.title ?? displayName(r.path) }}
+                      spaceLabel={session.spaceLabel(r.space)}
+                      query=""
+                      onSelect={openDoc}
+                    />
+                  ))}
+                </Command.Group>
+              ) : (
+                <p className="px-3 py-6 text-center text-sm text-ink-faint">
+                  Type to search every doc and meeting you can see.
+                </p>
+              )
+            ) : null}
+            {titles.length ? (
+              <Command.Group heading="Titles">
+                {titles.map((hit) => (
+                  <ResultItem
+                    key={`t:${hit.space}:${hit.path}`}
+                    hit={hit}
+                    spaceLabel={session.spaceLabel(hit.space)}
+                    query={query}
+                    onSelect={openDoc}
+                  />
+                ))}
+              </Command.Group>
+            ) : null}
+            {fullText.length ? (
+              <Command.Group heading="In the text">
+                {fullText.map((hit) => (
+                  <ResultItem
+                    key={`b:${hit.space}:${hit.path}`}
+                    hit={hit}
+                    spaceLabel={session.spaceLabel(hit.space)}
+                    query={query}
+                    onSelect={openDoc}
+                  />
+                ))}
+              </Command.Group>
+            ) : null}
+            {query.trim() === '' ? (
+              <>
+                {actionGroup('page')}
+                {actionGroup('create')}
+              </>
+            ) : (
+              <>
+                {actionGroup('page')}
+                {actionGroup('create')}
+                {actionGroup('ask')}
+              </>
+            )}
+            {/* App jumps after the docs, so Enter still opens the best doc when a title matches too. */}
+            {jumpGroup}
+            {query.trim() === '' ? null : (
+              <>
+                {actionGroup('go')}
+                {actionGroup('prefs')}
+              </>
+            )}
+            {query.trim() &&
+            !searching &&
+            jumps.length === 0 &&
+            actions.length === 0 &&
+            titles.length === 0 &&
+            fullText.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-ink-faint">
+                {error
+                  ? 'Search is unavailable right now. Try again in a moment.'
+                  : `Nothing matches “${query.trim()}”.`}
+              </p>
+            ) : null}
+            {searching ? (
+              <p className="px-3 py-2 text-xs text-ink-faint">Searching the text…</p>
+            ) : null}
           </>
         )}
-        {/* App jumps after the docs, so Enter still opens the best doc when a title matches too. */}
-        {jumpGroup}
-        {query.trim() === '' ? null : (
-          <>
-            {actionGroup('go')}
-            {actionGroup('prefs')}
-          </>
-        )}
-        {query.trim() &&
-        !searching &&
-        jumps.length === 0 &&
-        actions.length === 0 &&
-        titles.length === 0 &&
-        fullText.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-ink-faint">
-            {error
-              ? 'Search is unavailable right now. Try again in a moment.'
-              : `Nothing matches “${query.trim()}”.`}
-          </p>
-        ) : null}
-        {searching ? <p className="px-3 py-2 text-xs text-ink-faint">Searching the text…</p> : null}
       </Command.List>
     </Command.Dialog>
   )

@@ -110,4 +110,62 @@ describe('page commands (C3)', () => {
     expect(run).toHaveBeenCalledWith('')
     act(() => off())
   })
+
+  const deleteCommand = (run: () => void) =>
+    registerCommands([
+      { id: 'test-delete', title: 'Delete this thing', group: 'page', confirm: 'Delete it?', run },
+    ])
+
+  it('Enter twice does not run a step that cannot be undone: the question starts on Cancel', async () => {
+    const run = vi.fn()
+    let off = () => {}
+    act(() => {
+      off = deleteCommand(run)
+    })
+    const { user } = await openPalette()
+    await user.type(screen.getByTestId('cmdk-input'), 'delete this')
+    await user.keyboard('{Enter}')
+    expect(await screen.findByTestId('cmdk-confirm')).toBeInTheDocument()
+    expect(screen.queryByTestId('cmdk-command-test-delete')).not.toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    expect(run).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('cmdk-confirm')).not.toBeInTheDocument()
+    act(() => off())
+  })
+
+  it('forgets the question when Command-K closes', async () => {
+    const run = vi.fn()
+    let off = () => {}
+    act(() => {
+      off = deleteCommand(run)
+    })
+    const { user } = await openPalette()
+    await user.type(screen.getByTestId('cmdk-input'), 'delete this')
+    await user.keyboard('{Enter}')
+    await screen.findByTestId('cmdk-confirm')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('cmdk')).not.toBeInTheDocument())
+    await user.keyboard('{Control>}k{/Control}')
+    await screen.findByTestId('cmdk-input')
+    expect(screen.queryByTestId('cmdk-confirm')).not.toBeInTheDocument()
+    expect(run).not.toHaveBeenCalled()
+    act(() => off())
+  })
+
+  it('highlights the first command shown, whatever order pages registered in', async () => {
+    let off = () => {}
+    act(() => {
+      off = registerCommands([
+        { id: 'test-new-page', title: 'New page thing', group: 'page', run: () => {} },
+      ])
+    })
+    const { user, palette } = await openPalette('/notes')
+    await user.type(screen.getByTestId('cmdk-input'), 'new')
+    await waitFor(() => {
+      const first = palette.querySelector('[cmdk-item]')
+      expect(first).toHaveAttribute('data-testid', 'cmdk-command-test-new-page')
+      expect(first).toHaveAttribute('aria-selected', 'true')
+    })
+    act(() => off())
+  })
 })

@@ -16,6 +16,9 @@ export const GROUP_TITLES: Record<CommandGroup, string> = {
   prefs: 'Preferences',
 }
 
+/** The order Command-K shows the groups in. */
+export const GROUP_ORDER: readonly CommandGroup[] = ['page', 'create', 'ask', 'go', 'prefs']
+
 export interface Command {
   /** Unique; also its Command-K value and test id (`cmdk-command-<id>`). */
   id: string

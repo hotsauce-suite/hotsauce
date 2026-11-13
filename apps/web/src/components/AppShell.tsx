@@ -14,6 +14,7 @@ import { appForPath, ownerOfPath } from '../apps/registry'
 import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
+import { formatSpec } from '../keyboard/keys'
 import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
 import { useAppShortcuts } from '../keyboard/useAppShortcuts'
@@ -127,7 +128,12 @@ function ShellLayout() {
   })
   useShortcut('global.sidebar', () => {
     if (compact) setDrawerOpen((open) => !open)
-    else setSidebarHidden((hidden) => !hidden)
+    else {
+      // Focus inside the sidebar would drop to the page's body; it goes to the page instead.
+      if (!sidebarHidden && document.activeElement?.closest('[data-sidebar-frame]'))
+        document.querySelector<HTMLElement>('main')?.focus()
+      setSidebarHidden((hidden) => !hidden)
+    }
     return true
   })
   useAppShortcuts({ app: app.id, openSearch })
@@ -195,13 +201,27 @@ function ShellLayout() {
         ) : (
           <>
             <AppRail orientation="vertical" />
-            {app.sidebar === false || sidebarHidden ? null : (
-              <div className="h-full w-[var(--sidebar-width)] shrink-0">{sidebar}</div>
+            {app.sidebar === false ? null : sidebarHidden ? (
+              // ⌘\ hid it: a slim strip brings it back for anyone without the key.
+              <button
+                type="button"
+                data-testid="show-sidebar"
+                aria-label="Show the sidebar"
+                title={`Show the sidebar (${formatSpec('mod+\\')})`}
+                onClick={() => setSidebarHidden(false)}
+                className="flex h-full w-3 shrink-0 items-center justify-center border-r border-ash/70 text-ink-faint hover:w-6 hover:bg-paper-raised focus-visible:w-6"
+              >
+                <Icon name="chevron" className="size-3" />
+              </button>
+            ) : (
+              <div className="h-full w-[var(--sidebar-width)] shrink-0" data-sidebar-frame>
+                {sidebar}
+              </div>
             )}
           </>
         )}
 
-        <main className="shell-main flex h-full min-w-0 flex-1 flex-col">
+        <main tabIndex={-1} className="shell-main flex h-full min-w-0 flex-1 flex-col outline-none">
           {live && !onLivePage ? <RecordingIndicator live={live} variant="strip" /> : null}
           <Outlet context={context} />
         </main>

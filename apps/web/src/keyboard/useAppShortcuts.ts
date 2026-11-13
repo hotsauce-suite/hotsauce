@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router'
 import { APPS, type AppId } from '../apps/registry'
 import { appHref } from '../components/AppRail'
 import { GO_KEYS, type GoTarget } from './catalog'
+import { allCommands } from './commands'
 import { bindShortcut, useShortcut } from './shortcuts'
 
 /** The field `c` puts the cursor in, on pages that create from a title box. */
@@ -19,6 +20,14 @@ const CREATE_ROUTES: Partial<Record<AppId, string>> = {
   meetings: '/meetings/start',
   clips: '/clips/new',
   dictate: '/dictate/voice',
+}
+
+/**
+ * The Command-K command `c` runs in an app whose page binding isn't mounted: Docs binds `c` in
+ * its file tree, which is gone while the sidebar is hidden or the phone drawer is shut.
+ */
+const CREATE_COMMANDS: Partial<Record<AppId, string>> = {
+  docs: 'new-doc',
 }
 
 export function useAppShortcuts({ app, openSearch }: { app: AppId; openSearch: () => void }): void {
@@ -53,6 +62,11 @@ export function useAppShortcuts({ app, openSearch }: { app: AppId; openSearch: (
       const input = field ? document.querySelector<HTMLInputElement>(field) : null
       if (input) {
         input.focus()
+        return true
+      }
+      const command = allCommands().find((c) => c.id === CREATE_COMMANDS[app])
+      if (command) {
+        command.run('')
         return true
       }
       const to = CREATE_ROUTES[app]

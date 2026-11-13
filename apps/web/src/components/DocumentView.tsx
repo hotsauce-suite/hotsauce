@@ -391,7 +391,7 @@ export function DocumentView({
 
   // Command-K's "On this page" for the open doc or meeting note.
   const starred = session.isStarred(space, path)
-  const editable = state.status === 'ready'
+  const editable = state.status === 'ready' && !readOnly
   useCommands(
     [
       {
@@ -506,7 +506,7 @@ export function DocumentView({
         beforeShare={() => doc.commit()}
         getText={() => doc.getText()}
         onOpenDrawer={shell.openDrawer}
-        {...(state.status === 'ready' && !reading ? { onAttachFile: () => setPicking(true) } : {})}
+        {...(editable && !reading ? { onAttachFile: () => setPicking(true) } : {})}
         rename={
           !untitled && renameTo && renameTo !== keptName && !conflict && !renaming
             ? {
