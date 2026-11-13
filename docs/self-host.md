@@ -2,7 +2,15 @@
 
 Hotsauce is one small server: a Node process, a folder of git repositories and a SQLite index on one disk. It needs about 1 GB of memory.
 
-**Its address:** give it `hotsauce.` on your company's domain, like `https://hotsauce.acme.com`: one DNS record, and your team knows it's yours. Any other address works too. Three ways to run it:
+**Its address:** give it `hotsauce.` on your company's domain, like `https://hotsauce.acme.com`: one DNS record, and your team knows it's yours. Any other address works too. Three ways to run it, below.
+
+**Have an agent do it.** [hotsauce.work/install.md](https://hotsauce.work/install.md) is the same install as a step-by-step guide written for coding agents: it covers all three hosts, marks the steps only a person can do (sign-ups, payment, sign-in keys, DNS) and ends with checks that prove it worked. Give an agent this prompt:
+
+```text
+Install Hotsauce for my company by following https://hotsauce.work/install.md. Ask me before anything that needs my accounts, payment or DNS.
+```
+
+The guide lives in this repository at `site/public/install.md`; change it with the install it describes. After every release the **Install test** workflow (`.github/workflows/install-test.yml`) installs Hotsauce from scratch with `install.sh`, again with a Claude agent given only that prompt, and on a test Cloudflare account.
 
 ## Fly.io (about $6 a month)
 
@@ -33,11 +41,22 @@ Steps:
 2. Open `https://<worker>.<account>.workers.dev/setup` and paste your setup password. The first visit starts the server, which takes a minute or two.
 3. In the wizard's **Files and audio** step, give it a GitHub organization and token, and R2 keys for video (the bucket the button made is fine).
 
-From then on, every push to your copy's main branch deploys again (Workers Builds). The container stays on; a cron trigger restarts it within five minutes if it stops. To let it sleep when nobody uses it (cheaper; the first visit afterwards waits for it to start), add the variable `HOTSAUCE_SLEEP=true` to the Worker. To use your own domain, add it to the Worker under **Settings → Domains & Routes** and set the variable `PUBLIC_URL=https://hotsauce.acme.com`.
+From then on, every push to your copy's main branch deploys again (Workers Builds). The container stays on; a cron trigger restarts it within five minutes if it stops. To let it sleep when nobody uses it (cheaper; the first visit afterwards waits for it to start), add `HOTSAUCE_SLEEP=true` to the Worker as a secret. To use your own domain, add it to the Worker under **Settings → Domains & Routes** and set `PUBLIC_URL=https://hotsauce.acme.com` as a **secret** (a plain variable set in the dashboard is removed by the next deploy).
 
 Known limits: a meeting that is recording when the container restarts keeps its transcript but not the audio recorded so far. The Chrome extension offered for download carries your server's address (`PUBLIC_URL`) and name.
 
 ## Docker on your own server
+
+The quickest way, on any Linux server with Docker and the Compose plugin:
+
+```sh
+curl -fsSL https://hotsauce.work/install.sh | sudo sh                                     # http://<server>:3000
+curl -fsSL https://hotsauce.work/install.sh | sudo HOTSAUCE_DOMAIN=hotsauce.acme.com sh   # with HTTPS
+```
+
+Settings go after `sudo`, which drops any written before it. It writes `compose.yml` to `/opt/hotsauce` (`HOTSAUCE_DIR` changes it), runs the newest release, adds Caddy in front for HTTPS when given a domain whose DNS points at the server (ports 80 and 443 open), checks HTTPS works, and prints the setup link. Without a domain it uses the server's first IP address; set `HOTSAUCE_URL=http://<public address>:3000` when that's a private one. Running it again with no settings updates to the newest release and keeps the domain and your data (`HOTSAUCE_DOMAIN=none` removes the domain). The script is `site/public/install.sh` in this repository.
+
+Or by hand, from a clone:
 
 ```sh
 cd deploy

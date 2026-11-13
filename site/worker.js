@@ -4,6 +4,13 @@
 
 const DEMO_HOST = 'demo.hotsauce.work'
 const FRAMERS = "frame-ancestors 'self' https://hotsauce.work http://localhost:*"
+// The install guide, its script and the map for language models (docs/PLAN-one-click-install.md):
+// plain text that curl and agents read inline, always the newest copy.
+const PLAIN = {
+  '/install.md': 'text/markdown; charset=utf-8',
+  '/install.sh': 'text/plain; charset=utf-8',
+  '/llms.txt': 'text/plain; charset=utf-8',
+}
 
 async function serveDemo(request, env, url) {
   // Built files come from /demo/; every other path is an app route and gets the app itself.
@@ -44,6 +51,12 @@ export default {
     headers.set('referrer-policy', 'strict-origin-when-cross-origin')
     headers.set('x-frame-options', 'DENY')
     if (url.protocol === 'https:') headers.set('strict-transport-security', 'max-age=31536000')
+    if (res.ok && PLAIN[url.pathname]) {
+      headers.set('content-type', PLAIN[url.pathname])
+      headers.set('content-disposition', 'inline')
+      headers.set('cache-control', 'no-cache')
+      headers.set('access-control-allow-origin', '*')
+    }
     if (
       (res.ok || res.status === 304) &&
       (url.pathname.startsWith('/img/') || url.pathname.startsWith('/video/'))
