@@ -662,8 +662,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()
                 alert.messageText = "Connect Dictate as \(account)?"
+                // One app serves every organization, so the address is what to check.
                 var detail = link.isUnfamiliarServer
-                    ? "This isn’t the usual \(Brand.name) server. Your dictations will be sent to \(link.server.absoluteString). Only continue if you trust it."
+                    ? "Your dictations will be sent to \(link.server.absoluteString). Only continue if that is your organization’s \(Brand.name)."
                     : "Your dictations will go to \(link.server.host ?? Brand.name) as \(account)."
                 if previous != nil { detail += " This replaces the connection this Mac has now." }
                 alert.informativeText = detail
