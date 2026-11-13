@@ -7,8 +7,9 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   conflict on that one file; rebase and take the higher number.
 - **Tag only after the image exists.** The workflow pushes the ghcr image first and creates the
   GitHub release last, so an instance never sees a release it can't pull.
-- **New ghcr packages from a public repo came out public** here; check
-  `https://github.com/orgs/hotsauce-suite/packages` after the first push of a new package anyway.
+- **A new ghcr package is private, even from a public repo.** Anonymous pulls (Fly, Docker, other
+  organizations) get 403 until an org owner sets it public in the package's settings, which has no
+  API. Check with an anonymous token: `curl "https://ghcr.io/token?scope=repository:<org>/<name>:pull"`.
 - **The helper machine is what makes rollback safe.** An update run by the server itself dies with
   the machine it replaces. The helper runs on the *old* image (known to boot), so a release that
   can't start still gets rolled back.
