@@ -628,6 +628,11 @@ describe('the camera bubble', () => {
     expect(clip.compositeStatus).toBe('ready')
     expect(clip.mimeType).toBe('video/mp4')
     expect(clip.videoUrl).toContain('/composite?')
+    // A new thumbnail URL, so a cached screen-only one isn't shown.
+    expect(clip.thumbUrl).toContain('/camera-thumb?')
+    const thumb = await call('GET', clip.thumbUrl as string)
+    expect(thumb.status).toBe(200)
+    expect(thumb.headers.get('content-type')).toBe('image/jpeg')
     expect(clip).toMatchObject({ screenSurface: 'window', screenLabel: 'Pricing – Google Chrome' })
 
     const store = new LocalAudioStore(config.DATA_DIR)
@@ -808,9 +813,86 @@ exec ffmpeg "$@"
     expect((await get(ALICE, id)).clip.compositeStatus).toBe('ready')
     expect(existsSync(store.pathOf(`clips/${id}/composite.mp4`))).toBe(true)
   })
+
+  it('a restart before the camera was kept keeps its chunks and still makes the bubble', async () => {
+    const { cp, rm: remove } = await import('node:fs/promises')
+    const clip = await json<Clip>(
+      await call('POST', '/api/clips', {
+        as: ALICE,
+        json: { mode: 'screen_camera', container: 'webm' },
+      }),
+      201,
+    )
+    for (const [seq, part] of slices(webm, 3).entries()) {
+      await call('PUT', `/api/clips/${clip.id}/chunks/${seq}`, { as: ALICE, body: part })
+    }
+    for (const [seq, part] of slices(cameraWebm, 2).entries()) {
+      await call('PUT', `/api/clips/${clip.id}/chunks/${seq}?track=camera`, {
+        as: ALICE,
+        body: part,
+      })
+    }
+    const uploads = join(config.DATA_DIR, 'clips', 'uploads', clip.id)
+    const saved = `${uploads}-saved`
+    await cp(uploads, saved, { recursive: true })
+    await json(
+      await call('POST', `/api/clips/${clip.id}/finish`, {
+        as: ALICE,
+        json: { chunks: 3, camera: { chunks: 2, container: 'webm', offsetMs: 0 } },
+      }),
+    )
+    await services.clips.idle()
+    // As if the server died while making the bubble, before the camera file was kept.
+    const store = new LocalAudioStore(config.DATA_DIR)
+    await remove(store.pathOf(`clips/${clip.id}/composite.mp4`))
+    await remove(store.pathOf(`clips/${clip.id}/camera.webm`))
+    await cp(saved, uploads, { recursive: true })
+    await remove(saved, { recursive: true, force: true })
+    services.clips.store.update(
+      clip.id,
+      { compositeStatus: 'processing' },
+      new Date().toISOString(),
+    )
+    // recover() also sweeps leftovers; the camera's chunks aren't leftovers yet.
+    expect(services.clips.recover()).toBeGreaterThanOrEqual(1)
+    await services.clips.sweep()
+    await services.clips.idle()
+    expect((await get(ALICE, clip.id)).clip.compositeStatus).toBe('ready')
+    expect(existsSync(store.pathOf(`clips/${clip.id}/camera.webm`))).toBe(true)
+    expect(existsSync(uploads)).toBe(false)
+  })
+
+  it('the owner can try the camera bubble again after a failure', async () => {
+    const id = await recordWithCamera()
+    const store = new LocalAudioStore(config.DATA_DIR)
+    const { rm: remove } = await import('node:fs/promises')
+    await remove(store.pathOf(`clips/${id}/composite.mp4`))
+    services.clips.store.update(id, { compositeStatus: 'failed' }, new Date().toISOString())
+    await json(await call('POST', `/api/clips/${id}/camera/retry`, { as: BOB }), 403)
+    const retried = await json<Clip>(
+      await call('POST', `/api/clips/${id}/camera/retry`, { as: ALICE }),
+    )
+    expect(retried.compositeStatus).toBe('pending')
+    await services.clips.idle()
+    // Made again from the kept camera file: its chunks are long gone.
+    expect((await get(ALICE, id)).clip.compositeStatus).toBe('ready')
+    expect(existsSync(store.pathOf(`clips/${id}/composite.mp4`))).toBe(true)
+  })
 })
 
 describe('speakers, summaries, action items and notes', () => {
+  it('a transcript retry forgets speaker names, since speakers are numbered afresh', async () => {
+    const { id } = await record(ALICE, webm)
+    await json(
+      await call('PATCH', `/api/clips/${id}`, { as: ALICE, json: { speakers: { '0': 'Alex' } } }),
+    )
+    services.clips.store.update(id, { transcriptStatus: 'failed' }, new Date().toISOString())
+    await json(await call('POST', `/api/clips/${id}/transcript/retry`, { as: ALICE }))
+    await services.clips.idle()
+    const { clip } = await get(ALICE, id)
+    expect(clip.speakers.map((s) => s.name)).toEqual(['Speaker 1', 'Speaker 2'])
+  })
+
   it('names speakers: two found, defaults, owner renames, others can’t', async () => {
     const { id } = await record(ALICE, webm)
     let { clip, transcript } = await get(ALICE, id)

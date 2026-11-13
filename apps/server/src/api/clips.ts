@@ -233,10 +233,14 @@ export function clipRoutes(deps: AppDeps) {
             now: new Date(),
           })
           return oneAtATime(space, async () => {
+            // Only "not found" means free: any other error stops rather than overwrite a note.
             const exists = (p: string) =>
               deps.git.readFile(space, p).then(
                 () => true,
-                () => false,
+                (err: unknown) => {
+                  if (err instanceof HearthError && err.code === 'not_found') return false
+                  throw err
+                },
               )
             // A note and, for a meeting, its transcript: both must be free.
             const path = await freePath(note.path, async (p) =>
@@ -288,6 +292,9 @@ export function clipRoutes(deps: AppDeps) {
       )
       .post('/:id/transcript/retry', valid('param', z.object({ id: ClipId })), async (c) =>
         c.json(await clips.retryTranscript(c.get('principal'), c.req.valid('param').id)),
+      )
+      .post('/:id/camera/retry', valid('param', z.object({ id: ClipId })), async (c) =>
+        c.json(await clips.retryComposite(c.get('principal'), c.req.valid('param').id)),
       )
   )
 }

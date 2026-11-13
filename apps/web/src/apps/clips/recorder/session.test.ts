@@ -240,6 +240,8 @@ describe('RecordingSession', () => {
     await session.start(opts())
     await session.stop()
     expect(session.state.phase).toBe('finished')
+    // Said, not silent: the page warns the camera won't be in the video.
+    expect(session.state.cameraLost).toBe(true)
     expect(vi.mocked(api.finish).mock.calls[0]?.[1]).toEqual({
       chunks: 1,
       screenSurface: 'monitor',

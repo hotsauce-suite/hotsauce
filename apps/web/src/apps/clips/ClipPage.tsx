@@ -180,6 +180,16 @@ export default function ClipPage() {
     }
   }
 
+  const retryCamera = async () => {
+    if (!clip) return
+    try {
+      const updated = await clipsApi.retryCamera(clip.id)
+      setData((d) => (d ? { ...d, clip: updated } : d))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t retry the camera')
+    }
+  }
+
   const retryTranscript = async () => {
     if (!clip) return
     try {
@@ -345,7 +355,15 @@ export default function ClipPage() {
             ) : null}
             {clip.compositeStatus === 'failed' && clip.isOwner ? (
               <p className="clip-note" data-testid="composite-status">
-                The camera couldn’t be added to this video, so it’s the screen alone.
+                The camera couldn’t be added to this video, so it’s the screen alone.{' '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => void retryCamera()}
+                  data-testid="composite-retry"
+                >
+                  Try again
+                </button>
               </p>
             ) : null}
             {videoSrc && clip.compositeStatus === 'ready' && !videoSrc.includes('composite') ? (

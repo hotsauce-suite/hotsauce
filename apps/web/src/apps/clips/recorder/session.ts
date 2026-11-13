@@ -47,6 +47,8 @@ export interface SessionState {
   screenMuted: boolean
   /** The camera is being recorded on its own track, to go into the video as a bubble. */
   cameraTrack: boolean
+  /** The server refused the camera's upload: the clip will be the screen alone. */
+  cameraLost: boolean
   /** The camera bubble's always-on-top window, while it's open. */
   pipWindow: Window | null
   clip: Clip | null
@@ -128,6 +130,7 @@ export class RecordingSession {
     screenLabel: null,
     screenMuted: false,
     cameraTrack: false,
+    cameraLost: false,
     pipWindow: null,
     clip: null,
   }
@@ -300,6 +303,7 @@ export class RecordingSession {
         if (attempt !== this.#attempt || !this.#screen) return
         this.#set({
           upload: combine(this.#screen.uploader.state, this.#camera?.uploader.state ?? null),
+          cameraLost: Boolean(this.#camera?.uploader.state.fatal),
         })
       }),
     }
@@ -452,6 +456,7 @@ export class RecordingSession {
       screenLabel: null,
       screenMuted: false,
       cameraTrack: false,
+      cameraLost: false,
       error,
     })
   }

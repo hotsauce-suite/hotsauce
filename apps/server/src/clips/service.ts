@@ -41,7 +41,8 @@ const SUMMARY_TRANSCRIPT_CHARS = 12_000
 /** About an hour of talk: the summary and action items read the whole clip. */
 const NOTES_TRANSCRIPT_CHARS = 60_000
 
-export type MediaFile = 'video' | 'thumb' | 'composite'
+const MEDIA_FILES = ['video', 'thumb', 'composite', 'camera-thumb'] as const
+export type MediaFile = (typeof MEDIA_FILES)[number]
 export type ChunkTrack = 'screen' | 'camera'
 
 /** A speaker in a clip's transcript, with the name to show. */
@@ -505,10 +506,21 @@ export class Clips {
     if (clip.transcriptStatus !== 'failed') return this.view(clip, principal)
     const updated = this.store.update(
       id,
-      { transcriptStatus: 'pending', transcriptError: null },
+      // Speakers are numbered afresh, so names given to the old numbers no longer fit.
+      { transcriptStatus: 'pending', transcriptError: null, speakers: {} },
       this.#nowIso(),
     )
     this.#enqueueTranscript(id)
+    return this.view(updated ?? clip, principal)
+  }
+
+  /** Tries again to put the camera into the video, after a failure (from the kept camera file). */
+  retryComposite(principal: Principal, id: string): Promise<ClipView> {
+    const clip = this.#owned(principal, id)
+    if (clip.status !== 'ready') throw new HearthError('conflict', 'This clip isn’t ready yet')
+    if (clip.compositeStatus !== 'failed' || !clip.cameraChunks) return this.view(clip, principal)
+    const updated = this.store.update(id, { compositeStatus: 'pending' }, this.#nowIso())
+    this.#enqueueComposite(id)
     return this.view(updated ?? clip, principal)
   }
 
@@ -549,7 +561,11 @@ export class Clips {
     const [videoUrl, thumbUrl, downloadUrl] = ready
       ? await Promise.all([
           this.#url(clip, file),
-          clip.hasThumb ? this.#url(clip, 'thumb') : null,
+          // Its own name once the camera is in, so a browser's cached screen-only thumbnail
+          // (same signed URL for hours with the local store) isn't shown in its place.
+          clip.hasThumb
+            ? this.#url(clip, clip.compositeStatus === 'ready' ? 'camera-thumb' : 'thumb')
+            : null,
           this.#url(clip, file, fileName(clip.title, container)),
         ])
       : [null, null, null]
@@ -631,20 +647,21 @@ export class Clips {
     const media = this.#opts.media
     const refused = new HearthError('not_found', 'This link has expired; reload the page')
     if (!(media instanceof LocalAudioStore)) throw refused
-    if (req.file !== 'video' && req.file !== 'thumb' && req.file !== 'composite') throw refused
+    const files: readonly string[] = MEDIA_FILES
+    if (!files.includes(req.file)) throw refused
     const expected = Buffer.from(this.#sign(req.id, req.file, req.exp, req.download))
     const given = Buffer.from(req.sig)
     if (expected.length !== given.length || !timingSafeEqual(expected, given)) throw refused
     if (req.exp * 1000 < this.#now().getTime()) throw refused
     const clip = this.store.get(req.id)
     if (clip?.status !== 'ready') throw refused
-    const file = media.pathOf(mediaKey(clip, req.file))
+    const file = media.pathOf(mediaKey(clip, req.file as MediaFile))
     const size = (await stat(file).catch(() => null))?.size
     if (size === undefined) throw refused
     return {
       path: file,
       contentType:
-        req.file === 'thumb'
+        req.file === 'thumb' || req.file === 'camera-thumb'
           ? 'image/jpeg'
           : req.file === 'composite'
             ? CONTENT_TYPE.mp4
@@ -938,17 +955,14 @@ export class Clips {
     const camExt = clip.cameraContainer
     try {
       const media = this.#media()
-      // The composite needs room for itself and the camera: about the screen video's size again.
-      await this.#ensureRoom(clip.sizeBytes ?? 0)
       const camRaw = path.join(dir, `camera-raw.${camExt}`)
       const camera = path.join(dir, `camera.${camExt}`)
-      const kept = await media.get(cameraKey(id, camExt)).catch(() => null)
+      const kept = await media.get(cameraKey(id, camExt))
       if (kept) {
         // A restart after the camera was kept: its chunks may be gone, the file isn't.
         await pipeline(Readable.fromWeb(kept.body as never), createWriteStream(camera))
       } else {
         await this.#concat(id, clip.cameraChunks, camRaw, 'camera')
-        await rm(this.#uploadDir(id), { recursive: true, force: true })
         await remux(this.#opts.ffmpeg, camRaw, camera, camExt)
         await rm(camRaw, { force: true })
         const camSize = (await stat(camera)).size
@@ -958,7 +972,12 @@ export class Clips {
           camSize,
           CONTENT_TYPE[camExt],
         )
+        // Only now that the camera is kept are its chunks no longer needed.
+        await rm(this.#uploadDir(id), { recursive: true, force: true })
       }
+      // The composite needs about the screen video's size again. Checked once the camera is
+      // kept, so a full disk fails only this attempt and the owner can try again later.
+      await this.#ensureRoom(clip.sizeBytes ?? 0)
       // Read in place from a local store; fetched from R2 otherwise.
       const screen =
         media instanceof LocalAudioStore
@@ -1090,7 +1109,8 @@ function stillNeeded(clip: ClipRecord, kind: string): boolean {
     return (
       clip.status === 'recording' ||
       clip.status === 'processing' ||
-      (clip.status === 'ready' && clip.compositeStatus === 'pending')
+      (clip.status === 'ready' &&
+        (clip.compositeStatus === 'pending' || clip.compositeStatus === 'processing'))
     )
   }
   if (kind === 'work') {
@@ -1104,9 +1124,8 @@ function stillNeeded(clip: ClipRecord, kind: string): boolean {
 }
 
 function mediaKey(clip: ClipRecord, file: MediaFile): string {
-  if (file === 'thumb') {
-    return clip.compositeStatus === 'ready' ? compositeThumbKey(clip.id) : thumbKey(clip.id)
-  }
+  if (file === 'thumb') return thumbKey(clip.id)
+  if (file === 'camera-thumb') return compositeThumbKey(clip.id)
   if (file === 'composite') return compositeKey(clip.id)
   return videoKey(clip.id, clip.container)
 }

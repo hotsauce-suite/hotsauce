@@ -163,6 +163,11 @@ export function RecordingStatus({
           Your screen isn’t sending a picture. Is the shared window minimized?
         </span>
       ) : null}
+      {state.cameraLost ? (
+        <span className="clip-status__warn" role="status" data-testid="camera-lost">
+          Your camera stopped uploading, so this clip will be your screen alone.
+        </span>
+      ) : null}
       <div className="clip-status__row" data-testid="status-mic">
         <Icon name="mic" className="size-3.5 shrink-0" />
         <span className="truncate">

@@ -93,4 +93,5 @@ export const clipsApi = {
   remove: (id: string) => request<void>(clip(id), { method: 'DELETE' }),
   retryTranscript: (id: string) =>
     request<Clip>(`${clip(id)}/transcript/retry`, { method: 'POST' }),
+  retryCamera: (id: string) => request<Clip>(`${clip(id)}/camera/retry`, { method: 'POST' }),
 }
