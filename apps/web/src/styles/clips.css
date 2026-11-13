@@ -279,11 +279,11 @@
   opacity: 0;
   pointer-events: none;
 }
-.clip-mode:has(input:disabled) {
+.clip-modes:not(:disabled) .clip-mode:has(input:disabled) {
   cursor: not-allowed;
   opacity: 0.5;
 }
-.clip-mode:has(input:disabled):hover {
+.clip-modes:not(:disabled) .clip-mode:has(input:disabled):hover {
   border-color: var(--ash);
 }
 .clip-mode:has(input:focus-visible) {
