@@ -10,12 +10,12 @@ import { useBoundIds } from './shortcuts'
  * The `?` sheet: every shortcut, Everywhere first, then what works on this page (sections with
  * a bound shortcut, or the open app's own), then the rest.
  */
-export function ShortcutsSheet({ app, onClose }: { app: AppId; onClose: () => void }) {
+export function ShortcutsSheet({ app, onClose }: { app: AppId | null; onClose: () => void }) {
   const bound = new Set(useBoundIds())
   const singleKeys = useSingleKeys()
   const sections = Object.keys(SECTIONS) as SectionId[]
   const here = (s: SectionId) =>
-    SECTIONS[s].app === app ||
+    (app !== null && SECTIONS[s].app === app) ||
     shortcutIds.some((id) => SHORTCUTS[id].section === s && bound.has(id))
   const ordered = [
     'everywhere' as const,

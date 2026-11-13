@@ -59,5 +59,7 @@ describe('Settings: single-key shortcuts (K6)', () => {
     await user.click(screen.getByTestId('show-shortcuts'))
     const sheet = await screen.findByTestId('shortcuts-sheet')
     expect(within(sheet).getByText(/Single-key shortcuts are off/)).toBeInTheDocument()
+    // Settings belongs to no app, so no section claims to be this page's.
+    expect(within(sheet).queryByText('On this page')).toBeNull()
   })
 })

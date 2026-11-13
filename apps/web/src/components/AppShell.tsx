@@ -10,7 +10,7 @@ import { useLive } from '../apps/meetings/live/liveState'
 import { useRecordingTitle } from '../apps/meetings/live/useRecordingTitle'
 import { MeetingsSidebar } from '../apps/meetings/MeetingsSidebar'
 import { NotesSidebar } from '../apps/notes/NotesSidebar'
-import { appForPath } from '../apps/registry'
+import { appForPath, ownerOfPath } from '../apps/registry'
 import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
@@ -206,7 +206,10 @@ function ShellLayout() {
       ) : null}
 
       {shortcutsOpen ? (
-        <ShortcutsSheet app={app.id} onClose={() => setShortcutsOpen(false)} />
+        <ShortcutsSheet
+          app={ownerOfPath(location.pathname)?.id ?? null}
+          onClose={() => setShortcutsOpen(false)}
+        />
       ) : null}
 
       <div
