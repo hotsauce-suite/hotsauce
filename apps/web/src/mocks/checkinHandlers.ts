@@ -20,7 +20,12 @@ export function checkinHandlers(opts: {
       id,
       ...input,
       tz: 'UTC',
-      schedule: input.days.includes('mon') ? 'Mondays at 9 AM' : 'Fridays at 3 PM',
+      schedule:
+        input.days.length === 5
+          ? 'Every weekday at 9 AM'
+          : input.days.includes('mon')
+            ? 'Mondays at 9 AM'
+            : 'Fridays at 3 PM',
       blobOid: `blob-${id}`,
       createdBy: 'ada@example.test',
       asked: [
@@ -31,14 +36,68 @@ export function checkinHandlers(opts: {
     })
     return id
   }
-  seed({
+  // Every weekday, so today's round in the demo matches its schedule.
+  const weekly = seed({
     title: 'What will you get done this week?',
-    days: ['mon'],
+    days: ['mon', 'tue', 'wed', 'thu', 'fri'],
     time: '09:00',
     room: null,
     skip: [],
     paused: false,
   })
+  // Sample answers, so the demo shows a lived-in check-in: Grace has answered this round, and
+  // last week's round has both answers and its summary.
+  const lastWeek = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10)
+  const at = (date: string, hhmm: string) => new Date(`${date}T${hhmm}:00`).toISOString()
+  const sample = (
+    date: string,
+    who: 'ada' | 'grace',
+    text: string,
+    time: string,
+  ): CheckinAnswer => ({
+    id: nextId(),
+    date,
+    name: who === 'ada' ? 'Ada Lovelace' : 'Grace Hopper',
+    email: `${who}@example.test`,
+    submitted: at(date, time),
+    edited: null,
+    text,
+    replies: [],
+    mine: false,
+    path: `checkins/${weekly}/${date}/${who}.md`,
+  })
+  const w = checkins.get(weekly)
+  if (w) {
+    const graceNow = sample(
+      today,
+      'grace',
+      'Finish the freezer inventory and send the audit notes to the safety officer.\nStuck: still waiting on the quote for the new -80 freezer.',
+      '09:12',
+    )
+    graceNow.replies.push({
+      id: nextId(),
+      by: 'ada@example.test',
+      name: 'Ada Lovelace',
+      at: at(today, '09:40'),
+      text: 'I can chase the freezer quote today.',
+    })
+    w.rounds = [
+      { date: today, answers: [graceNow], summary: null },
+      {
+        date: lastWeek,
+        answers: [
+          sample(lastWeek, 'ada', 'Lock the Q1 roadmap and review the grant draft.', '09:05'),
+          sample(lastWeek, 'grace', 'Run the validation batch and write up the results.', '09:20'),
+        ],
+        summary: {
+          text: 'Ada is locking the Q1 roadmap and reviewing the grant draft. Grace is running the validation batch. Nothing stuck this week.',
+          written: at(lastWeek, '09:21'),
+          posted: true,
+          missing: [],
+        },
+      },
+    ]
+  }
 
   const view = (c: Omit<CheckinView, 'canManage' | 'current'>, user: FakeUser): CheckinView => {
     const round = c.rounds[0]
