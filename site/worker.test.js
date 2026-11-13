@@ -70,6 +70,21 @@ describe('hotsauce.work', () => {
     expect(e.asked).not.toContain('/demo/index.html')
   })
 
+  it('serves the install guide, script and llms.txt as text to read inline, never stale', async () => {
+    for (const [path, type] of [
+      ['/install.md', 'text/markdown; charset=utf-8'],
+      ['/install.sh', 'text/plain; charset=utf-8'],
+      ['/llms.txt', 'text/plain; charset=utf-8'],
+    ]) {
+      const res = await get(`https://hotsauce.work${path}`, env())
+      expect(res.headers.get('content-type')).toBe(type)
+      expect(res.headers.get('content-disposition')).toBe('inline')
+      expect(res.headers.get('cache-control')).toBe('no-cache')
+    }
+    const page = await get('https://hotsauce.work/', env())
+    expect(page.headers.get('content-disposition')).toBeNull()
+  })
+
   it('sends www to the bare domain', async () => {
     const res = await get('https://www.hotsauce.work/x', env())
     expect(res.status).toBe(301)

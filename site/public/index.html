@@ -301,6 +301,11 @@ h2{font:800 clamp(36px,5.2vw,58px)/1 var(--display);margin:0 0 16px;letter-spaci
 .wizard li:nth-child(even){background:var(--t3)}
 .needs{margin:22px 0 0;padding:16px 18px;border-radius:14px;background:var(--paper-2);border:2px dashed var(--line);font-size:15px;color:var(--muted)}
 .needs b{color:var(--ink)}
+.seg{flex-wrap:wrap}
+.hostpanel>p{margin:0 0 12px;color:var(--muted);font-size:15.5px}
+.hostpanel .btn{padding:11px 20px;font-size:15.5px;margin:0 0 12px}
+.cmd.prompt pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--sans);font-size:15px}
+.agentlink{display:inline-block;margin-top:14px;font:600 15px var(--sans);color:var(--ink);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:var(--rust)}
 
 /* faq */
 .faq{max-width:780px;margin:0 auto;background:var(--card);border:2px solid var(--line);border-radius:var(--radius);box-shadow:8px 8px 0 var(--hard);overflow:hidden}
@@ -397,6 +402,7 @@ footer.foot .brand svg{width:26px;height:26px}
     <a class="btn primary" href="#run">Cook it up for your team</a>
     <a class="btn" href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">Read the recipe</a>
   </div>
+  <a class="agentlink" href="#run" data-pick-host="agent">Or have your AI agent install it for you</a><br>
   <button type="button" class="watch" id="watch-tour" aria-haspopup="dialog"><span class="play" aria-hidden="true"><svg viewBox="0 0 12 14" aria-hidden="true"><path d="M0 0l12 7-12 7z" fill="currentColor"/></svg></span><u>Watch the tour</u> <small>2 min</small></button>
   <ul class="chips"><li>Free forever</li><li>About $6 a month to host</li><li>Bring your own AI keys</li></ul>
 
@@ -663,24 +669,38 @@ before the spring sampling season.
     <div>
       <p class="kicker">The recipe</p>
       <h2>Running this afternoon.</h2>
-      <p class="sub" style="font-size:17px">You run a few commands. A setup wizard in your browser does the rest, and nobody edits a config file.</p>
+      <p class="sub" style="font-size:17px">One click on Cloudflare, one sentence to your AI agent, or a few commands. A setup wizard in your browser does the rest, and nobody edits a config file.</p>
       <p style="margin:0 0 8px;font-weight:700;font-size:15px">The wizard covers</p>
       <ul class="wizard"><li>Your organization</li><li>Brand</li><li>Google sign-in</li><li>AI keys</li><li>Files and audio</li><li>Review and launch</li></ul>
-      <div class="needs"><b>You'll need</b> a Fly.io or Cloudflare account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features. Docs, search and Clips recording work without them.</div>
+      <div class="needs"><b>You'll need</b> a Cloudflare or Fly.io account (or any server with Docker), a free Clerk account for Google sign-in, and optionally Anthropic and Deepgram keys for the AI features. Docs, search and Clips recording work without them.</div>
     </div>
     <ol class="steps">
-      <li><div><h3>Get the code</h3>
-        <div class="cmd"><pre>git clone https://github.com/hotsauce-suite/hotsauce
-cd hotsauce</pre><button class="copy" type="button" aria-live="polite">Copy</button></div></div></li>
       <li><div><h3>Launch your server</h3>
-        <div class="seg" role="tablist" aria-label="Where to host">
-          <button type="button" role="tab" aria-selected="true" data-host="fly" id="h-fly" aria-controls="host-cmd">Fly.io</button>
-          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-host="docker" id="h-docker" aria-controls="host-cmd">Docker</button>
+        <div class="seg" role="tablist" aria-label="How to install">
+          <button type="button" role="tab" aria-selected="true" data-host="cloudflare" id="h-cloudflare" aria-controls="p-cloudflare">Cloudflare</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-host="agent" id="h-agent" aria-controls="p-agent">Ask your agent</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-host="fly" id="h-fly" aria-controls="p-fly">Fly.io</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-host="docker" id="h-docker" aria-controls="p-docker">Docker</button>
         </div>
-        <p id="host-note">Needs Node 22, pnpm (<code>corepack enable</code>) and flyctl, signed in with <code>fly auth login</code>. The script creates the app and its disk, generates the server's keys, deploys, and prints your setup link.</p>
-        <div class="cmd" id="host-cmd" role="tabpanel" aria-labelledby="h-fly"><pre>pnpm install
-scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-live="polite">Copy</button></div></div></li>
-      <li><div><h3>Open the setup link</h3><p>Name your workspace, add your brand, connect sign-in and keys, and launch. Then send your team the link. Full guide in <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">docs/self-host.md</a>, including <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md#cloudflare-about-1315-a-month-always-on">running it on Cloudflare</a>.</p></div></li>
+        <div class="hostpanel" id="p-cloudflare" role="tabpanel" aria-labelledby="h-cloudflare">
+          <p>One click, no server to look after, about $13–15 a month. Switch your Cloudflare account to <a href="https://dash.cloudflare.com/?to=/:account/workers/plans">Workers Paid</a> first. Cloudflare copies Hotsauce to your GitHub and asks for a name, a <b>setup password</b> you make up and a <b>master key</b> (a long random string you keep safe). Then open your new address with <code>/setup</code> on the end.</p>
+          <a class="btn primary" href="https://deploy.workers.cloudflare.com/?url=https://github.com/hotsauce-suite/hotsauce">Deploy to Cloudflare</a>
+        </div>
+        <div class="hostpanel" id="p-agent" role="tabpanel" aria-labelledby="h-agent" hidden>
+          <p>Paste this into Claude Code, Codex, Cursor or any coding agent. It follows our <a href="/install.md">install guide</a>, does the commands for you, and stops to ask whenever a step needs your accounts, payment or DNS.</p>
+          <div class="cmd prompt"><pre>Install Hotsauce for my company by following https://hotsauce.work/install.md. Ask me before anything that needs my accounts, payment or DNS.</pre><button class="copy" type="button" aria-live="polite">Copy</button></div>
+        </div>
+        <div class="hostpanel" id="p-fly" role="tabpanel" aria-labelledby="h-fly" hidden>
+          <p>About $6 a month. Needs Node 22, pnpm (<code>corepack enable</code>) and flyctl, signed in with <code>fly auth login</code>. The script creates the app and its disk, generates the server's keys, deploys, and prints your setup link.</p>
+          <div class="cmd"><pre>git clone https://github.com/hotsauce-suite/hotsauce
+cd hotsauce && pnpm install
+scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-live="polite">Copy</button></div>
+        </div>
+        <div class="hostpanel" id="p-docker" role="tabpanel" aria-labelledby="h-docker" hidden>
+          <p>Any Linux server with Docker. Give it a domain that points at the server and it sets up HTTPS too. It prints your setup link.</p>
+          <div class="cmd"><pre>curl -fsSL https://hotsauce.work/install.sh | HOTSAUCE_DOMAIN=hotsauce.acme.com sh</pre><button class="copy" type="button" aria-live="polite">Copy</button></div>
+        </div></div></li>
+      <li><div><h3>Open the setup link</h3><p>Name your workspace, add your brand, connect sign-in and keys, and launch. Then send your team the link. The <a href="/install.md">install guide</a> has every step, and <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">docs/self-host.md</a> every option.</p></div></li>
     </ol>
   </div>
 </section>
@@ -688,14 +708,15 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
 <section id="faq">
   <div class="center"><p class="kicker">The back label</p><h2>Good to know.</h2></div>
   <div class="faq">
-    <details><summary>Who is Hotsauce for?</summary><p>Teams of roughly 5 to 50 people who want their documents and meeting notes on infrastructure they control, without paying per seat. You need one person who is comfortable running a few commands in a terminal. After that, everything is set up and managed in the browser.</p></details>
+    <details><summary>Who is Hotsauce for?</summary><p>Teams of roughly 5 to 50 people who want their documents and meeting notes on infrastructure they control, without paying per seat. Nobody needs to be an engineer: install it with one click on Cloudflare, or hand one sentence to your AI agent. After that, everything is set up and managed in the browser.</p></details>
+    <details><summary>Can my AI agent install it?</summary><p>Yes. Give Claude Code, Codex, Cursor or another coding agent the prompt in <a href="#run">Ask your agent</a>. It follows <a href="/install.md">hotsauce.work/install.md</a>, a step-by-step guide written for agents, runs the commands, and stops to ask you whenever a step needs your accounts, payment or DNS. Before every release, an agent installs Hotsauce from scratch with that same prompt to check it still works.</p></details>
     <details><summary>Is it really free?</summary><p>Yes. The code is free under AGPL-3.0 and every feature is included. You pay your own hosting (about $6 a month on Fly.io) and, if you turn them on, your own Anthropic, Deepgram and Cloudflare R2 usage.</p></details>
     <details><summary>What does AGPL-3.0 mean for my company?</summary><p>You can run Hotsauce for your team, change it, and keep using it, with no fees. If you offer a modified version to people outside your organization over a network, you have to share your changes under the same license. Using it internally doesn't trigger that.</p></details>
     <details><summary>Do I need the AI keys?</summary><p>No. Docs, search and Clips recording work without them. A Deepgram key turns on transcripts for meetings and clips, and Dictate. An Anthropic key turns on AI meeting notes, Ask, and Dictate's clean-up of filler words. The app shows what each key turns on, and admins can add keys at any time in Settings.</p></details>
     <details><summary>Where does my data go?</summary><p>Your files live on your server, or in your GitHub organization if you choose that. Audio is sent to Deepgram for transcription and text to Anthropic for notes, using your own accounts. Clips and kept meeting audio stay on your server's disk, or in your own Cloudflare R2 bucket if you want more room.</p></details>
     <details><summary>How do people sign in?</summary><p>With Google, through a free Clerk application that the wizard walks you through. The server only lets in email addresses from the domains you choose.</p></details>
     <details><summary>Does a bot join my meetings?</summary><p>No. Meetings records from your own browser tab or the Chrome extension for Google Meet, so there's no extra attendee in the call.</p></details>
-    <details><summary>How do I update it?</summary><p>Pull the latest code and run the same deploy command again, with the same <code>PUBLIC_URL</code> if you set one. It's safe to rerun, and your files and settings stay on the server's disk.</p></details>
+    <details><summary>How do I update it?</summary><p>On Cloudflare and Fly.io, your copy gets a pull request every Monday with the newest release, and merging it deploys. With Docker, run the install command again. Either way your files and settings stay where they are.</p></details>
   </div>
 </section>
 
@@ -938,27 +959,22 @@ cmp.addEventListener('pointerup', stop)
 cmp.addEventListener('pointercancel', stop)
 
 // Hosting choice
-const HOSTS = {
-  fly: { cmd: 'pnpm install\nscripts/deploy-fly.sh acme-office', note: 'Needs Node 22, pnpm (<code>corepack enable</code>) and flyctl, signed in with <code>fly auth login</code>. The script creates the app and its disk, generates the server\'s keys, deploys, and prints your setup link.' },
-  docker: { cmd: 'cd deploy\nPUBLIC_URL=https://office.acme.com docker compose up -d --build\ndocker compose logs hotsauce | grep setup', note: 'Needs only Docker, on a server behind a proxy that handles HTTPS (Caddy works well). Use your own address for <code>PUBLIC_URL</code>. The last command shows your setup link.' },
-}
 const hostTabs = [...document.querySelectorAll('.seg [role=tab]')]
 function selectHost(btn, focus) {
   for (const t of hostTabs) {
     const on = t === btn
     t.setAttribute('aria-selected', String(on))
     t.tabIndex = on ? 0 : -1
+    document.getElementById(t.getAttribute('aria-controls')).hidden = !on
   }
-  const h = HOSTS[btn.dataset.host]
-  const panel = document.getElementById('host-cmd')
-  panel.setAttribute('aria-labelledby', btn.id)
-  panel.querySelector('pre').textContent = h.cmd
-  document.getElementById('host-note').innerHTML = h.note
   if (focus) btn.focus()
 }
 for (const t of hostTabs) {
   t.addEventListener('click', () => selectHost(t))
   t.addEventListener('keydown', arrowNav(hostTabs, selectHost))
+}
+for (const a of document.querySelectorAll('[data-pick-host]')) {
+  a.addEventListener('click', () => selectHost(document.getElementById(`h-${a.dataset.pickHost}`)))
 }
 
 // Copy buttons

@@ -2,7 +2,15 @@
 
 Hotsauce is one small server: a Node process, a folder of git repositories and a SQLite index on one disk. It needs about 1 GB of memory.
 
-**Its address:** give it `hotsauce.` on your company's domain, like `https://hotsauce.acme.com`: one DNS record, and your team knows it's yours. Any other address works too. Three ways to run it:
+**Its address:** give it `hotsauce.` on your company's domain, like `https://hotsauce.acme.com`: one DNS record, and your team knows it's yours. Any other address works too. Three ways to run it, below.
+
+**Have an agent do it.** [hotsauce.work/install.md](https://hotsauce.work/install.md) is the same install as a step-by-step guide written for coding agents: it covers all three hosts, marks the steps only a person can do (sign-ups, payment, sign-in keys, DNS) and ends with checks that prove it worked. Give an agent this prompt:
+
+```text
+Install Hotsauce for my company by following https://hotsauce.work/install.md. Ask me before anything that needs my accounts, payment or DNS.
+```
+
+The guide lives in this repository at `site/public/install.md`; change it with the install it describes. After every release the **Install test** workflow (`.github/workflows/install-test.yml`) installs Hotsauce from scratch with `install.sh`, again with a Claude agent given only that prompt, and on a test Cloudflare account.
 
 ## Fly.io (about $6 a month)
 
@@ -38,6 +46,17 @@ From then on, every push to your copy's main branch deploys again (Workers Build
 Known limits: a meeting that is recording when the container restarts keeps its transcript but not the audio recorded so far. The Chrome extension offered for download carries your server's address (`PUBLIC_URL`) and name.
 
 ## Docker on your own server
+
+The quickest way, on any Linux server with Docker and the Compose plugin:
+
+```sh
+curl -fsSL https://hotsauce.work/install.sh | sh                                     # http://<server>:3000
+curl -fsSL https://hotsauce.work/install.sh | HOTSAUCE_DOMAIN=hotsauce.acme.com sh   # with HTTPS
+```
+
+It writes `compose.yml` to `/opt/hotsauce` (`HOTSAUCE_DIR` changes it), runs the newest release, adds Caddy in front for HTTPS when given a domain whose DNS points at the server (ports 80 and 443 open), waits for the server and prints the setup link. Running it again updates to the newest release and keeps your data. The script is `site/public/install.sh` in this repository.
+
+Or by hand, from a clone:
 
 ```sh
 cd deploy

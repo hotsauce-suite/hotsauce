@@ -1,0 +1,127 @@
+name: Install test
+
+# After every release, install Hotsauce from scratch the three ways a new organization would
+# (docs/PLAN-one-click-install.md), each on a machine or account with nothing on it, and check it
+# with the checks at the end of hotsauce.work/install.md (scripts/check-install.sh):
+#
+# - script: install.sh on a fresh runner.
+# - agent: a Claude agent given only the landing page's prompt, on another fresh runner. Its tools
+#   are limited to reading the guide and the commands the Docker path needs. Needs the repository
+#   secret ANTHROPIC_API_KEY.
+# - cloudflare: the guide's wrangler path on a test Cloudflare account (Workers Paid, R2 on), then
+#   deletes the Worker. Needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+#
+# A job whose secrets aren't set says so in a warning and fails, so a missing test never looks
+# like a passing one. Run it by hand from the Actions tab too.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: install-test
+  cancel-in-progress: false
+
+env:
+  PROMPT: Install Hotsauce for my company by following https://hotsauce.work/install.md. Ask me before anything that needs my accounts, payment or DNS.
+
+jobs:
+  script:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install with install.sh
+        run: sudo sh site/public/install.sh
+      - name: Check it worked
+        run: scripts/check-install.sh http://127.0.0.1:3000
+
+  agent:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Needs ANTHROPIC_API_KEY
+        if: env.ANTHROPIC_API_KEY == ''
+        run: |
+          echo "::warning::The agent install test needs the repository secret ANTHROPIC_API_KEY."
+          exit 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code@2
+      - name: The agent installs Hotsauce from the landing page's prompt
+        # The agent's only instructions are the prompt and the answers a person would give it. It
+        # works in an empty folder, away from this checkout, and may only fetch web pages and run
+        # the commands the guide's Docker path uses.
+        working-directory: ${{ runner.temp }}
+        run: |
+          claude -p "$PROMPT" \
+            --append-system-prompt "Nobody can answer questions in this run. The person's answers: install it with Docker on this machine (Ubuntu, Docker installed, sudo works without a password), with no domain; the organization is Acme; you choose anything else. Stop once the checks in 'Check it worked' that don't need the person pass, and report the setup link." \
+            --allowedTools "WebFetch" "Bash(curl:*)" "Bash(sudo sh:*)" "Bash(docker:*)" "Bash(sudo docker:*)" \
+            --max-turns 40 \
+            --output-format text | tee agent.log
+      - name: Check it worked
+        run: scripts/check-install.sh http://127.0.0.1:3000
+      - name: The agent's transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-install-log
+          path: ${{ runner.temp }}/agent.log
+          if-no-files-found: ignore
+
+  cloudflare:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER: npx --yes wrangler@4.161.0
+      NAME: hs-test-${{ github.run_id }}
+    steps:
+      - name: Needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: |
+          echo "::warning::The Cloudflare install test needs the repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Delete earlier test buckets that have emptied
+        continue-on-error: true
+        run: |
+          for b in $($WRANGLER r2 bucket list 2>/dev/null | sed -n 's/^name: *\(hs-test-[0-9]*\)$/\1/p'); do
+            $WRANGLER r2 bucket delete "$b" >/dev/null 2>&1 && echo "deleted $b" || true
+          done
+      # The steps of install.md's "With wrangler", word for word apart from the name.
+      - name: Install with wrangler
+        run: |
+          sed -i.bak -e "s/\"name\": \"hotsauce\"/\"name\": \"$NAME\"/" \
+            -e "s/\"bucket_name\": \"hotsauce\"/\"bucket_name\": \"$NAME\"/" wrangler.jsonc
+          $WRANGLER r2 bucket create "$NAME"
+          $WRANGLER deploy | tee deploy.log
+          openssl rand -base64 32 | $WRANGLER secret put HOTSAUCE_MASTER_KEY
+          openssl rand -base64 18 | tr -d '/+=\n' | $WRANGLER secret put HOTSAUCE_SETUP_TOKEN
+          url="$(grep -o "https://$NAME\.[a-z0-9-]*\.workers\.dev" deploy.log | head -1)"
+          [ -n "$url" ] || { echo "No workers.dev address in the deploy output" >&2; exit 1; }
+          echo "URL=$url" >> "$GITHUB_ENV"
+      - name: Check it worked
+        # The first visit starts the container: allow ten minutes.
+        run: scripts/check-install.sh "$URL" "" 600
+      - name: Delete the test Worker, and empty its bucket within a day
+        if: always()
+        run: |
+          $WRANGLER delete --name "$NAME" --force || true
+          $WRANGLER r2 bucket lifecycle add "$NAME" expire-all --expire-days 1 --force || true
+          $WRANGLER r2 bucket delete "$NAME" || echo "The bucket still holds state; the next run deletes it."
