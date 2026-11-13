@@ -15,6 +15,7 @@ describe('deepgramClipUrl', () => {
     expect(url.searchParams.get('punctuate')).toBe('true')
     expect(url.searchParams.get('paragraphs')).toBe('true')
     expect(url.searchParams.get('utterances')).toBe('true')
+    expect(url.searchParams.get('diarize')).toBe('true')
     expect(url.searchParams.getAll('keyterm')).toEqual(['Acme', 'Hearth'])
   })
 })
@@ -31,8 +32,9 @@ describe('mapDeepgramClip', () => {
         transcript: 'Hi there. This is the bug. It happens on save.',
         paragraphs: {
           paragraphs: [
-            { sentences: [{ text: 'Hi there.', start: 0.08, end: 0.9 }] },
+            { speaker: 0, sentences: [{ text: 'Hi there.', start: 0.08, end: 0.9 }] },
             {
+              speaker: 1,
               sentences: [
                 { text: 'This is the bug.', start: 1.5, end: 2.666 },
                 { text: ' It happens on save. ', start: 3, end: 4.2 },
@@ -43,16 +45,18 @@ describe('mapDeepgramClip', () => {
       }),
     )
     expect(segments).toEqual([
-      { start: 0.08, end: 0.9, text: 'Hi there.' },
-      { start: 1.5, end: 2.67, text: 'This is the bug.' },
-      { start: 3, end: 4.2, text: 'It happens on save.' },
+      { start: 0.08, end: 0.9, text: 'Hi there.', speaker: 0 },
+      { start: 1.5, end: 2.67, text: 'This is the bug.', speaker: 1 },
+      { start: 3, end: 4.2, text: 'It happens on save.', speaker: 1 },
     ])
   })
 
   it('falls back to utterances, then to the whole transcript, then to nothing', () => {
     expect(
-      mapDeepgramClip(body({ transcript: 'a b' }, [{ transcript: 'a b', start: 1, end: 2 }])),
-    ).toEqual([{ start: 1, end: 2, text: 'a b' }])
+      mapDeepgramClip(
+        body({ transcript: 'a b' }, [{ transcript: 'a b', start: 1, end: 2, speaker: 2 }]),
+      ),
+    ).toEqual([{ start: 1, end: 2, text: 'a b', speaker: 2 }])
     expect(mapDeepgramClip(body({ transcript: ' only text ' }))).toEqual([
       { start: 0, end: 0, text: 'only text' },
     ])
@@ -116,9 +120,9 @@ describe('FakeClipTranscriber', () => {
       durationMs: 5100,
     })
     expect(out).toEqual([
-      { start: 0, end: 2, text: 'clip segment 1' },
-      { start: 2, end: 4, text: 'clip segment 2' },
-      { start: 4, end: 5.1, text: 'clip segment 3' },
+      { start: 0, end: 2, text: 'clip segment 1', speaker: 0 },
+      { start: 2, end: 4, text: 'clip segment 2', speaker: 1 },
+      { start: 4, end: 5.1, text: 'clip segment 3', speaker: 0 },
     ])
   })
 })

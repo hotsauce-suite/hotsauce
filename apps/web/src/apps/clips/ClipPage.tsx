@@ -1,11 +1,14 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Markdown from 'react-markdown'
 import { Link, useNavigate, useParams } from 'react-router'
+import remarkGfm from 'remark-gfm'
 import { type Clip, clipsApi, type TranscriptSegment } from '../../api/clips'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { IconButton } from '../../components/TopBar'
 import { useShortcut } from '../../keyboard/shortcuts'
+import { docUrl, meetingUrl } from '../../lib/paths'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { activeLine, formatDuration, formatTimestamp, formatWhen } from './format'
 import { loadSpeed, SPEEDS, saveSpeed, speedLabel, stepSpeed } from './speed'
@@ -17,7 +20,10 @@ function working(clip: Clip): boolean {
   return (
     clip.status === 'processing' ||
     (clip.status === 'ready' &&
-      (clip.transcriptStatus === 'pending' || clip.transcriptStatus === 'processing'))
+      (clip.transcriptStatus === 'pending' ||
+        clip.transcriptStatus === 'processing' ||
+        clip.compositeStatus === 'pending' ||
+        clip.compositeStatus === 'processing'))
   )
 }
 
@@ -41,7 +47,18 @@ export default function ClipPage() {
       const next = await clipsApi.get(id)
       setData(next)
       setError(null)
-      if (next.clip.videoUrl) setVideoSrc((src) => src ?? next.clip.videoUrl)
+      const url = next.clip.videoUrl
+      if (url) {
+        setVideoSrc((src) => {
+          if (!src) return url
+          // The camera bubble just went in: switch to that video, unless it's already playing.
+          const el = video.current
+          const untouched = !el || (el.paused && el.currentTime === 0)
+          return next.clip.compositeStatus === 'ready' && !src.includes('composite') && untouched
+            ? url
+            : src
+        })
+      }
       return next
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Couldn’t load this clip')
@@ -57,11 +74,17 @@ export default function ClipPage() {
 
   const clip = data?.clip ?? null
   const busy = clip ? working(clip) : false
+  // Quick while the video or transcript is on its way; slow while only the camera is being
+  // added, which can take a long time for a long clip.
+  const onlyCompositing =
+    clip?.status === 'ready' &&
+    clip.transcriptStatus !== 'pending' &&
+    clip.transcriptStatus !== 'processing'
   useEffect(() => {
     if (!busy) return
-    const timer = setInterval(() => void load(), 2500)
+    const timer = setInterval(() => void load(), onlyCompositing ? 15_000 : 2500)
     return () => clearInterval(timer)
-  }, [busy, load])
+  }, [busy, onlyCompositing, load])
 
   useEffect(() => {
     document.title = clip ? `${clip.title} · ${product()} Clips` : `${product()} Clips`
@@ -312,11 +335,40 @@ export default function ClipPage() {
               </p>
             </div>
 
+            {clip.status === 'ready' &&
+            (clip.compositeStatus === 'pending' || clip.compositeStatus === 'processing') ? (
+              <p className="clip-note" data-testid="composite-status">
+                <span className="clip-spinner clip-spinner--small" aria-hidden="true" />
+                Adding the camera to the video. This is the screen alone until then; it can take a
+                few minutes for a long clip.
+              </p>
+            ) : null}
+            {clip.compositeStatus === 'failed' && clip.isOwner ? (
+              <p className="clip-note" data-testid="composite-status">
+                The camera couldn’t be added to this video, so it’s the screen alone.
+              </p>
+            ) : null}
+            {videoSrc && clip.compositeStatus === 'ready' && !videoSrc.includes('composite') ? (
+              <p className="clip-note">
+                The version with your camera is ready.{' '}
+                <button
+                  type="button"
+                  className="underline decoration-ember/50 underline-offset-2 hover:text-ember"
+                  onClick={() => setVideoSrc(clip.videoUrl)}
+                >
+                  Switch to it
+                </button>
+              </p>
+            ) : null}
             {clip.summary ? (
               <p className="clip-summary" data-testid="clip-summary">
                 {clip.summary}
               </p>
             ) : null}
+            <ClipNotes
+              clip={clip}
+              onChange={(updated) => setData((d) => (d ? { ...d, clip: updated } : d))}
+            />
             <p className="mt-4 hidden text-xs text-ink-faint lg:block">
               <Kbd>Space</Kbd> play or pause · <Kbd>←</Kbd> <Kbd>→</Kbd> 5 s · <Kbd>&lt;</Kbd>{' '}
               <Kbd>&gt;</Kbd> speed
@@ -329,6 +381,14 @@ export default function ClipPage() {
           </div>
 
           <TranscriptPanel
+            onRenameSpeaker={async (speaker, name) => {
+              try {
+                const updated = await clipsApi.setSpeakers(clip.id, { [String(speaker)]: name })
+                setData((d) => (d ? { ...d, clip: updated } : d))
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Couldn’t rename the speaker')
+              }
+            }}
             clip={clip}
             transcript={data?.transcript ?? []}
             time={time}
@@ -411,13 +471,16 @@ function TranscriptPanel({
   time,
   onSeek,
   onRetry,
+  onRenameSpeaker,
 }: {
   clip: Clip
   transcript: TranscriptSegment[]
   time: number
   onSeek: (seconds: number) => void
   onRetry: () => void
+  onRenameSpeaker: (speaker: number, name: string) => Promise<void>
 }) {
+  const names = useMemo(() => new Map(clip.speakers.map((s) => [s.id, s.name])), [clip.speakers])
   const starts = useMemo(() => transcript.map((s) => s.start), [transcript])
   const active = activeLine(starts, time)
   const list = useRef<HTMLOListElement>(null)
@@ -470,23 +533,40 @@ function TranscriptPanel({
     )
   } else {
     body = (
-      <ol ref={list} className="clip-transcript" data-testid="clip-transcript">
-        {transcript.map((line, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: lines never reorder; two can share a start.
-          <li key={`${line.start}-${i}`}>
-            <button
-              type="button"
-              aria-current={i === active ? 'true' : undefined}
-              data-testid="transcript-line"
-              data-start={line.start}
-              onClick={() => onSeek(line.start)}
-            >
-              <span className="clip-transcript__time">{formatTimestamp(line.start)}</span>
-              <span>{line.text}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
+      <>
+        {clip.speakers.length > 0 ? (
+          <Speakers speakers={clip.speakers} canEdit={clip.isOwner} onRename={onRenameSpeaker} />
+        ) : null}
+        <ol ref={list} className="clip-transcript" data-testid="clip-transcript">
+          {transcript.map((line, i) => {
+            // The name heads each run of one person's lines.
+            const speaker =
+              line.speaker !== undefined && line.speaker !== transcript[i - 1]?.speaker
+                ? names.get(line.speaker)
+                : undefined
+            return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: lines never reorder; two can share a start.
+              <li key={`${line.start}-${i}`}>
+                {speaker ? (
+                  <span className="clip-transcript__speaker" data-testid="transcript-speaker">
+                    {speaker}
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  aria-current={i === active ? 'true' : undefined}
+                  data-testid="transcript-line"
+                  data-start={line.start}
+                  onClick={() => onSeek(line.start)}
+                >
+                  <span className="clip-transcript__time">{formatTimestamp(line.start)}</span>
+                  <span>{line.text}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      </>
     )
   }
 
@@ -498,5 +578,212 @@ function TranscriptPanel({
       </h2>
       {body}
     </aside>
+  )
+}
+
+/** The clip's speakers; the owner clicks a name to change it on every line. */
+function Speakers({
+  speakers,
+  canEdit,
+  onRename,
+}: {
+  speakers: Clip['speakers']
+  canEdit: boolean
+  onRename: (speaker: number, name: string) => Promise<void>
+}) {
+  const [editing, setEditing] = useState<number | null>(null)
+  const [draft, setDraft] = useState('')
+  const save = async (id: number) => {
+    setEditing(null)
+    const current = speakers.find((s) => s.id === id)
+    if (!current || draft.trim() === current.name) return
+    await onRename(id, draft)
+  }
+  return (
+    <div className="clip-speakers" data-testid="clip-speakers">
+      <span className="text-xs text-ink-faint">Speakers</span>
+      {speakers.map((s) =>
+        editing === s.id ? (
+          <form
+            key={s.id}
+            onSubmit={(e) => {
+              e.preventDefault()
+              void save(s.id)
+            }}
+          >
+            <input
+              // biome-ignore lint/a11y/noAutofocus: the owner just asked to rename this speaker.
+              autoFocus
+              value={draft}
+              maxLength={60}
+              aria-label={`Name for ${s.name}`}
+              data-testid={`speaker-input-${s.id}`}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => void save(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setEditing(null)
+              }}
+              className="clip-speakers__input"
+            />
+          </form>
+        ) : (
+          <button
+            key={s.id}
+            type="button"
+            disabled={!canEdit}
+            title={canEdit ? 'Rename this speaker on every line' : undefined}
+            data-testid={`speaker-${s.id}`}
+            className="clip-speakers__chip"
+            onClick={() => {
+              setDraft(s.named ? s.name : '')
+              setEditing(s.id)
+            }}
+          >
+            {s.name}
+            {canEdit ? <Icon name="pencil" className="size-3" /> : null}
+          </button>
+        ),
+      )}
+    </div>
+  )
+}
+
+/**
+ * Summarize and Action items, by the language model, kept on the clip; then send it all to a
+ * new Doc or a Meetings note in your own space.
+ */
+function ClipNotes({ clip, onChange }: { clip: Clip; onChange: (clip: Clip) => void }) {
+  const [busy, setBusy] = useState<'summary' | 'actions' | 'send' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState<{ href: string; label: string } | null>(null)
+  const [withTranscript, setWithTranscript] = useState(true)
+  const hasTranscript = clip.transcriptStatus === 'ready'
+  if (clip.status !== 'ready') return null
+
+  const generate = async (kind: 'summary' | 'actions') => {
+    setBusy(kind)
+    setError(null)
+    try {
+      onChange(await clipsApi.generate(clip.id, kind))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That didn’t work; try again')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const send = async (to: 'doc' | 'meeting') => {
+    setBusy('send')
+    setError(null)
+    setSent(null)
+    try {
+      const { space, path } = await clipsApi.send(clip.id, to, withTranscript)
+      setSent(
+        to === 'doc'
+          ? { href: docUrl(space, path), label: 'Open the doc' }
+          : { href: meetingUrl(space, path), label: 'Open the meeting note' },
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t write the note')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <section className="clip-notes" aria-label="Notes" data-testid="clip-notes">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className={`${secondaryButton} h-8 px-3`}
+          disabled={!hasTranscript || busy !== null}
+          onClick={() => void generate('summary')}
+          data-testid="clip-summarize"
+        >
+          <Icon name="sparkle" />
+          {busy === 'summary' ? 'Summarizing…' : clip.aiSummary ? 'Summarize again' : 'Summarize'}
+        </button>
+        <button
+          type="button"
+          className={`${secondaryButton} h-8 px-3`}
+          disabled={!hasTranscript || busy !== null}
+          onClick={() => void generate('actions')}
+          data-testid="clip-actions"
+        >
+          <Icon name="check" />
+          {busy === 'actions' ? 'Finding them…' : 'Action items'}
+        </button>
+        {!hasTranscript ? (
+          <span className="text-xs text-ink-faint">These need the transcript.</span>
+        ) : null}
+      </div>
+
+      {clip.aiSummary ? (
+        <div className="clip-notes__block" data-testid="clip-ai-summary">
+          <h3>Summary</h3>
+          <Markdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}>
+            {clip.aiSummary}
+          </Markdown>
+        </div>
+      ) : null}
+      {clip.aiActions !== null ? (
+        <div className="clip-notes__block" data-testid="clip-ai-actions">
+          <h3>Action items</h3>
+          {clip.aiActions ? (
+            <Markdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}>
+              {clip.aiActions}
+            </Markdown>
+          ) : (
+            <p className="text-sm text-ink-faint">None found in this clip.</p>
+          )}
+        </div>
+      ) : null}
+
+      <div className="clip-notes__send">
+        <span className="text-sm text-ink-soft">Send to</span>
+        <button
+          type="button"
+          className={`${secondaryButton} h-8 px-3`}
+          disabled={busy !== null}
+          onClick={() => void send('doc')}
+          data-testid="clip-send-doc"
+        >
+          <Icon name="docs" />A new doc
+        </button>
+        <button
+          type="button"
+          className={`${secondaryButton} h-8 px-3`}
+          disabled={busy !== null}
+          onClick={() => void send('meeting')}
+          data-testid="clip-send-meeting"
+        >
+          <Icon name="calendar" />A meeting note
+        </button>
+        {hasTranscript ? (
+          <label className="flex items-center gap-1.5 text-xs text-ink-faint">
+            <input
+              type="checkbox"
+              checked={withTranscript}
+              onChange={(e) => setWithTranscript(e.target.checked)}
+              data-testid="clip-send-transcript"
+            />
+            with the transcript
+          </label>
+        ) : null}
+      </div>
+      {sent ? (
+        <p className="text-sm text-ink" data-testid="clip-sent">
+          Saved in your space.{' '}
+          <Link to={sent.href} className="text-ember underline underline-offset-2">
+            {sent.label}
+          </Link>
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-sm text-ember">
+          {error}
+        </p>
+      ) : null}
+    </section>
   )
 }

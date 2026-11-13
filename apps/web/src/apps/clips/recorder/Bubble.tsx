@@ -7,8 +7,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { product } from '../../../brand/product'
 import { Icon } from '../../../components/Icon'
-import { formatDuration } from '../format'
-import { elapsedMs, type RecordingSession } from './session'
+import { RecordingStatus } from './Status'
+import type { RecordingSession } from './session'
 
 interface PipApi {
   requestWindow(options: { width: number; height: number }): Promise<Window>
@@ -18,9 +18,9 @@ export function pipSupported(): boolean {
   return 'documentPictureInPicture' in window
 }
 
-/** Sizes of the window: the round camera with controls under it, or the controls alone. */
-export const BUBBLE_SIZE = { width: 232, height: 300 }
-export const CONTROLS_SIZE = { width: 300, height: 76 }
+/** Sizes of the window: the camera, status and controls, or status and controls alone. */
+export const BUBBLE_SIZE = { width: 280, height: 430 }
+export const CONTROLS_SIZE = { width: 280, height: 270 }
 
 /**
  * Opens the window. `requestWindow` is called synchronously, so this must run inside the click
@@ -41,7 +41,7 @@ export async function openPipWindow(size: { width: number; height: number }): Pr
 /** Renders the bubble into `win` until the returned function is called. */
 export function mountBubble(
   win: Window,
-  props: { session: RecordingSession; camera: MediaStream | null },
+  props: { session: RecordingSession; camera: MediaStream | null; mic: MediaStream | null },
 ): () => void {
   const host = win.document.createElement('div')
   win.document.body.appendChild(host)
@@ -53,29 +53,28 @@ export function mountBubble(
   }
 }
 
-/** The bubble and controls; also drawn inside the page where Document PiP isn't available. */
+/**
+ * The camera preview, the recording's status and its controls; also drawn inside the page where
+ * Document PiP isn't available. The preview is only for you: the camera reaches the video on its
+ * own track, whatever this window shows or the share captures.
+ */
 export function BubbleView({
   session,
   camera,
+  mic,
   win = window,
   inPage = false,
 }: {
   session: RecordingSession
   camera: MediaStream | null
+  mic: MediaStream | null
   win?: Window
   inPage?: boolean
 }) {
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot)
   const video = useRef<HTMLVideoElement>(null)
-  const [now, setNow] = useState(() => performance.now())
   // Discard takes a second click, so a slip doesn't throw a recording away.
   const [armed, setArmed] = useState(false)
-
-  // This window's own timer: it's visible while the Hearth tab is hidden and throttled.
-  useEffect(() => {
-    const timer = win.setInterval(() => setNow(performance.now()), 250)
-    return () => win.clearInterval(timer)
-  }, [win])
 
   useEffect(() => {
     if (video.current && camera) video.current.srcObject = camera
@@ -98,19 +97,16 @@ export function BubbleView({
           {state.countdown}
         </span>
       ) : null}
+      {inPage ? null : (
+        <RecordingStatus state={state} mic={mic} camera={camera} win={win} compact />
+      )}
       {recording ? (
         <div className="clip-bubble__bar">
-          <span
-            className={`clip-rec-dot ${state.phase === 'paused' ? 'clip-rec-dot--paused' : ''}`}
-            aria-hidden="true"
-          />
-          <span className="clip-bubble__time" data-testid="bubble-timer">
-            {formatDuration(elapsedMs(state, now))}
-          </span>
           <button
             type="button"
             title={state.phase === 'paused' ? 'Resume' : 'Pause'}
             aria-label={state.phase === 'paused' ? 'Resume' : 'Pause'}
+            data-testid="bubble-pause"
             onClick={() => (state.phase === 'paused' ? session.resume() : session.pause())}
           >
             <Icon name={state.phase === 'paused' ? 'play' : 'pause'} />
@@ -124,6 +120,7 @@ export function BubbleView({
             onClick={() => void session.stop()}
           >
             <Icon name="stop" />
+            <span>Stop</span>
           </button>
           <button
             type="button"

@@ -14,7 +14,12 @@ export interface TranscriptSegment {
   start: number
   end: number
   text: string
+  /** Who said it, from diarization: 0, 1, … in order of first speaking. Absent in older clips. */
+  speaker?: number
 }
+
+/** pending: the camera is waiting to be put into the video. none: there's no camera track. */
+export type CompositeStatus = 'none' | 'pending' | 'processing' | 'ready' | 'failed'
 
 export interface ClipRecord {
   id: string
@@ -37,6 +42,19 @@ export interface ClipRecord {
   transcriptStatus: TranscriptStatus
   transcriptError: string | null
   transcript: TranscriptSegment[]
+  /** Chunks of the separately recorded camera, or null when there's no camera track. */
+  cameraChunks: number | null
+  cameraContainer: ClipContainer | null
+  /** How much later than the screen the camera started, in ms (negative: earlier). */
+  cameraOffsetMs: number
+  compositeStatus: CompositeStatus
+  /** What the member shared (`monitor`, `window`, `browser`) and its label, for diagnosis. */
+  screenSurface: string | null
+  screenLabel: string | null
+  /** Names the owner gave speakers, by speaker number. */
+  speakers: Record<string, string>
+  aiSummary: string | null
+  aiActions: string | null
   createdAt: string
   updatedAt: string
 }
@@ -70,6 +88,17 @@ const MIGRATIONS = [
   CREATE INDEX clips_owner ON clips (owner_id, created_at);
   CREATE INDEX clips_created ON clips (created_at);
   `,
+  `
+  ALTER TABLE clips ADD COLUMN camera_chunks INTEGER;
+  ALTER TABLE clips ADD COLUMN camera_container TEXT;
+  ALTER TABLE clips ADD COLUMN camera_offset_ms INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE clips ADD COLUMN composite_status TEXT NOT NULL DEFAULT 'none';
+  ALTER TABLE clips ADD COLUMN screen_surface TEXT;
+  ALTER TABLE clips ADD COLUMN screen_label TEXT;
+  ALTER TABLE clips ADD COLUMN speakers TEXT NOT NULL DEFAULT '{}';
+  ALTER TABLE clips ADD COLUMN ai_summary TEXT;
+  ALTER TABLE clips ADD COLUMN ai_actions TEXT;
+  `,
 ]
 
 interface Row {
@@ -94,6 +123,15 @@ interface Row {
   transcript: string
   created_at: string
   updated_at: string
+  camera_chunks: number | null
+  camera_container: ClipContainer | null
+  camera_offset_ms: number
+  composite_status: CompositeStatus
+  screen_surface: string | null
+  screen_label: string | null
+  speakers: string
+  ai_summary: string | null
+  ai_actions: string | null
 }
 
 function toRecord(r: Row): ClipRecord {
@@ -117,6 +155,15 @@ function toRecord(r: Row): ClipRecord {
     transcriptStatus: r.transcript_status,
     transcriptError: r.transcript_error,
     transcript: JSON.parse(r.transcript) as TranscriptSegment[],
+    cameraChunks: r.camera_chunks,
+    cameraContainer: r.camera_container,
+    cameraOffsetMs: r.camera_offset_ms,
+    compositeStatus: r.composite_status,
+    screenSurface: r.screen_surface,
+    screenLabel: r.screen_label,
+    speakers: JSON.parse(r.speakers) as Record<string, string>,
+    aiSummary: r.ai_summary,
+    aiActions: r.ai_actions,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -138,6 +185,15 @@ export type ClipPatch = Partial<
     | 'transcriptStatus'
     | 'transcriptError'
     | 'transcript'
+    | 'cameraChunks'
+    | 'cameraContainer'
+    | 'cameraOffsetMs'
+    | 'compositeStatus'
+    | 'screenSurface'
+    | 'screenLabel'
+    | 'speakers'
+    | 'aiSummary'
+    | 'aiActions'
   >
 >
 
@@ -155,6 +211,15 @@ const COLUMN: Record<keyof ClipPatch, string> = {
   transcriptStatus: 'transcript_status',
   transcriptError: 'transcript_error',
   transcript: 'transcript',
+  cameraChunks: 'camera_chunks',
+  cameraContainer: 'camera_container',
+  cameraOffsetMs: 'camera_offset_ms',
+  compositeStatus: 'composite_status',
+  screenSurface: 'screen_surface',
+  screenLabel: 'screen_label',
+  speakers: 'speakers',
+  aiSummary: 'ai_summary',
+  aiActions: 'ai_actions',
 }
 
 /** `%` and `_` match themselves in a LIKE pattern built from what a member typed. */
@@ -243,6 +308,8 @@ export class ClipStore {
         values[column] = JSON.stringify(segments)
         sets.push('transcript_text = @transcript_text')
         values.transcript_text = segments.map((s) => s.text).join(' ')
+      } else if (key === 'speakers') {
+        values[column] = JSON.stringify(value)
       } else if (typeof value === 'boolean') {
         values[column] = value ? 1 : 0
       } else {
@@ -305,6 +372,16 @@ export class ClipStore {
         `SELECT * FROM clips WHERE status IN (${statuses.map(() => '?').join(', ')}) ORDER BY created_at`,
       )
       .all(...statuses) as Row[]
+    return rows.map(toRecord)
+  }
+
+  /** Ready clips whose camera bubble wasn't added yet (a restart interrupted it). */
+  compositesInterrupted(): ClipRecord[] {
+    const rows = this.#db
+      .prepare(
+        `SELECT * FROM clips WHERE status = 'ready' AND composite_status IN ('pending', 'processing')`,
+      )
+      .all() as Row[]
     return rows.map(toRecord)
   }
 

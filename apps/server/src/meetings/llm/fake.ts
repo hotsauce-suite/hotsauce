@@ -61,8 +61,17 @@ export function scriptedResponse(req: LLMRequest): string {
   }
   // A Hearth Clips title and summary: named after the clip's first line.
   const clip = tagged(prompt, 'clip_transcript')
+  const clipTask = tagged(prompt, 'task')
+  if (clip !== null && clipTask === 'summary') {
+    const first = clip.split('\n')[0]?.replace(/^\[[\d:]+\]\s*(?:[^:]{1,60}: )?/, '') ?? ''
+    return `<summary_md>A fake clip that opens with “${first}”.\n\n- First point\n- Second point</summary_md>`
+  }
+  if (clip !== null && clipTask === 'actions') {
+    const lines = clip.split('\n').length
+    return `<actions>\n- [ ] Follow up on the first point\n- [ ] Reply about all ${lines} lines\n</actions>`
+  }
   if (clip !== null) {
-    const first = clip.split('\n')[0]?.replace(/^\[[\d:]+\]\s*/, '') ?? ''
+    const first = clip.split('\n')[0]?.replace(/^\[[\d:]+\]\s*(?:[^:]{1,60}: )?/, '') ?? ''
     return `<title>About ${first}</title><summary>A fake summary of a clip that starts with “${first}”.</summary>`
   }
   // A Briefcast script (it carries `<calendar_today>`): names what it was given, with a little
