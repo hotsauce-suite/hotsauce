@@ -141,9 +141,10 @@ async function ownChangedPaths(
   const paths = new Set<string>()
   for (let i = start; i < end; i++) {
     const commit = commits[i]
-    const parent = commits[i + 1]
-    if (!commit || !parent || commit.author.email.toLowerCase() !== email.toLowerCase()) continue
-    for (const p of await deps.git.changedPaths(space, parent.oid, commit.oid)) paths.add(p)
+    if (!commit || commit.author.email.toLowerCase() !== email.toLowerCase()) continue
+    // Against the commit's own (first) parent: the log's next entry can be another branch's
+    // commit after a merge.
+    for (const p of await deps.git.changedPaths(space, `${commit.oid}^`, commit.oid)) paths.add(p)
   }
   return [...paths]
 }

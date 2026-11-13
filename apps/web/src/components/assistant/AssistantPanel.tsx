@@ -107,6 +107,9 @@ export default function AssistantPanel({
   const [notice, setNotice] = useState<string | null>(null)
   const [attach, setAttach] = useState(true)
   const abort = useRef<AbortController | null>(null)
+  // Bumped when the panel switches conversation, so a stopped answer's late events are dropped.
+  const generation = useRef(0)
+  const [pendingTool, setPendingTool] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const pageKey = page ? `${page.space}/${page.path}` : ''
@@ -151,8 +154,13 @@ export default function AssistantPanel({
       setBusy(true)
       const controller = new AbortController()
       abort.current = controller
+      const mine = ++generation.current
       const update = (fn: (m: DisplayMessage) => DisplayMessage) =>
-        setMessages((prev) => [...prev.slice(0, -1), fn(prev.at(-1) as DisplayMessage)])
+        setMessages((prev) => {
+          const last = prev.at(-1)
+          if (generation.current !== mine || !last) return prev
+          return [...prev.slice(0, -1), fn(last)]
+        })
       try {
         await askAssistant(
           id,
@@ -162,7 +170,7 @@ export default function AssistantPanel({
         )
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Something went wrong; try again.'
-        update((m) => ({ ...m, text: m.text || message }))
+        update((m) => ({ ...m, text: m.text ? `${m.text}\n\n${message}` : message }))
       } finally {
         if (controller.signal.aborted) update((m) => ({ ...m, text: m.text || 'Stopped.' }))
         abort.current = null
@@ -182,6 +190,7 @@ export default function AssistantPanel({
   }, [open, seq])
 
   const newChat = () => {
+    generation.current++
     abort.current?.abort()
     setConversationId(newConversationId())
     setMessages([])
@@ -198,6 +207,7 @@ export default function AssistantPanel({
   }
 
   const openConversation = async (id: string) => {
+    generation.current++
     abort.current?.abort()
     try {
       const conv = await assistantApi.get(id)
@@ -225,22 +235,29 @@ export default function AssistantPanel({
     )
 
   const confirm = async (tool: ToolView) => {
+    if (pendingTool) return
+    setPendingTool(tool.id)
     try {
       const result = await assistantApi.confirm(conversationId, tool.id)
       setTool(tool.id, { status: result.isError ? 'error' : 'confirmed' })
       if (result.isError) setNotice(result.text)
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'That didn’t work')
+    } finally {
+      setPendingTool(null)
     }
   }
 
   const undo = async (tool: ToolView) => {
-    if (!tool.undo) return
+    if (!tool.undo || pendingTool) return
+    setPendingTool(tool.id)
     try {
       await assistantApi.undo(tool.undo)
       setTool(tool.id, { status: 'undone' })
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'Couldn’t undo that')
+    } finally {
+      setPendingTool(null)
     }
   }
 
@@ -337,7 +354,12 @@ export default function AssistantPanel({
           )}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3" data-testid="assistant-messages">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+          data-testid="assistant-messages"
+          aria-live="polite"
+          aria-busy={busy}
+        >
           {messages.length === 0 ? (
             <Empty name={name} configured={info?.configured !== false} />
           ) : (
@@ -356,7 +378,13 @@ export default function AssistantPanel({
                   {m.tools && m.tools.length > 0 ? (
                     <ul className="mb-2 space-y-1">
                       {m.tools.map((t) => (
-                        <ToolRow key={t.id} tool={t} onConfirm={confirm} onUndo={undo} />
+                        <ToolRow
+                          key={t.id}
+                          tool={t}
+                          disabled={busy || pendingTool !== null}
+                          onConfirm={confirm}
+                          onUndo={undo}
+                        />
                       ))}
                     </ul>
                   ) : null}
@@ -470,10 +498,12 @@ function Empty({ name, configured }: { name: string; configured: boolean }) {
 
 function ToolRow({
   tool,
+  disabled,
   onConfirm,
   onUndo,
 }: {
   tool: ToolView
+  disabled: boolean
   onConfirm: (t: ToolView) => void
   onUndo: (t: ToolView) => void
 }) {
@@ -500,8 +530,9 @@ function ToolRow({
         {tool.status === 'done' && tool.undo ? (
           <button
             type="button"
+            disabled={disabled}
             onClick={() => onUndo(tool)}
-            className="rounded border border-ash px-1.5 py-0.5 text-ink hover:bg-paper-sunk"
+            className="rounded border border-ash px-1.5 py-0.5 text-ink hover:bg-paper-sunk disabled:opacity-50"
           >
             Undo
           </button>
@@ -512,8 +543,9 @@ function ToolRow({
           <button
             type="button"
             data-testid="assistant-confirm"
+            disabled={disabled}
             onClick={() => onConfirm(tool)}
-            className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-paper"
+            className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-paper disabled:opacity-50"
           >
             Confirm
           </button>

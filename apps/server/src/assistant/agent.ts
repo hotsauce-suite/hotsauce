@@ -36,6 +36,16 @@ export interface AgentRun {
   emit: (event: AssistantEvent) => void
   writes?: WriteTracker
   signal?: AbortSignal
+  /**
+   * Filled in as the loop goes, so a caller whose run stops part-way (Stop, an API error) can
+   * still record the tokens used and keep the complete turns.
+   */
+  progress?: AgentProgress
+}
+
+export interface AgentProgress {
+  added: MessageParam[]
+  usage: AssistantUsage
 }
 
 export const WAITING_FOR_CONFIRM =
@@ -53,8 +63,8 @@ export async function runAgent(run: AgentRun): Promise<{
 }> {
   const { model, toolbox, emit } = run
   const messages = [...run.messages]
-  const added: MessageParam[] = []
-  let usage = NO_USAGE
+  const progress = run.progress ?? { added: [], usage: NO_USAGE }
+  const added = progress.added
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     run.signal?.throwIfAborted()
     const reply = await model.turn(
@@ -67,7 +77,7 @@ export async function runAgent(run: AgentRun): Promise<{
       },
       (delta) => emit({ type: 'text', delta }),
     )
-    usage = addUsage(usage, reply.usage)
+    progress.usage = addUsage(progress.usage, reply.usage)
     const assistant: MessageParam = { role: 'assistant', content: reply.content }
     messages.push(assistant)
     added.push(assistant)
@@ -75,7 +85,7 @@ export async function runAgent(run: AgentRun): Promise<{
       (b): b is Anthropic.Beta.BetaToolUseBlockParam => b.type === 'tool_use',
     )
     if (reply.stopReason !== 'tool_use' || calls.length === 0) {
-      return { added, usage, stoppedEarly: false }
+      return { added, usage: progress.usage, stoppedEarly: false }
     }
     // Reads run in parallel; writes one at a time, so each one's Undo covers only its own files.
     let writing: Promise<unknown> = Promise.resolve()
@@ -94,7 +104,7 @@ export async function runAgent(run: AgentRun): Promise<{
   const note = `\n\nI stopped after ${MAX_TURNS} steps. Ask me to keep going if you want me to continue.`
   emit({ type: 'text', delta: note })
   added.push({ role: 'assistant', content: [{ type: 'text', text: note.trim() }] })
-  return { added, usage, stoppedEarly: true }
+  return { added, usage: progress.usage, stoppedEarly: true }
 }
 
 async function runCall(

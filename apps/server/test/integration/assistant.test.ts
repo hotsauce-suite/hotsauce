@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
 import type { AssistantModel, ModelTurn, ModelTurnRequest } from '../../src/assistant/model.js'
 import { loadConfig } from '../../src/config.js'
+import { HearthError } from '../../src/errors.js'
 import { createServices, type ServiceOverrides, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
@@ -193,6 +194,22 @@ describe('the assistant with the stand-in model', () => {
     expect(conv.display[1].tools[0].status).toBe('confirmed')
   })
 
+  it('runs a Confirm once even when it is clicked twice at the same moment', async () => {
+    await put(ALICE, 'team', 'docs/twice.md', '# Twice\n')
+    const { events } = await ask(ALICE, CONV, 'delete team/docs/twice.md')
+    const toolId = (events.find((e) => e.type === 'confirm') as Event).id as string
+    const both = await Promise.all(
+      [1, 2].map(() =>
+        call('POST', `/api/assistant/conversations/${CONV}/confirm`, {
+          as: ALICE,
+          json: { toolId },
+        }),
+      ),
+    )
+    expect(both.map((r) => r.status).sort()).toEqual([200, 409])
+    expect(await read(ALICE, 'team', 'docs/twice.md')).toBeNull()
+  })
+
   it('sends the open page as context and refuses a page the member cannot see', async () => {
     await put(BOB, 'bob', 'docs/secret.md', '# Secret\n')
     const refused = await ask(ALICE, CONV, 'summarize this', {
@@ -244,7 +261,47 @@ describe('the assistant with a scripted model', () => {
     const names = model.requests[0]?.tools.map((t) => t.name) ?? []
     expect(names).toEqual([...names].sort())
     expect(names).toContain('search')
+    expect(names).not.toContain('save_link')
     expect(model.requests[0]?.system).toContain('Ask Hotsauce')
+  })
+
+  it('never fetches the web, and sharing or publishing waits for Confirm', async () => {
+    const model = new Scripted([
+      [
+        { name: 'share_link', input: { space: 'team', path: 'docs/a.md', on: true } },
+        { name: 'publish_page', input: { title: 'Leak', content: 'x' } },
+        { name: 'save_link', input: { url: 'https://example.com/' } },
+      ],
+    ])
+    await start({}, { assistantModel: model })
+    const { events } = await ask(ALICE, CONV, 'go')
+    const confirms = events.filter((e) => e.type === 'confirm').map((e) => e.name)
+    expect(confirms).toEqual(['share_link', 'publish_page'])
+    const saved = events.find((e) => e.type === 'tool' && e.name === 'save_link')
+    expect(events.find((e) => e.type === 'tool_result' && e.id === saved?.id)?.isError).toBe(true)
+  })
+
+  it('charges a run that fails part-way and keeps its finished writes in the history', async () => {
+    class FailsSecond extends Scripted {
+      override async turn(req: ModelTurnRequest, onText: (d: string) => void): Promise<ModelTurn> {
+        if (this.requests.length === 1) {
+          this.requests.push(req)
+          throw new HearthError('llm_error', 'The model is overloaded')
+        }
+        return super.turn(req, onText)
+      }
+    }
+    const model = new FailsSecond([[{ name: 'add_task', input: { text: 'Call Sam' } }]])
+    await start({}, { assistantModel: model })
+    const res = await ask(BOB, CONV, 'add a task')
+    expect(res.events.at(-1)?.type).toBe('error')
+    const usage = await (await call('GET', '/api/assistant/usage', { as: ALICE })).json()
+    expect(usage.members).toMatchObject([{ email: BOB, input: 1000, output: 100 }])
+    // The next question replays the finished add_task call and its result.
+    await ask(BOB, CONV, 'and then?')
+    const replay = JSON.stringify(model.requests.at(-1)?.messages)
+    expect(replay).toContain('add_task')
+    expect(replay).toContain('tool_result')
   })
 
   it('offers Undo for an edit and a create, and Undo puts the files back', async () => {

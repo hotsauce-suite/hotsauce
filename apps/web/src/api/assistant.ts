@@ -123,6 +123,7 @@ export async function askAssistant(
   if (!res.ok || !res.body) throw await toApiError(res)
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
   let buffer = ''
+  let finished = false
   try {
     for (;;) {
       const { value, done } = await reader.read()
@@ -132,13 +133,19 @@ export async function askAssistant(
       while (end !== -1) {
         const event = parseEvent(buffer.slice(0, end))
         buffer = buffer.slice(end + 2)
-        if (event) onEvent(event)
+        if (event) {
+          if (event.type === 'done' || event.type === 'error') finished = true
+          onEvent(event)
+        }
         end = buffer.indexOf('\n\n')
       }
     }
   } catch (err) {
     if (signal?.aborted) return
     throw err
+  }
+  if (!finished && !signal?.aborted) {
+    throw new HearthApiError('network', 'The answer was cut off. Ask again.', 0)
   }
 }
 

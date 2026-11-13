@@ -93,6 +93,11 @@ export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config' | 'or
                 stream.writeSSE({ event: event.type, data: JSON.stringify(event) }),
               )
             }
+            // A comment line every 15 seconds keeps proxies from closing a quiet stream while a
+            // long tool runs; the browser ignores it.
+            const keepalive = setInterval(() => {
+              pending = pending.then(() => stream.write(': ping\n\n')).then(() => {})
+            }, 15_000)
             try {
               await assistant.ask(
                 principal,
@@ -106,6 +111,8 @@ export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config' | 'or
               const message =
                 err instanceof HearthError ? err.message : 'Something went wrong; try again.'
               send({ type: 'error', message })
+            } finally {
+              clearInterval(keepalive)
             }
             await pending
           })

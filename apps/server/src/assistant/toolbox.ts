@@ -10,8 +10,23 @@ export type ToolboxDeps = Parameters<typeof createMcpServer>[0]
 /** How a tool may run in the assistant (docs/PLAN-assistant.md, decision 3). */
 export type ToolKind = 'read' | 'write' | 'confirm'
 
-/** Tools that wait for the member's Confirm. Everything else that writes runs and offers Undo. */
-export const CONFIRM_TOOLS: ReadonlySet<string> = new Set(['delete_file', 'move_file'])
+/**
+ * Tools that wait for the member's Confirm: the ones Undo can't take back cleanly, and the ones
+ * that let something out of the workspace (a public link, a published page). Everything else that
+ * writes runs at once and offers Undo.
+ */
+export const CONFIRM_TOOLS: ReadonlySet<string> = new Set([
+  'delete_file',
+  'move_file',
+  'share_link',
+  'publish_page',
+])
+
+/**
+ * Tools the assistant never gets. save_link fetches any URL from the server, which would be web
+ * access (decision 9) and a way for text in a file to send workspace content out.
+ */
+export const LEFT_OUT_TOOLS: ReadonlySet<string> = new Set(['save_link'])
 
 export interface ToolOutcome {
   text: string
@@ -39,7 +54,7 @@ export async function openToolbox(deps: ToolboxDeps, principal: Principal): Prom
   const client = new Client({ name: 'assistant', version: '1.0.0' })
   await server.connect(serverSide)
   await client.connect(clientSide)
-  const listed = (await client.listTools()).tools
+  const listed = (await client.listTools()).tools.filter((t) => !LEFT_OUT_TOOLS.has(t.name))
   const readOnly = new Map(listed.map((t) => [t.name, t.annotations?.readOnlyHint === true]))
   const tools = listed
     .map(
