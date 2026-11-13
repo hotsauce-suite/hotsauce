@@ -75,6 +75,8 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
   playwright,
   baseURL,
 }) => {
+  // A whole journey: record, wait for the server to put the camera in, then watch and edit.
+  test.setTimeout(120_000)
   let clipId = ''
   /** What the recording timer said when Stop was pressed, in seconds. */
   let recordedSeconds = 0
@@ -243,15 +245,17 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
     await expect(page.getByTestId('speaker-1')).toHaveText('Speaker 2')
     await expect(page.getByTestId('transcript-speaker').first()).toHaveText('Speaker 1')
     await page.getByTestId('speaker-0').click()
-    await page.getByTestId('speaker-input-0').fill('Morgan')
+    await page.getByTestId('speaker-input-0').fill('Alex')
     await page.getByTestId('speaker-input-0').press('Enter')
-    await expect(page.getByTestId('speaker-0')).toHaveText('Morgan')
-    // Lines 1 and 3 are speaker 0.
-    await expect(page.getByTestId('transcript-speaker')).toHaveText([
-      'Morgan',
-      'Speaker 2',
-      'Morgan',
-    ])
+    await expect(page.getByTestId('speaker-0')).toHaveText('Alex')
+    // The fake transcript alternates speakers 0 and 1, a line per two seconds of the clip, so
+    // its length follows how long the recording ran: odd lines are speaker 0.
+    const lines = page.getByTestId('transcript-speaker')
+    const count = await lines.count()
+    expect(count).toBeGreaterThanOrEqual(3)
+    await expect(lines).toHaveText(
+      Array.from({ length: count }, (_, i) => (i % 2 === 0 ? 'Alex' : 'Speaker 2')),
+    )
   })
 
   await test.step('Summarize and Action items, then send it all to a new doc', async () => {

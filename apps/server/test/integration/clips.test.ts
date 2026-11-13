@@ -634,6 +634,8 @@ describe('the camera bubble', () => {
     const composite = store.pathOf(`clips/${id}/composite.mp4`)
     const screen = store.pathOf(`clips/${id}/video.webm`)
     expect(existsSync(store.pathOf(`clips/${id}/camera.webm`))).toBe(true)
+    // The page's length is the length of the video it now plays.
+    expect(clip.durationMs).toBe((await probe(FFMPEG, composite)).durationMs)
     // 320×240 screen: the bubble is 58 px across, 8 px in from the bottom left (bubbleGeometry).
     const { size, margin } = bubbleGeometry(240)
     const [cx, cy] = [margin + size / 2, 240 - margin - size / 2]

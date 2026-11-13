@@ -355,7 +355,7 @@ export default function RecordClip() {
                   <p className="text-xs leading-relaxed text-ink-faint">
                     Chrome asks what to share.{' '}
                     {mode === 'screen_camera'
-                      ? 'Pick “Entire screen” so your camera bubble is in the video. '
+                      ? 'Share your screen, a window or a tab: your camera bubble goes into the video either way. '
                       : ''}
                     On a Mac, Chrome needs Screen Recording permission (System Settings → Privacy
                     &amp; Security) the first time.

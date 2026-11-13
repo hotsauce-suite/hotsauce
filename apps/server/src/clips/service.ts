@@ -988,7 +988,13 @@ export class Clips {
       )
       const updated = this.store.update(
         id,
-        { compositeStatus: 'ready', hasThumb: true, sizeBytes: size },
+        // The length of the video that now plays, so the page's duration matches the player's.
+        {
+          compositeStatus: 'ready',
+          hasThumb: true,
+          sizeBytes: size,
+          ...(info.durationMs > 0 ? { durationMs: info.durationMs } : {}),
+        },
         this.#nowIso(),
       )
       if (!updated) {
