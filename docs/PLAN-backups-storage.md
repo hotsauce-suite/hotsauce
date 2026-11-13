@@ -76,6 +76,11 @@ Everything here is generic (no organization names in code) so it ports to public
 - R11 The wizard offers Forgejo (URL, org, token), tests it, and saves `HOST_KIND=forgejo`.
 - R12 Moving documents copies every space's history from the old host to local repos and
   verifies every branch tip before switching.
+- R13 A repository whose branches git has packed (`refs/heads` and `refs/tags` empty after a
+  `git gc`) is backed up and restores to a repository git can read.
+- R14 `/api/health/backup` is public and answers 503 when the newest backup failed or none has
+  worked for 26 hours, 200 otherwise (also when backups are off or none has run yet), without
+  the error text.
 
 ## Drill (not a unit test)
 
@@ -98,3 +103,7 @@ the documents, settings and recordings list against the live server. Result goes
   limit, retry storms and a per-backup (not per-day) retention count; all fixed with tests
   (per-space git lock + fsck, header check, abort on close, multipart upload, 1-hour retry
   backoff, newest-per-day retention). Retention: 14 daily and 8 weekly.
+- 2026-11-13: every backup on a busy instance failed with "not a git repository" once a `git gc`
+  packed the team repository's branches: only files were staged, so the empty `refs/` folders
+  were lost. The staged copy now gets git's folders back (R13), and `/api/health/backup` (R14)
+  lets an uptime monitor alert on a failing backup instead of it failing quietly.

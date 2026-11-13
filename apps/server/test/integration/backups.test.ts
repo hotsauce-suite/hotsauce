@@ -63,6 +63,28 @@ describe('backups through the API (R9) and a full restore (R7)', () => {
     expect(listed.status.lastKey).toBe(listed.backups[0].key)
   })
 
+  it('a public check says whether backups are healthy, for an uptime monitor (R14)', async () => {
+    root = await makeTempDir('hotsauce-backups-')
+    const off = await server(join(root, 'a'), join(root, 'ra'), null)
+    const offRes = await off.call('GET', '/api/health/backup', {})
+    expect(offRes.status).toBe(200)
+    expect(await offRes.json()).toEqual({ ok: true, state: 'off' })
+
+    const s3 = new MemoryObjectStore()
+    const { call } = await server(join(root, 'b'), join(root, 'rb'), s3)
+    expect(await (await call('GET', '/api/health/backup', {})).json()).toEqual({
+      ok: true,
+      state: 'pending',
+    })
+    s3.put = async () => {
+      throw new Error('bucket says no')
+    }
+    await call('POST', '/api/admin/org/backups/run', ADMIN)
+    const failing = await call('GET', '/api/health/backup', {})
+    expect(failing.status).toBe(503)
+    expect((await failing.json()).state).toBe('failing')
+  })
+
   it('a server started on a restored folder serves the same document', async () => {
     root = await makeTempDir('hotsauce-backups-')
     // HOST_KIND=local keeps the bare repositories inside DATA_DIR, as an instance would.

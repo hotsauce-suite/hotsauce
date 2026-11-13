@@ -177,6 +177,7 @@ export async function createSnapshot(
           await stageOne(rel)
         }
       })
+      await restoreGitSkeleton(path.join(stage, ...dir.split('/')))
       const problem = await fsckProblem(path.join(stage, ...dir.split('/')))
       if (!problem) break
       if (attempt === 2) throw new Error(`${dir} didn't copy cleanly: ${problem}`)
@@ -192,6 +193,20 @@ export async function createSnapshot(
   await tar(['-czf', archive, '-C', stage, '.'], opts.signal)
   await rm(stage, { recursive: true, force: true })
   return { ...manifest, archive }
+}
+
+/**
+ * Only files are staged, so a folder with nothing in it is lost. Git needs `refs/` and `objects/`
+ * to exist to call a folder a repository, and after a `git gc` packs every branch into
+ * `packed-refs`, `refs/heads` and `refs/tags` are empty. Put those folders back.
+ */
+async function restoreGitSkeleton(dir: string): Promise<void> {
+  const dotGit = path.join(dir, '.git')
+  const gitDir = (await stat(dotGit).catch(() => null)) ? dotGit : dir
+  if (!(await stat(path.join(gitDir, 'HEAD')).catch(() => null))) return // not a repository
+  for (const sub of ['refs/heads', 'refs/tags', 'objects/info', 'objects/pack']) {
+    await mkdir(path.join(gitDir, ...sub.split('/')), { recursive: true })
+  }
 }
 
 /** null when the staged repository is whole; otherwise git's complaint. */

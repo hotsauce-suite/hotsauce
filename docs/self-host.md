@@ -80,6 +80,12 @@ If a release changes lines you changed too, it opens an issue instead of a pull 
 1. A copy made by the Deploy button has no `.github` folder: add `update-hotsauce.yml` (and `deploy-fly.yml` on Fly) from Hotsauce's repository.
 2. In your repository's **Settings → Actions → General**, tick "Allow GitHub Actions to create and approve pull requests".
 
+## Backups
+
+With a storage bucket set up (Cloudflare R2 or any S3-compatible one), the server backs up its data volume to that bucket every night and keeps 14 daily and 8 weekly copies. **Settings → Organization → Backups** shows the last one and has a **Back up now** button.
+
+To hear about a broken backup, point any uptime monitor (Better Stack, UptimeRobot, Healthchecks) at `https://<your address>/api/health/backup`. It answers 200 while backups are working and 503 when the newest one failed or none has worked for 26 hours. It never says why; the reason is in Settings and the server log.
+
 ## The setup wizard
 
 The link works only while the instance is new. It walks you through:

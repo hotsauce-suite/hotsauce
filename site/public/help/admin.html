@@ -63,6 +63,7 @@
 
 <h2 id="backups">Backups</h2>
 <p>With storage set up (Cloudflare R2 or any S3-compatible bucket), the server backs itself up every day to your own bucket. Recent backups are listed in Settings → Organization.</p>
+<p>To be told when a backup fails, point an uptime monitor such as Better Stack or UptimeRobot at <code>/api/health/backup</code> on your server's address. It turns red when the newest backup failed or none has worked for 26 hours.</p>
 
 <p>Setting up a new server? See <a href="/help/install">Install Hotsauce</a> and the <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">self-hosting guide</a>.</p>
 <nav class="pager" id="pager" aria-label="Next and previous"></nav>
