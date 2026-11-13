@@ -44,12 +44,15 @@ your docs, meetings, tasks, clips and files as you, with the same permissions yo
 
 ### Today
 
-The home page: your meetings for the day with one click to take notes, tasks due and overdue, to-dos
-from your meeting notes that aren't tasks yet, docs that changed since yesterday, and your agent brief.
+The home page: a live clock, what's next and (if you turn it on) the weather up top, then tiles you
+arrange yourself. Out of the box they're your meetings for the day with one click to take notes, tasks
+due and overdue, to-dos from your meeting notes that aren't tasks yet, docs that changed since
+yesterday, and your agent brief. Edit Today adds starred docs, Dictate and clip shortcuts, people,
+recent files, a whiteboard and a week view, and moves or removes any tile.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.webp">
-  <img src="docs/screenshots/today-light.webp" alt="The Today page with meetings, tasks and to-dos from meetings">
+  <img src="docs/screenshots/today-light.webp" alt="The Today page with the clock and weather, meetings, tasks and a week view">
 </picture>
 
 ### Meetings

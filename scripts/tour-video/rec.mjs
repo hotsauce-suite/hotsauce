@@ -38,12 +38,16 @@ const browser = await chromium.launch({
     '--use-fake-device-for-media-stream',
     '--hide-scrollbars',
   ],
+  // As in playwright.config.ts: a preinstalled Chromium when the matching build isn't installed.
+  ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}),
 })
 const ctx = await browser.newContext({
   viewport: { width: 1600, height: 900 },
   deviceScaleFactor: 1.2,
   colorScheme: flags.includes('--dark') ? 'dark' : 'light',
-  permissions: ['microphone', 'camera', 'clipboard-read', 'clipboard-write'],
+  permissions: ['microphone', 'camera', 'clipboard-read', 'clipboard-write', 'geolocation'],
+  // Today's "Show weather" asks for a position; the demo's weather is the same anywhere.
+  geolocation: { latitude: 37.77, longitude: -122.42 },
   timezoneId: 'America/Los_Angeles',
 })
 await ctx.addInitScript(CURSOR)
