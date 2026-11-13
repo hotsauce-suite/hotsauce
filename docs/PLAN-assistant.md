@@ -2,7 +2,12 @@
 
 ## Status
 
-- 2026-11-13: decisions settled with Morgan (all nine recommendations accepted). Building slices 1–6.
+- 2026-11-13: decisions settled with Morgan (all nine recommendations accepted).
+- 2026-11-13: slices 1–7 built in PR #45 (server loop, panel, chip, Undo, Confirm, history,
+  Settings, demo stand-in, help and landing page). Every requirement has a test.
+- Open: the Command-K "Ask the assistant" item waits for the keyboard thread's command registry;
+  ⌘J is already in the shortcut list (`global.assistant`). There is no top bar, so the panel's
+  button sits in the bottom-right corner.
 
 ## What it is
 
@@ -14,7 +19,7 @@ there is no new provider or key.
 
 ## Decisions (Morgan, 2026-11-13)
 
-1. A panel on every page, opened with ⌘J (Ctrl+J) or a top-bar button. Command-K gets an "Ask
+1. A panel on every page, opened with ⌘J (Ctrl+J) or a button (bottom-right, as there is no top bar). Command-K gets an "Ask
    the assistant" command that hands what was typed to the panel (lands on the keyboard
    thread's command registry; until then the panel binds ⌘J itself).
 2. Named "Ask" + the workspace name ("Ask Haven"), else "Ask" + the product name.
@@ -54,7 +59,7 @@ can't see fails, and search covers only their visible spaces. (integration)
 R2. Tool calls stream to the client as events, and the final answer streams as text. (integration)
 R3. The loop stops after 20 model turns and says so. (unit)
 R4. With no Anthropic key (`LLM_PROVIDER=none`) the panel says the assistant needs a key and
-the API answers 503 `llm_unconfigured`; nothing crashes. (integration)
+the API answers 503 `not_configured`; nothing crashes. (integration)
 R5. ⌘J opens and closes the panel on every page; the panel is named "Ask <workspace>". (e2e)
 R6. Asking a question shows tool activity and an answer with links to the files used. (e2e)
 R7. The open doc/meeting is sent as context and shown as a removable chip. (unit + e2e)
@@ -63,13 +68,13 @@ version as a new commit by the member. (integration)
 R9. delete_file and move_file never run without Confirm; Confirm runs exactly that call. (integration)
 R10. Conversations are listed, reopened and deleted by their owner only. (integration)
 R11. Usage is recorded per member per month; an admin sees it; a member over the limit gets
-429 `assistant_limit` with a plain message. (integration)
+429 `rate_limited` with a plain message. (integration)
 R12. Model and limit are admin settings; non-admins can't change them. (integration)
 
 ## Slices
 
 1. Server loop over the MCP tools, fake model, SSE endpoint (R1–R4).
-2. Panel, ⌘J, top-bar button, streaming render, file links (R5, R6).
+2. Panel, ⌘J, corner button, streaming render, file links (R5, R6).
 3. Page context chip (R7).
 4. Undo for writes, Confirm for delete/move (R8, R9).
 5. Saved conversations list (R10).

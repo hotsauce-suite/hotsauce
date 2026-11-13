@@ -26,7 +26,7 @@ const PAGES = [
   },
   { slug: 'settings', title: 'Settings and notifications', group: 'start', soon: true },
   { slug: 'shortcuts', title: 'Keyboard shortcuts and Command-K', group: 'start' },
-  { slug: 'assistant', title: 'Ask: the AI assistant', group: 'start', soon: true },
+  { slug: 'assistant', title: 'Ask: the AI assistant', group: 'start' },
   { slug: 'today', title: 'Today', group: 'apps' },
   { slug: 'docs', title: 'Docs', group: 'apps' },
   { slug: 'meetings', title: 'Meetings', group: 'apps' },
