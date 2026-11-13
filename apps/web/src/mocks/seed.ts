@@ -7,6 +7,14 @@ export const PRIYA: Author = { name: 'Priya Natarajan', email: 'priya@example.te
 export const SAM: Author = { name: 'Sam Okafor', email: 'sam@example.test' }
 export const ADA: Author = { name: 'Ada Lovelace', email: 'ada@example.test' }
 
+/**
+ * A fixed ULID for a seeded item (`tag` from 0-9, A-H, J, K, M, N, P-T, V-Z), so a link to it
+ * still opens after a reload or in a new tab, where the mock starts over.
+ */
+export function seedId(tag: string, n: number): string {
+  return `01JC4${tag}${String(n).padStart(21 - tag.length, '0')}`
+}
+
 /** The line in the conflict demo that the armed outside edit also changes. */
 export const CONFLICT_DEMO_LINE = 'Standup is at 9:30, cameras optional.'
 
