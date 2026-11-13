@@ -2,7 +2,7 @@
 
 ## Status
 
-Slice 1 shipped (#42, 0.8.1). Slices 2–4 merged (#47). Slices 5–7 in the next PR, then a release. Known gaps: the catalog clash test treats sections without an app (list keys, recording) as one app's own, so it would not catch a page mounting list keys beside Tasks' own j/k. Not built from the plan: `/` filtering inside Tasks (`/` opens Command-K everywhere instead), Tasks ⌘Z undo, and arrow keys in the Docs file tree. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
+Slice 1 shipped (#42, 0.8.1). Slices 2–4 shipped in 0.10.0 (#47). Slices 5–7 merged (#55) and ship in 0.11.0. Known gaps: the catalog clash test treats sections without an app (list keys, recording) as one app's own, so it would not catch a page mounting list keys beside Tasks' own j/k. Not built from the plan: `/` filtering inside Tasks (`/` opens Command-K everywhere instead), Tasks ⌘Z undo, and arrow keys in the Docs file tree. Plan accepted by the owner on 2026-11-13 (all recommendations). The readable plan is https://claude.ai/artifact/EAjxb3edzYx9NmvLs1ziHE.
 
 ## Decisions
 
