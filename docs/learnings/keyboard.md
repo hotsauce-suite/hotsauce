@@ -11,3 +11,9 @@
 - **The test app doesn't mount every route.** `test/renderApp.tsx` lists its own routes. Add the app's routes there before writing a `renderApp('/files')` test.
 - **The mock search only covers `docs/`.** Command-K tests for other kinds of files stub `/api/search` with `server.use`.
 - **The Mac Go menu has its own copy of the rail** (`Brand.railShortcuts`). `apps/web/src/apps/macRail.test.ts` fails when it drifts from `APPS`.
+- **Page order isn't reading order on a masonry board.** The Notes board renders column by column, so DOM order skips around. Mark the container `data-list-group` and each item `data-list-order`; `listItems()` sorts within the group.
+- **Focus is often beside the item, not in it.** A note's pin button and a link's Done button are siblings of the marked item. Mark the whole row `data-list-row` so j/k and row keys still know where they are.
+- **A quick-action prefix steals Enter from searches.** "task list" is as likely a search as a new task. Only the colon form ("task:") is highlighted outright; the bare word is highlighted only once the search found no title.
+- **Search results must route through strict file patterns.** "The app that owns the folder" sends `tasks/archive/x.md` to a task page that doesn't exist. Use the strict `is…File` checks and fall back to Docs.
+- **iPhone Safari videos have no `requestFullscreen`**, only `webkitEnterFullscreen`. Return false when neither exists so the key isn't swallowed.
+- **Keys that need a microphone or a camera get Playwright tests**, which run with Chromium's fake devices (`e2e/keyboard-recording.spec.ts`). jsdom can't record.
