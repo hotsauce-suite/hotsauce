@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
+import { useLocation } from 'react-router'
 import type { PageContext } from '../../api/assistant'
 import { useCommands } from '../../keyboard/commands'
 import { ariaKeys, formatSpec } from '../../keyboard/keys'
@@ -15,6 +16,8 @@ const AssistantPanel = lazy(() => import('./AssistantPanel'))
 export function AssistantHost({ page, compact }: { page: PageContext | null; compact: boolean }) {
   const { open } = useAssistantState()
   const [loaded, setLoaded] = useState(false)
+  // On a whiteboard the board's help button sits in the bottom-right corner: sit above it.
+  const onBoard = /^\/boards\/[^/]+\/[^/]+/.test(useLocation().pathname)
   if (open && !loaded) setLoaded(true)
 
   // ⌘J / Ctrl+J, through the app's one key listener (keyboard/catalog.ts).
@@ -46,7 +49,7 @@ export function AssistantHost({ page, compact }: { page: PageContext | null; com
           aria-keyshortcuts={ariaKeys('mod+j')}
           title={`Ask the assistant (${formatSpec('mod+j').join('')})`}
           onClick={() => openAssistant()}
-          className={`fixed right-4 z-30 flex size-11 items-center justify-center rounded-full border border-ash bg-paper-raised text-ink shadow-float hover:bg-paper-sunk ${compact ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]' : 'bottom-4'}`}
+          className={`fixed right-4 z-30 flex size-11 items-center justify-center rounded-full border border-ash bg-paper-raised text-ink shadow-float hover:bg-paper-sunk ${compact ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))]' : onBoard ? 'bottom-20' : 'bottom-4'}`}
         >
           <Icon name="sparkle" className="size-5" />
         </button>

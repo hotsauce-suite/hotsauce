@@ -1200,3 +1200,43 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
 .assistant-answer code {
   font-size: 0.9em;
 }
+
+/* ------------------------------------------------------------ side panels */
+
+/* Between the phone layout and a screen wide enough for page and panel side by side (an upright
+   iPad), a side panel floats over the right of the page, under its top bar, instead of squeezing
+   the page to a sliver. PANES_QUERY in hooks/useMediaQuery.ts is the same width. Unlayered, so it
+   wins over the panels' md: utilities. */
+@media (min-width: 768px) and (max-width: 1099.98px) {
+  .side-pane {
+    position: fixed;
+    inset: var(--topbar-height) 0 0 auto;
+    z-index: 30;
+    width: min(var(--panel-width), calc(100vw - var(--rail-width)));
+    height: auto;
+    background: var(--paper-raised);
+    box-shadow: var(--shadow-float);
+  }
+  /* A live meeting's recording strip (h-9) sits above the top bar on other pages. */
+  main[data-strip] .side-pane {
+    top: calc(var(--topbar-height) + 2.25rem);
+  }
+}
+
+/* ------------------------------------------------------------- tap targets */
+
+/* Small controls (a 24 px "…" button, a drag grip) get a bigger touch area on a touch screen,
+   with no change in how they look. In the components layer, so a control's own absolute or
+   fixed utility still wins over the relative here. */
+@layer components {
+  @media (pointer: coarse) {
+    .tap-target {
+      position: relative;
+    }
+    .tap-target::after {
+      content: "";
+      position: absolute;
+      inset: -0.375rem;
+    }
+  }
+}

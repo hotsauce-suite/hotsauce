@@ -438,7 +438,12 @@ function LiveView({ meeting, live }: { meeting: Meeting; live: LiveSnapshot }) {
           )}
         </div>
         {transcriptOpen && wide ? (
-          <LiveTranscript segments={segments} expanded onToggle={() => setTranscriptOpen(false)} />
+          <LiveTranscript
+            segments={segments}
+            expanded
+            floating
+            onToggle={() => setTranscriptOpen(false)}
+          />
         ) : null}
       </div>
     </>

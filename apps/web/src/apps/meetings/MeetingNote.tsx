@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
-import { useShell } from '../../components/AppShell'
 import { DocumentView, type ExtraPanel } from '../../components/DocumentView'
+import { PANES_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { ChatPanel } from './components/ChatPanel'
 import { MeetingHeader } from './components/MeetingHeader'
 import { TranscriptPanel } from './components/TranscriptPanel'
@@ -34,7 +34,7 @@ export default function MeetingNote() {
 }
 
 function MeetingDocument({ space, path }: { space: string; path: string }) {
-  const shell = useShell()
+  const roomy = useMediaQuery(PANES_QUERY)
   const location = useLocation()
   const navigate = useNavigate()
   const autoEnhance = (location.state as { enhance?: boolean } | null)?.enhance === true
@@ -63,8 +63,9 @@ function MeetingDocument({ space, path }: { space: string; path: string }) {
       extensions={extensions}
       readOnly={enhancing}
       panels={panels}
-      // Beside the note on a wide screen; on a phone it's a sheet you open.
-      initialPanel={shell.compact ? null : 'transcript'}
+      // Beside the note on a wide screen. Narrower (an upright iPad) it would float over the note,
+      // and on a phone it's a sheet: there it opens on a tap.
+      initialPanel={roomy ? 'transcript' : null}
       header={(doc) => (
         <MeetingHeader
           doc={doc}
