@@ -13,7 +13,7 @@ import {
   matchCommands,
   useCommandList,
 } from '../keyboard/commands'
-import { Keys } from '../keyboard/Keys'
+import { Keys } from '../keyboard/KeyCaps'
 import { displayName, fileUrl, isTaskFile, meetingFileKind } from '../lib/paths'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'

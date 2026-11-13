@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import type { AppId } from '../apps/registry'
 import { Dialog } from '../components/Dialog'
 import { SECTIONS, type SectionId, SHORTCUTS, shortcutIds } from './catalog'
-import { Keys } from './Keys'
+import { Keys } from './KeyCaps'
 import { useSingleKeys } from './prefs'
 import { useBoundIds } from './shortcuts'
 
