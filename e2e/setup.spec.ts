@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
 // setup mode, under the container entrypoint so finishing can restart it). One test walks the
 // whole thing, because finishing changes the instance for good.
 
-const BASE = 'http://localhost:3998'
+const BASE = `http://localhost:${process.env.E2E_SETUP_PORT ?? 3998}`
 test.use({ baseURL: BASE })
 test.describe.configure({ mode: 'serial' })
 
@@ -180,7 +180,7 @@ test('an instance configured by its environment never shows the wizard', async (
   request,
 }) => {
   // The main e2e server, set up entirely through in env, no wizard.
-  const main = 'http://localhost:3999'
+  const main = `http://localhost:${process.env.E2E_PORT ?? 3999}`
   expect((await (await request.get(`${main}/api/health`)).json()).setupRequired).toBe(false)
   expect(
     (await request.get(`${main}/api/setup/state`, { headers: { 'x-setup-token': 'x' } })).status(),

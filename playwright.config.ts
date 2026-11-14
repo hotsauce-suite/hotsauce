@@ -3,7 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 3999
+// E2E_PORT and E2E_SETUP_PORT let two checkouts run their e2e at once on one machine: with the
+// default ports, the second run reuses the first's server (and its older build).
+const PORT = Number(process.env.E2E_PORT ?? 3999)
 const BASE_URL = `http://localhost:${PORT}`
 
 // A fresh data dir per run, shared by the server and the test workers.
@@ -21,7 +23,7 @@ process.env.HEARTH_E2E_LOCAL_HOST_DIR = localHostDir
 // A second, brand-new instance for the setup wizard (e2e/setup.spec.ts): Clerk sign-in with no
 // keys yet, so it starts in setup mode. It runs under the container's entrypoint, which starts
 // the server again when finishing setup restarts it.
-export const SETUP_PORT = 3998
+export const SETUP_PORT = Number(process.env.E2E_SETUP_PORT ?? 3998)
 if (!process.env.HOTSAUCE_E2E_SETUP_DIR) {
   process.env.HOTSAUCE_E2E_SETUP_DIR = mkdtempSync(path.join(os.tmpdir(), 'hotsauce-setup-e2e-'))
 }
