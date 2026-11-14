@@ -12,6 +12,7 @@ extension AppDelegate: NSMenuItemValidation {
         app.addItem(.separator())
         app.addItem(entry("Settings…", #selector(openSettings), ","))
         app.addItem(entry("Dictate…", #selector(openDictateWindow), ""))
+        app.addItem(entry("Check Permissions…", #selector(showOnboarding), ""))
         app.addItem(.separator())
         let services = NSMenu(title: "Services")
         app.addItem(withTitle: "Services", action: nil, keyEquivalent: "").submenu = services

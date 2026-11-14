@@ -3,10 +3,15 @@ import AVFoundation
 import DictateCore
 import SwiftUI
 
-/// The first-run window: Microphone, Accessibility, Connect to Hearth, each with a live check.
+/// The setup window: Microphone, Accessibility, Location, Notifications and Connect, each with a
+/// live check. It opens on the first launch and on every launch while a permission is missing.
 final class OnboardingModel: ObservableObject {
     @Published var microphone = Permissions.microphoneGranted
     @Published var accessibility = Permissions.accessibilityGranted
+    @Published var location = Permissions.locationAllowed
+    @Published var notifications = true
+    /// False when nothing in Settings shows notifications; then the row is hidden.
+    @Published var notificationsNeeded = true
     @Published var connected = false
     @Published var connectedAs: String?
     @Published var listening = false
@@ -22,6 +27,8 @@ final class OnboardingModel: ObservableObject {
     var hotkeyName: () -> String = { "" }
     var relaunch: () -> Void = {}
     var startHotkey: () -> Void = {}
+    var requestLocation: () -> Void = {}
+    var needsNotifications: () -> Bool = { true }
     /// Called when a step turns green after this window sent the member to System Settings or the
     /// browser, so the window comes back; never otherwise, so it can't take focus mid-work.
     var stepCompleted: () -> Void = {}
@@ -48,10 +55,37 @@ final class OnboardingModel: ObservableObject {
         timer = nil
     }
 
+    /// Location Services for the whole Mac, as last read (that read happens off the main thread).
+    private var locationServicesOn = true
+
+    /// Everything macOS says right now, then `done` on the main thread: the launch check.
+    static func snapshot(notificationsNeeded: Bool, _ done: @escaping (PermissionCheck.Snapshot) -> Void) {
+        Permissions.locationServicesOn { servicesOn in
+            Permissions.notificationsAllowed { notificationsOn in
+                done(PermissionCheck.Snapshot(
+                    microphone: Permissions.microphoneGranted,
+                    accessibility: Permissions.accessibilityGranted,
+                    location: servicesOn && Permissions.locationAllowed,
+                    notifications: notificationsOn,
+                    notificationsNeeded: notificationsNeeded
+                ))
+            }
+        }
+    }
+
     func refresh() {
-        let before = (microphone, accessibility, connected, listening)
+        let before = (microphone, accessibility, connected, listening, location, notifications)
         microphone = Permissions.microphoneGranted
         accessibility = Permissions.accessibilityGranted
+        notificationsNeeded = needsNotifications()
+        setLocation(locationServicesOn && Permissions.locationAllowed)
+        // The two slow reads answer a moment later; a step they turn green brings the window back.
+        Permissions.locationServicesOn { [weak self] on in
+            guard let self else { return }
+            self.locationServicesOn = on
+            self.setLocation(on && Permissions.locationAllowed)
+        }
+        Permissions.notificationsAllowed { [weak self] on in self?.setNotifications(on) }
         connected = isConnected()
         connectedAs = account()
         outsideApplications = notInApplications()
@@ -65,14 +99,38 @@ final class OnboardingModel: ObservableObject {
             tapMissingSince = nil
             tapStuck = false
         }
-        let advanced = (microphone && !before.0) || (accessibility && !before.1) || (connected && !before.2) || (listening && !before.3)
-        if advanced, awaitingReturn {
-            awaitingReturn = false
-            stepCompleted()
-        }
+        let advanced = (microphone && !before.0) || (accessibility && !before.1) || (connected && !before.2)
+            || (listening && !before.3) || (location && !before.4) || (notifications && !before.5)
+        if advanced { stepAdvanced() }
     }
 
-    var allSet: Bool { microphone && accessibility && listening && connected }
+    private func setLocation(_ on: Bool) {
+        guard location != on else { return }
+        location = on
+        if on { stepAdvanced() }
+    }
+
+    private func setNotifications(_ on: Bool) {
+        guard notifications != on else { return }
+        notifications = on
+        if on { stepAdvanced() }
+    }
+
+    private func stepAdvanced() {
+        guard awaitingReturn else { return }
+        awaitingReturn = false
+        stepCompleted()
+    }
+
+    /// Every permission the app needs (not the connection, which isn't a macOS permission).
+    var permissionsGranted: Bool {
+        PermissionCheck.missing(PermissionCheck.Snapshot(
+            microphone: microphone, accessibility: accessibility, location: location,
+            notifications: notifications, notificationsNeeded: notificationsNeeded
+        )).isEmpty
+    }
+
+    var allSet: Bool { permissionsGranted && listening && connected }
 
     func submitCode() {
         codeError = nil
@@ -94,12 +152,12 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     func show() {
         if window == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 500, height: 580),
+                contentRect: NSRect(x: 0, y: 0, width: 500, height: OnboardingView.height),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Set up Dictate"
+            window.title = "Set up \(Brand.name)"
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.contentView = NSHostingView(rootView: OnboardingView(model: model, done: { [weak self] in self?.close() }))
@@ -124,15 +182,17 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
 }
 
 private struct OnboardingView: View {
+    static let height: CGFloat = 720
     @ObservedObject var model: OnboardingModel
     let done: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Set up Dictate").font(.system(size: 22, weight: .semibold, design: .serif))
-                Text("Hold Right Option, speak, and let go: the text appears where your cursor is.")
+                Text("Set up \(Brand.name)").font(.system(size: 22, weight: .semibold, design: .serif))
+                Text("\(Brand.name) needs these to work. This window opens each time the app starts until every one is on.")
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             VStack(spacing: 0) {
                 Row(
@@ -153,6 +213,28 @@ private struct OnboardingView: View {
                 ) {
                     model.awaitingReturn = true
                     Permissions.requestAccessibility()
+                }
+                Divider()
+                Row(
+                    title: "Location",
+                    detail: "For the weather where you are on Today. Rounded to about a kilometre.",
+                    granted: model.location,
+                    button: "Allow"
+                ) {
+                    model.awaitingReturn = true
+                    model.requestLocation()
+                }
+                if model.notificationsNeeded {
+                    Divider()
+                    Row(
+                        title: "Notifications",
+                        detail: "For meeting reminders and the offer to take notes on a call.",
+                        granted: model.notifications,
+                        button: "Allow"
+                    ) {
+                        model.awaitingReturn = true
+                        Permissions.requestNotifications { _ in model.refresh() }
+                    }
                 }
                 Divider()
                 Row(
@@ -191,14 +273,14 @@ private struct OnboardingView: View {
                 Spacer()
             }
             HStack {
-                Text("Open it again any time from \(Brand.name) → Dictate….")
+                Text("Open it again any time from the menu bar icon → Check permissions….")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
                 Button("Done", action: done).keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
-        .frame(width: 500, height: 580)
+        .frame(width: 500, height: Self.height)
     }
 }
 
@@ -254,6 +336,12 @@ private struct StatusBanner: View {
         if !model.microphone { return "Allow the microphone above." }
         if !model.accessibility {
             return "Turn on \(Brand.name) under Accessibility in System Settings (the button above opens it). If it’s already on, an update changed the app: select it, remove it with −, and add it again from Applications."
+        }
+        if !model.location {
+            return "Allow Location above. If macOS doesn’t ask, turn \(Brand.name) on under Location Services in System Settings (the button opens it), and check Location Services itself is on."
+        }
+        if model.notificationsNeeded, !model.notifications {
+            return "Allow Notifications above, or turn them on for \(Brand.name) in System Settings → Notifications."
         }
         if !model.listening {
             return model.tapStuck
