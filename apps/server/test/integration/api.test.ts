@@ -85,7 +85,10 @@ describe('health and identity', () => {
   it('reports health and the auth mode without a session', async () => {
     const res = await call('GET', '/api/health')
     expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ ok: true, authMode: 'dev', setupRequired: false })
+    const health = await res.json()
+    expect(health).toMatchObject({ ok: true, authMode: 'dev', setupRequired: false })
+    // Its own address, as an origin: the Mac app follows an instance that moved (LEGACY_HOSTS).
+    expect(health.publicUrl).toMatch(/^https?:\/\/[^/]+$/)
   })
 
   it('rejects requests without a session, and unknown API routes with JSON errors', async () => {

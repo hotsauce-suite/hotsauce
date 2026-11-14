@@ -36,3 +36,15 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   the old version restarted before the helper had pulled its image, and the boot check called
   that a rollback. Only a boot on the old version *after* the new one ran is proof; otherwise
   wait out the helper's window. Read the Fly logs before believing the status line.
+- **The Mac app's window must learn its server from the connection.** The shared app's built-in
+  address is a placeholder, so a window that only reads Settings opens nothing on a fresh install.
+  The server now reports its own address in `/api/health`, and the window follows a redirect to it,
+  so an instance can change address without every member editing their app.
+- **A window that shows an error page must retry on its own.** Self-updates restart the server for
+  about five seconds several times a day, and the app opens at login before the network (or a VPN)
+  is up; a "Try again" button alone reads to members as "the app takes forever to load".
+- **`swift test` with only the Command Line Tools** can't find the Swift Testing macros; pass
+  `-Xswiftc -plugin-path -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing`.
+- **Unified logs hide URLs** (`<private>`), so a WebKit load timeline shows timings but not which
+  page; launch with `log stream --predicate 'process == "Hotsauce" OR process BEGINSWITH "com.apple.WebKit"'`
+  and read the `WebPageProxy::didCommit/didFinish` lines.

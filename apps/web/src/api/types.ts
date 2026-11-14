@@ -5,6 +5,8 @@ export type AuthMode = 'dev' | 'clerk' | 'setup'
 export interface Health {
   ok: boolean
   authMode: AuthMode
+  /** This instance's own address (its origin). */
+  publicUrl?: string
   /** A fresh instance: only the setup wizard works until it's finished. */
   setupRequired?: boolean
   productName?: string
