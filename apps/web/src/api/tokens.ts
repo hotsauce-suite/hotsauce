@@ -1,3 +1,4 @@
+import { product } from '../brand/product'
 import { request } from './client'
 
 /** One of the member's personal access tokens, as the server lists it (ARCHITECTURE §8.1). */
@@ -19,9 +20,21 @@ export const tokensApi = {
     request<void>(`/api/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }
 
-/** The one command that connects Claude Code to this Hearth. */
+/**
+ * The name Claude shows for the connector: the product's name as a slug ("hotsauce", or "acme"
+ * when white-labelled), the same name the MCP server reports for itself.
+ */
+export function connectorName(productName: string = product()): string {
+  const slug = productName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return slug || 'hotsauce'
+}
+
+/** The one command that connects Claude Code to this instance. */
 export function claudeCodeCommand(origin: string, token: string): string {
-  return `claude mcp add --transport http --scope user hearth ${origin}/mcp --header "Authorization: Bearer ${token}"`
+  return `claude mcp add --transport http --scope user ${connectorName()} ${origin}/mcp --header "Authorization: Bearer ${token}"`
 }
 
 /** Claude desktop's config entry: it reaches a remote server through the mcp-remote bridge. */
@@ -29,18 +42,18 @@ export function claudeDesktopConfig(origin: string, token: string): string {
   return JSON.stringify(
     {
       mcpServers: {
-        hearth: {
+        [connectorName()]: {
           command: 'npx',
           args: [
             '-y',
             'mcp-remote@0.15.2',
             `${origin}/mcp`,
             '--header',
-            // mcp-remote expands ${HEARTH_AUTH} from env; it is not a JS template.
+            // mcp-remote expands ${MCP_AUTH} from env; it is not a JS template.
             // biome-ignore lint/suspicious/noTemplateCurlyInString: a literal for mcp-remote
-            'Authorization:${HEARTH_AUTH}',
+            'Authorization:${MCP_AUTH}',
           ],
-          env: { HEARTH_AUTH: `Bearer ${token}` },
+          env: { MCP_AUTH: `Bearer ${token}` },
         },
       },
     },

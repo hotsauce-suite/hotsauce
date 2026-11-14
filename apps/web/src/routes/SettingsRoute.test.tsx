@@ -21,11 +21,11 @@ describe('Settings: access tokens', () => {
     const secret = (await screen.findByTestId('token-secret')).textContent ?? ''
     expect(secret).toMatch(/^hth_/)
     expect(screen.getByTestId('token-command').textContent).toBe(
-      `claude mcp add --transport http --scope user hearth ${window.location.origin}/mcp --header "Authorization: Bearer ${secret}"`,
+      `claude mcp add --transport http --scope user hotsauce ${window.location.origin}/mcp --header "Authorization: Bearer ${secret}"`,
     )
     const desktop = JSON.parse(screen.getByTestId('token-desktop-config').textContent ?? '')
-    expect(desktop.mcpServers.hearth.env.HEARTH_AUTH).toBe(`Bearer ${secret}`)
-    expect(desktop.mcpServers.hearth.args).toContain(`${window.location.origin}/mcp`)
+    expect(desktop.mcpServers.hotsauce.env.MCP_AUTH).toBe(`Bearer ${secret}`)
+    expect(desktop.mcpServers.hotsauce.args).toContain(`${window.location.origin}/mcp`)
 
     const item = await screen.findByTestId('token-item')
     expect(within(item).getByText('Laptop')).toBeInTheDocument()

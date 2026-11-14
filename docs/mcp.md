@@ -1,7 +1,7 @@
-# Connecting Claude to Hearth (MCP)
+# Connecting Claude to Hotsauce (MCP)
 
-Hearth runs an MCP server at `https://office.example.com/mcp`. Claude Code, Claude desktop or a script
-connects with a personal access token and then searches, reads and writes your Hearth Docs and
+Hotsauce runs an MCP server at `https://office.example.com/mcp`. Claude Code, Claude desktop or a script
+connects with a personal access token and then searches, reads and writes your Hotsauce Docs and
 Meetings as you: it sees exactly the spaces you see (the team space and your own personal space,
 never anyone else's), and everything it writes is a Git commit authored by you with a
 `Hearth-Via: mcp (token "<name>")` trailer, so history shows it came through Claude.
@@ -12,23 +12,27 @@ You don't need any of this to use AI inside the app: the built-in assistant (Ask
 
 ## 1. Make a token
 
-Open Hearth, click **Settings** at the bottom of the sidebar, give the token a name (say "Claude
-Code on my laptop") and press **Create token**. Hearth shows the token once, together with the
+Open Hotsauce, click **Settings** at the bottom of the sidebar, give the token a name (say "Claude
+Code on my laptop") and press **Create token**. Hotsauce shows the token once, together with the
 command and config below already filled in. Copy it then; it can't be shown again. Revoke it on the
 same page when you stop using it; it stops working at once.
 
-A token is a password for your Hearth account. Don't paste it into a repo or a chat.
+A token is a password for your Hotsauce account. Don't paste it into a repo or a chat.
 
 ## 2a. Claude Code
 
 One command, run once in a terminal (replace `hth_…` with your token):
 
 ```bash
-claude mcp add --transport http --scope user hearth https://office.example.com/mcp --header "Authorization: Bearer hth_…"
+claude mcp add --transport http --scope user hotsauce https://office.example.com/mcp --header "Authorization: Bearer hth_…"
 ```
 
-`--scope user` makes Hearth available in every project. Check it with `claude mcp list`, or
-`/mcp` inside Claude Code.
+`--scope user` makes Hotsauce available in every project. Check it with `claude mcp list`, or
+`/mcp` inside Claude Code. The connector is named after your workspace's product name, so a
+white-labelled instance shows its own name instead of `hotsauce`.
+
+Connected an older version under the name `hearth`? Rename it by removing it and adding it again
+with the command above: `claude mcp remove hearth --scope user`. Your token keeps working.
 
 ## 2b. Claude desktop
 
@@ -40,22 +44,24 @@ quit and reopen Claude:
 ```json
 {
   "mcpServers": {
-    "hearth": {
+    "hotsauce": {
       "command": "npx",
       "args": [
         "-y",
         "mcp-remote@0.15.2",
         "https://office.example.com/mcp",
         "--header",
-        "Authorization:${HEARTH_AUTH}"
+        "Authorization:${MCP_AUTH}"
       ],
-      "env": { "HEARTH_AUTH": "Bearer hth_…" }
+      "env": { "MCP_AUTH": "Bearer hth_…" }
     }
   }
 }
 ```
 
-The header goes through `env` because Claude desktop mangles spaces inside `args`.
+The header goes through `env` because Claude desktop mangles spaces inside `args`. If an older
+config has a `"hearth"` entry, rename that key to `"hotsauce"` and restart Claude; the token inside
+it keeps working.
 
 ## What Claude can do
 
@@ -124,7 +130,7 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | --- | --- |
 | `list_clips` | Screen recordings you can see (yours and teammates' finished ones), newest first; by words, date or only yours |
 | `get_clip` | A clip's summary, link and timestamped transcript (never the video itself) |
-| `list_drive_files` | Files uploaded to Hearth Files in a space, by folder or words (names, sizes, links) |
+| `list_drive_files` | Files uploaded to Hotsauce Files in a space, by folder or words (names, sizes, links) |
 | `get_drive_file` | One uploaded file's details, link and the text pulled out of it (PDF, Word, PowerPoint, Excel, text); never the file itself |
 
 Every write is a commit authored by you with `Hearth-Via: mcp (token "<name>")`.
@@ -140,14 +146,14 @@ Every write is a commit authored by you with `Hearth-Via: mcp (token "<name>")`.
 
 ## The HTTP API
 
-The same token also works on Hearth's HTTP API (`/api/…`, see `docs/ARCHITECTURE.md` §3.8), for
+The same token also works on Hotsauce's HTTP API (`/api/…`, see `docs/ARCHITECTURE.md` §3.8), for
 scripts: `curl -H "Authorization: Bearer hth_…" https://office.example.com/api/me`. Saves made this way
 carry `Hearth-Via: api (token "<name>")`. A token can't create, list or revoke tokens; that takes a
 signed-in browser.
 
 ## Troubleshooting
 
-- **401**: the token is wrong, revoked, or its member was removed from Hearth. Make a new one.
+- **401**: the token is wrong, revoked, or its member was removed from Hotsauce. Make a new one.
 - **"forbidden: You don't have access to the space"**: the tool was given someone else's personal
   space. Use `list_spaces` for the names you can use.
 - Tokens are kept on the server's volume, hashed. If that file is ever lost, every token stops
