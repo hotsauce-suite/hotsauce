@@ -9,6 +9,8 @@ import { currentLive } from './live/controller'
 // No devices in jsdom: the capture module is stubbed, and so is the worklet recorder.
 const capture = vi.hoisted(() => ({
   arrived: true,
+  /** When set, the audio check waits for it, so a test can see the check still waiting. */
+  hold: null as Promise<void> | null,
   stop: vi.fn(),
   captureAudio: vi.fn(),
 }))
@@ -19,8 +21,10 @@ vi.mock('./audio/capture', async (importOriginal) => {
     ...real,
     supportsTabCapture: () => true,
     captureAudio: capture.captureAudio,
-    audioArrived: () =>
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(capture.arrived), 20)),
+    audioArrived: async () => {
+      await capture.hold
+      return new Promise<boolean>((resolve) => setTimeout(() => resolve(capture.arrived), 20))
+    },
   }
 })
 
@@ -37,6 +41,7 @@ vi.mock('./audio/recorder', () => ({
 beforeEach(() => {
   extension.version = null
   capture.arrived = true
+  capture.hold = null
   capture.stop.mockReset()
   capture.captureAudio.mockReset()
   capture.captureAudio.mockImplementation(async (mode: string) => ({
@@ -60,9 +65,15 @@ describe('Start screen', () => {
     expect(screen.getByTestId('start-recording')).toBeDisabled()
     await userEvent.selectOptions(screen.getByTestId('start-template'), 'customer-call')
 
+    // Held until it's been seen waiting: a 20 ms check can finish before a slow runner looks.
+    let release = () => {}
+    capture.hold = new Promise((r) => {
+      release = r
+    })
     await userEvent.click(screen.getByTestId('capture-mic-only'))
     expect(capture.captureAudio).toHaveBeenCalledWith('mic-only', 'abc-defg-hij')
     expect(checkState()).toBe('waiting')
+    release()
     await waitFor(() => expect(checkState()).toBe('ok'))
     expect(screen.getByText('Sound is arriving')).toBeInTheDocument()
 
