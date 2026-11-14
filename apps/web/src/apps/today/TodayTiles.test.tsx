@@ -204,6 +204,57 @@ describe('Today tiles: on a phone (E6, E7)', () => {
     expect(screen.queryByTestId('today-drag-ghost')).toBeNull()
   })
 
+  it('E6: letting go in a gap between tiles still lands where the bar last showed', async () => {
+    pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
+    await startEditing()
+    const target = frame('docs')
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 500, 300, 200))
+    const gap = document.createElement('div')
+    document.body.append(gap)
+    const original = document.elementFromPoint
+    let under: Element = target
+    document.elementFromPoint = () => under
+    try {
+      const grip = within(frame('checkins')).getByTestId('today-tile-grip')
+      fireEvent.pointerDown(grip, { pointerType: 'touch', pointerId: 7, clientX: 10, clientY: 20 })
+      fireEvent.pointerMove(window, {
+        pointerType: 'touch',
+        pointerId: 7,
+        clientX: 10,
+        clientY: 520,
+      })
+      // A second finger doesn't steer or end the drag.
+      fireEvent.pointerUp(window, { pointerType: 'touch', pointerId: 8, clientX: 10, clientY: 900 })
+      expect(screen.getByTestId('today-drag-ghost')).toBeInTheDocument()
+      under = gap
+      fireEvent.pointerMove(window, {
+        pointerType: 'touch',
+        pointerId: 7,
+        clientX: 10,
+        clientY: 495,
+      })
+      expect(within(target).getByTestId('today-drop-marker')).toHaveAttribute('data-side', 'before')
+      fireEvent.pointerUp(window, { pointerType: 'touch', pointerId: 7, clientX: 10, clientY: 495 })
+    } finally {
+      document.elementFromPoint = original
+      gap.remove()
+    }
+    expect(tileIds(1)).toEqual(['notes', 'checkins', 'docs', 'brief'])
+  })
+
+  it('E6: keyboard focus stays on the arrow when a tile crosses the column break', async () => {
+    pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
+    await startEditing()
+    within(frame('action-items')).getByTestId('today-tile-down').focus()
+    await userEvent.keyboard('{Enter}')
+    expect(tileIds(1)[0]).toBe('action-items')
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(frame('action-items')).getByTestId('today-tile-down'),
+      ),
+    )
+  })
+
   it('E6: a cancelled touch drag moves nothing, and a mouse never starts one', async () => {
     pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
     await startEditing()

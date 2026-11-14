@@ -89,7 +89,12 @@ export default function TodayPage() {
       <MeetingsPageHeader title="Today" menu={false}>
         <TodayClock />
       </MeetingsPageHeader>
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="today" data-today-scroller>
+      <div
+        // While editing, the pinned bar mustn't hide whatever has keyboard focus.
+        className={`min-h-0 flex-1 overflow-y-auto ${layouts.draft ? 'scroll-pt-20' : ''}`}
+        data-testid="today"
+        data-today-scroller
+      >
         <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">
           {layouts.draft ? <EditBar {...layouts} /> : null}
           <div className="mb-5 flex flex-wrap items-start gap-3">
@@ -236,7 +241,7 @@ function EditBar(l: ReturnType<typeof useLayout>) {
   // Pinned to the top of the screen while tiles are moved, wherever the page is scrolled to.
   return (
     <div
-      className="sticky top-0 z-10 -mx-4 -mt-6 mb-5 flex items-center gap-2 border-b border-ash bg-paper px-4 py-3 md:-mx-8 md:px-8"
+      className="sticky top-0 z-10 -mx-4 -mt-6 mb-5 flex items-center gap-1.5 sm:gap-2 border-b border-ash bg-paper px-4 py-3 md:-mx-8 md:px-8"
       data-testid="today-edit-bar"
     >
       <AddTileMenu layout={l.draft} onChange={l.change} />

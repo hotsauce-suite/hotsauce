@@ -99,6 +99,25 @@ export function TodayTiles(props: TodayTilesProps) {
 
   const held = layoutTiles(layout).find((t) => t.id === touch.dragging)
 
+  // Crossing the column break remounts a tile's frame, which drops keyboard focus: put it back
+  // on the same button of the moved tile (or its other arrow, once that one is disabled).
+  const refocus = useRef<{ id: string; button: string } | null>(null)
+  const moved = (next: TodayLayout, id: string, button: string) => {
+    refocus.current = { id, button }
+    onChange(next)
+  }
+  useEffect(() => {
+    const want = refocus.current
+    if (!want) return
+    refocus.current = null
+    const frame = document.querySelector(`[data-tile-id="${CSS.escape(want.id)}"]`)
+    if (!frame || frame.contains(document.activeElement)) return
+    const buttons = [want.button, 'today-tile-up', 'today-tile-down'].map((b) =>
+      frame.querySelector<HTMLButtonElement>(`[data-testid="${b}"]`),
+    )
+    buttons.find((b) => b && !b.disabled)?.focus()
+  })
+
   const drop = (column: 0 | 1, index: number) => {
     if (dragging) onChange(moveTile(layout, dragging, { column, index }))
     setDragging(null)
@@ -144,18 +163,22 @@ export function TodayTiles(props: TodayTilesProps) {
                 onDragEnd={() => setDragging(null)}
                 onDropHere={() => drop(column, index)}
                 onUp={() =>
-                  onChange(
+                  moved(
                     stacked
                       ? nudgeTileStacked(layout, tile.id, -1)
                       : nudgeTile(layout, tile.id, -1),
+                    tile.id,
+                    'today-tile-up',
                   )
                 }
                 onDown={() =>
-                  onChange(
+                  moved(
                     stacked ? nudgeTileStacked(layout, tile.id, 1) : nudgeTile(layout, tile.id, 1),
+                    tile.id,
+                    'today-tile-down',
                   )
                 }
-                onAcross={() => onChange(switchColumn(layout, tile.id))}
+                onAcross={() => moved(switchColumn(layout, tile.id), tile.id, 'today-tile-across')}
                 onRemove={() => onChange(removeTile(layout, tile.id))}
               >
                 {body ?? <Placeholder tile={tile} />}
@@ -202,6 +225,7 @@ function useTouchDrag(onDrop: (id: string, target: string, side: 'before' | 'aft
   const [finger, setFinger] = useState<{ x: number; y: number } | null>(null)
   const state = useRef<{
     id: string
+    pointer: number
     x: number
     y: number
     over: { id: string; side: 'before' | 'after' } | null
@@ -218,8 +242,11 @@ function useTouchDrag(onDrop: (id: string, target: string, side: 'before' | 'aft
       if (!s) return
       const el = document.elementFromPoint(s.x, s.y)?.closest<HTMLElement>('[data-tile-id]')
       const id = el?.dataset.tileId
+      // In the gaps between tiles, or over the edit bar, the last aim holds, so letting go there
+      // still lands. Over the dragged tile itself, it would land where it already is.
+      if (!el || !id) return
       let next: typeof s.over = null
-      if (el && id && id !== s.id) {
+      if (id !== s.id) {
         const box = el.getBoundingClientRect()
         next = { id, side: s.y < box.top + box.height / 2 ? 'before' : 'after' }
       }
@@ -233,7 +260,11 @@ function useTouchDrag(onDrop: (id: string, target: string, side: 'before' | 'aft
       if (!s) return
       const box = s.scroller?.getBoundingClientRect()
       if (s.scroller && box) {
-        const top = s.y - box.top
+        // The pinned edit bar covers the top of the page: the edge starts below it.
+        const bar = document
+          .querySelector('[data-testid="today-edit-bar"]')
+          ?.getBoundingClientRect()
+        const top = s.y - Math.max(box.top, bar?.bottom ?? box.top)
         const bottom = box.bottom - s.y
         const by =
           top < EDGE_PX
@@ -250,7 +281,7 @@ function useTouchDrag(onDrop: (id: string, target: string, side: 'before' | 'aft
     }
     const move = (e: PointerEvent) => {
       const s = state.current
-      if (!s) return
+      if (!s || e.pointerId !== s.pointer) return
       e.preventDefault()
       s.x = e.clientX
       s.y = e.clientY
@@ -259,7 +290,7 @@ function useTouchDrag(onDrop: (id: string, target: string, side: 'before' | 'aft
     }
     const end = (e: PointerEvent) => {
       const s = state.current
-      if (!s) return
+      if (!s || e.pointerId !== s.pointer) return
       cancelAnimationFrame(s.frame)
       state.current = null
       setDragging(null)
@@ -289,7 +320,15 @@ function useTouchDrag(onDrop: (id: string, target: string, side: 'before' | 'aft
       const scroller = (e.currentTarget as HTMLElement).closest<HTMLElement>(
         '[data-today-scroller]',
       )
-      state.current = { id, x: e.clientX, y: e.clientY, over: null, scroller, frame: 0 }
+      state.current = {
+        id,
+        pointer: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        over: null,
+        scroller,
+        frame: 0,
+      }
       setFinger({ x: e.clientX, y: e.clientY })
       setDragging(id)
     },
@@ -444,7 +483,8 @@ function EditFrame({
           className={`pointer-events-none absolute inset-x-2 h-1 rounded-full bg-ember ${marker === 'before' ? '-top-3' : '-bottom-3'}`}
         />
       ) : null}
-      <div className="flex items-center gap-1 px-1 pt-1 pb-2">
+      {/* No text selection or iOS callout from a long press here: either would cancel a drag. */}
+      <div className="flex items-center gap-1 px-1 pt-1 pb-2 select-none [-webkit-touch-callout:none]">
         {/* A finger drags from here; the page still scrolls from anywhere else. */}
         <span
           className="-my-1 flex size-9 cursor-grab touch-none items-center justify-center rounded-md text-ink-faint"
@@ -541,7 +581,7 @@ export function AddTileMenu({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         data-testid="today-add-tile"
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ash-strong px-3 text-sm text-ink hover:border-ember"
+        className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-ash-strong px-2.5 text-sm text-ink hover:border-ember sm:px-3"
       >
         <Icon name="plus" className="size-4" />
         Add tile
