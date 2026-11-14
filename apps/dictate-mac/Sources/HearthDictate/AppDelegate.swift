@@ -96,7 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A login item starts quietly: the suite loads (for reminders) without its window. A Mac
         // with no workspace yet loads nothing; the setup window asks for one.
         if suiteServer == nil {
-            onboarding.showWorkspace()
+            // A setup link that launched the app already opened the step with its address.
+            if !onboarding.isVisible { onboarding.showWorkspace() }
         } else if launchedAsLoginItem {
             suite.loadIfNeeded()
         } else {
@@ -688,6 +689,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             browserSignIn = nil
             suite.finishSignIn(ticket: ticket)
+            return
+        }
+        // A workspace's setup link fills the Workspace step; Continue still checks it (R4).
+        if let url = URL(string: text), let server = SetupLink.server(from: url) {
+            onboarding.showWorkspace(address: server)
             return
         }
         if let url = URL(string: text), let path = SuiteRouter.deepLinkPath(url) {

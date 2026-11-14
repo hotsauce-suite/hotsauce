@@ -41,6 +41,10 @@ enum Previews {
                 model.workspaceText = "www.example.com"
                 model.workspaceError = Workspace.CheckResult.notHotsauce.message(for: URL(string: "https://www.example.com")!)
             }),
+            ("workspace-from-link", { model in
+                model.workspaceText = "team.example.com"
+                model.filledFromLink = true
+            }),
             ("workspace-found", { model in
                 model.workspace = { server }
                 model.editingWorkspace = false

@@ -18,6 +18,14 @@ export const MAC_APP_SETTINGS = '/settings#mac-app'
 const PRIVACY_SETTINGS = 'x-apple.systempreferences:com.apple.preference.security'
 
 /**
+ * Opens the installed Mac app's setup window with this workspace's address filled in; the app
+ * still checks it before saving (apps/dictate-mac SetupLink, docs/PLAN-mac-onboarding.md R4, R5).
+ */
+export function macSetupLink(origin: string): string {
+  return `hearth://setup?server=${encodeURIComponent(origin)}`
+}
+
+/**
  * Whether this server has a Mac app build to download: null while asking. A server built without
  * it (a fresh self-hosted one) has nothing at the download path.
  */
@@ -120,9 +128,10 @@ export function MacAppCard() {
               confirm. On macOS 14, Control-click the app and choose Open instead.
             </li>
             <li>
-              When it asks where your team’s {product()} lives, enter{' '}
-              <span className="font-medium text-ink">{window.location.host}</span> and press
-              Continue, then Sign in with Google.
+              When it asks where your team’s {product()} lives, press{' '}
+              <span className="font-medium text-ink">Set up the Mac app</span> below to fill in{' '}
+              <span className="font-medium text-ink">{window.location.host}</span> (or type it),
+              then press Continue and Sign in with Google.
             </li>
             <li>
               Allow what its setup window lists (microphone, Accessibility, Location and
@@ -134,7 +143,14 @@ export function MacAppCard() {
               .
             </li>
           </ol>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-3">
+            <a
+              href={macSetupLink(window.location.origin)}
+              data-testid="mac-app-setup-link"
+              className={secondaryButton}
+            >
+              Set up the Mac app
+            </a>
             <a
               href={PRIVACY_SETTINGS}
               data-testid="mac-app-open-privacy"

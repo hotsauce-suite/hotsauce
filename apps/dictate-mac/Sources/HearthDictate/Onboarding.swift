@@ -17,6 +17,8 @@ final class OnboardingModel: ObservableObject {
     @Published var workspaceFound: String?
     /// Offered once a workspace is saved here, so its window can be signed in.
     @Published var offerSignIn = false
+    /// The address came from a link (any web page can open one): say so, and Return doesn't continue.
+    @Published var filledFromLink = false
     var workspace: () -> URL? = { nil }
     var saveWorkspace: (URL) -> Void = { _ in }
     var signIn: () -> Void = {}
@@ -154,10 +156,11 @@ final class OnboardingModel: ObservableObject {
 
     var allSet: Bool { permissionsGranted && listening && connected }
 
-    /// Opens the Workspace step, filled with the address this Mac uses now, if any.
-    func beginWorkspace() {
+    /// Opens the Workspace step, filled with `address` (a setup link's) or the one this Mac uses now.
+    func beginWorkspace(address: URL? = nil) {
         editingWorkspace = true
-        workspaceText = workspace().map(Workspace.displayAddress) ?? ""
+        filledFromLink = address != nil
+        workspaceText = (address ?? workspace()).map(Workspace.displayAddress) ?? ""
         workspaceError = nil
         workspaceFound = nil
     }
@@ -175,6 +178,8 @@ final class OnboardingModel: ObservableObject {
             guard let self else { return }
             let result = await self.checkWorkspace(origin)
             self.checkingWorkspace = false
+            // The field changed while it was checking (a setup link arrived): that address waits for Continue.
+            guard Workspace.origin(fromInput: self.workspaceText) == origin else { return }
             guard case let .found(info) = result else {
                 self.workspaceError = result.message(for: origin)
                 return
@@ -183,6 +188,7 @@ final class OnboardingModel: ObservableObject {
             self.workspaceText = Workspace.displayAddress(info.server)
             self.workspaceFound = info.summary
             self.offerSignIn = !info.setupRequired
+            self.filledFromLink = false
             self.editingWorkspace = false
         }
     }
@@ -205,8 +211,8 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
 
     var isVisible: Bool { window?.isVisible ?? false }
     /// The setup window at its Workspace step: a Mac with no workspace, or "Change workspace address".
-    func showWorkspace() {
-        model.beginWorkspace()
+    func showWorkspace(address: URL? = nil) {
+        model.beginWorkspace(address: address)
         show()
     }
 
@@ -386,15 +392,25 @@ private struct WorkspaceStep: View {
             HStack {
                 TextField("team.example.com", text: $model.workspaceText)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit { model.submitWorkspace() }
+                    .onSubmit { if !model.filledFromLink { model.submitWorkspace() } }
                     .disabled(model.checkingWorkspace)
                 if model.checkingWorkspace { ProgressView().controlSize(.small) }
-                Button("Continue") { model.submitWorkspace() }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(model.checkingWorkspace || model.workspaceText.trimmingCharacters(in: .whitespaces).isEmpty)
+                let continueOff = model.checkingWorkspace || model.workspaceText.trimmingCharacters(in: .whitespaces).isEmpty
+                if model.filledFromLink {
+                    // A link-filled address needs a deliberate click, not a stray Return.
+                    Button("Continue") { model.submitWorkspace() }.disabled(continueOff)
+                } else {
+                    Button("Continue") { model.submitWorkspace() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(continueOff)
+                }
                 if model.workspace() != nil {
                     Button("Cancel") { model.editingWorkspace = false }.disabled(model.checkingWorkspace)
                 }
+            }
+            if model.filledFromLink, model.workspaceError == nil {
+                Text("Filled in from a setup link. Only continue if this is your team’s address.")
+                    .font(.system(size: 11)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
             if let error = model.workspaceError {
                 Text(error).font(.system(size: 11)).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
