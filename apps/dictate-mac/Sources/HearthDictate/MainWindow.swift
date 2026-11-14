@@ -390,15 +390,10 @@ private struct ActivityGrid: View {
     }
 
     private var cells: [Cell] {
-        let calendar = Calendar.current
-        let symbols = calendar.veryShortWeekdaySymbols.rotated(by: calendar.firstWeekday - 1)
+        let symbols = MonthActivity.weekdaySymbols()
         return symbols.enumerated().map { Cell(id: "w\($0.offset)", kind: .weekday($0.element)) }
-            + (0..<leadingBlanks).map { Cell(id: "b\($0)", kind: .blank) }
+            + (0..<month.leadingBlanks).map { Cell(id: "b\($0)", kind: .blank) }
             + month.days.enumerated().map { Cell(id: "d\($0.offset)", kind: .day($0.offset + 1, $0.element)) }
-    }
-
-    private var leadingBlanks: Int {
-        (month.firstWeekday - Calendar.current.firstWeekday + 7) % 7
     }
 
     private func color(level: Int) -> Color {
@@ -409,14 +404,6 @@ private struct ActivityGrid: View {
         case 3: Hearth.ember.opacity(0.75)
         default: Hearth.ember
         }
-    }
-}
-
-private extension Array {
-    func rotated(by n: Int) -> [Element] {
-        guard !isEmpty else { return self }
-        let k = ((n % count) + count) % count
-        return Array(self[k...] + self[..<k])
     }
 }
 

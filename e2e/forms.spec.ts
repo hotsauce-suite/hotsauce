@@ -35,6 +35,10 @@ test('build a public form, answer it signed out with a file, and read the answer
   await page.getByTestId('add-question').click()
   await page.getByTestId('question-card').nth(3).getByTestId('question-label').fill('Your protocol')
 
+  await page.getByTestId('add-question-type').selectOption('date')
+  await page.getByTestId('add-question').click()
+  await page.getByTestId('question-card').nth(4).getByTestId('question-label').fill('Start date')
+
   await page.getByTestId('form-tab-settings').click()
   await page.getByTestId('form-access-public').check()
   await page.getByTestId('form-save').click()
@@ -59,6 +63,14 @@ test('build a public form, answer it signed out with a file, and read the answer
     buffer: Buffer.from('Step 1: wear goggles'),
   })
   await expect(stranger.getByText('protocol.txt')).toBeVisible()
+  // The date question uses Hotsauce's picker: Monday first, Sunday last (PLAN-monday-weeks W4).
+  await stranger.getByLabel('Start date').click()
+  const picker = stranger.getByTestId('date-picker')
+  await expect(picker.getByRole('columnheader').first()).toHaveAttribute('abbr', 'Mon')
+  await expect(picker.getByRole('columnheader').last()).toHaveAttribute('abbr', 'Sun')
+  await picker.getByTestId('date-picker-today').click()
+  const started = await stranger.evaluate(() => new Date().toLocaleDateString('en-CA'))
+  await expect(stranger.getByLabel('Start date')).toHaveAttribute('data-value', started)
   const width = await stranger.evaluate(() => document.documentElement.scrollWidth)
   expect(width).toBeLessThanOrEqual(390)
   await stranger.getByTestId('form-submit').click()
@@ -73,6 +85,7 @@ test('build a public form, answer it signed out with a file, and read the answer
   await page.getByTestId('answer-row').click()
   const dialog = page.getByTestId('answer-dialog')
   await expect(dialog).toContainText('Plaque assay')
+  await expect(dialog).toContainText('Start date')
   await expect(dialog.getByTestId('answer-file')).toHaveText('protocol.txt')
   await page.keyboard.press('Escape')
 

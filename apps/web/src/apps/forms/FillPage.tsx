@@ -6,6 +6,7 @@ import { formsApi, type FillPage as Page } from '../../api/forms'
 import { useAuthState } from '../../auth/AuthContext'
 import { org, product } from '../../brand/product'
 import { BrandMark } from '../../components/BrandMark'
+import { DatePicker } from '../../components/DatePicker'
 import { Icon } from '../../components/Icon'
 import { DEV_TURNSTILE_TOKEN, TurnstileWidget } from '../../components/TurnstileWidget'
 import { primaryButton, secondaryButton } from '../meetings/components/common'
@@ -476,12 +477,21 @@ function QuestionField({
             </option>
           ))}
         </select>
+      ) : q.type === 'date' ? (
+        <DatePicker
+          id={id}
+          label={q.label}
+          placeholder="Pick a date"
+          value={text}
+          onChange={onChange}
+          className={`${field} h-11 w-full`}
+        />
       ) : (
         <input
           id={id}
-          type={q.type === 'email' ? 'email' : q.type === 'date' ? 'date' : 'text'}
+          type={q.type === 'email' ? 'email' : 'text'}
           autoComplete={q.type === 'email' ? 'email' : 'off'}
-          maxLength={q.type === 'date' ? undefined : 500}
+          maxLength={500}
           className={`${field} h-11`}
           value={text}
           onChange={(e) => onChange(e.target.value)}

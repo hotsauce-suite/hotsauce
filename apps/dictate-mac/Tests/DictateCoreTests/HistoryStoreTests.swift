@@ -128,8 +128,18 @@ import Testing
         #expect(month.days[7].words == 5)
         #expect(month.activeDays == 2)
         #expect(month.firstWeekday == 7) // 1 November 2025 was a Saturday
+        #expect(month.leadingBlanks == 5) // Mon…Fri empty: the grid starts on Monday
         #expect(month.level(for: month.days[9]) == 4)
         #expect(month.level(for: month.days[7]) == 1)
         #expect(month.level(for: month.days[0]) == 0)
+    }
+
+    @Test func activityGridStartsOnMonday() throws {
+        var us = Calendar(identifier: .gregorian)
+        us.locale = Locale(identifier: "en_US") // a region whose weeks start on Sunday
+        #expect(MonthActivity.weekdaySymbols(calendar: us) == ["M", "T", "W", "T", "F", "S", "S"])
+        // A month starting on Monday has no blanks; one starting on Sunday has six.
+        #expect(MonthActivity(days: [], firstWeekday: 2).leadingBlanks == 0)
+        #expect(MonthActivity(days: [], firstWeekday: 1).leadingBlanks == 6)
     }
 }

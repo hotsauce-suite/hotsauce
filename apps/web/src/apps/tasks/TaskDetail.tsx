@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import type { Priority, TaskPatch, TaskPerson, TaskView } from '../../api/tasks'
+import { DatePicker } from '../../components/DatePicker'
 import { AttachmentChips, FilePicker } from '../../components/FilePicker'
 import { Icon } from '../../components/Icon'
 import { meetingUrl } from '../../lib/paths'
@@ -246,12 +247,12 @@ export function TaskDetail(props: TaskDetailProps) {
 
         <Row label="Due">
           <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2">
-            <input
-              type="date"
-              aria-label="Due date"
-              data-testid="detail-date"
+            <DatePicker
+              label="Due date"
+              testId="detail-date"
               value={date}
-              onChange={(e) => setDue(e.target.value, time)}
+              today={props.today}
+              onChange={(next) => setDue(next, time)}
               className={control}
             />
             <input
