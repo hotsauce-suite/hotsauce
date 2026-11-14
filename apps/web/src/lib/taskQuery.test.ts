@@ -34,7 +34,13 @@ describe('task queries', () => {
   it('reads due ranges in the member’s own day', () => {
     expect(parse('due: today').filter.dueBefore).toBe('2026-11-12')
     expect(parse('due: overdue').filter.dueBefore).toBe('2026-11-11')
-    expect(parse('due: this week').filter.dueBefore).toBe('2026-11-18')
+    // W5: weeks run Monday to Sunday, so this week ends on Sunday Nov 15.
+    expect(parse('due: this week').filter.dueBefore).toBe('2026-11-15')
+    expect(parse('due: next 7 days').filter.dueBefore).toBe('2026-11-18')
+    expect(
+      parseTaskQuery('due: this week', 'America/New_York', new Date('2026-11-15T15:00:00Z')).filter
+        .dueBefore,
+    ).toBe('2026-11-15')
     expect(parse('due: before 2026-12-01').filter.dueBefore).toBe('2026-11-30')
     expect(parse('due: after 2026-12-01').filter.dueAfter).toBe('2026-12-02')
   })

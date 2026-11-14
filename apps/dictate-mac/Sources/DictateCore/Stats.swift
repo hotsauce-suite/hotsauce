@@ -70,6 +70,20 @@ public struct MonthActivity: Equatable, Sendable {
         return MonthActivity(days: days, firstWeekday: calendar.component(.weekday, from: interval.start))
     }
 
+    /// Weeks run Monday to Sunday in Hotsauce, whatever the Mac's region says
+    /// (docs/PLAN-monday-weeks.md). In `Calendar` numbering, Monday is 2.
+    public static let weekStartsOn = 2
+
+    /// Empty cells before the 1st, so the grid's first column is Monday.
+    public var leadingBlanks: Int { (firstWeekday - Self.weekStartsOn + 7) % 7 }
+
+    /// Very short weekday names for the grid's header, Monday first.
+    public static func weekdaySymbols(calendar: Calendar = .current) -> [String] {
+        let symbols = calendar.veryShortWeekdaySymbols // Sunday first
+        let start = weekStartsOn - 1
+        return Array(symbols[start...] + symbols[..<start])
+    }
+
     /// 0…4, for the grid's shading: none, then quartiles of the month's busiest day.
     public func level(for day: Day) -> Int {
         guard day.words > 0, let most = days.map(\.words).max(), most > 0 else { return 0 }

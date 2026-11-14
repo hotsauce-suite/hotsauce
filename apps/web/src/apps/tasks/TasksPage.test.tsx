@@ -384,9 +384,14 @@ describe('detail', () => {
     await userEvent.type(title, 'Renew the certificate{Enter}')
     await waitFor(() => expect(stored('Renew the certificate')).toBeTruthy())
 
-    fireEvent.change(within(detail).getByTestId('detail-date'), {
-      target: { value: addDays(today(), 2) },
-    })
+    // The due date uses Hotsauce's Monday-first picker (PLAN-monday-weeks W3).
+    await userEvent.click(within(detail).getByTestId('detail-date'))
+    const picker = screen.getByTestId('date-picker')
+    expect(within(picker).getAllByRole('columnheader')[0]).toHaveAttribute('abbr', 'Mon')
+    const due = addDays(today(), 2)
+    if (!picker.querySelector(`[data-date="${due}"]`))
+      await userEvent.click(within(picker).getByTestId('date-picker-next'))
+    await userEvent.click(picker.querySelector(`[data-date="${due}"]`) as HTMLElement)
     await waitFor(() => expect(stored('Renew the certificate').due).toBe(addDays(today(), 2)))
 
     await userEvent.type(within(detail).getByTestId('detail-label-input'), 'safety{Enter}')

@@ -94,7 +94,7 @@ export const CheckinSummaryFrontmatter = z.looseObject({
 export type CheckinSummaryFrontmatter = z.infer<typeof CheckinSummaryFrontmatter>
 
 /** "Mondays at 9:00", "Mon, Wed and Fri at 15:30". */
-export function scheduleLabel(days: readonly Weekday[], time: string): string {
+export function scheduleLabel(picked: readonly Weekday[], time: string): string {
   const names: Record<Weekday, string> = {
     sun: 'Sunday',
     mon: 'Monday',
@@ -105,6 +105,10 @@ export function scheduleLabel(days: readonly Weekday[], time: string): string {
     sat: 'Saturday',
   }
   const at = clockLabel(time)
+  // Monday first, Sunday last, whatever order the days were picked in.
+  const days = [...picked].sort(
+    (a, b) => ((WEEKDAYS.indexOf(a) + 6) % 7) - ((WEEKDAYS.indexOf(b) + 6) % 7),
+  )
   if (days.length === 7) return `Every day at ${at}`
   if (days.length === 5 && !days.includes('sat') && !days.includes('sun'))
     return `Every weekday at ${at}`

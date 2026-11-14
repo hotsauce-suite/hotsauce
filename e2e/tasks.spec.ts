@@ -1,4 +1,4 @@
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { uid } from './fixtures'
 import { expect, type Member, test } from './meetings-fixtures'
 
@@ -49,6 +49,17 @@ async function findTask(member: Member, title: string): Promise<TaskView | undef
 
 function nav(page: Page, name: string) {
   return page.getByRole('navigation', { name: 'Task lists' }).getByRole('link', { name })
+}
+
+/** Picks `date` (YYYY-MM-DD) in Hotsauce's date picker, moving to its month first. */
+async function pickDate(page: Page, button: Locator, date: string) {
+  await button.click()
+  const picker = page.getByTestId('date-picker')
+  const day = picker.locator(`[data-date="${date}"]`)
+  // The grid shows a few days of the next month; move on until the day is in the month shown.
+  for (let i = 0; i < 2 && !(await day.isVisible()); i++)
+    await picker.getByTestId('date-picker-next').click()
+  await day.click()
 }
 
 function row(page: Page, title: string) {
@@ -160,8 +171,7 @@ test('edits in the detail panel are saved and survive a reload', async ({ page, 
   await detail.getByTestId('detail-notes').fill(`Numbers from finance ${id}`)
   await detail.getByTestId('detail-title').click()
   await detail.getByTestId('detail-priority-2').click()
-  await detail.getByTestId('detail-date').fill(utcDate(3))
-  await detail.getByTestId('detail-date').blur()
+  await pickDate(page, detail.getByTestId('detail-date'), utcDate(3))
   await expect
     .poll(async () => findTask(member, title))
     .toMatchObject({ notes: `Numbers from finance ${id}`, priority: 2, due: utcDate(3) })
@@ -169,7 +179,7 @@ test('edits in the detail panel are saved and survive a reload', async ({ page, 
   await page.goto(`/tasks/item/${task.space}/${task.id}`)
   const reopened = page.getByTestId('task-detail')
   await expect(reopened.getByTestId('detail-notes')).toHaveValue(`Numbers from finance ${id}`)
-  await expect(reopened.getByTestId('detail-date')).toHaveValue(utcDate(3))
+  await expect(reopened.getByTestId('detail-date')).toHaveAttribute('data-value', utcDate(3))
 })
 
 test('team tasks are visible to teammates; personal ones are not', async ({

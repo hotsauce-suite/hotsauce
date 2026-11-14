@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { server } from '../../../test/mockServer'
 import { renderApp } from '../../../test/renderApp'
-import BookPage from './BookPage'
+import BookPage, { startOfLocalWeek } from './BookPage'
 
 // Booking links (ARCHITECTURE §19.4): the member's page in Meetings and the public page.
 
@@ -115,6 +115,26 @@ describe('the public booking page', () => {
     expect(await screen.findByTestId('book-notice')).toHaveTextContent('That time was just taken')
     await waitFor(() =>
       expect(screen.getAllByTestId('book-time').map((b) => b.dataset.start)).not.toContain(start),
+    )
+  })
+
+  it('W6: weeks run Monday to Sunday', async () => {
+    await withLink()
+    const week = await screen.findByTestId('book-week')
+    const start = new Date(`${week.dataset.start}T12:00:00`)
+    expect(start.getDay()).toBe(1)
+    const monday = startOfLocalWeek(Date.now())
+    // This week, or next week when nothing is left in this one.
+    expect(
+      [monday, monday + 7 * 86_400_000].map((ms) => new Date(ms).toLocaleDateString('en-CA')),
+    ).toContain(week.dataset.start)
+    if (week.dataset.start === new Date(monday).toLocaleDateString('en-CA'))
+      expect(screen.getByRole('button', { name: 'Earlier week' })).toBeDisabled()
+    expect(startOfLocalWeek(new Date(2026, 10, 15, 20).getTime())).toBe(
+      new Date(2026, 10, 9).getTime(),
+    )
+    expect(startOfLocalWeek(new Date(2026, 10, 9, 0, 30).getTime())).toBe(
+      new Date(2026, 10, 9).getTime(),
     )
   })
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { type Booked, bookingApi, type PublicBookingPage, type Slot } from '../../../api/booking'
 import { HearthApiError } from '../../../api/client'
@@ -17,6 +17,12 @@ function startOfLocalDay(ms: number): number {
   const d = new Date(ms)
   d.setHours(0, 0, 0, 0)
   return d.getTime()
+}
+
+/** Local midnight on the Monday that starts the week of `ms`: weeks run Monday to Sunday. */
+export function startOfLocalWeek(ms: number): number {
+  const d = new Date(ms)
+  return addDays(startOfLocalDay(ms), -((d.getDay() + 6) % 7))
 }
 
 /** Local midnight `n` days on, whatever the clock changes do in between. */
@@ -43,7 +49,7 @@ const timeLabel = (iso: string) =>
 export default function BookPage() {
   const { handle = '', slug = '' } = useParams()
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const [weekStart, setWeekStart] = useState(() => startOfLocalDay(Date.now()))
+  const [weekStart, setWeekStart] = useState(() => startOfLocalWeek(Date.now()))
   const [page, setPage] = useState<PublicBookingPage | null>(null)
   const [loadError, setLoadError] = useState<{ status: number; message: string } | null>(null)
   const [day, setDay] = useState<string | null>(null)
@@ -51,11 +57,22 @@ export default function BookPage() {
   const [booked, setBooked] = useState<Booked | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
+  // On a first visit late in the week (a Sunday evening, say) nothing may be left this week:
+  // then the page opens on next week instead, once.
+  const advanced = useRef(false)
+
   const load = useCallback(async () => {
     const from = new Date(Math.max(weekStart, Date.now())).toISOString()
     const to = new Date(addDays(weekStart, 7)).toISOString()
     try {
       const p = await bookingApi.page(handle, slug, from, to)
+      if (!advanced.current) {
+        advanced.current = true
+        if (p.slots.length === 0 && p.canTakeBookings) {
+          setWeekStart((w) => addDays(w, 7))
+          return
+        }
+      }
       setPage(p)
       setLoadError(null)
       setDay((current) =>
@@ -145,7 +162,7 @@ export default function BookPage() {
     )
   }
 
-  const today = startOfLocalDay(Date.now())
+  const thisWeek = startOfLocalWeek(Date.now())
   return (
     <Frame>
       <p className="text-sm text-ink-soft">{page.ownerName}</p>
@@ -184,13 +201,17 @@ export default function BookPage() {
             <button
               type="button"
               aria-label="Earlier week"
-              disabled={weekStart <= today}
+              disabled={weekStart <= thisWeek}
               className={`${secondaryButton} h-8 px-2`}
-              onClick={() => setWeekStart((w) => Math.max(today, addDays(w, -7)))}
+              onClick={() => setWeekStart((w) => Math.max(thisWeek, addDays(w, -7)))}
             >
               <Icon name="back" />
             </button>
-            <p className="flex-1 text-center text-sm font-medium text-ink">
+            <p
+              className="flex-1 text-center text-sm font-medium text-ink"
+              data-testid="book-week"
+              data-start={new Date(weekStart).toLocaleDateString('en-CA')}
+            >
               {new Date(weekStart).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}{' '}
               –{' '}
               {new Date(addDays(weekStart, 6)).toLocaleDateString(undefined, {

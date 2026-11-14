@@ -279,3 +279,4 @@ export {
   type TodayTileKind,
   updateTile,
 } from './today.js'
+export { daysSinceMonday, endOfWeek, monthGrid, startOfWeek, WEEK_DAY_NAMES } from './weeks.js'
