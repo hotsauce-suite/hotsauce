@@ -48,3 +48,9 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
 - **Unified logs hide URLs** (`<private>`), so a WebKit load timeline shows timings but not which
   page; launch with `log stream --predicate 'process == "Hotsauce" OR process BEGINSWITH "com.apple.WebKit"'`
   and read the `WebPageProxy::didCommit/didFinish` lines.
+- **A squash merge copies every commit message, and GitHub reads the skip-ci marker anywhere in
+  it.** A feature commit that only *described* the marker (feedback screenshots are committed with
+  it) carried it into the squash commit, so the push that raised `HOTSAUCE_VERSION` started no
+  workflow and the release silently didn't happen. Keep the marker out of commit messages and PR
+  titles (write "the skip-ci marker"); after a release merge, check the Release run started, and
+  if it didn't, run the Release workflow by hand on `main`.
