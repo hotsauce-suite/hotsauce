@@ -338,7 +338,14 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     }
 
     func reload() {
-        if router == nil || isOnOwnPage { loadHome() } else { webView.reload() }
+        if let failedURL, router != nil {
+            retryTimer?.invalidate()
+            webView.load(URLRequest(url: failedURL))
+        } else if router == nil || isOnOwnPage {
+            loadHome()
+        } else {
+            webView.reload()
+        }
     }
 
     func goBack() { webView.goBack() }

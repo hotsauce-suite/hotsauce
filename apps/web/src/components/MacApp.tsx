@@ -126,8 +126,8 @@ export function MacAppCard() {
             </li>
             <li>
               Allow what its setup window lists (microphone, Accessibility, Location and
-              Notifications); it opens at each start until all are on. Then press
-              Connect this Mac on the{' '}
+              Notifications); it opens at each start until all are on. Then press Connect this Mac
+              on the{' '}
               <Link to="/dictate/mac" className="text-ember-strong underline">
                 Dictate page
               </Link>

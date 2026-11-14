@@ -627,6 +627,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func disconnect() {
         guard let connection = ConnectionStore.connection() else { return }
+        // A Mac that learnt its workspace from this connection keeps it.
+        if settings.suiteServer == nil { settings.suiteServer = connection.server }
         ConnectionStore.delete()
         updateIcon()
         controller.showMessage("Disconnected")

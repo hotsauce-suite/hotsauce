@@ -325,6 +325,7 @@ private struct OnboardingView: View {
             if model.allSet && model.menuBarHidden { MenuBarHint() }
             }
 
+            if model.workspace() != nil {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Paste connection code").font(.system(size: 12, weight: .semibold))
                 HStack {
@@ -338,7 +339,7 @@ private struct OnboardingView: View {
                     Text(error).font(.system(size: 11)).foregroundStyle(.red)
                 }
             }
-            .opacity(model.workspace() == nil ? 0 : 1)
+            }
             Spacer(minLength: 0)
             HStack {
                 Button("Open Dictate in \(Brand.name)") { model.openDictatePage() }
@@ -349,7 +350,12 @@ private struct OnboardingView: View {
                 Text("Open it again from \(Brand.name) → Check Permissions… or the menu bar icon.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
-                Button("Done", action: done).keyboardShortcut(.defaultAction)
+                // Return is Continue while the Workspace step shows.
+                if model.editingWorkspace || model.workspace() == nil {
+                    Button("Done", action: done)
+                } else {
+                    Button("Done", action: done).keyboardShortcut(.defaultAction)
+                }
             }
         }
         .padding(24)

@@ -1,6 +1,8 @@
 # Plan: step-by-step first run in the Mac app
 
-Status (2026-11-14): slice 1 (R1-R3, R6, R13) in progress on feat/mac-onboarding-workspace. Code goes to hotsauce-suite/hotsauce.
+Status (2026-11-14): slice 1 (R1-R3, R6, R13) built and tested in PR #79 (not merged). Morgan accepted the plan's answers:
+setup link and typed address, Google sign-in also connects Dictate, Mic/Accessibility/Location/Notifications in setup,
+workspace and sign-in required, permissions skippable, already-set-up Macs skip the flow. Slices 2-4 not started.
 Asked for by the owner: "Start with sign in with Google, then do dictate connect then do all the
 permissions you need."
 

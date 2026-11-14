@@ -18,6 +18,7 @@ import Testing
         ("http://localhost:3000", "http://localhost:3000"),
         ("localhost:3000", "https://localhost:3000"),
         ("http://127.0.0.1:3000/", "http://127.0.0.1:3000"),
+        ("https://nas:8443", "https://nas:8443"),
     ])
     func acceptsAHostOrAURL(input: String, origin: String) {
         #expect(Workspace.origin(fromInput: input) == url(origin))
