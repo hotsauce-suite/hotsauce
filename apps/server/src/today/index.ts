@@ -1,4 +1,5 @@
 export { TodayLayouts, type TodayLayoutView } from './layout.js'
+export { Places, type PlaceView } from './places.js'
 export {
   prepLine,
   TODAY_DOCS,

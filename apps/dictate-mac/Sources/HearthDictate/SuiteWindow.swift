@@ -36,6 +36,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     private var hasLoaded = false
     /// The meeting recording of "Any app on this Mac", while the Meetings page has one going.
     private var meetingCapture: AnyObject?
+    /// Today's weather asks the app for its position (the web view can't ask macOS itself).
+    private let location = LocationService()
 
     init(server: URL) {
         router = SuiteRouter(server: server)
@@ -74,6 +76,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             ))
             configuration.userContentController.addScriptMessageHandler(MeetingAudioHandler(self), contentWorld: .page, name: MeetingAudio.handlerName)
         }
+        configuration.userContentController.addScriptMessageHandler(LocationHandler(self), contentWorld: .page, name: LocationBridge.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -222,6 +225,14 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             meetingCapture = capture
             return MeetingAudio.started(session: session)
         }
+    }
+
+    /// Answers Today's `hearthLocation.postMessage('position')`, only for the suite's own page.
+    fileprivate func position(for message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
+        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo), LocationBridge.isRequest(message.body) else {
+            return reply(nil)
+        }
+        location.request(reply: reply)
     }
 
     /// The frame's own origin is the suite's, and so is the page the web view shows.
@@ -681,6 +692,19 @@ private final class TicketHandler: NSObject, WKScriptMessageHandlerWithReply {
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
         MainActor.assumeIsolated {
             replyHandler(suite?.takeTicket(from: message), nil)
+        }
+    }
+}
+
+/// Answers Today's `hearthLocation.postMessage('position')` (`LocationService`).
+private final class LocationHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            guard let suite else { return replyHandler(nil, nil) }
+            suite.position(for: message) { answer in replyHandler(answer, nil) }
         }
     }
 }

@@ -59,6 +59,17 @@ export interface TodayWeather {
   low: number
   updated: string
   credit: string
+  /** The team default's name, when the weather is for that. */
+  place?: string
+}
+
+/** A place found by name (`GET /api/today/places`), position rounded to about 1 km. */
+export interface WeatherPlace {
+  name: string
+  /** Region and country, e.g. "Vermont, United States". */
+  detail: string
+  lat: number
+  lon: number
 }
 
 export const todayApi = {
@@ -66,8 +77,17 @@ export const todayApi = {
   layout: () => request<TodayLayoutView>('/api/today/layout'),
   saveLayout: (layout: TodayLayout) =>
     request<TodayLayoutView>('/api/today/layout', { method: 'PUT', json: { layout } }),
-  weather: (place: { lat: number; lon: number }) =>
-    request<TodayWeather>('/api/today/weather', {
-      query: { lat: String(place.lat), lon: String(place.lon) },
+  /** With no place: the team's default, or null when the team has none. */
+  weather: (place?: { lat: number; lon: number }) =>
+    request<TodayWeather | null>(
+      '/api/today/weather',
+      place ? { query: { lat: String(place.lat), lon: String(place.lon) } } : {},
+    ),
+  places: (q: string) => request<{ places: WeatherPlace[] }>('/api/today/places', { query: { q } }),
+  defaultPlace: () => request<{ place: WeatherPlace | null }>('/api/today/default-place'),
+  setDefaultPlace: (place: WeatherPlace | null) =>
+    request<{ place: WeatherPlace | null }>('/api/today/default-place', {
+      method: 'PUT',
+      json: { place },
     }),
 }

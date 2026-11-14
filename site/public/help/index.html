@@ -73,7 +73,7 @@ what’s in settings
 accountyour initials, name and email, and sign out. sign out lives only here.
 install appan install button for this phone or computer. shows installed when you’re using the installed app. see install it.
 notificationsthe notifications on this device switch covers everything hotsauce sends: a reminder a minute before meetings, timed tasks when they’re due, check-in questions, and your daily briefing. once it’s on, send test notification sends a real one to every device you’ve switched on, so you can check it arrives.
-appearancelight, dark, or match your device. it’s saved per device.
+appearancelight, dark, or match your device. it’s saved per device.weatherwhere today’s weather is for on this device: use my location, use a city, or hide weather. if your admin set a team city, use the team’s city goes back to it.
 mac app and chrome extensionthe mac app download, and a link to set up the chrome extension.
 connect claudemake a personal token so claude and other ai tools can work with your hotsauce. see connect claude and other agents.
 calendarswhich of your google calendars meetings reads. your main calendar is always on; tick any others.
@@ -133,12 +133,17 @@ past conversations are under the clock button at the top of t"><a href="/help/as
 <li data-k="today is the first thing you see when you open hotsauce. it pulls your day together from the other apps, so you can act without hunting around. 
 try it in the live demo →sample data, nothing is saved.
 what’s on it
-a live clock, your next meeting with a join button, and what’s due.today’s meetings with the call link, attendees and one click to take notes.tasks due today or overdue. tick them off right there.to-dos from your meeting notes that aren’t tasks yet. one click turns one into a task.check-in questions waiting for your answer, and docs that changed since yesterday.weather for where you are, if you turn it on.
+a live clock, your next meeting with a join button, and what’s due.today’s meetings with the call link, attendees and one click to take notes.tasks due today or overdue. tick them off right there.to-dos from your meeting notes that aren’t tasks yet. one click turns one into a task.check-in questions waiting for your answer, and docs that changed since yesterday.weather for where you are, a city you pick, or your team’s city.
 
 make it yours
 press edit today.add tiles: starred docs, dictate and clip shortcuts, people, recent files, a whiteboard, or this week (monday to sunday, with your meetings and due tasks).drag tiles to move them, or remove the ones you don’t use. press done.
 your layout follows you to every device.
-what it needsconnect google calendar in settings to see your meetings. the agent brief tile needs an anthropic key. weather comes from met norway and needs no key.
+
+weather
+press show weather at the top of today and allow your location. in the mac app, macos asks once; click allow.rather not share your location? press use a city and pick one. you can change it any time in settings → weather.click the temperature to switch place or hide the weather.
+location blocked? press allow location. in a browser, allow location for the site from the address bar first. in the mac app, it opens system settings at location services, where you turn on hotsauce. your place is kept on that device only, rounded to about a kilometre.
+admins can set a team city in settings → organization → weather. everyone who hasn’t picked a place of their own sees the weather there.
+what it needsconnect google calendar in settings to see your meetings. the agent brief tile needs an anthropic key. weather comes from met norway and city search from open-meteo; neither needs a key.
 "><a href="/help/today"><b>Today</b><span>Your day on one page: meetings, tasks, to-dos and changes.</span></a></li>
 <li data-k="docs is where your team writes things down: plans, specs, handbooks, notes. every doc is a markdown file, and every save is kept in its history. 
 try it in the live demo →sample data, nothing is saved.

@@ -9,6 +9,7 @@ import {
   primaryButton,
   secondaryButton,
 } from '../apps/meetings/components/common'
+import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { feedbackLink, initials, useFeedbackEnabled, useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
@@ -125,6 +126,7 @@ export default function SettingsRoute() {
           <div className="mt-12">
             <AppearancePicker />
           </div>
+          <WeatherSettingsSection />
           <KeyboardSettings />
           <MacAppSection />
           <ExtensionCard />

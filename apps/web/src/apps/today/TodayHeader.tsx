@@ -1,13 +1,17 @@
 // The Today header (ARCHITECTURE §16.5, plan H1–H5): a live clock and the date in the top bar,
-// and under it a greeting with what's next. Weather is opt-in and stays on this device.
+// and under it a greeting with what's next. Weather is for this device's place or the team's.
 
 import { useEffect, useState } from 'react'
 import { HearthApiError } from '../../api/client'
-import { type TodayView, type TodayWeather, todayApi } from '../../api/today'
+import { type TodayView, type TodayWeather, todayApi, type WeatherPlace } from '../../api/today'
+import { Dialog } from '../../components/Dialog'
+import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
+import { PlaceSearch } from '../../components/PlaceSearch'
 import { timeLabel } from '../meetings/format'
+import { askLocation, inMacApp, useDeviceWeather, writeDeviceWeather } from './weatherPlace'
 
-/** This device remembers where to show weather for: rounded to about 1 km. */
-export const WEATHER_PLACE_KEY = 'hotsauce.today.weatherPlace'
+export { WEATHER_PLACE_KEY } from './weatherPlace'
+
 const WEATHER_EVERY_MS = 20 * 60_000
 
 /** Ticks once a minute, on the minute, so the clock never shows a stale time. */
@@ -122,49 +126,43 @@ export function describeWeather(symbol: string): { emoji: string; words: string 
   return { emoji: '🌡️', words: '' }
 }
 
-function readPlace(): { lat: number; lon: number } | null {
-  try {
-    const raw = localStorage.getItem(WEATHER_PLACE_KEY)
-    if (!raw) return null
-    const p = JSON.parse(raw) as { lat?: unknown; lon?: unknown }
-    return typeof p.lat === 'number' && typeof p.lon === 'number'
-      ? { lat: p.lat, lon: p.lon }
-      : null
-  } catch {
-    return null
-  }
-}
-
-function writePlace(place: { lat: number; lon: number } | null) {
-  try {
-    if (place) localStorage.setItem(WEATHER_PLACE_KEY, JSON.stringify(place))
-    else localStorage.removeItem(WEATHER_PLACE_KEY)
-  } catch {
-    // Shown for this visit only.
-  }
-}
-
 type WeatherState =
   | { kind: 'off' }
   | { kind: 'asking' }
   | { kind: 'denied' }
+  | { kind: 'oldMacApp' }
   | { kind: 'error'; message: string }
-  | { kind: 'shown'; weather: TodayWeather }
+  | { kind: 'shown'; weather: TodayWeather; where: string }
 
-/** H5: off until the member asks; then the browser's position, rounded, kept on this device. */
+/**
+ * H5, W1–W8: the device's own place (a shared position or a typed city), else the team's
+ * default, else off until the member asks. Refreshed every 20 minutes.
+ */
 function useWeather() {
-  const [place, setPlace] = useState(readPlace)
+  const device = useDeviceWeather()
   const [state, setState] = useState<WeatherState>(() =>
-    readPlace() ? { kind: 'asking' } : { kind: 'off' },
+    device.kind === 'off' ? { kind: 'off' } : { kind: 'asking' },
   )
+  const [picking, setPicking] = useState(false)
 
   useEffect(() => {
-    if (!place) return
+    if (device.kind === 'off') {
+      setState({ kind: 'off' })
+      return
+    }
     let cancelled = false
+    const place = device.kind === 'place' ? device.place : undefined
     const load = () =>
       todayApi.weather(place).then(
         (weather) => {
-          if (!cancelled) setState({ kind: 'shown', weather })
+          if (cancelled) return
+          if (!weather) {
+            // No place of its own and no team default: off until asked.
+            setState((s) => (s.kind === 'denied' || s.kind === 'oldMacApp' ? s : { kind: 'off' }))
+            return
+          }
+          const where = place ? (place.name ?? 'your location') : (weather.place ?? 'your team')
+          setState({ kind: 'shown', weather, where })
         },
         (err) => {
           if (!cancelled)
@@ -185,33 +183,21 @@ function useWeather() {
       cancelled = true
       clearInterval(every)
     }
-  }, [place])
+  }, [device])
 
-  const turnOn = () => {
-    if (!('geolocation' in navigator)) {
-      setState({ kind: 'error', message: 'This browser can’t share its location' })
-      return
-    }
+  const shareLocation = async () => {
     setState({ kind: 'asking' })
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const p = {
-          lat: Math.round(pos.coords.latitude * 100) / 100,
-          lon: Math.round(pos.coords.longitude * 100) / 100,
-        }
-        writePlace(p)
-        setPlace(p)
-      },
-      () => setState({ kind: 'denied' }),
-      { maximumAge: 6 * 3_600_000, timeout: 15_000 },
-    )
+    const result = await askLocation()
+    if (result.kind === 'place') writeDeviceWeather({ kind: 'place', place: result.place })
+    else if (result.kind === 'unavailable') setState({ kind: 'error', message: result.message })
+    else setState({ kind: result.kind })
   }
-  const turnOff = () => {
-    writePlace(null)
-    setPlace(null)
-    setState({ kind: 'off' })
+  const pickCity = (place: WeatherPlace) => {
+    setPicking(false)
+    writeDeviceWeather({ kind: 'place', place })
   }
-  return { state, turnOn, turnOff }
+  const hide = () => writeDeviceWeather({ kind: 'off' })
+  return { state, shareLocation, pickCity, hide, picking, setPicking }
 }
 
 /** The right side of the top bar: weather, the time, the day. */
@@ -239,60 +225,143 @@ export function TodayClock() {
 
 function WeatherChip({
   state,
-  turnOn,
-  turnOff,
-}: {
-  state: WeatherState
-  turnOn: () => void
-  turnOff: () => void
-}) {
+  shareLocation,
+  pickCity,
+  hide,
+  picking,
+  setPicking,
+}: ReturnType<typeof useWeather>) {
+  const [menu, setMenu] = useState<MenuAnchor | null>(null)
   const quiet = 'whitespace-nowrap text-xs text-ink-faint'
+  const small =
+    'whitespace-nowrap rounded-md px-2 py-1 text-xs text-ink-soft hover:bg-paper-sunk hover:text-ink'
+  const cityDialog = picking ? (
+    <Dialog
+      title="Weather for a city"
+      onClose={() => setPicking(false)}
+      testId="weather-city-dialog"
+    >
+      <PlaceSearch onPick={pickCity} autoFocus testId="weather-city" />
+      <p className="mt-3 text-xs text-ink-faint">
+        Kept on this device only. Change it any time in Settings → Weather.
+      </p>
+    </Dialog>
+  ) : null
+  const blocked = (text: string, allow: boolean) => (
+    <span className="flex items-center gap-1" data-testid="today-weather-denied">
+      <span className={`${quiet} hidden md:inline`}>{text}</span>
+      {allow ? (
+        <button
+          type="button"
+          onClick={() => void shareLocation()}
+          data-testid="today-weather-allow"
+          title={
+            inMacApp()
+              ? 'Opens System Settings if location is off for this app'
+              : 'If nothing happens, allow location for this site from the address bar, then try again'
+          }
+          className="whitespace-nowrap rounded-md border border-ember/50 px-2 py-0.5 text-xs font-medium text-ember-strong hover:bg-ember-wash"
+        >
+          Allow location
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => setPicking(true)}
+        data-testid="today-weather-city"
+        className={small}
+      >
+        Use a city
+      </button>
+      {cityDialog}
+    </span>
+  )
   switch (state.kind) {
     case 'off':
       return (
-        <button
-          type="button"
-          onClick={turnOn}
-          data-testid="today-weather-on"
-          className="whitespace-nowrap rounded-md px-2 py-1 text-xs text-ink-soft hover:bg-paper-sunk hover:text-ink"
-        >
-          <span className="sm:hidden">Weather</span>
-          <span className="hidden sm:inline">Show weather</span>
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => void shareLocation()}
+            data-testid="today-weather-on"
+            className={small}
+          >
+            <span className="sm:hidden">Weather</span>
+            <span className="hidden sm:inline">Show weather</span>
+          </button>
+          {cityDialog}
+        </>
       )
     case 'asking':
       return <span className={quiet}>Weather…</span>
     case 'denied':
-      return (
-        <button type="button" onClick={turnOn} className={quiet} data-testid="today-weather-denied">
-          Location is blocked for weather
-        </button>
-      )
+      return blocked(inMacApp() ? 'Location is off for this app.' : 'Location is blocked.', true)
+    case 'oldMacApp':
+      return blocked('Update the Mac app to use your location.', false)
     case 'error':
-      return (
-        <button type="button" onClick={turnOff} className={quiet} title="Hide weather">
-          {state.message}
-        </button>
-      )
+      return blocked(state.message, true)
     case 'shown': {
       const f = usesFahrenheit()
       const { emoji, words } = describeWeather(state.weather.symbol)
       const t = (c: number) => formatTemperature(c, f)
       return (
-        <button
-          type="button"
-          onClick={turnOff}
-          data-testid="today-weather"
-          title={`${words}. High ${t(state.weather.high)}, low ${t(state.weather.low)}. Weather from ${state.weather.credit}. Click to hide.`}
-          className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 hover:bg-paper-sunk"
-        >
-          <span aria-hidden="true">{emoji}</span>
-          <span className="font-medium text-ink tabular-nums">{t(state.weather.temperature)}</span>
-          <span className="hidden text-xs text-ink-faint lg:inline">
-            {words ? `${words} · ` : ''}
-            {t(state.weather.high)} / {t(state.weather.low)}
-          </span>
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={(e) => setMenu(below(e.currentTarget))}
+            data-testid="today-weather"
+            aria-haspopup="menu"
+            title={`Weather for ${state.where}: ${words ? `${words}. ` : ''}High ${t(state.weather.high)}, low ${t(state.weather.low)}. From ${state.weather.credit}.`}
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 hover:bg-paper-sunk"
+          >
+            <span aria-hidden="true">{emoji}</span>
+            <span className="font-medium text-ink tabular-nums">
+              {t(state.weather.temperature)}
+            </span>
+            <span className="hidden text-xs text-ink-faint lg:inline">
+              {words ? `${words} · ` : ''}
+              {t(state.weather.high)} / {t(state.weather.low)}
+            </span>
+          </button>
+          {menu ? (
+            <Menu anchor={menu} label="Weather" onClose={() => setMenu(null)}>
+              <p
+                className="px-2.5 pt-1 pb-1.5 text-xs text-ink-faint"
+                data-testid="today-weather-where"
+              >
+                Weather for {state.where}
+              </p>
+              <MenuItem
+                testId="today-weather-use-location"
+                onSelect={() => {
+                  setMenu(null)
+                  void shareLocation()
+                }}
+              >
+                Use my location
+              </MenuItem>
+              <MenuItem
+                testId="today-weather-use-city"
+                onSelect={() => {
+                  setMenu(null)
+                  setPicking(true)
+                }}
+              >
+                Use a city…
+              </MenuItem>
+              <MenuItem
+                testId="today-weather-hide"
+                onSelect={() => {
+                  setMenu(null)
+                  hide()
+                }}
+              >
+                Hide weather
+              </MenuItem>
+            </Menu>
+          ) : null}
+          {cityDialog}
+        </>
       )
     }
   }
