@@ -15,7 +15,7 @@ import { feedbackLink, initials, useFeedbackEnabled, useSignOut } from '../compo
 import type { ShellContext } from '../components/AppShell'
 import { Icon } from '../components/Icon'
 import { InstallButton, InstallSheet } from '../components/InstallBar'
-import { MacAppSection } from '../components/MacApp'
+import { MacAppCard } from '../components/MacApp'
 import { NotificationsSection } from '../components/NotificationsSection'
 import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
@@ -128,8 +128,6 @@ export default function SettingsRoute() {
           </div>
           <WeatherSettingsSection />
           <KeyboardSettings />
-          <MacAppSection />
-          <ExtensionCard />
 
           <h2 className="mt-12 font-display text-[1.6rem] font-semibold tracking-tight">
             Connect Claude to {product()}
@@ -263,23 +261,39 @@ function AccountSection() {
   )
 }
 
-/** Install the app: the browser's dialog, or how to add it to the Home Screen. */
+/** Every way to install it: the Mac app, the web app in the browser, and the Chrome extension. */
 function InstallSection() {
+  return (
+    <section aria-labelledby="install-title" data-testid="settings-install" className="mt-12">
+      <h2 id="install-title" className={sectionTitle}>
+        Install
+      </h2>
+      <div className="mt-4 space-y-4">
+        <MacAppCard />
+        <WebAppCard />
+        <ExtensionCard />
+      </div>
+    </section>
+  )
+}
+
+/** The installable web app: the browser's dialog, or how to add it to the Home Screen. */
+function WebAppCard() {
   const install = useInstallPrompt()
   const [howTo, setHowTo] = useState(false)
   // The live demo ships no service worker, and nobody should install a demo (vite.config.ts).
   if (import.meta.env.MODE === 'demo') return null
   return (
-    <section aria-labelledby="install-title" data-testid="settings-install" className="mt-12">
-      <h2 id="install-title" className={sectionTitle}>
-        Install app
-      </h2>
-      <div className={card}>
-        <Icon name={install.isMobile ? 'phone' : 'laptop'} className="size-5 shrink-0 text-ember" />
-        <span className="min-w-0 flex-1 text-sm text-ink-soft">
-          {install.isInstalled
-            ? `You’re using the installed ${product()} app.`
-            : `Put ${product()} on your ${install.isMobile ? 'Home Screen' : 'dock or taskbar'} so it opens in its own window, like any other app.`}
+    <div data-testid="web-app">
+      <div className="flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4">
+        <Icon name={install.isMobile ? 'phone' : 'apps'} className="size-5 shrink-0 text-ember" />
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium text-ink">Web app</span>
+          <span className="block text-sm text-ink-soft">
+            {install.isInstalled
+              ? `You’re using the installed ${product()} app.`
+              : `Put ${product()} on your ${install.isMobile ? 'Home Screen' : 'dock or taskbar'} from Chrome, so it opens in its own window like any other app.`}
+          </span>
         </span>
         {install.isInstalled ? (
           <span
@@ -305,17 +319,17 @@ function InstallSection() {
           onClose={() => setHowTo(false)}
         />
       ) : null}
-    </section>
+    </div>
   )
 }
 
-/** The Chrome extension, beside the Mac app: its own page says how to install it. */
+/** The Chrome extension: its own page says how to install it. */
 function ExtensionCard() {
   return (
     <Link
       to="/meetings/extension"
       data-testid="settings-extension"
-      className="mt-4 flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4 hover:border-ember"
+      className="flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4 hover:border-ember"
     >
       <span className="min-w-0 flex-1">
         <span className="block font-medium text-ink">Chrome extension</span>

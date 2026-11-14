@@ -77,6 +77,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             configuration.userContentController.addScriptMessageHandler(MeetingAudioHandler(self), contentWorld: .page, name: MeetingAudio.handlerName)
         }
         configuration.userContentController.addScriptMessageHandler(LocationHandler(self), contentWorld: .page, name: LocationBridge.handlerName)
+        // Settings → Notifications: macOS's state and a button to its settings (no Notification API here).
+        configuration.userContentController.addScriptMessageHandler(NotificationsHandler(self), contentWorld: .page, name: NotificationsBridge.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -233,6 +235,26 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             return reply(nil)
         }
         location.request(reply: reply)
+    }
+
+    /// Answers Settings' `hearthNotifications.postMessage('state' | 'open')`, only for the suite's own
+    /// page: the state macOS reports, after asking (the first time) or opening System Settings.
+    fileprivate func notifications(for message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
+        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo),
+              let request = NotificationsBridge.request(message.body)
+        else { return reply(nil) }
+        Permissions.notificationsState { state in
+            guard request == .open else { return reply(state.rawValue) }
+            switch NotificationsBridge.step(for: state) {
+            case .ask:
+                Permissions.requestNotifications { _ in
+                    Permissions.notificationsState { reply($0.rawValue) }
+                }
+            case .openSettings:
+                Permissions.openNotificationSettings()
+                reply(state.rawValue)
+            }
+        }
     }
 
     /// The frame's own origin is the suite's, and so is the page the web view shows.
@@ -705,6 +727,20 @@ private final class LocationHandler: NSObject, WKScriptMessageHandlerWithReply {
         MainActor.assumeIsolated {
             guard let suite else { return replyHandler(nil, nil) }
             suite.position(for: message) { answer in replyHandler(answer, nil) }
+        }
+    }
+}
+
+private final class NotificationsHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            guard let suite else { return replyHandler(nil, nil) }
+            suite.notifications(for: message) { answer in
+                MainActor.assumeIsolated { replyHandler(answer, nil) }
+            }
         }
     }
 }

@@ -70,7 +70,7 @@ templates for customer calls, interviews and stand-ups. Also in Meetings:
 - **Google Calendar** reminders before each call (switch on **Settings → Notifications** on each
   device; task reminders come with it), and **Import from Granola** to bring your history.
 - **Voice notes from your phone:** on your first visit from a phone, Hotsauce offers to install
-  itself on your home screen (or use **Settings → Install app**). Record up to two hours.
+  itself on your home screen (or use **Settings → Install**). Record up to two hours.
 
 ### Tasks
 

@@ -9,3 +9,14 @@
 - **Live regions must exist before their text changes.** A `role="status"` element inserted already filled is often not announced; render it empty and change its text.
 - **The demo has no service worker**, so install prompts and the Settings install card are hidden when `import.meta.env.MODE === 'demo'`.
 - **Several threads share `/Users/morgz/code/hotsauce`.** Work in your own `git worktree` from the start; otherwise another thread can switch the branch under you.
+
+## Install section and Mac notifications (2026-11-14)
+
+- **WKWebView has no `Notification` API at all**, so the browser path always lands on
+  "unsupported" inside the Mac app. Detect the app by its bridge
+  (`webkit.messageHandlers.hearthNotifications`), not by the user agent, and let the app answer
+  with macOS's own state; an older app without the bridge keeps the old note.
+- **Re-read the state on `focus`.** The member changes it in System Settings, outside the page,
+  so the card would otherwise stay stale until a reload.
+- **Moving a section into another keeps its anchor working** as long as the `id` moves with the
+  card: `#mac-app` is on the Mac app card inside Install, and the e2e checks it lands in view.
