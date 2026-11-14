@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildCleanupPrompt, CLEANUP_SYSTEM, extractCleaned, styleForApp } from './prompt.js'
+import {
+  buildCleanupPrompt,
+  CLEANUP_SYSTEM,
+  extractCleaned,
+  styleForApp,
+  teamChatNames,
+} from './prompt.js'
 
 describe('styleForApp', () => {
   it.each([
@@ -33,6 +39,45 @@ describe('styleForApp', () => {
   it('does not match a name inside a word', () => {
     expect(styleForApp({ name: 'Mailchimp Studio' })).toBe('neutral')
     expect(styleForApp({ name: 'Barcode Maker' })).toBe('neutral')
+  })
+})
+
+describe("the organization's own chat", () => {
+  const chatNames = teamChatNames({ orgName: 'Acme', chatUrl: 'https://chat.acme.example' })
+
+  it('is a chat app under the name the app rail gives it', () => {
+    expect(styleForApp({ name: 'Acme Chat' }, { chatNames })).toBe('chat')
+    expect(styleForApp({ name: 'acme-chat' }, { chatNames })).toBe('chat')
+    expect(styleForApp({ name: 'Acme Chat — General' }, { chatNames })).toBe('chat')
+  })
+
+  it("is not matched without the organization's names", () => {
+    expect(styleForApp({ name: 'Acme Chat' })).toBe('neutral')
+  })
+
+  it('still loses to a known bundle id', () => {
+    expect(styleForApp({ bundle: 'com.apple.mail', name: 'Acme Chat' }, { chatNames })).toBe(
+      'email',
+    )
+  })
+
+  it('has no names without a chat address or an organization name', () => {
+    expect(teamChatNames({ orgName: 'Acme' })).toEqual([])
+    expect(teamChatNames({ orgName: '', chatUrl: 'https://chat.acme.example' })).toEqual([])
+    expect(teamChatNames({ orgName: '  ', chatUrl: 'https://chat.acme.example' })).toEqual([])
+  })
+
+  it('matches an organization name with symbols literally', () => {
+    const names = teamChatNames({ orgName: 'Smith & Co (EU)', chatUrl: 'https://x.example' })
+    expect(styleForApp({ name: 'Smith & Co (EU) Chat' }, { chatNames: names })).toBe('chat')
+    expect(styleForApp({ name: 'Smith  Co EU Chat' }, { chatNames: names })).toBe('neutral')
+  })
+
+  it('lowercases a multi-word organization name', () => {
+    expect(teamChatNames({ orgName: 'Blue Fern', chatUrl: 'https://x.example' })).toEqual([
+      'blue fern chat',
+      'blue-fern-chat',
+    ])
   })
 })
 

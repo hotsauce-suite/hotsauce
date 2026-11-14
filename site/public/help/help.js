@@ -18,13 +18,8 @@ const GROUPS = [
 
 const PAGES = [
   { slug: 'getting-started', title: 'Getting started', group: 'start' },
-  {
-    slug: 'install-app',
-    title: 'Install it on your phone and computer',
-    group: 'start',
-    soon: true,
-  },
-  { slug: 'settings', title: 'Settings and notifications', group: 'start', soon: true },
+  { slug: 'install-app', title: 'Install it on your phone and computer', group: 'start' },
+  { slug: 'settings', title: 'Settings and notifications', group: 'start' },
   { slug: 'shortcuts', title: 'Keyboard shortcuts and Command-K', group: 'start' },
   { slug: 'assistant', title: 'Ask: the AI assistant', group: 'start' },
   { slug: 'today', title: 'Today', group: 'apps' },

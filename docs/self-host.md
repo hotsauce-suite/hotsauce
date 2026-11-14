@@ -99,6 +99,8 @@ The link works only while the instance is new. It walks you through:
 
 Admins change any of it later in **Settings → Organization**. Keys are stored encrypted on the volume and are never shown again.
 
+Each member's own **Settings** holds their account and Sign out, Install app, and **Notifications**: one switch per device for everything it pushes (meeting and task reminders, check-in questions and the daily briefing), with a **Send test notification** button to check it works. Push needs no setup: the server makes its own push keys on first start (or uses `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` if you set them). On iPhone and iPad, notifications work only after the app is added to the Home Screen.
+
 ## Configuring by environment instead
 
 Every setting can also come from the environment, which always wins over the wizard. That suits infrastructure-as-code. The variables are in `apps/server/src/config.ts`; the ones the wizard covers are `ORG_NAME`, `PRODUCT_NAME`, `ALLOWED_EMAIL_DOMAINS`, `ADMIN_EMAILS`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `ANTHROPIC_API_KEY`, `DEEPGRAM_API_KEY`, `HOST_KIND`, `GITHUB_ORG`, `GITHUB_TOKEN`, `WEBHOOK_SECRET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `KEEP_AUDIO` and `CHAT_URL`. With `CLERK_SECRET_KEY` set, the wizard never appears.

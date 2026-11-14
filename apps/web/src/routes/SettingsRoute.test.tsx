@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -194,5 +194,89 @@ describe('Settings: Mac app', () => {
     expect(screen.queryByTestId('mac-app-download')).toBeNull()
     expect(screen.queryByTestId('mac-app-download-zip')).toBeNull()
     expect(screen.queryByTestId('mac-app-install-steps')).toBeNull()
+  })
+})
+
+// docs/PLAN-install-and-settings.md, S1–S5.
+describe('Settings: layout, account, install, help and about', () => {
+  it('shows its sections in order', async () => {
+    renderApp('/settings')
+    await screen.findByTestId('settings-about')
+    const order = [
+      'settings-account',
+      'settings-install',
+      'settings-notifications',
+      'theme-picker',
+      'mac-app',
+      'settings-extension',
+      'token-name',
+      'settings-help',
+      'settings-about',
+    ].map((id) => screen.getByTestId(id))
+    for (let i = 1; i < order.length; i++) {
+      const before = order[i - 1] as HTMLElement
+      expect(
+        before.compareDocumentPosition(order[i] as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `${before.dataset.testid} before ${order[i]?.dataset.testid}`,
+      ).toBeTruthy()
+    }
+  })
+
+  it('shows who is signed in, and signs out from the Account card', async () => {
+    const signOut = vi.fn()
+    renderApp('/settings', { signOut })
+    const account = await screen.findByTestId('settings-account')
+    await waitFor(() =>
+      expect(within(account).getByTestId('settings-email')).toHaveTextContent(TEST_USER),
+    )
+    await userEvent.click(within(account).getByTestId('settings-sign-out'))
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1))
+  })
+
+  it('offers Install in a browser, and says Installed in the installed app', async () => {
+    const { unmount } = render()
+    const install = await screen.findByTestId('settings-install')
+    expect(within(install).getByTestId('settings-install-button')).toHaveTextContent('Install')
+    await userEvent.click(within(install).getByTestId('settings-install-button'))
+    expect(screen.getByTestId('install-sheet')).toBeInTheDocument()
+    unmount()
+
+    const real = window.matchMedia.bind(window)
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+      ...real(query),
+      matches: query === '(display-mode: standalone)',
+    }))
+    render()
+    expect(await screen.findByTestId('settings-installed')).toHaveTextContent('Installed')
+    expect(screen.queryByTestId('settings-install-button')).toBeNull()
+    vi.restoreAllMocks()
+
+    function render() {
+      renderApp('/settings')
+      return { unmount: cleanup }
+    }
+  })
+
+  it('links the Chrome extension, help docs and feedback, and shows the version', async () => {
+    server.use(http.get('/api/feedback/status', () => HttpResponse.json({ enabled: true })))
+    renderApp('/settings')
+    expect(await screen.findByTestId('settings-extension')).toHaveAttribute(
+      'href',
+      '/meetings/extension',
+    )
+    expect(screen.getByTestId('settings-help-docs')).toHaveAttribute(
+      'href',
+      'https://hotsauce.work/help',
+    )
+    expect(screen.getByTestId('settings-help-faq')).toHaveAttribute(
+      'href',
+      'https://hotsauce.work/faq',
+    )
+    expect(await screen.findByTestId('settings-feedback')).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/feedback/),
+    )
+    expect(screen.getByTestId('settings-version')).toHaveTextContent('version 0.8.0')
+    expect(screen.getByTestId('settings-reload')).toBeEnabled()
   })
 })

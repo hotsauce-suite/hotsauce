@@ -67,8 +67,10 @@ templates for customer calls, interviews and stand-ups. Also in Meetings:
 - **Ask** questions across every past meeting.
 - **Agent brief:** a page about what you're working on, written from your meetings and tasks.
 - **Booking links:** share your free times and let people book a call, checked against your calendar.
-- **Google Calendar** reminders before each call, and **Import from Granola** to bring your history.
-- **Voice notes from your phone:** add the page to your home screen and record up to two hours.
+- **Google Calendar** reminders before each call (switch on **Settings → Notifications** on each
+  device; task reminders come with it), and **Import from Granola** to bring your history.
+- **Voice notes from your phone:** on your first visit from a phone, Hotsauce offers to install
+  itself on your home screen (or use **Settings → Install app**). Record up to two hours.
 
 ### Tasks
 

@@ -60,6 +60,9 @@ export const meetingsApi = {
 
   unsubscribeReminders: (endpoint: string) =>
     request<void>(`${BASE}/reminders`, { method: 'DELETE', json: { endpoint } }),
+  /** One test notification to each of this member's subscribed browsers. */
+  testNotification: () =>
+    request<{ sent: number; failed: number }>(`${BASE}/reminders/test`, { method: 'POST' }),
 
   /** The tracks whose audio was kept for this meeting, from its pointer file; none if not kept. */
   keptAudio: async (space: string, id: string): Promise<AudioTrack[]> => {
