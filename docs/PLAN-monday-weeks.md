@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress (branch `monday-weeks`).
+Built 2026-11-13 in PR #67 (branch `monday-weeks`). Every requirement has a passing test except W8, whose Swift test needs full Xcode to run (checked with a script instead). The independent review's findings are fixed. Not built: a per-person Monday/Sunday setting.
 
 ## Decisions
 

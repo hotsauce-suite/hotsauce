@@ -1,5 +1,5 @@
 import { addDays, addMonths, monthGrid, WEEK_DAY_NAMES } from '@hearth/format'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 
@@ -158,10 +158,12 @@ function Calendar({
   // Five or six rows: the height changes, so the position is worked out again.
   const rowCount = weeks.length
 
-  // Below the button, kept on screen (above it when there's no room below).
-  useLayoutEffect(() => {
+  // Below the button, kept on screen (above it when there's no room below). Worked out again
+  // when the month's row count changes and when the page scrolls or resizes, so it stays by
+  // its button.
+  const place = useCallback(() => {
     const el = ref.current
-    if (!el || rowCount === 0) return
+    if (!el) return
     const a = anchor.getBoundingClientRect()
     const { width, height } = el.getBoundingClientRect()
     const below = a.bottom + 4
@@ -170,7 +172,10 @@ function Calendar({
       x: Math.max(8, Math.min(a.left, window.innerWidth - width - 8)),
       y: Math.max(8, y),
     })
-  }, [anchor, rowCount])
+  }, [anchor])
+  useLayoutEffect(() => {
+    if (rowCount > 0) place()
+  }, [place, rowCount])
 
   useEffect(() => {
     if (!focusDay.current) return
@@ -191,10 +196,7 @@ function Calendar({
       setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 500)
       onLeaveRef.current()
     }
-    // It sits where the button was; if the page under it scrolls or resizes, it closes.
-    const onMove = (event: Event) => {
-      if (!ref.current?.contains(event.target as Node)) onLeaveRef.current()
-    }
+    const onMove = () => place()
     document.addEventListener('pointerdown', onPointer)
     window.addEventListener('scroll', onMove, true)
     window.addEventListener('resize', onMove)
@@ -203,7 +205,7 @@ function Calendar({
       window.removeEventListener('scroll', onMove, true)
       window.removeEventListener('resize', onMove)
     }
-  }, [anchor])
+  }, [anchor, place])
 
   const step = (date: string, keyboard: boolean) => {
     focusDay.current = keyboard
