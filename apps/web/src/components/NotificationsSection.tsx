@@ -9,6 +9,12 @@ import {
 } from '../apps/meetings/reminders'
 import { product } from '../brand/product'
 import { installContext } from '../lib/install'
+import {
+  hasMacNotifications,
+  type MacNotificationState,
+  macNotificationState,
+  openMacNotifications,
+} from '../lib/macNotifications'
 
 /**
  * Settings' "Notifications on this device": one switch for everything pushed to this browser
@@ -16,6 +22,12 @@ import { installContext } from '../lib/install'
  * subscription (docs/PLAN-install-and-settings.md, N1–N3).
  */
 export function NotificationsSection() {
+  // The Mac app shows its own (macOS) notifications; its web view can't show the browser's.
+  if (hasMacNotifications()) return <MacNotificationsSection />
+  return <BrowserNotificationsSection />
+}
+
+function BrowserNotificationsSection() {
   const [state, setState] = useState<ReminderState | null>(null)
   const [busy, setBusy] = useState(false)
   const [tested, setTested] = useState<string | null>(null)
@@ -121,6 +133,80 @@ export function NotificationsSection() {
       )}
     </section>
   )
+}
+
+/** In the Mac app: what macOS allows, and a button to its Notifications settings. */
+function MacNotificationsSection() {
+  const [state, setState] = useState<MacNotificationState | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    const read = () => macNotificationState().then((s) => live && setState(s))
+    void read()
+    // Back from System Settings: show what changed there.
+    window.addEventListener('focus', read)
+    return () => {
+      live = false
+      window.removeEventListener('focus', read)
+    }
+  }, [])
+
+  const open = async () => {
+    setBusy(true)
+    try {
+      setState(await openMacNotifications())
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section
+      id="notifications"
+      aria-labelledby="notifications-title"
+      data-testid="settings-notifications"
+      className="mt-12"
+    >
+      <h2
+        id="notifications-title"
+        className="font-display text-[1.6rem] font-semibold tracking-tight"
+      >
+        Notifications
+      </h2>
+      <p className="mt-2 text-ink-soft">
+        On this Mac, {product()} shows meeting reminders and the offer to take notes on a call as
+        macOS notifications.
+      </p>
+      <div
+        data-testid="mac-notifications"
+        data-state={state ?? 'unknown'}
+        className="mt-4 flex flex-col items-start gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4 sm:flex-row sm:items-center"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium text-ink">Notifications on this Mac</span>
+          <span className="block text-sm text-ink-soft">{macStateText(state)}</span>
+        </span>
+        <button
+          type="button"
+          data-testid="mac-notifications-open"
+          disabled={busy}
+          onClick={() => void open()}
+          className={`${secondaryButton} h-9 shrink-0`}
+        >
+          Open Notifications settings
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function macStateText(state: MacNotificationState | null): string {
+  if (state === 'on') return 'On in macOS.'
+  if (state === 'off')
+    return `Off. Turn on Allow notifications for ${product()} in System Settings.`
+  if (state === 'undecided') return 'Not set up yet. The button asks macOS to allow them.'
+  return 'Change them in System Settings → Notifications.'
 }
 
 function testMessage(sent: number, failed: number): string {

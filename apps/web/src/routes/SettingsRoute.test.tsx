@@ -205,10 +205,11 @@ describe('Settings: layout, account, install, help and about', () => {
     const order = [
       'settings-account',
       'settings-install',
+      'mac-app',
+      'web-app',
+      'settings-extension',
       'settings-notifications',
       'theme-picker',
-      'mac-app',
-      'settings-extension',
       'token-name',
       'settings-help',
       'settings-about',
@@ -220,6 +221,21 @@ describe('Settings: layout, account, install, help and about', () => {
         `${before.dataset.testid} before ${order[i]?.dataset.testid}`,
       ).toBeTruthy()
     }
+  })
+
+  // One Install section near the top: the Mac app, the web app and the Chrome extension.
+  it('puts the Mac app, the web app and the Chrome extension in one Install section', async () => {
+    renderApp('/settings')
+    const install = await screen.findByTestId('settings-install')
+    expect(within(install).getByRole('heading', { level: 2 })).toHaveTextContent('Install')
+    expect(within(install).getByTestId('mac-app')).toHaveAttribute('id', 'mac-app')
+    expect(within(install).getByTestId('web-app')).toBeInTheDocument()
+    expect(within(install).getByTestId('settings-extension')).toBeInTheDocument()
+    expect(await within(install).findByTestId('mac-app-download')).toBeInTheDocument()
+    expect(within(install).getByTestId('settings-install-button')).toBeInTheDocument()
+    expect(
+      screen.queryAllByRole('heading', { level: 2, name: /Mac app|Install app/ }),
+    ).toHaveLength(0)
   })
 
   it('shows who is signed in, and signs out from the Account card', async () => {

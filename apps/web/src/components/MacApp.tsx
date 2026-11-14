@@ -41,15 +41,24 @@ export function useMacAppBuild(enabled = true): boolean | null {
   return hasBuild
 }
 
-/** Settings' "Mac app" section: the download, or the source for a server without a build. */
-export function MacAppSection() {
+/**
+ * Settings' Install section, the Mac app's card: the download, or the source for a server without
+ * a build. `#mac-app` (MAC_APP_SETTINGS) scrolls to it.
+ */
+export function MacAppCard() {
   const hasBuild = useMacAppBuild()
   return (
-    <section id="mac-app" aria-labelledby="mac-app-title" data-testid="mac-app" className="mt-12">
-      <h2 id="mac-app-title" className="font-display text-[1.6rem] font-semibold tracking-tight">
+    <section
+      id="mac-app"
+      aria-labelledby="mac-app-title"
+      data-testid="mac-app"
+      className="scroll-mt-6 rounded-xl border border-ash bg-paper-raised/60 p-4"
+    >
+      <h3 id="mac-app-title" className="flex items-center gap-2 font-medium text-ink">
+        <Icon name="laptop" className="size-5 shrink-0 text-ember" />
         Mac app
-      </h2>
-      <p className="mt-2 text-ink-soft">
+      </h3>
+      <p className="mt-1 text-sm text-ink-soft">
         All of {product()} in its own window, plus what a browser can’t do: dictate into any app
         (hold right ⌥ option and talk), record any call on your Mac, and a reminder before each
         meeting. Needs macOS 14 or later.
@@ -91,7 +100,7 @@ export function MacAppSection() {
 
       {hasBuild ? (
         <>
-          <h3 className="mt-6 text-sm font-semibold text-ink-soft">Installing it the first time</h3>
+          <h4 className="mt-6 text-sm font-semibold text-ink-soft">Installing it the first time</h4>
           <p className="mt-1 text-sm text-ink-soft">
             It isn’t from the App Store, so macOS asks you to confirm it once.
           </p>

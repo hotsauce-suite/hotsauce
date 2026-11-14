@@ -1,4 +1,5 @@
 import AppKit
+import DictateCore
 import ApplicationServices
 import AVFoundation
 import CoreLocation
@@ -78,6 +79,19 @@ enum Permissions {
                     DispatchQueue.main.async { done(granted) }
                 }
             }
+        }
+    }
+
+    /// The page's view of it (Settings → Notifications in the window).
+    static func notificationsState(_ done: @escaping (NotificationsBridge.State) -> Void) {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let state: NotificationsBridge.State
+            switch settings.authorizationStatus {
+            case .notDetermined: state = .undecided
+            case .authorized, .provisional: state = .on
+            default: state = .off
+            }
+            DispatchQueue.main.async { done(state) }
         }
     }
 

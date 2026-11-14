@@ -115,6 +115,9 @@ test('the Mac app: Today links to its download in Settings', async ({ page }) =>
   await page.getByTestId('dictate-get-app-link').click()
   await expect(page).toHaveURL(/\/settings#mac-app$/)
   await expect(page.getByRole('heading', { name: 'Mac app' })).toBeInViewport()
+  // The Mac app's card is in Settings' one Install section, with the web app and the extension.
+  await expect(page.getByTestId('settings-install').getByTestId('mac-app')).toBeVisible()
+  await expect(page.getByTestId('settings-install').getByTestId('settings-extension')).toBeVisible()
   await expect(page.getByTestId('mac-app-build-from-source')).toBeVisible()
   await expect(page.getByTestId('mac-app-download')).toHaveCount(0)
 })

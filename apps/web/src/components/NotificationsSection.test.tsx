@@ -96,3 +96,63 @@ describe('Notifications on this device', () => {
     )
   })
 })
+
+// Inside the Mac app the web view has no Notification API; the app answers instead.
+describe('Notifications in the Mac app', () => {
+  const postMessage = vi.fn()
+  beforeEach(() => {
+    postMessage.mockReset()
+    ;(window as { webkit?: unknown }).webkit = {
+      messageHandlers: { hearthNotifications: { postMessage } },
+    }
+  })
+  afterEach(() => {
+    delete (window as { webkit?: unknown }).webkit
+  })
+
+  it('shows what macOS allows instead of the browser switch', async () => {
+    postMessage.mockResolvedValue('off')
+    render(<NotificationsSection />)
+    const card = await screen.findByTestId('mac-notifications')
+    await waitFor(() => expect(card).toHaveAttribute('data-state', 'off'))
+    expect(card).toHaveTextContent('Off')
+    expect(postMessage).toHaveBeenCalledWith('state')
+    expect(screen.queryByTestId('notifications-switch')).toBeNull()
+    expect(screen.queryByTestId('notifications-note')).toBeNull()
+    expect(screen.getByTestId('settings-notifications')).not.toHaveTextContent(
+      'can’t show notifications',
+    )
+  })
+
+  it('asks the app to open Notifications settings, then shows the new state', async () => {
+    postMessage.mockImplementation(async (request: string) =>
+      request === 'open' ? 'on' : 'undecided',
+    )
+    render(<NotificationsSection />)
+    const card = await screen.findByTestId('mac-notifications')
+    await waitFor(() => expect(card).toHaveAttribute('data-state', 'undecided'))
+    await userEvent.click(screen.getByTestId('mac-notifications-open'))
+    expect(postMessage).toHaveBeenCalledWith('open')
+    await waitFor(() => expect(card).toHaveAttribute('data-state', 'on'))
+  })
+
+  it('reads the state again when the window comes back from System Settings', async () => {
+    postMessage.mockResolvedValue('off')
+    render(<NotificationsSection />)
+    await screen.findByTestId('mac-notifications')
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1))
+    postMessage.mockResolvedValue('on')
+    window.dispatchEvent(new Event('focus'))
+    await waitFor(() =>
+      expect(screen.getByTestId('mac-notifications')).toHaveAttribute('data-state', 'on'),
+    )
+  })
+
+  it('keeps the browser switch outside the Mac app', async () => {
+    delete (window as { webkit?: unknown }).webkit
+    reminders.state = 'off'
+    render(<NotificationsSection />)
+    expect(await screen.findByTestId('notifications-switch')).toBeInTheDocument()
+    expect(screen.queryByTestId('mac-notifications')).toBeNull()
+  })
+})

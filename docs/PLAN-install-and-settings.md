@@ -8,7 +8,7 @@ Built 2026-11-13 in draft PR #44 (branch `feat/install-prompt-settings`), rebase
 
 - The install bar shows on phones and tablets only, in the browser (never in the installed app), once per browser until dismissed. ✕ hides it for good on that browser.
 - Android and other Chromium browsers get the browser's own install dialog. iPhone and iPad Safari, and every browser without one, get a short how-to sheet.
-- Settings, top to bottom: Account, Install app, Notifications, Appearance, Mac app and Chrome extension, Connect Claude, Calendars, Help, About. Admins still see the Organization link first.
+- Settings, top to bottom: Account, Install (Mac app, web app, Chrome extension; changed 2026-11-14), Notifications, Appearance, Connect Claude, Calendars, Help, About. Admins still see the Organization link first.
 - Sign out lives in Settings only (Account card). Neither the phone Apps sheet nor the desktop account menu has it; the account menu gets a Settings item instead (Morgan, 2026-11-13).
 - One "Notifications on this device" switch covers everything pushed to a browser: meeting and task reminders, check-in questions and the daily briefing all go to the same subscription.
 - "Send test notification" is `POST /api/meetings/reminders/test`, next to the existing subscribe and unsubscribe routes, and sends through the same push sender.
