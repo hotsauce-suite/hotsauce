@@ -21,3 +21,7 @@
   the refusal is old and they asked again.
 - **Old clients outlive the fix.** Detect a Mac app without the new bridge (it still has its
   sign-in bridge) and tell the member to update, rather than looping on a request it can't make.
+- **On macOS, `requestWhenInUseAuthorization()` alone may never show the prompt.** The first
+  Mac build waited on it and the owner saw nothing. Ask for a position (`requestLocation()`) at
+  the same time: that reliably brings up the prompt and answers once they decide. The app now
+  keeps its last steps in `defaults read dev.hotsauce.dictate locationSteps` for diagnosis.
