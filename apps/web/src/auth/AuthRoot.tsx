@@ -36,7 +36,6 @@ export function AuthRoot() {
   )
 }
 
-
 /** Seconds before the next automatic reload: soon at first (a server restarting for an update is
  * back in seconds), then less often. */
 export function bootRetryDelay(retries: number): number {
@@ -52,7 +51,13 @@ export function BootError() {
   return <BootErrorView autoRetry={error instanceof ServerUnreachable} />
 }
 
-export function BootErrorView({ autoRetry, reload = reloadPage }: { autoRetry: boolean; reload?: () => void }) {
+export function BootErrorView({
+  autoRetry,
+  reload = reloadPage,
+}: {
+  autoRetry: boolean
+  reload?: () => void
+}) {
   // Try again by itself, so a page opened while the server was restarting comes back on its own.
   useEffect(() => {
     if (!autoRetry) return
