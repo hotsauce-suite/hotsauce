@@ -240,7 +240,17 @@ export class Feedback {
       .slice(0, 24)
   }
 
-  #limit(key: string, max: number): void {
+  /**
+   * Whether this member may file now, without using up a turn. The submit route asks before it
+   * reads a body of up to 16 MB, so a member past the limit (or an instance with feedback off)
+   * costs no memory.
+   */
+  assertCanFile(p: Principal): void {
+    this.#tracked()
+    this.#limit(`file:${p.userId}`, FILE_LIMIT_PER_HOUR, false)
+  }
+
+  #limit(key: string, max: number, use = true): void {
     const now = this.#now()
     const recent = (this.#hits.get(key) ?? []).filter((t) => now - t < HOUR)
     if (recent.length >= max) {
@@ -250,6 +260,7 @@ export class Feedback {
         'That’s a lot of feedback for one hour. Try again later.',
       )
     }
+    if (!use) return
     recent.push(now)
     this.#hits.set(key, recent)
   }
@@ -272,6 +283,11 @@ async function uploadScreenshots(
 ): Promise<UploadedScreenshots> {
   const out: UploadedScreenshots = { urls: [], failed: 0, noPermission: false }
   for (const picture of pictures) {
+    if (out.noPermission) {
+      // GitHub already refused this token; the rest would be refused too.
+      out.failed++
+      continue
+    }
     try {
       // [skip ci]: when the feedback repo is also the code repo, a screenshot must not start a build.
       const message = 'Feedback screenshot [skip ci]'

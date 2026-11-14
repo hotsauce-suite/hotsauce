@@ -39,12 +39,12 @@ export default function FeedbackRoute() {
   const [step, setStep] = useState<Step>({ at: 'write' })
   const [qa, setQa] = useState<QA[]>([])
   const [round, setRound] = useState(0)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<FeedbackItem[] | null>(null)
   // The picture taken as they opened this page, offered but not attached (plan S6).
-  const [page] = useState(() => pageShot(from))
-  const screenshots = useScreenshots(page)
+  const [page, setPage] = useState(() => pageShot(from))
+  const [busy, setBusy] = useState(false)
+  const screenshots = useScreenshots(page, busy)
 
   const load = useCallback(() => {
     feedbackApi.mine().then(
@@ -82,6 +82,7 @@ export default function FeedbackRoute() {
     setStep({ at: 'sent', number: filed.number })
     screenshots.clear()
     clearPageShot()
+    setPage(null)
     setText('')
     setQa([])
     setRound(0)

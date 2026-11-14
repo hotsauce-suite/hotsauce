@@ -18,5 +18,13 @@
   `image/png` is still an SVG. `sniffImage()` reads PNG, JPEG, GIF and WebP signatures.
 - **Files in the feedback repo are commits on its default branch.** If that repo is also the
   code repo, each one would start CI or a deploy, so the commit message carries `[skip ci]`.
+- **What the independent review caught** (worth checking in any upload feature): the rate limit
+  ran only after a 16 MB body was read into memory (now checked first, without using a turn); no
+  timeout on the GitHub upload, so a slow GitHub could lose the feedback; mutating a ref inside a
+  React state updater (StrictMode runs updaters twice, so a removal freed two slots); an object
+  URL made in `useMemo` and revoked in an effect (StrictMode's re-mount revokes the one still
+  shown); a picture shrinking when the form was cleared came back later; and a paste handler
+  that swallowed text, because copying spreadsheet cells puts a picture of them on the clipboard
+  too.
 - **React StrictMode renders state initialisers twice**, so the form reads the held page picture
   without using it up, and clears it after sending.

@@ -196,4 +196,59 @@ describe('submitting with screenshots (S2, S3)', () => {
     }
     expect(tracker.issues).toEqual([])
   })
+
+  it('stops trying after GitHub refuses the token, and says so on a 404 too (S3)', async () => {
+    let puts = 0
+    const fakeFetch = (async (url: string, init: RequestInit) => {
+      if (url.includes('/contents/')) {
+        puts++
+        return new Response('missing', { status: 404 })
+      }
+      if (init.method === 'POST') return Response.json({ number: 4, html_url: 'u' })
+      return Response.json({})
+    }) as unknown as typeof fetch
+    const tracker = new GitHubTracker({ repo: 'o/r', token: 't', fetch: fakeFetch })
+    const bodies: string[] = []
+    const fileIssue = tracker.file.bind(tracker)
+    tracker.file = async (issue) => {
+      bodies.push(issue.body)
+      return fileIssue(issue)
+    }
+    await make(tracker).feedback.submit(ALICE, { ...base, screenshots: [PNG, PNG, PNG] })
+    expect(puts).toBe(1)
+    expect(bodies[0]).toContain(
+      "3 screenshot(s) couldn't be saved: the feedback token needs Contents read and write",
+    )
+  })
+
+  it('files without the picture when GitHub is too slow to take it', async () => {
+    const fakeFetch = (async (url: string, init: RequestInit) => {
+      if (url.includes('/contents/')) throw new DOMException('timed out', 'TimeoutError')
+      if (init.method === 'POST') return Response.json({ number: 5, html_url: 'u' })
+      return Response.json({})
+    }) as unknown as typeof fetch
+    const tracker = new GitHubTracker({ repo: 'o/r', token: 't', fetch: fakeFetch })
+    const filed = await make(tracker).feedback.submit(ALICE, { ...base, screenshots: [PNG] })
+    expect(filed.number).toBe(5)
+  })
+})
+
+describe('assertCanFile', () => {
+  it('refuses past the hour limit without using a turn itself', async () => {
+    const { feedback } = make()
+    for (let i = 0; i < 10; i++) {
+      feedback.assertCanFile(ALICE)
+      await feedback.submit(ALICE, base)
+    }
+    expect(() => feedback.assertCanFile(ALICE)).toThrow(/a lot of feedback/)
+  })
+
+  it('says feedback is off when there is no tracker', () => {
+    const feedback = new Feedback({
+      clarifier: new Clarifier({ llm: new FakeLLM(() => ''), model: 'm' }),
+      tracker: null,
+      secret: 'x'.repeat(32),
+    })
+    expect(() => feedback.assertCanFile(ALICE)).toThrow(/isn't set up/)
+  })
 })

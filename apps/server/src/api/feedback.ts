@@ -116,6 +116,8 @@ export function feedbackRoutes(deps: Pick<AppDeps, 'feedback'>) {
     )
     .post('/', limitSubmit, async (c) => {
       const principal = sessionOnly(c.get('principal'))
+      // Before reading a body of up to 16 MB: feedback on, and this member under the hour's limit.
+      service.assertCanFile(principal)
       return c.json(await service.submit(principal, await readSubmit(c.req.raw)), 201)
     })
     .get('/mine', async (c) => {

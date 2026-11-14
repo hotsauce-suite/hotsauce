@@ -218,16 +218,15 @@ export class GitHubTracker implements FeedbackTracker {
     const saved = await this.#call<{ content: { html_url: string } }>(
       'PUT',
       `/contents/${encoded}`,
-      {
-        message,
-        content: Buffer.from(bytes).toString('base64'),
-      },
+      { message, content: Buffer.from(bytes).toString('base64') },
+      // A slow GitHub must not hold the feedback: the issue is filed without the picture.
+      UPLOAD_TIMEOUT_MS,
     )
     // The blob page with ?raw=true renders inline for anyone who can read the private repo.
     return { url: `${saved.content.html_url}?raw=true` }
   }
 
-  async #call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async #call<T>(method: string, path: string, body?: unknown, timeoutMs?: number): Promise<T> {
     let res: Response
     try {
       res = await this.#fetch(`${this.#api}/repos/${this.#repo}${path}`, {
@@ -240,6 +239,7 @@ export class GitHubTracker implements FeedbackTracker {
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
       })
     } catch (err) {
       console.error(`feedback: GitHub ${method} ${path} failed: ${String(err)}`)
@@ -255,6 +255,9 @@ export class GitHubTracker implements FeedbackTracker {
     return (await res.json()) as T
   }
 }
+
+/** One screenshot upload's longest wait; three of them still leave time to file the issue. */
+const UPLOAD_TIMEOUT_MS = 15_000
 
 /** Comments from these count as the team's; anyone else's are ignored by the app. */
 const TEAM_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])

@@ -1,6 +1,8 @@
 # Plan: screenshots in Send feedback
 
-Status (2026-11-14): building, draft PR open. Decisions settled with the owner before building:
+Status (2026-11-14): built and tested (unit, integration, e2e desktop and phone), independent
+review done and its findings fixed; draft PR open, not merged or deployed. Owner to-do: give the
+feedback token Contents read and write on the feedback repo. Decisions settled with the owner before building:
 screenshots are saved as files in the feedback repo (GitHub Contents API) and shown inline in the
 issue; the page you were on is pictured in the browser and only attached if you tap it; up to
 three pictures per item; the first submit only (not replies).
@@ -33,21 +35,26 @@ S2. The service uploads every screenshot before filing and embeds each as
     [feedback.test: files with screenshots]
 S3. When GitHub refuses an upload with 403 or 404, the issue is still filed with the text and the
     line "N screenshot(s) couldn't be saved: the feedback token needs Contents read and write", and
-    the server logs it. Any other upload failure files with "N screenshot(s) couldn't be saved".
-    [feedback.test: fallback]
+    the server logs it, and stops trying the rest. Any other upload failure (including GitHub
+    taking over 15 s) files with "N screenshot(s) couldn't be saved". Screenshot commits carry
+    `[skip ci]`. [screenshots.test]
 S4. `POST /api/feedback` accepts multipart: `payload` (the JSON body) and up to 3 `screenshot`
     files. Each must be PNG, JPEG, WebP or GIF by its magic bytes (the declared type is ignored)
     and at most 5 MB; anything else is a 400 with a plain message. The route allows a 16 MB body;
-    every other route keeps its limit. JSON without pictures still works. [integration
-    feedback.test]
+    every other route keeps its limit. JSON without pictures still works. The member's hourly
+    limit and whether feedback is on are checked before the body is read. Session only.
+    [integration feedback.test]
 S5. Picture-taking: `openFeedback()` waits at most 1.5 s for the page picture, then navigates
-    anyway; a picture that arrives late is thrown away. The picture is consumed once by the form.
-    [pageShot.test]
+    anyway; a picture that arrives late is thrown away. A second click while it waits is ignored.
+    The form reads the picture without using it up (React may render twice) and clears it after
+    sending. [pageShot.test]
 S6. The form shows "Add a picture of the page you were on" with a preview when a page picture
     exists; it is attached only when tapped. [FeedbackScreenshots.test]
 S7. Members add pictures by the Add screenshot button (`accept="image/*"`), by pasting an image
     anywhere in the form, or by dropping one on it. At most 3 in total (the page picture counts);
-    each shows a thumbnail with a labelled remove (×) button. [FeedbackScreenshots.test]
+    each shows a thumbnail with a labelled remove (×) button. A paste that also carries text (a
+    copy from a spreadsheet) pastes the text. No pictures are taken while sending; a double tap
+    attaches the page picture once. [FeedbackScreenshots.test, Screenshots.test]
 S8. Each picture is shrunk to at most 2000 px wide before sending, kept as PNG unless JPEG is
     smaller. [shrink.test]
 S9. Under the form: "Screenshots are sent as they are, so check them for anything private."

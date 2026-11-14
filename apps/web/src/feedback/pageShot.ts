@@ -15,7 +15,10 @@ export function feedbackLink(pathname: string): string {
   return pathname === '/feedback' ? '/feedback' : `/feedback?from=${encodeURIComponent(pathname)}`
 }
 
-/** The picture taken on `from`, if there is a fresh one. Reading it doesn't use it up. */
+/**
+ * The picture taken on `from`, if there is a fresh one. Reading it doesn't use it up (React may
+ * render the form twice); the form clears it after sending.
+ */
 export function pageShot(from: string | undefined): Blob | null {
   if (!held || from === undefined || held.from !== from) return null
   return Date.now() - held.at < FRESH_MS ? held.blob : null
@@ -63,9 +66,18 @@ export async function openFeedback(
     navigate('/feedback')
     return
   }
-  await capturePage(capture, pathname)
+  // A second click while the picture is being taken would open the form twice.
+  if (opening) return
+  opening = true
+  try {
+    await capturePage(capture, pathname)
+  } finally {
+    opening = false
+  }
   navigate(feedbackLink(pathname))
 }
+
+let opening = false
 
 /**
  * The click handler for a Send feedback link: a plain click pictures the page first; a click that

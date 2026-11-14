@@ -272,4 +272,39 @@ describe('Send feedback with screenshots', () => {
     })
     expect(res.status).toBe(413)
   })
+
+  it('turns away a member past the limit before reading the pictures', async () => {
+    for (let i = 0; i < 10; i++) {
+      expect((await send([{ bytes: png(), type: 'image/png' }])).status).toBe(201)
+    }
+    const res = await send([{ bytes: png(), type: 'image/png' }])
+    expect(res.status).toBe(429)
+    expect(tracker.uploads).toHaveLength(10)
+  })
+
+  it('needs a signed-in session, not an access token', async () => {
+    const created = await call('POST', '/api/tokens', { as: ALICE, json: { name: 'cli' } })
+    const { token } = await created.json()
+    const form = new FormData()
+    form.set('payload', JSON.stringify(payload))
+    form.append('screenshot', new File([png() as Uint8Array<ArrayBuffer>], 'a.png'))
+    const res = await app.request('/api/feedback', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    })
+    expect(res.status).toBe(403)
+    expect(tracker.uploads).toEqual([])
+  })
+
+  it('asks for the payload field in a multipart body', async () => {
+    const form = new FormData()
+    form.append('screenshot', new File([png() as Uint8Array<ArrayBuffer>], 'a.png'))
+    const res = await app.request('/api/feedback', {
+      method: 'POST',
+      headers: { 'x-hearth-dev-user': ALICE },
+      body: form,
+    })
+    expect(res.status).toBe(400)
+  })
 })

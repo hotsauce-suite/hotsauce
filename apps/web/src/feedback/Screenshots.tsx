@@ -3,7 +3,6 @@ import {
   type DragEvent,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -43,18 +42,37 @@ export interface Screenshots {
 }
 
 let nextId = 0
+const SENDABLE = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 
-export function useScreenshots(page: Blob | null): Screenshots {
-  const [shots, setShots] = useState<Shot[]>([])
+export function useScreenshots(page: Blob | null, disabled = false): Screenshots {
+  const [shots, setShotsState] = useState<Shot[]>([])
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
-  // Pictures still shrinking hold their place, so quick adds can't pass three.
-  const taken = useRef(0)
-  const shotsRef = useRef(shots)
-  shotsRef.current = shots
+  const [pagePending, setPagePending] = useState(false)
+  const [pageUrl, setPageUrl] = useState<string | null>(null)
+  // The source of truth between renders, so quick adds see each other: the shots so far, the
+  // pictures still shrinking, and a generation that `clear` bumps so late ones are dropped.
+  const shotsRef = useRef<Shot[]>([])
+  const pending = useRef(0)
+  const generation = useRef(0)
+  const pageTaken = useRef(false)
+  const disabledRef = useRef(disabled)
+  disabledRef.current = disabled
 
-  const pageUrl = useMemo(() => (page ? URL.createObjectURL(page) : null), [page])
-  useEffect(() => () => (pageUrl ? URL.revokeObjectURL(pageUrl) : undefined), [pageUrl])
+  const setShots = useCallback((next: Shot[]) => {
+    shotsRef.current = next
+    setShotsState(next)
+  }, [])
+
+  useEffect(() => {
+    if (!page) return
+    const url = URL.createObjectURL(page)
+    setPageUrl(url)
+    return () => {
+      URL.revokeObjectURL(url)
+      setPageUrl(null)
+    }
+  }, [page])
   useEffect(
     () => () => {
       for (const s of shotsRef.current) URL.revokeObjectURL(s.url)
@@ -62,53 +80,72 @@ export function useScreenshots(page: Blob | null): Screenshots {
     [],
   )
 
-  const put = useCallback((blobs: Blob[], isPage: boolean) => {
-    setError(null)
-    const images = blobs.filter((b) => b.type.startsWith('image/'))
-    if (images.length < blobs.length) setError('Only pictures can be attached.')
-    const room = MAX_SHOTS - taken.current
-    if (images.length > room) setError(`You can attach up to ${MAX_SHOTS} pictures.`)
-    const accepted = images.slice(0, Math.max(0, room))
-    taken.current += accepted.length
-    for (const original of accepted) {
-      void shrinkImage(original).then((blob) => {
-        if (blob.size > MAX_SHOT_BYTES) {
-          taken.current--
-          setError('That picture is too big to send (5 MB at most).')
-          return
-        }
-        const shot = { id: ++nextId, blob, url: URL.createObjectURL(blob), page: isPage }
-        setShots((all) => [...all, shot])
-      })
-    }
-  }, [])
-
-  const remove = useCallback((id: number) => {
-    setError(null)
-    setShots((all) => {
-      const gone = all.find((s) => s.id === id)
-      if (gone) {
-        URL.revokeObjectURL(gone.url)
-        taken.current--
+  const put = useCallback(
+    (blobs: Blob[], isPage: boolean) => {
+      if (disabledRef.current) return
+      setError(null)
+      const images = blobs.filter((b) => b.type.startsWith('image/'))
+      if (images.length < blobs.length) setError('Only pictures can be attached.')
+      const room = MAX_SHOTS - shotsRef.current.length - pending.current
+      if (images.length > room) setError(`You can attach up to ${MAX_SHOTS} pictures.`)
+      const accepted = images.slice(0, Math.max(0, room))
+      if (isPage && accepted.length > 0) {
+        pageTaken.current = true
+        setPagePending(true)
       }
-      return all.filter((s) => s.id !== id)
-    })
-  }, [])
+      pending.current += accepted.length
+      const mine = generation.current
+      for (const original of accepted) {
+        void shrinkImage(original).then((blob) => {
+          if (mine !== generation.current) return
+          pending.current--
+          if (isPage) setPagePending(false)
+          const problem = !SENDABLE.has(blob.type)
+            ? 'Use a PNG, JPEG, WebP or GIF picture.'
+            : blob.size > MAX_SHOT_BYTES
+              ? 'That picture is too big to send (5 MB at most).'
+              : null
+          if (problem) {
+            if (isPage) pageTaken.current = false
+            setError(problem)
+            return
+          }
+          const shot = { id: ++nextId, blob, url: URL.createObjectURL(blob), page: isPage }
+          setShots([...shotsRef.current, shot])
+        })
+      }
+    },
+    [setShots],
+  )
+
+  const remove = useCallback(
+    (id: number) => {
+      setError(null)
+      const gone = shotsRef.current.find((s) => s.id === id)
+      if (gone) URL.revokeObjectURL(gone.url)
+      if (gone?.page) pageTaken.current = false
+      setShots(shotsRef.current.filter((s) => s.id !== id))
+    },
+    [setShots],
+  )
 
   const clear = useCallback(() => {
     for (const s of shotsRef.current) URL.revokeObjectURL(s.url)
-    taken.current = 0
+    generation.current++
+    pending.current = 0
+    pageTaken.current = false
+    setPagePending(false)
     setShots([])
     setError(null)
-  }, [])
+  }, [setShots])
 
-  const pageAttached = shots.some((s) => s.page)
+  const pageAttached = pagePending || shots.some((s) => s.page)
   const pageOffer = pageUrl && !pageAttached && shots.length < MAX_SHOTS ? { url: pageUrl } : null
 
   return {
     shots,
     pageOffer,
-    attachPage: () => (page && !pageAttached ? put([page], true) : undefined),
+    attachPage: () => (page && !pageTaken.current ? put([page], true) : undefined),
     add: (files) => put([...files], false),
     remove,
     clear,
@@ -117,10 +154,11 @@ export function useScreenshots(page: Blob | null): Screenshots {
     formProps: {
       onPaste: (event) => {
         const files = [...event.clipboardData.files]
-        if (files.some((f) => f.type.startsWith('image/'))) {
-          event.preventDefault()
-          put(files, false)
-        }
+        if (!files.some((f) => f.type.startsWith('image/'))) return
+        // A copy from a spreadsheet or document carries text and a picture of it: keep the text.
+        if (event.clipboardData.getData('text/plain') !== '') return
+        event.preventDefault()
+        put(files, false)
       },
       onDragOver: (event) => {
         if (![...event.dataTransfer.types].includes('Files')) return
@@ -145,6 +183,9 @@ export function useScreenshots(page: Blob | null): Screenshots {
 /** The pictures row under the text box: the page picture on offer, thumbnails and Add screenshot. */
 export function ScreenshotPicker({ state, disabled }: { state: Screenshots; disabled: boolean }) {
   const { shots, pageOffer } = state
+  const addRef = useRef<HTMLInputElement>(null)
+  // The button that was pressed goes away; keep the keyboard on the pictures row.
+  const refocus = () => requestAnimationFrame(() => addRef.current?.focus())
   return (
     <div className="flex flex-col gap-2" data-testid="feedback-shots">
       {pageOffer ? (
@@ -160,7 +201,10 @@ export function ScreenshotPicker({ state, disabled }: { state: Screenshots; disa
           <button
             type="button"
             disabled={disabled}
-            onClick={state.attachPage}
+            onClick={() => {
+              state.attachPage()
+              refocus()
+            }}
             className="flex items-center gap-1.5 text-left text-sm text-ink-soft hover:text-ember"
           >
             <Icon name="plus" className="size-4 shrink-0" />
@@ -185,7 +229,10 @@ export function ScreenshotPicker({ state, disabled }: { state: Screenshots; disa
               aria-label={`Remove screenshot ${i + 1}`}
               title="Remove"
               disabled={disabled}
-              onClick={() => state.remove(shot.id)}
+              onClick={() => {
+                state.remove(shot.id)
+                refocus()
+              }}
               className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-ink/70 text-paper-raised hover:bg-ink"
             >
               <Icon name="close" className="size-3.5" />
@@ -201,6 +248,7 @@ export function ScreenshotPicker({ state, disabled }: { state: Screenshots; disa
             <Icon name="image" className="size-4" />
             Add screenshot
             <input
+              ref={addRef}
               type="file"
               accept="image/*"
               multiple
@@ -216,11 +264,9 @@ export function ScreenshotPicker({ state, disabled }: { state: Screenshots; disa
           </label>
         ) : null}
       </div>
-      {state.error ? (
-        <p role="status" className="text-xs text-ember-strong">
-          {state.error}
-        </p>
-      ) : null}
+      <p role="status" className="text-xs text-ember-strong empty:hidden">
+        {state.error ?? ''}
+      </p>
     </div>
   )
 }
