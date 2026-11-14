@@ -49,6 +49,18 @@ final class Settings {
         set { defaults.set(newValue, forKey: "offerCallNotes") }
     }
 
+    /// The app finished a browser sign-in on this Mac (the setup window's Sign in step).
+    var appSignedIn: Bool {
+        get { defaults.bool(forKey: "appSignedIn") }
+        set { defaults.set(newValue, forKey: "appSignedIn") }
+    }
+
+    /// The one-time check that a Mac set up before the setup steps counts as signed in ran.
+    var setupStepsMigrated: Bool {
+        get { defaults.bool(forKey: "setupStepsMigrated") }
+        set { defaults.set(newValue, forKey: "setupStepsMigrated") }
+    }
+
     var hasOnboarded: Bool {
         get { defaults.bool(forKey: "hasOnboarded") }
         set { defaults.set(newValue, forKey: "hasOnboarded") }

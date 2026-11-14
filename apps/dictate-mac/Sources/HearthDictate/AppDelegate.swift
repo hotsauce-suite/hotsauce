@@ -47,6 +47,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         suite.signInWithBrowser = { [weak self] in self?.startBrowserSignIn() }
         suite.serverMoved = { [weak self] old, new in self?.serverMoved(from: old, to: new) }
         suite.changeWorkspace = { [weak self] in self?.onboarding.showWorkspace() }
+        suite.signedIn = { [weak self] in
+            self?.settings.appSignedIn = true
+            self?.onboarding.model.refresh()
+            // Back to the setup window's next step, over the window that's finishing the sign-in.
+            if self?.onboarding.isVisible == true { self?.onboarding.show(atFirstUnfinished: false) }
+        }
         suite.dictateNeeded = { server in DictateHandoff.needed(connection: ConnectionStore.connection()?.server, server: server) }
         suite.connectDictate = { [weak self] token, server, done in self?.connectFromSignIn(token: token, server: server, done: done) }
         statusItem = Self.makeStatusItem()
@@ -82,6 +88,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         onboarding.model.workspace = { [weak self] in self?.suiteServer }
         onboarding.model.saveWorkspace = { [weak self] server in self?.saveWorkspace(server) }
         onboarding.model.signIn = { [weak self] in self?.startBrowserSignIn() }
+        onboarding.model.isSignedIn = { [weak self] in
+            // A Dictate connection counts only for the workspace it's connected to.
+            let connection = ConnectionStore.connection()?.server
+            return SetupFlow.signedIn(appSignIn: self?.settings.appSignedIn ?? false,
+                                      dictateConnected: connection != nil && connection == self?.suiteServer)
+        }
+        onboarding.model.openSuite = { [weak self] in
+            self?.suite.show()
+            self?.suite.open(path: "/today")
+        }
+        // Once: a Mac set up before the setup steps counts as signed in (R12).
+        if let migrated = SetupFlow.migratedSignIn(alreadyMigrated: settings.setupStepsMigrated,
+                                                   hasOnboarded: settings.hasOnboarded, hasWorkspace: suiteServer != nil) {
+            if migrated { settings.appSignedIn = true }
+            settings.setupStepsMigrated = true
+        }
         onboarding.model.notInApplications = {
             let path = Bundle.main.bundlePath
             return path.contains("/AppTranslocation/") || path.hasPrefix("/Volumes/")
@@ -100,12 +122,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if suiteServer == nil {
             // A setup link that launched the app already opened the step with its address.
             if !onboarding.isVisible { onboarding.showWorkspace() }
+            return finishLaunching()
         } else if launchedAsLoginItem {
             suite.loadIfNeeded()
         } else {
             suite.show()
         }
         showSetupIfAnythingIsMissing()
+        finishLaunching()
+    }
+
+    private func finishLaunching() {
         reminders.start()
         if #available(macOS 14.2, *) {
             let detector = CallDetector(suite: suite) { [weak self] in self?.settings.offerCallNotes ?? false }
@@ -293,6 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let server = Workspace.origin(fromInput: text) else {
                 return "Enter your workspace’s address, like team.example.com (http only for localhost)."
             }
+            if self.settings.suiteServer != server { self.settings.appSignedIn = false }
             self.settings.suiteServer = server
             self.suite.setServer(server)
             model.reload()
@@ -369,7 +397,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// but never in the middle of a dictation, and only if the window is still open.
     private func bringSetupForward() {
         guard onboarding.isVisible, !controller.isRecording, !controller.isBusy else { return }
-        onboarding.show()
+        onboarding.show(atFirstUnfinished: false)
     }
 
     private var isReady: Bool {
@@ -602,7 +630,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc func showOnboarding() { onboarding.show() }
+    /// Check Permissions…: straight to the permissions, wherever setup stopped (P5).
+    @objc func showOnboarding() { onboarding.show(at: .permissions) }
 
     /// Meeting reminders and call-notes offers are the only things that show notifications; call
     /// detection runs only on macOS 14.2 and later.
@@ -612,16 +641,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return false
     }
 
-    /// At every launch, login items too: the first one always shows the setup window, and later
-    /// ones show it while any permission is missing, until all are granted.
+    /// At every launch, login items too: setup opens at its first unfinished step on a first run,
+    /// without a workspace or sign-in, and while any permission is missing (R11, R12;
+    /// docs/PLAN-mac-permissions.md P2). A Mac set up before opens straight to its window.
     private func showSetupIfAnythingIsMissing() {
         guard suiteServer != nil else { return }
         OnboardingModel.snapshot(notificationsNeeded: needsNotifications) { [weak self] snapshot in
             guard let self else { return }
             let missing = PermissionCheck.missing(snapshot)
             UserDefaults.standard.set(missing.map(\.rawValue), forKey: "status.missingAtLaunch")
-            if PermissionCheck.showAtLaunch(hasOnboarded: self.settings.hasOnboarded, missing: missing) {
-                self.onboarding.show()
+            let state = SetupFlow.State(
+                hasWorkspace: self.suiteServer != nil,
+                signedIn: self.onboarding.model.isSignedIn(),
+                dictateConnected: ConnectionStore.connection() != nil,
+                missingPermissions: missing
+            )
+            if SetupFlow.showAtLaunch(state, hasOnboarded: self.settings.hasOnboarded), !self.onboarding.isVisible {
+                // Set up already, only a permission missing: open at Permissions, not at Dictate.
+                if state.hasWorkspace, state.signedIn, self.settings.hasOnboarded {
+                    self.onboarding.show(at: .permissions)
+                } else {
+                    self.onboarding.show()
+                }
             }
         }
     }
@@ -662,6 +703,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// The Workspace step found a Hotsauce server: the window opens it from now on (R3).
     private func saveWorkspace(_ server: URL) {
+        // Another workspace: this Mac hasn't signed in there yet.
+        if settings.suiteServer != server { settings.appSignedIn = false }
         settings.suiteServer = server
         if suite.recordingMeetingSession == nil { suite.setServer(server) }
         mainWindow.model.reload()
