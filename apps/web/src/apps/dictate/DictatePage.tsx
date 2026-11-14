@@ -189,7 +189,8 @@ export default function DictatePage() {
 
           <p className="mt-14 border-t border-ash/70 pt-4 text-xs leading-relaxed text-ink-faint">
             Needs macOS 14 or later. It asks for the microphone, for Accessibility so it can paste
-            for you, for Location (Today’s weather) and for Notifications (meeting reminders). Audio is sent to {product()} to be transcribed and is never saved.
+            for you, for Location (Today’s weather) and for Notifications (meeting reminders). Audio
+            is sent to {product()} to be transcribed and is never saved.
           </p>
         </div>
       </div>

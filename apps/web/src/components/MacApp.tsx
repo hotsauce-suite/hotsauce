@@ -112,7 +112,8 @@ export function MacAppSection() {
             </li>
             <li>
               Sign in when it opens. Allow what its setup window lists (microphone, Accessibility,
-              Location and Notifications); it opens at each start until all are on. Then press Connect this Mac on the{' '}
+              Location and Notifications); it opens at each start until all are on. Then press
+              Connect this Mac on the{' '}
               <Link to="/dictate/mac" className="text-ember-strong underline">
                 Dictate page
               </Link>
