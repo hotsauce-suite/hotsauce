@@ -181,7 +181,7 @@ function MacNotificationsSection() {
       <div
         data-testid="mac-notifications"
         data-state={state ?? 'unknown'}
-        className="mt-4 flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4"
+        className="mt-4 flex flex-col items-start gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4 sm:flex-row sm:items-center"
       >
         <span className="min-w-0 flex-1">
           <span className="block font-medium text-ink">Notifications on this Mac</span>

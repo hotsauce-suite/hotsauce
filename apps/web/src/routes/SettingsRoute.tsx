@@ -285,9 +285,9 @@ function WebAppCard() {
   if (import.meta.env.MODE === 'demo') return null
   return (
     <div data-testid="web-app">
-      <div className="flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4">
         <Icon name={install.isMobile ? 'phone' : 'apps'} className="size-5 shrink-0 text-ember" />
-        <span className="min-w-0 flex-1">
+        <span className="min-w-0 flex-1 basis-56">
           <span className="block font-medium text-ink">Web app</span>
           <span className="block text-sm text-ink-soft">
             {install.isInstalled
