@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
+import { useState } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext, type AuthState } from '../auth/AuthContext'
@@ -187,5 +188,62 @@ describe('/desktop/finish connects Dictate', () => {
     renderAt('/desktop/finish', { status: 'signed-out', signInWithTicket: vi.fn(async () => {}) })
     expect(await screen.findByText('today home')).toBeInTheDocument()
     expect(posted).not.toHaveBeenCalled()
+  })
+})
+
+describe('/desktop/finish stays until Dictate is connected', () => {
+  afterEach(() => {
+    delete (window as { webkit?: unknown }).webkit
+  })
+
+  it('doesn’t leave the finish page the moment auth turns signed-in', async () => {
+    let answerStatus: (value: unknown) => void = () => {}
+    const dictate = vi.fn(
+      (message: { type: string }) =>
+        new Promise((resolve) => {
+          if (message.type === 'status') answerStatus = resolve
+          else resolve({ ok: false, error: 'no' })
+        }),
+    )
+    Object.assign(window, {
+      webkit: {
+        messageHandlers: {
+          hearthTicket: { postMessage: async () => 'tkt_9' },
+          hearthDictateConnect: { postMessage: dictate },
+        },
+      },
+    })
+    let flip: () => void = () => {}
+    function Harness() {
+      const [status, setStatus] = useState<'signed-out' | 'signed-in'>('signed-out')
+      flip = () => setStatus('signed-in')
+      const value = {
+        mode: 'dev',
+        status,
+        signOut: () => {},
+        signInWithTicket: async () => flip(),
+      } as unknown as AuthState
+      const [router] = useState(() =>
+        createMemoryRouter(
+          [
+            { path: '/desktop/finish', element: <DesktopFinishRoute /> },
+            { path: '/today', element: <p>today home</p> },
+          ],
+          { initialEntries: ['/desktop/finish'] },
+        ),
+      )
+      return (
+        <AuthContext.Provider value={value}>
+          <RouterProvider router={router} />
+        </AuthContext.Provider>
+      )
+    }
+    render(<Harness />)
+    await waitFor(() => expect(dictate).toHaveBeenCalledWith({ type: 'status' }))
+    // Signed in, Dictate's handoff still under way: still on the finish page.
+    expect(screen.queryByText('today home')).toBeNull()
+    expect(screen.getByText('Signing in…')).toBeInTheDocument()
+    await act(async () => answerStatus({ needed: false, deviceName: 'Mac' }))
+    expect(await screen.findByText('today home')).toBeInTheDocument()
   })
 })

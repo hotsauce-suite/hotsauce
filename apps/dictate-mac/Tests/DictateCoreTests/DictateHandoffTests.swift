@@ -31,9 +31,28 @@ import Testing
     @Test func nothingIsCreatedForAMacConnectedToThisServer() {
         let server = url("https://team.example.com")
         #expect(!DictateHandoff.needed(connection: url("https://team.example.com"), server: server))
-        #expect(!DictateHandoff.needed(connection: url("https://Team.example.com/"), server: server))
         #expect(DictateHandoff.needed(connection: nil, server: server))
-        #expect(DictateHandoff.needed(connection: url("https://other.example.com"), server: server))
+        // Connected elsewhere: kept, never replaced without asking.
+        #expect(!DictateHandoff.needed(connection: url("https://other.example.com"), server: server))
+    }
+
+    @Test func onlyTheFinishPageThatTookTheTicketMayUseIt() {
+        let opened = Date(timeIntervalSince1970: 1_000)
+        let now = opened.addingTimeInterval(5)
+        func allowed(main: Bool = true, suite: Bool = true, document: String? = "/desktop/finish",
+                     live: String? = "/desktop/finish", openedAt: Date? = opened) -> Bool {
+            DictateHandoff.allowed(isMainFrame: main, isSuiteFrame: suite, documentPath: document, livePath: live,
+                                   openedAt: openedAt, now: now)
+        }
+        #expect(allowed())
+        #expect(!allowed(main: false))
+        #expect(!allowed(suite: false))
+        // The finish page routed on to Today: the document is still /desktop/finish, the window isn't.
+        #expect(!allowed(live: "/today"))
+        // Another suite page that pushed /desktop/finish: its document was loaded elsewhere.
+        #expect(!allowed(document: "/docs"))
+        #expect(!allowed(openedAt: nil))
+        #expect(!allowed(openedAt: opened.addingTimeInterval(-DictateHandoff.window - 10)))
     }
 
     @Test func namesTheDeviceAfterTheMac() {

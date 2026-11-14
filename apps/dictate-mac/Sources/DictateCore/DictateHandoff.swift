@@ -39,12 +39,23 @@ public enum DictateHandoff {
         return age >= 0 && age <= window
     }
 
-    /// A Mac connected to this server already needs nothing; one connected elsewhere, or not at
-    /// all, gets a connection to the server it just signed in to.
+    /// Only a Mac with no Dictate connection is connected by signing in. One connected to this
+    /// server needs nothing; one connected elsewhere keeps it (replacing it silently would move the
+    /// member's dictations), and the Dictate page's Connect this Mac asks before replacing.
     public static func needed(connection: URL?, server: URL) -> Bool {
-        guard let connection else { return true }
-        return ConnectLink.normalizedServer(connection.absoluteString) != ConnectLink.normalizedServer(server.absoluteString)
+        connection == nil
     }
+
+    /// Whether a message may use the bridge: the suite's own main frame, on the finish page both by
+    /// the document it loaded and by what the window shows now (client-side routing changes only
+    /// the latter), while the handoff the ticket opened is still open.
+    public static func allowed(isMainFrame: Bool, isSuiteFrame: Bool, documentPath: String?, livePath: String?,
+                               openedAt: Date?, now: Date) -> Bool {
+        isMainFrame && isSuiteFrame && documentPath == finishPath && livePath == finishPath
+            && isOpen(openedAt: openedAt, now: now)
+    }
+
+    public static let finishPath = "/desktop/finish"
 
     /// The device's name on the Dictate page: the Mac's own name, kept short and on one line.
     public static func deviceName(_ macName: String?) -> String {

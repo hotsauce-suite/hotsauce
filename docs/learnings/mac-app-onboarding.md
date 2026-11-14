@@ -54,3 +54,8 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
 - **Open the bridge from the ticket, not the URL.** The app opens the handoff when the finish page
   takes a fresh ticket, for 120 s and one connect; a page that merely loads `/desktop/finish` gets
   no answer.
+- **`frameInfo.request.url` is the document's first URL**; pushState doesn't change it. Checking
+  only that let a page that had *routed away* from /desktop/finish keep the bridge; the check now
+  also needs the window's live URL, and a new document closes the handoff.
+- **A silent connect may only fill a gap, never replace.** Replacing a connection to another server
+  without asking would move someone's dictations; that path stays with the Dictate page's prompt.

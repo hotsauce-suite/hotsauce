@@ -220,14 +220,19 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Answers the finish page's `hearthDictateConnect`: whether to connect Dictate, then the token.
     /// Only the suite's own finish page, main frame, shortly after it took a ticket; one connect.
     fileprivate func dictateHandoff(_ message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
-        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo),
-              let page = message.frameInfo.request.url ?? webView.url, page.path == "/desktop/finish",
-              DictateHandoff.isOpen(openedAt: handoffOpenedAt, now: Date()),
+        guard DictateHandoff.allowed(
+                  isMainFrame: message.frameInfo.isMainFrame, isSuiteFrame: isSuiteFrame(message.frameInfo),
+                  documentPath: message.frameInfo.request.url?.path, livePath: webView.url?.path,
+                  openedAt: handoffOpenedAt, now: Date()
+              ),
               let server = router?.server, let request = DictateHandoff.request(message.body)
         else { return reply(nil) }
         switch request {
         case .status:
-            reply(["needed": dictateNeeded(server), "deviceName": DictateHandoff.deviceName(Host.current().localizedName)])
+            let needed = dictateNeeded(server)
+            // Nothing to connect: close it now rather than leave it open for the window's length.
+            if !needed { handoffOpenedAt = nil }
+            reply(["needed": needed, "deviceName": DictateHandoff.deviceName(Host.current().localizedName)])
         case let .connect(token):
             handoffOpenedAt = nil
             connectDictate(token, server) { account, error in
@@ -605,6 +610,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     /// A new page replaced the one that was recording (a reload, a sign-out): stop listening.
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        // A new document: whatever took the sign-in ticket is gone, so is its Dictate handoff.
+        if webView.url?.path != DictateHandoff.finishPath { handoffOpenedAt = nil }
         stopMeetingCapture()
     }
 
