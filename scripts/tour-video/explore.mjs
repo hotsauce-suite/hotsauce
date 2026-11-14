@@ -13,6 +13,7 @@ const b = await chromium.launch({
       ? [`--use-file-for-fake-video-capture=${process.env.FAKE_VIDEO}`]
       : []),
   ],
+  ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}),
 })
 const ctx = await b.newContext({
   viewport: { width: 1600, height: 900 },

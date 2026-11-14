@@ -68,7 +68,7 @@ Put it behind a reverse proxy that terminates HTTPS and passes WebSockets throug
 
 ## Staying up to date
 
-Every release is also a ready-made image, `ghcr.io/hotsauce-suite/hotsauce:<version>` (and `:latest`), which holds nothing specific to one organization: everything is read when the server starts. Docker hosts can run it as it is, and `/api/health` reports the version running. A built-in updater in Settings → Organization is coming (`docs/PLAN-releases-and-updates.md`).
+Every release is also a ready-made image, `ghcr.io/hotsauce-suite/hotsauce:<version>` (and `:latest`), which holds nothing specific to one organization: everything is read when the server starts. Docker hosts can run it as it is, and `/api/health` reports the version running. On Fly.io with a `FLY_API_TOKEN`, **Settings → Organization → Updates** installs each new release within a few hours (never while a meeting is being recorded) and rolls back if the new version fails its health check; turn automatic updates off to update only when you press **Update** (`docs/PLAN-releases-and-updates.md`).
 
 Copies made from the repository keep working as below. Hotsauce's releases are tagged `vX.Y.Z`, and `HOTSAUCE_VERSION` in your copy says which one it has. The **Update Hotsauce** workflow (`.github/workflows/update-hotsauce.yml`) runs every Monday and from the Actions tab: it applies what changed between your release and the newest one, keeping your own edits, and opens a pull request. Merging it deploys:
 

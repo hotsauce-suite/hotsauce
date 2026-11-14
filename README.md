@@ -113,7 +113,7 @@ Import Markdown, Word and HTML files, and drop live task lists into a page.
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note or meeting, or publish a page. |
-| **Clips** | Loom-style screen recordings with a camera bubble, a transcript, a summary, speed control and a shared library. |
+| **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, one-click Summarize and Action items, speed control and a shared library. |
 | **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is. Team word lists keep names spelled right. |
 | **Briefcast** | A five-minute audio briefing each weekday morning: your meetings, what changed and what's due, in your podcast app. |
 
@@ -132,6 +132,13 @@ when you ask, each with an Undo. Deleting or moving a file, sharing a link or pu
 the same tools as [the MCP server](docs/mcp.md), as you, so it sees only what you can see.
 Conversations are private to each person. Admins pick the model (Claude Sonnet or Opus), see each
 person’s use this month, and can set a monthly limit, in Settings → Organization → Assistant.
+
+### Keyboard first
+
+Press ⌘K (Ctrl+K) to search everything, jump anywhere, add a task (`task: call Sam tomorrow`) or hand a
+question to the assistant. `g` and a letter goes to any app (`g d` Docs, `g t` Tasks), `c` creates the main thing in the
+app you’re in, and `?` shows every shortcut for the page you’re on. The full list is in the
+[help center](https://hotsauce.work/help/shortcuts).
 
 ### Make it yours
 

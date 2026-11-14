@@ -93,6 +93,49 @@ export const shots = {
     await wait(2600)
   },
 
+  // The built-in assistant (⌘J), opened over a doc, answering with links to what it used.
+  async assistant({ page, signIn, startCapture, wait, moveTo, click, type }) {
+    await signIn()
+    await page.goto(`${B}/docs`)
+    await wait(1200)
+    await page.getByRole('treeitem', { name: /^plans/ }).click()
+    await page.getByRole('treeitem', { name: /^q4-plan/ }).click()
+    await wait(1500)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(900)
+    await click(page.getByRole('button', { name: 'Ask the assistant' }), { after: 1200 })
+    await click(page.getByRole('textbox', { name: /^Message Ask/ }))
+    await type('When is standup, and when are demos?', 45)
+    await page.keyboard.press('Enter')
+    await wait(3500)
+    const answer = page
+      .getByRole('complementary')
+      .last()
+      .getByRole('link', { name: 'Team rituals' })
+    await click(answer, { after: 2600 })
+  },
+
+  // Check-ins: answer this week's question, then reply to a teammate.
+  async checkins({ page, signIn, startCapture, wait, moveTo, click, type }) {
+    await signIn()
+    await page.goto(`${B}/checkins`)
+    await wait(1500)
+    await startCapture()
+    await moveTo(800, 400, 10)
+    await wait(700)
+    await click(page.getByRole('link', { name: /What will you get done this week/ }), {
+      after: 1400,
+    })
+    await click(page.getByTestId('checkin-answer'))
+    await type('Ship the Q1 roadmap draft and book the field visits.', 40)
+    await wait(500)
+    await click(page.getByTestId('checkin-submit'), { after: 1500 })
+    await click(page.getByTestId('checkin-reply-open').first(), { after: 600 })
+    await type('Nice. Shout if the quote isn’t in by Wednesday.', 40)
+    await click(page.getByTestId('checkin-reply-send').first(), { after: 2200 })
+  },
+
   async tasks({ page, signIn, startCapture, wait, moveTo, click, type }) {
     await signIn()
     await page.goto(`${B}/tasks/today`)
@@ -171,7 +214,103 @@ export const shots = {
     await wait(1500)
   },
 
-  async clipsPlayer({ page, signIn, startCapture, wait, moveTo, click, point }) {
+  // The Clips player, with a clip from DEMO_CLIP (a dir holding composite.mp4 and thumb.jpg: footage with
+  // the camera bubble in it, made with the server's own composite()). The clip's API answers are
+  // routed here so the shot needs no real recording, transcriber or language model.
+  async clipsPlayer({ page, signIn, startCapture, wait, moveTo, click, point, type }) {
+    const dir = process.env.DEMO_CLIP
+    if (!dir) throw new Error('set DEMO_CLIP to a dir with composite.mp4 and thumb.jpg')
+    const now = new Date().toISOString()
+    let clip = {
+      id: 'demo-q4',
+      title: 'Q4 plan, before Friday’s board meeting',
+      summary: null,
+      mode: 'screen_camera',
+      status: 'ready',
+      error: null,
+      durationMs: 21000,
+      sizeBytes: 4_000_000,
+      width: 1920,
+      height: 1080,
+      mimeType: 'video/mp4',
+      owner: { name: 'Ada Lovelace', email: 'ada@example.test' },
+      isOwner: true,
+      createdAt: now,
+      updatedAt: now,
+      transcriptStatus: 'ready',
+      transcriptError: null,
+      compositeStatus: 'ready',
+      screenSurface: 'browser',
+      screenLabel: 'Q4 plan',
+      speakers: [{ id: 0, name: 'Speaker 1', named: false }],
+      aiSummary: null,
+      aiActions: null,
+      videoUrl: '/demo-clip/composite.mp4',
+      thumbUrl: '/demo-clip/thumb.jpg',
+      downloadUrl: '/demo-clip/composite.mp4',
+    }
+    const transcript = [
+      {
+        start: 0,
+        end: 4,
+        speaker: 0,
+        text: 'Quick one before Friday: here’s the Q4 plan the board will see.',
+      },
+      {
+        start: 4,
+        end: 9,
+        speaker: 0,
+        text: 'I added a risk under Risks, that we hire too late, and linked it to the hiring plan.',
+      },
+      {
+        start: 9,
+        end: 14,
+        speaker: 0,
+        text: 'History shows Priya’s edit from Monday, when she added the second assay scientist.',
+      },
+      {
+        start: 14,
+        end: 21,
+        speaker: 0,
+        text: 'Can you read it before Friday and leave comments right in the doc? Thanks.',
+      },
+    ]
+    const ctx = page.context()
+    const json = (route, body) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+    await ctx.route('**/demo-clip/*', (route) =>
+      route.fulfill({ path: `${dir}/${new URL(route.request().url()).pathname.split('/').pop()}` }),
+    )
+    await ctx.route('**/api/clips**', async (route) => {
+      const req = route.request()
+      const url = new URL(req.url())
+      if (url.pathname === '/api/clips/config') return json(route, { available: true })
+      if (url.pathname === '/api/clips') return json(route, { clips: [clip] })
+      if (url.pathname === '/api/clips/demo-q4' && req.method() === 'PATCH') {
+        const name = Object.values(req.postDataJSON().speakers ?? {})[0]
+        if (name) clip = { ...clip, speakers: [{ id: 0, name, named: true }] }
+        return json(route, clip)
+      }
+      if (url.pathname === '/api/clips/demo-q4/ai') {
+        await new Promise((r) => setTimeout(r, 1200))
+        const { kind } = req.postDataJSON()
+        clip =
+          kind === 'summary'
+            ? {
+                ...clip,
+                aiSummary:
+                  'Ada walks through the Q4 plan before Friday’s board meeting: a new hiring risk, linked to the hiring plan, and Priya’s latest edit. She asks for comments in the doc before Friday.',
+              }
+            : {
+                ...clip,
+                aiActions:
+                  '- [ ] Read the Q4 plan before Friday\n- [ ] Leave comments in the doc\n- [ ] Check the hiring plan risk',
+              }
+        return json(route, clip)
+      }
+      if (url.pathname === '/api/clips/demo-q4') return json(route, { clip, transcript })
+      return route.fallback()
+    })
     await signIn()
     await page.goto(`${B}/clips`)
     await wait(2500)
@@ -185,10 +324,18 @@ export const shots = {
       el.play()
     })
     await wait(2500)
-    await point(page.getByText('Transcript').first(), { ms: 800 })
-    await wait(1500)
+    await point(page.getByTestId('clip-speakers'), { ms: 700 })
+    await click(page.getByTestId('clip-speakers').getByRole('button').first(), { after: 400 })
+    await page.keyboard.press('ControlOrMeta+a')
+    await type('Ada', 70)
+    await page.keyboard.press('Enter')
+    await wait(1400)
+    await click(page.getByTestId('clip-summarize'), { after: 2600 })
+    await click(page.getByTestId('clip-actions'), { after: 1400 })
+    await page.mouse.wheel(0, 300)
+    await wait(1600)
     await click(page.getByRole('button', { name: '1.5×' }).or(page.getByText('1.5×')).first(), {
-      after: 2500,
+      after: 2000,
     })
   },
 
