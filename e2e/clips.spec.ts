@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import type { Page } from '@playwright/test'
-import { expect, test } from './fixtures'
+import { expect, openApp, test } from './fixtures'
 
 const run = promisify(execFile)
 
@@ -85,9 +85,9 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
     return (m ?? 0) * 60 + (s ?? 0)
   }
 
-  await test.step('Clips opens from the app switch; the recorder shows the camera', async () => {
+  await test.step('Clips opens from the launcher; the recorder shows the camera', async () => {
     await page.goto('/docs')
-    await page.getByTestId('app-switch-clips').click()
+    await openApp(page, 'clips')
     await expect(page).toHaveURL(/\/clips$/)
     await page.getByTestId('record-clip').click()
     await expect(page).toHaveURL(/\/clips\/new$/)

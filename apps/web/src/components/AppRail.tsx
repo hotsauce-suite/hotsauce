@@ -3,7 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { feedbackEnabled } from '../api/feedback'
 import { useLive } from '../apps/meetings/live/liveState'
 import { forgetRemindersHere } from '../apps/meetings/reminders'
-import { APPS, type AppId, type AppManifest, ownerOfPath, railLinks } from '../apps/registry'
+import { entryId, forgetPins, pinnedEntries, type RailEntry, usePins } from '../apps/pins'
+import { APPS, type AppId, type AppManifest, ownerOfPath } from '../apps/registry'
 import { forgetTaskLists } from '../apps/tasks/useTaskList'
 import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
@@ -12,6 +13,7 @@ import { useSession } from '../state/session'
 import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
 import { Icon, type IconName } from './Icon'
+import { LauncherButton } from './Launcher'
 import { Menu, type MenuAnchor, MenuItem } from './Menu'
 
 /** Where each app was last open, so switching back lands where you left it. */
@@ -46,10 +48,11 @@ export function initials(name: string | undefined, email: string | undefined): s
 type Orientation = 'vertical' | 'horizontal'
 
 /**
- * The app rail: one icon per app in `APPS`, then the links that leave Hearth, then Settings
- * and the account menu, in a column on the far left of the shell; the apps scroll when there
- * are more than fit, so the window never does. On phones, a tab bar along the bottom with the
- * apps marked `onPhoneBar` and an Apps tab whose sheet holds everything else.
+ * The app rail: the member's pinned apps (docs/PLAN-pinned-rail.md), the open app below them when
+ * it isn't pinned, then the launcher's grid button (every app), Settings and the account menu, in
+ * a column on the far left of the shell; the apps scroll when there are more than fit, so the
+ * window never does. On phones, a tab bar along the bottom with the apps marked `onPhoneBar` and
+ * an Apps tab whose sheet holds everything else.
  */
 export function AppRail({ orientation }: { orientation: Orientation }) {
   const location = useLocation()
@@ -58,8 +61,9 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   const onSettings = location.pathname === '/settings' || location.pathname.startsWith('/settings/')
   const recording = live !== null && (live.state === 'recording' || live.state === 'paused')
   const vertical = orientation === 'vertical'
+  const pins = usePins()
 
-  const apps = APPS.filter((app) => vertical || app.onPhoneBar === true).map((app) => {
+  const appItem = (app: AppManifest) => {
     const current = app.id === active
     const isRecording = app.id === 'meetings' && recording
     return (
@@ -77,22 +81,31 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         dot={isRecording}
       />
     )
-  })
-  const links = !vertical
-    ? null
-    : railLinks().map((link) => (
-        <RailItem
-          key={link.id}
-          orientation={orientation}
-          href={link.href}
-          icon={link.icon}
-          label={link.label}
-          name={`${link.name} (opens in a new tab)`}
-          current={false}
-          testId={`app-link-${link.id}`}
-          external
-        />
-      ))
+  }
+  const entryItem = (entry: RailEntry) =>
+    entry.kind === 'app' ? (
+      appItem(entry.app)
+    ) : (
+      <RailItem
+        key={entry.link.id}
+        orientation={orientation}
+        href={entry.link.href}
+        icon={entry.link.icon}
+        label={entry.link.label}
+        name={`${entry.link.name} (opens in a new tab)`}
+        current={false}
+        testId={`app-link-${entry.link.id}`}
+        external
+      />
+    )
+  const pinned = vertical ? pinnedEntries(pins) : []
+  // The open app stays in view below the pins, so the rail always shows where you are.
+  const openApp = APPS.find((app) => app.id === active)
+  const unpinned =
+    vertical && openApp && !pinned.some((entry) => entryId(entry) === openApp.id) ? openApp : null
+  const apps = vertical
+    ? pinned.map(entryItem)
+    : APPS.filter((app) => app.onPhoneBar === true).map(appItem)
   const onFeedback = location.pathname === '/feedback'
   const feedbackHref = feedbackLink(location.pathname)
   const feedbackOn = useFeedbackEnabled()
@@ -130,12 +143,18 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         onKeyDown={(e) => moveInRail(e, 'ArrowDown', 'ArrowUp')}
         className="shell-rail flex h-full w-[var(--rail-width)] shrink-0 flex-col items-center border-r border-ash bg-paper pt-3 pb-2"
       >
-        <BrandMark className="mb-3 size-9 shrink-0" />
+        <BrandMark className="mb-3 size-8 shrink-0" />
         <RailApps>
           {apps}
-          {links}
+          {unpinned ? (
+            <>
+              <span aria-hidden="true" className="my-1 h-px w-8 shrink-0 bg-ash" />
+              {appItem(unpinned)}
+            </>
+          ) : null}
         </RailApps>
         <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
+          <LauncherButton active={active} className={itemClass('vertical', false)} />
           {feedback}
           {settings}
           <AccountButton />
@@ -232,7 +251,7 @@ export function feedbackLink(pathname: string): string {
 
 export function itemClass(orientation: Orientation, current: boolean): string {
   const shape =
-    orientation === 'vertical' ? 'w-15 py-1.5' : 'h-14 min-w-12 flex-1 basis-0 px-0.5 py-1.5'
+    orientation === 'vertical' ? 'w-13.5 py-1.5' : 'h-14 min-w-12 flex-1 basis-0 px-0.5 py-1.5'
   const tone = current
     ? 'bg-ember-wash text-ember'
     : 'text-ink-faint hover:bg-paper-sunk hover:text-ink-soft'
@@ -273,8 +292,8 @@ function RailItem({
   const body = (
     <>
       <span className="relative">
-        {/* The desktop rail's icons are half again the phone bar's (Morgan, Nov 13). */}
-        <Icon name={icon} className={vertical ? 'size-7.5' : 'size-5'} />
+        {/* The desktop rail's icons are a quarter bigger than the phone bar's (Morgan, Nov 13). */}
+        <Icon name={icon} className={vertical ? 'size-6.25' : 'size-5'} />
         {dot ? (
           <span
             data-testid="rail-recording"
@@ -285,7 +304,7 @@ function RailItem({
       </span>
       {hideLabel ? null : (
         <span
-          className={`flex max-w-full items-center gap-px leading-tight font-medium tracking-tight ${vertical ? 'text-[0.6875rem]' : 'text-[0.625rem]'}`}
+          className={`flex max-w-full items-center gap-px leading-tight font-medium tracking-tight ${vertical ? 'text-[0.65625rem]' : 'text-[0.625rem]'}`}
         >
           <span className="truncate">{label}</span>
           {external ? <Icon name="external" className="size-2 shrink-0 opacity-75" /> : null}
@@ -324,6 +343,7 @@ export function useSignOut(): () => void {
   const auth = useAuthState()
   return () => {
     forgetAppLocations()
+    forgetPins()
     // Tasks keeps the last lists, people and projects in memory; they're this member's.
     forgetTaskLists()
     forgetTaskMeta()
@@ -365,7 +385,7 @@ function AccountButton() {
         onClick={(event) => (anchor ? close() : open(event.currentTarget))}
         className={itemClass('vertical', false)}
       >
-        <span className="grid size-9 place-items-center rounded-full bg-ash-strong text-xs font-semibold text-paper-raised">
+        <span className="grid size-7.5 place-items-center rounded-full bg-ash-strong text-[0.6875rem] font-semibold text-paper-raised">
           {initials(principal?.name, principal?.email)}
         </span>
       </button>
