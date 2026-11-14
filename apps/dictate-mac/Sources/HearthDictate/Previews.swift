@@ -45,21 +45,45 @@ enum Previews {
                 model.workspaceText = "team.example.com"
                 model.filledFromLink = true
             }),
-            ("dictate-connected", { model in
+            ("workspace-found", { model in
                 model.workspace = { server }
                 model.editingWorkspace = false
+                model.workspaceText = "team.example.com"
+                model.workspaceFound = "Acme. Sign in with your example.com Google account."
+            }),
+            ("step-signin", { model in
+                model.workspace = { server }
+                model.editingWorkspace = false
+                model.step = .signIn
+            }),
+            ("step-dictate", { model in
+                model.workspace = { server }
+                model.step = .dictate
+                model.signedIn = true
                 model.connected = true
                 model.listening = true
                 model.connectedAs = "ada@example.com"
                 model.hotkeyName = { "Right Option" }
                 model.practice = "Shipping Dictate to the team today."
             }),
-            ("workspace-found", { model in
+            ("step-permissions", { model in
                 model.workspace = { server }
-                model.editingWorkspace = false
-                model.workspaceText = "team.example.com"
-                model.workspaceFound = "Acme. Sign in with your example.com Google account."
-                model.offerSignIn = true
+                model.step = .permissions
+                model.signedIn = true
+                model.connected = true
+                model.microphone = true
+                model.accessibility = false
+                model.location = false
+                model.notifications = true
+            }),
+            ("step-done", { model in
+                model.workspace = { server }
+                model.step = .done
+                model.signedIn = true
+                model.connected = true
+                model.listening = true
+                model.hotkeyName = { "Right Option" }
+                model.skipped = [.permissions]
             }),
         ]
         for (name, configure) in states {

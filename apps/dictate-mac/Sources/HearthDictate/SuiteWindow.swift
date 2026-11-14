@@ -32,6 +32,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Saves a device token from the finish page as the Mac's connection to `server`; calls back
     /// with the account, or why it didn't.
     var connectDictate: (_ token: String, _ server: URL, _ done: @escaping (_ account: String?, _ error: String?) -> Void) -> Void = { _, _, done in done(nil, "Not available") }
+    /// The finish page took a fresh sign-in ticket: the window is signing in.
+    var signedIn: () -> Void = {}
     /// When the finish page took a sign-in ticket: it may connect Dictate for a short while after.
     private var handoffOpenedAt: Date?
     /// The suite page that couldn't be loaded, while the window shows the "Can't reach" page.
@@ -214,6 +216,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         pendingTicket = nil
         guard Date().timeIntervalSince(pending.received) <= BrowserSignIn.ticketHandoff else { return nil }
         handoffOpenedAt = Date()
+        signedIn()
         return pending.ticket
     }
 

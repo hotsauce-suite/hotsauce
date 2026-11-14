@@ -59,3 +59,15 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
   also needs the window's live URL, and a new document closes the handoff.
 - **A silent connect may only fill a gap, never replace.** Replacing a connection to another server
   without asking would move someone's dictations; that path stays with the Dictate page's prompt.
+
+## Setup as steps (slice 4)
+
+- **The app can't see the window's session**, so "signed in" is what the app itself witnessed: a
+  sign-in ticket the finish page took, or a Dictate connection. Macs set up before the steps get
+  `appSignedIn` once, by a migration on their first launch with this version; using `hasOnboarded`
+  directly would have counted a new Mac that closed setup at the Sign in step as signed in.
+- **Opening the window and bringing it forward are different.** Opening a closed window resets it
+  to the first unfinished step; a step finishing elsewhere (System Settings, the browser) only
+  brings the open window forward, or it would jump the member back mid-flow.
+- **Skips are per window, not saved.** Skipping Permissions doesn't stop the launch check: the
+  window still opens next launch while one is missing (PLAN-mac-permissions P2).

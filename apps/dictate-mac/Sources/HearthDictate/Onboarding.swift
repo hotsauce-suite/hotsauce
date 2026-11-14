@@ -3,10 +3,18 @@ import AVFoundation
 import DictateCore
 import SwiftUI
 
-/// The setup window: the workspace's address on a Mac that has none, then Microphone,
-/// Accessibility, Location, Notifications and Connect, each with a live check. It opens on the
-/// first launch and on every launch while a permission is missing.
+/// The setup window, one step at a time (docs/PLAN-mac-onboarding.md R10-R12): Workspace, Sign in,
+/// Dictate, Permissions, Done. It opens at the first step that isn't finished: on a first run, on a
+/// Mac with no workspace or not signed in, and on every launch while a permission is missing.
 final class OnboardingModel: ObservableObject {
+    @Published var step: SetupFlow.Step = .workspace
+    /// Steps skipped in this window (Dictate, Permissions); asked again next launch.
+    @Published var skipped: Set<SetupFlow.Step> = []
+    @Published var signedIn = false
+    var isSignedIn: () -> Bool = { false }
+    /// Done's button: the suite's window, at Today.
+    var openSuite: () -> Void = {}
+
     // The Workspace step (docs/PLAN-mac-onboarding.md R1-R3).
     /// The step shows while this Mac has no workspace, or the member asked to change it.
     @Published var editingWorkspace = false
@@ -112,6 +120,10 @@ final class OnboardingModel: ObservableObject {
         Permissions.notificationsAllowed { [weak self] on in self?.setNotifications(on) }
         connected = isConnected()
         connectedAs = account()
+        let wasSignedIn = signedIn
+        signedIn = isSignedIn()
+        // Signing in happens in the browser and the app's window: move on when it lands.
+        if step == .signIn, signedIn, !wasSignedIn { step = SetupFlow.next(after: .signIn, flowState) }
         outsideApplications = notInApplications()
         menuBarHidden = isMenuBarIconHidden()
         if accessibility, !hotkeyReady() { startHotkey() }
@@ -158,8 +170,42 @@ final class OnboardingModel: ObservableObject {
 
     var allSet: Bool { permissionsGranted && listening && connected }
 
+    var missingPermissions: [PermissionCheck.Item] {
+        PermissionCheck.missing(PermissionCheck.Snapshot(
+            microphone: microphone, accessibility: accessibility, location: location,
+            notifications: notifications, notificationsNeeded: notificationsNeeded
+        ))
+    }
+
+    var flowState: SetupFlow.State {
+        SetupFlow.State(hasWorkspace: workspace() != nil, signedIn: signedIn, dictateConnected: connected,
+                        missingPermissions: missingPermissions, skipped: skipped)
+    }
+
+    /// Where the window opens: the first unfinished step, or Permissions when everything is done
+    /// (the menu's Check Permissions…).
+    func openAtFirstUnfinished() {
+        signedIn = isSignedIn()
+        connected = isConnected()
+        let first = SetupFlow.firstUnfinished(flowState)
+        step = first == .done ? .permissions : first
+        if step == .workspace, workspace() == nil { beginWorkspace() }
+    }
+
+    /// Continue: on to the next step that needs the member; Skip marks this one skipped first.
+    func advance(skipping: Bool = false) {
+        if skipping { skipped.insert(step) }
+        step = SetupFlow.next(after: step, flowState)
+    }
+
+    func back() {
+        guard let previous = SetupFlow.Step(rawValue: step.rawValue - 1) else { return }
+        step = previous
+    }
+
     /// Opens the Workspace step, filled with `address` (a setup link's) or the one this Mac uses now.
     func beginWorkspace(address: URL? = nil) {
+        step = .workspace
         editingWorkspace = true
         filledFromLink = address != nil
         workspaceText = (address ?? workspace()).map(Workspace.displayAddress) ?? ""
@@ -215,10 +261,13 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     /// The setup window at its Workspace step: a Mac with no workspace, or "Change workspace address".
     func showWorkspace(address: URL? = nil) {
         model.beginWorkspace(address: address)
-        show()
+        show(atFirstUnfinished: false)
     }
 
-    func show() {
+    /// Opens the window; a closed one opens at its first unfinished step (R11). One already open
+    /// stays on its step: it's only brought forward.
+    func show(atFirstUnfinished: Bool = true) {
+        if atFirstUnfinished, !isVisible { model.openAtFirstUnfinished() }
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 500, height: OnboardingView.height),
@@ -264,22 +313,183 @@ private struct OnboardingView: View {
     let done: () -> Void
 
     var body: some View {
-        ScrollView {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Set up \(Brand.name)").font(.system(size: 22, weight: .semibold, design: .serif))
-                Text(model.workspace() == nil
-                    ? "First, your team’s workspace."
-                    : "\(Brand.name) needs these to work. This window opens each time the app starts until every one is on.")
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Header(step: model.step)
+                    content
+                }
+                .padding(24)
             }
+            Divider()
+            footer.padding(.horizontal, 24).padding(.vertical, 14)
+        }
+        .frame(width: 500, height: Self.height)
+    }
+
+    @ViewBuilder private var content: some View {
+        switch model.step {
+        case .workspace:
             if model.editingWorkspace || model.workspace() == nil {
                 WorkspaceStep(model: model)
-            } else if let found = model.workspaceFound {
-                WorkspaceFound(model: model, summary: found)
+            } else {
+                WorkspaceFound(model: model, summary: model.workspaceFound
+                    ?? "This Mac opens \(Brand.name) at this address. Change it if your team moved.")
             }
-            if model.workspace() != nil {
+        case .signIn:
+            SignInStep(model: model)
+        case .dictate:
+            DictateStep(model: model)
+        case .permissions:
+            PermissionsStep(model: model)
+        case .done:
+            DoneStep(model: model)
+        }
+    }
+
+    private var footer: some View {
+        let state = model.flowState
+        let finished = SetupFlow.isFinished(model.step, state)
+        return HStack(spacing: 10) {
+            if model.step != .workspace, model.step != .done {
+                Button("Back") { model.back() }
+            }
+            Spacer()
+            switch model.step {
+            case .workspace:
+                // The step's own Continue checks the address; this one moves on once it's saved.
+                if !model.editingWorkspace, model.workspace() != nil {
+                    Button("Continue") { model.advance() }.keyboardShortcut(.defaultAction)
+                }
+            case .done:
+                Button("Close", action: done)
+                Button("Open \(Brand.name)") {
+                    model.openSuite()
+                    done()
+                }
+                .keyboardShortcut(.defaultAction)
+            default:
+                if model.step.canSkip, !finished {
+                    Button("Skip for now") { model.advance(skipping: true) }
+                }
+                Button("Continue") { model.advance() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!SetupFlow.canLeave(model.step, state) || (!finished && model.step.canSkip))
+            }
+        }
+    }
+}
+
+/// "Step 2 of 4 · Sign in" over the window's title.
+private struct Header: View {
+    let step: SetupFlow.Step
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let number = step.number {
+                Text("Step \(number) of \(SetupFlow.Step.counted) · \(step.title)")
+                    .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+            }
+            Text(headline).font(.system(size: 22, weight: .semibold, design: .serif))
+            Text(lede).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var headline: String {
+        switch step {
+        case .workspace: return "Set up \(Brand.name)"
+        case .signIn: return "Sign in"
+        case .dictate: return "Dictate"
+        case .permissions: return "Permissions"
+        case .done: return "You’re all set"
+        }
+    }
+
+    private var lede: String {
+        switch step {
+        case .workspace: return "First, your team’s workspace."
+        case .signIn: return "Sign in with your Google account. Your browser opens to confirm it’s you, then brings you back here."
+        case .dictate: return "Hold a key, speak, and the text lands wherever your cursor is."
+        case .permissions: return "\(Brand.name) needs these on this Mac. This window opens each time the app starts until every one is on."
+        case .done: return "\(Brand.name) is ready on this Mac. Open this window again from \(Brand.name) → Check Permissions… or the menu bar icon."
+        }
+    }
+}
+
+/// Sign in with Google, through the browser (R7).
+private struct SignInStep: View {
+    @ObservedObject var model: OnboardingModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if model.signedIn {
+                Label("Signed in.", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+            } else {
+                Button {
+                    model.signIn()
+                } label: {
+                    Text("Sign in with Google").frame(minWidth: 180)
+                }
+                .controlSize(.large)
+                Text("Signing in also connects Dictate on this Mac.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+    }
+}
+
+/// Dictate's connection, a practice box, and the code path (R9).
+private struct DictateStep: View {
+    @ObservedObject var model: OnboardingModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(spacing: 0) {
+                Row(
+                    title: "Dictate",
+                    detail: model.connectedAs.map { "Connected as \($0)." } ?? "Not connected yet. Signing in connects it, or press Connect this Mac on your workspace’s Dictate page.",
+                    granted: model.connected,
+                    button: "Open Dictate page"
+                ) {
+                    model.awaiting = .connect
+                    model.openDictatePage()
+                }
+            }
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+            if model.connected && model.listening {
+                PracticeBox(model: model)
+            } else if model.connected {
+                Text("Try it once Accessibility is on (next step).").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(model.connected ? "Connect with a code instead" : "Or connect with a code").font(.system(size: 12, weight: .semibold))
+                HStack {
+                    TextField("hearth-dictate://connect?…", text: $model.code)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { model.submitCode() }
+                    Button("Connect") { model.submitCode() }
+                        .disabled(model.code.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                if let error = model.codeError {
+                    Text(error).font(.system(size: 11)).foregroundStyle(.red)
+                }
+            }
+        }
+    }
+}
+
+/// Microphone, Accessibility, Location, Notifications, with live checks (R10, PLAN-mac-permissions).
+private struct PermissionsStep: View {
+    @ObservedObject var model: OnboardingModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
             VStack(spacing: 0) {
                 Row(
                     title: "Microphone",
@@ -322,63 +532,27 @@ private struct OnboardingView: View {
                         Permissions.requestNotifications { _ in model.refresh() }
                     }
                 }
-                Divider()
-                Row(
-                    title: "Dictate",
-                    detail: model.connectedAs.map { "Connected as \($0)." } ?? "Connects when you sign in with Google, or press Connect this Mac on your workspace’s /dictate page.",
-                    granted: model.connected,
-                    button: "Open \(Brand.name)"
-                ) {
-                    model.awaiting = .connect
-                    model.openDictatePage()
-                }
             }
             .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
-
             StatusBanner(model: model)
-            if model.connected && model.listening { PracticeBox(model: model) }
-            if model.allSet && model.menuBarHidden { MenuBarHint() }
-            }
+        }
+    }
+}
 
-            if model.workspace() != nil {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(model.connected ? "Connect with a code instead" : "Or connect with a code").font(.system(size: 12, weight: .semibold))
-                HStack {
-                    TextField("hearth-dictate://connect?…", text: $model.code)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { model.submitCode() }
-                    Button("Connect") { model.submitCode() }
-                        .disabled(model.code.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-                if let error = model.codeError {
-                    Text(error).font(.system(size: 11)).foregroundStyle(.red)
-                }
+/// The end: try it, and where things are.
+private struct DoneStep: View {
+    @ObservedObject var model: OnboardingModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            if model.connected && model.listening { PracticeBox(model: model) }
+            if !model.skipped.isEmpty {
+                Text("You skipped \(model.skipped.sorted { $0.rawValue < $1.rawValue }.map(\.title).joined(separator: " and ")). This window asks again next time the app starts.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            }
-            Spacer(minLength: 0)
-            if model.workspace() != nil {
-                HStack {
-                    Button("Open Dictate in \(Brand.name)") { model.openDictatePage() }
-                        .buttonStyle(.link)
-                    Spacer()
-                }
-            }
-            HStack {
-                Text("Open it again from \(Brand.name) → Check Permissions… or the menu bar icon.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                Spacer()
-                // Return is Continue while the Workspace step shows.
-                if model.editingWorkspace || model.workspace() == nil {
-                    Button("Done", action: done)
-                } else {
-                    Button("Done", action: done).keyboardShortcut(.defaultAction)
-                }
-            }
+            if model.menuBarHidden { MenuBarHint() }
         }
-        .padding(24)
-        }
-        .frame(width: 500, height: Self.height)
     }
 }
 
@@ -455,7 +629,7 @@ private struct WorkspaceFound: View {
                 Text(summary).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            if model.offerSignIn { Button("Sign in with Google") { model.signIn() } }
+            Button("Change") { model.beginWorkspace() }
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
@@ -491,11 +665,12 @@ private struct Row: View {
 /// One line on what to do next, so a missing piece is never silent.
 private struct StatusBanner: View {
     @ObservedObject var model: OnboardingModel
+    private var done: Bool { model.permissionsGranted && model.listening && !model.outsideApplications }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: model.allSet ? "checkmark.seal.fill" : "info.circle.fill")
-                .foregroundStyle(model.allSet ? Color.green : Color.orange)
+            Image(systemName: done ? "checkmark.seal.fill" : "info.circle.fill")
+                .foregroundStyle(done ? Color.green : Color.orange)
             VStack(alignment: .leading, spacing: 6) {
                 Text(message).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                 if model.tapStuck {
@@ -527,7 +702,6 @@ private struct StatusBanner: View {
                 ? "Accessibility is on, but macOS hasn’t let \(Brand.name) see the keyboard yet. Quit and reopen it."
                 : "Starting the keyboard shortcut…"
         }
-        if !model.connected { return "Last step: on your workspace’s /dictate page, press Connect this Mac, or paste the code below." }
         return "All set. Hold \(model.hotkeyName()), speak, and let go. The mic icon in the menu bar has your recent dictations; on a MacBook it can hide behind the camera notch."
     }
 }
