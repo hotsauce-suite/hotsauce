@@ -1,7 +1,7 @@
-import { uid } from './fixtures'
+import { openApp, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
-// R11: open Briefcast from the rail → make today's briefing → it plays and the script shows.
+// R11: open Briefcast from the launcher → make today's briefing → it plays and the script shows.
 test('Briefcast makes today’s briefing from your meetings and plays it', async ({
   page,
   member,
@@ -16,10 +16,7 @@ test('Briefcast makes today’s briefing from your meetings and plays it', async
   )
 
   await page.goto('/docs')
-  await page
-    .getByRole('navigation', { name: /apps/i })
-    .getByRole('link', { name: /Briefcast/ })
-    .click()
+  await openApp(page, 'briefcast')
   await expect(page).toHaveURL(/\/briefcast$/)
 
   // The index takes the commit just after it lands; make it until the script names the meeting.
