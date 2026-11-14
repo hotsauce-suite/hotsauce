@@ -185,7 +185,7 @@ function ShellLayout() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="app-shell flex h-full min-h-0 flex-col">
       {/* The first Tab stop: past the rail and sidebar to the page. */}
       <button
         type="button"

@@ -35,6 +35,16 @@ body,
   height: 100%;
 }
 
+/* Nothing in the frame may reach past the window. Hidden file inputs (`sr-only`, so
+   absolutely placed) deep in a scrolled pane hang off <main>, outside the pane's clip: on
+   Settings → Organization they sat 1,600px down and made the whole page scroll, rail and
+   sidebar included. The page's 6px entrance slide did the same for a moment. Clip, not
+   hidden: a clipped box can't be scrolled by focus or scrollIntoView. Fixed layers aren't
+   clipped. */
+.app-shell {
+  overflow: clip;
+}
+
 body {
   margin: 0;
   font-family: var(--type-ui);
