@@ -19,10 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// A `CallDetector` on macOS 14.2+ (stored untyped for the availability check).
     private var callDetector: AnyObject?
 
-    /// The server in Settings, else the default server. Not Dictate's connection: a connect link names its
-    /// server, and the window grants its server the camera and microphone.
+    /// The server in Settings, else the one this Mac is connected to, else the default. The one app
+    /// serves every organization, so connecting is how it learns its address; connecting from a link
+    /// always asks first and names the address, since the window grants it the camera and microphone.
     private var suiteServer: URL {
-        settings.suiteServer ?? ConnectLink.defaultServer
+        ServerAddress.windowServer(setting: settings.suiteServer, connection: ConnectionStore.connection()?.server)
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -41,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         suite.showMessage = { [weak self] in self?.controller.showMessage($0) }
         suite.handleAppLink = { [weak self] in self?.openAppLink($0.absoluteString) }
         suite.signInWithBrowser = { [weak self] in self?.startBrowserSignIn() }
+        suite.serverMoved = { [weak self] old, new in self?.serverMoved(from: old, to: new) }
         statusItem = Self.makeStatusItem()
         statusItem.isVisible = settings.showInMenuBar
         let menu = NSMenu()
@@ -270,7 +272,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let server = ConnectLink.normalizedServer(text) else {
                 return "Enter the server’s address, like https://office.example.com (http only for localhost)."
             }
-            self.settings.suiteServer = server == ConnectLink.defaultServer ? nil : server
+            let fallback = ServerAddress.windowServer(setting: nil, connection: ConnectionStore.connection()?.server)
+            self.settings.suiteServer = server == fallback ? nil : server
             self.suite.setServer(self.suiteServer)
             model.reload()
             return nil
@@ -595,6 +598,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Connecting
 
+    /// The window's server answered from its new address: remember it, for the window and for
+    /// dictation when that was connected to the old one (the same server, so the token still works).
+    private func serverMoved(from old: URL, to new: URL) {
+        if let connection = ConnectionStore.connection(), connection.server == old {
+            ConnectionStore.setConnection(.init(token: connection.token, server: new, account: connection.account))
+        }
+        let fallback = ServerAddress.windowServer(setting: nil, connection: ConnectionStore.connection()?.server)
+        settings.suiteServer = new == fallback ? nil : new
+        controller.showMessage("\(Brand.name) moved to \(new.host ?? new.absoluteString)")
+    }
+
     @objc private func handleURL(_ event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
         guard let text = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue else { return }
         openAppLink(text)
@@ -665,7 +679,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 alert.messageText = "Connect Dictate as \(account)?"
                 // One app serves every organization, so the address is what to check.
                 var detail = link.isUnfamiliarServer
-                    ? "Your dictations will be sent to \(link.server.absoluteString). Only continue if that is your organization’s \(Brand.name)."
+                    ? "Your dictations will be sent to \(link.server.absoluteString), and the \(Brand.name) window opens it. Only continue if that is your organization’s \(Brand.name)."
                     : "Your dictations will go to \(link.server.host ?? Brand.name) as \(account)."
                 if previous != nil { detail += " This replaces the connection this Mac has now." }
                 alert.informativeText = detail
@@ -683,6 +697,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let previous, previous.token != link.token {
                 Task { await DictationClient(server: previous.server, token: previous.token).revokeSelf() }
             }
+            // The window follows the connection unless Settings names another server.
+            if self.settings.suiteServer == link.server { self.settings.suiteServer = nil }
+            self.suite.setServer(self.suiteServer)
             self.updateIcon()
             self.onboarding.model.refresh()
             self.controller.showMessage("Connected as \(account)")

@@ -5,12 +5,16 @@ public enum Hotkey: String, CaseIterable, Codable, Sendable {
     case rightOption
     case rightCommand
     case fn
+    case rightControl
+    case rightShift
 
     public var title: String {
         switch self {
         case .rightOption: "Right Option (⌥)"
         case .rightCommand: "Right Command (⌘)"
         case .fn: "Fn / Globe"
+        case .rightControl: "Right Control (⌃)"
+        case .rightShift: "Right Shift (⇧)"
         }
     }
 
@@ -20,15 +24,19 @@ public enum Hotkey: String, CaseIterable, Codable, Sendable {
         case .rightOption: "Right ⌥"
         case .rightCommand: "Right ⌘"
         case .fn: "Fn"
+        case .rightControl: "Right ⌃"
+        case .rightShift: "Right ⇧"
         }
     }
 
-    /// The virtual key code macOS reports for the key (kVK_RightOption, kVK_RightCommand, kVK_Function).
+    /// The virtual key code macOS reports for the key (kVK_RightOption, kVK_RightCommand, kVK_Function, kVK_RightControl, kVK_RightShift).
     public var keyCode: Int64 {
         switch self {
         case .rightOption: 61
         case .rightCommand: 54
         case .fn: 63
+        case .rightControl: 62
+        case .rightShift: 60
         }
     }
 
@@ -40,6 +48,8 @@ public enum Hotkey: String, CaseIterable, Codable, Sendable {
         case .rightOption: 0x0000_0040
         case .rightCommand: 0x0000_0010
         case .fn: 0x0080_0000 // kCGEventFlagMaskSecondaryFn
+        case .rightControl: 0x0000_2000 // NX_DEVICERCTLKEYMASK
+        case .rightShift: 0x0000_0004 // NX_DEVICERSHIFTKEYMASK
         }
     }
 

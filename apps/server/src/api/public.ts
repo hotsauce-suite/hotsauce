@@ -36,6 +36,8 @@ export function publicRoutes(deps: AppDeps) {
           ok: true as const,
           // The Hotsauce release running here; the updater checks it after a deploy.
           version,
+          // Where this instance lives; the Mac app follows it when an old address forwards here.
+          publicUrl: new URL(config.PUBLIC_URL).origin,
           authMode: config.AUTH_MODE,
           // What the web app needs before sign-in: who this is for, and how to sign in.
           setupRequired: config.AUTH_MODE === 'setup',

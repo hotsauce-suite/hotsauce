@@ -1,5 +1,6 @@
 import AppKit
 import DictateCore
+import Network
 import WebKit
 
 /// The app's main window: the whole web suite in a web view. The web view lives as long as the
@@ -19,6 +20,13 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     var handleAppLink: (URL) -> Void = { _ in }
     /// The page wants to sign in: the app does it through the member's browser.
     var signInWithBrowser: () -> Void = {}
+    /// The server answered from a new address (it moved): the app remembers the new one.
+    var serverMoved: (_ from: URL, _ to: URL) -> Void = { _, _ in }
+    /// The suite page that couldn't be loaded, while the window shows the "Can't reach" page.
+    private var failedURL: URL?
+    private var failures = 0
+    private var retryTimer: Timer?
+    private let pathMonitor = NWPathMonitor()
     private var destinations: [ObjectIdentifier: URL] = [:]
     private var titleObservation: NSKeyValueObservation?
     private var historyObservations: [NSKeyValueObservation] = []
@@ -90,6 +98,12 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             webView.observe(\.canGoBack) { [weak self] _, _ in MainActor.assumeIsolated { self?.window.toolbar?.validateVisibleItems() } },
             webView.observe(\.canGoForward) { [weak self] _, _ in MainActor.assumeIsolated { self?.window.toolbar?.validateVisibleItems() } },
         ]
+        // Back online (a Mac waking up, the VPN reconnecting): try a failed load again at once.
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            guard path.status == .satisfied else { return }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.retryNow() } }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "SuiteWindow.path"))
     }
 
     var isKey: Bool { window.isKeyWindow }
@@ -103,6 +117,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     func show() {
         loadIfNeeded()
+        retryNow()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
@@ -111,6 +126,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func setServer(_ server: URL) {
         guard server != router.server else { return }
         router = SuiteRouter(server: server)
+        failedURL = nil
         hasLoaded = true
         webView.load(URLRequest(url: server))
     }
@@ -369,12 +385,57 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             decisionHandler(.cancel)
             signInWithBrowser()
         case .openExternally:
-            NSWorkspace.shared.open(url)
             decisionHandler(.cancel)
+            // Not a click (a redirect, a script): maybe the server moved to a new address.
+            if action.navigationType != .linkActivated, action.targetFrame?.isMainFrame ?? true,
+               ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+            {
+                Task { if await !followMove(to: url) { NSWorkspace.shared.open(url) } }
+            } else {
+                NSWorkspace.shared.open(url)
+            }
         case let .loadInWindow(target):
             decisionHandler(.cancel)
             webView.load(URLRequest(url: target))
         }
+    }
+
+    /// Follows the suite to `target` if the server itself says it now lives there (`publicUrl` in
+    /// its /api/health): an instance that changed address forwards its old one to the new one.
+    private func followMove(to target: URL) async -> Bool {
+        let old = router.server
+        guard let health = ServerAddress.healthURL(server: old) else { return false }
+        var request = URLRequest(url: health, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await URLSession(configuration: .ephemeral).data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let reported = ServerAddress.reportedOrigin(healthJSON: data),
+              ServerAddress.isMove(from: old, to: target, reported: reported),
+              router.server == old
+        else { return false }
+        router = SuiteRouter(server: reported)
+        failedURL = nil
+        hasLoaded = true
+        webView.load(URLRequest(url: target))
+        serverMoved(old, reported)
+        return true
+    }
+
+    /// A suite page finished: the server is reachable again.
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let current = webView.url, router.isSuite(current) else { return }
+        failures = 0
+        failedURL = nil
+        retryTimer?.invalidate()
+        retryTimer = nil
+    }
+
+    /// Loads the failed page again now (the window was opened, or the network came back).
+    private func retryNow() {
+        guard let url = failedURL, !webView.isLoading else { return }
+        retryTimer?.invalidate()
+        retryTimer = nil
+        webView.load(URLRequest(url: url))
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse, decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
@@ -425,6 +486,14 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         if nsError.code == NSURLErrorCancelled || (nsError.domain == "WebKitErrorDomain" && nsError.code == 102) { return }
         let failing = (nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL) ?? router.server
         let retry = router.isSuite(failing) ? failing : router.server
+        // Try again by itself: a server restarting for an update is back in seconds, and a Mac
+        // that opened the app at login may not be online yet.
+        failures += 1
+        failedURL = retry
+        retryTimer?.invalidate()
+        retryTimer = Timer.scheduledTimer(withTimeInterval: RetryBackoff.delay(afterFailures: failures), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.retryNow() }
+        }
         let html = """
         <!doctype html><meta charset="utf-8"><title>\(escape(Brand.name))</title>
         <style>
@@ -435,7 +504,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         p { color: var(--soft); margin: 0 0 20px; max-width: 420px; }
         a { color: white; background: var(--accent); padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; }
         </style>
-        <div><h1>Can’t reach \(escape(Brand.name))</h1><p>\(escape(nsError.localizedDescription))</p><a href="\(escape(retry.absoluteString))">Try again</a></div>
+        <div><h1>Can’t reach \(escape(Brand.name))</h1><p>\(escape(nsError.localizedDescription)) Trying again by itself…</p><a href="\(escape(retry.absoluteString))">Try again</a></div>
         """
         webView.loadHTMLString(html, baseURL: nil)
     }

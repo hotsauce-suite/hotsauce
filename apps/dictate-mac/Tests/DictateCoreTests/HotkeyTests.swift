@@ -76,5 +76,18 @@ import Testing
         #expect(Hotkey.rightCommand.isDown(keyCode: 54, flags: 0x100000 | 0x10) == true)
         #expect(Hotkey.fn.isDown(keyCode: 63, flags: 0x800000) == true)
         #expect(Hotkey.fn.isDown(keyCode: 63, flags: 0) == false)
+        // Right Control and Right Shift: only the right-hand key, whatever the left one does.
+        #expect(Hotkey.rightControl.isDown(keyCode: 62, flags: 0x40000 | 0x2000) == true)
+        #expect(Hotkey.rightControl.isDown(keyCode: 62, flags: 0x40000 | 0x1) == false)
+        #expect(Hotkey.rightControl.isDown(keyCode: 59, flags: 0x40000 | 0x1) == nil) // left control
+        #expect(Hotkey.rightShift.isDown(keyCode: 60, flags: 0x20000 | 0x4) == true)
+        #expect(Hotkey.rightShift.isDown(keyCode: 60, flags: 0x20000 | 0x2) == false)
+        #expect(Hotkey.rightShift.isDown(keyCode: 56, flags: 0x20000 | 0x2) == nil) // left shift
+    }
+
+    @Test func everyKeyIsDistinctAndSaved() {
+        #expect(Set(Hotkey.allCases.map(\.keyCode)).count == Hotkey.allCases.count)
+        for key in Hotkey.allCases { #expect(Hotkey(rawValue: key.rawValue) == key) }
+        #expect(Hotkey.allCases.count == 5)
     }
 }
