@@ -171,6 +171,28 @@ describe('Today weather (H5)', () => {
     )
   })
 
+  it('W8: keeps the weather showing when Use my location is refused', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (_ok: PositionCallback, fail: PositionErrorCallback) =>
+          fail({ code: 1 } as GeolocationPositionError),
+      },
+    })
+    localStorage.setItem(
+      WEATHER_PLACE_KEY,
+      JSON.stringify({ name: 'Oslo', detail: 'Oslo, Norway', lat: 59.91, lon: 10.75 }),
+    )
+    renderApp('/today')
+    await userEvent.click(await screen.findByTestId('today-weather'))
+    await userEvent.click(await screen.findByTestId('today-weather-use-location'))
+    expect(await screen.findByTestId('today-weather-notice')).toHaveTextContent(
+      'Location is blocked',
+    )
+    expect(screen.getByTestId('today-weather')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '').name).toBe('Oslo')
+  })
+
   it('W1: in the Mac app, asks the app instead of the web view', async () => {
     const postMessage = vi.fn(async (_m: unknown) => ({ lat: 44.4759, lon: -73.2121 }))
     const getCurrentPosition = vi.fn()

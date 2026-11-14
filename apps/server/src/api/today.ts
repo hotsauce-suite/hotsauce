@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HearthError } from '../errors.js'
-import { Places, Today, TodayLayouts, Weather } from '../today/index.js'
+import { Places, roundPlace, Today, TodayLayouts, Weather } from '../today/index.js'
 import { readVersion } from '../updates/version.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'

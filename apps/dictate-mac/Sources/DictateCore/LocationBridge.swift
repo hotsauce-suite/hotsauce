@@ -11,6 +11,8 @@ public enum LocationBridge {
     public static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!
     /// How long to wait for a position before answering "unavailable".
     public static let timeout: TimeInterval = 20
+    /// How long macOS's first-time prompt may wait for an answer.
+    public static let promptTimeout: TimeInterval = 180
 
     /// What macOS says about the app's location access.
     public enum Access: Equatable, Sendable {

@@ -56,8 +56,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHumanReadableCopyright</key><string>Hotsauce contributors</string>
   <key>NSMicrophoneUsageDescription</key><string>${APP_NAME} listens while you hold the dictation key, and sends that audio to be written up; meetings and clips you record use it too.</string>
   <key>NSAudioCaptureUsageDescription</key><string>${APP_NAME} records the other side of a call (Zoom, Slack, FaceTime or any app) when you take meeting notes with “Any app on this Mac”.</string>
-  <key>NSLocationUsageDescription</key><string>${APP_NAME} shows the weather where you are on Today. Your position is rounded to about a kilometre and kept on this Mac.</string>
-  <key>NSLocationWhenInUseUsageDescription</key><string>${APP_NAME} shows the weather where you are on Today. Your position is rounded to about a kilometre and kept on this Mac.</string>
+  <key>NSLocationUsageDescription</key><string>${APP_NAME} shows the weather where you are on Today. Your position is rounded to about a kilometre and used only to look up the weather.</string>
+  <key>NSLocationWhenInUseUsageDescription</key><string>${APP_NAME} shows the weather where you are on Today. Your position is rounded to about a kilometre and used only to look up the weather.</string>
   <key>NSCameraUsageDescription</key><string>${APP_NAME} uses the camera when you record a clip with your camera on.</string>
   <key>CFBundleURLTypes</key>
   <array>

@@ -24,11 +24,16 @@ final class LocationService: NSObject, @preconcurrency CLLocationManagerDelegate
         waiting.append(reply)
         guard waiting.count == 1 else { return }
         asked = false
+        // Long enough to read and answer macOS's prompt; finding the position gets its own wait.
+        startTimer(LocationBridge.promptTimeout)
+        decide()
+    }
+
+    private func startTimer(_ seconds: TimeInterval) {
         timeout?.invalidate()
-        timeout = Timer.scheduledTimer(withTimeInterval: LocationBridge.timeout, repeats: false) { [weak self] _ in
+        timeout = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.finish(LocationBridge.failure(.unavailable)) }
         }
-        decide()
     }
 
     private var access: LocationBridge.Access {
@@ -44,13 +49,14 @@ final class LocationService: NSObject, @preconcurrency CLLocationManagerDelegate
         guard !waiting.isEmpty else { return }
         switch LocationBridge.step(for: access) {
         case .ask:
-            // Asked once per request: a prompt dismissed without an answer ends as "denied".
-            guard !asked else { return finish(LocationBridge.failure(.denied)) }
+            // Once per request; a prompt left unanswered ends with the timer.
+            guard !asked else { return }
             asked = true
             manager.requestWhenInUseAuthorization()
         case .locate:
             guard !locating else { return }
             locating = true
+            startTimer(LocationBridge.timeout)
             manager.requestLocation()
         case .refuseAndOpenSettings:
             // Refused just now in macOS's prompt: respect that. Refused before: the member is
@@ -72,8 +78,8 @@ final class LocationService: NSObject, @preconcurrency CLLocationManagerDelegate
     // MARK: CLLocationManagerDelegate
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        // Also called once when the manager is made, before anything is asked.
-        guard asked || manager.authorizationStatus != .notDetermined else { return }
+        // Also called when the manager is made, maybe late; an undecided status changes nothing.
+        guard manager.authorizationStatus != .notDetermined else { return }
         decide()
     }
 

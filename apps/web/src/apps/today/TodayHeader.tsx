@@ -1,7 +1,7 @@
 // The Today header (ARCHITECTURE §16.5, plan H1–H5): a live clock and the date in the top bar,
 // and under it a greeting with what's next. Weather is for this device's place or the team's.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { HearthApiError } from '../../api/client'
 import { type TodayView, type TodayWeather, todayApi, type WeatherPlace } from '../../api/today'
 import { Dialog } from '../../components/Dialog'
@@ -144,6 +144,16 @@ function useWeather() {
     device.kind === 'off' ? { kind: 'off' } : { kind: 'asking' },
   )
   const [picking, setPicking] = useState(false)
+  /** A failed "Use my location" while weather was showing: said briefly, the weather kept. */
+  const [notice, setNotice] = useState<string | null>(null)
+  /** While the position is being asked for, a refresh doesn't change what the chip shows. */
+  const asking = useRef(false)
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), 10_000)
+    return () => clearTimeout(timer)
+  }, [notice])
 
   useEffect(() => {
     if (device.kind === 'off') {
@@ -155,7 +165,7 @@ function useWeather() {
     const load = () =>
       todayApi.weather(place).then(
         (weather) => {
-          if (cancelled) return
+          if (cancelled || asking.current) return
           if (!weather) {
             // No place of its own and no team default: off until asked.
             setState((s) => (s.kind === 'denied' || s.kind === 'oldMacApp' ? s : { kind: 'off' }))
@@ -165,7 +175,7 @@ function useWeather() {
           setState({ kind: 'shown', weather, where })
         },
         (err) => {
-          if (!cancelled)
+          if (!cancelled && !asking.current)
             setState((s) =>
               // Keep the last reading on a failed refresh.
               s.kind === 'shown'
@@ -186,18 +196,36 @@ function useWeather() {
   }, [device])
 
   const shareLocation = async () => {
+    const before = state
+    asking.current = true
+    setNotice(null)
     setState({ kind: 'asking' })
     const result = await askLocation()
-    if (result.kind === 'place') writeDeviceWeather({ kind: 'place', place: result.place })
-    else if (result.kind === 'unavailable') setState({ kind: 'error', message: result.message })
-    else setState({ kind: result.kind })
+    asking.current = false
+    if (result.kind === 'place') {
+      writeDeviceWeather({ kind: 'place', place: result.place })
+    } else if (before.kind === 'shown') {
+      // Keep the weather that was working; say why the location wasn't used.
+      setState(before)
+      setNotice(
+        result.kind === 'unavailable'
+          ? result.message
+          : result.kind === 'oldMacApp'
+            ? 'Update the Mac app to use your location'
+            : 'Location is blocked',
+      )
+    } else if (result.kind === 'unavailable') {
+      setState({ kind: 'error', message: result.message })
+    } else {
+      setState({ kind: result.kind })
+    }
   }
   const pickCity = (place: WeatherPlace) => {
     setPicking(false)
     writeDeviceWeather({ kind: 'place', place })
   }
   const hide = () => writeDeviceWeather({ kind: 'off' })
-  return { state, shareLocation, pickCity, hide, picking, setPicking }
+  return { state, shareLocation, pickCity, hide, picking, setPicking, notice }
 }
 
 /** The right side of the top bar: weather, the time, the day. */
@@ -230,6 +258,7 @@ function WeatherChip({
   hide,
   picking,
   setPicking,
+  notice,
 }: ReturnType<typeof useWeather>) {
   const [menu, setMenu] = useState<MenuAnchor | null>(null)
   const quiet = 'whitespace-nowrap text-xs text-ink-faint'
@@ -306,6 +335,15 @@ function WeatherChip({
       const t = (c: number) => formatTemperature(c, f)
       return (
         <>
+          {notice ? (
+            <span
+              className={`${quiet} hidden md:inline`}
+              role="status"
+              data-testid="today-weather-notice"
+            >
+              {notice}
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={(e) => setMenu(below(e.currentTarget))}
