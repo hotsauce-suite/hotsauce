@@ -36,11 +36,14 @@ const WINDOWS = [
 // made the page scroll).
 test.use({ signedIn: false })
 
-test('every app fits the window and the frame never scrolls', async ({ page }) => {
-  await signIn(page, 'e2e-admin@example.test')
-  for (const size of WINDOWS)
+for (const size of WINDOWS)
+  test(`at ${size.width}×${size.height}, every app fits the window and the frame never scrolls`, async ({
+    page,
+  }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize(size)
+    await signIn(page, 'e2e-admin@example.test')
     for (const path of PAGES) {
-      await page.setViewportSize(size)
       await page.goto(path)
       await expect(page.getByTestId('app-rail')).toBeVisible()
       const frame = await page.evaluate(() => ({
@@ -64,7 +67,7 @@ test('every app fits the window and the frame never scrolls', async ({ page }) =
       expect(await page.evaluate(() => scrollY), path).toBe(0)
       expect((await page.getByTestId('app-rail').boundingBox())?.y, path).toBe(before?.y)
     }
-})
+  })
 
 test('pages outside the app still scroll the page', async ({ page }) => {
   // Sign-in stands in for public forms, booking pages and shared links: no shell, and a

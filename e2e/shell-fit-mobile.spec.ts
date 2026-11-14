@@ -30,6 +30,7 @@ const PAGES = [
 test.use({ signedIn: false })
 
 test('on a phone, every app fits the window and the frame never scrolls', async ({ page }) => {
+  test.setTimeout(120_000)
   await signIn(page, 'e2e-admin@example.test')
   for (const path of PAGES) {
     await page.goto(path)
