@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { APPS, type AppId, railLinks } from '../apps/registry'
+import { openFeedback } from '../feedback/pageShot'
 import { useSession } from '../state/session'
-import { AccountHeader, appHref, feedbackLink, itemClass, useFeedbackEnabled } from './AppRail'
+import { AccountHeader, appHref, itemClass, useFeedbackEnabled } from './AppRail'
 import { Icon } from './Icon'
 
 /**
@@ -229,7 +230,11 @@ function AppsSheet({
                 type="button"
                 data-testid="menu-feedback"
                 aria-current={onFeedback ? 'page' : undefined}
-                onClick={() => (onFeedback ? onClose() : navigate(feedbackLink(location.pathname)))}
+                onClick={() => {
+                  onClose()
+                  // The sheet closes first, so the picture shows the page under it.
+                  if (!onFeedback) void openFeedback(navigate, location.pathname)
+                }}
                 className={row}
               >
                 <Icon name="chat" className="size-4 text-ink-faint" />

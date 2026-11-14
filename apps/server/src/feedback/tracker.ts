@@ -13,6 +13,11 @@ export interface FeedbackTracker {
   comment(number: number, body: string): Promise<void>
   /** Replaces the issue's `status: …` label with this one. */
   setStatus(number: number, status: FeedbackStatus): Promise<void>
+  /**
+   * Saves a file (a screenshot) in the feedback repo and returns a URL that shows it inline in an
+   * issue (docs/PLAN-feedback-screenshots.md S1).
+   */
+  upload(path: string, bytes: Uint8Array, message: string): Promise<{ url: string }>
 }
 
 export interface TrackedIssue {
@@ -60,6 +65,8 @@ export function statusOf(issue: Pick<TrackedIssue, 'labels' | 'state'>): Feedbac
 /** In-memory tracker for development, tests and e2e. */
 export class MemoryTracker implements FeedbackTracker {
   readonly issues: (TrackedIssue & { comments: TrackedComment[] })[] = []
+  /** Files saved by `upload`, oldest first (tests and the e2e hook read them). */
+  readonly uploads: { path: string; bytes: Uint8Array; message: string }[] = []
 
   async file(issue: { title: string; body: string; labels: string[] }) {
     const number = this.issues.length + 1
@@ -100,6 +107,11 @@ export class MemoryTracker implements FeedbackTracker {
     const issue = this.#get(number)
     issue.labels = [...issue.labels.filter((l) => !l.startsWith('status: ')), statusLabel(status)]
     issue.state = status === 'shipped' || status === 'declined' ? 'closed' : 'open'
+  }
+
+  async upload(path: string, bytes: Uint8Array, message: string): Promise<{ url: string }> {
+    this.uploads.push({ path, bytes, message })
+    return { url: `https://github.invalid/feedback/blob/main/${path}?raw=true` }
   }
 
   /** Test hook: the team asks a question, as the daily review would. */
@@ -201,7 +213,20 @@ export class GitHubTracker implements FeedbackTracker {
     await this.#call('POST', `/issues/${number}/labels`, { labels: [statusLabel(status)] })
   }
 
-  async #call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async upload(path: string, bytes: Uint8Array, message: string): Promise<{ url: string }> {
+    const encoded = path.split('/').map(encodeURIComponent).join('/')
+    const saved = await this.#call<{ content: { html_url: string } }>(
+      'PUT',
+      `/contents/${encoded}`,
+      { message, content: Buffer.from(bytes).toString('base64') },
+      // A slow GitHub must not hold the feedback: the issue is filed without the picture.
+      UPLOAD_TIMEOUT_MS,
+    )
+    // The blob page with ?raw=true renders inline for anyone who can read the private repo.
+    return { url: `${saved.content.html_url}?raw=true` }
+  }
+
+  async #call<T>(method: string, path: string, body?: unknown, timeoutMs?: number): Promise<T> {
     let res: Response
     try {
       res = await this.#fetch(`${this.#api}/repos/${this.#repo}${path}`, {
@@ -214,6 +239,7 @@ export class GitHubTracker implements FeedbackTracker {
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
       })
     } catch (err) {
       console.error(`feedback: GitHub ${method} ${path} failed: ${String(err)}`)
@@ -221,12 +247,17 @@ export class GitHubTracker implements FeedbackTracker {
     }
     if (!res.ok) {
       console.error(`feedback: GitHub ${method} ${path} → ${res.status}`)
-      throw new HearthError('host_error', `GitHub refused the feedback request (${res.status})`)
+      throw new HearthError('host_error', `GitHub refused the feedback request (${res.status})`, {
+        details: { status: res.status },
+      })
     }
     if (res.status === 204) return undefined as T
     return (await res.json()) as T
   }
 }
+
+/** One screenshot upload's longest wait; three of them still leave time to file the issue. */
+const UPLOAD_TIMEOUT_MS = 15_000
 
 /** Comments from these count as the team's; anyone else's are ignored by the app. */
 const TEAM_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR'])

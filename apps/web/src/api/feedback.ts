@@ -32,19 +32,42 @@ export interface FeedbackItem {
 }
 
 const BASE = '/api/feedback'
+const EXT: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+}
 
 export const feedbackApi = {
   status: () => request<{ enabled: boolean }>(`${BASE}/status`),
   clarify: (body: { kind: FeedbackKind; text: string; answers: QA[]; round: number }) =>
     request<Clarified>(`${BASE}/clarify`, { method: 'POST', json: body }),
-  submit: (body: {
-    kind: FeedbackKind
-    text: string
-    answers: QA[]
-    title?: string
-    summary?: string
-    context: { page?: string; app?: string; browser?: string }
-  }) => request<{ number: number; url: string }>(BASE, { method: 'POST', json: body }),
+  /**
+   * Files the item. With screenshots it goes as multipart (`payload` + `screenshot` files,
+   * docs/PLAN-feedback-screenshots.md S4); without, as JSON.
+   */
+  submit: (
+    body: {
+      kind: FeedbackKind
+      text: string
+      answers: QA[]
+      title?: string
+      summary?: string
+      context: { page?: string; app?: string; browser?: string }
+    },
+    screenshots: Blob[] = [],
+  ) => {
+    if (screenshots.length === 0) {
+      return request<{ number: number; url: string }>(BASE, { method: 'POST', json: body })
+    }
+    const form = new FormData()
+    form.set('payload', JSON.stringify(body))
+    screenshots.forEach((blob, i) => {
+      form.append('screenshot', blob, `screenshot-${i + 1}.${EXT[blob.type] ?? 'png'}`)
+    })
+    return request<{ number: number; url: string }>(BASE, { method: 'POST', form })
+  },
   mine: () => request<{ items: FeedbackItem[] }>(`${BASE}/mine`),
   reply: (number: number, text: string) =>
     request<{ ok: true }>(`${BASE}/${number}/reply`, { method: 'POST', json: { text } }),

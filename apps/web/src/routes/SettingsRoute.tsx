@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useOutletContext, useRouteLoaderData } from 'react-router'
+import { Link, useLocation, useNavigate, useOutletContext, useRouteLoaderData } from 'react-router'
 import { calendarApi } from '../api/calendar'
 import { api, HearthApiError } from '../api/client'
 import { type AccessToken, claudeCodeCommand, claudeDesktopConfig, tokensApi } from '../api/tokens'
@@ -17,6 +17,7 @@ import { Icon } from '../components/Icon'
 import { InstallButton, InstallSheet } from '../components/InstallBar'
 import { MacAppSection } from '../components/MacApp'
 import { NotificationsSection } from '../components/NotificationsSection'
+import { onFeedbackClick } from '../feedback/pageShot'
 import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
 import { useInstallPrompt } from '../lib/install'
@@ -331,6 +332,7 @@ function ExtensionCard() {
 function HelpSection() {
   const feedbackOn = useFeedbackEnabled()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   return (
     <section aria-labelledby="help-title" data-testid="settings-help" className="mt-12">
       <h2 id="help-title" className={sectionTitle}>
@@ -340,6 +342,7 @@ function HelpSection() {
         {feedbackOn ? (
           <Link
             to={feedbackLink(pathname)}
+            onClick={onFeedbackClick(navigate, pathname)}
             data-testid="settings-feedback"
             className={secondaryButton}
           >

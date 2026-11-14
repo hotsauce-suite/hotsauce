@@ -9,6 +9,7 @@ import {
   type QA,
 } from './clarify.js'
 import { redactSecrets } from './redact.js'
+import { checkScreenshots } from './screenshots.js'
 import {
   FEEDBACK_LABEL,
   type FeedbackStatus,
@@ -117,10 +118,14 @@ export class Feedback {
       title?: string | undefined
       summary?: string | undefined
       context: FeedbackContext
+      /** PNG, JPEG, WebP or GIF bytes; checked here (docs/PLAN-feedback-screenshots.md S4). */
+      screenshots?: Uint8Array[] | undefined
     },
   ): Promise<{ number: number; url: string }> {
     const tracker = this.#tracked()
+    const pictures = checkScreenshots(input.screenshots ?? [], new Date(this.#now()))
     this.#limit(`file:${p.userId}`, FILE_LIMIT_PER_HOUR)
+    const screenshots = await uploadScreenshots(tracker, pictures)
     const text = redactSecrets(input.text)
     const title = plain(redactSecrets(input.title?.trim() || fallbackTitle(text, input.kind)))
     const summary = redactSecrets(input.summary?.trim() || text)
@@ -132,6 +137,7 @@ export class Feedback {
       context: input.context,
       name: p.name,
       tag: this.#tag(p),
+      screenshots,
     })
     this.#listed = null
     const labels = [FEEDBACK_LABEL, input.kind, statusLabel('new')]
@@ -234,7 +240,17 @@ export class Feedback {
       .slice(0, 24)
   }
 
-  #limit(key: string, max: number): void {
+  /**
+   * Whether this member may file now, without using up a turn. The submit route asks before it
+   * reads a body of up to 16 MB, so a member past the limit (or an instance with feedback off)
+   * costs no memory.
+   */
+  assertCanFile(p: Principal): void {
+    this.#tracked()
+    this.#limit(`file:${p.userId}`, FILE_LIMIT_PER_HOUR, false)
+  }
+
+  #limit(key: string, max: number, use = true): void {
     const now = this.#now()
     const recent = (this.#hits.get(key) ?? []).filter((t) => now - t < HOUR)
     if (recent.length >= max) {
@@ -244,9 +260,66 @@ export class Feedback {
         'That’s a lot of feedback for one hour. Try again later.',
       )
     }
+    if (!use) return
     recent.push(now)
     this.#hits.set(key, recent)
   }
+}
+
+interface UploadedScreenshots {
+  urls: string[]
+  failed: number
+  /** GitHub answered 403/404: the token can't write files in the repo. */
+  noPermission: boolean
+}
+
+/**
+ * Plan S2/S3: every picture is saved before the issue is filed so the body can show it. A picture
+ * that can't be saved never stops the feedback; the issue says how many are missing.
+ */
+async function uploadScreenshots(
+  tracker: FeedbackTracker,
+  pictures: { bytes: Uint8Array; path: string }[],
+): Promise<UploadedScreenshots> {
+  const out: UploadedScreenshots = { urls: [], failed: 0, noPermission: false }
+  for (const picture of pictures) {
+    if (out.noPermission) {
+      // GitHub already refused this token; the rest would be refused too.
+      out.failed++
+      continue
+    }
+    try {
+      // [skip ci]: when the feedback repo is also the code repo, a screenshot must not start a build.
+      const message = 'Feedback screenshot [skip ci]'
+      out.urls.push((await tracker.upload(picture.path, picture.bytes, message)).url)
+    } catch (err) {
+      out.failed++
+      const status = err instanceof HearthError ? (err.details as { status?: number })?.status : 0
+      if (status === 403 || status === 404) out.noPermission = true
+      console.warn(
+        `feedback: screenshot ${picture.path} wasn't saved: ${String(err)}${
+          out.noPermission ? ' (the feedback token needs Contents read and write)' : ''
+        }`,
+      )
+    }
+  }
+  return out
+}
+
+function screenshotSection(s: UploadedScreenshots): string {
+  if (s.urls.length === 0 && s.failed === 0) return ''
+  const lines = ['### Screenshots', '']
+  s.urls.forEach((url, i) => {
+    lines.push(`![Screenshot ${i + 1}](${url})`, '')
+  })
+  if (s.failed > 0) {
+    lines.push(
+      s.noPermission
+        ? `${s.failed} screenshot(s) couldn't be saved: the feedback token needs Contents read and write.`
+        : `${s.failed} screenshot(s) couldn't be saved.`,
+    )
+  }
+  return lines.join('\n').trimEnd()
 }
 
 const tagLine = (tag: string) => `<!-- hearth-submitter: ${tag} -->`
@@ -301,6 +374,7 @@ function issueBody(b: {
   context: FeedbackContext
   name: string
   tag: string
+  screenshots: UploadedScreenshots
 }): string {
   const ctx = b.context
   const meta = [
@@ -335,6 +409,8 @@ function issueBody(b: {
     untrusted(b.text),
     '',
     qa,
+    '',
+    screenshotSection(b.screenshots),
   ]
     .filter((line, i, all) => !(line === '' && all[i - 1] === ''))
     .join('\n')
