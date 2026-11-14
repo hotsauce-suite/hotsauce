@@ -272,8 +272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let server = ConnectLink.normalizedServer(text) else {
                 return "Enter the server’s address, like https://office.example.com (http only for localhost)."
             }
-            let fallback = ServerAddress.windowServer(setting: nil, connection: ConnectionStore.connection()?.server)
-            self.settings.suiteServer = server == fallback ? nil : server
+            self.settings.suiteServer = server == ConnectLink.defaultServer ? nil : server
             self.suite.setServer(self.suiteServer)
             model.reload()
             return nil
@@ -604,8 +603,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let connection = ConnectionStore.connection(), connection.server == old {
             ConnectionStore.setConnection(.init(token: connection.token, server: new, account: connection.account))
         }
-        let fallback = ServerAddress.windowServer(setting: nil, connection: ConnectionStore.connection()?.server)
-        settings.suiteServer = new == fallback ? nil : new
+        if settings.suiteServer == nil || settings.suiteServer == old { settings.suiteServer = new }
         controller.showMessage("\(Brand.name) moved to \(new.host ?? new.absoluteString)")
     }
 
@@ -697,9 +695,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let previous, previous.token != link.token {
                 Task { await DictationClient(server: previous.server, token: previous.token).revokeSelf() }
             }
-            // The window follows the connection unless Settings names another server.
-            if self.settings.suiteServer == link.server { self.settings.suiteServer = nil }
-            self.suite.setServer(self.suiteServer)
+            // The window follows the connection unless Settings names another server; remembered,
+            // so disconnecting later doesn't send the window back to the placeholder address.
+            if self.settings.suiteServer == nil || self.settings.suiteServer == previous?.server {
+                self.settings.suiteServer = link.server == ConnectLink.defaultServer ? nil : link.server
+            }
+            if self.suite.recordingMeetingSession == nil {
+                self.suite.setServer(self.suiteServer)
+            }
             self.updateIcon()
             self.onboarding.model.refresh()
             self.controller.showMessage("Connected as \(account)")

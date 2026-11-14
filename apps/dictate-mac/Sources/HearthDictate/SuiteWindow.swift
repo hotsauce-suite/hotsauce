@@ -26,6 +26,9 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     private var failedURL: URL?
     private var failures = 0
     private var retryTimer: Timer?
+    /// The suite answered with a server error (a proxy's 502 while the server restarts).
+    private var answeredWithServerError = false
+    private var checkingMove = false
     private let pathMonitor = NWPathMonitor()
     private var destinations: [ObjectIdentifier: URL] = [:]
     private var titleObservation: NSKeyValueObservation?
@@ -126,7 +129,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func setServer(_ server: URL) {
         guard server != router.server else { return }
         router = SuiteRouter(server: server)
-        failedURL = nil
+        stopRetrying()
         hasLoaded = true
         webView.load(URLRequest(url: server))
     }
@@ -383,6 +386,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             handleAppLink(link)
         case .signInWithBrowser:
             decisionHandler(.cancel)
+            stopRetrying()
             signInWithBrowser()
         case .openExternally:
             decisionHandler(.cancel)
@@ -390,7 +394,17 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             if action.navigationType != .linkActivated, action.targetFrame?.isMainFrame ?? true,
                ["http", "https"].contains(url.scheme?.lowercased() ?? "")
             {
-                Task { if await !followMove(to: url) { NSWorkspace.shared.open(url) } }
+                // A retry that ends up elsewhere (a login proxy) isn't retried again on its own.
+                stopRetrying()
+                guard !checkingMove else { return }
+                checkingMove = true
+                let server = router.server
+                Task {
+                    let moved = await followMove(to: url)
+                    checkingMove = false
+                    // Lost a race with another move: the window is already somewhere new.
+                    if !moved, router.server == server { NSWorkspace.shared.open(url) }
+                }
             } else {
                 NSWorkspace.shared.open(url)
             }
@@ -414,20 +428,38 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
               router.server == old
         else { return false }
         router = SuiteRouter(server: reported)
-        failedURL = nil
+        stopRetrying()
         hasLoaded = true
         webView.load(URLRequest(url: target))
         serverMoved(old, reported)
         return true
     }
 
-    /// A suite page finished: the server is reachable again.
+    /// A suite page finished: the server is reachable again, unless what answered was an error.
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let current = webView.url, router.isSuite(current) else { return }
+        if answeredWithServerError {
+            scheduleRetry(of: current)
+        } else {
+            stopRetrying()
+        }
+    }
+
+    private func stopRetrying() {
         failures = 0
         failedURL = nil
         retryTimer?.invalidate()
         retryTimer = nil
+    }
+
+    /// Tries `url` again after a wait that grows with each failure in a row.
+    private func scheduleRetry(of url: URL) {
+        failures += 1
+        failedURL = url
+        retryTimer?.invalidate()
+        retryTimer = Timer.scheduledTimer(withTimeInterval: RetryBackoff.delay(afterFailures: failures), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.retryNow() }
+        }
     }
 
     /// Loads the failed page again now (the window was opened, or the network came back).
@@ -439,7 +471,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse, decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
-        let disposition = (response.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+        let http = response.response as? HTTPURLResponse
+        if response.isForMainFrame, let url = http?.url {
+            answeredWithServerError = router.isSuite(url) && (http?.statusCode ?? 0) >= 500
+        }
+        let disposition = http?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
         // Only the page itself: an iframe's response never starts a download.
         if response.isForMainFrame, !response.canShowMIMEType || disposition.lowercased().hasPrefix("attachment") {
             decisionHandler(.download)
@@ -488,12 +524,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         let retry = router.isSuite(failing) ? failing : router.server
         // Try again by itself: a server restarting for an update is back in seconds, and a Mac
         // that opened the app at login may not be online yet.
-        failures += 1
-        failedURL = retry
-        retryTimer?.invalidate()
-        retryTimer = Timer.scheduledTimer(withTimeInterval: RetryBackoff.delay(afterFailures: failures), repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.retryNow() }
-        }
+        scheduleRetry(of: retry)
         let html = """
         <!doctype html><meta charset="utf-8"><title>\(escape(Brand.name))</title>
         <style>
