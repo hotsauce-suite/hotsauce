@@ -5,7 +5,7 @@ import Foundation
 ///
 /// The app's own upload, for automated end-to-end tests. The token comes from HEARTH_DICTATE_TOKEN
 /// only, never the saved connection, so this can’t send the app’s own token to a server it names; the
-/// server from --server, HEARTH_DICTATE_SERVER, else office.example.com. Prints the JSON result;
+/// server from --server or HEARTH_DICTATE_SERVER (there's no built-in one). Prints the JSON result;
 /// exits 1 with a message on failure.
 enum CLI {
     static func run(arguments: [String]) -> Int32 {
@@ -35,7 +35,9 @@ enum CLI {
         guard let path, let audio = FileManager.default.contents(atPath: path) else {
             return fail("Couldn’t read the audio file")
         }
-        let server = serverText.flatMap(ConnectLink.normalizedServer) ?? ConnectLink.defaultServer
+        guard let server = serverText.flatMap(ConnectLink.normalizedServer) else {
+            return fail("Set --server or HEARTH_DICTATE_SERVER to your workspace’s address")
+        }
         guard let token = ProcessInfo.processInfo.environment["HEARTH_DICTATE_TOKEN"], ConnectLink.isDeviceToken(token) else {
             return fail("Set HEARTH_DICTATE_TOKEN to a device token")
         }

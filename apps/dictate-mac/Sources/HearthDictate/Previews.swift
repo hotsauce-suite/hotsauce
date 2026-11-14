@@ -1,6 +1,7 @@
 import AppKit
 import DictateCore
 import SwiftUI
+import WebKit
 
 /// `HearthDictate --render-previews <folder> [--dark]`: draws each page of the main window, with
 /// made-up history held only in memory, to PNGs, for checking the design without screen access.
@@ -26,7 +27,76 @@ enum Previews {
             try? rep.representation(using: .png, properties: [:])?.write(to: url)
             window.close()
         }
+        renderSetup(to: folder, dark: dark)
+        renderPages(to: folder, dark: dark)
         return 0
+    }
+
+    /// The setup window's Workspace step: empty, an address that isn't a workspace, and one found.
+    private static func renderSetup(to folder: String, dark: Bool) {
+        let server = URL(string: "https://team.example.com")!
+        let states: [(String, (OnboardingModel) -> Void)] = [
+            ("workspace-empty", { _ in }),
+            ("workspace-error", { model in
+                model.workspaceText = "www.example.com"
+                model.workspaceError = Workspace.CheckResult.notHotsauce.message(for: URL(string: "https://www.example.com")!)
+            }),
+            ("workspace-found", { model in
+                model.workspace = { server }
+                model.editingWorkspace = false
+                model.workspaceText = "team.example.com"
+                model.workspaceFound = "Acme. Sign in with your example.com Google account."
+                model.offerSignIn = true
+            }),
+        ]
+        for (name, configure) in states {
+            let model = OnboardingModel()
+            model.workspace = { nil }
+            model.editingWorkspace = true
+            configure(model)
+            snapshot(OnboardingWindow.previewView(model: model), size: NSSize(width: 500, height: 720),
+                     to: URL(fileURLWithPath: folder).appendingPathComponent("\(name)\(dark ? "-dark" : "").png"), dark: dark)
+        }
+    }
+
+    /// The window's own pages: no workspace yet, and Can't reach with Change workspace address.
+    private static func renderPages(to folder: String, dark: Bool) {
+        let server = URL(string: "https://team.example.com")!
+        let pages = [
+            ("page-no-workspace", SuitePages.noWorkspace()),
+            ("page-cant-reach", SuitePages.cantReach(address: server, reason: "A server with the specified hostname could not be found.", retry: server)),
+        ]
+        for (name, html) in pages {
+            let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 900, height: 560))
+            webView.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            let window = NSWindow(contentRect: webView.frame, styleMask: [.titled], backing: .buffered, defer: false)
+            window.appearance = webView.appearance
+            window.contentView = webView
+            webView.loadHTMLString(html, baseURL: nil)
+            let deadline = Date().addingTimeInterval(5)
+            while webView.isLoading && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+            var image: NSImage?
+            webView.takeSnapshot(with: nil) { snap, _ in image = snap }
+            let wait = Date().addingTimeInterval(5)
+            while image == nil && Date() < wait { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
+            if let tiff = image?.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: folder).appendingPathComponent("\(name)\(dark ? "-dark" : "").png"))
+            }
+            window.close()
+        }
+    }
+
+    private static func snapshot(_ view: NSView, size: NSSize, to url: URL, dark: Bool) {
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        window.contentView = view
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+        window.close()
     }
 
     private static func sampleModel() -> MainModel {

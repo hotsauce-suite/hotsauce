@@ -2,11 +2,11 @@ import Foundation
 
 /// Which server the app's window opens, and how it follows a server that moved to a new address.
 public enum ServerAddress {
-    /// The window's server: the one in Settings, else the one this Mac is connected to, else the
-    /// built-in default. One app serves every organization, so the connection is usually the
-    /// only place the app learns its organization's address.
-    public static func windowServer(setting: URL?, connection: URL?) -> URL {
-        setting ?? connection ?? ConnectLink.defaultServer
+    /// The window's server: the one in Settings, else the one this Mac is connected to. Nil on a
+    /// fresh Mac: one app serves every organization, so there is no address to fall back on and
+    /// the setup window asks for one (`Workspace`).
+    public static func windowServer(setting: URL?, connection: URL?) -> URL? {
+        setting ?? connection
     }
 
     /// The address a server says it lives at: `publicUrl` in its `/api/health`, as an origin the
@@ -29,7 +29,7 @@ public enum ServerAddress {
         return targetOrigin == reported && reported != currentOrigin
     }
 
-    private static func isLocal(_ url: URL) -> Bool {
+    static func isLocal(_ url: URL) -> Bool {
         let host = url.host?.lowercased() ?? ""
         return host == "localhost" || host == "127.0.0.1"
     }

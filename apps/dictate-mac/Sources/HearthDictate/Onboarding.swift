@@ -3,9 +3,26 @@ import AVFoundation
 import DictateCore
 import SwiftUI
 
-/// The setup window: Microphone, Accessibility, Location, Notifications and Connect, each with a
-/// live check. It opens on the first launch and on every launch while a permission is missing.
+/// The setup window: the workspace's address on a Mac that has none, then Microphone,
+/// Accessibility, Location, Notifications and Connect, each with a live check. It opens on the
+/// first launch and on every launch while a permission is missing.
 final class OnboardingModel: ObservableObject {
+    // The Workspace step (docs/PLAN-mac-onboarding.md R1-R3).
+    /// The step shows while this Mac has no workspace, or the member asked to change it.
+    @Published var editingWorkspace = false
+    @Published var workspaceText = ""
+    @Published var checkingWorkspace = false
+    @Published var workspaceError: String?
+    /// What the server said about itself, after Continue found it ("Acme. Sign in with…").
+    @Published var workspaceFound: String?
+    /// Offered once a workspace is saved here, so its window can be signed in.
+    @Published var offerSignIn = false
+    var workspace: () -> URL? = { nil }
+    var saveWorkspace: (URL) -> Void = { _ in }
+    var signIn: () -> Void = {}
+    /// The check, replaceable in previews.
+    var checkWorkspace: (URL) async -> Workspace.CheckResult = { await Workspace.check($0, fetch: Workspace.networkFetch) }
+
     @Published var microphone = Permissions.microphoneGranted
     @Published var accessibility = Permissions.accessibilityGranted
     @Published var location = Permissions.locationAllowed
@@ -137,6 +154,39 @@ final class OnboardingModel: ObservableObject {
 
     var allSet: Bool { permissionsGranted && listening && connected }
 
+    /// Opens the Workspace step, filled with the address this Mac uses now, if any.
+    func beginWorkspace() {
+        editingWorkspace = true
+        workspaceText = workspace().map(Workspace.displayAddress) ?? ""
+        workspaceError = nil
+        workspaceFound = nil
+    }
+
+    /// Continue: checks the address is a Hotsauce workspace, then saves it (R2, R3).
+    func submitWorkspace() {
+        workspaceError = nil
+        workspaceFound = nil
+        guard let origin = Workspace.origin(fromInput: workspaceText) else {
+            workspaceError = "Enter your workspace’s address, like team.example.com."
+            return
+        }
+        checkingWorkspace = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await self.checkWorkspace(origin)
+            self.checkingWorkspace = false
+            guard case let .found(info) = result else {
+                self.workspaceError = result.message(for: origin)
+                return
+            }
+            self.saveWorkspace(info.server)
+            self.workspaceText = Workspace.displayAddress(info.server)
+            self.workspaceFound = info.summary
+            self.offerSignIn = !info.setupRequired
+            self.editingWorkspace = false
+        }
+    }
+
     func submitCode() {
         codeError = nil
         connect(code) { [weak self] error in
@@ -154,6 +204,12 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     var onClose: () -> Void = {}
 
     var isVisible: Bool { window?.isVisible ?? false }
+    /// The setup window at its Workspace step: a Mac with no workspace, or "Change workspace address".
+    func showWorkspace() {
+        model.beginWorkspace()
+        show()
+    }
+
     func show() {
         if window == nil {
             let window = NSWindow(
@@ -186,6 +242,13 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     }
 }
 
+extension OnboardingWindow {
+    /// The setup window's content for `--render-previews`, never shown on screen.
+    static func previewView(model: OnboardingModel) -> NSView {
+        NSHostingView(rootView: OnboardingView(model: model, done: {}).background(Color(nsColor: .windowBackgroundColor)))
+    }
+}
+
 private struct OnboardingView: View {
     /// Fits a small screen (a 13-inch MacBook at its default size) under the title bar and Dock.
     static var height: CGFloat { min(720, (NSScreen.main?.visibleFrame.height ?? 800) - 60) }
@@ -197,10 +260,18 @@ private struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Set up \(Brand.name)").font(.system(size: 22, weight: .semibold, design: .serif))
-                Text("\(Brand.name) needs these to work. This window opens each time the app starts until every one is on.")
+                Text(model.workspace() == nil
+                    ? "First, your team’s workspace."
+                    : "\(Brand.name) needs these to work. This window opens each time the app starts until every one is on.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if model.editingWorkspace || model.workspace() == nil {
+                WorkspaceStep(model: model)
+            } else if let found = model.workspaceFound {
+                WorkspaceFound(model: model, summary: found)
+            }
+            if model.workspace() != nil {
             VStack(spacing: 0) {
                 Row(
                     title: "Microphone",
@@ -259,7 +330,9 @@ private struct OnboardingView: View {
 
             StatusBanner(model: model)
             if model.allSet && model.menuBarHidden { MenuBarHint() }
+            }
 
+            if model.workspace() != nil {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Paste connection code").font(.system(size: 12, weight: .semibold))
                 HStack {
@@ -273,22 +346,84 @@ private struct OnboardingView: View {
                     Text(error).font(.system(size: 11)).foregroundStyle(.red)
                 }
             }
+            }
             Spacer(minLength: 0)
-            HStack {
-                Button("Open Dictate in \(Brand.name)") { model.openDictatePage() }
-                    .buttonStyle(.link)
-                Spacer()
+            if model.workspace() != nil {
+                HStack {
+                    Button("Open Dictate in \(Brand.name)") { model.openDictatePage() }
+                        .buttonStyle(.link)
+                    Spacer()
+                }
             }
             HStack {
                 Text("Open it again from \(Brand.name) → Check Permissions… or the menu bar icon.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
-                Button("Done", action: done).keyboardShortcut(.defaultAction)
+                // Return is Continue while the Workspace step shows.
+                if model.editingWorkspace || model.workspace() == nil {
+                    Button("Done", action: done)
+                } else {
+                    Button("Done", action: done).keyboardShortcut(.defaultAction)
+                }
             }
         }
         .padding(24)
         }
         .frame(width: 500, height: Self.height)
+    }
+}
+
+/// "Where does your team's Hotsauce live?": one field, checked before it's saved.
+private struct WorkspaceStep: View {
+    @ObservedObject var model: OnboardingModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Where does your team’s \(Brand.name) live?").font(.system(size: 13, weight: .semibold))
+            Text("The address you open \(Brand.name) at in a browser. Ask whoever set it up if you’re not sure.")
+                .font(.system(size: 12)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                TextField("team.example.com", text: $model.workspaceText)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { model.submitWorkspace() }
+                    .disabled(model.checkingWorkspace)
+                if model.checkingWorkspace { ProgressView().controlSize(.small) }
+                Button("Continue") { model.submitWorkspace() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(model.checkingWorkspace || model.workspaceText.trimmingCharacters(in: .whitespaces).isEmpty)
+                if model.workspace() != nil {
+                    Button("Cancel") { model.editingWorkspace = false }.disabled(model.checkingWorkspace)
+                }
+            }
+            if let error = model.workspaceError {
+                Text(error).font(.system(size: 11)).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+    }
+}
+
+/// The workspace that answered, and the browser sign-in for its window.
+private struct WorkspaceFound: View {
+    @ObservedObject var model: OnboardingModel
+    let summary: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(Color.green)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.workspaceText).font(.system(size: 13, weight: .semibold))
+                Text(summary).font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            if model.offerSignIn { Button("Sign in with Google") { model.signIn() } }
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
     }
 }
 

@@ -21,10 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// A `CallDetector` on macOS 14.2+ (stored untyped for the availability check).
     private var callDetector: AnyObject?
 
-    /// The server in Settings, else the one this Mac is connected to, else the default. The one app
-    /// serves every organization, so connecting is how it learns its address; connecting from a link
-    /// always asks first and names the address, since the window grants it the camera and microphone.
-    private var suiteServer: URL {
+    /// The server in Settings, else the one this Mac is connected to; nil on a fresh Mac, which the
+    /// setup window then asks for (docs/PLAN-mac-onboarding.md R1). The one app serves every
+    /// organization, so there's no built-in address; connecting from a link always asks first and
+    /// names the address, since the window grants it the camera and microphone.
+    private var suiteServer: URL? {
         ServerAddress.windowServer(setting: settings.suiteServer, connection: ConnectionStore.connection()?.server)
     }
 
@@ -45,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         suite.handleAppLink = { [weak self] in self?.openAppLink($0.absoluteString) }
         suite.signInWithBrowser = { [weak self] in self?.startBrowserSignIn() }
         suite.serverMoved = { [weak self] old, new in self?.serverMoved(from: old, to: new) }
+        suite.changeWorkspace = { [weak self] in self?.onboarding.showWorkspace() }
         statusItem = Self.makeStatusItem()
         statusItem.isVisible = settings.showInMenuBar
         let menu = NSMenu()
@@ -75,6 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return self.settings.showInMenuBar && !self.menuBarIconShown
         }
         onboarding.model.stepCompleted = { [weak self] in self?.bringSetupForward() }
+        onboarding.model.workspace = { [weak self] in self?.suiteServer }
+        onboarding.model.saveWorkspace = { [weak self] server in self?.saveWorkspace(server) }
+        onboarding.model.signIn = { [weak self] in self?.startBrowserSignIn() }
         onboarding.model.notInApplications = {
             let path = Bundle.main.bundlePath
             return path.contains("/AppTranslocation/") || path.hasPrefix("/Volumes/")
@@ -88,8 +93,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3_600, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pruneHistory() }
         }
-        // A login item starts quietly: the suite loads (for reminders) without its window.
-        if launchedAsLoginItem { suite.loadIfNeeded() } else { suite.show() }
+        // A login item starts quietly: the suite loads (for reminders) without its window. A Mac
+        // with no workspace yet loads nothing; the setup window asks for one.
+        if suiteServer == nil {
+            onboarding.showWorkspace()
+        } else if launchedAsLoginItem {
+            suite.loadIfNeeded()
+        } else {
+            suite.show()
+        }
         showSetupIfAnythingIsMissing()
         reminders.start()
         if #available(macOS 14.2, *) {
@@ -185,8 +197,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             set(\.menuBarIconShown, self.menuBarIconShown)
             let connection = ConnectionStore.connection()
             set(\.account, connection.map { $0.account ?? "this Mac" })
-            set(\.server, connection?.server.absoluteString ?? ConnectLink.defaultServer.absoluteString)
-            let suiteServer = self.suiteServer.absoluteString
+            set(\.server, connection?.server.absoluteString ?? "None")
+            let suiteServer = self.suiteServer?.absoluteString ?? ""
             if model.suiteServer != suiteServer {
                 model.suiteServer = suiteServer
                 model.suiteServerDraft = suiteServer
@@ -275,11 +287,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.openWeb = { [weak self] in self?.openDictatePage() }
         model.setSuiteServer = { [weak self] text in
             guard let self else { return nil }
-            guard let server = ConnectLink.normalizedServer(text) else {
-                return "Enter the server’s address, like https://office.example.com (http only for localhost)."
+            guard let server = Workspace.origin(fromInput: text) else {
+                return "Enter your workspace’s address, like team.example.com (http only for localhost)."
             }
-            self.settings.suiteServer = server == ConnectLink.defaultServer ? nil : server
-            self.suite.setServer(self.suiteServer)
+            self.settings.suiteServer = server
+            self.suite.setServer(server)
             model.reload()
             return nil
         }
@@ -600,6 +612,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// At every launch, login items too: the first one always shows the setup window, and later
     /// ones show it while any permission is missing, until all are granted.
     private func showSetupIfAnythingIsMissing() {
+        guard suiteServer != nil else { return }
         OnboardingModel.snapshot(notificationsNeeded: needsNotifications) { [weak self] snapshot in
             guard let self else { return }
             let missing = PermissionCheck.missing(snapshot)
@@ -614,6 +627,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func disconnect() {
         guard let connection = ConnectionStore.connection() else { return }
+        // A Mac that learnt its workspace from this connection keeps it.
+        if settings.suiteServer == nil { settings.suiteServer = connection.server }
         ConnectionStore.delete()
         updateIcon()
         controller.showMessage("Disconnected")
@@ -642,12 +657,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The sign-in started from the window and waiting for the browser's callback.
     private var browserSignIn: BrowserSignIn?
 
+    /// The Workspace step found a Hotsauce server: the window opens it from now on (R3).
+    private func saveWorkspace(_ server: URL) {
+        settings.suiteServer = server
+        if suite.recordingMeetingSession == nil { suite.setServer(server) }
+        mainWindow.model.reload()
+    }
+
     /// Opens the member's browser at the suite's confirm page; it hands back a one-time ticket.
     private func startBrowserSignIn() {
+        guard let server = suite.server else {
+            onboarding.showWorkspace()
+            return
+        }
         // Pressed again while one is under way: the same sign-in, so either tab still works.
         let signIn = browserSignIn.flatMap { Date().timeIntervalSince($0.started) < BrowserSignIn.timeout / 2 ? $0 : nil }
             ?? BrowserSignIn()
-        guard let url = signIn.connectURL(server: suite.router.server) else { return }
+        guard let url = signIn.connectURL(server: server) else { return }
         browserSignIn = signIn
         NSWorkspace.shared.open(url)
     }
@@ -683,7 +709,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// member before using a link (any web page can open one), another server, or replacing a
     /// connection. Calls back with why it didn't connect, or nil when it did.
     private func connect(code: String, fromLink: Bool, done: @escaping (String?) -> Void) {
-        guard let link = ConnectLink.parse(code) else {
+        let workspace = suiteServer
+        guard let link = ConnectLink.parse(code, workspace: workspace) else {
             done("That isn’t a Dictate connection code. Press Connect this Mac on your workspace’s /dictate page to get one.")
             return
         }
@@ -698,12 +725,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             guard let self else { return }
             let previous = ConnectionStore.connection()
-            if fromLink || link.isUnfamiliarServer || previous != nil {
+            let unfamiliar = link.isUnfamiliar(to: workspace)
+            if fromLink || unfamiliar || previous != nil {
                 NSApp.activate(ignoringOtherApps: true)
                 let alert = NSAlert()
                 alert.messageText = "Connect Dictate as \(account)?"
                 // One app serves every organization, so the address is what to check.
-                var detail = link.isUnfamiliarServer
+                var detail = unfamiliar
                     ? "Your dictations will be sent to \(link.server.absoluteString), and the \(Brand.name) window opens it. Only continue if that is your organization’s \(Brand.name)."
                     : "Your dictations will go to \(link.server.host ?? Brand.name) as \(account)."
                 if previous != nil { detail += " This replaces the connection this Mac has now." }
@@ -723,12 +751,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 Task { await DictationClient(server: previous.server, token: previous.token).revokeSelf() }
             }
             // The window follows the connection unless Settings names another server; remembered,
-            // so disconnecting later doesn't send the window back to the placeholder address.
+            // so disconnecting later doesn't leave the window without a workspace.
             if self.settings.suiteServer == nil || self.settings.suiteServer == previous?.server {
-                self.settings.suiteServer = link.server == ConnectLink.defaultServer ? nil : link.server
+                self.settings.suiteServer = link.server
             }
-            if self.suite.recordingMeetingSession == nil {
-                self.suite.setServer(self.suiteServer)
+            if self.suite.recordingMeetingSession == nil, let server = self.suiteServer {
+                self.suite.setServer(server)
             }
             self.updateIcon()
             self.onboarding.model.refresh()
