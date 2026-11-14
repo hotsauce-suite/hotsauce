@@ -16,6 +16,7 @@ const base: UpdateStatus = {
   },
   updateAvailable: true,
   checkedAt: '2026-11-12T00:00:00Z',
+  checkError: null,
   mode: 'fly',
   auto: true,
   updating: null,
@@ -92,5 +93,20 @@ describe('Settings → Organization → Updates', () => {
     })
     render(<UpdatesSection />)
     expect(await screen.findByText(/It’s the newest release/)).toBeInTheDocument()
+  })
+
+  it('says when it couldn’t reach GitHub, and that it tries again', async () => {
+    serve({ ...base, updateAvailable: false, latest: null, checkError: 'GitHub API answered 403' })
+    render(<UpdatesSection />)
+    expect(await screen.findByTestId('check-error')).toHaveTextContent(
+      'Couldn’t reach GitHub to check for a new release (GitHub API answered 403)',
+    )
+  })
+
+  it('shows nothing about GitHub when the last check worked', async () => {
+    serve(base)
+    render(<UpdatesSection />)
+    await screen.findByTestId('update-available')
+    expect(screen.queryByTestId('check-error')).toBeNull()
   })
 })

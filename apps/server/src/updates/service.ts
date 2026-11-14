@@ -3,7 +3,12 @@ import type { Release } from './releases.js'
 import type { UpdateState, UpdateStore } from './store.js'
 import { isNewer } from './version.js'
 
-const CHECK_EVERY_MS = 6 * 60 * 60_000
+/** How often GitHub is asked for the newest release. */
+const CHECK_EVERY_MS = 60 * 60_000
+/** How soon a failed ask is tried again (the timer runs every ten minutes). */
+const RETRY_AFTER_FAILURE_MS = 10 * 60_000
+/** The timer can fire a little early; a tick that close to the next ask counts as on time. */
+const TICK_SLACK_MS = 30_000
 /**
  * The helper is done by then: four start waits of a minute each, then five minutes of health.
  * Still on the old version after this means it rolled back or never got that far.
@@ -17,6 +22,8 @@ export interface UpdateStatus {
   latest: Release | null
   updateAvailable: boolean
   checkedAt: string | null
+  /** Why the last ask for the newest release failed; null once one works. */
+  checkError: string | null
   mode: UpdateMode
   auto: boolean
   updating: UpdateState['pending']
@@ -28,6 +35,7 @@ export interface UpdateStatus {
 export interface UpdaterOptions {
   current: string
   store: UpdateStore
+  /** The newest release, null when there is none; throws when it can't be found out. */
   latestRelease: () => Promise<Release | null>
   /** Set on Fly with FLY_API_TOKEN; null elsewhere. */
   fly: FlyApi | null
@@ -46,6 +54,8 @@ export class Updater {
   readonly #o: UpdaterOptions
   #latest: Release | null = null
   #checkedAt: Date | null = null
+  #nextCheck: Date | null = null
+  #checkError: string | null = null
   #timer: ReturnType<typeof setInterval> | null = null
   /** Set from the click until `pending` is saved, so a second click or a tick can't race it. */
   #starting = false
@@ -75,6 +85,7 @@ export class Updater {
       latest: this.#latest,
       updateAvailable: this.#latest !== null && isNewer(this.#latest.version, this.#o.current),
       checkedAt: this.#checkedAt?.toISOString() ?? null,
+      checkError: this.#checkError,
       mode: this.mode(),
       auto: state.auto ?? true,
       updating: state.pending,
@@ -89,15 +100,25 @@ export class Updater {
     return this.status()
   }
 
-  /** Asks GitHub for the newest release, at most every six hours unless `force`. */
+  /**
+   * Asks GitHub for the newest release, at most hourly unless `force`. A failed ask is logged,
+   * keeps what we knew, and is tried again ten minutes later.
+   */
   async check(force = false): Promise<Release | null> {
-    const fresh =
-      this.#checkedAt && this.#now.getTime() - this.#checkedAt.getTime() < CHECK_EVERY_MS
-    if (fresh && !force) return this.#latest
-    const latest = await this.#o.latestRelease()
-    // A failed check keeps what we knew.
-    if (latest) this.#latest = latest
-    this.#checkedAt = this.#now
+    const due = !this.#nextCheck || this.#now.getTime() >= this.#nextCheck.getTime() - TICK_SLACK_MS
+    if (!force && !due) return this.#latest
+    try {
+      const latest = await this.#o.latestRelease()
+      // No release at all keeps what we knew too.
+      if (latest) this.#latest = latest
+      this.#checkedAt = this.#now
+      this.#checkError = null
+      this.#nextCheck = new Date(this.#now.getTime() + CHECK_EVERY_MS)
+    } catch (err) {
+      this.#checkError = err instanceof Error ? err.message : String(err)
+      this.#nextCheck = new Date(this.#now.getTime() + RETRY_AFTER_FAILURE_MS)
+      this.#log(`couldn’t check for a new release: ${this.#checkError}; trying again in 10 minutes`)
+    }
     return this.#latest
   }
 
@@ -246,7 +267,7 @@ export class Updater {
     }
   }
 
-  /** Checks a minute after startup, then every ten minutes (GitHub is asked every six hours). */
+  /** Checks a minute after startup, then every ten minutes (GitHub is asked hourly). */
   startTimer(): void {
     if (this.#timer) return
     const run = () => void this.tick().catch((err) => this.#log(String(err)))

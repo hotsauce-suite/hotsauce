@@ -48,3 +48,12 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
 - **Unified logs hide URLs** (`<private>`), so a WebKit load timeline shows timings but not which
   page; launch with `log stream --predicate 'process == "Hotsauce" OR process BEGINSWITH "com.apple.WebKit"'`
   and read the `WebPageProxy::didCommit/didFinish` lines.
+- **A quiet failed check costs a whole interval.** The updater asked GitHub every six hours and
+  treated a failed ask (rate limit, timeout) exactly like "nothing new", with no log line, so Haven
+  sat on 0.12.4 through three releases. Ask hourly, log the reason, retry ten minutes later, and
+  show it in Settings.
+- **GitHub's unauthenticated API limit is per address, and cloud hosts share addresses.** Sixty
+  asks an hour across every app on a Fly egress IP runs out. `github.com/<repo>/releases/latest`
+  redirects to the newest tag and isn't the API, so it makes a cheap fallback for the version
+  (fetch with `redirect: 'manual'`; Node returns the real 302 with its `location`). Conditional
+  (ETag) asks don't help here: a 304 is free only for authenticated requests.
