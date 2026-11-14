@@ -34,9 +34,15 @@ Before helping with anything about the member's work, call get_agent_brief: it s
 
 /** A fresh MCP server for one member. Stateless: one is built per request (ARCHITECTURE §8.2). */
 export function createMcpServer(deps: AllMcpDeps, principal: Principal): McpServer {
-  const { PRODUCT_NAME, ORG_NAME } = deps.config
+  const { PRODUCT_NAME, ORG_NAME, PUBLIC_URL } = deps.config
   const server = new McpServer(
-    { ...MCP_SERVER_INFO, name: slug(PRODUCT_NAME) || MCP_SERVER_INFO.name, title: PRODUCT_NAME },
+    {
+      ...MCP_SERVER_INFO,
+      name: slug(PRODUCT_NAME) || MCP_SERVER_INFO.name,
+      title: PRODUCT_NAME,
+      icons: serverIcons(PUBLIC_URL),
+      websiteUrl: PUBLIC_URL,
+    },
     { instructions: instructions(PRODUCT_NAME, ORG_NAME) },
   )
   registerTools(server, deps, principal)
@@ -79,6 +85,16 @@ export function mcpRoutes(deps: AllMcpDeps) {
         { Allow: 'POST' },
       ),
     )
+}
+
+/** The bottle, so clients that show a connector's icon (claude.ai, ChatGPT) show ours. */
+function serverIcons(publicUrl: string) {
+  const base = publicUrl.replace(/\/+$/, '')
+  return [
+    { src: `${base}/favicon.svg`, mimeType: 'image/svg+xml', sizes: ['any'] },
+    { src: `${base}/icon-192.png`, mimeType: 'image/png', sizes: ['192x192'] },
+    { src: `${base}/icon-512.png`, mimeType: 'image/png', sizes: ['512x512'] },
+  ]
 }
 
 function slug(s: string): string {
