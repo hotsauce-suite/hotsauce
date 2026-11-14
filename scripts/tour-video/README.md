@@ -32,6 +32,8 @@ The demo data (neutral names, a realistic agent brief and briefing) lives in `ap
 
 ## Notes
 
+- Ports busy? Run the server on another `PORT`, start Vite with `API_PROXY_TARGET=http://localhost:<server port>` and another `--port`, and give the scripts `TOUR_BASE=http://localhost:<vite port>`. `TOUR_CLOCK=2026-11-13T07:30:00-08:00` starts the page clock at that time (for Today's "Good morning").
+
 - The Clips player shot needs a clip with real footage. Record one clip (`clipsRecorder` won't save one), then replace its `video.mp4` and transcript under `DATA_DIR`. Use another shot, such as `docs.mp4`, as the footage.
 - `script.json` holds the narration. `SHOTS` in `build.py` maps each line to its footage. In the "And more" montage, each shot starts when the voice says its cue word, timed from Whisper word timestamps.
 - `explore.mjs` takes screenshots of a few steps, for finding selectors before writing a shot.

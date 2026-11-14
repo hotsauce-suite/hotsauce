@@ -6,7 +6,19 @@ import { PathParam, valid } from './validate.js'
 
 const Item = z.object({ space: z.string().min(1), path: PathParam })
 
-/** Who the member is, and their per-user lists. Recents and stars live in the index, keyed by email. */
+/** Most apps a member can pin to their rail (the web app's `MAX_PINS`). */
+export const MAX_PINS = 6
+const Pins = z.object({
+  pins: z
+    .array(z.string().regex(/^[a-z][a-z0-9-]{0,31}$/))
+    .max(MAX_PINS)
+    .refine((ids) => new Set(ids).size === ids.length, 'An app is pinned twice'),
+})
+
+/**
+ * Who the member is, and their per-user lists. Recents, stars and rail pins live in the index,
+ * keyed by email. Pins are `null` until the member first changes them (the app shows defaults).
+ */
 export function accountRoutes(deps: AppDeps) {
   const { config, index, spaces } = deps
   const assertAccess = (principal: AppEnv['Variables']['principal'], space: string) => {
@@ -46,5 +58,11 @@ export function accountRoutes(deps: AppDeps) {
       assertAccess(principal, space)
       index.setStarred(principal.email, space, path, starred)
       return c.json({ ok: true as const })
+    })
+    .get('/pins', (c) => c.json({ pins: index.getPins(c.get('principal').email) }))
+    .put('/pins', valid('json', Pins), (c) => {
+      const { pins } = c.req.valid('json')
+      index.setPins(c.get('principal').email, pins)
+      return c.json({ pins })
     })
 }

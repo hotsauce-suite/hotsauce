@@ -7,7 +7,7 @@ import path from 'node:path'
 import { chromium } from '@playwright/test'
 import { shots } from './shots.mjs'
 
-const BASE = 'http://localhost:5191'
+const BASE = process.env.TOUR_BASE ?? 'http://localhost:5191'
 const [, , name, outDir, ...flags] = process.argv
 const shot = shots[name]
 if (!shot) throw new Error(`no shot ${name}; have ${Object.keys(shots).join(', ')}`)
@@ -56,6 +56,11 @@ await ctx.addInitScript(() => {
   Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' })
 })
 const page = await ctx.newPage()
+// TOUR_CLOCK (an ISO time) starts the page's clock there, so Today says "Good morning" whenever you film.
+if (process.env.TOUR_CLOCK) {
+  await page.clock.install({ time: new Date(process.env.TOUR_CLOCK) })
+  await page.clock.resume()
+}
 page.setDefaultTimeout(10000)
 setTimeout(() => {
   console.log('WATCHDOG', name)

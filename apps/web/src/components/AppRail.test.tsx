@@ -1,9 +1,11 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { api } from '../api/client'
 import { meetingsApi } from '../api/meetings'
 import { AudioRing } from '../apps/meetings/audio/ring-buffer'
 import { beginLive, currentLive } from '../apps/meetings/live/controller'
+import { DEFAULT_PINS, MAX_PINS } from '../apps/pins'
 import { APPS, railLinks } from '../apps/registry'
 import { MOBILE_QUERY } from '../hooks/useMediaQuery'
 import { renderApp } from '../test/renderApp'
@@ -24,14 +26,28 @@ function phone() {
 }
 
 describe('the app rail', () => {
-  it('has one item per app, then Acme Chat, Settings and the account', async () => {
+  it('shows the default pins, then the launcher, Settings and the account', async () => {
     renderApp('/docs')
     const rail = await screen.findByTestId('app-rail')
-    for (const app of APPS) {
+    const list = within(rail).getByTestId('rail-apps')
+    const ids = [...list.querySelectorAll('[data-testid]')].map((el) =>
+      el.getAttribute('data-testid'),
+    )
+    expect(DEFAULT_PINS).toEqual(['today', 'docs', 'tasks', 'meetings', 'chat'])
+    expect(ids).toEqual([
+      'app-switch-today',
+      'app-switch-docs',
+      'app-switch-tasks',
+      'app-switch-meetings',
+      'app-link-chat',
+    ])
+    for (const app of APPS.filter((a) => ['today', 'docs', 'tasks', 'meetings'].includes(a.id))) {
       const item = within(rail).getByTestId(`app-switch-${app.id}`)
       expect(item).toHaveTextContent(app.label)
       expect(item).toHaveAttribute('aria-label', app.name)
     }
+    expect(within(rail).queryByTestId('app-switch-dictate')).toBeNull()
+    expect(within(rail).getByTestId('launcher-button')).toHaveAccessibleName('All apps')
     expect(within(rail).getByTestId('app-switch-docs')).toHaveAttribute('aria-current', 'page')
     expect(within(rail).getByTestId('app-switch-meetings')).not.toHaveAttribute('aria-current')
 
@@ -61,9 +77,9 @@ describe('the app rail', () => {
       () => expect(screen.getByTestId('settings-link')).toHaveAttribute('aria-current', 'page'),
       slow,
     )
-    for (const app of APPS) {
-      expect(screen.getByTestId(`app-switch-${app.id}`)).not.toHaveAttribute('aria-current')
-    }
+    expect(
+      within(screen.getByTestId('rail-apps')).queryAllByRole('link', { current: 'page' }),
+    ).toEqual([])
     // Leaving Settings for Meetings and back to Docs lands on the doc, not on Settings.
     await userEvent.click(screen.getByTestId('app-switch-meetings'))
     await waitFor(() => expect(router.state.location.pathname).toBe('/meetings'), slow)
@@ -88,6 +104,109 @@ describe('the app rail', () => {
     expect(within(menu).queryByTestId('sign-out')).toBeNull()
     await userEvent.click(within(menu).getByTestId('menu-settings'))
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
+  })
+
+  it('shows the open app below the pins when it is not pinned', async () => {
+    const { router } = renderApp('/briefcast')
+    const rail = await screen.findByTestId('app-rail')
+    const briefcast = await within(rail).findByTestId('app-switch-briefcast')
+    expect(briefcast).toHaveAttribute('aria-current', 'page')
+    await router.navigate('/docs')
+    await waitFor(() => expect(within(rail).queryByTestId('app-switch-briefcast')).toBeNull())
+  })
+
+  it("shows the member's saved pins, in their order", async () => {
+    await api.setPins(['notes', 'today', 'not-an-app'])
+    renderApp('/docs')
+    const list = await screen.findByTestId('rail-apps')
+    await waitFor(() => expect(within(list).queryByTestId('app-switch-tasks')).toBeNull())
+    const ids = [...list.querySelectorAll('a')].map((el) => el.getAttribute('data-testid'))
+    // Docs is open but unpinned: it shows below the pins.
+    expect(ids).toEqual(['app-switch-notes', 'app-switch-today', 'app-switch-docs'])
+  })
+
+  it('opens every app from the launcher, and edits the pins with the pencil', async () => {
+    const { router } = renderApp('/docs')
+    const rail = await screen.findByTestId('app-rail')
+    const button = within(rail).getByTestId('launcher-button')
+    await userEvent.click(button)
+    const launcher = screen.getByRole('dialog', { name: 'All apps' })
+    expect(button).toHaveAttribute('aria-expanded', 'true')
+    for (const app of APPS) {
+      expect(within(launcher).getByTestId(`launcher-app-${app.id}`)).toHaveTextContent(app.label)
+    }
+    expect(within(launcher).getByTestId('launcher-app-docs')).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(within(launcher).getByTestId('launcher-app-chat')).toHaveAttribute('target', '_blank')
+
+    // Edit: unpin Tasks, pin Briefcast; the rail and the server follow.
+    await userEvent.click(within(launcher).getByTestId('launcher-edit'))
+    expect(within(launcher).getByTestId('launcher-edit')).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(within(launcher).getByTestId('launcher-unpin-tasks'))
+    await userEvent.click(within(launcher).getByTestId('launcher-toggle-briefcast'))
+    expect(within(launcher).getByTestId('launcher-toggle-briefcast')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await waitFor(() =>
+      expect(within(rail).getByTestId('app-switch-briefcast')).toBeInTheDocument(),
+    )
+    expect(within(rail).queryByTestId('app-switch-tasks')).toBeNull()
+    await waitFor(async () =>
+      expect((await api.pins()).pins).toEqual(['today', 'docs', 'meetings', 'chat', 'briefcast']),
+    )
+
+    // Alt+arrow moves a pinned app earlier.
+    within(launcher).getByTestId('launcher-unpin-briefcast').focus()
+    await userEvent.keyboard('{Alt>}{ArrowLeft}{/Alt}')
+    await waitFor(async () =>
+      expect((await api.pins()).pins).toEqual(['today', 'docs', 'meetings', 'briefcast', 'chat']),
+    )
+
+    // Six at most: the rest can't be added until one is unpinned.
+    await userEvent.click(within(launcher).getByTestId('launcher-toggle-notes'))
+    expect(MAX_PINS).toBe(6)
+    expect(within(launcher).getByTestId('launcher-toggle-files')).toBeDisabled()
+    expect(within(launcher).getByTestId('launcher-toggle-notes')).toBeEnabled()
+
+    // Done, then an app opens from the launcher, which closes.
+    await userEvent.click(within(launcher).getByTestId('launcher-edit'))
+    await userEvent.click(screen.getByTestId('launcher-app-files'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/files'))
+    await waitFor(() => expect(screen.queryByTestId('launcher')).toBeNull())
+
+    // Escape closes it and hands focus back to the grid button.
+    await userEvent.click(button)
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('launcher')).toBeNull())
+    expect(button).toHaveFocus()
+  })
+
+  it('drags a pinned app into a new place, and closes on a click outside', async () => {
+    renderApp('/docs')
+    const button = await screen.findByTestId('launcher-button')
+    await userEvent.click(button)
+    await userEvent.click(screen.getByTestId('launcher-edit'))
+    const today = screen.getByTestId('launcher-pinned-today')
+    const tasks = screen.getByTestId('launcher-pinned-tasks')
+    // jsdom has no hit testing: the pointer is "over" Tasks.
+    const point = vi.fn(() => tasks)
+    document.elementFromPoint = point
+    fireEvent.pointerDown(today, { pointerId: 1, button: 0, clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(today, { pointerId: 1, clientX: 12, clientY: 11 })
+    // Under five pixels it's still a click: nothing moves.
+    expect(point).not.toHaveBeenCalled()
+    fireEvent.pointerMove(today, { pointerId: 1, clientX: 120, clientY: 10 })
+    fireEvent.pointerUp(today, { pointerId: 1, clientX: 120, clientY: 10 })
+    await waitFor(async () =>
+      expect((await api.pins()).pins).toEqual(['docs', 'tasks', 'today', 'meetings', 'chat']),
+    )
+    Reflect.deleteProperty(document, 'elementFromPoint')
+
+    fireEvent.pointerDown(document.getElementById('main') as HTMLElement)
+    await waitFor(() => expect(screen.queryByTestId('launcher')).toBeNull())
   })
 
   it('puts a dot on Meetings while a meeting is recording', async () => {
@@ -218,6 +337,11 @@ describe('the app rail', () => {
         'Opens in a new tab',
       )
     }
+    // The pinned apps come first, in rail order.
+    const first = [...palette.querySelectorAll('[data-testid^="cmdk-app-"]')]
+      .slice(0, 5)
+      .map((el) => el.getAttribute('data-testid'))
+    expect(first).toEqual(DEFAULT_PINS.map((id) => `cmdk-app-${id}`))
 
     await userEvent.type(screen.getByTestId('cmdk-input'), 'go to meet')
     await waitFor(() => expect(within(palette).queryByTestId('cmdk-app-docs')).toBeNull())

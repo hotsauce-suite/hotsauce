@@ -23,7 +23,7 @@ describe('moving around without a mouse (slice 7)', () => {
     const docs = within(rail).getByTestId('app-switch-docs')
     docs.focus()
     await user.keyboard('{ArrowDown}')
-    expect(within(rail).getByTestId('app-switch-meetings')).toHaveFocus()
+    expect(within(rail).getByTestId('app-switch-tasks')).toHaveFocus()
     await user.keyboard('{ArrowUp}{ArrowUp}')
     expect(within(rail).getByTestId('app-switch-today')).toHaveFocus()
     await user.keyboard('{End}')

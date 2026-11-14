@@ -239,7 +239,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         const bare = path.join(localHostDir, `${repo}.git`)
         if (!existsSync(bare)) {
           throw new Error(
-            `No bare repo at ${bare}. If a server from another run is still on :3999, stop it; ` +
+            `No bare repo at ${bare}. If a server from another run is still on this port, stop it (or set E2E_PORT); ` +
               'set CI=1 to never reuse one.',
           )
         }
@@ -388,4 +388,10 @@ export async function pressCommandK(page: Page): Promise<void> {
     if (!(await page.getByTestId('cmdk').isVisible())) await page.keyboard.press('ControlOrMeta+K')
     await expect(page.getByTestId('cmdk')).toBeVisible({ timeout: 1_000 })
   }).toPass({ timeout: 8_000 })
+}
+
+/** Opens an app from the rail's launcher (the grid button), which lists every app, pinned or not. */
+export async function openApp(page: Page, id: string): Promise<void> {
+  await page.getByTestId('launcher-button').click()
+  await page.getByTestId(`launcher-app-${id}`).click()
 }

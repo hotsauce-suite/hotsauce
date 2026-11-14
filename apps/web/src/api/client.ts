@@ -247,4 +247,9 @@ export const api = {
   stars: () => request<StarItem[]>('/api/stars'),
   setStar: (space: string, path: string, starred: boolean) =>
     request<{ ok: boolean }>('/api/stars', { method: 'POST', json: { space, path, starred } }),
+
+  /** The apps on this member's rail, in order; null until they first change them. */
+  pins: () => request<{ pins: string[] | null }>('/api/pins'),
+  setPins: (pins: readonly string[]) =>
+    request<{ pins: string[] }>('/api/pins', { method: 'PUT', json: { pins } }),
 }
