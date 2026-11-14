@@ -1,6 +1,6 @@
 # Plan: pinned apps on the rail, and a launcher with every app
 
-**Status:** building (Nov 13, 2026). Draft PR on `feat/pinned-rail`.
+**Status:** shipped in 0.12.0 (Nov 13, 2026), PR #65 with imagery in #71. Every requirement below has a passing test.
 
 With fifteen apps the desktop rail had become a scrolling list. Now it shows only the apps each
 member pins, like the "Your favorites" row of Google's app launcher, and a grid button opens a
