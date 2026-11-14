@@ -18,3 +18,12 @@ Notes from recording the hotsauce.work tour (scripts in `scripts/tour-video/`).
 - **Stills of a custom brand need the real dev server**, because the mock's `/api/org/brand` is fixed. Start it with `ADMIN_EMAILS` and `PRODUCT_NAME`, PUT `/api/admin/org/brand` and `/api/admin/org/assets/mark` with the `x-hearth-dev-user` header, and write docs with PUT `/api/spaces/team/file`. Brand fonts come from Google Fonts, so launch Chromium with `proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost' }` and `ignoreHTTPSErrors` in the cloud sandbox, or headings fall back to a serif.
 - **The meeting's Transcript button can show pressed with the panel closed on first load.** Click it twice before a still.
 - **The "This week" tile only shows in the demo build** (`build:demo`, served statically), not in the `VITE_MOCK_API=1` dev server.
+
+## Support sweep (Nov 14)
+
+- **The Clips player shot no longer needs a real recording.** It routes `/api/clips` to a canned clip (`DEMO_CLIP` holds `composite.mp4` and `thumb.jpg`). Make the footage with the server's own `composite()` from `apps/server/dist/clips/media.js`, so the camera bubble looks exactly like the product's. The file name must contain "composite", or the player offers "Switch to it".
+- **The face in the bubble is AI-generated** (a still from the OpenAI images API, `gpt-image-2`, with a slow zoompan drift), so there's no real person's likeness to clear. The API has no video model here.
+- **Dev mode seeds a conflict on `plans/hiring.md`** (the live demo build skips it). A shot that opens that doc shows the conflict banner, so point shots at other docs.
+- **Headless Linux shows Ctrl hints.** `rec.mjs` now sets `navigator.platform` to MacIntel, so keys read ⌘K and ⌘J like the site.
+- **Check `git log` dates on `site/public/video/apps/` against the screens.** The old Clips loop still showed the Hearth flame and no camera bubble two releases later.
+- **The demo mock used UTC dates for check-in rounds**, so an American evening showed tomorrow's round. Use local dates in mocks that show a day.

@@ -10,7 +10,10 @@ export const DICTATED_WORDS = 'Finish the freezer quote'
 export function checkinHandlers(opts: {
   principal: (request: Request) => FakeUser | Response
 }): AnyHandler[] {
-  const today = new Date().toISOString().slice(0, 10)
+  // The visitor's own date, not UTC's: in an American evening UTC is already tomorrow.
+  const localDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const today = localDate(new Date())
   let seq = 0
   const nextId = () => `01JCHECKIN${String(++seq).padStart(16, '0')}`
   const checkins = new Map<string, Omit<CheckinView, 'canManage' | 'current'>>()
@@ -47,7 +50,8 @@ export function checkinHandlers(opts: {
   })
   // Sample answers, so the demo shows a lived-in check-in: Grace has answered this round, and
   // last week's round has both answers and its summary.
-  const lastWeek = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10)
+  const now = new Date()
+  const lastWeek = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7))
   const at = (date: string, hhmm: string) => new Date(`${date}T${hhmm}:00`).toISOString()
   const sample = (
     date: string,

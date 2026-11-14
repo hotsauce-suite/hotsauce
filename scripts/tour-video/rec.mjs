@@ -51,6 +51,10 @@ const ctx = await browser.newContext({
   timezoneId: 'America/Los_Angeles',
 })
 await ctx.addInitScript(CURSOR)
+// Show Mac key hints (⌘K, not Ctrl K), as the site and help do.
+await ctx.addInitScript(() => {
+  Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' })
+})
 const page = await ctx.newPage()
 page.setDefaultTimeout(10000)
 setTimeout(() => {
