@@ -139,8 +139,10 @@ describe('views', () => {
 describe('signing out', () => {
   it('forgets cached lists, so the next member never sees them', async () => {
     await openList('/tasks')
-    await userEvent.click(await screen.findByTestId('account-menu'))
-    await userEvent.click(screen.getByTestId('sign-out'))
+    cleanup()
+    // Sign out is in Settings.
+    renderApp('/settings')
+    await userEvent.click(await screen.findByTestId('settings-sign-out'))
     cleanup()
     // Another member signs in on this browser; their first paint has no rows from before.
     mockApi().tasks.tasks.clear()

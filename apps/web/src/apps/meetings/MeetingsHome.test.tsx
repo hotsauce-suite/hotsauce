@@ -26,6 +26,11 @@ describe('Meetings home', () => {
       '/meetings/start?event=evt-acme-sync',
     )
     expect(screen.getByTestId('new-meeting')).toHaveAttribute('href', '/meetings/start')
+    // Reminders are switched on in Settings now, with task reminders (PLAN-install-and-settings N4).
+    expect(screen.getByTestId('meeting-reminders-link')).toHaveAttribute(
+      'href',
+      '/settings#notifications',
+    )
 
     const list = screen.getByTestId('meeting-list')
     await waitFor(() => expect(within(list).getAllByTestId('meeting-item')).toHaveLength(3))

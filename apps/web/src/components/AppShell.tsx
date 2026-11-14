@@ -24,6 +24,7 @@ import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
 import { AssistantHost } from './assistant/AssistantHost'
 import { Icon } from './Icon'
+import { InstallBar } from './InstallBar'
 import { Sidebar, SidebarFrame } from './Sidebar'
 
 const CommandK = lazy(() => import('./CommandK'))
@@ -194,6 +195,7 @@ function ShellLayout() {
       >
         Skip to content
       </button>
+      <InstallBar />
       <div className="flex min-h-0 flex-1">
         {compact ? (
           drawerOpen ? (

@@ -15,12 +15,31 @@ async function registration(): Promise<ServiceWorkerRegistration | null> {
 }
 
 /**
+ * The worker registers after the page loads, so a first visit straight to Settings can ask before
+ * it exists. Waits a moment for it rather than call a capable browser unsupported. Dev and the
+ * demo have no worker; they wait the moment and get null.
+ */
+async function registrationSoon(waitMs = 3_000): Promise<ServiceWorkerRegistration | null> {
+  const now = await registration()
+  if (now) return now
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const ready = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), waitMs)
+    }),
+  ])
+  clearTimeout(timer)
+  return ready
+}
+
+/**
  * Whether this browser gets reminders. A subscribed browser is sent to the server again each
  * time, which heals what can drift: the server dropped it (the push service replaced it), another
  * member used this browser last, or the server's key changed.
  */
 export async function reminderState(): Promise<ReminderState> {
-  const reg = pushSupported() ? await registration() : null
+  const reg = pushSupported() ? await registrationSoon() : null
   if (!reg) return 'unsupported'
   const { publicKey } = await meetingsApi.reminderKey()
   if (!publicKey) return 'unavailable'

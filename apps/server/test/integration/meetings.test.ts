@@ -1099,6 +1099,62 @@ describe('templates, calendar and the meeting list', () => {
     expect(await services.meetings.reminderStore.subscribers()).toEqual([])
   })
 
+  it("sends a test notification to the caller's own browsers only", async () => {
+    const sender = services.meetings.pushSender as FakePushSender
+    const sub = (id: string) => ({
+      endpoint: `https://fcm.googleapis.com/fcm/send/${id}`,
+      keys: { p256dh: 'p', auth: 'a' },
+    })
+    // Nothing subscribed yet: nothing sent, and that's not an error.
+    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 0, failed: 0 })
+    await api('POST', '/api/meetings/reminders', {
+      json: { subscription: sub('phone') },
+      status: 204,
+    })
+    await api('POST', '/api/meetings/reminders', {
+      json: { subscription: sub('laptop') },
+      status: 204,
+    })
+    await api('GET', '/api/me', { as: BOB })
+    await api('POST', '/api/meetings/reminders', {
+      as: BOB,
+      json: { subscription: sub('bobs') },
+      status: 204,
+    })
+    // The push service has dropped the laptop: it's forgotten, not counted.
+    sender.gone.add(sub('laptop').endpoint)
+
+    // A push service that errors is counted, not mistaken for no device.
+    sender.failing.add(sub('phone').endpoint)
+    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 0, failed: 1 })
+    sender.failing.delete(sub('phone').endpoint)
+    expect(await api('POST', '/api/meetings/reminders/test')).toEqual({ sent: 1, failed: 0 })
+    expect(sender.sent).toEqual([
+      {
+        endpoint: sub('phone').endpoint,
+        payload: expect.objectContaining({
+          title: expect.stringContaining('Test'),
+          url: '/settings',
+        }),
+      },
+    ])
+    expect(
+      (await services.meetings.reminderStore.subscribers()).map((s) => s.subscription.endpoint),
+    ).toEqual([sub('phone').endpoint, sub('bobs').endpoint])
+
+    // An access token can't set off notifications.
+    const { token } = await api('POST', '/api/tokens', {
+      json: { name: 'script' },
+      status: 201,
+    })
+    const res = await fetch(`http://${base}/api/meetings/reminders/test`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    })
+    expect(res.status).toBe(403)
+    expect(sender.sent).toHaveLength(1)
+  })
+
   it('serves the fake calendar in dev mode', async () => {
     const events = await api('GET', '/api/calendar/upcoming')
     expect(events.map((e: { id: string }) => e.id)).toContain('fake-acme-sync')

@@ -3,19 +3,12 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { APPS, type AppId, railLinks } from '../apps/registry'
 import { useSession } from '../state/session'
-import {
-  AccountHeader,
-  appHref,
-  feedbackLink,
-  itemClass,
-  useFeedbackEnabled,
-  useSignOut,
-} from './AppRail'
+import { AccountHeader, appHref, feedbackLink, itemClass, useFeedbackEnabled } from './AppRail'
 import { Icon } from './Icon'
 
 /**
  * The phone bar's last tab: opens the Apps sheet, which holds every app, the organization's
- * links, Settings, feedback and the account. It is the
+ * links, Settings (where Sign out is) and feedback. It is the
  * current tab whenever the page belongs to no app on the bar.
  */
 export function AppsTab({ active, recording }: { active: AppId | null; recording: boolean }) {
@@ -86,7 +79,6 @@ function AppsSheet({
 }) {
   const session = useSession()
   const navigate = useNavigate()
-  const signOut = useSignOut()
   const feedbackOn = useFeedbackEnabled()
   const location = useLocation()
   const ref = useRef<HTMLDivElement>(null)
@@ -244,10 +236,6 @@ function AppsSheet({
                 Send feedback
               </button>
             ) : null}
-            <button type="button" data-testid="sign-out" onClick={signOut} className={row}>
-              <span aria-hidden="true" className="size-4" />
-              Sign out
-            </button>
           </div>
         </div>
       </div>
