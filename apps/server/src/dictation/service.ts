@@ -162,6 +162,7 @@ export class Dictation {
   readonly #transcriber: DictationTranscriber
   readonly #llm: LLM
   readonly #model: string
+  readonly #chatNames: string[]
   readonly #limiter = new RateLimiter(RATE_LIMIT_PER_MINUTE, 60_000)
   readonly #log: (message: string) => void
 
@@ -170,6 +171,8 @@ export class Dictation {
     transcriber: DictationTranscriber
     llm: LLM
     model: string
+    /** The organization's own team chat, styled like Slack (see `teamChatNames`). */
+    chatNames?: string[]
     log?: (message: string) => void
   }) {
     this.#log = opts.log ?? ((message) => console.log(message))
@@ -177,6 +180,7 @@ export class Dictation {
     this.#transcriber = opts.transcriber
     this.#llm = opts.llm
     this.#model = opts.model
+    this.#chatNames = opts.chatNames ?? []
   }
 
   /** The member's words then the team's, deduplicated. */
@@ -279,7 +283,10 @@ export class Dictation {
     speculation?: Speculation | null,
   ): Promise<DictateResult> {
     const raw = heard.transcript.trim()
-    const style = styleForApp({ name: heard.appName, bundle: heard.appBundle })
+    const style = styleForApp(
+      { name: heard.appName, bundle: heard.appBundle },
+      { chatNames: this.#chatNames },
+    )
     const llmStart = performance.now()
     let cleanup: { text: string; cleaned: boolean; skipped: boolean }
     let speculated = false
@@ -314,7 +321,10 @@ export class Dictation {
     context: CleanupContext,
   ): Promise<{ text: string; cleaned: boolean; skipped: boolean }> {
     const dictionary = this.dictionary(principal.userId)
-    const style = styleForApp({ name: context.appName, bundle: context.appBundle })
+    const style = styleForApp(
+      { name: context.appName, bundle: context.appBundle },
+      { chatNames: this.#chatNames },
+    )
     if (skipsCleanup(raw, context.language)) {
       // Deepgram has punctuated it already and there's nothing to fix: the model would only add
       // latency (it was most of the wait).
