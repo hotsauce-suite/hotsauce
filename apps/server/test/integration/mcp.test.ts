@@ -215,6 +215,12 @@ describe('the /mcp endpoint', () => {
     const { token } = await createToken(ALICE)
     const client = await connect({ authorization: `Bearer ${token}` })
     expect(client.getServerVersion()?.name).toBe('hotsauce')
+    const icons = client.getServerVersion()?.icons ?? []
+    expect(icons.map((i) => new URL(i.src).pathname)).toEqual([
+      '/favicon.svg',
+      '/icon-192.png',
+      '/icon-512.png',
+    ])
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual([
       'add_note',

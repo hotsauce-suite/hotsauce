@@ -12,3 +12,7 @@
 - claude.ai custom connectors can't be renamed in place: remove and add again. They sign in with
   OAuth or nothing; the server's personal-token auth works for Claude Code and Claude desktop (via
   mcp-remote), not for a claude.ai connector.
+- A connector's icon comes from the server, not the client: the MCP `serverInfo.icons` list
+  (absolute URLs) and the site's `/favicon.ico`. Ours once answered `/favicon.ico` with the web
+  app's HTML (the SPA fallback), so claude.ai showed a blank icon. Keep a real `favicon.ico` in
+  `apps/web/public/`.
