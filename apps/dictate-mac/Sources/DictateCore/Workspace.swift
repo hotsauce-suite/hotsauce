@@ -10,7 +10,7 @@ public enum Workspace {
     public static func origin(fromInput text: String) -> URL? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.contains(where: \.isWhitespace) else { return nil }
-        // A bare word is a typo, not an address; a full URL may name an internal host (`https://nas`).
+        // A bare word is a typo, not an address; a full URL may name an internal host (a NAS on the LAN).
         let hasScheme = trimmed.contains("://")
         guard let origin = ConnectLink.normalizedServer(hasScheme ? trimmed : "https://" + trimmed),
               let host = origin.host
