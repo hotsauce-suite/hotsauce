@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -95,5 +95,37 @@ describe('DatePicker (W2)', () => {
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByTestId('date-picker')).toBeNull()
     expect(document.activeElement).toBe(screen.getByTestId('pick'))
+  })
+
+  it('the month buttons keep focus; leaving the calendar closes it', async () => {
+    render(
+      <>
+        <Harness initial="2026-11-20" />
+        <button type="button">After</button>
+      </>,
+    )
+    const cal = await open()
+    const next = within(cal).getByTestId('date-picker-next')
+    await userEvent.click(next)
+    expect(document.activeElement).toBe(next)
+    expect(within(cal).getByTestId('date-picker-month')).toHaveTextContent(/December 2026/)
+    act(() => screen.getByRole('button', { name: 'After' }).focus())
+    expect(screen.queryByTestId('date-picker')).toBeNull()
+    await open()
+    await userEvent.click(screen.getByRole('button', { name: 'After' }))
+    expect(screen.queryByTestId('date-picker')).toBeNull()
+  })
+
+  it('with an id, the page’s own label names it and the date describes it', async () => {
+    render(
+      <>
+        <label htmlFor="q1">Start date *</label>
+        <DatePicker id="q1" label="Start date" value="2026-11-20" onChange={() => {}} />
+      </>,
+    )
+    const button = screen.getByRole('button', { name: 'Start date *' })
+    expect(button).toHaveAccessibleDescription(/Nov 20, 2026/)
+    await userEvent.click(button)
+    expect(screen.getByRole('dialog', { name: 'Choose start date' })).toBeInTheDocument()
   })
 })

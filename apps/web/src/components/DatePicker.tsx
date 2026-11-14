@@ -85,7 +85,10 @@ export function DatePicker({
         type="button"
         data-testid={testId}
         data-value={picked}
-        aria-label={picked ? `${label}: ${fullLabel(picked)}` : label}
+        // With an id, the page's own <label> names the button (keeping its required marker), and
+        // the date is read as its description; without one, the label is spoken with the date.
+        aria-label={id ? undefined : picked ? `${label}: ${fullLabel(picked)}` : label}
+        aria-describedby={id ? `${id}-value` : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         disabled={disabled}
@@ -93,7 +96,10 @@ export function DatePicker({
         className={`flex items-center gap-2 text-left ${className}`}
       >
         <Icon name="calendar" className="size-4 shrink-0 text-ink-faint" />
-        <span className={`min-w-0 flex-1 truncate ${picked ? '' : 'text-ink-faint'}`}>
+        <span
+          id={id ? `${id}-value` : undefined}
+          className={`min-w-0 flex-1 truncate ${picked ? '' : 'text-ink-faint'}`}
+        >
           {picked ? dateLabel(picked) : placeholder}
         </span>
       </button>
@@ -112,6 +118,7 @@ export function DatePicker({
             setOpen(false)
             button.current?.focus()
           }}
+          onLeave={() => setOpen(false)}
         />
       ) : null}
     </>
@@ -125,27 +132,36 @@ function Calendar({
   label,
   onPick,
   onClose,
+  onLeave,
 }: {
   anchor: HTMLElement
   value: string
   today: string
   label: string
   onPick: (date: string) => void
+  /** Escape: close and give focus back to the button. */
   onClose: () => void
+  /** Focus or a tap went elsewhere, or the page moved: close and leave focus where it is. */
+  onLeave: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   // The day with keyboard focus; the month shown is the one it's in.
   const [focused, setFocused] = useState(value || today)
   const [moved, setMoved] = useState(false)
+  // Focus follows the day only on opening and with the arrow keys; the month buttons keep it.
+  const focusDay = useRef(true)
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  const onLeaveRef = useRef(onLeave)
+  onLeaveRef.current = onLeave
   const month = focused.slice(0, 7)
+  const weeks = monthGrid(month)
+  // Five or six rows: the height changes, so the position is worked out again.
+  const rowCount = weeks.length
 
   // Below the button, kept on screen (above it when there's no room below).
   useLayoutEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || rowCount === 0) return
     const a = anchor.getBoundingClientRect()
     const { width, height } = el.getBoundingClientRect()
     const below = a.bottom + 4
@@ -154,23 +170,43 @@ function Calendar({
       x: Math.max(8, Math.min(a.left, window.innerWidth - width - 8)),
       y: Math.max(8, y),
     })
-  }, [anchor])
+  }, [anchor, rowCount])
 
   useEffect(() => {
+    if (!focusDay.current) return
     ref.current?.querySelector<HTMLElement>(`[data-date="${focused}"]`)?.focus()
-    // Focus follows the arrow keys; the first focus is the picked day or today.
   }, [focused])
 
   useEffect(() => {
     const onPointer = (event: PointerEvent) => {
       const target = event.target as Node
-      if (!ref.current?.contains(target) && !anchor.contains(target)) onCloseRef.current()
+      if (ref.current?.contains(target) || anchor.contains(target)) return
+      // The tap only closes the calendar: it mustn't also press what's under it (a sheet's
+      // backdrop would close the whole task).
+      const swallow = (click: MouseEvent) => {
+        click.preventDefault()
+        click.stopPropagation()
+      }
+      document.addEventListener('click', swallow, { capture: true, once: true })
+      setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 500)
+      onLeaveRef.current()
+    }
+    // It sits where the button was; if the page under it scrolls or resizes, it closes.
+    const onMove = (event: Event) => {
+      if (!ref.current?.contains(event.target as Node)) onLeaveRef.current()
     }
     document.addEventListener('pointerdown', onPointer)
-    return () => document.removeEventListener('pointerdown', onPointer)
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
+    }
   }, [anchor])
 
-  const step = (date: string) => {
+  const step = (date: string, keyboard: boolean) => {
+    focusDay.current = keyboard
     setMoved(true)
     setFocused(date)
   }
@@ -179,10 +215,14 @@ function Calendar({
     <div
       ref={ref}
       role="dialog"
-      aria-label={label}
+      aria-label={`Choose ${label.toLowerCase()}`}
       data-testid="date-picker"
       style={{ left: position.x, top: position.y }}
       className="fixed z-50 w-72 rounded-lg border border-ash bg-paper-raised p-3 shadow-float"
+      onBlur={(event) => {
+        const next = event.relatedTarget as Node | null
+        if (next && !ref.current?.contains(next) && !anchor.contains(next)) onLeave()
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           event.stopPropagation()
@@ -193,7 +233,7 @@ function Calendar({
         const onDay = (event.target as HTMLElement).dataset.date
         if (days !== undefined && onDay) {
           event.preventDefault()
-          step(addDays(onDay, days))
+          step(addDays(onDay, days), true)
         }
       }}
     >
@@ -202,7 +242,7 @@ function Calendar({
           type="button"
           aria-label="Previous month"
           data-testid="date-picker-prev"
-          onClick={() => step(addMonths(`${month}-01`, -1))}
+          onClick={() => step(addMonths(`${month}-01`, -1), false)}
           className="grid size-8 place-items-center rounded-md text-ink-soft hover:bg-ember-wash"
         >
           <Icon name="back" />
@@ -218,7 +258,7 @@ function Calendar({
           type="button"
           aria-label="Next month"
           data-testid="date-picker-next"
-          onClick={() => step(addMonths(`${month}-01`, 1))}
+          onClick={() => step(addMonths(`${month}-01`, 1), false)}
           className="grid size-8 place-items-center rounded-md text-ink-soft hover:bg-ember-wash"
         >
           <Icon name="chevron" />
@@ -240,7 +280,7 @@ function Calendar({
           </tr>
         </thead>
         <tbody>
-          {monthGrid(month).map((week) => (
+          {weeks.map((week) => (
             <tr key={week[0]}>
               {week.map((date) => {
                 const inMonth = date.slice(0, 7) === month

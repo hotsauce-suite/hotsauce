@@ -138,6 +138,51 @@ describe('the public booking page', () => {
     )
   })
 
+  it('W6: with nothing left this week, it opens on next week, but only if next week has times', async () => {
+    const monday = startOfLocalWeek(Date.now())
+    const nextMonday = new Date(monday)
+    nextMonday.setDate(nextMonday.getDate() + 7)
+    const slotAt = new Date(nextMonday.getTime() + 34 * 3_600_000).toISOString() // Tue ~10 AM
+    let nextWeekHasTimes = true
+    server.use(
+      http.get('/api/book/:handle/:slug', ({ request }) => {
+        const from = new Date(new URL(request.url).searchParams.get('from') ?? '')
+        const slots =
+          nextWeekHasTimes && from.getTime() >= nextMonday.getTime()
+            ? [{ start: slotAt, end: slotAt }]
+            : []
+        return HttpResponse.json({
+          title: 'Quick chat',
+          minutes: 30,
+          description: '',
+          ownerName: 'Ada Lovelace',
+          questions: [],
+          slots,
+          robotCheck: { kind: 'dev' },
+          canTakeBookings: true,
+        })
+      }),
+    )
+    const local = (ms: number) => new Date(ms).toLocaleDateString('en-CA')
+    const open = () => {
+      const router = createMemoryRouter([{ path: '/book/:handle/:slug', element: <BookPage /> }], {
+        initialEntries: ['/book/ada/chat'],
+      })
+      return render(<RouterProvider router={router} />)
+    }
+    const first = open()
+    await waitFor(() =>
+      expect(screen.getByTestId('book-week').dataset.start).not.toBe(local(monday)),
+    )
+    expect(await screen.findAllByTestId('book-time')).toHaveLength(1)
+    first.unmount()
+
+    nextWeekHasTimes = false
+    open()
+    expect(await screen.findByTestId('book-no-times')).toBeInTheDocument()
+    expect(screen.getByTestId('book-week').dataset.start).toBe(local(monday))
+  })
+
   it('a missing link says so', async () => {
     const router = createMemoryRouter([{ path: '/book/:handle/:slug', element: <BookPage /> }], {
       initialEntries: ['/book/ada/nope'],

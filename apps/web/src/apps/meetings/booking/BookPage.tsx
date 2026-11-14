@@ -58,19 +58,28 @@ export default function BookPage() {
   const [notice, setNotice] = useState<string | null>(null)
 
   // On a first visit late in the week (a Sunday evening, say) nothing may be left this week:
-  // then the page opens on next week instead, once.
-  const advanced = useRef(false)
+  // then the page opens on next week instead, once per link, if next week has times.
+  const advanced = useRef('')
 
   const load = useCallback(async () => {
     const from = new Date(Math.max(weekStart, Date.now())).toISOString()
     const to = new Date(addDays(weekStart, 7)).toISOString()
     try {
       const p = await bookingApi.page(handle, slug, from, to)
-      if (!advanced.current) {
-        advanced.current = true
+      const link = `${handle}/${slug}`
+      if (advanced.current !== link) {
+        advanced.current = link
         if (p.slots.length === 0 && p.canTakeBookings) {
-          setWeekStart((w) => addDays(w, 7))
-          return
+          const next = await bookingApi.page(
+            handle,
+            slug,
+            new Date(addDays(weekStart, 7)).toISOString(),
+            new Date(addDays(weekStart, 14)).toISOString(),
+          )
+          if (next.slots.length > 0) {
+            setWeekStart(addDays(weekStart, 7))
+            return
+          }
         }
       }
       setPage(p)
