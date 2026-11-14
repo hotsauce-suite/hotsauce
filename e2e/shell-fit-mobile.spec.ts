@@ -37,15 +37,10 @@ test('on a phone, every app fits the window and the frame never scrolls', async 
     const frame = await page.evaluate(() => ({
       scrollHeight: (document.scrollingElement as HTMLElement).scrollHeight,
       innerHeight,
-      html: getComputedStyle(document.documentElement).overscrollBehaviorY,
-      body: getComputedStyle(document.body).overscrollBehaviorY,
     }))
     expect(frame.scrollHeight, `${path} is taller than the window`).toBeLessThanOrEqual(
       frame.innerHeight,
     )
-    // Safari and the Mac app rubber-band the page past a pane's end unless this is off.
-    expect(frame.html, path).toBe('none')
-    expect(frame.body, path).toBe('none')
 
     await page.waitForFunction(() =>
       document

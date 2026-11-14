@@ -35,15 +35,6 @@ body,
   height: 100%;
 }
 
-/* Inside the app the page itself never scrolls (each pane scrolls inside the shell), but
-   Safari, the Mac app's web view and Chrome on a Mac still rubber-band it when a pane's
-   scroll runs past its end, dragging the rail and sidebar up with it. Panes scroll; the
-   frame stays put. Public pages (forms, booking, shared links) scroll the page as usual. */
-html:has(.app-shell),
-body:has(.app-shell) {
-  overscroll-behavior: none;
-}
-
 /* Nothing in the frame may reach past the window. Hidden file inputs (`sr-only`, so
    absolutely placed) deep in a scrolled pane hang off <main>, outside the pane's clip: on
    Settings → Organization they sat 1,600px down and made the whole page scroll, rail and
