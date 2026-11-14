@@ -4,8 +4,11 @@
 import {
   addableTiles,
   addTile,
+  layoutTiles,
   moveTile,
+  moveTileNextTo,
   nudgeTile,
+  nudgeTileStacked,
   removeTile,
   switchColumn,
   type TodayLayout,
@@ -13,10 +16,18 @@ import {
   type TodayTileKind,
   updateTile,
 } from '@hearth/format'
-import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  Fragment,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import type { TaskView } from '../../api/tasks'
 import type { TodayView } from '../../api/today'
 import { Icon, type IconName } from '../../components/Icon'
+import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { Card } from './tiles/Card'
 import { CheckinsTile } from './tiles/CheckinsTile'
 import { ActionItemsCard, DocsCard, MeetingsCard, NotesCard, TasksCard } from './tiles/DayTiles'
@@ -61,6 +72,9 @@ export const TILE_CATALOG: Record<TodayTileKind, { label: string; icon: IconName
     },
   }
 
+/** Below Tailwind's `lg`, the two columns stack into one list: the left column, then the right. */
+export const STACKED_QUERY = '(max-width: 1023px)'
+
 export interface TodayTilesProps {
   layout: TodayLayout
   view: TodayView
@@ -76,6 +90,33 @@ export interface TodayTilesProps {
 export function TodayTiles(props: TodayTilesProps) {
   const { layout, editing, onChange } = props
   const [dragging, setDragging] = useState<string | null>(null)
+  // On a phone the columns read as one list, so the arrows and dragging treat them as one.
+  const stacked = useMediaQuery(STACKED_QUERY)
+  const order = layoutTiles(layout).map((t) => t.id)
+  const touch = useTouchDrag((id, target, side) =>
+    onChange(moveTileNextTo(layout, id, target, side)),
+  )
+
+  const held = layoutTiles(layout).find((t) => t.id === touch.dragging)
+
+  // Crossing the column break remounts a tile's frame, which drops keyboard focus: put it back
+  // on the same button of the moved tile (or its other arrow, once that one is disabled).
+  const refocus = useRef<{ id: string; button: string } | null>(null)
+  const moved = (next: TodayLayout, id: string, button: string) => {
+    refocus.current = { id, button }
+    onChange(next)
+  }
+  useEffect(() => {
+    const want = refocus.current
+    if (!want) return
+    refocus.current = null
+    const frame = document.querySelector(`[data-tile-id="${CSS.escape(want.id)}"]`)
+    if (!frame || frame.contains(document.activeElement)) return
+    const buttons = [want.button, 'today-tile-up', 'today-tile-down'].map((b) =>
+      frame.querySelector<HTMLButtonElement>(`[data-testid="${b}"]`),
+    )
+    buttons.find((b) => b && !b.disabled)?.focus()
+  })
 
   const drop = (column: 0 | 1, index: number) => {
     if (dragging) onChange(moveTile(layout, dragging, { column, index }))
@@ -104,34 +145,194 @@ export function TodayTiles(props: TodayTilesProps) {
             const body = hiddenToday(tile, props.view) ? null : <TileBody tile={tile} {...props} />
             // No wrapper: a tile that renders nothing must leave no gap in the column.
             if (!editing) return body ? <Fragment key={tile.id}>{body}</Fragment> : null
+            const at = order.indexOf(tile.id)
             return (
               <EditFrame
                 key={tile.id}
                 tile={tile}
-                first={index === 0}
-                last={index === layout.columns[column].length - 1}
+                first={stacked ? at === 0 : index === 0}
+                last={
+                  stacked ? at === order.length - 1 : index === layout.columns[column].length - 1
+                }
                 column={column}
+                stacked={stacked}
+                lifted={touch.dragging === tile.id}
+                marker={touch.over?.id === tile.id ? touch.over.side : null}
+                onGripDown={(e) => touch.start(e, tile.id)}
                 onDragStart={() => setDragging(tile.id)}
                 onDragEnd={() => setDragging(null)}
                 onDropHere={() => drop(column, index)}
-                onUp={() => onChange(nudgeTile(layout, tile.id, -1))}
-                onDown={() => onChange(nudgeTile(layout, tile.id, 1))}
-                onAcross={() => onChange(switchColumn(layout, tile.id))}
+                onUp={() =>
+                  moved(
+                    stacked
+                      ? nudgeTileStacked(layout, tile.id, -1)
+                      : nudgeTile(layout, tile.id, -1),
+                    tile.id,
+                    'today-tile-up',
+                  )
+                }
+                onDown={() =>
+                  moved(
+                    stacked ? nudgeTileStacked(layout, tile.id, 1) : nudgeTile(layout, tile.id, 1),
+                    tile.id,
+                    'today-tile-down',
+                  )
+                }
+                onAcross={() => moved(switchColumn(layout, tile.id), tile.id, 'today-tile-across')}
                 onRemove={() => onChange(removeTile(layout, tile.id))}
               >
                 {body ?? <Placeholder tile={tile} />}
               </EditFrame>
             )
           })}
-          {editing && layout.columns[column].length === 0 ? (
+          {editing && !stacked && layout.columns[column].length === 0 ? (
             <div className="rounded-2xl border border-dashed border-ash-strong px-4 py-8 text-center text-sm text-ink-faint">
               Drag a tile here
             </div>
           ) : null}
         </div>
       ))}
+      {held && touch.finger ? (
+        // The tile's name follows the finger, since the tile itself may scroll out of view.
+        <div
+          aria-hidden="true"
+          data-testid="today-drag-ghost"
+          className="pointer-events-none fixed z-50 flex items-center gap-2 rounded-xl border border-ember bg-paper-raised px-3 py-2 text-sm font-medium text-ink shadow-lg"
+          style={{ left: touch.finger.x + 12, top: touch.finger.y - 20 }}
+        >
+          <Icon name="grip" className="size-4 text-ink-faint" />
+          {TILE_CATALOG[held.kind].label}
+        </div>
+      ) : null}
     </div>
   )
+}
+
+/** How close to the top or bottom of the page a dragged tile starts it scrolling, in pixels. */
+const EDGE_PX = 80
+/** The most it scrolls in one frame, right at the edge. */
+const MAX_SCROLL_PX = 18
+
+/**
+ * Dragging a tile by its handle with a finger (or a pen). Browsers don't do HTML drag and drop
+ * from touch reliably, so this follows the pointer itself: the tile under the finger shows where
+ * the dragged one will land, the page scrolls near its top and bottom edges, and letting go moves
+ * it there. A mouse keeps the browser's own drag and drop.
+ */
+function useTouchDrag(onDrop: (id: string, target: string, side: 'before' | 'after') => void) {
+  const [dragging, setDragging] = useState<string | null>(null)
+  const [over, setOver] = useState<{ id: string; side: 'before' | 'after' } | null>(null)
+  const [finger, setFinger] = useState<{ x: number; y: number } | null>(null)
+  const state = useRef<{
+    id: string
+    pointer: number
+    x: number
+    y: number
+    over: { id: string; side: 'before' | 'after' } | null
+    scroller: HTMLElement | null
+    frame: number
+  } | null>(null)
+  const dropRef = useRef(onDrop)
+  dropRef.current = onDrop
+
+  useEffect(() => {
+    if (!dragging) return
+    const aim = () => {
+      const s = state.current
+      if (!s) return
+      const el = document.elementFromPoint(s.x, s.y)?.closest<HTMLElement>('[data-tile-id]')
+      const id = el?.dataset.tileId
+      // In the gaps between tiles, or over the edit bar, the last aim holds, so letting go there
+      // still lands. Over the dragged tile itself, it would land where it already is.
+      if (!el || !id) return
+      let next: typeof s.over = null
+      if (id !== s.id) {
+        const box = el.getBoundingClientRect()
+        next = { id, side: s.y < box.top + box.height / 2 ? 'before' : 'after' }
+      }
+      if (next?.id !== s.over?.id || next?.side !== s.over?.side) {
+        s.over = next
+        setOver(next)
+      }
+    }
+    const scroll = () => {
+      const s = state.current
+      if (!s) return
+      const box = s.scroller?.getBoundingClientRect()
+      if (s.scroller && box) {
+        // The pinned edit bar covers the top of the page: the edge starts below it.
+        const bar = document
+          .querySelector('[data-testid="today-edit-bar"]')
+          ?.getBoundingClientRect()
+        const top = s.y - Math.max(box.top, bar?.bottom ?? box.top)
+        const bottom = box.bottom - s.y
+        const by =
+          top < EDGE_PX
+            ? -MAX_SCROLL_PX * (1 - Math.max(0, top) / EDGE_PX)
+            : bottom < EDGE_PX
+              ? MAX_SCROLL_PX * (1 - Math.max(0, bottom) / EDGE_PX)
+              : 0
+        if (by !== 0) {
+          s.scroller.scrollTop += by
+          aim()
+        }
+      }
+      s.frame = requestAnimationFrame(scroll)
+    }
+    const move = (e: PointerEvent) => {
+      const s = state.current
+      if (!s || e.pointerId !== s.pointer) return
+      e.preventDefault()
+      s.x = e.clientX
+      s.y = e.clientY
+      setFinger({ x: s.x, y: s.y })
+      aim()
+    }
+    const end = (e: PointerEvent) => {
+      const s = state.current
+      if (!s || e.pointerId !== s.pointer) return
+      cancelAnimationFrame(s.frame)
+      state.current = null
+      setDragging(null)
+      setOver(null)
+      setFinger(null)
+      if (e.type === 'pointerup' && s.over) dropRef.current(s.id, s.over.id, s.over.side)
+    }
+    if (state.current) state.current.frame = requestAnimationFrame(scroll)
+    window.addEventListener('pointermove', move, { passive: false })
+    window.addEventListener('pointerup', end)
+    window.addEventListener('pointercancel', end)
+    return () => {
+      if (state.current) cancelAnimationFrame(state.current.frame)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', end)
+      window.removeEventListener('pointercancel', end)
+    }
+  }, [dragging])
+
+  return {
+    dragging,
+    over,
+    finger,
+    start: (e: ReactPointerEvent, id: string) => {
+      if (e.pointerType === 'mouse') return
+      e.preventDefault()
+      const scroller = (e.currentTarget as HTMLElement).closest<HTMLElement>(
+        '[data-today-scroller]',
+      )
+      state.current = {
+        id,
+        pointer: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        over: null,
+        scroller,
+        frame: 0,
+      }
+      setFinger({ x: e.clientX, y: e.clientY })
+      setDragging(id)
+    },
+  }
 }
 
 /** Tiles that hide on a day they have nothing to show; edit mode shows a placeholder instead. */
@@ -211,7 +412,11 @@ function EditFrame({
   first,
   last,
   column,
+  stacked,
+  lifted,
+  marker,
   children,
+  onGripDown,
   onDragStart,
   onDragEnd,
   onDropHere,
@@ -224,7 +429,14 @@ function EditFrame({
   first: boolean
   last: boolean
   column: 0 | 1
+  /** One list on a phone: no "Other column", since the arrows already cross it. */
+  stacked: boolean
+  /** Being dragged by touch. */
+  lifted: boolean
+  /** Where a tile dragged by touch would land, next to this one. */
+  marker: 'before' | 'after' | null
   children: ReactNode
+  onGripDown: (e: ReactPointerEvent) => void
   onDragStart: () => void
   onDragEnd: () => void
   onDropHere: () => void
@@ -236,12 +448,14 @@ function EditFrame({
   const label = TILE_CATALOG[tile.kind].label
   const picking = tile.kind === 'board' && !tile.board
   const [over, setOver] = useState(false)
+  // A finger drags by the handle instead (useTouchDrag); a long press mustn't start the browser's.
+  const coarse = useMediaQuery(TOUCH_QUERY)
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: drag and drop is a pointer extra; the buttons do the same by keyboard
     <div
       data-testid="today-edit-tile"
       data-tile-id={tile.id}
-      draggable
+      draggable={!coarse}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move'
         e.dataTransfer.setData('text/plain', tile.id)
@@ -259,10 +473,26 @@ function EditFrame({
         setOver(false)
         onDropHere()
       }}
-      className={`rounded-2xl border-2 border-dashed p-1 ${over ? 'border-ember' : 'border-ash-strong'}`}
+      className={`relative rounded-2xl border-2 border-dashed p-1 ${over ? 'border-ember' : 'border-ash-strong'} ${lifted ? 'opacity-50' : ''}`}
     >
-      <div className="flex items-center gap-1 px-2 pt-1 pb-2">
-        <span className="cursor-grab text-ink-faint" title="Drag to move" aria-hidden="true">
+      {marker ? (
+        <div
+          aria-hidden="true"
+          data-testid="today-drop-marker"
+          data-side={marker}
+          className={`pointer-events-none absolute inset-x-2 h-1 rounded-full bg-ember ${marker === 'before' ? '-top-3' : '-bottom-3'}`}
+        />
+      ) : null}
+      {/* No text selection or iOS callout from a long press here: either would cancel a drag. */}
+      <div className="flex items-center gap-1 px-1 pt-1 pb-2 select-none [-webkit-touch-callout:none]">
+        {/* A finger drags from here; the page still scrolls from anywhere else. */}
+        <span
+          className="-my-1 flex size-9 cursor-grab touch-none items-center justify-center rounded-md text-ink-faint"
+          title="Drag to move"
+          aria-hidden="true"
+          data-testid="today-tile-grip"
+          onPointerDown={onGripDown}
+        >
           <Icon name="grip" className="size-4" />
         </span>
         <span className="flex-1 text-xs font-medium text-ink-soft">{label}</span>
@@ -286,15 +516,17 @@ function EditFrame({
         >
           <Icon name="chevron" className="size-4 rotate-90" />
         </button>
-        <button
-          type="button"
-          className={`${tool} w-auto px-2 text-xs`}
-          onClick={onAcross}
-          aria-label={`Move ${label} to the ${column === 0 ? 'right' : 'left'} column`}
-          data-testid="today-tile-across"
-        >
-          Other column
-        </button>
+        {stacked ? null : (
+          <button
+            type="button"
+            className={`${tool} w-auto px-2 text-xs`}
+            onClick={onAcross}
+            aria-label={`Move ${label} to the ${column === 0 ? 'right' : 'left'} column`}
+            data-testid="today-tile-across"
+          >
+            Other column
+          </button>
+        )}
         <button
           type="button"
           className={tool}
@@ -349,14 +581,14 @@ export function AddTileMenu({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         data-testid="today-add-tile"
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ash-strong px-3 text-sm text-ink hover:border-ember"
+        className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-ash-strong px-2.5 text-sm text-ink hover:border-ember sm:px-3"
       >
         <Icon name="plus" className="size-4" />
         Add tile
       </button>
       {open ? (
         <ul
-          className="absolute right-0 z-20 mt-2 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-ash bg-paper-raised p-1 shadow-lg"
+          className="absolute left-0 z-20 mt-2 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-ash bg-paper-raised p-1 shadow-lg"
           data-testid="today-add-tile-menu"
         >
           {kinds.length === 0 ? (

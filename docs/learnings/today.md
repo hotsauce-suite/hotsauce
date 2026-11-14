@@ -25,3 +25,28 @@
   Mac build waited on it and the owner saw nothing. Ask for a position (`requestLocation()`) at
   the same time: that reliably brings up the prompt and answers once they decide. The app now
   keeps its last steps in `defaults read dev.hotsauce.dictate locationSteps` for diagnosis.
+
+## Free arranging on phones (2026-11-14)
+
+- **A stacked layout is one list to the person, whatever the data says.** Below `lg` the two
+  columns stack, so "move up" stopping at the top of the right column looked like a wall in the
+  middle of the page. When a responsive layout changes what "next" means, the controls must follow
+  what's on screen, not the stored structure. Swapping in the flat list while keeping each column's
+  length keeps the desktop layout balanced.
+- **A move across the break that only changes columns is invisible.** The first version moved the
+  last left tile to the top of the right column: the phone order didn't change at all. Test
+  stacked moves against the flat order, for every split, not against column contents.
+- **HTML drag and drop is not a touch API.** iOS and Android won't drag a `draggable` element with a
+  finger reliably. Use pointer events on a `touch-action: none` handle (the rest of the tile still
+  scrolls the page), track one `pointerId`, use `elementFromPoint` for the target, and keep the last
+  target when the finger is over a gap or the pinned bar, or letting go there silently drops
+  nothing. Add `select-none` and `-webkit-touch-callout: none` near the handle: a long press that
+  selects text cancels the pointer on iOS.
+- **The dragged tile scrolls away from the finger.** Auto-scroll is needed for "free", and then the
+  tile itself leaves the screen; a name tag that follows the finger keeps it clear what's held.
+- **Real touch drags in Playwright:** CDP `Input.dispatchTouchEvent` (touchStart, touchMove,
+  touchEnd) produces real pointer events with `pointerType: 'touch'` in Chromium; `page.touchscreen`
+  only taps. It doesn't cover WebKit, so check iOS on a device.
+- **This sandbox's Playwright browser path differs from the repo's pinned version.** A local,
+  git-excluded config that spreads `playwright.config.ts` and sets
+  `launchOptions.executablePath: '/opt/pw-browsers/chromium'` runs the e2e suite without a download.

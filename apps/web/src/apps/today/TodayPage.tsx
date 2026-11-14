@@ -89,11 +89,16 @@ export default function TodayPage() {
       <MeetingsPageHeader title="Today" menu={false}>
         <TodayClock />
       </MeetingsPageHeader>
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="today">
+      <div
+        // While editing, the pinned bar mustn't hide whatever has keyboard focus.
+        className={`min-h-0 flex-1 overflow-y-auto ${layouts.draft ? 'scroll-pt-20' : ''}`}
+        data-testid="today"
+        data-today-scroller
+      >
         <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">
+          {layouts.draft ? <EditBar {...layouts} /> : null}
           <div className="mb-5 flex flex-wrap items-start gap-3">
             <TodayGreeting view={view} name={session.me?.principal.name} now={now} />
-            <EditBar {...layouts} />
           </div>
           {error ? (
             <p role="alert" className="mb-4 text-sm text-ember-strong">
@@ -132,6 +137,8 @@ export default function TodayPage() {
               <MacAppCard />
             </div>
           ) : null}
+          {/* At the bottom, small: arranging Today is occasional, so it stays out of the way. */}
+          {view && layouts.shown && !layouts.draft ? <EditBar {...layouts} /> : null}
         </div>
       </div>
     </>
@@ -218,19 +225,25 @@ function useLayout() {
 function EditBar(l: ReturnType<typeof useLayout>) {
   if (!l.draft)
     return (
-      <button
-        type="button"
-        onClick={l.edit}
-        disabled={!l.canEdit}
-        className={toolButton}
-        data-testid="today-edit"
-      >
-        <Icon name="pencil" className="mr-1.5 size-4" />
-        Edit Today
-      </button>
+      <div className="mt-6 flex justify-center">
+        <button
+          type="button"
+          onClick={l.edit}
+          disabled={!l.canEdit}
+          className="inline-flex h-7 items-center rounded-md px-2 text-xs text-ink-faint hover:bg-paper-sunk hover:text-ink disabled:opacity-50"
+          data-testid="today-edit"
+        >
+          <Icon name="pencil" className="mr-1 size-3.5" />
+          Edit Today
+        </button>
+      </div>
     )
+  // Pinned to the top of the screen while tiles are moved, wherever the page is scrolled to.
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="today-edit-bar">
+    <div
+      className="sticky top-0 z-10 -mx-4 -mt-6 mb-5 flex items-center gap-1.5 sm:gap-2 border-b border-ash bg-paper px-4 py-3 md:-mx-8 md:px-8"
+      data-testid="today-edit-bar"
+    >
       <AddTileMenu layout={l.draft} onChange={l.change} />
       <button
         type="button"
@@ -238,8 +251,10 @@ function EditBar(l: ReturnType<typeof useLayout>) {
         className="px-2 text-sm text-ink-soft underline hover:text-ink"
         data-testid="today-reset"
       >
-        Reset to default
+        <span className="sm:hidden">Reset</span>
+        <span className="hidden sm:inline">Reset to default</span>
       </button>
+      <span className="flex-1" />
       <button type="button" onClick={l.cancel} className={toolButton} data-testid="today-cancel">
         Cancel
       </button>

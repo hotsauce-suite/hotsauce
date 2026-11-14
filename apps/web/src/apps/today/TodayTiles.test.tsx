@@ -1,10 +1,13 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { todayApi } from '../../api/today'
+import { TOUCH_QUERY } from '../../hooks/useMediaQuery'
+import { IPHONE, pretend } from '../../test/devices'
 import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
+import { STACKED_QUERY } from './TodayTiles'
 import { isoDate, weekDays } from './tiles/MoreTiles'
 
 const tileIds = (column: 0 | 1) =>
@@ -126,6 +129,150 @@ describe('Today tiles: editing (E1–E3)', () => {
     await userEvent.click(screen.getByTestId('today-done'))
     expect(await screen.findByTestId('today-layout-error')).toHaveTextContent('No personal space')
     expect(screen.getByTestId('today-edit-bar')).toBeInTheDocument()
+  })
+})
+
+const frame = (id: string) =>
+  screen.getAllByTestId('today-edit-tile').find((t) => t.dataset.tileId === id) as HTMLElement
+
+describe('Today tiles: on a phone (E6, E7)', () => {
+  it('E7: Edit Today is a small button below the tiles; the edit bar is pinned at the top', async () => {
+    renderApp('/today')
+    await screen.findByTestId('today-tasks')
+    const edit = screen.getByTestId('today-edit')
+    const tiles = screen.getByTestId('today-tiles')
+    // Later in the page than every tile.
+    expect(tiles.compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(edit.className).toContain('text-xs')
+    await userEvent.click(edit)
+    const bar = screen.getByTestId('today-edit-bar')
+    expect(tiles.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    expect(bar.className).toContain('sticky top-0')
+    expect(screen.queryByTestId('today-edit')).toBeNull()
+  })
+
+  it('E6: the arrows move a tile through the whole list, across the column break', async () => {
+    pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
+    await startEditing()
+    // The bottom of the left column goes on down into the right one, and back up.
+    expect(within(frame('action-items')).getByTestId('today-tile-down')).toBeEnabled()
+    await userEvent.click(within(frame('action-items')).getByTestId('today-tile-down'))
+    expect([...tileIds(0), ...tileIds(1)]).toEqual([
+      'checkins',
+      'meetings',
+      'tasks',
+      'notes',
+      'action-items',
+      'docs',
+      'brief',
+    ])
+    await userEvent.click(within(frame('action-items')).getByTestId('today-tile-down'))
+    await userEvent.click(within(frame('action-items')).getByTestId('today-tile-down'))
+    expect(within(frame('action-items')).getByTestId('today-tile-down')).toBeDisabled()
+    // The top of the right column goes up into the left one.
+    expect(tileIds(1)).toEqual(['docs', 'brief', 'action-items'])
+    await userEvent.click(within(frame('docs')).getByTestId('today-tile-up'))
+    expect(tileIds(0).at(-1)).toBe('docs')
+    expect(within(frame('checkins')).getByTestId('today-tile-up')).toBeDisabled()
+    // One list: no "Other column", no drag-target boxes, and no browser drag from a long press.
+    expect(screen.queryByTestId('today-tile-across')).toBeNull()
+    expect(frame('tasks')).toHaveAttribute('draggable', 'false')
+  })
+
+  it('E6: a tile dragged by its handle with a finger lands where it is let go', async () => {
+    pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
+    await startEditing()
+    const target = frame('docs')
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 500, 300, 200))
+    const original = document.elementFromPoint
+    document.elementFromPoint = () => target
+    try {
+      const grip = within(frame('checkins')).getByTestId('today-tile-grip')
+      fireEvent.pointerDown(grip, { pointerType: 'touch', clientX: 10, clientY: 20 })
+      expect(frame('checkins').className).toContain('opacity-50')
+      // Lower half of Docs changed: after it.
+      fireEvent.pointerMove(window, { pointerType: 'touch', clientX: 10, clientY: 650 })
+      expect(within(target).getByTestId('today-drop-marker')).toHaveAttribute('data-side', 'after')
+      expect(screen.getByTestId('today-drag-ghost')).toHaveTextContent('Check-in')
+      fireEvent.pointerUp(window, { pointerType: 'touch', clientX: 10, clientY: 650 })
+    } finally {
+      document.elementFromPoint = original
+    }
+    expect(tileIds(0)).toEqual(['meetings', 'tasks', 'action-items'])
+    expect(tileIds(1)).toEqual(['notes', 'docs', 'checkins', 'brief'])
+    expect(screen.queryByTestId('today-drop-marker')).toBeNull()
+    expect(screen.queryByTestId('today-drag-ghost')).toBeNull()
+  })
+
+  it('E6: letting go in a gap between tiles still lands where the bar last showed', async () => {
+    pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
+    await startEditing()
+    const target = frame('docs')
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 500, 300, 200))
+    const gap = document.createElement('div')
+    document.body.append(gap)
+    const original = document.elementFromPoint
+    let under: Element = target
+    document.elementFromPoint = () => under
+    try {
+      const grip = within(frame('checkins')).getByTestId('today-tile-grip')
+      fireEvent.pointerDown(grip, { pointerType: 'touch', pointerId: 7, clientX: 10, clientY: 20 })
+      fireEvent.pointerMove(window, {
+        pointerType: 'touch',
+        pointerId: 7,
+        clientX: 10,
+        clientY: 520,
+      })
+      // A second finger doesn't steer or end the drag.
+      fireEvent.pointerUp(window, { pointerType: 'touch', pointerId: 8, clientX: 10, clientY: 900 })
+      expect(screen.getByTestId('today-drag-ghost')).toBeInTheDocument()
+      under = gap
+      fireEvent.pointerMove(window, {
+        pointerType: 'touch',
+        pointerId: 7,
+        clientX: 10,
+        clientY: 495,
+      })
+      expect(within(target).getByTestId('today-drop-marker')).toHaveAttribute('data-side', 'before')
+      fireEvent.pointerUp(window, { pointerType: 'touch', pointerId: 7, clientX: 10, clientY: 495 })
+    } finally {
+      document.elementFromPoint = original
+      gap.remove()
+    }
+    expect(tileIds(1)).toEqual(['notes', 'checkins', 'docs', 'brief'])
+  })
+
+  it('E6: keyboard focus stays on the arrow when a tile crosses the column break', async () => {
+    pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
+    await startEditing()
+    within(frame('action-items')).getByTestId('today-tile-down').focus()
+    await userEvent.keyboard('{Enter}')
+    expect(tileIds(1)[0]).toBe('action-items')
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(frame('action-items')).getByTestId('today-tile-down'),
+      ),
+    )
+  })
+
+  it('E6: a cancelled touch drag moves nothing, and a mouse never starts one', async () => {
+    pretend({ ua: IPHONE, touch: 5, queries: [STACKED_QUERY, TOUCH_QUERY] })
+    await startEditing()
+    const target = frame('docs')
+    const original = document.elementFromPoint
+    document.elementFromPoint = () => target
+    try {
+      const grip = within(frame('checkins')).getByTestId('today-tile-grip')
+      fireEvent.pointerDown(grip, { pointerType: 'touch', clientX: 10, clientY: 20 })
+      fireEvent.pointerMove(window, { pointerType: 'touch', clientX: 10, clientY: 650 })
+      fireEvent.pointerCancel(window, { pointerType: 'touch' })
+      fireEvent.pointerDown(grip, { pointerType: 'mouse', clientX: 10, clientY: 20 })
+      expect(frame('checkins').className).not.toContain('opacity-50')
+      fireEvent.pointerUp(window, { pointerType: 'mouse', clientX: 10, clientY: 650 })
+    } finally {
+      document.elementFromPoint = original
+    }
+    expect(tileIds(0)).toEqual(['checkins', 'meetings', 'tasks', 'action-items'])
   })
 })
 

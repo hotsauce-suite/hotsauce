@@ -2,6 +2,8 @@
 
 ## Status
 
+2026-11-14: E6 and E7 added (owner: "On mobile … not able to move all the tiles up and down completely freely … make the edit button smaller and move it down to the bottom"). Cause: a phone shows the two columns as one list, but the arrows stopped at the hidden break between them, and HTML drag and drop doesn't work with a finger.
+
 Built 2026-11-13 in PR #31 (branch `claude/project-thread-05iemt`). Every requirement has a passing test, and the independent review's findings are fixed. Not stubbed: nothing. Check-ins (#27) merged first; its card became the Check-in tile, first in the default layout.
 
 ## Decisions
@@ -42,6 +44,8 @@ Each requirement maps to a test, named in brackets.
 - E5: Tiles being arranged can't be clicked or reached by keyboard (except a Board tile asking which board). Edit Today waits until the saved layout has loaded; if it fails to load, Today shows the default with a note and editing is off. Today holds at most 40 tiles. [TodayTiles.test, format today.test]
 - E3: "Done" saves the layout. "Cancel" throws the changes away. "Reset to default" restores the default. A failed save shows an error and keeps edit mode open. [TodayTiles.test]
 - E4: A Board tile with no board chosen asks you to pick one from your boards. [TodayTiles.test]
+- E6 (2026-11-14): On a phone, where the columns stack into one list, tiles move completely freely. The up and down arrows step through the whole list, across the break between the columns, and "Other column" is hidden. A tile can be dragged by its handle with a finger to anywhere in the list: its name follows the finger, a bar shows where it will land, and the page scrolls when the finger nears the top or bottom. A cancelled drag moves nothing; a mouse keeps the browser's drag and drop. [format today.test, TodayTiles.test, e2e today-mobile.spec J2]
+- E7 (2026-11-14): "Edit Today" is a small, quiet button at the bottom of the page, not beside the greeting. In edit mode its bar (Add tile, Reset, Cancel, Done) is pinned to the top of the screen and fits one row on a phone. [TodayTiles.test, e2e today-mobile.spec J2]
 
 **New tiles**
 

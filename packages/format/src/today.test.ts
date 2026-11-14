@@ -3,9 +3,12 @@ import {
   addableTiles,
   addTile,
   defaultTodayLayout,
+  layoutTiles,
   MAX_TODAY_TILES,
   moveTile,
+  moveTileNextTo,
   nudgeTile,
+  nudgeTileStacked,
   parseTodayLayout,
   removeTile,
   serializeTodayLayout,
@@ -124,5 +127,81 @@ describe('Today layout edits (E1, E2)', () => {
     expect(moveTile(l, 'nope', { column: 1, index: 0 })).toBe(l)
     expect(switchColumn(l, 'nope')).toBe(l)
     expect(ids(removeTile(l, 'nope'))).toEqual(ids(l))
+  })
+
+  it('E6: on a phone a tile steps through the whole list, across the column break', () => {
+    let l = defaultTodayLayout()
+    l = nudgeTileStacked(l, 'action-items', 1)
+    expect(ids(l)).toEqual([
+      ['checkins', 'meetings', 'tasks', 'notes'],
+      ['action-items', 'docs', 'brief'],
+    ])
+    l = nudgeTileStacked(l, 'action-items', -1)
+    expect(ids(l)).toEqual(ids(defaultTodayLayout()))
+    l = nudgeTileStacked(l, 'notes', -1)
+    expect(ids(l)).toEqual([
+      ['checkins', 'meetings', 'tasks', 'notes'],
+      ['action-items', 'docs', 'brief'],
+    ])
+    // The very top and bottom stay put.
+    expect(nudgeTileStacked(l, 'checkins', -1)).toBe(l)
+    expect(nudgeTileStacked(l, 'brief', 1)).toBe(l)
+    expect(nudgeTileStacked(l, 'nope', 1)).toBe(l)
+  })
+
+  it('E6: every stacked step swaps with its neighbour in the phone list and keeps column lengths, for any split', () => {
+    const all = defaultTodayLayout().columns.flat()
+    for (let split = 0; split <= all.length; split++) {
+      const l: TodayLayout = { schema: 1, columns: [all.slice(0, split), all.slice(split)] }
+      for (let i = 0; i < all.length; i++) {
+        for (const step of [-1, 1] as const) {
+          const j = i + step
+          const want = all.map((t) => t.id)
+          if (j >= 0 && j < all.length) [want[i], want[j]] = [want[j] as string, want[i] as string]
+          const got = nudgeTileStacked(l, all[i]?.id as string, step)
+          expect(layoutTiles(got).map((t) => t.id)).toEqual(want)
+          expect(got.columns[0]).toHaveLength(split)
+        }
+      }
+    }
+  })
+
+  it('E6: a tile dropped by touch lands just before or after the one under the finger', () => {
+    const l = defaultTodayLayout()
+    expect(ids(moveTileNextTo(l, 'checkins', 'tasks', 'after'))[0]).toEqual([
+      'meetings',
+      'tasks',
+      'checkins',
+      'action-items',
+    ])
+    expect(ids(moveTileNextTo(l, 'action-items', 'meetings', 'before'))[0]).toEqual([
+      'checkins',
+      'action-items',
+      'meetings',
+      'tasks',
+    ])
+    expect(ids(moveTileNextTo(l, 'brief', 'checkins', 'before'))).toEqual([
+      ['brief', 'checkins', 'meetings', 'tasks', 'action-items'],
+      ['notes', 'docs'],
+    ])
+    expect(ids(moveTileNextTo(l, 'checkins', 'brief', 'after'))[1]?.at(-1)).toBe('checkins')
+    expect(moveTileNextTo(l, 'tasks', 'tasks', 'after')).toBe(l)
+    expect(moveTileNextTo(l, 'tasks', 'nope', 'after')).toBe(l)
+    expect(moveTileNextTo(l, 'nope', 'tasks', 'after')).toBe(l)
+  })
+
+  it('E6: dropping next to any tile puts it exactly there, for every pair', () => {
+    const l = defaultTodayLayout()
+    const all = layoutTiles(l).map((t) => t.id)
+    for (const id of all)
+      for (const target of all) {
+        if (id === target) continue
+        for (const side of ['before', 'after'] as const) {
+          const got = layoutTiles(moveTileNextTo(l, id, target, side)).map((t) => t.id)
+          const want = all.filter((x) => x !== id)
+          want.splice(want.indexOf(target) + (side === 'after' ? 1 : 0), 0, id)
+          expect(got).toEqual(want)
+        }
+      }
   })
 })
