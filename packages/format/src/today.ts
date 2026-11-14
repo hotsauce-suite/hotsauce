@@ -199,6 +199,42 @@ export function nudgeTile(layout: TodayLayout, id: string, step: -1 | 1): TodayL
   return moveTile(layout, id, { column: at.column, index })
 }
 
+/**
+ * One step up or down in the single list a phone shows: the left column, then the right. The tile
+ * swaps with its neighbour in that list, even across the break between the columns, and each
+ * column keeps its length so the computer's two columns stay as balanced as they were. Off either
+ * end of the whole list does nothing.
+ */
+export function nudgeTileStacked(layout: TodayLayout, id: string, step: -1 | 1): TodayLayout {
+  const tiles = layoutTiles(layout)
+  const i = tiles.findIndex((t) => t.id === id)
+  const j = i + step
+  if (i < 0 || j < 0 || j >= tiles.length) return layout
+  ;[tiles[i], tiles[j]] = [tiles[j] as TodayTile, tiles[i] as TodayTile]
+  const split = layout.columns[0].length
+  return { schema: 1, columns: [tiles.slice(0, split), tiles.slice(split)] }
+}
+
+/**
+ * Moves a tile to just before or just after another one, in that tile's column. Used when a tile
+ * is dragged by touch and let go over another. Over itself, or over a missing tile, does nothing.
+ */
+export function moveTileNextTo(
+  layout: TodayLayout,
+  id: string,
+  targetId: string,
+  side: 'before' | 'after',
+): TodayLayout {
+  if (id === targetId || !findTile(layout, id)) return layout
+  const without = removeTile(layout, id)
+  const target = findTile(without, targetId)
+  if (!target) return layout
+  return moveTile(layout, id, {
+    column: target.column,
+    index: target.index + (side === 'after' ? 1 : 0),
+  })
+}
+
 /** To the end of the other column. */
 export function switchColumn(layout: TodayLayout, id: string): TodayLayout {
   const at = findTile(layout, id)
