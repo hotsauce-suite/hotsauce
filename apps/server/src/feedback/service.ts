@@ -273,7 +273,9 @@ async function uploadScreenshots(
   const out: UploadedScreenshots = { urls: [], failed: 0, noPermission: false }
   for (const picture of pictures) {
     try {
-      out.urls.push((await tracker.upload(picture.path, picture.bytes, 'Feedback screenshot')).url)
+      // [skip ci]: when the feedback repo is also the code repo, a screenshot must not start a build.
+      const message = 'Feedback screenshot [skip ci]'
+      out.urls.push((await tracker.upload(picture.path, picture.bytes, message)).url)
     } catch (err) {
       out.failed++
       const status = err instanceof HearthError ? (err.details as { status?: number })?.status : 0

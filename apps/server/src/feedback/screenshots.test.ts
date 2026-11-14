@@ -118,6 +118,7 @@ describe('submitting with screenshots (S2, S3)', () => {
     const { feedback } = make(tracker)
     await feedback.submit(ALICE, { ...base, screenshots: [PNG, JPEG] })
     expect(order).toEqual(['upload', 'upload', 'file'])
+    expect(tracker.uploads[0]?.message).toBe('Feedback screenshot [skip ci]')
     const paths = tracker.uploads.map((u) => u.path)
     expect(paths[0]).toMatch(/^screenshots\/\d{4}-\d{2}\/[A-Za-z0-9_-]{10,}\.png$/)
     expect(paths[1]).toMatch(/\.jpg$/)

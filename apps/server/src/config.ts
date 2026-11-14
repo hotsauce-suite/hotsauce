@@ -201,7 +201,8 @@ export const ConfigSchema = z
     SESSION_IDLE_STOP_MINUTES: z.coerce.number().int().positive().default(120),
     SESSION_MAX_HOURS: z.coerce.number().int().positive().default(8),
     // Send feedback (docs/plans/2026-11-12-feedback.md): filed as issues in this GitHub repo
-    // ("owner/name") with a token that can only read and write its issues. Off without both;
+    // ("owner/name") with a token that can only read and write its issues and contents (the
+    // contents hold feedback screenshots, docs/PLAN-feedback-screenshots.md). Off without both;
     // development and test keep feedback in memory.
     FEEDBACK_REPO: z
       .string()

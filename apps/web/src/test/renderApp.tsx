@@ -59,6 +59,10 @@ export function renderApp(
             path: '/settings',
             lazy: async () => ({ Component: (await import('../routes/SettingsRoute')).default }),
           },
+          {
+            path: '/feedback',
+            lazy: async () => ({ Component: (await import('../routes/FeedbackRoute')).default }),
+          },
           { path: '/dictate', children: dictateRoutes },
           { path: '/tasks', children: tasksRoutes },
           { path: '/notes', children: notesRoutes },

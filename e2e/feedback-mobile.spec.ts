@@ -8,6 +8,8 @@ test('on a phone, Send feedback opens from the Apps sheet and fits', async ({ pa
   await page.getByTestId('apps-menu').click()
   await page.getByTestId('menu-feedback').click()
   await expect(page.getByTestId('feedback-form')).toBeVisible()
+  // The page under the sheet is pictured and offered (docs/PLAN-feedback-screenshots.md S6).
+  await expect(page.getByTestId('feedback-page-shot')).toBeVisible()
   await page.getByTestId('feedback-kind-idea').check({ force: true })
   await page
     .getByTestId('feedback-text')

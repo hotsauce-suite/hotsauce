@@ -15,6 +15,8 @@ import {
 } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
 import { Icon } from '../components/Icon'
+import { clearPageShot, pageShot } from '../feedback/pageShot'
+import { ScreenshotPicker, useScreenshots } from '../feedback/Screenshots'
 
 type Step =
   | { at: 'write' }
@@ -40,6 +42,9 @@ export default function FeedbackRoute() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [items, setItems] = useState<FeedbackItem[] | null>(null)
+  // The picture taken as they opened this page, offered but not attached (plan S6).
+  const [page] = useState(() => pageShot(from))
+  const screenshots = useScreenshots(page)
 
   const load = useCallback(() => {
     feedbackApi.mine().then(
@@ -60,18 +65,23 @@ export default function FeedbackRoute() {
   }, [load])
 
   const file = async (answers: QA[], ready?: { title: string; summary: string }) => {
-    const filed = await feedbackApi.submit({
-      kind,
-      text,
-      answers,
-      ...(ready ? { title: ready.title, summary: ready.summary } : {}),
-      context: {
-        ...(from ? { page: from } : {}),
-        app: product(),
-        browser: navigator.userAgent,
+    const filed = await feedbackApi.submit(
+      {
+        kind,
+        text,
+        answers,
+        ...(ready ? { title: ready.title, summary: ready.summary } : {}),
+        context: {
+          ...(from ? { page: from } : {}),
+          app: product(),
+          browser: navigator.userAgent,
+        },
       },
-    })
+      screenshots.shots.map((s) => s.blob),
+    )
     setStep({ at: 'sent', number: filed.number })
+    screenshots.clear()
+    clearPageShot()
     setText('')
     setQa([])
     setRound(0)
@@ -152,7 +162,10 @@ export default function FeedbackRoute() {
           {enabled && step.at === 'write' ? (
             <form
               onSubmit={onSend}
-              className="mt-6 flex flex-col gap-3"
+              {...screenshots.formProps}
+              className={`mt-6 flex flex-col gap-3 rounded-xl outline-offset-8 ${
+                screenshots.dragging ? 'outline-2 outline-dashed outline-ember' : ''
+              }`}
               data-testid="feedback-form"
             >
               <fieldset className="flex gap-2">
@@ -197,9 +210,11 @@ export default function FeedbackRoute() {
                   className="rounded-lg border border-ash-strong bg-paper-raised px-3 py-2 text-base text-ink focus:border-ember focus:outline-none"
                 />
               </label>
+              <ScreenshotPicker state={screenshots} disabled={busy} />
               <p className="text-xs text-ink-faint">
                 Please don’t paste passwords or keys. Anything that looks like one is removed before
-                it’s sent.
+                it’s sent. Screenshots are sent as they are, so check them for anything private. You
+                can also paste or drop a picture here.
               </p>
               <div>
                 <button

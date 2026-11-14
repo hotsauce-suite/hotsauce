@@ -1,4 +1,11 @@
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { feedbackEnabled } from '../api/feedback'
 import { useLive } from '../apps/meetings/live/liveState'
@@ -8,6 +15,7 @@ import { APPS, type AppId, type AppManifest, ownerOfPath } from '../apps/registr
 import { forgetTaskLists } from '../apps/tasks/useTaskList'
 import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
+import { feedbackLink, onFeedbackClick, openFeedback } from '../feedback/pageShot'
 import { GO_KEYS } from '../keyboard/catalog'
 import { useSession } from '../state/session'
 import { AppsTab } from './AppsSheet'
@@ -56,6 +64,7 @@ type Orientation = 'vertical' | 'horizontal'
  */
 export function AppRail({ orientation }: { orientation: Orientation }) {
   const location = useLocation()
+  const navigate = useNavigate()
   const live = useLive()
   const active = ownerOfPath(location.pathname)?.id ?? null
   const onSettings = location.pathname === '/settings' || location.pathname.startsWith('/settings/')
@@ -119,6 +128,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         name="Send feedback"
         current={onFeedback}
         testId="feedback-link"
+        onClick={onFeedback ? undefined : onFeedbackClick(navigate, location.pathname)}
         hideLabel
       />
     ) : null
@@ -244,10 +254,8 @@ export function useFeedbackEnabled(): boolean {
   return on
 }
 
-/** Send feedback, remembering the page it was opened from (docs/plans/2026-11-12-feedback.md). */
-export function feedbackLink(pathname: string): string {
-  return pathname === '/feedback' ? '/feedback' : `/feedback?from=${encodeURIComponent(pathname)}`
-}
+// Send feedback, remembering the page it was opened from (docs/plans/2026-11-12-feedback.md).
+export { feedbackLink }
 
 export function itemClass(orientation: Orientation, current: boolean): string {
   const shape =
@@ -268,6 +276,7 @@ function RailItem({
   current,
   testId,
   onWarm,
+  onClick,
   dot = false,
   external = false,
   hideLabel = false,
@@ -282,6 +291,7 @@ function RailItem({
   current: boolean
   testId: string
   onWarm?: () => void
+  onClick?: ((event: MouseEvent<HTMLAnchorElement>) => void) | undefined
   dot?: boolean
   external?: boolean
   hideLabel?: boolean
@@ -332,6 +342,7 @@ function RailItem({
       aria-current={current ? 'page' : undefined}
       onPointerEnter={onWarm}
       onFocus={onWarm}
+      onClick={onClick}
     >
       {body}
     </Link>
@@ -408,7 +419,7 @@ function AccountButton() {
               testId="menu-feedback"
               onSelect={() => {
                 setAnchor(null)
-                navigate(feedbackLink(window.location.pathname))
+                void openFeedback(navigate, window.location.pathname)
               }}
             >
               Send feedback
