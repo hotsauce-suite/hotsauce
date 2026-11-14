@@ -43,3 +43,14 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
   a link, and only a click on Continue checks it; Return doesn't.
 - **A link can launch the app.** The URL event arrives before `applicationDidFinishLaunching`, so
   the launch's own "no workspace → Workspace step" must not reopen the step and blank the field.
+
+## Sign-in connects Dictate (slice 3)
+
+- **No new server route was needed.** `POST /api/dictation/devices` already takes a signed-in
+  session, and right after `setActive` the finish page has one; the only new piece is the bridge.
+- **Keep the finish page mounted until the handoff is done.** It used to `<Navigate>` as soon as auth
+  turned signed-in; the app only answers on `/desktop/finish`, so the redirect now waits for the
+  Dictate step (and still happens when the page opens already signed in).
+- **Open the bridge from the ticket, not the URL.** The app opens the handoff when the finish page
+  takes a fresh ticket, for 120 s and one connect; a page that merely loads `/desktop/finish` gets
+  no answer.

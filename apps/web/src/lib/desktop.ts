@@ -29,6 +29,45 @@ export async function takeDesktopTicket(): Promise<string | null> {
   return typeof ticket === 'string' && ticket.length > 0 && ticket.length <= 4096 ? ticket : null
 }
 
+interface ReplyBridge {
+  postMessage(message: unknown): Promise<unknown> | undefined
+}
+
+function dictateBridge(): ReplyBridge | undefined {
+  return (window as { webkit?: { messageHandlers?: Record<string, ReplyBridge> } }).webkit
+    ?.messageHandlers?.hearthDictateConnect
+}
+
+/**
+ * Right after the Mac app's sign-in, connects its Dictate too (docs/PLAN-mac-onboarding.md R8): asks
+ * the app whether this Mac needs a connection, creates a device token through the signed-in API, and
+ * hands it to the app over its bridge. The token never goes in a URL. Returns the account Dictate is
+ * connected as, or null when nothing was needed or it didn't work (the Dictate page still connects).
+ */
+export async function connectDictateAfterSignIn(
+  createDevice: (name: string) => Promise<{ token: string }>,
+): Promise<string | null> {
+  const bridge = dictateBridge()
+  if (!bridge) return null
+  try {
+    const status = (await bridge.postMessage({ type: 'status' })) as {
+      needed?: unknown
+      deviceName?: unknown
+    } | null
+    if (status?.needed !== true) return null
+    const name =
+      typeof status.deviceName === 'string' && status.deviceName ? status.deviceName : 'Mac'
+    const { token } = await createDevice(name)
+    const reply = (await bridge.postMessage({ type: 'connect', token })) as {
+      ok?: unknown
+      account?: unknown
+    } | null
+    return reply?.ok === true && typeof reply.account === 'string' ? reply.account : null
+  } catch {
+    return null
+  }
+}
+
 /** A sign-in page to return to after signing in: a path on this site, nothing else. */
 export function safeReturnPath(from: string | undefined): string {
   return from?.startsWith('/') && !from.startsWith('//') && !from.includes('\\') ? from : '/today'

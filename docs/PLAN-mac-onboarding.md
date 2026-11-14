@@ -1,9 +1,9 @@
 # Plan: step-by-step first run in the Mac app
 
-Status (2026-11-14): slice 1 (R1-R3, R6, R13) shipped in 0.12.7 (#79). Slice 2 (R4, R5) in progress on
-feat/mac-setup-link. Morgan accepted the plan's answers: setup link and typed address, Google sign-in also
-connects Dictate, Mic/Accessibility/Location/Notifications in setup, workspace and sign-in required, permissions
-skippable, already-set-up Macs skip the flow. Slices 3-4 not started.
+Status (2026-11-14): slice 1 (R1-R3, R6, R13) shipped in 0.12.7 (#79); slice 2 (R4, R5) in 0.12.8 (#83).
+Slice 3 (R7-R9) in progress on feat/mac-signin-connects-dictate. Morgan accepted the plan's answers: setup link
+and typed address, Google sign-in also connects Dictate, Mic/Accessibility/Location/Notifications in setup,
+workspace and sign-in required, permissions skippable, already-set-up Macs skip the flow. Slice 4 not started.
 Asked for by the owner: "Start with sign in with Google, then do dictate connect then do all the
 permissions you need."
 

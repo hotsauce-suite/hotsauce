@@ -45,6 +45,15 @@ enum Previews {
                 model.workspaceText = "team.example.com"
                 model.filledFromLink = true
             }),
+            ("dictate-connected", { model in
+                model.workspace = { server }
+                model.editingWorkspace = false
+                model.connected = true
+                model.listening = true
+                model.connectedAs = "ada@example.com"
+                model.hotkeyName = { "Right Option" }
+                model.practice = "Shipping Dictate to the team today."
+            }),
             ("workspace-found", { model in
                 model.workspace = { server }
                 model.editingWorkspace = false

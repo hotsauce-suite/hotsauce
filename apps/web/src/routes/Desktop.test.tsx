@@ -99,3 +99,93 @@ describe('/desktop/finish', () => {
     expect(await screen.findByText(/Ticket expired\./)).toBeInTheDocument()
   })
 })
+
+// docs/PLAN-mac-onboarding.md R8: signing in also connects Dictate, the token only over the bridge.
+describe('/desktop/finish connects Dictate', () => {
+  afterEach(() => {
+    delete (window as { webkit?: unknown }).webkit
+  })
+
+  const app = (status: unknown) => {
+    const dictate = vi.fn(async (message: { type: string; token?: string }) =>
+      message.type === 'status' ? status : { ok: true, account: 'ada@example.com' },
+    )
+    Object.assign(window, {
+      webkit: {
+        messageHandlers: {
+          hearthTicket: { postMessage: async () => 'tkt_9' },
+          hearthDictateConnect: { postMessage: dictate },
+        },
+      },
+    })
+    return dictate
+  }
+
+  it('creates a device named after the Mac and hands its token to the app', async () => {
+    const dictate = app({ needed: true, deviceName: 'Ada’s MacBook' })
+    let created: unknown = null
+    server.use(
+      http.post('/api/dictation/devices', async ({ request }) => {
+        created = await request.json()
+        return HttpResponse.json({
+          id: 'd1',
+          name: 'Ada’s MacBook',
+          createdAt: '2026-11-14T00:00:00Z',
+          lastUsedAt: null,
+          token: 'hdt_secret_token_value_123456',
+        })
+      }),
+    )
+    const signInWithTicket = vi.fn(async () => {})
+    renderAt('/desktop/finish', { status: 'signed-out', signInWithTicket })
+    expect(await screen.findByText('today home')).toBeInTheDocument()
+    expect(created).toEqual({ name: 'Ada’s MacBook' })
+    expect(dictate).toHaveBeenCalledWith({
+      type: 'connect',
+      token: 'hdt_secret_token_value_123456',
+    })
+    expect(window.location.href).not.toContain('hdt_')
+  })
+
+  it('creates nothing for a Mac already connected to this server', async () => {
+    const dictate = app({ needed: false, deviceName: 'Mac' })
+    const posted = vi.fn()
+    server.use(
+      http.post('/api/dictation/devices', () => {
+        posted()
+        return HttpResponse.json({})
+      }),
+    )
+    renderAt('/desktop/finish', { status: 'signed-out', signInWithTicket: vi.fn(async () => {}) })
+    expect(await screen.findByText('today home')).toBeInTheDocument()
+    expect(posted).not.toHaveBeenCalled()
+    expect(dictate).toHaveBeenCalledTimes(1)
+  })
+
+  it('still opens Today when connecting Dictate fails', async () => {
+    app({ needed: true, deviceName: 'Mac' })
+    server.use(
+      http.post('/api/dictation/devices', () =>
+        HttpResponse.json({ error: 'no' }, { status: 500 }),
+      ),
+    )
+    renderAt('/desktop/finish', { status: 'signed-out', signInWithTicket: vi.fn(async () => {}) })
+    expect(await screen.findByText('today home')).toBeInTheDocument()
+  })
+
+  it('does nothing in an older app without the bridge', async () => {
+    Object.assign(window, {
+      webkit: { messageHandlers: { hearthTicket: { postMessage: async () => 'tkt_9' } } },
+    })
+    const posted = vi.fn()
+    server.use(
+      http.post('/api/dictation/devices', () => {
+        posted()
+        return HttpResponse.json({})
+      }),
+    )
+    renderAt('/desktop/finish', { status: 'signed-out', signInWithTicket: vi.fn(async () => {}) })
+    expect(await screen.findByText('today home')).toBeInTheDocument()
+    expect(posted).not.toHaveBeenCalled()
+  })
+})
