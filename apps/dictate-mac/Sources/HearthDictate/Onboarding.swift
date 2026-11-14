@@ -35,6 +35,8 @@ final class OnboardingModel: ObservableObject {
     @Published var connectedAs: String?
     @Published var listening = false
     @Published var code = ""
+    /// The practice box: one dictation lands here, so the member sees it work (R9).
+    @Published var practice = ""
     @Published var codeError: String?
 
     /// Connects with a pasted code; calls back with why it didn't, or nil when it did.
@@ -322,8 +324,8 @@ private struct OnboardingView: View {
                 }
                 Divider()
                 Row(
-                    title: "Connect to \(Brand.name)",
-                    detail: model.connectedAs.map { "Connected as \($0)." } ?? "Press Connect this Mac on your workspace’s /dictate page.",
+                    title: "Dictate",
+                    detail: model.connectedAs.map { "Connected as \($0)." } ?? "Connects when you sign in with Google, or press Connect this Mac on your workspace’s /dictate page.",
                     granted: model.connected,
                     button: "Open \(Brand.name)"
                 ) {
@@ -335,12 +337,13 @@ private struct OnboardingView: View {
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
 
             StatusBanner(model: model)
+            if model.connected && model.listening { PracticeBox(model: model) }
             if model.allSet && model.menuBarHidden { MenuBarHint() }
             }
 
             if model.workspace() != nil {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Paste connection code").font(.system(size: 12, weight: .semibold))
+                Text(model.connected ? "Connect with a code instead" : "Or connect with a code").font(.system(size: 12, weight: .semibold))
                 HStack {
                     TextField("hearth-dictate://connect?…", text: $model.code)
                         .textFieldStyle(.roundedBorder)
@@ -376,6 +379,23 @@ private struct OnboardingView: View {
         .padding(24)
         }
         .frame(width: 500, height: Self.height)
+    }
+}
+
+/// Try Dictate right here: click in the box, hold the key, speak, let go (R9).
+private struct PracticeBox: View {
+    @ObservedObject var model: OnboardingModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Try it").font(.system(size: 12, weight: .semibold))
+            Text("Click in the box, hold \(model.hotkeyName()), say something, and let go.")
+                .font(.system(size: 12)).foregroundStyle(.secondary)
+            TextEditor(text: $model.practice)
+                .font(.system(size: 13))
+                .frame(height: 56)
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
+        }
     }
 }
 

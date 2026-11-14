@@ -27,6 +27,13 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     var serverMoved: (_ from: URL, _ to: URL) -> Void = { _, _ in }
     /// The window's own page asked for another workspace address: the app opens the Workspace step.
     var changeWorkspace: () -> Void = {}
+    /// Whether this Mac needs a Dictate connection to `server` (R8).
+    var dictateNeeded: (_ server: URL) -> Bool = { _ in false }
+    /// Saves a device token from the finish page as the Mac's connection to `server`; calls back
+    /// with the account, or why it didn't.
+    var connectDictate: (_ token: String, _ server: URL, _ done: @escaping (_ account: String?, _ error: String?) -> Void) -> Void = { _, _, done in done(nil, "Not available") }
+    /// When the finish page took a sign-in ticket: it may connect Dictate for a short while after.
+    private var handoffOpenedAt: Date?
     /// The suite page that couldn't be loaded, while the window shows the "Can't reach" page.
     private var failedURL: URL?
     private var failures = 0
@@ -74,6 +81,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.add(WeakScriptHandler(self), name: "hearthSignIn")
         // /desktop/finish takes the ticket the app received, once (never from its URL).
         configuration.userContentController.addScriptMessageHandler(TicketHandler(self), contentWorld: .page, name: "hearthTicket")
+        // /desktop/finish, once signed in, connects Dictate with a token it hands over here (R8).
+        configuration.userContentController.addScriptMessageHandler(DictateHandoffHandler(self), contentWorld: .page, name: DictateHandoff.handlerName)
         // Meetings' "Any app on this Mac" (docs/PLAN-record-any-call.md): process taps need 14.2.
         if #available(macOS 14.2, *) {
             configuration.userContentController.addUserScript(WKUserScript(
@@ -203,7 +212,33 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
               let pending = pendingTicket
         else { return nil }
         pendingTicket = nil
-        return Date().timeIntervalSince(pending.received) <= BrowserSignIn.ticketHandoff ? pending.ticket : nil
+        guard Date().timeIntervalSince(pending.received) <= BrowserSignIn.ticketHandoff else { return nil }
+        handoffOpenedAt = Date()
+        return pending.ticket
+    }
+
+    /// Answers the finish page's `hearthDictateConnect`: whether to connect Dictate, then the token.
+    /// Only the suite's own finish page, main frame, shortly after it took a ticket; one connect.
+    fileprivate func dictateHandoff(_ message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
+        guard DictateHandoff.allowed(
+                  isMainFrame: message.frameInfo.isMainFrame, isSuiteFrame: isSuiteFrame(message.frameInfo),
+                  documentPath: message.frameInfo.request.url?.path, livePath: webView.url?.path,
+                  openedAt: handoffOpenedAt, now: Date()
+              ),
+              let server = router?.server, let request = DictateHandoff.request(message.body)
+        else { return reply(nil) }
+        switch request {
+        case .status:
+            let needed = dictateNeeded(server)
+            // Nothing to connect: close it now rather than leave it open for the window's length.
+            if !needed { handoffOpenedAt = nil }
+            reply(["needed": needed, "deviceName": DictateHandoff.deviceName(Host.current().localizedName)])
+        case let .connect(token):
+            handoffOpenedAt = nil
+            connectDictate(token, server) { account, error in
+                reply(account.map { ["ok": true, "account": $0] } ?? ["ok": false, "error": error ?? "Couldn’t connect"])
+            }
+        }
     }
 
     /// Answers the Meetings page's start, pause, resume and stop for "Any app on this Mac". Start
@@ -575,6 +610,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     /// A new page replaced the one that was recording (a reload, a sign-out): stop listening.
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        // A new document: whatever took the sign-in ticket is gone, so is its Dictate handoff.
+        if webView.url?.path != DictateHandoff.finishPath { handoffOpenedAt = nil }
         stopMeetingCapture()
     }
 
@@ -739,6 +776,21 @@ private final class TicketHandler: NSObject, WKScriptMessageHandlerWithReply {
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
         MainActor.assumeIsolated {
             replyHandler(suite?.takeTicket(from: message), nil)
+        }
+    }
+}
+
+/// Answers /desktop/finish's `hearthDictateConnect.postMessage({type: 'status' | 'connect'})`.
+private final class DictateHandoffHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            guard let suite else { return replyHandler(nil, nil) }
+            suite.dictateHandoff(message) { answer in
+                MainActor.assumeIsolated { replyHandler(answer, nil) }
+            }
         }
     }
 }

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { dictationApi } from '../api/dictation'
 import { useAuthState } from '../auth/AuthContext'
-import { takeDesktopTicket } from '../lib/desktop'
+import { connectDictateAfterSignIn, takeDesktopTicket } from '../lib/desktop'
 import { DesktopPage } from './DesktopPage'
 
 /**
@@ -24,11 +25,15 @@ export default function DesktopFinishRoute() {
           throw new Error('This page only works right after signing in from your browser.')
         return signIn(ticket)
       })
+      // Signing in also connects this Mac's Dictate; if that fails, the Dictate page still can.
+      .then(() => connectDictateAfterSignIn(dictationApi.connect))
       .then(() => navigate('/today', { replace: true }))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Sign-in failed.'))
   }, [auth, navigate])
 
-  if (auth.status === 'signed-in') return <Navigate to="/today" replace />
+  // Already signed in when the page opened: nothing to do. Signed in by this page: stay until
+  // Dictate is connected too (the app answers only while this page is open).
+  if (auth.status === 'signed-in' && !started.current) return <Navigate to="/today" replace />
   if (!error) {
     return (
       <DesktopPage title="Signing in…">

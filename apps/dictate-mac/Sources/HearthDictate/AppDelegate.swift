@@ -47,6 +47,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         suite.signInWithBrowser = { [weak self] in self?.startBrowserSignIn() }
         suite.serverMoved = { [weak self] old, new in self?.serverMoved(from: old, to: new) }
         suite.changeWorkspace = { [weak self] in self?.onboarding.showWorkspace() }
+        suite.dictateNeeded = { server in DictateHandoff.needed(connection: ConnectionStore.connection()?.server, server: server) }
+        suite.connectDictate = { [weak self] token, server, done in self?.connectFromSignIn(token: token, server: server, done: done) }
         statusItem = Self.makeStatusItem()
         statusItem.isVisible = settings.showInMenuBar
         let menu = NSMenu()
@@ -708,6 +710,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             alert.messageText = "Couldn’t connect"
             alert.informativeText = error
             alert.runModal()
+        }
+    }
+
+    /// The window's own sign-in made a device token for its server (R8): no question to ask, since
+    /// the member just signed in to that server in this window. Checks whose token it is first.
+    private func connectFromSignIn(token: String, server: URL, done: @escaping (String?, String?) -> Void) {
+        let client = DictationClient(server: server, token: token)
+        Task { @MainActor [weak self] in
+            let account: String
+            do {
+                account = try await client.account()
+            } catch {
+                done(nil, (error as? DictationError)?.errorDescription ?? error.localizedDescription)
+                return
+            }
+            guard let self else { return }
+            let previous = ConnectionStore.connection()
+            guard ConnectionStore.setConnection(.init(token: token, server: server, account: account)) else {
+                done(nil, "Couldn’t save the connection.")
+                return
+            }
+            if let previous, previous.token != token {
+                Task { await DictationClient(server: previous.server, token: previous.token).revokeSelf() }
+            }
+            if self.settings.suiteServer == nil { self.settings.suiteServer = server }
+            self.updateIcon()
+            self.onboarding.model.refresh()
+            self.controller.showMessage("Dictate connected as \(account)")
+            done(account, nil)
         }
     }
 
