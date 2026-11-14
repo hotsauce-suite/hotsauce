@@ -25,6 +25,6 @@ If you can't update something yourself (it needs Morgan's Mac or a store listing
 - Never close or mark done a piece of work on its status alone. First check GitHub live for open
   or draft pull requests and unmerged branches from it, and check the change is in a release and
   on the live site. A draft PR, or one waiting on an approval, is not shipped.
-- Work that waits on Morgan stays open, and the item goes on his owed list the same turn.
+- Work that waits on the owner stays open, and the item goes on the owner's to-do list the same turn.
 - Never merge with a red check. Fix it, or stop and say why.
 - Learnings: `docs/learnings/threads.md`.

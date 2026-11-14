@@ -67,6 +67,12 @@ describe("the organization's own chat", () => {
     expect(teamChatNames({ orgName: '  ', chatUrl: 'https://chat.acme.example' })).toEqual([])
   })
 
+  it('matches an organization name with symbols literally', () => {
+    const names = teamChatNames({ orgName: 'Smith & Co (EU)', chatUrl: 'https://x.example' })
+    expect(styleForApp({ name: 'Smith & Co (EU) Chat' }, { chatNames: names })).toBe('chat')
+    expect(styleForApp({ name: 'Smith  Co EU Chat' }, { chatNames: names })).toBe('neutral')
+  })
+
   it('lowercases a multi-word organization name', () => {
     expect(teamChatNames({ orgName: 'Blue Fern', chatUrl: 'https://x.example' })).toEqual([
       'blue fern chat',
