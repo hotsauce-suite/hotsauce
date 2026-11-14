@@ -71,3 +71,8 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
   brings the open window forward, or it would jump the member back mid-flow.
 - **Skips are per window, not saved.** Skipping Permissions doesn't stop the launch check: the
   window still opens next launch while one is missing (PLAN-mac-permissions P2).
+- **Count a sign-in when it worked, not when it started.** Recording it when the finish page took
+  the ticket marked a failed redemption as signed in forever; the page's first Dictate question
+  (asked only after the ticket signed it in) is now the signal.
+- **A new workspace is a new sign-in.** Changing the address clears the app's signed-in flag, and a
+  Dictate connection only counts for the workspace it's connected to.

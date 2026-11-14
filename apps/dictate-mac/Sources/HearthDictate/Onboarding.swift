@@ -185,8 +185,7 @@ final class OnboardingModel: ObservableObject {
     /// Where the window opens: the first unfinished step, or Permissions when everything is done
     /// (the menu's Check Permissions…).
     func openAtFirstUnfinished() {
-        signedIn = isSignedIn()
-        connected = isConnected()
+        refresh()
         let first = SetupFlow.firstUnfinished(flowState)
         step = first == .done ? .permissions : first
         if step == .workspace, workspace() == nil { beginWorkspace() }
@@ -264,6 +263,13 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
         show(atFirstUnfinished: false)
     }
 
+    /// Opens the window at `step` (Check Permissions…).
+    func show(at step: SetupFlow.Step) {
+        model.refresh()
+        model.step = step
+        show(atFirstUnfinished: false)
+    }
+
     /// Opens the window; a closed one opens at its first unfinished step (R11). One already open
     /// stays on its step: it's only brought forward.
     func show(atFirstUnfinished: Bool = true) {
@@ -295,6 +301,10 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         model.stopWatching()
         model.awaiting = nil
+        // A half-finished address change doesn't come back next time.
+        model.editingWorkspace = false
+        model.filledFromLink = false
+        model.workspaceError = nil
         onClose()
     }
 }
@@ -547,8 +557,9 @@ private struct DoneStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             if model.connected && model.listening { PracticeBox(model: model) }
-            if !model.skipped.isEmpty {
-                Text("You skipped \(model.skipped.sorted { $0.rawValue < $1.rawValue }.map(\.title).joined(separator: " and ")). This window asks again next time the app starts.")
+            let stillSkipped = model.skipped.filter { !SetupFlow.isFinished($0, model.flowState) }
+            if !stillSkipped.isEmpty {
+                Text("You skipped \(stillSkipped.sorted { $0.rawValue < $1.rawValue }.map(\.title).joined(separator: " and ")). This window asks again next time the app starts.")
                     .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if model.menuBarHidden { MenuBarHint() }

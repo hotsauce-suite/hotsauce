@@ -89,7 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         onboarding.model.saveWorkspace = { [weak self] server in self?.saveWorkspace(server) }
         onboarding.model.signIn = { [weak self] in self?.startBrowserSignIn() }
         onboarding.model.isSignedIn = { [weak self] in
-            SetupFlow.signedIn(appSignIn: self?.settings.appSignedIn ?? false, dictateConnected: ConnectionStore.connection() != nil)
+            // A Dictate connection counts only for the workspace it's connected to.
+            let connection = ConnectionStore.connection()?.server
+            return SetupFlow.signedIn(appSignIn: self?.settings.appSignedIn ?? false,
+                                      dictateConnected: connection != nil && connection == self?.suiteServer)
         }
         onboarding.model.openSuite = { [weak self] in
             self?.suite.show()
@@ -317,6 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let server = Workspace.origin(fromInput: text) else {
                 return "Enter your workspace’s address, like team.example.com (http only for localhost)."
             }
+            if self.settings.suiteServer != server { self.settings.appSignedIn = false }
             self.settings.suiteServer = server
             self.suite.setServer(server)
             model.reload()
@@ -626,7 +630,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc func showOnboarding() { onboarding.show() }
+    /// Check Permissions…: straight to the permissions, wherever setup stopped (P5).
+    @objc func showOnboarding() { onboarding.show(at: .permissions) }
 
     /// Meeting reminders and call-notes offers are the only things that show notifications; call
     /// detection runs only on macOS 14.2 and later.
@@ -652,7 +657,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 missingPermissions: missing
             )
             if SetupFlow.showAtLaunch(state, hasOnboarded: self.settings.hasOnboarded), !self.onboarding.isVisible {
-                self.onboarding.show()
+                // Set up already, only a permission missing: open at Permissions, not at Dictate.
+                if state.hasWorkspace, state.signedIn, self.settings.hasOnboarded {
+                    self.onboarding.show(at: .permissions)
+                } else {
+                    self.onboarding.show()
+                }
             }
         }
     }
@@ -693,6 +703,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// The Workspace step found a Hotsauce server: the window opens it from now on (R3).
     private func saveWorkspace(_ server: URL) {
+        // Another workspace: this Mac hasn't signed in there yet.
+        if settings.suiteServer != server { settings.appSignedIn = false }
         settings.suiteServer = server
         if suite.recordingMeetingSession == nil { suite.setServer(server) }
         mainWindow.model.reload()
