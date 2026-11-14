@@ -123,7 +123,7 @@ export function UpdatesSection() {
               {status.mode !== 'fly'
                 ? 'Available when this server can update itself (on Fly, with a Fly token).'
                 : status.auto
-                  ? 'On: each new release is installed within a few hours, never while a meeting is being recorded.'
+                  ? 'On: each new release is installed within about an hour, never while a meeting is being recorded.'
                   : 'Off: new releases wait for you to press Update.'}
             </span>
           </span>
@@ -140,6 +140,12 @@ export function UpdatesSection() {
         >
           Check now
         </button>
+        {status?.checkError ? (
+          <p data-testid="check-error" className="mt-2 text-sm text-ink-soft">
+            Couldn’t reach GitHub to check for a new release ({status.checkError}). {name} tries
+            again in about ten minutes.
+          </p>
+        ) : null}
       </div>
 
       {error ? (

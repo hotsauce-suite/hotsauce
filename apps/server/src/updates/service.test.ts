@@ -229,4 +229,110 @@ describe('Updater', () => {
     await expect(make('0.2.0').start()).rejects.toThrow(/401/)
     expect(store.get()).toMatchObject({ pending: null, failed: { to: '0.3.0' } })
   })
+
+  // R10, R11: Haven sat on 0.12.4 through three releases when one quiet failed ask meant six more
+  // hours of waiting.
+  it('asks GitHub again every hour, not more often', async () => {
+    let asks = 0
+    const { make, advance } = setup({
+      latestRelease: async () => {
+        asks++
+        return release('0.3.0')
+      },
+    })
+    const u = make('0.2.0')
+    await u.check()
+    advance(54 * 60_000)
+    await u.check()
+    expect(asks).toBe(1)
+    // The next ten-minute tick after the hour is close enough.
+    advance(2 * 60_000)
+    await u.check()
+    expect(asks).toBe(2)
+  })
+
+  it('logs a failed ask, keeps what it knew, and asks again ten minutes later', async () => {
+    const lines: string[] = []
+    let answer: () => Release = () => release('0.3.0')
+    let asks = 0
+    const { make, advance } = setup({
+      latestRelease: async () => {
+        asks++
+        return answer()
+      },
+      log: (line) => lines.push(line),
+    })
+    const u = make('0.2.0')
+    await u.check()
+    advance(61 * 60_000)
+    answer = () => {
+      throw new Error('GitHub API answered 403 (rate limited)')
+    }
+    await u.check()
+    expect(lines.join('\n')).toMatch(
+      /couldn’t check for a new release: GitHub API answered 403 \(rate limited\); trying again in 10 minutes/,
+    )
+    expect(u.status()).toMatchObject({
+      latest: { version: '0.3.0' },
+      checkedAt: '2026-11-12T10:00:00.000Z',
+    })
+    advance(4 * 60_000)
+    await u.check()
+    expect(asks).toBe(2)
+    answer = () => release('0.4.0')
+    advance(2 * 60_000)
+    await u.check()
+    expect(asks).toBe(3)
+    expect(u.status().latest?.version).toBe('0.4.0')
+  })
+
+  it('a failed ask never stops the automatic pass', async () => {
+    const { make, fly } = setup({
+      latestRelease: async () => {
+        throw new Error('timed out')
+      },
+    })
+    await expect(make('0.2.0').tick()).resolves.toBeUndefined()
+    expect(fly.created).toHaveLength(0)
+  })
+
+  it('Check now asks even right after a failure, and says why it couldn’t', async () => {
+    let fail = true
+    const { make } = setup({
+      latestRelease: async () => {
+        if (fail) throw new Error('timed out')
+        return release('0.3.0')
+      },
+    })
+    const u = make('0.2.0')
+    await u.check()
+    expect(u.status().checkError).toBe('timed out')
+    fail = false
+    await u.check(true)
+    expect(u.status()).toMatchObject({ latest: { version: '0.3.0' }, checkError: null })
+  })
+
+  it('keeps the notes it has when the fallback finds the same version without them', async () => {
+    let next = release('0.3.0')
+    const { make, advance } = setup({ latestRelease: async () => next })
+    const u = make('0.2.0')
+    await u.check()
+    next = { version: '0.3.0', notes: '', url: 'https://github.com/x', publishedAt: '' }
+    advance(61 * 60_000)
+    await u.check()
+    expect(u.status().latest?.notes).toBe("What's new in 0.3.0")
+  })
+
+  it('asks GitHub once when the timer and Settings check at the same moment', async () => {
+    let asks = 0
+    const { make } = setup({
+      latestRelease: async () => {
+        asks++
+        return release('0.3.0')
+      },
+    })
+    const u = make('0.2.0')
+    await Promise.all([u.check(), u.check(), u.check(true)])
+    expect(asks).toBe(1)
+  })
 })

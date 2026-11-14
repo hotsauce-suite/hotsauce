@@ -6,6 +6,8 @@ export interface UpdateStatus {
   latest: { version: string; notes: string; url: string; publishedAt: string } | null
   updateAvailable: boolean
   checkedAt: string | null
+  /** Why the last ask for the newest release failed; null once one works. */
+  checkError: string | null
   /** fly: Update works here; fly-needs-token: on Fly without FLY_API_TOKEN; manual: elsewhere. */
   mode: 'fly' | 'fly-needs-token' | 'manual'
   auto: boolean

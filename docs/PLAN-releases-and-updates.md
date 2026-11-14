@@ -15,8 +15,8 @@ R2. The image holds nothing specific to one organization. Everything an instance
     when the server starts (env, or settings saved in the setup wizard).
 R3. The Chrome extension zip offered at `/downloads/` talks to the server that served it,
     whatever address that server has, with no rebuild.
-R4. The server knows its own version (`GET /api/health` reports it) and, at most every six
-    hours, the newest published release.
+R4. The server knows its own version (`GET /api/health` reports it) and, at most hourly, the
+    newest published release.
 R5. An admin sees "Version X is out" with the release notes in Settings → Organization, an
     Update button, and an automatic-updates switch.
 R6. On Fly, with `FLY_API_TOKEN` set, Update starts a short-lived helper machine running the
@@ -27,6 +27,13 @@ R7. Elsewhere (Docker, Cloudflare), Update shows the steps for that host instead
 R8. After a rolled-back update the admin sees "Updating to X failed; still on Y" and automatic
     updates skip that version.
 R9. Automatic updates wait while a meeting is being recorded (subject to Morgan's answer).
+R10. GitHub is asked for the newest release hourly (2026-11-14: Haven sat on 0.12.4 through
+     three releases under the old six-hour check).
+R11. A failed ask is logged with its reason, keeps the release already known, and is tried again
+     about ten minutes later; Settings → Organization → Updates says GitHub couldn't be reached.
+R12. When the GitHub API refuses (its unauthenticated limit is 60 asks an hour per address, and
+     cloud hosts share addresses), the version is read from where
+     `github.com/hotsauce-suite/hotsauce/releases/latest` redirects, without notes.
 
 ## Slices
 
@@ -63,7 +70,7 @@ R9. Automatic updates wait while a meeting is being recorded (subject to Morgan'
   the release image on every deploy; use one or the other.
 - A rollback runs the old version on data the new one may have touched. Releases keep stored data
   readable by the previous release; a release that can't says so in its notes and in the PR.
-- Automatic updates (on unless an admin turns them off) check GitHub every six hours and try
-  every ten minutes, never while a meeting socket is open.
+- Automatic updates (on unless an admin turns them off) check GitHub hourly (ten minutes after a
+  failed check) and try every ten minutes, never while a meeting socket is open.
 - Health is checked through the public address, so with several machines the check passes only
   once the address answers with the new version. Haven runs one machine.
