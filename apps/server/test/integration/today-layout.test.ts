@@ -25,6 +25,7 @@ beforeEach(async () => {
       DATA_DIR: join(root, 'data'),
       LOCAL_HOST_DIR: join(root, 'remotes'),
       ALLOWED_EMAIL_DOMAINS: 'example.test',
+      ADMIN_EMAILS: ALICE,
     }),
   )
   await services.spaces.ensureTeamSpace()
@@ -139,5 +140,88 @@ describe('Today weather', () => {
     const down = await call('GET', '/api/today/weather?lat=10&lon=10')
     expect(down.status).toBe(502)
     expect((await call('GET', '/api/today/weather?lat=200&lon=0')).status).toBe(400)
+  })
+})
+
+describe('Today weather places (W5–W7)', () => {
+  const MET = {
+    properties: {
+      timeseries: [
+        {
+          time: new Date().toISOString(),
+          data: {
+            instant: { details: { air_temperature: -1.5 } },
+            next_1_hours: { summary: { symbol_code: 'snow' } },
+          },
+        },
+      ],
+    },
+  }
+  const BURLINGTON = {
+    name: 'Burlington',
+    detail: 'Vermont, United States',
+    lat: 44.48,
+    lon: -73.21,
+  }
+
+  function stubOutside() {
+    const real = globalThis.fetch
+    return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.startsWith('https://api.met.no/')) return Response.json(MET)
+      if (url.startsWith('https://geocoding-api.open-meteo.com/')) {
+        return Response.json({
+          results: [
+            {
+              name: 'Burlington',
+              latitude: 44.4759,
+              longitude: -73.2121,
+              admin1: 'Vermont',
+              country: 'United States',
+            },
+          ],
+        })
+      }
+      return real(input, init)
+    })
+  }
+
+  it('searches places by name', async () => {
+    const spy = stubOutside()
+    const res = await call('GET', '/api/today/places?q=Burlington', BOB)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ places: [BURLINGTON] })
+    const asked = spy.mock.calls.map((c) => String(c[0])).find((u) => u.includes('open-meteo'))
+    expect(asked).toContain('name=Burlington')
+  })
+
+  it('answers null with no position and no team default', async () => {
+    stubOutside()
+    const res = await call('GET', '/api/today/weather', BOB)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBeNull()
+    expect((await call('GET', '/api/today/weather?lat=10', BOB)).status).toBe(400)
+  })
+
+  it('lets only an admin set the team default, which members then get', async () => {
+    const spy = stubOutside()
+    const refused = await call('PUT', '/api/today/default-place', BOB, { place: BURLINGTON })
+    expect(refused.status).toBe(403)
+
+    const put = await call('PUT', '/api/today/default-place', ALICE, { place: BURLINGTON })
+    expect(put.status).toBe(200)
+    expect(await put.json()).toEqual({ place: BURLINGTON })
+    expect(await (await call('GET', '/api/today/default-place', BOB)).json()).toEqual({
+      place: BURLINGTON,
+    })
+
+    const weather = await (await call('GET', '/api/today/weather', BOB)).json()
+    expect(weather).toMatchObject({ temperature: -1.5, symbol: 'snow', place: 'Burlington' })
+    const met = spy.mock.calls.map((c) => String(c[0])).find((u) => u.includes('api.met.no'))
+    expect(met).toContain('lat=44.48&lon=-73.21')
+
+    const cleared = await call('PUT', '/api/today/default-place', ALICE, { place: null })
+    expect(await cleared.json()).toEqual({ place: null })
+    expect(await (await call('GET', '/api/today/weather', BOB)).json()).toBeNull()
   })
 })

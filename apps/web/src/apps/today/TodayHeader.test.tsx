@@ -116,13 +116,33 @@ describe('Today weather (H5)', () => {
       lat: 44.48,
       lon: -73.21,
     })
-    // Clicking it hides it again and forgets the place.
+    // W8: its menu names the place and hides it, which this device remembers.
     await userEvent.click(screen.getByTestId('today-weather'))
-    await waitFor(() => expect(localStorage.getItem(WEATHER_PLACE_KEY)).toBeNull())
-    expect(screen.getByTestId('today-weather-on')).toBeInTheDocument()
+    expect(await screen.findByTestId('today-weather-where')).toHaveTextContent(
+      'Weather for your location',
+    )
+    await userEvent.click(screen.getByTestId('today-weather-hide'))
+    expect(await screen.findByTestId('today-weather-on')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({ off: true })
   })
 
-  it('says so quietly when location is refused', async () => {
+  it('W3: offers Allow location and a city when location is refused', async () => {
+    const getCurrentPosition = vi.fn((_ok: PositionCallback, fail: PositionErrorCallback) =>
+      fail({ code: 1 } as GeolocationPositionError),
+    )
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    })
+    renderApp('/today')
+    await userEvent.click(await screen.findByTestId('today-weather-on'))
+    expect(await screen.findByTestId('today-weather-denied')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('today-weather-allow'))
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2)
+    expect(await screen.findByTestId('today-weather-city')).toBeInTheDocument()
+  })
+
+  it('W4: shows the weather for a city picked by name, kept on this device', async () => {
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
       value: {
@@ -132,6 +152,107 @@ describe('Today weather (H5)', () => {
     })
     renderApp('/today')
     await userEvent.click(await screen.findByTestId('today-weather-on'))
-    expect(await screen.findByTestId('today-weather-denied')).toBeInTheDocument()
+    await userEvent.click(await screen.findByTestId('today-weather-city'))
+    await userEvent.type(await screen.findByTestId('weather-city-input'), 'Burl')
+    const results = await screen.findAllByTestId('weather-city-result')
+    expect(results[0]).toHaveTextContent('Burlington')
+    expect(results[0]).toHaveTextContent('Vermont, United States')
+    await userEvent.click(results[0] as HTMLElement)
+    expect(await screen.findByTestId('today-weather')).toHaveTextContent(/\d+°/)
+    expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({
+      name: 'Burlington',
+      detail: 'Vermont, United States',
+      lat: 44.48,
+      lon: -73.21,
+    })
+    await userEvent.click(screen.getByTestId('today-weather'))
+    expect(await screen.findByTestId('today-weather-where')).toHaveTextContent(
+      'Weather for Burlington',
+    )
+  })
+
+  it('W8: keeps the weather showing when Use my location is refused', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (_ok: PositionCallback, fail: PositionErrorCallback) =>
+          fail({ code: 1 } as GeolocationPositionError),
+      },
+    })
+    localStorage.setItem(
+      WEATHER_PLACE_KEY,
+      JSON.stringify({ name: 'Oslo', detail: 'Oslo, Norway', lat: 59.91, lon: 10.75 }),
+    )
+    renderApp('/today')
+    await userEvent.click(await screen.findByTestId('today-weather'))
+    await userEvent.click(await screen.findByTestId('today-weather-use-location'))
+    expect(await screen.findByTestId('today-weather-notice')).toHaveTextContent(
+      'Location is blocked',
+    )
+    expect(screen.getByTestId('today-weather')).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '').name).toBe('Oslo')
+  })
+
+  it('W1: in the Mac app, asks the app instead of the web view', async () => {
+    const postMessage = vi.fn(async (_m: unknown) => ({ lat: 44.4759, lon: -73.2121 }))
+    const getCurrentPosition = vi.fn()
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    })
+    ;(window as unknown as { webkit?: unknown }).webkit = {
+      messageHandlers: { hearthLocation: { postMessage }, hearthSignIn: { postMessage: vi.fn() } },
+    }
+    try {
+      renderApp('/today')
+      await userEvent.click(await screen.findByTestId('today-weather-on'))
+      expect(await screen.findByTestId('today-weather')).toBeInTheDocument()
+      expect(postMessage).toHaveBeenCalledWith('position')
+      expect(getCurrentPosition).not.toHaveBeenCalled()
+      expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({
+        lat: 44.48,
+        lon: -73.21,
+      })
+    } finally {
+      delete (window as unknown as { webkit?: unknown }).webkit
+    }
+  })
+
+  it('W1: an older Mac app points to a city instead of asking again', async () => {
+    ;(window as unknown as { webkit?: unknown }).webkit = {
+      messageHandlers: { hearthSignIn: { postMessage: vi.fn() } },
+    }
+    try {
+      renderApp('/today')
+      await userEvent.click(await screen.findByTestId('today-weather-on'))
+      expect(await screen.findByTestId('today-weather-denied')).toHaveTextContent(
+        'Update the Mac app',
+      )
+      expect(screen.queryByTestId('today-weather-allow')).toBeNull()
+      expect(screen.getByTestId('today-weather-city')).toBeInTheDocument()
+    } finally {
+      delete (window as unknown as { webkit?: unknown }).webkit
+    }
+  })
+
+  it('W7: shows the team city without asking, until this device hides it', async () => {
+    await fetch('/api/today/default-place', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        place: { name: 'Oslo', detail: 'Oslo, Norway', lat: 59.91, lon: 10.75 },
+      }),
+    })
+    const getCurrentPosition = vi.fn()
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    })
+    renderApp('/today')
+    await userEvent.click(await screen.findByTestId('today-weather'))
+    expect(await screen.findByTestId('today-weather-where')).toHaveTextContent('Weather for Oslo')
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByTestId('today-weather-hide'))
+    expect(await screen.findByTestId('today-weather-on')).toBeInTheDocument()
   })
 })

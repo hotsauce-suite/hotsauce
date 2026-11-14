@@ -10,7 +10,7 @@ import {
 } from '@hearth/format'
 import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { TaskView } from '../api/tasks'
-import type { TodayMeeting, TodayView, TodayWeather } from '../api/today'
+import type { TodayMeeting, TodayView, TodayWeather, WeatherPlace } from '../api/today'
 import type { CalendarEvent, MeetingActionItems } from '../api/types'
 
 const DAY_MS = 86_400_000
@@ -34,9 +34,21 @@ const SAMPLE_WEATHER: Omit<TodayWeather, 'updated'> = {
   credit: 'MET Norway',
 }
 
+/** A few places the demo's city search knows, matched by the start of their name. */
+const SAMPLE_PLACES: WeatherPlace[] = [
+  { name: 'Burlington', detail: 'Vermont, United States', lat: 44.48, lon: -73.21 },
+  { name: 'Burlington', detail: 'Ontario, Canada', lat: 43.32, lon: -79.79 },
+  { name: 'Boston', detail: 'Massachusetts, United States', lat: 42.36, lon: -71.06 },
+  { name: 'London', detail: 'England, United Kingdom', lat: 51.51, lon: -0.13 },
+  { name: 'Oslo', detail: 'Oslo, Norway', lat: 59.91, lon: 10.75 },
+  { name: 'San Francisco', detail: 'California, United States', lat: 37.77, lon: -122.42 },
+]
+
 export function todayHandlers(): AnyHandler[] {
   // One layout per member, for as long as the page is open.
   const layouts = new Map<string, TodayLayout>()
+  // The team's default weather place (Settings → Organization → Weather); none to start.
+  let teamPlace: WeatherPlace | null = null
   const who = (request: Request) => request.headers.get('x-hearth-dev-user') ?? 'me'
   return [
     http.get('/api/today/layout', ({ request }) => {
@@ -56,9 +68,24 @@ export function todayHandlers(): AnyHandler[] {
         )
       }
     }),
-    http.get('/api/today/weather', () =>
-      HttpResponse.json({ ...SAMPLE_WEATHER, updated: new Date().toISOString() }),
-    ),
+    http.get('/api/today/weather', ({ request }) => {
+      const url = new URL(request.url)
+      const sample = { ...SAMPLE_WEATHER, updated: new Date().toISOString() }
+      if (url.searchParams.has('lat')) return HttpResponse.json(sample)
+      return HttpResponse.json(teamPlace ? { ...sample, place: teamPlace.name } : null)
+    }),
+    http.get('/api/today/places', ({ request }) => {
+      const q = (new URL(request.url).searchParams.get('q') ?? '').trim().toLowerCase()
+      const places =
+        q.length < 2 ? [] : SAMPLE_PLACES.filter((p) => p.name.toLowerCase().startsWith(q))
+      return HttpResponse.json({ places })
+    }),
+    http.get('/api/today/default-place', () => HttpResponse.json({ place: teamPlace })),
+    http.put('/api/today/default-place', async ({ request }) => {
+      const body = (await request.json()) as { place?: WeatherPlace | null }
+      teamPlace = body.place ?? null
+      return HttpResponse.json({ place: teamPlace })
+    }),
     http.get('/api/today', async ({ request }) => {
       const url = new URL(request.url)
       const from = url.searchParams.get('from') ?? ''

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { api } from '../api/client'
 import { type OrgState, orgEditor, waitForRestart } from '../api/org'
 import { MeetingsPageHeader, primaryButton } from '../apps/meetings/components/common'
+import { OrgWeatherSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { AssistantSection } from './org/AssistantSection'
 import { BackupsSection } from './org/BackupsSection'
@@ -118,6 +119,7 @@ export default function OrgSettingsRoute() {
               <BrandSection {...(props('live') as SectionProps)} />
               <SignInSection {...(props('restart') as SectionProps)} />
               <LinkSharingSection />
+              <OrgWeatherSection />
               <ChatRoomsSection />
               <AiSection {...(props('restart') as SectionProps)} />
               <AssistantSection />

@@ -6,3 +6,18 @@
 - **MET Norway's Locationforecast is reachable from the cloud sandbox and needs no key.** It wants an identifying User-Agent and at most 4 decimals. It throttles per User-Agent, so a self-hosted instance's whole user base shares one budget: rate limit per member and cache failures.
 - **`pointer-events-none` isn't "can't use".** Tab still reaches the links and inputs inside. Use `inert` (React 19 takes it as a boolean) for anything shown but not usable, such as tiles in edit mode.
 - **Biome on main flags pre-existing problems** in `site/public/index.html`, `ramble.test.ts` and `briefHandlers.ts`. Lint the files you touched to see your own state, and don't "fix" theirs in a feature PR.
+
+## Weather location (2026-11-14)
+
+- **WebKit in a Mac app never asks for location.** `navigator.geolocation` in a WKWebView on macOS
+  is turned down silently unless the app answers a private delegate call, and without a location
+  usage description macOS has nothing to show. The Mac app answers the page itself
+  (`hearthLocation` bridge, CoreLocation) instead of relying on that private API; check for the
+  bridge before calling the browser's geolocation.
+- **A refused permission must change the button, not repeat the request.** Retrying
+  `getCurrentPosition` after a browser block fails instantly and looks like a dead click. Offer a
+  way that doesn't need the permission (a typed city), and say where the switch is.
+- **Don't open System Settings right after the person said no** in macOS's prompt. Open it only when
+  the refusal is old and they asked again.
+- **Old clients outlive the fix.** Detect a Mac app without the new bridge (it still has its
+  sign-in bridge) and tell the member to update, rather than looping on a request it can't make.

@@ -71,6 +71,16 @@ export const OrgSettingsSchema = z.object({
   /** The built-in assistant's model ('' = the default) and monthly limit per member in USD (0 = none). */
   assistantModel: z.string().trim().max(100).default(''),
   assistantMonthlyLimitUsd: z.number().min(0).max(100_000).default(0),
+  /** Where the Today header shows weather for a member who hasn't picked a place (§16.5). */
+  weatherPlace: z
+    .object({
+      name: z.string().trim().min(1).max(80),
+      detail: z.string().trim().max(120).default(''),
+      lat: z.number().min(-90).max(90),
+      lon: z.number().min(-180).max(180),
+    })
+    .nullable()
+    .default(null),
   /** Steps of the setup wizard the admin has been through, so it resumes where they left off. */
   stepsDone: z.array(z.string()).default([]),
   setupComplete: z.boolean().default(false),
