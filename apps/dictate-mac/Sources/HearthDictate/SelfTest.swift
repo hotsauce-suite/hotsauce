@@ -116,7 +116,7 @@ enum SelfTest {
                 await waitForLoad(suite.webView)
                 try? await Task.sleep(for: .seconds(3))
                 await snapshot(suite.webView, to: folder.appendingPathComponent("5-sign-in.png"))
-                for _ in 0 ..< 10 where suite.webView.url.map(suite.router.isSuite) ?? true {
+                for _ in 0 ..< 10 where suite.webView.url.map(SuiteRouter(server: server).isSuite) ?? true {
                     _ = try? await suite.webView.evaluateJavaScript("[...document.querySelectorAll('button')].find((b) => /google/i.test(b.textContent))?.click()")
                     try? await Task.sleep(for: .seconds(3))
                 }
@@ -144,17 +144,18 @@ enum SelfTest {
     /// a separate "browser" web view, and checks the window ends up signed in.
     private static func browserSignIn(suite: SuiteWindow, email: String, folder: URL) async -> [String: Any] {
         var out: [String: Any] = [:]
+        guard let server = suite.server else { return ["error": "no server"] }
         _ = try? await suite.webView.evaluateJavaScript("localStorage.removeItem('hearth.devUser')")
         // A link straight to the finish page (a doc, another site) must sign nothing in, even
         // with a ticket in it; deep links to it are refused outright.
-        out["deepLinkToFinishRefused"] = suite.router.url(forPath: SuiteRouter.deepLinkPath(URL(string: "hearth://desktop/finish#ticket=dev:eve@acme.example")!) ?? "") == nil
-        suite.webView.load(URLRequest(url: URL(string: "\(suite.router.server.absoluteString)/desktop/finish#ticket=dev:eve@acme.example")!))
+        out["deepLinkToFinishRefused"] = SuiteRouter(server: server).url(forPath: SuiteRouter.deepLinkPath(URL(string: "hearth://desktop/finish#ticket=dev:eve@acme.example")!) ?? "") == nil
+        suite.webView.load(URLRequest(url: URL(string: "\(server.absoluteString)/desktop/finish#ticket=dev:eve@acme.example")!))
         await waitForLoad(suite.webView)
         try? await Task.sleep(for: .seconds(2))
         out["directFinishSignedInAs"] = (try? await suite.webView.evaluateJavaScript("localStorage.getItem('hearth.devUser')")) as? String ?? NSNull()
         out["directFinishText"] = (try? await suite.webView.evaluateJavaScript("document.body.innerText.slice(0, 120)")) as? String
 
-        suite.webView.load(URLRequest(url: URL(string: "\(suite.router.server.absoluteString)/sign-in")!))
+        suite.webView.load(URLRequest(url: URL(string: "\(server.absoluteString)/sign-in")!))
         await waitForLoad(suite.webView)
         try? await Task.sleep(for: .seconds(1))
         out["windowSignInText"] = (try? await suite.webView.evaluateJavaScript("document.body.innerText.slice(0, 200)")) as? String
@@ -166,7 +167,7 @@ enum SelfTest {
         suite.signInWithBrowser = {
             let signIn = BrowserSignIn()
             started = signIn
-            openedURL = signIn.connectURL(server: suite.router.server)
+            openedURL = signIn.connectURL(server: server)
         }
         _ = try? await suite.webView.evaluateJavaScript("[...document.querySelectorAll('button')].find((b) => /browser/i.test(b.textContent))?.click()")
         try? await Task.sleep(for: .seconds(1))
@@ -177,7 +178,7 @@ enum SelfTest {
         out["connectURL"] = connect.absoluteString
 
         let browser = FakeBrowser()
-        await browser.load(URL(string: "\(suite.router.server.absoluteString)/sign-in")!)
+        await browser.load(URL(string: "\(server.absoluteString)/sign-in")!)
         _ = try? await browser.webView.callAsyncJavaScript("localStorage.setItem('hearth.devUser', email)", arguments: ["email": email], in: nil, contentWorld: .page)
         await browser.load(connect)
         try? await Task.sleep(for: .seconds(2))

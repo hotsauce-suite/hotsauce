@@ -5,12 +5,16 @@ import Testing
 @Suite struct ServerAddressTests {
     func url(_ s: String) -> URL { URL(string: s)! }
 
-    @Test func windowOpensSettingsThenTheConnectionThenTheDefault() {
+    @Test func windowOpensSettingsThenTheConnection() {
         let setting = url("https://office.acme.com")
         let connection = url("https://hotsauce.acme.com")
         #expect(ServerAddress.windowServer(setting: setting, connection: connection) == setting)
         #expect(ServerAddress.windowServer(setting: nil, connection: connection) == connection)
-        #expect(ServerAddress.windowServer(setting: nil, connection: nil) == ConnectLink.defaultServer)
+    }
+
+    // R1: no built-in address. A fresh Mac has no workspace until it's asked for one.
+    @Test func noWorkspaceWithoutASettingOrAConnection() {
+        #expect(ServerAddress.windowServer(setting: nil, connection: nil) == nil)
     }
 
     @Test func readsTheAddressTheServerReports() {

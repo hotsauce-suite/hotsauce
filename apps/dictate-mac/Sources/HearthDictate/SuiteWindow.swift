@@ -13,7 +13,10 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 {
     let webView: WKWebView
     private let window: NSWindow
-    private(set) var router: SuiteRouter
+    /// Nil until this Mac has a workspace: the window then shows its own page and loads nothing.
+    private(set) var router: SuiteRouter?
+    /// The workspace's address, once there is one.
+    var server: URL? { router?.server }
     /// A short message for the member (a finished download); the app shows it in its overlay.
     var showMessage: (String) -> Void = { _ in }
     /// The app's own links (`hearth-dictate://connect`, `hearth://<path>`) found in the page.
@@ -22,6 +25,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     var signInWithBrowser: () -> Void = {}
     /// The server answered from a new address (it moved): the app remembers the new one.
     var serverMoved: (_ from: URL, _ to: URL) -> Void = { _, _ in }
+    /// The window's own page asked for another workspace address: the app opens the Workspace step.
+    var changeWorkspace: () -> Void = {}
     /// The suite page that couldn't be loaded, while the window shows the "Can't reach" page.
     private var failedURL: URL?
     private var failures = 0
@@ -39,8 +44,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Today's weather asks the app for its position (the web view can't ask macOS itself).
     private let location = LocationService()
 
-    init(server: URL) {
-        router = SuiteRouter(server: server)
+    init(server: URL?) {
+        router = server.map(SuiteRouter.init(server:))
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         // Google refuses to sign in inside apps that don't look like a browser; WebKit's own
@@ -120,7 +125,25 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func loadIfNeeded() {
         guard !hasLoaded else { return }
         hasLoaded = true
-        webView.load(URLRequest(url: router.server))
+        loadHome()
+    }
+
+    /// The suite's home, or the window's own page while there's no workspace.
+    private func loadHome() {
+        if let router {
+            webView.load(URLRequest(url: router.server))
+        } else {
+            stopRetrying()
+            webView.loadHTMLString(SuitePages.noWorkspace(), baseURL: nil)
+        }
+    }
+
+    private func isSuite(_ url: URL) -> Bool { router?.isSuite(url) ?? false }
+
+    /// One of the window's own pages (no workspace, can't reach it), not anything from a server.
+    private var isOnOwnPage: Bool {
+        guard let current = webView.url else { return true }
+        return current.scheme?.lowercased() == "about"
     }
 
     func show() {
@@ -132,7 +155,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     /// Another server (Settings): start again there.
     func setServer(_ server: URL) {
-        guard server != router.server else { return }
+        guard server != router?.server else { return }
         router = SuiteRouter(server: server)
         stopRetrying()
         hasLoaded = true
@@ -142,9 +165,10 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Opens a path of the suite (`/meetings/start?event=x`). On a page of the suite already, it
     /// changes route in place, as the web app's own links do, so a recording isn't reloaded.
     func open(path: String) {
+        guard let router else { return loadIfNeeded() }
         guard let url = router.url(forPath: path) else { return }
         hasLoaded = true
-        if let current = webView.url, router.isSuite(current), !webView.isLoading {
+        if let current = webView.url, isSuite(current), !webView.isLoading {
             Task {
                 do {
                     _ = try await webView.callAsyncJavaScript(
@@ -165,7 +189,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     /// Finishes a browser sign-in: the suite's page that asks for the ticket and redeems it.
     func finishSignIn(ticket: String) {
-        guard let url = BrowserSignIn.finishURL(server: router.server) else { return }
+        guard let server = router?.server, let url = BrowserSignIn.finishURL(server: server) else { return }
         pendingTicket = (ticket, Date())
         hasLoaded = true
         webView.load(URLRequest(url: url))
@@ -175,7 +199,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Hands the pending ticket to the suite's own finish page, once, while it's fresh.
     fileprivate func takeTicket(from message: WKScriptMessage) -> String? {
         guard message.frameInfo.isMainFrame, let page = message.frameInfo.request.url ?? webView.url,
-              router.isSuite(page), page.path == "/desktop/finish",
+              isSuite(page), page.path == "/desktop/finish",
               let pending = pendingTicket
         else { return nil }
         pendingTicket = nil
@@ -264,17 +288,17 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         components.scheme = origin.protocol
         components.host = origin.host
         if origin.port != 0 { components.port = origin.port }
-        guard let originURL = components.url, router.isSuite(originURL) else { return false }
+        guard let originURL = components.url, isSuite(originURL) else { return false }
         return isOnSuitePage
     }
 
     private var isOnSuitePage: Bool {
         guard let current = webView.url else { return false }
-        return router.isSuite(current)
+        return isSuite(current)
     }
 
     private var isOnMeetingsPage: Bool {
-        guard let current = webView.url, router.isSuite(current) else { return false }
+        guard let current = webView.url, isSuite(current) else { return false }
         return MeetingAudio.isMeetingsPath(current.path)
     }
 
@@ -282,7 +306,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// while the Start page only checks the sound: nothing is recorded there yet.
     var recordingMeetingSession: String? {
         guard #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture else { return nil }
-        if let current = webView.url, router.isSuite(current), current.path == "/meetings/start" { return nil }
+        if let current = webView.url, isSuite(current), current.path == "/meetings/start" { return nil }
         return capture.session
     }
 
@@ -314,12 +338,12 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     }
 
     func reload() {
-        if webView.url == nil || webView.url?.scheme == "about" { webView.load(URLRequest(url: router.server)) } else { webView.reload() }
+        if router == nil || isOnOwnPage { loadHome() } else { webView.reload() }
     }
 
     func goBack() { webView.goBack() }
     func goForward() { webView.goForward() }
-    func goHome() { webView.load(URLRequest(url: router.server)) }
+    func goHome() { loadHome() }
     var canGoBack: Bool { webView.canGoBack }
     var canGoForward: Bool { webView.canGoForward }
 
@@ -328,7 +352,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// cookie either way. Nil when the page isn't the suite (signed out, an error page) or the
     /// request fails; the status code otherwise.
     func apiGet(_ path: String) async -> (status: Int, body: Data?)? {
-        guard path.hasPrefix("/api/"), let current = webView.url, router.isSuite(current) else { return nil }
+        guard path.hasPrefix("/api/"), let current = webView.url, isSuite(current) else { return nil }
         let script = """
         const headers = {}
         try { const token = await window.Clerk?.session?.getToken(); if (token) headers.Authorization = 'Bearer ' + token } catch {}
@@ -403,6 +427,16 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
         if action.shouldPerformDownload { return decisionHandler(.download) }
         guard let url = action.request.url else { return decisionHandler(.cancel) }
+        // The window's own pages' "Change workspace address"; a server's page can't ask for it.
+        if SuitePages.isChangeWorkspace(url) {
+            decisionHandler(.cancel)
+            if isOnOwnPage { changeWorkspace() }
+            return
+        }
+        guard let router else {
+            // No workspace: only the window's own page loads.
+            return decisionHandler(url.scheme?.lowercased() == "about" ? .allow : .cancel)
+        }
         let decision = router.decide(
             url,
             isMainFrame: action.targetFrame?.isMainFrame ?? true,
@@ -436,7 +470,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
                     let moved = await followMove(to: url)
                     checkingMove = false
                     // Lost a race with another move: the window is already somewhere new.
-                    if !moved, router.server == server { NSWorkspace.shared.open(url) }
+                    if !moved, self.router?.server == server { NSWorkspace.shared.open(url) }
                 }
             } else {
                 NSWorkspace.shared.open(url)
@@ -450,15 +484,14 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Follows the suite to `target` if the server itself says it now lives there (`publicUrl` in
     /// its /api/health): an instance that changed address forwards its old one to the new one.
     private func followMove(to target: URL) async -> Bool {
-        let old = router.server
-        guard let health = ServerAddress.healthURL(server: old) else { return false }
+        guard let old = router?.server, let health = ServerAddress.healthURL(server: old) else { return false }
         var request = URLRequest(url: health, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         guard let (data, response) = try? await URLSession(configuration: .ephemeral).data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let reported = ServerAddress.reportedOrigin(healthJSON: data),
               ServerAddress.isMove(from: old, to: target, reported: reported),
-              router.server == old
+              router?.server == old
         else { return false }
         router = SuiteRouter(server: reported)
         stopRetrying()
@@ -470,7 +503,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     /// A suite page finished: the server is reachable again, unless what answered was an error.
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        guard let current = webView.url, router.isSuite(current) else { return }
+        guard let current = webView.url, isSuite(current) else { return }
         if answeredWithServerError {
             scheduleRetry(of: current)
         } else {
@@ -506,7 +539,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse, decisionHandler: @escaping @MainActor (WKNavigationResponsePolicy) -> Void) {
         let http = response.response as? HTTPURLResponse
         if response.isForMainFrame, let url = http?.url {
-            answeredWithServerError = router.isSuite(url) && (http?.statusCode ?? 0) >= 500
+            answeredWithServerError = isSuite(url) && (http?.statusCode ?? 0) >= 500
         }
         let disposition = http?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
         // Only the page itself: an iframe's response never starts a download.
@@ -553,35 +586,20 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         let nsError = error as NSError
         // Cancelled (a new navigation started), or a response that became a download.
         if nsError.code == NSURLErrorCancelled || (nsError.domain == "WebKitErrorDomain" && nsError.code == 102) { return }
-        let failing = (nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL) ?? router.server
-        let retry = router.isSuite(failing) ? failing : router.server
+        guard let server = router?.server else { return }
+        let failing = (nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL) ?? server
+        let retry = isSuite(failing) ? failing : server
         // Try again by itself: a server restarting for an update is back in seconds, and a Mac
         // that opened the app at login may not be online yet.
         scheduleRetry(of: retry)
-        let html = """
-        <!doctype html><meta charset="utf-8"><title>\(escape(Brand.name))</title>
-        <style>
-        :root { color-scheme: light dark; --ink: #2A221D; --soft: #5B4E44; --paper: #F2EADF; --accent: #\(String(format: "%06X", Brand.accentLight)); }
-        @media (prefers-color-scheme: dark) { :root { --ink: #EDE3D6; --soft: #C1B2A2; --paper: #1D1815; --accent: #\(String(format: "%06X", Brand.accentDark)); } }
-        body { font: 14px -apple-system, system-ui; background: var(--paper); color: var(--ink); display: grid; place-items: center; height: 100vh; margin: 0; }
-        h1 { font: 600 22px ui-serif, Georgia, serif; margin: 0 0 8px; }
-        p { color: var(--soft); margin: 0 0 20px; max-width: 420px; }
-        a { color: white; background: var(--accent); padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; }
-        </style>
-        <div><h1>Can’t reach \(escape(Brand.name))</h1><p>\(escape(nsError.localizedDescription)) Trying again by itself…</p><a href="\(escape(retry.absoluteString))">Try again</a></div>
-        """
-        webView.loadHTMLString(html, baseURL: nil)
-    }
-
-    private func escape(_ text: String) -> String {
-        text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;")
+        // Names the address it tried, with a way to another one (a mistyped or old address).
+        webView.loadHTMLString(SuitePages.cantReach(address: server, reason: nsError.localizedDescription, retry: retry), baseURL: nil)
     }
 
     // MARK: Windows, panels and permissions the page asks for
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        guard let url = action.request.url, url.absoluteString != "about:blank" else { return nil }
+        guard let router, let url = action.request.url, url.absoluteString != "about:blank" else { return nil }
         // WebKit only asks here on a click (scripts can't open windows on their own).
         switch router.decide(url, isMainFrame: true, userClicked: true, newWindow: true) {
         case let .loadInWindow(target): webView.load(URLRequest(url: target))
@@ -610,7 +628,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         components.scheme = origin.protocol
         components.host = origin.host
         if origin.port != 0 { components.port = origin.port }
-        if let url = components.url, router.isSuite(url) { decisionHandler(.grant) } else { decisionHandler(.prompt) }
+        if let url = components.url, isSuite(url) { decisionHandler(.grant) } else { decisionHandler(.prompt) }
     }
 
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor () -> Void) {
@@ -656,7 +674,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         // Only the suite's own page, not an iframe or a page elsewhere.
         guard message.frameInfo.isMainFrame, let page = message.frameInfo.request.url ?? webView.url,
-              router.isSuite(page)
+              isSuite(page)
         else { return }
         if message.name == "hearthSignIn" { return signInWithBrowser() }
         guard message.name == "hearthDownload",

@@ -120,8 +120,13 @@ export function MacAppCard() {
               confirm. On macOS 14, Control-click the app and choose Open instead.
             </li>
             <li>
-              Sign in when it opens. Allow what its setup window lists (microphone, Accessibility,
-              Location and Notifications); it opens at each start until all are on. Then press
+              When it asks where your team’s {product()} lives, enter{' '}
+              <span className="font-medium text-ink">{window.location.host}</span> and press
+              Continue, then Sign in with Google.
+            </li>
+            <li>
+              Allow what its setup window lists (microphone, Accessibility, Location and
+              Notifications); it opens at each start until all are on. Then press
               Connect this Mac on the{' '}
               <Link to="/dictate/mac" className="text-ember-strong underline">
                 Dictate page
