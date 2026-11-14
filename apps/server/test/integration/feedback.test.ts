@@ -184,3 +184,92 @@ describe('Send feedback API', () => {
     off.dictation.store.close()
   })
 })
+
+// docs/PLAN-feedback-screenshots.md S4.
+describe('Send feedback with screenshots', () => {
+  const png = (size = 16) => {
+    const bytes = new Uint8Array(size)
+    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    return bytes
+  }
+  const payload = { kind: 'bug', text: 'The chart is blank on Today', context: { page: '/today' } }
+  const send = (files: { bytes: Uint8Array; type: string; name?: string }[], body = payload) => {
+    const form = new FormData()
+    form.set('payload', JSON.stringify(body))
+    for (const f of files) {
+      form.append(
+        'screenshot',
+        new File([f.bytes as Uint8Array<ArrayBuffer>], f.name ?? 'shot.png', { type: f.type }),
+      )
+    }
+    return app.request('/api/feedback', {
+      method: 'POST',
+      headers: { 'x-hearth-dev-user': ALICE },
+      body: form,
+    })
+  }
+
+  it('saves the pictures and files the issue with them', async () => {
+    const res = await send([
+      { bytes: png(), type: 'image/png' },
+      { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0]), type: 'image/jpeg', name: 'p.jpg' },
+    ])
+    expect(res.status).toBe(201)
+    expect(tracker.uploads).toHaveLength(2)
+    const body = tracker.issues[0]?.body ?? ''
+    expect(body).toContain('The chart is blank on Today')
+    expect(body).toContain('![Screenshot 1](https://github.invalid/feedback/blob/main/screenshots/')
+    expect(body).toContain('![Screenshot 2]')
+  })
+
+  it('takes a 4 MB picture, above the old JSON route limit for three of them', async () => {
+    const big = png(4 * 1024 * 1024)
+    const res = await send([
+      { bytes: big, type: 'image/png' },
+      { bytes: big, type: 'image/png' },
+      { bytes: big, type: 'image/png' },
+    ])
+    expect(res.status).toBe(201)
+    expect(tracker.uploads).toHaveLength(3)
+  })
+
+  it('refuses a fourth picture, a fake image and an oversized one', async () => {
+    const four = await send(Array.from({ length: 4 }, () => ({ bytes: png(), type: 'image/png' })))
+    expect(four.status).toBe(400)
+    const svg = await send([
+      {
+        bytes: new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+        type: 'image/png',
+      },
+    ])
+    expect(svg.status).toBe(400)
+    expect((await svg.json()).error.message).toMatch(/PNG, JPEG, WebP or GIF/)
+    const huge = await send([{ bytes: png(5 * 1024 * 1024 + 1), type: 'image/png' }])
+    expect(huge.status).toBe(400)
+    expect(tracker.issues).toEqual([])
+    expect(tracker.uploads).toEqual([])
+  })
+
+  it('refuses a body far beyond three pictures', async () => {
+    const res = await send([{ bytes: new Uint8Array(17 * 1024 * 1024), type: 'image/png' }])
+    expect(res.status).toBe(413)
+  })
+
+  it('checks the payload as strictly as the JSON route', async () => {
+    const res = await send([{ bytes: png(), type: 'image/png' }], {
+      ...payload,
+      kind: 'rant',
+    } as typeof payload)
+    expect(res.status).toBe(400)
+    expect(tracker.issues).toEqual([])
+  })
+
+  it('keeps the usual body limit on other routes', async () => {
+    const res = await app.request('/api/feedback/clarify', {
+      method: 'POST',
+      headers: { 'x-hearth-dev-user': ALICE, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'bug', text: 'x'.repeat(13 * 1024 * 1024) }),
+    })
+    expect(res.status).toBe(413)
+  })
+})

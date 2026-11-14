@@ -74,6 +74,21 @@ export function testRoutes(deps: AppDeps) {
       await deps.tasks.reminders?.tick()
       return c.json({ ok: true })
     })
+    .get(
+      '/feedback/:number',
+      valid('param', z.object({ number: z.coerce.number().int().positive() })),
+      (c) => {
+        // Send feedback: what was filed, and the screenshots saved for it, as GitHub would hold them.
+        const tracker = deps.feedback.memoryTracker
+        if (!tracker) throw new HearthError('not_found', 'No in-memory feedback on this server')
+        const issue = tracker.issues.find((i) => i.number === c.req.valid('param').number)
+        if (!issue) throw new HearthError('not_found', 'No such feedback')
+        const uploads = tracker.uploads
+          .filter((u) => issue.body.includes(u.path))
+          .map((u) => ({ path: u.path, bytes: u.bytes.length }))
+        return c.json({ title: issue.title, body: issue.body, uploads })
+      },
+    )
     .post(
       '/feedback/:number/ask',
       valid('param', z.object({ number: z.coerce.number().int().positive() })),

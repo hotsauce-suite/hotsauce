@@ -7,6 +7,7 @@ export {
   type QA,
 } from './clarify.js'
 export { redactSecrets } from './redact.js'
+export { MAX_SCREENSHOT_BYTES, MAX_SCREENSHOTS, sniffImage } from './screenshots.js'
 export {
   CLARIFY_LIMIT_PER_HOUR,
   Feedback,

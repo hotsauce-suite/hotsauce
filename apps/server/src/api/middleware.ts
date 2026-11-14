@@ -7,6 +7,7 @@ import { PUBLIC_BOOKING_PREFIX } from './booking.js'
 import { BRIEFCAST_FEED_PREFIX } from './briefcast.js'
 import { CLIP_MEDIA_PREFIX } from './clips.js'
 import type { AppDeps, AppEnv } from './env.js'
+import { FEEDBACK_SUBMIT_PATH } from './feedback.js'
 import { FORM_FILL_PREFIX } from './forms.js'
 import { SHARED_PREFIX } from './shares.js'
 
@@ -118,6 +119,10 @@ export function limitBody() {
   return createMiddleware<AppEnv>((c, next) => {
     // A form's answer can carry three 10 MB files; its route has its own limit.
     if (isPublic(c.req.path) || c.req.path.startsWith(FORM_FILL_PREFIX)) return next()
+    // Send feedback carries up to three 5 MB screenshots; its route has its own 16 MB limit.
+    if (c.req.method === 'POST' && c.req.path.replace(/\/$/, '') === FEEDBACK_SUBMIT_PATH) {
+      return next()
+    }
     const isAudio = c.req.path === DICTATION_UPLOAD || c.req.path === RAMBLE_UPLOAD
     return isAudio ? audio(c, next) : limit(c, next)
   })
