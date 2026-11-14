@@ -14,7 +14,7 @@ function bridge(): Handler | undefined {
     ?.messageHandlers?.hearthNotifications
 }
 
-/** Whether this page is in a Mac app that can answer (0.12.6 and later). */
+/** Whether this page is in a Mac app new enough to answer; older ones keep the browser note. */
 export function hasMacNotifications(): boolean {
   return Boolean(bridge())
 }

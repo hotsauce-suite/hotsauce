@@ -88,7 +88,7 @@ enum Permissions {
             let state: NotificationsBridge.State
             switch settings.authorizationStatus {
             case .notDetermined: state = .undecided
-            case .authorized, .provisional, .ephemeral: state = .on
+            case .authorized, .provisional: state = .on
             default: state = .off
             }
             DispatchQueue.main.async { done(state) }
