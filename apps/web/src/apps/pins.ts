@@ -55,6 +55,10 @@ function writeCache(pins: readonly string[] | null): void {
 
 let current: readonly string[] | null = null
 let fetched = false
+// Bumped by every save and by sign-out, so an answer that arrives after either is dropped.
+let generation = 0
+// Saves go to the server one at a time, in click order.
+let queue: Promise<unknown> = Promise.resolve()
 const listeners = new Set<() => void>()
 
 function emit(): void {
@@ -65,16 +69,18 @@ function load(): void {
   if (fetched) return
   fetched = true
   current ??= readCache()
+  const asked = generation
   void api
     .pins()
     .then(({ pins }) => {
+      if (asked !== generation) return
       current = pins
       writeCache(pins)
       emit()
     })
     .catch(() => {
       // Offline or signed out mid-load: keep what the cache had, and try again next time.
-      fetched = false
+      if (asked === generation) fetched = false
     })
 }
 
@@ -93,25 +99,37 @@ export function usePins(): readonly string[] {
   return useSyncExternalStore(subscribe, snapshot, snapshot)
 }
 
-/** Saves a new pinned list: the rail follows at once, the server a moment later. */
-export async function savePins(pins: readonly string[]): Promise<void> {
+/**
+ * Saves a new pinned list: the rail follows at once, the server a moment later. If the server
+ * refuses, the rail goes back to what the server has.
+ */
+export function savePins(pins: readonly string[]): Promise<void> {
   const next = [...new Set(pins)].slice(0, MAX_PINS)
-  const before = current
+  const mine = ++generation
   current = next
   writeCache(next)
   emit()
-  try {
-    await api.setPins(next)
-  } catch (err) {
-    current = before
-    writeCache(before)
-    emit()
-    throw err
-  }
+  const saved = queue.then(() => api.setPins(next))
+  queue = saved.catch(() => {})
+  return saved.then(
+    () => {},
+    async (err) => {
+      if (mine === generation) {
+        const { pins: theirs } = await api.pins().catch(() => ({ pins: current }))
+        if (mine === generation) {
+          current = theirs
+          writeCache(theirs)
+          emit()
+        }
+      }
+      throw err
+    },
+  )
 }
 
 /** Forgets this member's pins (at sign-out, so the next member starts from their own). */
 export function forgetPins(): void {
+  generation++
   current = null
   fetched = false
   writeCache(null)

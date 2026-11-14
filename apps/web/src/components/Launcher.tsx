@@ -23,9 +23,10 @@ import { Icon, type IconName } from './Icon'
 export function LauncherButton({ active, className }: { active: AppId | null; className: string }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const close = () => {
+  // Focus goes back to the button, except when an app was opened: then it's that page's.
+  const close = (restoreFocus = true) => {
     setAnchor(null)
-    buttonRef.current?.focus()
+    if (restoreFocus) buttonRef.current?.focus()
   }
   return (
     <>
@@ -58,7 +59,7 @@ function Launcher({
 }: {
   anchor: DOMRect
   active: AppId | null
-  onClose: () => void
+  onClose: (restoreFocus?: boolean) => void
 }) {
   const location = useLocation()
   const session = useSession()
@@ -66,7 +67,14 @@ function Launcher({
   const [editing, setEditing] = useState(false)
   // While a pinned app is dragged, the order shown; saved when it's dropped.
   const [dragOrder, setDragOrder] = useState<string[] | null>(null)
-  const drag = useRef<{ id: string; pointer: number } | null>(null)
+  // A press on a pinned app in edit mode; it becomes a drag once it moves a few pixels.
+  const drag = useRef<{
+    id: string
+    pointer: number
+    x: number
+    y: number
+    moving: boolean
+  } | null>(null)
   // A drag that moved an app ends in a click on it, which mustn't also unpin it.
   const dragged = useRef(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -98,7 +106,7 @@ function Launcher({
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('a, button')?.focus()
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current()
+      if (event.key === 'Escape' && !event.defaultPrevented) onCloseRef.current()
     }
     const onDown = (event: globalThis.PointerEvent) => {
       if (!ref.current?.contains(event.target as Node)) onCloseRef.current()
@@ -114,19 +122,37 @@ function Launcher({
   // Following a link closes the launcher.
   const startKey = useRef(location.key)
   useEffect(() => {
-    if (location.key !== startKey.current) onCloseRef.current()
+    if (location.key !== startKey.current) onCloseRef.current(false)
   }, [location.key])
+
+  // The popover is placed from the button's spot when it opened; a resize closes it instead.
+  useEffect(() => {
+    const onResize = () => onCloseRef.current(false)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const onDragStart = (event: PointerEvent<HTMLElement>, id: string) => {
     if (!editing || event.button !== 0) return
-    drag.current = { id, pointer: event.pointerId }
+    drag.current = {
+      id,
+      pointer: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moving: false,
+    }
     dragged.current = false
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    setDragOrder(pinned.map(entryId))
   }
   const onDragMove = (event: PointerEvent<HTMLElement>) => {
     const dragging = drag.current
     if (dragging?.pointer !== event.pointerId) return
+    // Capture only once it moves, so a plain click still lands on the unpin button.
+    if (!dragging.moving) {
+      if (Math.hypot(event.clientX - dragging.x, event.clientY - dragging.y) < 5) return
+      dragging.moving = true
+      event.currentTarget.setPointerCapture?.(event.pointerId)
+      setDragOrder(pinned.map(entryId))
+    }
     const over = document
       .elementFromPoint?.(event.clientX, event.clientY)
       ?.closest<HTMLElement>('[data-pin-id]')?.dataset.pinId
@@ -146,6 +172,8 @@ function Launcher({
     drag.current = null
     const next = dragOrder
     setDragOrder(null)
+    // A cancelled touch (the page scrolled, a call came in) puts everything back.
+    if (event.type === 'pointercancel') return
     if (next && next.join() !== pinnedEntries(saved).map(entryId).join()) save(next)
   }
   const onPinnedKey = (event: KeyboardEvent<HTMLElement>, id: string) => {
@@ -166,8 +194,8 @@ function Launcher({
       aria-label="All apps"
       data-testid="launcher"
       data-editing={editing ? 'true' : undefined}
-      style={{ left: anchor.right + 8, bottom: window.innerHeight - top }}
-      className="fixed z-40 flex max-h-[calc(100dvh-1rem)] w-[22rem] max-w-[calc(100vw-var(--rail-width)-1rem)] flex-col rounded-2xl border border-ash bg-paper-raised shadow-float"
+      style={{ left: anchor.right + 8, bottom: window.innerHeight - top, maxHeight: top - 8 }}
+      className="fixed z-40 flex w-[22rem] max-w-[calc(100vw-var(--rail-width)-1rem)] flex-col rounded-2xl border border-ash bg-paper-raised shadow-float"
     >
       <div className="min-h-0 overflow-y-auto overscroll-contain p-3">
         <div className="flex items-center justify-between gap-2 px-1 pb-2">
