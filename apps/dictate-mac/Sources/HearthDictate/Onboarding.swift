@@ -154,10 +154,10 @@ final class OnboardingModel: ObservableObject {
 
     var allSet: Bool { permissionsGranted && listening && connected }
 
-    /// Opens the Workspace step, filled with the address this Mac uses now, if any.
-    func beginWorkspace() {
+    /// Opens the Workspace step, filled with `address` (a setup link's) or the one this Mac uses now.
+    func beginWorkspace(address: URL? = nil) {
         editingWorkspace = true
-        workspaceText = workspace().map(Workspace.displayAddress) ?? ""
+        workspaceText = (address ?? workspace()).map(Workspace.displayAddress) ?? ""
         workspaceError = nil
         workspaceFound = nil
     }
@@ -205,8 +205,8 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
 
     var isVisible: Bool { window?.isVisible ?? false }
     /// The setup window at its Workspace step: a Mac with no workspace, or "Change workspace address".
-    func showWorkspace() {
-        model.beginWorkspace()
+    func showWorkspace(address: URL? = nil) {
+        model.beginWorkspace(address: address)
         show()
     }
 

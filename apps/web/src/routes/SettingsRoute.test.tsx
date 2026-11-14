@@ -174,6 +174,14 @@ describe('Settings: Mac app', () => {
       '/downloads/Hotsauce.zip',
     )
     expect(within(section).getByTestId('mac-app-install-steps')).toHaveTextContent('Open Anyway')
+    // The setup link fills the Mac app's Workspace step with this server's address (R5).
+    expect(within(section).getByTestId('mac-app-setup-link')).toHaveAttribute(
+      'href',
+      `hearth://setup?server=${encodeURIComponent(window.location.origin)}`,
+    )
+    expect(within(section).getByTestId('mac-app-install-steps')).toHaveTextContent(
+      window.location.host,
+    )
     expect(within(section).getByTestId('mac-app-open-privacy')).toHaveAttribute(
       'href',
       'x-apple.systempreferences:com.apple.preference.security',

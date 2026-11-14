@@ -690,6 +690,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             suite.finishSignIn(ticket: ticket)
             return
         }
+        // A workspace's setup link fills the Workspace step; Continue still checks it (R4).
+        if let url = URL(string: text), let server = SetupLink.server(from: url) {
+            onboarding.showWorkspace(address: server)
+            return
+        }
         if let url = URL(string: text), let path = SuiteRouter.deepLinkPath(url) {
             suite.show()
             suite.open(path: path)
