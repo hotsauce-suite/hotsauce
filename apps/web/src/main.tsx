@@ -44,8 +44,11 @@ function showDemoNotice() {
     textDecoration: 'none',
     boxShadow: '0 2px 8px rgba(0,0,0,.25)',
   })
+  // On a phone it sits above the tab bar; on a computer, past the rail, so the account button
+  // at the rail's foot stays clickable.
   if (matchMedia('(max-width: 767px)').matches)
     note.style.bottom = 'calc(76px + env(safe-area-inset-bottom))'
+  else note.style.left = 'calc(var(--rail-width) + 12px)'
   document.body.append(note)
 }
 
