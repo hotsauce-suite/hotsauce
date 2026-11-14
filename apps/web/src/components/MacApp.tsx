@@ -111,8 +111,9 @@ export function MacAppSection() {
               confirm. On macOS 14, Control-click the app and choose Open instead.
             </li>
             <li>
-              Sign in when it opens. To dictate, allow the microphone and Accessibility when it
-              asks, then press Connect this Mac on the{' '}
+              Sign in when it opens. Allow what its setup window lists (microphone, Accessibility,
+              Location and Notifications); it opens at each start until all are on. Then press
+              Connect this Mac on the{' '}
               <Link to="/dictate/mac" className="text-ember-strong underline">
                 Dictate page
               </Link>

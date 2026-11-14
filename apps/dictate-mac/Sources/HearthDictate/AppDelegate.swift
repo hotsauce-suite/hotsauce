@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var controller = DictationController(settings: settings, history: historyStore)
     private lazy var monitor = HotkeyMonitor(hotkey: settings.hotkey)
     private let onboarding = OnboardingWindow()
+    /// The setup window's Location button: asks macOS the way Today's weather does.
+    private let setupLocation = LocationService()
     let mainWindow = MainWindow()
     private var pruneTimer: Timer?
     private var statusItem: NSStatusItem!
@@ -64,6 +66,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         onboarding.model.startHotkey = { [weak self] in
             if Permissions.accessibilityGranted { self?.monitor.start() }
         }
+        onboarding.model.requestLocation = { [weak self] in
+            self?.setupLocation.request { _ in self?.onboarding.model.refresh() }
+        }
+        onboarding.model.needsNotifications = { [weak self] in self?.needsNotifications ?? true }
         onboarding.model.isMenuBarIconHidden = { [weak self] in
             guard let self else { return false }
             return self.settings.showInMenuBar && !self.menuBarIconShown
@@ -84,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // A login item starts quietly: the suite loads (for reminders) without its window.
         if launchedAsLoginItem { suite.loadIfNeeded() } else { suite.show() }
-        if !settings.hasOnboarded { onboarding.show() }
+        showSetupIfAnythingIsMissing()
         reminders.start()
         if #available(macOS 14.2, *) {
             let detector = CallDetector(suite: suite) { [weak self] in self?.settings.offerCallNotes ?? false }
@@ -581,7 +587,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func showOnboarding() { onboarding.show() }
+    @objc func showOnboarding() { onboarding.show() }
+
+    /// Meeting reminders and call-notes offers are the only things that show notifications; call
+    /// detection runs only on macOS 14.2 and later.
+    private var needsNotifications: Bool {
+        if settings.meetingReminders { return true }
+        if #available(macOS 14.2, *) { return settings.offerCallNotes }
+        return false
+    }
+
+    /// At every launch, login items too: the first one always shows the setup window, and later
+    /// ones show it while any permission is missing, until all are granted.
+    private func showSetupIfAnythingIsMissing() {
+        OnboardingModel.snapshot(notificationsNeeded: needsNotifications) { [weak self] snapshot in
+            guard let self else { return }
+            let missing = PermissionCheck.missing(snapshot)
+            UserDefaults.standard.set(missing.map(\.rawValue), forKey: "status.missingAtLaunch")
+            if PermissionCheck.showAtLaunch(hasOnboarded: self.settings.hasOnboarded, missing: missing) {
+                self.onboarding.show()
+            }
+        }
+    }
 
     @objc private func openMainWindow() { mainWindow.show() }
 
