@@ -43,6 +43,7 @@ import {
   DictationStore,
   type DictationTranscriber,
   FakeDictationTranscriber,
+  teamChatNames,
 } from './dictation/index.js'
 import {
   Clarifier,
@@ -239,6 +240,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
           )
         : llm),
     model: config.DICTATION_MODEL,
+    chatNames: teamChatNames({ orgName: config.ORG_NAME, chatUrl: config.CHAT_URL }),
   })
   const meetings = createMeetingServices(
     config,

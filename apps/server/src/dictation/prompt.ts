@@ -54,16 +54,32 @@ const STYLES: Array<{ style: DictationStyle; bundles: string[]; names: string[] 
   },
 ]
 
-export function styleForApp(app: {
-  name?: string | undefined
-  bundle?: string | undefined
-}): DictationStyle {
+/**
+ * The names the organization's own team chat shows under, when it has one (CHAT_URL): the app
+ * rail calls it "<organization> Chat", and as an installed web app it can be "<org>-chat".
+ */
+export function teamChatNames(org: { orgName: string; chatUrl?: string | undefined }): string[] {
+  const name = org.orgName.trim().toLowerCase()
+  if (!name || !org.chatUrl) return []
+  return [`${name} chat`, `${name.replace(/\s+/g, '-')}-chat`]
+}
+
+export function styleForApp(
+  app: {
+    name?: string | undefined
+    bundle?: string | undefined
+  },
+  opts: { chatNames?: string[] } = {},
+): DictationStyle {
   const bundle = app.bundle?.trim()
   const name = app.name?.trim().toLowerCase() ?? ''
   for (const entry of STYLES) {
     if (bundle && entry.bundles.includes(bundle)) return entry.style
   }
-  for (const entry of STYLES) {
+  const entries = opts.chatNames?.length
+    ? [{ style: 'chat' as const, names: opts.chatNames }, ...STYLES]
+    : STYLES
+  for (const entry of entries) {
     if (
       entry.names.some(
         (n) => name === n || new RegExp(`(^|[^a-z])${escapeRegExp(n)}([^a-z]|$)`).test(name),

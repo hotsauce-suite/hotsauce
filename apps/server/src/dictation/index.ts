@@ -7,6 +7,7 @@ export {
   type DictationStyle,
   extractCleaned,
   styleForApp,
+  teamChatNames,
 } from './prompt.js'
 export { RateLimiter } from './rate-limit.js'
 export {

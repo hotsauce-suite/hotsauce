@@ -13,7 +13,7 @@ const MEMBER: Principal = {
   isAdmin: false,
 }
 
-function dictation(text: string) {
+function dictation(text: string, chatNames?: string[]) {
   const llm = new FakeLLM(() => '<cleaned>Cleaned.</cleaned>')
   const logs: string[] = []
   const transcriber: DictationTranscriber = { transcribe: async () => ({ text, durationMs: 900 }) }
@@ -22,6 +22,7 @@ function dictation(text: string) {
     transcriber,
     llm,
     model: 'm',
+    ...(chatNames ? { chatNames } : {}),
     log: (m) => logs.push(m),
   })
   return { service, llm, logs }
@@ -121,6 +122,15 @@ describe('Dictation', () => {
     const { service, llm } = dictation('um so let us ship it on Wednesday')
     expect(await service.dictate(MEMBER, req)).toMatchObject({ text: 'Cleaned.', cleaned: true })
     expect(llm.calls[0]?.maxTokens).toBeLessThan(100)
+  })
+
+  it("styles the organization's own chat like Slack", async () => {
+    const team = dictation('um the secret launch code is banana', ['acme chat'])
+    await team.service.dictate(MEMBER, { ...req, appName: 'Acme Chat' })
+    expect(team.logs[0]).toContain('"style":"chat"')
+    const other = dictation('um the secret launch code is banana')
+    await other.service.dictate(MEMBER, { ...req, appName: 'Acme Chat' })
+    expect(other.logs[0]).toContain('"style":"neutral"')
   })
 
   it('logs timings and counts, never the text', async () => {
