@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures'
+import { expect, openApp, test } from './fixtures'
 
 /** A 16 kHz mono PCM16 WAV of silence. */
 function wav(ms: number): Buffer {
@@ -25,7 +25,7 @@ test('Dictate: connect this Mac, dictate with its token, words, disconnect', asy
   baseURL,
 }) => {
   await connectTab.goto('/docs')
-  await connectTab.getByTestId('app-switch-dictate').click()
+  await openApp(connectTab, 'dictate')
   await expect(connectTab).toHaveURL(/\/dictate$/)
   await expect(
     connectTab.getByRole('heading', { name: 'Talk anywhere you can type.' }),

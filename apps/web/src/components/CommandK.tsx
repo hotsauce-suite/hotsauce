@@ -6,6 +6,7 @@ import { personUrl } from '../api/people'
 import { memberTimeZone, tasksApi } from '../api/tasks'
 import type { SearchResult } from '../api/types'
 import { checkinFileUrl } from '../apps/checkins/manifest'
+import { usePins } from '../apps/pins'
 import { APPS, type AppId, appForFile, railLinks } from '../apps/registry'
 import { GO_KEYS, type GoTarget, SHORTCUTS } from '../keyboard/catalog'
 import {
@@ -100,8 +101,11 @@ interface Jump {
   external: boolean
 }
 
-/** "Go to <app>" for every app and rail link whose name matches the query (all of them for none). */
-function jumpsFor(query: string): Jump[] {
+/**
+ * "Go to <app>" for every app and rail link whose name matches the query (all of them for none),
+ * the member's pinned apps first, in rail order.
+ */
+function jumpsFor(query: string, pins: readonly string[]): Jump[] {
   const all: Jump[] = [
     ...APPS.map((app) => ({
       id: app.id,
@@ -118,6 +122,11 @@ function jumpsFor(query: string): Jump[] {
       external: true,
     })),
   ]
+  const rank = (jump: Jump) => {
+    const at = pins.indexOf(jump.id)
+    return at === -1 ? pins.length : at
+  }
+  all.sort((a, b) => rank(a) - rank(b))
   const words = terms(query)
   return all.filter((jump) => {
     // Each typed word must start a word of "go to <name>", so "e" or "meet" in a doc title
@@ -170,6 +179,7 @@ export default function CommandK({
 }) {
   const session = useSession()
   const navigate = useNavigate()
+  const pins = usePins()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<{ query: string; hits: SearchResult[] } | null>(null)
   const [error, setError] = useState(false)
@@ -233,7 +243,7 @@ export default function CommandK({
     navigate(hitUrl(hit.space, hit.path))
   }
 
-  const jumps = jumpsFor(query)
+  const jumps = jumpsFor(query, pins)
   const [confirming, setConfirming] = useState<Action | null>(null)
   // In the order the groups show, so the highlighted command is the first one on screen.
   const actions = matchCommands(useCommandList(), query).sort(

@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test'
-import { signIn, uid } from './fixtures'
+import { openApp, signIn, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
 // Hearth Whiteboard (ARCHITECTURE §15), against the built server: draw, autosave, reload,
@@ -37,8 +37,7 @@ test('W6: Excalidraw loads only on a board page', async ({ page, member: _member
     if (res.url().endsWith('.js')) scripts.push(await res.text().catch(() => ''))
   })
   await page.goto('/docs')
-  await expect(page.getByTestId('app-switch-boards')).toBeVisible()
-  await page.getByTestId('app-switch-boards').click()
+  await openApp(page, 'boards')
   await expect(page.getByTestId('boards-list')).toBeVisible()
   await page.waitForLoadState('networkidle')
   expect(scripts.length).toBeGreaterThan(0)
@@ -55,9 +54,9 @@ test('W9: new board → draw a box and a text → it saves itself → reload →
   let space = ''
   let id = ''
 
-  await test.step('Whiteboard opens from the app rail; New board opens an empty canvas', async () => {
+  await test.step('Whiteboard opens from the launcher; New board opens an empty canvas', async () => {
     await page.goto('/docs')
-    await page.getByTestId('app-switch-boards').click()
+    await openApp(page, 'boards')
     await expect(page).toHaveURL(/\/boards$/)
     await page.getByTestId('boards-new-page').click()
     await expect(page).toHaveURL(/\/boards\/[^/]+\/[0-9A-Z]{26}$/)

@@ -467,6 +467,20 @@ function createHandlers(
       repo.setStar(user.email, body.space, body.path, body.starred)
       return HttpResponse.json({ ok: true })
     }),
+
+    http.get('/api/pins', ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      return HttpResponse.json({ pins: repo.pins.get(user.email) ?? null })
+    }),
+
+    http.put('/api/pins', async ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const { pins } = (await request.json()) as { pins: string[] }
+      repo.pins.set(user.email, pins)
+      return HttpResponse.json({ pins })
+    }),
   ]
 
   // Before the meetings routes: ticking a meeting's action item is recorded here first.

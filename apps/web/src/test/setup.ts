@@ -3,6 +3,7 @@ import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import { hearthSocket } from '../api/ws'
+import { forgetPins } from '../apps/pins'
 import { resetMockApi, server, TEST_USER } from './mockServer'
 
 // jsdom gaps that CodeMirror and cmdk touch.
@@ -40,6 +41,7 @@ afterEach(() => {
   hearthSocket.stop()
   setUnauthorizedHandler(null)
   localStorage.clear()
+  forgetPins()
 })
 
 afterAll(() => server.close())

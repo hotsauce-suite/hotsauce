@@ -250,6 +250,16 @@ export class Index {
     return this.#q.listStars.all(user)
   }
 
+  /** The apps `user` pinned to their rail, in order; null until they first change them. */
+  getPins(user: string): string[] | null {
+    const row = this.#q.getPins.get(user)
+    return row ? (JSON.parse(row.apps) as string[]) : null
+  }
+
+  setPins(user: string, apps: readonly string[]): void {
+    this.#q.setPins.run(user, JSON.stringify(apps))
+  }
+
   getSpace(name: string): SpaceRecord | null {
     return this.#q.getSpace.get(name) ?? null
   }
@@ -415,6 +425,11 @@ function prepareStatements(db: Database.Database) {
       SELECT s.space, s.path, f.title
       FROM stars s LEFT JOIN files f ON f.space = s.space AND f.path = s.path
       WHERE s.user = ? ORDER BY s.space, s.path`),
+
+    getPins: db.prepare<[string], { apps: string }>('SELECT apps FROM pins WHERE user = ?'),
+    setPins: db.prepare<[string, string]>(`
+      INSERT INTO pins (user, apps) VALUES (?, ?)
+      ON CONFLICT (user) DO UPDATE SET apps = excluded.apps`),
 
     getSpace: db.prepare<[string], SpaceRecord>(`
       SELECT name, kind, owner_email AS ownerEmail, created_at AS createdAt

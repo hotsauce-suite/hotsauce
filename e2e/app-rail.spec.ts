@@ -1,7 +1,8 @@
-import { docUrl, expect, test, uid } from './fixtures'
+import { docUrl, expect, openApp, test, uid } from './fixtures'
 
 // The app rail (ARCHITECTURE §6 shell): switch apps in one click, land where you left each,
-// Settings, Acme Chat in a new tab, and the account menu's Sign out.
+// Settings, Acme Chat in a new tab, the account menu's Sign out, and the pinned apps with the
+// launcher that holds every app (docs/PLAN-pinned-rail.md).
 
 test('switches apps from the rail and returns to where each was', async ({ page, api, user }) => {
   const id = uid()
@@ -24,8 +25,10 @@ test('switches apps from the rail and returns to where each was', async ({ page,
   await expect(page.getByTestId('editor-content')).toContainText('Where I left off.')
   await expect(rail.getByTestId('app-switch-docs')).toHaveAttribute('aria-current', 'page')
 
-  await rail.getByTestId('app-switch-dictate').click()
+  // Dictate isn't pinned: it opens from the launcher and shows below the pins while open.
+  await openApp(page, 'dictate')
   await expect(page).toHaveURL(/\/dictate$/)
+  await expect(rail.getByTestId('app-switch-dictate')).toHaveAttribute('aria-current', 'page')
   await rail.getByTestId('settings-link').click()
   await expect(page).toHaveURL(/\/settings$/)
   await expect(rail.getByTestId('settings-link')).toHaveAttribute('aria-current', 'page')
@@ -76,7 +79,34 @@ test('the account menu shows the email and opens Settings, where Sign out is', a
   await expect(page.getByTestId('app-rail')).toHaveCount(0)
 })
 
-test('the desktop rail icons are half again the phone bar size, and every label fits', async ({
+test('pins an app from the launcher, and the rail keeps it after a reload', async ({ page }) => {
+  await page.goto('/docs')
+  const rail = page.getByTestId('app-rail')
+  await expect(rail.getByTestId('app-switch-tasks')).toBeVisible()
+  await expect(rail.getByTestId('app-switch-notes')).toHaveCount(0)
+
+  await page.getByTestId('launcher-button').click()
+  const launcher = page.getByTestId('launcher')
+  await launcher.getByTestId('launcher-edit').click()
+  await launcher.getByTestId('launcher-toggle-notes').click()
+  await launcher.getByTestId('launcher-unpin-tasks').click()
+  await expect(rail.getByTestId('app-switch-notes')).toBeVisible()
+  await expect(rail.getByTestId('app-switch-tasks')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(launcher).toHaveCount(0)
+
+  await page.reload()
+  await expect(rail.getByTestId('app-switch-notes')).toBeVisible()
+  await expect(rail.getByTestId('app-switch-tasks')).toHaveCount(0)
+  // Put the defaults back for the other tests that share this member.
+  await page.getByTestId('launcher-button').click()
+  await launcher.getByTestId('launcher-edit').click()
+  await launcher.getByTestId('launcher-unpin-notes').click()
+  await launcher.getByTestId('launcher-toggle-tasks').click()
+  await expect(rail.getByTestId('app-switch-tasks')).toBeVisible()
+})
+
+test('the desktop rail icons are a quarter bigger than the phone bar, and every label fits', async ({
   page,
 }) => {
   await page.goto('/docs')
@@ -84,9 +114,9 @@ test('the desktop rail icons are half again the phone bar size, and every label 
   await expect(rail).toBeVisible()
   const railBox = await rail.boundingBox()
   const icon = await rail.getByTestId('app-switch-docs').locator('svg').first().boundingBox()
-  // 20px on the phone bar; 30px on the desktop rail (Morgan, Nov 13: "maybe 50%").
-  expect(icon?.width).toBeCloseTo(30, 1)
-  expect(Math.round(railBox?.width ?? 0)).toBeGreaterThanOrEqual(68)
+  // 20px on the phone bar; 25px on the desktop rail (Morgan, Nov 13: halfway back from 30px).
+  expect(icon?.width).toBeCloseTo(25, 1)
+  expect(Math.round(railBox?.width ?? 0)).toBe(60)
   // No label is cut off: each one's text fits inside its item.
   const clipped = await rail
     .locator('a span.truncate')
@@ -99,7 +129,7 @@ test('the desktop rail icons are half again the phone bar size, and every label 
 test('a short window fades the rail out at the bottom until it is scrolled to the end', async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 600 })
+  await page.setViewportSize({ width: 1280, height: 380 })
   await page.goto('/docs')
   const list = page.getByTestId('rail-apps')
   await expect(list).toHaveAttribute('data-more', 'true')

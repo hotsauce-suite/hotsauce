@@ -389,3 +389,9 @@ export async function pressCommandK(page: Page): Promise<void> {
     await expect(page.getByTestId('cmdk')).toBeVisible({ timeout: 1_000 })
   }).toPass({ timeout: 8_000 })
 }
+
+/** Opens an app from the rail's launcher (the grid button), which lists every app, pinned or not. */
+export async function openApp(page: Page, id: string): Promise<void> {
+  await page.getByTestId('launcher-button').click()
+  await page.getByTestId(`launcher-app-${id}`).click()
+}

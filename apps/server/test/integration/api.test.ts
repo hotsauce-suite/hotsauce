@@ -765,6 +765,25 @@ describe('recents and stars', () => {
   })
 })
 
+describe('rail pins', () => {
+  it('starts empty, saves each member their own order, and refuses bad lists', async () => {
+    expect(await json('GET', '/api/pins')).toEqual({ pins: null })
+    const pins = ['tasks', 'today', 'chat']
+    expect(await json('PUT', '/api/pins', { json: { pins } })).toEqual({ pins })
+    expect(await json('GET', '/api/pins')).toEqual({ pins })
+    expect(await json('GET', '/api/pins', { as: BOB })).toEqual({ pins: null })
+
+    await json('PUT', '/api/pins', { json: { pins: [] } })
+    expect(await json('GET', '/api/pins')).toEqual({ pins: [] })
+
+    const tooMany = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    await json('PUT', '/api/pins', { json: { pins: tooMany } }, 400)
+    await json('PUT', '/api/pins', { json: { pins: ['docs', 'docs'] } }, 400)
+    await json('PUT', '/api/pins', { json: { pins: ['../etc'] } }, 400)
+    expect(await json('GET', '/api/pins')).toEqual({ pins: [] })
+  })
+})
+
 describe('webhooks', () => {
   function signedPush(body: string, secret = WEBHOOK_SECRET): Record<string, string> {
     return {

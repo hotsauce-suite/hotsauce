@@ -120,6 +120,14 @@ export const MIGRATIONS: readonly string[] = [
   UPDATE files SET kind = 'file' WHERE path LIKE 'files/%';
   DELETE FROM sync_state;
   `,
+  `
+  -- The apps each member pinned to their rail, in order, as a JSON array of app ids. No row: the
+  -- member never changed them, and the app shows the default pins. Kept by reindex, like stars.
+  CREATE TABLE pins (
+    user TEXT PRIMARY KEY,
+    apps TEXT NOT NULL
+  );
+  `,
 ]
 
 /** Applies pending migrations in one IMMEDIATE transaction, so a second process waits instead of racing. */
