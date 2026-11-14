@@ -8,7 +8,8 @@ the permissions window every single time on startup."
 
 P1. At every launch (login-item launches too), the app reads Microphone, Accessibility, Location
     (the app's access and Location Services for the Mac) and Notifications. Notifications count only
-    while meeting reminders or call-notes offers are on in Settings, since nothing else shows one.
+    while meeting reminders, or call-notes offers on macOS 14.2+, are on in Settings, since nothing
+    else shows one.
     [DictateCoreTests/PermissionCheckTests]
 P2. If any of those is missing, granted-but-refused included, the setup window opens and comes to
     the front; it does so at every launch until all are granted. The first launch always shows it.
@@ -18,8 +19,8 @@ P3. Once everything is granted (and the Mac was set up before), a launch opens n
 P4. The setup window lists Location and Notifications with live checks next to Microphone,
     Accessibility and Connect. Location's Allow shows macOS's prompt the first time and opens
     Location Services in System Settings after a refusal; Notifications' Allow shows macOS's prompt
-    the first time and opens the app's Notifications settings after a refusal. A row that turns
-    green after the member went to System Settings brings the window back. [manual check on the Mac]
+    the first time and opens the app's Notifications settings after a refusal. Only the row whose button
+    sent the member to System Settings brings the window back when it turns green. [manual check on the Mac]
 P5. The window opens any time from the menu bar icon (Check permissions…) and from the app menu
     (Hotsauce → Check Permissions…), so a hidden menu bar icon doesn't hide it. [manual check]
 P6. What was missing at the last launch is kept for diagnosis:

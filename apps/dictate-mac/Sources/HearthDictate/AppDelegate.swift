@@ -589,8 +589,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func showOnboarding() { onboarding.show() }
 
-    /// Meeting reminders and call-notes offers are the only things that show notifications.
-    private var needsNotifications: Bool { settings.meetingReminders || settings.offerCallNotes }
+    /// Meeting reminders and call-notes offers are the only things that show notifications; call
+    /// detection runs only on macOS 14.2 and later.
+    private var needsNotifications: Bool {
+        if settings.meetingReminders { return true }
+        if #available(macOS 14.2, *) { return settings.offerCallNotes }
+        return false
+    }
 
     /// At every launch, login items too: the first one always shows the setup window, and later
     /// ones show it while any permission is missing, until all are granted.

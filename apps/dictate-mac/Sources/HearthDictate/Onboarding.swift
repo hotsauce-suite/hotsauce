@@ -32,8 +32,11 @@ final class OnboardingModel: ObservableObject {
     /// Called when a step turns green after this window sent the member to System Settings or the
     /// browser, so the window comes back; never otherwise, so it can't take focus mid-work.
     var stepCompleted: () -> Void = {}
-    /// Set when a button here sends the member elsewhere to finish a step.
-    var awaitingReturn = false
+    /// The row whose button sent the member elsewhere to finish it. Only that row turning green
+    /// brings the window back, so another one (macOS's own notification prompt) can't pull it
+    /// over System Settings mid-step.
+    enum Step { case microphone, accessibility, location, notifications, connect }
+    var awaiting: Step?
     var notInApplications: () -> Bool = { false }
     @Published var outsideApplications = false
     @Published var menuBarHidden = false
@@ -99,26 +102,28 @@ final class OnboardingModel: ObservableObject {
             tapMissingSince = nil
             tapStuck = false
         }
-        let advanced = (microphone && !before.0) || (accessibility && !before.1) || (connected && !before.2)
-            || (listening && !before.3) || (location && !before.4) || (notifications && !before.5)
-        if advanced { stepAdvanced() }
+        if microphone && !before.0 { stepAdvanced(.microphone) }
+        if (accessibility && !before.1) || (listening && !before.3) { stepAdvanced(.accessibility) }
+        if connected && !before.2 { stepAdvanced(.connect) }
+        if location && !before.4 { stepAdvanced(.location) }
+        if notifications && !before.5 { stepAdvanced(.notifications) }
     }
 
     private func setLocation(_ on: Bool) {
         guard location != on else { return }
         location = on
-        if on { stepAdvanced() }
+        if on { stepAdvanced(.location) }
     }
 
     private func setNotifications(_ on: Bool) {
         guard notifications != on else { return }
         notifications = on
-        if on { stepAdvanced() }
+        if on { stepAdvanced(.notifications) }
     }
 
-    private func stepAdvanced() {
-        guard awaitingReturn else { return }
-        awaitingReturn = false
+    private func stepAdvanced(_ step: Step) {
+        guard awaiting == step else { return }
+        awaiting = nil
         stepCompleted()
     }
 
@@ -176,17 +181,19 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         model.stopWatching()
-        model.awaitingReturn = false
+        model.awaiting = nil
         onClose()
     }
 }
 
 private struct OnboardingView: View {
-    static let height: CGFloat = 720
+    /// Fits a small screen (a 13-inch MacBook at its default size) under the title bar and Dock.
+    static var height: CGFloat { min(720, (NSScreen.main?.visibleFrame.height ?? 800) - 60) }
     @ObservedObject var model: OnboardingModel
     let done: () -> Void
 
     var body: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Set up \(Brand.name)").font(.system(size: 22, weight: .semibold, design: .serif))
@@ -201,7 +208,7 @@ private struct OnboardingView: View {
                     granted: model.microphone,
                     button: "Allow"
                 ) {
-                    model.awaitingReturn = true
+                    model.awaiting = .microphone
                     Permissions.requestMicrophone { _ in model.refresh() }
                 }
                 Divider()
@@ -211,7 +218,7 @@ private struct OnboardingView: View {
                     granted: model.accessibility,
                     button: "Open Settings"
                 ) {
-                    model.awaitingReturn = true
+                    model.awaiting = .accessibility
                     Permissions.requestAccessibility()
                 }
                 Divider()
@@ -221,7 +228,7 @@ private struct OnboardingView: View {
                     granted: model.location,
                     button: "Allow"
                 ) {
-                    model.awaitingReturn = true
+                    model.awaiting = .location
                     model.requestLocation()
                 }
                 if model.notificationsNeeded {
@@ -232,7 +239,7 @@ private struct OnboardingView: View {
                         granted: model.notifications,
                         button: "Allow"
                     ) {
-                        model.awaitingReturn = true
+                        model.awaiting = .notifications
                         Permissions.requestNotifications { _ in model.refresh() }
                     }
                 }
@@ -243,7 +250,7 @@ private struct OnboardingView: View {
                     granted: model.connected,
                     button: "Open \(Brand.name)"
                 ) {
-                    model.awaitingReturn = true
+                    model.awaiting = .connect
                     model.openDictatePage()
                 }
             }
@@ -273,13 +280,14 @@ private struct OnboardingView: View {
                 Spacer()
             }
             HStack {
-                Text("Open it again any time from the menu bar icon → Check permissions….")
+                Text("Open it again from \(Brand.name) → Check Permissions… or the menu bar icon.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
                 Button("Done", action: done).keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
+        }
         .frame(width: 500, height: Self.height)
     }
 }
