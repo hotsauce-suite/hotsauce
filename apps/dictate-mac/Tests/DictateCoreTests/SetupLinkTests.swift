@@ -11,6 +11,7 @@ import Testing
         #expect(SetupLink.server(from: url("hearth://setup?server=https://Team.Example.com/today")) == url("https://team.example.com"))
         #expect(SetupLink.server(from: url("HEARTH://SETUP?server=team.example.com")) == url("https://team.example.com"))
         #expect(SetupLink.server(from: url("hearth:///setup?server=http://localhost:3000")) == url("http://localhost:3000"))
+        #expect(SetupLink.server(from: url("hearth://setup/?server=team.example.com")) == url("https://team.example.com"))
     }
 
     @Test(arguments: [

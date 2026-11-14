@@ -38,3 +38,8 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
   saves an address by itself: Continue runs the same `/api/health` check as a typed address.
 - **Encode the origin on the web side** (`encodeURIComponent`); the Swift parser accepts both the
   encoded and the bare form, and a test covers the exact string the page builds.
+- **Any page can fire a `hearth://` link without a click** (`SuiteRouter.decide` hands the scheme
+  to the app before it looks at the frame or the click). So a link-filled address says it came from
+  a link, and only a click on Continue checks it; Return doesn't.
+- **A link can launch the app.** The URL event arrives before `applicationDidFinishLaunching`, so
+  the launch's own "no workspace → Workspace step" must not reopen the step and blank the field.

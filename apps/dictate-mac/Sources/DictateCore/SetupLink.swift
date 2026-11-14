@@ -10,8 +10,10 @@ public enum SetupLink {
               components.scheme?.lowercased() == scheme.lowercased()
         else { return nil }
         // hearth://setup parses "setup" as the host; hearth:///setup has it as the path.
-        let target = ((components.host ?? "") + components.path).lowercased()
-        guard target == "setup" || target == "/setup",
+        var target = ((components.host ?? "") + components.path).lowercased()
+        while target.hasPrefix("/") { target.removeFirst() }
+        while target.hasSuffix("/") { target.removeLast() }
+        guard target == "setup",
               let text = components.queryItems?.first(where: { $0.name == "server" })?.value
         else { return nil }
         return Workspace.origin(fromInput: text)

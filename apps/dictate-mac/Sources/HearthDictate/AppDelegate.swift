@@ -96,7 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A login item starts quietly: the suite loads (for reminders) without its window. A Mac
         // with no workspace yet loads nothing; the setup window asks for one.
         if suiteServer == nil {
-            onboarding.showWorkspace()
+            // A setup link that launched the app already opened the step with its address.
+            if !onboarding.isVisible { onboarding.showWorkspace() }
         } else if launchedAsLoginItem {
             suite.loadIfNeeded()
         } else {
