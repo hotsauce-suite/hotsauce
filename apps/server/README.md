@@ -8,7 +8,7 @@ The Hearth server: one Node process (Hono) serving the API, WebSockets, and the 
 ```sh
 pnpm build:format && pnpm --filter @hearth/server dev    # dev auth, local host, data in .data/, port 3000
 pnpm --filter @hearth/server build && pnpm --filter @hearth/server start   # the built server (NODE_ENV defaults to production)
-pnpm --filter @hearth/server reindex [space]             # rebuild the index from the clones (keeps recents, stars)
+pnpm --filter @hearth/server reindex [space]             # rebuild the index from the clones (keeps recents, stars, rail pins)
 ```
 
 On start the server loads the repo-root `.env.local` if there is one, ensures the `team` space,

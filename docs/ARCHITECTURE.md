@@ -229,7 +229,7 @@ stars(user, space, path, PRIMARY KEY(user,space,path))
 
 Only `.md` files are indexed, and nothing under hidden folders (`.hearth/`, `.trash/`). `search()` returns `score` as negated bm25 (higher is better; title weighted 4x) and `snippet` with matches wrapped in `SNIPPET_OPEN` (`\u0002`) / `SNIPPET_CLOSE` (`\u0003`), which the web client splits on; snippets never carry HTML. Timestamps are ISO strings.
 
-**The `spaces` table is a cache too.** Ownership is recorded in Git in each repo's `.hearth/space.yaml` (`kind`, `owner`); on startup and on `hearth reindex`, the table is rebuilt from the clones' `space.yaml` files, so deleting `index.sqlite` loses nothing. `hearth reindex` rebuilds `files` and `spaces`; it leaves `recents`, `stars`, `conflicts` and `sync_state` alone.
+**The `spaces` table is a cache too.** Ownership is recorded in Git in each repo's `.hearth/space.yaml` (`kind`, `owner`); on startup and on `hearth reindex`, the table is rebuilt from the clones' `space.yaml` files, so deleting `index.sqlite` loses nothing. `hearth reindex` rebuilds `files` and `spaces`; it leaves `recents`, `stars`, `pins`, `conflicts` and `sync_state` alone.
 
 ```ts
 export class Index {

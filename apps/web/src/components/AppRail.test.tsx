@@ -184,6 +184,31 @@ describe('the app rail', () => {
     expect(button).toHaveFocus()
   })
 
+  it('drags a pinned app into a new place, and closes on a click outside', async () => {
+    renderApp('/docs')
+    const button = await screen.findByTestId('launcher-button')
+    await userEvent.click(button)
+    await userEvent.click(screen.getByTestId('launcher-edit'))
+    const today = screen.getByTestId('launcher-pinned-today')
+    const tasks = screen.getByTestId('launcher-pinned-tasks')
+    // jsdom has no hit testing: the pointer is "over" Tasks.
+    const point = vi.fn(() => tasks)
+    document.elementFromPoint = point
+    fireEvent.pointerDown(today, { pointerId: 1, button: 0, clientX: 10, clientY: 10 })
+    fireEvent.pointerMove(today, { pointerId: 1, clientX: 12, clientY: 11 })
+    // Under five pixels it's still a click: nothing moves.
+    expect(point).not.toHaveBeenCalled()
+    fireEvent.pointerMove(today, { pointerId: 1, clientX: 120, clientY: 10 })
+    fireEvent.pointerUp(today, { pointerId: 1, clientX: 120, clientY: 10 })
+    await waitFor(async () =>
+      expect((await api.pins()).pins).toEqual(['docs', 'tasks', 'today', 'meetings', 'chat']),
+    )
+    Reflect.deleteProperty(document, 'elementFromPoint')
+
+    fireEvent.pointerDown(document.getElementById('main') as HTMLElement)
+    await waitFor(() => expect(screen.queryByTestId('launcher')).toBeNull())
+  })
+
   it('puts a dot on Meetings while a meeting is recording', async () => {
     renderApp('/docs')
     const meetings = await screen.findByTestId('app-switch-meetings')
