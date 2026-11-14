@@ -7,7 +7,8 @@ import { msw } from 'msw/vite'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const API_TARGET = 'http://localhost:3000'
+// API_PROXY_TARGET points the dev server at a server on another port (e.g. two checkouts at once).
+const API_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:3000'
 
 /**
  * The live demo (`vite build --mode demo`, docs/PLAN-live-demo.md) runs the mock API in the

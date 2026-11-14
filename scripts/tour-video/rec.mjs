@@ -7,7 +7,7 @@ import path from 'node:path'
 import { chromium } from '@playwright/test'
 import { shots } from './shots.mjs'
 
-const BASE = 'http://localhost:5191'
+const BASE = process.env.TOUR_BASE ?? 'http://localhost:5191'
 const [, , name, outDir, ...flags] = process.argv
 const shot = shots[name]
 if (!shot) throw new Error(`no shot ${name}; have ${Object.keys(shots).join(', ')}`)

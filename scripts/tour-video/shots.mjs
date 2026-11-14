@@ -1,6 +1,6 @@
 // The tour's browser shots. Each gets the helpers from rec.mjs and calls startCapture()
 // once the page is ready, so sign-in and loading never show up on film.
-const B = 'http://localhost:5191'
+const B = process.env.TOUR_BASE ?? 'http://localhost:5191'
 
 export const shots = {
   async today({ page, signIn, startCapture, wait, moveTo, point, click }) {
