@@ -242,6 +242,13 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     }
 }
 
+extension OnboardingWindow {
+    /// The setup window's content for `--render-previews`, never shown on screen.
+    static func previewView(model: OnboardingModel) -> NSView {
+        NSHostingView(rootView: OnboardingView(model: model, done: {}).background(Color(nsColor: .windowBackgroundColor)))
+    }
+}
+
 private struct OnboardingView: View {
     /// Fits a small screen (a 13-inch MacBook at its default size) under the title bar and Dock.
     static var height: CGFloat { min(720, (NSScreen.main?.visibleFrame.height ?? 800) - 60) }
@@ -341,10 +348,12 @@ private struct OnboardingView: View {
             }
             }
             Spacer(minLength: 0)
-            HStack {
-                Button("Open Dictate in \(Brand.name)") { model.openDictatePage() }
-                    .buttonStyle(.link)
-                Spacer()
+            if model.workspace() != nil {
+                HStack {
+                    Button("Open Dictate in \(Brand.name)") { model.openDictatePage() }
+                        .buttonStyle(.link)
+                    Spacer()
+                }
             }
             HStack {
                 Text("Open it again from \(Brand.name) → Check Permissions… or the menu bar icon.")
