@@ -30,7 +30,7 @@ R9. Automatic updates wait while a meeting is being recorded (subject to Morgan'
 R10. GitHub is asked for the newest release hourly (2026-11-14: Haven sat on 0.12.4 through
      three releases under the old six-hour check).
 R11. A failed ask is logged with its reason, keeps the release already known, and is tried again
-     ten minutes later; Settings → Organization → Updates says GitHub couldn't be reached.
+     about ten minutes later; Settings → Organization → Updates says GitHub couldn't be reached.
 R12. When the GitHub API refuses (its unauthenticated limit is 60 asks an hour per address, and
      cloud hosts share addresses), the version is read from where
      `github.com/hotsauce-suite/hotsauce/releases/latest` redirects, without notes.

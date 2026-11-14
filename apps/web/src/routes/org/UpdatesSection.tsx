@@ -143,7 +143,7 @@ export function UpdatesSection() {
         {status?.checkError ? (
           <p data-testid="check-error" className="mt-2 text-sm text-ink-soft">
             Couldn’t reach GitHub to check for a new release ({status.checkError}). {name} tries
-            again in ten minutes.
+            again in about ten minutes.
           </p>
         ) : null}
       </div>

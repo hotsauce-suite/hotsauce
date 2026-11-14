@@ -7,8 +7,11 @@ import { isNewer } from './version.js'
 const CHECK_EVERY_MS = 60 * 60_000
 /** How soon a failed ask is tried again (the timer runs every ten minutes). */
 const RETRY_AFTER_FAILURE_MS = 10 * 60_000
-/** The timer can fire a little early; a tick that close to the next ask counts as on time. */
-const TICK_SLACK_MS = 30_000
+/**
+ * Asks happen on the ten-minute timer, which isn't lined up with them; one due within this much
+ * counts as due, so hourly stays about hourly instead of drifting to seventy minutes.
+ */
+const TICK_SLACK_MS = 5 * 60_000
 /**
  * The helper is done by then: four start waits of a minute each, then five minutes of health.
  * Still on the old version after this means it rolled back or never got that far.
@@ -56,6 +59,8 @@ export class Updater {
   #checkedAt: Date | null = null
   #nextCheck: Date | null = null
   #checkError: string | null = null
+  /** The ask in flight, shared so the timer and an open Settings page don't ask twice. */
+  #asking: Promise<Release | null> | null = null
   #timer: ReturnType<typeof setInterval> | null = null
   /** Set from the click until `pending` is saved, so a second click or a tick can't race it. */
   #starting = false
@@ -107,10 +112,24 @@ export class Updater {
   async check(force = false): Promise<Release | null> {
     const due = !this.#nextCheck || this.#now.getTime() >= this.#nextCheck.getTime() - TICK_SLACK_MS
     if (!force && !due) return this.#latest
+    this.#asking ??= this.#ask().finally(() => {
+      this.#asking = null
+    })
+    return this.#asking
+  }
+
+  async #ask(): Promise<Release | null> {
     try {
       const latest = await this.#o.latestRelease()
-      // No release at all keeps what we knew too.
-      if (latest) this.#latest = latest
+      // No release at all keeps what we knew too. The fallback has no notes: keep the ones we
+      // have for the same version.
+      if (latest) {
+        const known = this.#latest
+        this.#latest =
+          !latest.notes && known?.version === latest.version
+            ? { ...latest, notes: known.notes, url: known.url, publishedAt: known.publishedAt }
+            : latest
+      }
       this.#checkedAt = this.#now
       this.#checkError = null
       this.#nextCheck = new Date(this.#now.getTime() + CHECK_EVERY_MS)

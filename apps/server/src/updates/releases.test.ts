@@ -93,4 +93,14 @@ describe('fetchLatestRelease', () => {
     })
     expect(await fetchLatestRelease(fn)).toBeNull()
   })
+
+  it('treats a redirect anywhere but a release as a failure', async () => {
+    const { fn } = fakeFetch({
+      [RELEASES_URL]: rateLimited(),
+      [RELEASES_PAGE_URL]: redirectTo('https://github.com/login?return_to=%2Freleases'),
+    })
+    await expect(fetchLatestRelease(fn)).rejects.toThrow(
+      /releases page: redirected to https:\/\/github.com\/login/,
+    )
+  })
 })

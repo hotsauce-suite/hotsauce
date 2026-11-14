@@ -242,9 +242,10 @@ describe('Updater', () => {
     })
     const u = make('0.2.0')
     await u.check()
-    advance(59 * 60_000)
+    advance(54 * 60_000)
     await u.check()
     expect(asks).toBe(1)
+    // The next ten-minute tick after the hour is close enough.
     advance(2 * 60_000)
     await u.check()
     expect(asks).toBe(2)
@@ -275,7 +276,7 @@ describe('Updater', () => {
       latest: { version: '0.3.0' },
       checkedAt: '2026-11-12T10:00:00.000Z',
     })
-    advance(9 * 60_000)
+    advance(4 * 60_000)
     await u.check()
     expect(asks).toBe(2)
     answer = () => release('0.4.0')
@@ -309,5 +310,29 @@ describe('Updater', () => {
     fail = false
     await u.check(true)
     expect(u.status()).toMatchObject({ latest: { version: '0.3.0' }, checkError: null })
+  })
+
+  it('keeps the notes it has when the fallback finds the same version without them', async () => {
+    let next = release('0.3.0')
+    const { make, advance } = setup({ latestRelease: async () => next })
+    const u = make('0.2.0')
+    await u.check()
+    next = { version: '0.3.0', notes: '', url: 'https://github.com/x', publishedAt: '' }
+    advance(61 * 60_000)
+    await u.check()
+    expect(u.status().latest?.notes).toBe("What's new in 0.3.0")
+  })
+
+  it('asks GitHub once when the timer and Settings check at the same moment', async () => {
+    let asks = 0
+    const { make } = setup({
+      latestRelease: async () => {
+        asks++
+        return release('0.3.0')
+      },
+    })
+    const u = make('0.2.0')
+    await Promise.all([u.check(), u.check(), u.check(true)])
+    expect(asks).toBe(1)
   })
 })

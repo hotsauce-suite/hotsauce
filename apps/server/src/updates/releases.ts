@@ -33,6 +33,7 @@ export async function fetchLatestRelease(fetchFn: typeof fetch = fetch): Promise
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
     if (res.ok) return fromApi(await res.json())
+    await res.body?.cancel()
     const limited = res.status === 429 || res.headers.get('x-ratelimit-remaining') === '0'
     apiFailure = `GitHub API answered ${res.status}${limited ? ' (rate limited)' : ''}`
   } catch (err) {
@@ -72,14 +73,20 @@ async function fromReleasesPage(fetchFn: typeof fetch): Promise<Release | null> 
     headers: { 'user-agent': HEADERS['user-agent'] },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
-  const location = res.headers.get('location')
-  if (res.status < 300 || res.status >= 400 || !location) {
+  const raw = res.headers.get('location')
+  if (res.status < 300 || res.status >= 400 || !raw) {
     throw new Error(`answered ${res.status} without a redirect`)
   }
-  // No release yet redirects to the releases list instead of a tag.
-  const tag = /\/releases\/tag\/([^/?#]+)$/.exec(location)?.[1]
-  const version = tag ? plainVersion(decodeURIComponent(tag)) : null
+  const location = new URL(raw, RELEASES_PAGE_URL)
+  const tag = /^\/hotsauce-suite\/hotsauce\/releases\/tag\/([^/]+)$/.exec(location.pathname)?.[1]
+  if (!tag) {
+    // No release yet redirects to the releases list; anywhere else (a sign-in or abuse page) is
+    // a failure, not "nothing new".
+    if (/^\/hotsauce-suite\/hotsauce\/releases\/?$/.test(location.pathname)) return null
+    throw new Error(`redirected to ${location.href}`)
+  }
+  const version = plainVersion(decodeURIComponent(tag))
   if (!version) return null
   // Notes need the API; Settings links to the release page instead.
-  return { version, notes: '', url: location, publishedAt: '' }
+  return { version, notes: '', url: location.href, publishedAt: '' }
 }
