@@ -1,9 +1,12 @@
 # Plan: step-by-step first run in the Mac app
 
-Status (2026-11-14): slices 1-3 shipped (0.12.7 #79, 0.12.8 #83, 0.12.10 #87). Slice 4 (R10-R12) in progress
-on feat/mac-setup-steps. Morgan accepted the plan's answers: setup link and typed address, Google sign-in also
-connects Dictate, Mic/Accessibility/Location/Notifications in setup, workspace and sign-in required, permissions
-skippable, already-set-up Macs skip the flow.
+Status (2026-11-14): shipped. Slice 1 (R1-R3, R6, R13) in 0.12.7 (#79), slice 2 (R4, R5) in 0.12.8 (#83),
+slice 3 (R7-R9) in 0.12.10 (#87), slice 4 (R10-R12) in the release after it (#89). Morgan accepted the plan's
+answers: setup link and typed address, Google sign-in also connects Dictate, Mic/Accessibility/Location/
+Notifications in setup, workspace and sign-in required, permissions skippable, already-set-up Macs skip the flow.
+Still to re-record: the Dictate loop on hotsauce.work (site/public/video/apps/dictate.mp4) and the Mac part of
+the tour video, if they show the old first run. Not checked by hand on a Mac yet: every screen was rendered with
+`--render-previews` and the web side in Chromium.
 Asked for by the owner: "Start with sign in with Google, then do dictate connect then do all the
 permissions you need."
 
