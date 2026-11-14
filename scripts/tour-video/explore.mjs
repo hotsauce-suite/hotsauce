@@ -25,7 +25,7 @@ setTimeout(() => {
   console.log('WATCHDOG')
   process.exit(2)
 }, 90000)
-await p.goto('http://localhost:5191/sign-in')
+await p.goto(`${process.env.TOUR_BASE ?? 'http://localhost:5191'}/sign-in`)
 await p.getByPlaceholder('you@example.test').fill('ada@example.test')
 await p.getByRole('button', { name: 'Sign in' }).click()
 await p.waitForTimeout(1500)
