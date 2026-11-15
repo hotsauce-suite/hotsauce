@@ -33,7 +33,8 @@ export function screenFiles(
   sourceDir: string,
 ): Set<string> {
   const chunks = new Map<string, BuiltChunk>()
-  for (const item of Object.values(bundle)) if (item.type === 'chunk') chunks.set(item.fileName, item)
+  for (const item of Object.values(bundle))
+    if (item.type === 'chunk') chunks.set(item.fileName, item)
   const keep = new Set<string>()
   const visit = (name: string) => {
     if (keep.has(name)) return
@@ -45,7 +46,8 @@ export function screenFiles(
     for (const dep of chunk.imports) visit(dep)
   }
   for (const chunk of chunks.values()) {
-    if (chunk.isEntry || (chunk.isDynamicEntry && isOwnScreen(chunk, sourceDir))) visit(chunk.fileName)
+    if (chunk.isEntry || (chunk.isDynamicEntry && isOwnScreen(chunk, sourceDir)))
+      visit(chunk.fileName)
   }
   return keep
 }

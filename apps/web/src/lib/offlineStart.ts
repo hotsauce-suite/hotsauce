@@ -88,3 +88,15 @@ export function offlineMe(member: RememberedMember): Me {
     settings: { idleCommitMs: 60_000 },
   }
 }
+
+let offlineSession = false
+
+/** The app started offline and runs without a sign-in (auth/offlineAuth.tsx): nothing can be
+ * sent until it reloads into the normal sign-in, so saves keep waiting on the device. */
+export function setOfflineSession(on: boolean): void {
+  offlineSession = on
+}
+
+export function inOfflineSession(): boolean {
+  return offlineSession
+}

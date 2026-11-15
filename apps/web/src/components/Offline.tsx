@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { product } from '../brand/product'
 import { useOnline } from '../lib/connection'
 import { waitingDrafts } from '../lib/drafts'
+import { rememberedMember } from '../lib/offlineStart'
 import { displayName, docUrl } from '../lib/paths'
 
 /** The tooltip on anything greyed out offline. */
@@ -43,7 +44,7 @@ export function OfflineBar() {
 
 /** A screen opened offline that has nothing on this device yet. */
 export function OfflineEmpty() {
-  const kept = waitingDrafts()
+  const kept = waitingDrafts(rememberedMember()?.userId ?? null)
   return (
     <div data-testid="offline-empty" className="mx-auto max-w-[var(--measure)] px-6 py-16">
       <h1 className="font-display text-2xl font-semibold text-ink">Not available offline yet</h1>

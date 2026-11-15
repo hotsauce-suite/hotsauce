@@ -8,6 +8,7 @@ import { hearthSocket } from '../api/ws'
 import type { EditorBridge } from '../components/MarkdownEditor'
 import { reportReachable } from '../lib/connection'
 import { draftKey, findDraft, saveDraft } from '../lib/drafts'
+import { setOfflineSession } from '../lib/offlineStart'
 import { PRIYA } from '../mocks/seed'
 import { mockApi, server } from '../test/mockServer'
 import { GONE_WHILE_EDITING, type SaveState, useDocument } from './useDocument'
@@ -341,6 +342,43 @@ describe('useDocument', () => {
       await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
       expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
       expect(findDraft(SPACE, Q4)).toBeNull()
+    })
+
+    it('a waiting save that clashes stops waiting: it’s settled in the resolver, not re-sent', async () => {
+      const before = mockApi().repo.read(SPACE, Q4)
+      saveDraft(
+        SPACE,
+        Q4,
+        before?.blobOid ?? '',
+        (before?.content ?? '').replace('# Q4 plan', '# Q4 plan (mine)'),
+        {
+          waiting: true,
+        },
+      )
+      mockApi().repo.outsideEdit(SPACE, Q4, {
+        author: PRIYA,
+        apply: (c) => c.replace('# Q4 plan', '# Q4 plan (theirs)'),
+      })
+      const { result } = renderDocument(Q4)
+      await waitFor(() => expect(result.current.state.saveState).toBe('conflict'))
+      expect(findDraft(SPACE, Q4)).toMatchObject({ waiting: false })
+    })
+
+    it('started offline with no sign-in yet, nothing is sent: it waits for the reload', async () => {
+      setOfflineSession(true)
+      try {
+        const puts = vi.fn()
+        server.use(http.put('/api/spaces/:space/file', puts))
+        const { result } = renderDocument(Q4)
+        await loaded(result)
+        act(() => result.current.edit(offlineEdit))
+        await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+        await act(() => result.current.commit())
+        expect(puts).not.toHaveBeenCalled()
+        expect(findDraft(SPACE, Q4)).toMatchObject({ content: offlineEdit, waiting: true })
+      } finally {
+        setOfflineSession(false)
+      }
     })
 
     it('offline with nothing on this device: an offline error, not a raw one', async () => {

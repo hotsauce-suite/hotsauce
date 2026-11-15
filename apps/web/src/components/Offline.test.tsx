@@ -61,6 +61,28 @@ describe('offline in the app (A3)', { timeout: 20_000 }, () => {
     expect(screen.queryByTestId('offline-empty')).toBeNull()
   })
 
+  it('an error answer from /api/me never shows the remembered member', async () => {
+    rememberMember(
+      {
+        userId: 'u9',
+        email: 'grace@example.test',
+        name: 'Grace Hopper',
+        handle: 'grace',
+        isAdmin: false,
+      },
+      'Acme',
+    )
+    server.use(
+      http.get('/api/me', () =>
+        HttpResponse.json({ error: { code: 'internal', message: 'busy' } }, { status: 500 }),
+      ),
+    )
+    renderApp('/docs')
+    const account = await screen.findByTestId('account-menu')
+    await new Promise((r) => setTimeout(r, 200))
+    expect(account.getAttribute('aria-label')).not.toMatch(/grace@/)
+  })
+
   it('the shell still knows who you are when /api/me can’t be reached', async () => {
     rememberMember(
       {
@@ -75,7 +97,9 @@ describe('offline in the app (A3)', { timeout: 20_000 }, () => {
     server.use(http.get('/api/me', () => HttpResponse.error()))
     renderApp('/docs')
     await waitFor(() =>
-      expect(screen.getByTestId('account-menu').getAttribute('aria-label') ?? '').toMatch(/grace@example\.test/),
+      expect(screen.getByTestId('account-menu').getAttribute('aria-label') ?? '').toMatch(
+        /grace@example\.test/,
+      ),
     )
   })
 })

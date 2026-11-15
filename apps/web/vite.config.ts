@@ -80,9 +80,7 @@ function appScreens() {
   const transform = <Entry extends { url: string }>(entries: Entry[]) => ({
     manifest: entries.filter(
       (entry) =>
-        !entry.url.startsWith('assets/') ||
-        entry.url.endsWith('.woff2') ||
-        files.has(entry.url),
+        !entry.url.startsWith('assets/') || entry.url.endsWith('.woff2') || files.has(entry.url),
     ),
     warnings: [],
   })

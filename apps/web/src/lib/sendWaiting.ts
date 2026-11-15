@@ -4,7 +4,9 @@
 
 import { api, HearthApiError } from '../api/client'
 import { clearDrafts, saveDraft, waitingDrafts } from './drafts'
+import { inOfflineSession } from './offlineStart'
 import { isOpenDoc } from './openDoc'
+import { docUrl } from './paths'
 
 export interface SendResult {
   sent: number
@@ -14,17 +16,20 @@ export interface SendResult {
 
 let running: Promise<SendResult> | null = null
 
-export function sendWaitingDrafts(): Promise<SendResult> {
-  running ??= send().finally(() => {
+/** Sends what `owner` (the signed-in member's user id) left waiting. */
+export function sendWaitingDrafts(owner: string): Promise<SendResult> {
+  if (inOfflineSession()) return Promise.resolve({ sent: 0, conflicts: [] })
+  running ??= send(owner).finally(() => {
     running = null
   })
   return running
 }
 
-async function send(): Promise<SendResult> {
+async function send(owner: string): Promise<SendResult> {
   const result: SendResult = { sent: 0, conflicts: [] }
-  for (const draft of waitingDrafts()) {
-    if (isOpenDoc(draft.space, draft.path)) continue
+  for (const draft of waitingDrafts(owner)) {
+    // The open doc sends its own, even one still opening (its page is the one on screen).
+    if (isOpenDoc(draft.space, draft.path) || onScreen(draft.space, draft.path)) continue
     const creating = draft.blobOid === 'new'
     try {
       const outcome = await api.putFile(draft.space, {
@@ -42,8 +47,14 @@ async function send(): Promise<SendResult> {
       if (status === 0 || status === 401 || status >= 500) break
       // Anything else (the doc was deleted, a name taken): trying again won't help. It stays
       // on this device as an ordinary draft, offered when the doc opens.
-      saveDraft(draft.space, draft.path, draft.blobOid, draft.content)
+      saveDraft(draft.space, draft.path, draft.blobOid, draft.content, { owner })
     }
   }
   return result
+}
+
+function onScreen(space: string, path: string): boolean {
+  if (typeof window === 'undefined') return false
+  const here = decodeURIComponent(window.location.pathname)
+  return here === decodeURIComponent(docUrl(space, path))
 }

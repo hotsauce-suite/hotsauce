@@ -7,11 +7,32 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import type { AuthMode } from '../api/types'
-import { onBackOnline } from '../lib/connection'
-import { forgetMember, rememberedMember } from '../lib/offlineStart'
+import { isOnline, onBackOnline } from '../lib/connection'
+import { forgetMember, rememberedMember, setOfflineSession } from '../lib/offlineStart'
 import { AuthContext, type AuthState } from './AuthContext'
 
 const reloadPage = () => window.location.reload()
+const RELOAD_KEY = 'hotsauce.offline.reloadAt'
+/** At most one reconnect reload this often, so a server that flaps can't loop the page. */
+export const RELOAD_GAP_MS = 10_000
+
+/** When the next reload may run (0: now). */
+function reloadWait(now: number): number {
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0)
+    return Math.max(0, last + RELOAD_GAP_MS - now)
+  } catch {
+    return 0
+  }
+}
+
+function markReload(now: number): void {
+  try {
+    sessionStorage.setItem(RELOAD_KEY, String(now))
+  } catch {
+    // No sessionStorage: no guard, as before.
+  }
+}
 
 export function OfflineAuthProvider({
   mode,
@@ -24,10 +45,28 @@ export function OfflineAuthProvider({
 }) {
   const [member, setMember] = useState(rememberedMember)
   setAuthHeaders(() => ({}))
+  // Set during render, before any child (a doc) tries to send.
+  setOfflineSession(true)
 
   useEffect(() => {
     setUnauthorizedHandler(null)
-    return onBackOnline(reload)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const reconnect = () => {
+      if (timer) return
+      const wait = reloadWait(Date.now())
+      timer = setTimeout(() => {
+        markReload(Date.now())
+        reload()
+      }, wait)
+    }
+    const off = onBackOnline(reconnect)
+    // The server answered before this subscribed: reconnect now.
+    if (isOnline()) reconnect()
+    return () => {
+      off()
+      if (timer) clearTimeout(timer)
+      setOfflineSession(false)
+    }
   }, [reload])
 
   const signOut = useCallback(() => {

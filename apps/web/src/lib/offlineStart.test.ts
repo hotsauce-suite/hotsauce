@@ -54,6 +54,12 @@ describe('offline start (A2)', () => {
     expect(isOnline()).toBe(false)
   })
 
+  it('a server that answers with an error gets the retry page, not an offline start', async () => {
+    await loadBoot()
+    server.use(http.get('/api/health', () => new HttpResponse('Bad gateway', { status: 502 })))
+    await expect(loadBoot()).rejects.toBeInstanceOf(ServerUnreachable)
+  })
+
   it('with nothing kept from a start, it’s the "isn’t reachable" page as before', async () => {
     server.use(http.get('/api/health', () => HttpResponse.error()))
     await expect(loadBoot()).rejects.toBeInstanceOf(ServerUnreachable)

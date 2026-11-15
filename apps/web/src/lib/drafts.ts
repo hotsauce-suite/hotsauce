@@ -13,6 +13,8 @@ export interface Draft {
   savedAt: number
   /** Its save couldn't reach the server; it goes up by itself when the connection is back. */
   waiting: boolean
+  /** Who typed it (their user id): a waiting save is only ever sent as them. */
+  owner: string | null
 }
 
 export interface WaitingDraft extends Draft {
@@ -29,13 +31,18 @@ export function saveDraft(
   path: string,
   blobOid: string,
   content: string,
-  opts: { waiting?: boolean } = {},
+  opts: { waiting?: boolean; owner?: string | null } = {},
 ): void {
   try {
     clearDrafts(space, path)
     localStorage.setItem(
       draftKey(space, path, blobOid),
-      JSON.stringify({ content, savedAt: Date.now(), ...(opts.waiting ? { waiting: true } : {}) }),
+      JSON.stringify({
+        content,
+        savedAt: Date.now(),
+        ...(opts.waiting ? { waiting: true } : {}),
+        ...(opts.owner ? { owner: opts.owner } : {}),
+      }),
     )
   } catch {
     // Best-effort.
@@ -79,6 +86,7 @@ function parseDraft(raw: string | null, blobOid: string): Draft | null {
     content?: unknown
     savedAt?: unknown
     waiting?: unknown
+    owner?: unknown
   } | null
   if (typeof parsed?.content !== 'string') return null
   return {
@@ -86,11 +94,13 @@ function parseDraft(raw: string | null, blobOid: string): Draft | null {
     blobOid,
     savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : 0,
     waiting: parsed.waiting === true,
+    owner: typeof parsed.owner === 'string' ? parsed.owner : null,
   }
 }
 
-/** Every draft on this device whose save is waiting for the connection, newest first. */
-export function waitingDrafts(): WaitingDraft[] {
+/** Drafts on this device whose save is waiting for the connection, newest first: only those
+ * `owner` typed (a shared computer's next member never sends or sees another's). */
+export function waitingDrafts(owner: string | null): WaitingDraft[] {
   const found: WaitingDraft[] = []
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -102,7 +112,7 @@ export function waitingDrafts(): WaitingDraft[] {
       const last = rest.lastIndexOf(':')
       if (first <= 0 || last <= first) continue
       const draft = parseDraft(localStorage.getItem(key), rest.slice(last + 1))
-      if (!draft?.waiting) continue
+      if (!draft?.waiting || draft.owner !== owner) continue
       found.push({ ...draft, space: rest.slice(0, first), path: rest.slice(first + 1, last) })
     }
   } catch {

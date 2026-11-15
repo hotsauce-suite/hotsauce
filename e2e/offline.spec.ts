@@ -39,12 +39,18 @@ test('a doc edited offline is kept on the device, survives a reload, and is save
   await expect(docText(page)).toContainText(line)
   await waitForState('save-state', 'offline')
   expect((await api.readFile(user.team, file))?.content).not.toContain(line)
+  // Keep typing after the offline start: that waits too, and nothing blocks the reconnect.
+  const more = `And more after the reload ${uid()}`
+  await page.getByTestId('editor-content').click()
+  await typeAtEnd(page, more)
+  await waitForState('save-state', 'offline')
 
   // Back online: the app reconnects by itself and sends it.
   await context.setOffline(false)
   await expect(page.getByTestId('offline-bar')).toBeHidden({ timeout: 20_000 })
   await waitForState('save-state', 'committed', { timeout: 20_000 })
   await expect.poll(async () => (await api.readFile(user.team, file))?.content).toContain(line)
+  expect((await api.readFile(user.team, file))?.content).toContain(more)
 })
 
 test('a screen never opened before still opens offline (A1.2, A3.4)', async ({ page, context }) => {

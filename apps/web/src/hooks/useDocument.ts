@@ -17,6 +17,7 @@ import { isOnline, onBackOnline } from '../lib/connection'
 import { clearDrafts, type Draft, findDraft, saveDraft } from '../lib/drafts'
 import { syncTitle } from '../lib/format'
 import { merge3 } from '../lib/merge3'
+import { inOfflineSession, rememberedMember } from '../lib/offlineStart'
 
 export const GONE_WHILE_EDITING =
   'This doc was moved or deleted while you were editing it, so your latest changes aren’t saved. They’re still here: copy them into the doc at its new place.'
@@ -77,6 +78,11 @@ export interface UseDocumentOptions {
 }
 
 type DocText = { toString(): string }
+
+/** A save waiting to be sent by the member signed in here (not one left by someone else). */
+function waitingHere(draft: Draft | null): draft is Draft {
+  return draft?.waiting === true && draft.owner === (rememberedMember()?.userId ?? null)
+}
 
 const DRAFT_WRITE_DELAY_MS = 400
 const RETRY_DELAY_MS = 10_000
@@ -152,9 +158,10 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
     draftTimer.current = null
     if (!dirty.current) return
     // Offline, anything typed waits to be sent, even if the tab is closed before a save runs.
-    if (!isOnline()) waiting.current = true
+    if (!isOnline() || inOfflineSession()) waiting.current = true
     saveDraft(space, path, base.current.blobOid ?? 'new', text.current.toString(), {
       waiting: waiting.current,
+      owner: rememberedMember()?.userId ?? null,
     })
     if (waiting.current && saveStateRef.current === 'dirty') {
       saveStateRef.current = 'offline'
@@ -194,6 +201,9 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
   const openLocalConflict = useCallback(
     (ours: string, theirs: string, theirsBlobOid: string | null, ref: string | null) => {
       conflictOpen.current = true
+      // A clash is settled in the resolver (and on the server's conflict branch), never by
+      // sending the same text again: the draft stays, but no longer waits to be sent.
+      waiting.current = false
       writeDraftNow()
       setSaveState('conflict', {
         conflict: { ref, path, ours, theirs, theirsBlobOid },
@@ -253,8 +263,9 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
         setSaveState('committed')
         return 'noop'
       }
-      // Offline: keep it on this device; it goes up when the connection is back (onBackOnline).
-      if (!isOnline()) {
+      // Offline, or started offline with no sign-in yet: keep it on this device; it goes up when
+      // the connection is back (onBackOnline), or after the reload into the normal sign-in.
+      if (!isOnline() || inOfflineSession()) {
         waiting.current = true
         writeDraftNow()
         setSaveState('offline', { saveError: null })
@@ -391,13 +402,13 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
         saveState: 'offline',
         draft: null,
       }))
-      if (isOnline()) void commitRef.current()
+      if (isOnline() && !inOfflineSession()) void commitRef.current()
     }
     api.readFile(space, path).then(
       (file) => {
         if (cancelled) return
         const draft = findDraft(space, path)
-        if (draft?.waiting && draft.content !== file.content && draft.blobOid !== 'new') {
+        if (waitingHere(draft) && draft.content !== file.content && draft.blobOid !== 'new') {
           openWaiting(draft, false, draft.blobOid === file.blobOid ? file.content : null)
           void loadConflicts()
           return
@@ -426,7 +437,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
           err instanceof HearthApiError &&
           err.status === 404 &&
           (opts.current.isNew || draft?.blobOid === 'new')
-        if (startNew && draft?.waiting && draft.blobOid === 'new') {
+        if (startNew && waitingHere(draft) && draft.blobOid === 'new') {
           openWaiting(draft, true)
           return
         }
@@ -502,7 +513,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
       if (!dirty.current) return
       writeDraftNow()
       // Offline it's kept on this device and sent later: nothing to warn about.
-      if (!isOnline()) return
+      if (!isOnline() || inOfflineSession()) return
       if (text.current.toString().length < KEEPALIVE_LIMIT_CHARS) {
         void commitRef.current({ keepalive: true })
       }
