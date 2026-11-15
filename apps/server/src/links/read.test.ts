@@ -49,6 +49,49 @@ describe('readPage', () => {
     expect(page).toMatchObject({ title: 'Just a title', site: 'x.test', markdown: '', words: 0 })
   })
 
+  it('puts a streamed React page together before reading it (EA Forum, LessWrong, Next.js)', () => {
+    const para = 'Engineered pathogens pose a grave threat to society and deserve far more work. '
+    const html = `<!doctype html><html><head><meta property="og:title" content="10 big projects">
+</head><body>
+<header><a href="/"><img src="/logo.svg" alt=""><span>The Forum</span></a></header>
+<main><!--$?--><template id="B:0"></template><p>Loading…</p><!--/$--></main>
+<div hidden id="S:0"><article><h1>10 big projects</h1><p>${para.repeat(6)}</p>
+<!--$?--><template id="B:1"></template><p>Loading more…</p><!--$--><i>nested stand-in</i><!--/$--><!--/$-->
+<template id="P:2"></template></article></div>
+<div hidden id="S:1"><h2>Project one</h2><p>${'Stockpile protective equipment for everyone. '.repeat(6)}</p></div>
+<div hidden id="S:2"><h2>Project two</h2><p>${'Screen every gene synthesis order. '.repeat(6)}</p></div>
+<script>$RC("B:0","S:0");$RC("B:1","S:1");$RS("S:2","P:2")</script>
+</body></html>`
+    const page = readPage(html, 'https://forum.test/posts/1', 'text/html')
+    expect(page.markdown).toContain('Engineered pathogens pose a grave threat')
+    expect(page.markdown).toContain('## Project one')
+    expect(page.markdown).toContain('## Project two')
+    expect(page.markdown).not.toContain('Loading')
+    expect(page.markdown).not.toContain('nested stand-in')
+    expect(page.markdown).not.toContain('The Forum')
+    expect(page.words).toBeGreaterThan(100)
+  })
+
+  it('follows the page’s own calls when parts and boundaries are numbered apart (React 18)', () => {
+    const html = `<html><body><header><a href="/">Forum</a></header>
+<main><!--$?--><template id="B:0"></template><p>Loading…</p><!--/$--></main>
+<div hidden id="S:1"><article><p>${'Mirror life policy needs owners who will push it through. '.repeat(8)}</p></article></div>
+<script>$RC("B:0","S:1")</script></body></html>`
+    const page = readPage(html, 'https://f.test/p', 'text/html')
+    expect(page.markdown).toContain('Mirror life policy needs owners')
+    expect(page.markdown).not.toContain('Loading')
+  })
+
+  it('leaves a page alone when an "S:" block has no real placeholder', () => {
+    const long = 'Particle monitoring would warn cities early about a new outbreak. '.repeat(6)
+    const html = `<html><body><article><h1 id="B:1">Heading</h1><p>${long}</p><p>${long}</p></article>
+<div hidden id="S:1">x</div>
+<div hidden id="S:2"><div><template id="P:2"></template></div><p>y</p></div></body></html>`
+    const page = readPage(html, 'https://f.test/p', 'text/html')
+    expect(page.markdown).toContain('# Heading')
+    expect(page.markdown).toContain('Particle monitoring')
+  })
+
   it('keeps plain text as it is', () => {
     const page = readPage('line one\r\nline two\n', 'https://x.test/a.txt', 'text/plain')
     expect(page.markdown).toBe('line one\nline two')
@@ -61,6 +104,30 @@ describe('readPage', () => {
 })
 
 describe('toMarkdown', () => {
+  it('never puts a link inside a link when a link wraps a picture', () => {
+    expect(
+      toMarkdown(
+        '<p><a href="/"><img src="/logo.svg" alt="">The Forum</a></p>',
+        'https://x.test/a',
+      ),
+    ).toBe('[The Forum](https://x.test/)')
+    expect(
+      toMarkdown(
+        '<p><a href="/big.png"><img src="/small.png" alt="Chart"></a></p>',
+        'https://x.test/a',
+      ),
+    ).toBe('[Picture: Chart](https://x.test/big.png)')
+    expect(
+      toMarkdown(
+        '<p><a href="/p"><img src="/a_(1).png" alt="x"> Caption here</a></p>',
+        'https://x.test/a',
+      ),
+    ).toBe('[Caption here](https://x.test/p)')
+    expect(toMarkdown('<p><img src="/a_(1).png" alt="x"></p>', 'https://x.test/a')).toBe(
+      '[Picture: x](https://x.test/a_%281%29.png)',
+    )
+  })
+
   it('escapes parentheses in an address', () => {
     expect(toMarkdown('<a href="https://x.test/a_(b)">wiki</a>', 'https://x.test/')).toBe(
       '[wiki](https://x.test/a_%28b%29)',

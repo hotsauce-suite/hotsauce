@@ -23,6 +23,7 @@ test('save a link, read it, tag it, share it and mark it done', async ({ page })
     'Mirror life is the subject of this page.',
   )
   await expect(page.getByTestId('link-original')).toHaveAttribute('href', url)
+  await expect(page.getByTestId('link-short')).toHaveCount(0)
 
   await page.getByTestId('link-edit-tags').click()
   await page.getByTestId('link-tags-input').fill(`biosecurity, e2e ${id}`)
@@ -38,6 +39,24 @@ test('save a link, read it, tag it, share it and mark it done', async ({ page })
   await expect(page.getByTestId('link-row').filter({ hasText: 'Mirror life' })).toHaveCount(0)
   await page.getByTestId('links-view-archive').click()
   await expect(page.getByTestId('link-row').filter({ hasText: `e2e ${id}` })).toBeVisible()
+})
+
+test('a copy that came through cut short can be read again', async ({ page }) => {
+  const id = uid()
+  await page.goto(
+    `/links/save?url=${encodeURIComponent(`https://forum.stub.test/${id}/big-projects`)}`,
+  )
+  await page.getByTestId('link-save-confirm').click()
+  await expect(page.getByTestId('link-saved')).toHaveText('Saved')
+  await page.getByRole('link', { name: 'Open it' }).click()
+  await expect(page.getByTestId('link-body')).toContainText('cut short')
+  await expect(page.getByTestId('link-short')).toContainText(
+    'Only part of the page may have come through.',
+  )
+  await page.screenshot({ path: 'test-results/link-short.png' })
+  await page.getByRole('button', { name: 'Get the page again' }).click()
+  await expect(page.getByTestId('link-body')).toContainText('cut short')
+  await expect(page.getByTestId('link-short')).toBeVisible()
 })
 
 test('the save page asks, saves what was shared once, and a dead site can be tried again', async ({
