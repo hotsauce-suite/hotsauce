@@ -39,8 +39,9 @@ Deepgram keys; a small team spends a few dollars a month on them.
 screen recording and more share one sign-in, one search, one brand and one place your team's knowledge
 lives.
 
-**Agents are first-class.** A built-in MCP server lets Claude and other agents search, read and write
-your docs, meetings, tasks, clips and files as you, with the same permissions you have.
+**Agents are first-class.** A built-in MCP server lets any AI tool (Claude, Cursor, Codex or a script;
+ChatGPT and Grok once sign-in lands) search, read and write your docs, meetings, tasks, clips
+and files as you, with the same permissions you have. History shows which tool made each change.
 
 ## What's in the box
 
@@ -268,7 +269,7 @@ transcription and AI use deterministic fakes unless you set
 - [Self-hosting guide](docs/self-host.md): Fly, Cloudflare, Docker, the setup wizard, updates, and
   configuring by environment.
 - [Architecture](docs/ARCHITECTURE.md): how it fits together, app by app.
-- [MCP server](docs/mcp.md): connecting Claude and other agents.
+- [MCP server](docs/mcp.md): connecting an AI tool (Claude, Cursor, Codex, ChatGPT, Grok…).
 
 ### Developing
 

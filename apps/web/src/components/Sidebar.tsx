@@ -71,7 +71,7 @@ export function Sidebar({ activeSpace, activePath, onOpenSearch }: SidebarProps)
       >
         <Icon name="book" className="size-4" />
         Pages
-        <span className="ml-auto text-[0.7rem] text-ink-faint">from Claude</span>
+        <span className="ml-auto text-[0.7rem] text-ink-faint">from AI tools</span>
       </NavLink>
 
       <FileTree

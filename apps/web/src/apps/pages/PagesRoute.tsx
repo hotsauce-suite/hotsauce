@@ -18,7 +18,7 @@ const day = (iso: string | null) =>
       })
     : ''
 
-/** `/pages`: HTML pages Claude published (ARCHITECTURE §20.2), newest first. */
+/** `/pages`: HTML pages AI tools published (ARCHITECTURE §20.2), newest first. */
 export function PagesList() {
   const { spaceLabel } = useSession()
   const [pages, setPages] = useState<PageSummary[] | null>(null)
@@ -36,8 +36,8 @@ export function PagesList() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
           <p className="mb-5 text-sm text-ink-soft">
-            Plans and reports Claude published for the team. Ask Claude to “publish this as a page”
-            and it appears here, with every version kept.
+            Plans and reports your AI tools published for the team. Ask yours to “publish this as a
+            page” and it appears here, with every version kept.
           </p>
           {error ? (
             <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">

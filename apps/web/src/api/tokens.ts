@@ -21,7 +21,7 @@ export const tokensApi = {
 }
 
 /**
- * The name Claude shows for the connector: the product's name as a slug ("hotsauce", or "acme"
+ * The name an AI tool shows for the connector: the product's name as a slug ("hotsauce", or "acme"
  * when white-labelled), the same name the MCP server reports for itself.
  */
 export function connectorName(productName: string = product()): string {

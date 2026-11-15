@@ -41,7 +41,7 @@ const when = (iso: string | null) =>
 /**
  * `/settings`, top to bottom (docs/PLAN-install-and-settings.md, docs/PLAN-settings-install.md):
  * the account, Install (the Mac app, the web app, the Chrome extension), notifications, appearance, access tokens
- * for connecting Claude and scripts (ARCHITECTURE §8.1), which Google calendars Meetings reads
+ * for connecting AI tools and scripts (ARCHITECTURE §8.1), which Google calendars Meetings reads
  * (§7.8), help, and the version.
  */
 export default function SettingsRoute() {

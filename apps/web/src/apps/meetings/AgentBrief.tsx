@@ -120,8 +120,8 @@ export default function AgentBrief() {
           <p className="mt-2 text-ink-soft">
             Every night, {product()} reads your last 30 days of meetings and your tasks and writes a
             short brief: your priorities, projects, the people you work with, your jargon and how
-            you like to write. Claude reads it before helping you, so you don’t have to explain the
-            background. Only you can see it.
+            you like to write. Your AI tool reads it before helping you, so you don’t have to
+            explain the background. Only you can see it.
           </p>
 
           {load.status === 'loading' ? (
@@ -228,13 +228,13 @@ export default function AgentBrief() {
           ) : null}
 
           <section className="mt-10">
-            <h3 className="text-sm font-semibold text-ink-soft">Use it with Claude</h3>
+            <h3 className="text-sm font-semibold text-ink-soft">Use it with your AI tool</h3>
             <p className="mt-1 text-sm text-ink-soft">
-              Connect Claude to {product()} once from{' '}
+              Connect your AI tool (Claude, Cursor, Codex and others) to {product()} once from{' '}
               <Link to="/settings" className="text-ember-strong underline">
                 Settings
               </Link>
-              . Claude then reads your brief before it starts. Try asking:
+              . It then reads your brief before it starts. Try asking:
             </p>
             <ul data-testid="brief-prompts" className="mt-3 space-y-2">
               {BRIEF_PROMPTS.map((p) => (
