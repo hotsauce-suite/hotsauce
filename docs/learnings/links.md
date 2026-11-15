@@ -31,3 +31,5 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   `activeTab`, so a same-origin `fetch('/api/health')` run in the tab tells whether it is a
   Hotsauce page; no store ID, deep link or new permission needed. Show the host, not the page's
   self-reported name, in what the person agrees to.
+
+- One-click save (extension 0.7.0): keeping the popup and having it save on open was simpler than removing `default_popup` for `action.onClicked`, which would have lost the popup's Connect and Take notes screens and needed `setPopup` juggling per tab. Opening the popup still grants `activeTab`, so the page copy keeps working. To test a popup's messages in Playwright, the popup is opened as a tab, so the worker's `!sender.tab` check rejects it: patch that check in a scratch copy only.
