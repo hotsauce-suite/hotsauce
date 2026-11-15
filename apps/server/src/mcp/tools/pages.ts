@@ -15,12 +15,18 @@ const Id = z.string().min(1).max(40).describe('The page id that publish_page or 
  * in Hearth; each publish is a version kept in Git. A read-only link opens one doc, meeting note,
  * note or page for anyone allowed to follow links.
  */
-export function registerPageTools(server: McpServer, deps: PageToolDeps, principal: Principal) {
+export function registerPageTools(
+  server: McpServer,
+  deps: PageToolDeps,
+  principal: Principal,
+  /** The AI tool's friendly name, from the `initialize` handshake. */
+  client?: string,
+) {
   const { pages, shares } = deps
   const base = deps.config.PUBLIC_URL.replace(/\/+$/, '')
   const pageUrl = (space: string, id: string) =>
     `${base}/pages/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
-  const via = mcpVia(principal)
+  const via = mcpVia(principal, client)
 
   server.registerTool(
     'publish_page',

@@ -21,7 +21,7 @@ export const tokensApi = {
 }
 
 /**
- * The name Claude shows for the connector: the product's name as a slug ("hotsauce", or "acme"
+ * The name an AI tool shows for the connector: the product's name as a slug ("hotsauce", or "acme"
  * when white-labelled), the same name the MCP server reports for itself.
  */
 export function connectorName(productName: string = product()): string {
@@ -60,4 +60,50 @@ export function claudeDesktopConfig(origin: string, token: string): string {
     null,
     2,
   )
+}
+
+/** The server's MCP address, for tools that take a URL. */
+export function mcpUrl(origin: string): string {
+  return `${origin}/mcp`
+}
+
+/** The header every token-based tool sends. */
+export function authHeader(token: string): string {
+  return `Authorization: Bearer ${token}`
+}
+
+/** Cursor's `~/.cursor/mcp.json` entry: a remote server with a URL and headers. */
+export function cursorConfig(origin: string, token: string): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        [connectorName()]: {
+          url: mcpUrl(origin),
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      },
+    },
+    null,
+    2,
+  )
+}
+
+/** The environment variable Codex reads the token from ("HOTSAUCE_TOKEN"). */
+export function codexTokenVar(): string {
+  const name = connectorName().toUpperCase().replace(/-/g, '_')
+  // A shell variable can't start with a digit ("3M_TOKEN").
+  return /^[0-9]/.test(name) ? `_${name}_TOKEN` : `${name}_TOKEN`
+}
+
+/**
+ * Codex's `~/.codex/config.toml` table: a Streamable HTTP server whose bearer token comes from an
+ * environment variable (Codex docs, checked Nov 14 2026).
+ */
+export function codexConfig(origin: string): string {
+  return `[mcp_servers.${connectorName()}]\nurl = "${mcpUrl(origin)}"\nbearer_token_env_var = "${codexTokenVar()}"`
+}
+
+/** The shell line that gives Codex the token. */
+export function codexExport(token: string): string {
+  return `export ${codexTokenVar()}="${token}"`
 }

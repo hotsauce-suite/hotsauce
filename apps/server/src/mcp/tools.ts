@@ -9,6 +9,7 @@ import { HearthError } from '../errors.js'
 import { normalizeRepoPath } from '../git/validate.js'
 import { type FileKind, SNIPPET_CLOSE, SNIPPET_OPEN } from '../index/index.js'
 import { listMeetings } from '../meetings/index.js'
+import { mcpVia } from './result.js'
 
 const MAX_READ_CHARS = 500_000
 const MAX_LISTED_FILES = 2000
@@ -55,7 +56,13 @@ const Path = z.string().min(1).describe('A file path inside the space, e.g. "doc
  * checked with `spaces.canAccess`; anything that lists or searches covers only the member's
  * visible spaces. Writes are commits authored by the member with a `Hearth-Via` trailer.
  */
-export function registerTools(server: McpServer, deps: McpDeps, principal: Principal): void {
+export function registerTools(
+  server: McpServer,
+  deps: McpDeps,
+  principal: Principal,
+  /** The AI tool's friendly name, from the `initialize` handshake. */
+  client?: string,
+): void {
   const { git, index, spaces, meetings } = deps
   const tasks = deps.tasks.service
   const assertAccess = (space: string) => {
@@ -64,7 +71,7 @@ export function registerTools(server: McpServer, deps: McpDeps, principal: Princ
     }
   }
   const visible = async () => (await spaces.visibleSpaces(principal)).map((s) => s.name)
-  const via = principal.via?.kind === 'token' ? `mcp (token "${principal.via.tokenName}")` : 'mcp'
+  const via = mcpVia(principal, client)
   const readOnly = { readOnlyHint: true, openWorldHint: false } as const
 
   server.registerTool(

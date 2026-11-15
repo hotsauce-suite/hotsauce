@@ -13,7 +13,7 @@ const ember = (page: import('@playwright/test').Page) =>
 
 test('members don’t see the organization settings', async ({ page, request }) => {
   await page.goto('/settings')
-  await expect(page.getByRole('heading', { name: /Connect Claude/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Connect an AI tool/ })).toBeVisible()
   await expect(page.getByTestId('org-settings-link')).toHaveCount(0)
   // Nor can they reach its API.
   const res = await request.get('/api/admin/org/state', {

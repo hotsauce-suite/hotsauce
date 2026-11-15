@@ -151,10 +151,10 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
     },
     {
       id: 'go-connect-claude',
-      title: 'Connect Claude',
+      title: 'Connect an AI tool',
       group: 'go',
       icon: 'sparkle',
-      keywords: ['mcp', 'token', 'ai', 'claude', 'code', 'desktop'],
+      keywords: ['mcp', 'token', 'ai', 'claude', 'chatgpt', 'cursor', 'codex', 'code', 'desktop'],
       run: () => navigate('/settings'),
     },
     {

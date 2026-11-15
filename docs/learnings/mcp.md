@@ -16,3 +16,20 @@
   (absolute URLs) and the site's `/favicon.ico`. Ours once answered `/favicon.ico` with the web
   app's HTML (the SPA fallback), so claude.ai showed a blank icon. Keep a real `favicon.ico` in
   `apps/web/public/`.
+- The server is stateless (one `McpServer` per POST), so `server.server.getClientVersion()` is
+  only set on the `initialize` request itself, never on a later `tools/call`. To record which
+  tool made a write, `mcpRoutes` remembers the friendly name per token (or per member) after each
+  `initialize`, in memory (`ClientNames` in `apps/server/src/mcp/clients.ts`). A restart forgets
+  it: writes fall back to `mcp (token "…")` until the client connects again.
+- `clientInfo.name` values seen or documented (Nov 14 2026): Claude Code `claude-code`, claude.ai
+  and Claude desktop `claude-ai`, ChatGPT `openai-mcp`, Cursor `cursor-vscode`, Codex
+  `codex-mcp-client`. mcp-remote forwards the app's name with a suffix:
+  `claude-ai (via mcp-remote 0.15.2)`, which is how Claude desktop is told apart from claude.ai.
+  The name is client-chosen: strip quotes and newlines before it goes into a trailer.
+- ChatGPT's and Grok's consumer connectors accept only OAuth or no auth, never a pasted bearer
+  token (checked Nov 14 2026). Settings lists them as "Needs sign-in, coming soon" until the
+  OAuth work lands. Cursor takes `url` + `headers` in `~/.cursor/mcp.json`; Codex takes `url` +
+  `bearer_token_env_var` in `~/.codex/config.toml` (`codex mcp add --url` has no token flag).
+- Changing the `Hearth-Via` format breaks every test asserting the old substring
+  (`mcp (token "Claude Code")`, about ten files incl. e2e). The history API parses both the old
+  and new shapes (`viaLabel`), so old commits still read "via <token name>".

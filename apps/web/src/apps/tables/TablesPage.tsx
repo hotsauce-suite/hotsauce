@@ -47,8 +47,8 @@ export default function TablesPage() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
           <p className="mb-5 text-sm text-ink-soft">
-            Trackers and lists with spreadsheet formulas, kept in {product()} so search and Claude
-            can read them. Import a .csv or Excel file, or start from scratch.
+            Trackers and lists with spreadsheet formulas, kept in {product()} so search and your AI
+            tools can read them. Import a .csv or Excel file, or start from scratch.
           </p>
           <form
             className="mb-6 flex flex-col gap-2 rounded-xl border border-ash bg-paper-raised p-3 sm:flex-row"

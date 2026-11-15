@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCommitMessage, parseCommitMessage, withLabel, withVia } from './message.js'
+import { formatCommitMessage, parseCommitMessage, viaLabel, withLabel, withVia } from './message.js'
 
 describe('formatCommitMessage', () => {
   it('follows `<app>: <verb> "<title>"`', () => {
@@ -71,5 +71,33 @@ describe('withVia', () => {
       message: 'docs: edit "Q4"\n\nHearth-Via: mcp (token "x")',
       label: 'final',
     })
+  })
+})
+
+describe('viaLabel', () => {
+  it('names the AI tool from a new trailer', () => {
+    expect(
+      viaLabel('docs: edit "Q4"\n\nHearth-Via: mcp (client "Cursor", token "My laptop")'),
+    ).toBe('Cursor')
+    expect(viaLabel('docs: edit "Q4"\n\nHearth-Label: v1\nHearth-Via: mcp (client "Codex")')).toBe(
+      'Codex',
+    )
+  })
+
+  it('falls back to the token name for older trailers', () => {
+    expect(viaLabel('docs: edit "Q4"\n\nHearth-Via: mcp (token "Claude Code")')).toBe('Claude Code')
+    expect(viaLabel('docs: edit "Q4"\n\nHearth-Via: api (token "script")')).toBe('script')
+    expect(viaLabel('docs: edit "Q4"\n\nHearth-Via: mcp')).toBe('an AI tool')
+  })
+
+  it('reads the client only where the server writes it, first in the parentheses', () => {
+    expect(viaLabel('docs: edit\n\nHearth-Via: api (token "x", client "Claude Code")')).toBe('x')
+  })
+
+  it('has none without an agent trailer', () => {
+    expect(viaLabel('docs: edit "Q4"')).toBeUndefined()
+    expect(viaLabel('Hearth-Via: mcp')).toBeUndefined()
+    expect(viaLabel('forms: add "x"\n\nHearth-Via: forms (public link)')).toBeUndefined()
+    expect(viaLabel('assistant: undo\n\nHearth-Via: assistant')).toBeUndefined()
   })
 })

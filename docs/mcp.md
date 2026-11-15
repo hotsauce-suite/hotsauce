@@ -1,23 +1,35 @@
-# Connecting Claude to Hotsauce (MCP)
+# Connecting an AI tool to Hotsauce (MCP)
 
-Hotsauce runs an MCP server at `https://office.example.com/mcp`. Claude Code, Claude desktop or a script
-connects with a personal access token and then searches, reads and writes your Hotsauce Docs and
-Meetings as you: it sees exactly the spaces you see (the team space and your own personal space,
-never anyone else's), and everything it writes is a Git commit authored by you with a
-`Hearth-Via: mcp (token "<name>")` trailer, so history shows it came through Claude.
+Hotsauce runs an MCP server at `https://office.example.com/mcp`. Any AI tool that connects to a
+remote MCP server over Streamable HTTP and can send a header (Claude Code, Claude desktop, Cursor,
+Codex, or a script) connects with a personal access token and then searches, reads and writes your
+Hotsauce Docs and Meetings as you: it sees exactly the spaces you see (the team space and your own
+personal space, never anyone else's), and everything it writes is a Git commit authored by you with
+a `Hearth-Via` trailer naming the tool, for example
+`Hearth-Via: mcp (client "Cursor", token "My laptop")`. A document's history then reads
+"Morgan via Cursor".
+
+ChatGPT and Grok connect to apps only through a browser sign-in (OAuth), not a token. Hotsauce is
+adding that sign-in; until it lands they can't connect (section 2e).
 
 The design is in `docs/ARCHITECTURE.md` §8.
 
-You don't need any of this to use AI inside the app: the built-in assistant (Ask, ⌘J on any page) runs these same tools as the member who asks, with the server's own Anthropic key. This page is for connecting Claude or another agent from outside.
+You don't need any of this to use AI inside the app: the built-in assistant (Ask, ⌘J on any page)
+runs these same tools as the member who asks, with the server's own Anthropic key. This page is
+for connecting an AI tool from outside.
 
 ## 1. Make a token
 
-Open Hotsauce, click **Settings** at the bottom of the sidebar, give the token a name (say "Claude
-Code on my laptop") and press **Create token**. Hotsauce shows the token once, together with the
-command and config below already filled in. Copy it then; it can't be shown again. Revoke it on the
-same page when you stop using it; it stops working at once.
+Open Hotsauce, click **Settings** at the bottom of the sidebar, find **Connect an AI tool**, give
+the token a name (say "Cursor on my laptop") and press **Create token**. Hotsauce shows the token
+once; pick your tool and it shows that tool's steps with the address and token already filled in.
+Copy it then; it can't be shown again. Revoke it on the same page when you stop using it; it stops
+working at once.
 
 A token is a password for your Hotsauce account. Don't paste it into a repo or a chat.
+
+Make one token for each tool. History names the tool that last connected with a token, so two
+tools sharing one token can be mislabelled.
 
 ## 2a. Claude Code
 
@@ -63,7 +75,57 @@ The header goes through `env` because Claude desktop mangles spaces inside `args
 config has a `"hearth"` entry, rename that key to `"hotsauce"` and restart Claude; the token inside
 it keeps working.
 
-## What Claude can do
+A claude.ai custom connector (in the browser) signs in with OAuth, not a token, so it waits for
+the same sign-in as ChatGPT (2e).
+
+## 2c. Cursor
+
+Add this to `~/.cursor/mcp.json` (Cursor Settings → MCP → New MCP Server opens it; inside an
+existing `mcpServers` block, add only the `hotsauce` entry):
+
+```json
+{
+  "mcpServers": {
+    "hotsauce": {
+      "url": "https://office.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer hth_…"
+      }
+    }
+  }
+}
+```
+
+## 2d. Codex
+
+Add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.hotsauce]
+url = "https://office.example.com/mcp"
+bearer_token_env_var = "HOTSAUCE_TOKEN"
+```
+
+Codex reads the token from that environment variable. Add this line to your shell profile (for
+example `~/.zshrc`) and open a new terminal:
+
+```bash
+export HOTSAUCE_TOKEN="hth_…"
+```
+
+## 2e. ChatGPT and Grok: coming with sign-in
+
+ChatGPT's and Grok's connectors accept only a browser sign-in (OAuth) or no sign-in at all, never a
+pasted token. Hotsauce is adding that sign-in. Until then, Settings shows them as "Needs sign-in,
+coming soon".
+
+## 2f. Any other tool or a script
+
+Any MCP client that supports remote servers over Streamable HTTP and lets you set a header works.
+Give it the server address `https://office.example.com/mcp` and the header
+`Authorization: Bearer hth_…`. History shows the name the tool gives itself when it connects.
+
+## What an AI tool can do
 
 Every tool works only on what you can see: the team space, your own personal space, your own
 calendar, and the team's finished clips. A tool given anyone else's personal space answers
@@ -73,7 +135,7 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 
 | Tool | What it does |
 | --- | --- |
-| `get_agent_brief` | Your nightly brief: who you are, priorities, projects, people, jargon. Claude reads it first |
+| `get_agent_brief` | Your nightly brief: who you are, priorities, projects, people, jargon. Your AI tool reads it first |
 | `list_spaces` | The spaces you can see |
 | `search` | Full-text search over Docs, meeting notes, transcripts, tasks, notes and the text inside uploaded files; filter by kind, space or path prefix |
 | `get_brand` | The brand kit: names, colours, fonts, logos and voice |
@@ -133,7 +195,7 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | `list_drive_files` | Files uploaded to Hotsauce Files in a space, by folder or words (names, sizes, links) |
 | `get_drive_file` | One uploaded file's details, link and the text pulled out of it (PDF, Word, PowerPoint, Excel, text); never the file itself |
 
-Every write is a commit authored by you with `Hearth-Via: mcp (token "<name>")`.
+Every write is a commit authored by you with `Hearth-Via: mcp (client "<tool>", token "<name>")`. Commits from before the tool was recorded read `Hearth-Via: mcp (token "<name>")`.
 
 ### Things to try
 

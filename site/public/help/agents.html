@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connect Claude and other agents · Hotsauce help</title>
+<title>Connect an AI tool · Hotsauce help</title>
 <meta name="description" content="Let Claude search, read and write your workspace as you.">
 <link rel="canonical" href="https://hotsauce.work/help/agents">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="Connect Claude and other agents · Hotsauce help">
+<meta property="og:title" content="Connect an AI tool · Hotsauce help">
 <meta property="og:description" content="Let Claude search, read and write your workspace as you.">
 <meta property="og:url" content="https://hotsauce.work/help/agents">
 <meta property="og:image" content="https://hotsauce.work/og.png">
@@ -37,15 +37,16 @@
 <nav class="side" id="help-nav" aria-label="Help topics"><a href="/help/">All help topics</a></nav>
 <main id="main" class="article" data-page="agents">
 <p class="crumbs"><a href="/help/">Help</a> <span aria-hidden="true">/</span> Other devices and agents</p>
-<h1>Connect Claude and other agents</h1>
-<p class="lede">Hotsauce has a built-in MCP server, so Claude and other AI tools can search, read and write your docs, meetings, tasks, tables, clips and files, with exactly the access you have.</p>
-<h2 id="connect-claude">Connect Claude</h2>
-<ol class="steps"><li>In Hotsauce, open <b>Settings</b>, find <b>Connect Claude</b>, name a token (say “Claude Code on my laptop”) and press <b>Create token</b>.</li><li>Copy the command or config it shows. The token is shown only once.</li><li>For <b>Claude Code</b>, paste the command into a terminal. For <b>Claude desktop</b>, add the config shown to its settings file, then quit and reopen Claude. It shows up as <b>hotsauce</b> (or your workspace’s own name).</li></ol>
-<p>A token is a password for your account: don’t paste it into a chat or a shared file. Revoke it on the same page when you stop using it.</p>
+<h1>Connect an AI tool</h1>
+<p class="lede">Hotsauce has a built-in MCP server, so AI tools such as Claude, Cursor and Codex can search, read and write your docs, meetings, tasks, tables, clips and files, with exactly the access you have.</p>
+<h2 id="connect-claude">Connect your AI tool</h2>
+<ol class="steps"><li>In Hotsauce, open <b>Settings</b>, find <b>Connect an AI tool</b>, name a token (say “Cursor on my laptop”) and press <b>Create token</b>. The token is shown only once.</li><li>Pick your tool: <b>Claude Code</b>, <b>Claude desktop</b>, <b>Cursor</b>, <b>Codex</b> or <b>Other</b>. Hotsauce shows only that tool’s steps, with the address and token filled in.</li><li>Copy the command or config into the tool. In Claude it shows up as <b>hotsauce</b> (or your workspace’s own name).</li></ol>
+<p><b>ChatGPT and Grok</b> connect only through a browser sign-in, not a token. Hotsauce is adding that sign-in; until then Settings shows them as “Needs sign-in, coming soon”.</p>
+<p>Make one token for each tool, so history can tell them apart. A token is a password for your account: don’t paste it into a chat or a shared file. Revoke it on the same page when you stop using it.</p>
 <p>Connected an older version and it still says <b>hearth</b>? Rename it: in Claude Code run <code>claude mcp remove hearth --scope user</code> and paste the new command; in Claude desktop rename the <code>"hearth"</code> entry in its config file to <code>"hotsauce"</code> and restart. The same token keeps working.</p>
 <h2 id="things-to-try">Things to try</h2>
 <ul><li>“Prep me for my next meeting.”</li><li>“What did Pat say about the pilot budget across our meetings?”</li><li>“Summarise Bob’s clip about the export bug and add a task for me to fix it by Friday.”</li><li>“I deleted the Q4 plan by mistake. Bring it back.”</li></ul>
-<p>Everything an agent writes is saved under your name, marked as coming from that token. The full guide, including the HTTP API, is in <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/mcp.md">docs/mcp.md</a>.</p>
+<p>Everything an AI tool writes is saved under your name, marked with the tool that made it: a document’s history reads “Morgan via Cursor”. The full guide, including the HTTP API, is in <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/mcp.md">docs/mcp.md</a>.</p>
 <nav class="pager" id="pager" aria-label="Next and previous"></nav>
 </main>
 </div>

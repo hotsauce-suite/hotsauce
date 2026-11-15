@@ -73,7 +73,7 @@ test('a token made in Settings connects an MCP client that searches, reads and w
 
   const [commit] = await api.history(user.personal, file)
   expect(commit?.author.email).toBe(user.email)
-  expect(commit?.message).toContain(`Hearth-Via: mcp (token "e2e ${id}")`)
+  expect(commit?.message).toContain(`Hearth-Via: mcp (client "hearth-e2e", token "e2e ${id}")`)
 
   // The member sees it in Hearth Docs too.
   await page.goto(`/docs/${user.personal}/${file}`)
@@ -86,7 +86,7 @@ test('a token made in Settings connects an MCP client that searches, reads and w
   const history = await tool(client, 'file_history', { space: user.personal, path: moved })
   expect(history.length).toBeGreaterThanOrEqual(2)
   expect(history[0].message).toContain('hearth: move')
-  expect(history[0].message).toContain(`Hearth-Via: mcp (token "e2e ${id}")`)
+  expect(history[0].message).toContain(`Hearth-Via: mcp (client "hearth-e2e", token "e2e ${id}")`)
   await tool(client, 'delete_file', { space: user.personal, path: moved })
   expect(await api.readFile(user.personal, moved)).toBeNull()
   await tool(client, 'restore_file', { space: user.personal, path: moved, oid: history[0].oid })

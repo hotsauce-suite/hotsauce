@@ -114,8 +114,8 @@ export default function LinksPage() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
           <p className="mb-4 text-sm text-ink-soft">
-            Pages saved to read later. Each keeps a readable copy, so search, Ask and Claude can
-            find it.
+            Pages saved to read later. Each keeps a readable copy, so search, Ask and your AI tools
+            can find it.
           </p>
           <form onSubmit={save} className="mb-1 flex gap-2">
             <input

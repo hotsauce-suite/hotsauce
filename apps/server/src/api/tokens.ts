@@ -44,5 +44,7 @@ export function sessionOnly(principal: AppEnv['Variables']['principal']) {
 
 /** The `Hearth-Via` trailer for a save made with an access token over the HTTP API. */
 export function viaFor(principal: AppEnv['Variables']['principal']): string | undefined {
-  return principal.via?.kind === 'token' ? `api (token "${principal.via.tokenName}")` : undefined
+  return principal.via?.kind === 'token'
+    ? `api (token "${principal.via.tokenName.replace(/["\\]/g, '')}")`
+    : undefined
 }

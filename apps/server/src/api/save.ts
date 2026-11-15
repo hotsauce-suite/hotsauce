@@ -145,7 +145,7 @@ export function writablePath(rawPath: string): string {
   }
   // A published page's pointer and HTML change only by publishing it again (ARCHITECTURE §20.2).
   if (isAtOrUnder(path, PAGES_FOLDER) || isAtOrUnder(PAGES_FOLDER, path)) {
-    throw new HearthError('forbidden', 'Pages change only when Claude publishes them again')
+    throw new HearthError('forbidden', 'Pages change only when an AI tool publishes them again')
   }
   // Forms and their answers change only in the Forms app (ARCHITECTURE §21.1).
   if (isAtOrUnder(path, FORMS_FOLDER) || isAtOrUnder(FORMS_FOLDER, path)) {

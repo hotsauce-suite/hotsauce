@@ -118,7 +118,7 @@ describe('file tools', () => {
     const log = await lastCommit('team')
     expect(log).toContain(`<${ALICE}>`)
     expect(log).toContain('hearth: move "docs/plan.md" to "docs/archive/plan.md"')
-    expect(log).toContain('Hearth-Via: mcp (token "Claude Code")')
+    expect(log).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
   })
 
   it('moves a meeting note with its transcript, within a space and to another space', async () => {
@@ -181,7 +181,7 @@ describe('file tools', () => {
     expect((await services.git.readFile('alice', 'docs/keep.md')).content).toContain('version one')
     const log = await lastCommit('alice')
     expect(log).toContain(`docs: restore "Keep" to ${created.oid.slice(0, 7)}`)
-    expect(log).toContain('Hearth-Via: mcp (token "Claude Code")')
+    expect(log).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
   })
 
   it('never moves a file a note’s frontmatter names outside its own folder as its transcript', async () => {
