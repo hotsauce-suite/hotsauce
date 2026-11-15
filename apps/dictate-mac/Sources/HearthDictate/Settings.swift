@@ -31,6 +31,12 @@ final class Settings {
         set { defaults.set(newValue, forKey: "showInMenuBar") }
     }
 
+    /// The glow around the window being dictated into; on by default.
+    var edgeGlow: Bool {
+        get { EdgeGlowSetting.isOn(defaults) }
+        set { EdgeGlowSetting.set(newValue, in: defaults) }
+    }
+
     /// The suite's server when set in Settings; otherwise the one Dictate is connected to.
     var suiteServer: URL? {
         get { defaults.string(forKey: "suiteServer").flatMap(ConnectLink.normalizedServer) }

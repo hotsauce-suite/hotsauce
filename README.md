@@ -115,7 +115,7 @@ Import Markdown, Word and HTML files, and drop live task lists into a page.
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note or meeting, or publish a page. |
 | **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, one-click Summarize and Action items, speed control and a shared library. |
-| **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is. Team word lists keep names spelled right. |
+| **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is; a warm glow around the window shows it’s listening. Team word lists keep names spelled right. |
 | **Briefcast** | A five-minute audio briefing each weekday morning: your meetings, what changed and what's due, in your podcast app. |
 
 <picture>
