@@ -40,3 +40,11 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
 - **jsdom lays nothing out and MSW drops `keepalive`.** Web tests check that a save was sent (spy
   on `fetch` for its `keepalive`), and the real place and scroll are checked in Playwright with a
   long stand-in page (`*.long.test` in `links/fake.ts`).
+- **React Router reuses the page when only its address changes.** "Share with team" moves a link
+  to `/links/team/:id` with the same reader, so anything keyed by `space/id` ran again: it
+  restored the old place and sent the last save to the old space, which answered 404. Key by what
+  really identifies the thing (the link id) and read the address from a ref.
+- **A save sent as a page closes can lose the race to the next page's load.** The list keeps the
+  places this tab sent lately and lays them over the server's when they're newer.
+- **A push can land without starting CI.** A second push to a pull request once started no run;
+  check the head commit has one before waiting on it.
