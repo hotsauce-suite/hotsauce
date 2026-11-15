@@ -12,9 +12,12 @@ enum Previews {
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         let model = sampleModel()
-        for page in MainModel.Page.allCases {
+        // Each page at the window's usual size, and Settings again tall enough to show all of it.
+        let shots = MainModel.Page.allCases.map { (page: $0, height: CGFloat(700), name: $0.rawValue.lowercased()) }
+            + [(page: MainModel.Page.settings, height: CGFloat(1500), name: "settings-full")]
+        for (page, height, name) in shots {
             model.page = page
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 700), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: height), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             window.titlebarAppearsTransparent = true
             window.appearance = app.appearance
             let view = NSHostingView(rootView: MainView(model: model))
@@ -23,7 +26,7 @@ enum Previews {
             RunLoop.main.run(until: Date().addingTimeInterval(0.6))
             guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return 1 }
             view.cacheDisplay(in: view.bounds, to: rep)
-            let url = URL(fileURLWithPath: folder).appendingPathComponent("\(page.rawValue.lowercased())\(dark ? "-dark" : "").png")
+            let url = URL(fileURLWithPath: folder).appendingPathComponent("\(name)\(dark ? "-dark" : "").png")
             try? rep.representation(using: .png, properties: [:])?.write(to: url)
             window.close()
         }
@@ -162,6 +165,8 @@ enum Previews {
         model.listening = true
         model.account = "ada@example.com"
         model.server = "https://office.example.com"
+        model.suiteServer = "https://office.example.com"
+        model.suiteServerDraft = model.suiteServer
         return model
     }
 }
