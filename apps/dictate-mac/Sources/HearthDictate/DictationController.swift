@@ -21,6 +21,8 @@ final class DictationController {
     private let settings: Settings
     private let recorder = Recorder()
     private let overlay = Overlay()
+    /// The glow around the window being dictated into ("Edge glow while dictating").
+    private let glow = EdgeGlow()
     private var machine = HotkeyStateMachine()
     private var target: NSRunningApplication?
     private var maxTimer: Timer?
@@ -34,7 +36,10 @@ final class DictationController {
     init(settings: Settings, history: HistoryStore) {
         self.settings = settings
         self.history = history
-        recorder.onLevel = { [weak self] level in self?.overlay.model.push(level: level) }
+        recorder.onLevel = { [weak self] level in
+            self?.overlay.model.push(level: level)
+            self?.glow.push(level: level)
+        }
     }
 
     var isRecording: Bool { machine.isRecording }
@@ -116,6 +121,8 @@ final class DictationController {
         }
         status = .recording
         overlay.showRecording()
+        // After the microphone has started, so the glow never delays the recording.
+        if settings.edgeGlow { glow.listen(pid: target?.processIdentifier) }
         prewarm()
         maxTimer?.invalidate()
         // Timers fire on the main run loop.
@@ -135,6 +142,7 @@ final class DictationController {
         stream?.cancel()
         stream = nil
         overlay.hide()
+        glow.finish()
         status = .idle
     }
 
@@ -149,6 +157,7 @@ final class DictationController {
         guard Double(samples.count) / 16_000 >= Self.minSeconds else {
             stream?.cancel()
             overlay.hide()
+            glow.finish()
             status = .idle
             return
         }
@@ -172,12 +181,14 @@ final class DictationController {
 
     private func send(_ request: DictationRequest, to target: NSRunningApplication?, stream: DictationStream? = nil) {
         guard let connection = ConnectionStore.connection() else {
+            glow.finish()
             status = .error("Not connected")
             overlay.showMessage("Connect this Mac at your workspace’s /dictate page")
             return
         }
         status = .processing
         overlay.showProcessing()
+        glow.think()
         let client = DictationClient(server: connection.server, token: connection.token)
         let sentAt = Date()
         inFlight = Task { @MainActor [weak self] in
@@ -238,6 +249,8 @@ final class DictationController {
         inFlight = nil
         failed = nil
         status = .idle
+        // The paste follows straight away; the fade overlaps it.
+        glow.finish()
         let text = result.text
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             overlay.showMessage("Didn’t catch anything", seconds: 1.5)
@@ -262,6 +275,7 @@ final class DictationController {
 
     private func fail(_ error: Error, request: DictationRequest, target: NSRunningApplication?) {
         inFlight = nil
+        glow.finish()
         let dictationError = error as? DictationError ?? .network(error.localizedDescription)
         if dictationError.isRetryable {
             failed = (request, target)

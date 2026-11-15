@@ -224,6 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             set(\.accessibility, Permissions.accessibilityGranted)
             set(\.listening, self.monitor.isRunning)
             set(\.showInMenuBar, self.settings.showInMenuBar)
+            set(\.edgeGlow, self.settings.edgeGlow)
             set(\.menuBarIconShown, self.menuBarIconShown)
             let connection = ConnectionStore.connection()
             set(\.account, connection.map { $0.account ?? "this Mac" })
@@ -325,6 +326,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.suite.setServer(server)
             model.reload()
             return nil
+        }
+        model.setEdgeGlow = { [weak self] on in
+            self?.settings.edgeGlow = on
+            model.reload()
         }
         model.setMeetingReminders = { [weak self] on in
             guard let self else { return }
