@@ -108,6 +108,8 @@ h1 em{font-style:normal;color:var(--rust);text-shadow:.05em .05em 0 color-mix(in
 #tour-video video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:14px}
 #tour-video .x{position:absolute;top:-18px;right:-18px;width:40px;height:40px;border-radius:50%;border:2px solid var(--line);background:var(--card);color:var(--ink);font:700 20px/1 var(--sans);cursor:pointer;box-shadow:3px 3px 0 var(--hard)}
 @media (max-width:600px){#tour-video .x{top:-50px;right:0}}
+#tour-video .yt{position:absolute;left:0;bottom:-46px;display:inline-flex;align-items:center;gap:8px;color:#fff8ee;font:600 15px var(--sans);text-decoration:none;padding:8px 2px}
+#tour-video .yt:hover,#tour-video .yt:focus-visible{text-decoration:underline}
 .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:26px 0 0;padding:0;list-style:none}
 .chips li{font:700 13.5px var(--sans);padding:5px 13px;border-radius:99px;border:2px solid var(--line);transform:rotate(-2deg)}
 .chips li:nth-child(1){background:var(--spruce);color:var(--spruce-ink)}
@@ -867,6 +869,7 @@ scripts/deploy-fly.sh acme-office</pre><button class="copy" type="button" aria-l
 <dialog id="tour-video" aria-label="Hotsauce tour video">
   <button type="button" class="x" aria-label="Close the video">×</button>
   <video controls playsinline preload="none" poster="/video/hotsauce-tour-poster.jpg" src="/video/hotsauce-tour.mp4"><track kind="captions" src="/video/hotsauce-tour.vtt" srclang="en" label="English"></video>
+  <a class="yt" href="https://youtu.be/OD2t4Gtu5XA" target="_blank" rel="noopener">Watch on YouTube <span aria-hidden="true">↗</span></a>
 </dialog>
 <script>
 // Tour video: opens in a dialog, stops when it closes
