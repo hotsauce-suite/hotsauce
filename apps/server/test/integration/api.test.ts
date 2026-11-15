@@ -779,8 +779,13 @@ describe('rail pins', () => {
     await json('PUT', '/api/pins', { json: { pins: [] } })
     expect(await json('GET', '/api/pins')).toEqual({ pins: [] })
 
-    const tooMany = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    await json('PUT', '/api/pins', { json: { pins: tooMany } }, 400)
+    // No cap a member would meet: twenty pins save. Only an absurd list is refused.
+    const many = Array.from({ length: 20 }, (_, i) => `app-${i}`)
+    expect(await json('PUT', '/api/pins', { json: { pins: many } })).toEqual({ pins: many })
+    const absurd = Array.from({ length: 101 }, (_, i) => `app-${i}`)
+    await json('PUT', '/api/pins', { json: { pins: absurd } }, 400)
+    expect(await json('GET', '/api/pins')).toEqual({ pins: many })
+    await json('PUT', '/api/pins', { json: { pins: [] } })
     await json('PUT', '/api/pins', { json: { pins: ['docs', 'docs'] } }, 400)
     await json('PUT', '/api/pins', { json: { pins: ['../etc'] } }, 400)
     expect(await json('GET', '/api/pins')).toEqual({ pins: [] })

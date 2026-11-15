@@ -6,8 +6,11 @@ import { PathParam, valid } from './validate.js'
 
 const Item = z.object({ space: z.string().min(1), path: PathParam })
 
-/** Most apps a member can pin to their rail (the web app's `MAX_PINS`). */
-export const MAX_PINS = 6
+/**
+ * A member pins as many apps as they like (the rail scrolls). This only bounds the request, well
+ * above every app and link an instance has.
+ */
+export const MAX_PINS = 100
 const Pins = z.object({
   pins: z
     .array(z.string().regex(/^[a-z][a-z0-9-]{0,31}$/))

@@ -9,9 +9,6 @@ import { APPS, type AppManifest, type RailLink, railLinks } from './registry'
 /** What a new member's rail shows. Chat shows only where the organization added a chat link. */
 export const DEFAULT_PINS: readonly string[] = ['today', 'docs', 'tasks', 'meetings', 'chat']
 
-/** Most apps the rail holds (the server's `MAX_PINS`). */
-export const MAX_PINS = 6
-
 const CACHE_KEY = 'hearth.pins'
 
 export type RailEntry = { kind: 'app'; app: AppManifest } | { kind: 'link'; link: RailLink }
@@ -104,7 +101,7 @@ export function usePins(): readonly string[] {
  * refuses, the rail goes back to what the server has.
  */
 export function savePins(pins: readonly string[]): Promise<void> {
-  const next = [...new Set(pins)].slice(0, MAX_PINS)
+  const next = [...new Set(pins)]
   const mine = ++generation
   current = next
   writeCache(next)
