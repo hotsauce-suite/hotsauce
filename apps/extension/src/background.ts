@@ -2,6 +2,7 @@
 // clicks "Take notes", and hands the Hearth page a stream id for the Meet tab's audio, which
 // spares the person Chrome's "pick a tab, tick share audio" dialog.
 
+import { MAX_PAGE_BYTES, pageCopy, pageKey } from './capture'
 import { type Invoked, meetCode, pickTarget, remember } from './meet'
 import type { CaptureReply, WorkerMessage } from './protocol'
 import { rememberSaveTab, type SaveTab, savable, savePageUrl, takeSaveTab } from './save'
@@ -71,25 +72,56 @@ async function saveTabs(): Promise<SaveTab[]> {
 let saveTabsChain: Promise<unknown> = Promise.resolve()
 function changeSaveTabs<T>(
   change: (list: SaveTab[]) => { list: SaveTab[]; result: T },
+  page?: { saveTabId: number; html: string },
 ): Promise<T> {
   const run = saveTabsChain.then(async () => {
     const stored = await chrome.storage.session.get(SAVE_TABS_KEY)
-    const { list, result } = change((stored[SAVE_TABS_KEY] as SaveTab[] | undefined) ?? [])
+    const before = (stored[SAVE_TABS_KEY] as SaveTab[] | undefined) ?? []
+    const { list, result } = change(before)
+    // Page copies go with their tab: a tab that's forgotten or done drops its copy.
+    const gone = before.filter((s) => !list.some((k) => k.saveTabId === s.saveTabId))
+    if (gone.length > 0) await chrome.storage.session.remove(gone.map((s) => pageKey(s.saveTabId)))
     await chrome.storage.session.set({ [SAVE_TABS_KEY]: list })
+    if (page) {
+      // Over the session storage quota: the server fetches the page itself.
+      await chrome.storage.session.set({ [pageKey(page.saveTabId)]: page.html }).catch(() => {})
+    }
     return result
   })
   saveTabsChain = run.catch(() => {})
   return run
 }
 
-/** Opens the server's save page for `page` in a background tab beside `from`. */
+/**
+ * The page in `tabId` as the person sees it, or null (Chrome's own pages, the Web Store, a PDF,
+ * or too big). "Save page" was a click on this extension, so `activeTab` lets it read the tab.
+ */
+async function copyOf(tabId: number): Promise<string | null> {
+  try {
+    const [first] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: pageCopy,
+      args: [MAX_PAGE_BYTES],
+    })
+    return typeof first?.result === 'string' ? first.result : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Opens the server's save page for `page` in a background tab beside `from`. With `copy`, the
+ * page `from` shows goes along, so the server needn't fetch it signed out.
+ */
 async function saveToHearth(
   page: { url: string; title?: string },
   from: chrome.tabs.Tab | undefined,
+  copy = false,
 ): Promise<void> {
   const server = await getServer()
   // Not connected yet: the popup asks which server first.
   if (!server || !savable(page.url, originsFor(server.url))) return
+  const html = copy && from?.id !== undefined ? await copyOf(from.id) : null
   const tab = await chrome.tabs.create({
     url: savePageUrl(server.url, page),
     active: false,
@@ -98,10 +130,13 @@ async function saveToHearth(
   })
   if (tab.id === undefined) return
   const saveTabId = tab.id
-  await changeSaveTabs((list) => ({
-    list: rememberSaveTab(list, { saveTabId, fromTabId: from?.id ?? null, at: Date.now() }),
-    result: null,
-  }))
+  await changeSaveTabs(
+    (list) => ({
+      list: rememberSaveTab(list, { saveTabId, fromTabId: from?.id ?? null, at: Date.now() }),
+      result: null,
+    }),
+    html ? { saveTabId, html } : undefined,
+  )
   // Signed out, or slow: show the tab so the person can sign in or see what went wrong.
   setTimeout(() => {
     void saveTabs().then((now) => {
@@ -144,7 +179,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       tab,
     )
   } else if (info.menuItemId === 'save-page' && tab?.url) {
-    void saveToHearth({ url: tab.url, ...(tab.title ? { title: tab.title } : {}) }, tab)
+    void saveToHearth({ url: tab.url, ...(tab.title ? { title: tab.title } : {}) }, tab, true)
   }
 })
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
@@ -212,9 +247,11 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendRespon
   if (message.type === 'save-page' && sender.id === chrome.runtime.id && !sender.tab) {
     chrome.tabs.get(message.tabId).then(
       (tab) =>
-        saveToHearth({ url: tab.url ?? '', ...(tab.title ? { title: tab.title } : {}) }, tab).then(
-          () => sendResponse({ ok: true }),
-        ),
+        saveToHearth(
+          { url: tab.url ?? '', ...(tab.title ? { title: tab.title } : {}) },
+          tab,
+          true,
+        ).then(() => sendResponse({ ok: true })),
       () => sendResponse({ ok: false }),
     )
     return true
@@ -233,7 +270,12 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendRespon
       // page's Save button, so another site can't make a signed-in member save something.
       if (message.type === 'may-save') {
         const list = await saveTabs()
-        return sendResponse({ ok: list.some((s) => s.saveTabId === tabId) })
+        if (!list.some((s) => s.saveTabId === tabId)) return sendResponse({ ok: false })
+        // The page copy goes to this tab once.
+        const key = pageKey(tabId)
+        const page = (await chrome.storage.session.get(key))[key]
+        await chrome.storage.session.remove(key)
+        return sendResponse({ ok: true, ...(typeof page === 'string' ? { page } : {}) })
       }
       if (message.type === 'link-saved') {
         await linkSaved(tabId, message.ok === true)

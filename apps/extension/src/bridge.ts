@@ -20,8 +20,13 @@ window.addEventListener('message', (event) => {
   if (data.type === 'may-save') {
     const ask: WorkerMessage = { type: 'may-save' }
     chrome.runtime.sendMessage(ask).then(
-      (reply: { ok?: boolean } | undefined) =>
-        post({ type: 'may-save', id: data.id, ok: reply?.ok === true }),
+      (reply: { ok?: boolean; page?: unknown } | undefined) =>
+        post({
+          type: 'may-save',
+          id: data.id,
+          ok: reply?.ok === true,
+          ...(reply?.ok === true && typeof reply.page === 'string' ? { page: reply.page } : {}),
+        }),
       () => post({ type: 'may-save', id: data.id, ok: false }),
     )
     return

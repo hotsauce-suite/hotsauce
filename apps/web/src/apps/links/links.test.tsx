@@ -271,6 +271,42 @@ describe('the save page', () => {
     }
   })
 
+  it('R8: sends the page the extension took along with the save', async () => {
+    const bridge = (e: MessageEvent) => {
+      const d = e.data as { source?: string; type?: string; id?: string }
+      if (d?.source === 'hearth-page' && d.type === 'may-save') {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              source: 'hearth-extension',
+              type: 'may-save',
+              id: d.id,
+              ok: true,
+              page: '<html><body><p>Signed in</p></body></html>',
+            },
+            origin: window.location.origin,
+            source: window,
+          }),
+        )
+      }
+    }
+    window.addEventListener('message', bridge)
+    try {
+      renderApp('/links/save?url=https%3A%2F%2Fpaper.test%2Flocked&title=Locked&via=extension')
+      await waitFor(() => expect(screen.getByTestId('link-saved')).toBeInTheDocument())
+      expect(posted).toEqual([
+        {
+          url: 'https://paper.test/locked',
+          title: 'Locked',
+          source: 'extension',
+          page: { html: '<html><body><p>Signed in</p></body></html>' },
+        },
+      ])
+    } finally {
+      window.removeEventListener('message', bridge)
+    }
+  })
+
   it('asks first when "via=extension" comes from somewhere else', async () => {
     renderApp('/links/save?url=https%3A%2F%2Fevil.test%2Fx&via=extension')
     await waitFor(() => expect(screen.getByTestId('link-save-confirm')).toBeInTheDocument(), {

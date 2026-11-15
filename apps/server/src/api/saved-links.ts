@@ -7,6 +7,8 @@ import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'
 
+/** A page copy past this is refused outright; the service sets aside any over 2 MB. */
+const MAX_PAGE_CHARS = 4 * 1024 * 1024
 const Tag = z.string().trim().min(1).max(100)
 const Params = z.object({ space: z.string().min(1), id: z.string().min(1) })
 
@@ -29,6 +31,8 @@ const SaveBody = z.object({
   tags: z.array(Tag).max(20).optional(),
   space: z.string().min(1).optional(),
   source: z.enum(LINK_SOURCES).optional(),
+  /** The page as the member's browser shows it; over 2 MB the server fetches instead. */
+  page: z.object({ html: z.string().max(MAX_PAGE_CHARS) }).optional(),
 })
 
 /** Saved links (ARCHITECTURE §23.4). Space access is checked by the service (403). */
@@ -50,7 +54,14 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       if (!url) throw new HearthError('bad_request', 'There’s no web link in what was shared')
       const saved = await service.save(
         principal,
-        { url, title: body.title, tags: body.tags, space: body.space, source: body.source },
+        {
+          url,
+          title: body.title,
+          tags: body.tags,
+          space: body.space,
+          source: body.source,
+          page: body.page,
+        },
         viaFor(principal),
       )
       return c.json(saved, saved.existing ? 200 : 201)

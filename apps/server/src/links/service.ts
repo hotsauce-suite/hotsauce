@@ -22,8 +22,8 @@ import type { Index } from '../index/index.js'
 import type { LLM } from '../meetings/llm/types.js'
 import { type Space, type SpaceService, TEAM_SPACE } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
-import { LinkFetchError, type PageFetcher } from './fetch.js'
-import { readPage } from './read.js'
+import { LinkFetchError, MAX_PAGE_BYTES, type PageFetcher } from './fetch.js'
+import { type ReadablePage, readPage } from './read.js'
 
 export const MAX_LINK_LIST = 1000
 const WRITE_ATTEMPTS = 3
@@ -36,6 +36,10 @@ const CONCURRENCY = 3
 export const MAX_PENDING_PER_MEMBER = 20
 export const MAX_PENDING = 200
 const TOO_MANY = 'Too many pages at once; try again in a minute'
+/** A readable copy under this many words looks cut short (the reader's "Get the page again"). */
+export const SHORT_COPY_WORDS = 150
+/** Page copies from members' browsers held in memory until they're read, all together. */
+export const MAX_HELD_COPY_BYTES = 40 * 1024 * 1024
 /** The page text Claude sees to summarize and tag it. */
 const TAG_CHARS = 6000
 
@@ -85,6 +89,11 @@ export interface SaveInput {
   tags?: string[] | undefined
   space?: string | undefined
   source?: LinkSource | undefined
+  /**
+   * The page as the member's browser shows it (the Chrome extension sends it): signed in, past a
+   * paywall, built by its scripts. Untrusted, like a fetched page; read instead of fetching.
+   */
+  page?: { html: string } | undefined
 }
 
 export interface LinkPatch {
@@ -148,6 +157,9 @@ export class Links {
   readonly #pendingBy = new Map<string, number>()
   /** `space\nid` of links not queued because of the caps; they read as failed until retried. */
   readonly #refused = new Set<string>()
+  /** `space\nid` → the page copy a member's browser sent, until its read takes it. */
+  readonly #copies = new Map<string, string>()
+  #heldBytes = 0
   #active = 0
 
   constructor(deps: LinksDeps) {
@@ -222,7 +234,14 @@ export class Links {
       const view = same.fm.archived
         ? await this.update(principal, same.space, same.id, { archived: false }, via)
         : this.#view(same)
-      if (view.status === 'failed') this.#schedule(principal, view.space, view.id, via)
+      const html = input.page?.html
+      const thin = view.status === 'ready' && (view.words ?? 0) < SHORT_COPY_WORDS
+      if (view.status === 'failed' || (html && thin)) {
+        // A save from the page itself replaces a copy that failed or came out short.
+        this.#schedule(principal, view.space, view.id, via, html)
+        const running = this.#running.has(`${view.space}\n${view.id}`)
+        return { ...view, existing: true, ...(running ? { status: 'fetching' as const } : {}) }
+      }
       return { ...view, existing: true }
     }
 
@@ -242,7 +261,7 @@ export class Links {
       via,
     })
     if (result.status === 'conflict') throw new HearthError('internal', 'Unexpected conflict')
-    this.#schedule(principal, space, file.id, via)
+    this.#schedule(principal, space, file.id, via, input.page?.html)
     return {
       ...this.#view({ space, path: file.path, id: file.id, blobOid: result.blobOid, fm }),
       existing: false,
@@ -376,7 +395,13 @@ export class Links {
 
   // ── fetching ─────────────────────────────────────────────────────────────
 
-  #schedule(principal: Principal, space: string, id: string, via: string | undefined): void {
+  #schedule(
+    principal: Principal,
+    space: string,
+    id: string,
+    via: string | undefined,
+    html?: string,
+  ): void {
     const key = `${space}\n${id}`
     if (this.#running.has(key)) return
     const who = principal.email.toLowerCase()
@@ -386,6 +411,7 @@ export class Links {
       return
     }
     this.#refused.delete(key)
+    if (html) this.#hold(key, html)
     this.#pendingBy.set(who, mine + 1)
     const job = new Promise<void>((resolve) => {
       this.#queue.push(() => {
@@ -406,6 +432,40 @@ export class Links {
     this.#next()
   }
 
+  /** Keeps a browser's page copy for the read, within the size limits; else the read fetches. */
+  #hold(key: string, html: string): void {
+    const bytes = Buffer.byteLength(html, 'utf8')
+    if (bytes > MAX_PAGE_BYTES || this.#heldBytes + bytes > MAX_HELD_COPY_BYTES) return
+    this.#copies.set(key, html)
+    this.#heldBytes += bytes
+  }
+
+  #take(key: string): string | null {
+    const html = this.#copies.get(key)
+    if (html === undefined) return null
+    this.#copies.delete(key)
+    this.#heldBytes -= Buffer.byteLength(html, 'utf8')
+    return html
+  }
+
+  /**
+   * The readable copy: from the browser's copy when there is one, else (or when that copy is
+   * thin) from a fetch, keeping whichever has more words. A failed fetch throws only when there's
+   * no browser copy with words in it.
+   */
+  async #readable(url: string, copy: string | null): Promise<ReadablePage> {
+    const mine = copy === null ? null : readPage(copy, url, 'text/html')
+    if (mine && mine.words >= SHORT_COPY_WORDS) return mine
+    try {
+      const page = await this.#d.fetchPage(url)
+      const theirs = readPage(page.text, page.url, page.contentType)
+      return mine && mine.words >= theirs.words ? mine : theirs
+    } catch (err) {
+      if (err instanceof LinkFetchError && mine && mine.words > 0) return mine
+      throw err
+    }
+  }
+
   #next(): void {
     while (this.#active < CONCURRENCY && this.#queue.length > 0) {
       this.#active++
@@ -419,13 +479,13 @@ export class Links {
     id: string,
     via: string | undefined,
   ): Promise<void> {
+    const copy = this.#take(`${space}\n${id}`)
     const start = await this.#read(space, id)
     const fetchedAt = isoNow(this.#now())
     let fields: Record<string, unknown>
     let body: string | null = null
     try {
-      const page = await this.#d.fetchPage(start.record.fm.url)
-      const read = readPage(page.text, page.url, page.contentType)
+      const read = await this.#readable(start.record.fm.url, copy)
       const ai = start.record.fm.tags_set
         ? null
         : await this.#summarize(principal, read.title || start.record.fm.title || '', read)

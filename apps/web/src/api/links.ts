@@ -38,6 +38,8 @@ export interface SaveLinkInput {
   tags?: string[]
   space?: string
   source?: LinkSource
+  /** The page as the member's browser shows it (the Chrome extension's "Save page"). */
+  page?: { html: string }
 }
 
 const enc = encodeURIComponent

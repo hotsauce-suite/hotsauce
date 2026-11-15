@@ -270,6 +270,105 @@ describe('saving', () => {
   })
 })
 
+// The page as the member's browser shows it (docs/PLAN-links-page-copy.md).
+describe('the page as the member sees it', () => {
+  const article = (title: string, words: number) =>
+    `<html><head><title>${title}</title><meta property="og:site_name" content="Paper"></head>` +
+    `<body><article><h1>${title}</h1><p>${'Signed in words here. '.repeat(Math.ceil(words / 4))}</p>` +
+    '<p>See <a href="/more">more</a>.</p></article><script>alert(1)</script></body></html>'
+
+  it('R1 R2: reads the copy the browser sent, against the link’s address, without fetching', async () => {
+    const link = await save({
+      url: 'https://paper.test/a/behind-paywall',
+      source: 'extension',
+      page: { html: article('Behind the paywall', 400) },
+    })
+    expect(link.status).toBe('fetching')
+    expect(fetched).toEqual([])
+    const full = await api('GET', `/api/links/alice/${link.id}`)
+    expect(full).toMatchObject({ status: 'ready', title: 'Behind the paywall', site: 'Paper' })
+    expect(full.words).toBeGreaterThan(300)
+    expect(full.body).toContain('[more](https://paper.test/more)')
+    expect(full.body).not.toContain('alert(1)')
+    // Git holds the readable copy, never the HTML.
+    const text = await catFile(bare('alice'), 'main', link.path)
+    expect(text).not.toContain('<article>')
+  })
+
+  it('R3: fetches when the copy is thin, and keeps whichever copy has more words', async () => {
+    const thin = await save({
+      url: 'https://blog.test/a/thin-copy',
+      page: { html: '<html><body><p>Loading…</p></body></html>' },
+    })
+    expect(fetched).toEqual(['https://blog.test/a/thin-copy'])
+    const full = await api('GET', `/api/links/alice/${thin.id}`)
+    expect(full).toMatchObject({ status: 'ready', title: 'Thin copy' })
+    expect(full.words).toBeGreaterThan(50)
+
+    // The server's own copy is thinner still: the browser's stays.
+    const both = await save({
+      url: 'https://site.stub.test/a/both-short',
+      page: { html: article('Both short', 100) },
+    })
+    expect(fetched).toHaveLength(2)
+    const kept = await api('GET', `/api/links/alice/${both.id}`)
+    expect(kept.body).toContain('Signed in words here.')
+  })
+
+  it('R3: keeps the browser copy when the fetch fails', async () => {
+    const link = await save({
+      url: 'https://intranet.fail.test/a/short-note',
+      page: { html: article('Short note', 60) },
+    })
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({
+      status: 'ready',
+      fetchError: null,
+      title: 'Short note',
+    })
+  })
+
+  it('R3 R5: a copy over 2 MB is set aside and the page is fetched', async () => {
+    const big = `<html><body><article><p>${'x'.repeat(2 * 1024 * 1024)}</p></article></body></html>`
+    const link = await save({ url: 'https://news.test/a/huge-page', page: { html: big } })
+    expect(fetched).toEqual(['https://news.test/a/huge-page'])
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({
+      status: 'ready',
+      title: 'Huge page',
+    })
+  })
+
+  it('R4: saving again with a copy fixes a failed or short copy, and leaves a good one', async () => {
+    const failed = await save({ url: 'https://paper.fail.test/a/locked' })
+    expect((await api('GET', `/api/links/alice/${failed.id}`)).status).toBe('failed')
+    const again = await api('POST', '/api/links', {
+      json: { url: 'https://paper.fail.test/a/locked', page: { html: article('Locked', 400) } },
+    })
+    expect(again).toMatchObject({ id: failed.id, existing: true, status: 'fetching' })
+    await services.links.idle()
+    expect(await api('GET', `/api/links/alice/${failed.id}`)).toMatchObject({
+      status: 'ready',
+      title: 'Locked',
+    })
+
+    const short = await save({ url: 'https://site.stub.test/a/teaser' })
+    expect((await api('GET', `/api/links/alice/${short.id}`)).words).toBeLessThan(150)
+    await api('POST', '/api/links', {
+      json: { url: 'https://site.stub.test/a/teaser', page: { html: article('Teaser', 400) } },
+    })
+    await services.links.idle()
+    expect((await api('GET', `/api/links/alice/${short.id}`)).words).toBeGreaterThan(300)
+
+    const good = await save({ url: 'https://journal.test/a/good-one' })
+    const before = await api('GET', `/api/links/alice/${good.id}`)
+    const kept = await api('POST', '/api/links', {
+      json: { url: 'https://journal.test/a/good-one', page: { html: article('Other', 400) } },
+    })
+    expect(kept.status).toBe('ready')
+    await services.links.idle()
+    expect((await api('GET', `/api/links/alice/${good.id}`)).body).toBe(before.body)
+  })
+})
+
 describe('the list', () => {
   it('lists Unread and Archive, by tag and by words in the page', async () => {
     const a = await save({ url: 'https://a.test/vaccine-trials' })
