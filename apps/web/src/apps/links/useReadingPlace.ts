@@ -6,6 +6,37 @@ const SETTLE_MS = 1000
 const MIN_GAP_MS = 3000
 /** How long "Picked up where you left off" stays. */
 const RESUMED_MS = 10_000
+/** Room left above a block scrolled back to; measuring uses the same line. */
+const TOP_GAP = 16
+
+/**
+ * Places this tab sent lately, by link id: the list shows them even when it loaded before the
+ * last save (sent as the reader closed) reached the server.
+ */
+const recent = new Map<string, Place & { at: string }>()
+
+/** Tests start each case with none. */
+export function forgetRecentPlaces(): void {
+  recent.clear()
+}
+
+/** A list's link with this tab's latest place laid over the server's, when it's newer. */
+export function withRecentPlace<T extends { id: string; reading: ReadingPlace | null }>(
+  link: T,
+): T {
+  const mine = recent.get(link.id)
+  // A later place from another device wins.
+  if (!mine || (link.reading && link.reading.updated >= mine.at)) return link
+  return {
+    ...link,
+    reading: {
+      anchor: mine.anchor,
+      percent: mine.percent,
+      furthest: Math.max(link.reading?.furthest ?? 0, mine.percent),
+      updated: mine.at,
+    },
+  }
+}
 
 export interface Place {
   anchor: number
@@ -25,8 +56,9 @@ export function measurePlace(scroller: HTMLElement, body: HTMLElement): Place {
   let hi = blocks.length - 1
   while (lo < hi) {
     const mid = (lo + hi) >> 1
-    if ((blocks[mid] as HTMLElement).getBoundingClientRect().bottom > view.top + 1) hi = mid
-    else lo = mid + 1
+    if ((blocks[mid] as HTMLElement).getBoundingClientRect().bottom > view.top + TOP_GAP + 1) {
+      hi = mid
+    } else lo = mid + 1
   }
   const percent =
     copy.height > 0 ? Math.min(100, Math.max(0, ((view.bottom - copy.top) / copy.height) * 100)) : 0
@@ -38,7 +70,7 @@ export function scrollToPlace(scroller: HTMLElement, body: HTMLElement, place: P
   const view = scroller.getBoundingClientRect()
   const block = body.children[place.anchor] as HTMLElement | undefined
   if (block) {
-    scroller.scrollTop += block.getBoundingClientRect().top - view.top - 16
+    scroller.scrollTop += block.getBoundingClientRect().top - view.top - TOP_GAP
     return
   }
   const copy = body.getBoundingClientRect()
@@ -68,7 +100,9 @@ export function useReadingPlace(opts: {
   const sent = useRef<Place | null>(null)
   const sentAt = useRef(0)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const key = `${space}/${id}`
+  // The place is the link's, whatever space it's in: sharing it mid-read changes only the address.
+  const spaceNow = useRef(space)
+  spaceNow.current = space
 
   const measure = useCallback(() => {
     const s = scroller.current
@@ -85,9 +119,10 @@ export function useReadingPlace(opts: {
       if (!place || (prev && prev.anchor === place.anchor && prev.percent === place.percent)) return
       sent.current = place
       sentAt.current = Date.now()
-      linksApi.setReading(space, id, place, { keepalive }).catch(() => {})
+      recent.set(id, { ...place, at: new Date().toISOString() })
+      linksApi.setReading(spaceNow.current, id, place, { keepalive }).catch(() => {})
     },
-    [space, id],
+    [id],
   )
 
   const schedule = useCallback(() => {
@@ -101,20 +136,20 @@ export function useReadingPlace(opts: {
 
   // Back to the saved place, once per link, as soon as the copy is laid out.
   useLayoutEffect(() => {
-    if (!ready || restoredFor.current === key) return
+    if (!ready || restoredFor.current === id) return
     const s = scroller.current
     const b = body.current
     if (!s || !b) return
-    restoredFor.current = key
-    seen.current = null
+    restoredFor.current = id
     sent.current = saved ? { anchor: saved.anchor, percent: saved.percent } : null
     if (saved && saved.anchor > 0) {
       scrollToPlace(s, b, saved)
       setResumed(true)
     } else setResumed(false)
+    seen.current = measurePlace(s, b)
     // Opening counts: what's on screen now is read, even without a scroll.
     schedule()
-  }, [ready, key, saved, scroller, body, schedule])
+  }, [ready, id, saved, scroller, body, schedule])
 
   useEffect(() => {
     const s = scroller.current

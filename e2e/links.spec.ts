@@ -129,7 +129,17 @@ test('a long read picks up where you left off, and the list shows how far you go
   await expect(page.getByTestId('link-reader-title')).toBeInViewport()
   await expect(page.getByTestId('link-resumed')).toHaveCount(0)
 
+  // Leaving straight after scrolling still shows the new place in the list.
+  await page.getByRole('heading', { name: 'Part 30', exact: true }).evaluate((el) => {
+    el.scrollIntoView({ block: 'start' })
+  })
+  await page.getByRole('link', { name: 'Links' }).first().click()
+  const shown = Number((await row.textContent())?.match(/(\d+)% read/)?.[1])
+  expect(shown).toBeGreaterThan(place.percent)
+
   // The end of the article has its own Done.
+  await row.getByTestId('link-title').click()
+  await expect(page.getByTestId('link-resumed')).toBeVisible()
   await page.getByTestId('link-end-done').scrollIntoViewIfNeeded()
   await page.getByTestId('link-end-done').click()
   await expect(page).toHaveURL(/\/links$/)

@@ -5,12 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LinkView, LinkWithBody } from '../../api/links'
 import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
+import { forgetRecentPlaces } from './useReadingPlace'
 
 afterEach(cleanup)
 
 let store: LinkWithBody[]
 let posted: Array<Record<string, unknown>>
-let places: Array<{ id: string; json: unknown }>
+let places: Array<{ id: string; space: string; json: unknown }>
 
 function link(over: Partial<LinkWithBody>): LinkWithBody {
   return {
@@ -56,6 +57,7 @@ beforeEach(() => {
   ]
   posted = []
   places = []
+  forgetRecentPlaces()
   const strip = ({ body: _b, ...rest }: LinkWithBody): LinkView => rest
   server.use(
     http.get('/api/links', ({ request }) => {
@@ -102,9 +104,15 @@ beforeEach(() => {
     http.put('/api/links/:space/:id/reading', async ({ params, request }) => {
       places.push({
         id: String(params.id),
+        space: String(params.space),
         json: await request.json(),
       })
       return new HttpResponse(null, { status: 204 })
+    }),
+    http.post('/api/links/:space/:id/move', async ({ params, request }) => {
+      const l = store.find((x) => x.id === params.id) as LinkWithBody
+      l.space = String(((await request.json()) as { toSpace: string }).toSpace)
+      return HttpResponse.json(strip(l))
     }),
     http.patch('/api/links/:space/:id', async ({ params, request }) => {
       const l = store.find((x) => x.id === params.id) as LinkWithBody
@@ -282,6 +290,18 @@ describe('reading position', () => {
     window.dispatchEvent(new Event('pagehide'))
     await new Promise((r) => setTimeout(r, 50))
     expect(places).toEqual([])
+  })
+
+  it('R2: sharing mid-read keeps your place under the new address', async () => {
+    const user = userEvent.setup()
+    ;(store[0] as LinkWithBody).reading = place(60, 5)
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-resumed')
+    await user.click(screen.getByTestId('link-share-team'))
+    await waitFor(() => expect(store[0]?.space).toBe('team'))
+    window.dispatchEvent(new Event('pagehide'))
+    await waitFor(() => expect(places.length).toBeGreaterThan(0))
+    expect(places.every((p) => p.space === 'team')).toBe(true)
   })
 
   it('R8: a Done button waits at the end of the article', async () => {

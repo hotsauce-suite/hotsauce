@@ -16,6 +16,7 @@ import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
 import { errorMessage, savedDay, useLinksChanged, usePollWhile } from './useLinks'
+import { withRecentPlace } from './useReadingPlace'
 
 const linkTo = (l: Pick<LinkView, 'space' | 'id'>) =>
   `/links/${encodeURIComponent(l.space)}/${encodeURIComponent(l.id)}`
@@ -38,7 +39,7 @@ export default function LinksPage() {
     const query = params.get('q') ?? ''
     linksApi.list({ view, ...(tag ? { tag } : {}), ...(query ? { q: query } : {}) }).then(
       (r) => {
-        setLinks(r.links)
+        setLinks(r.links.map(withRecentPlace))
         setError(null)
       },
       (e: unknown) => setError(errorMessage(e, 'Couldn’t load your links')),
