@@ -577,10 +577,25 @@ private struct Flow: Layout {
 private struct SettingsPage: View {
     @ObservedObject var model: MainModel
 
+    // Grouped by what each setting is about (docs/PLAN-mac-settings-ia.md): what you change most
+    // comes first, the workspace and setup sit together near the end, history last.
     var body: some View {
         Form {
-            Section(Brand.name) {
-                Toggle("Open at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
+            Section("Dictation") {
+                Picker("Hotkey", selection: Binding(get: { model.hotkey }, set: model.setHotkey)) {
+                    ForEach(Hotkey.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                Described(model.mode == .clean ? "Removes ums and applies corrections." : "Types exactly what you said.") {
+                    Picker("Mode", selection: Binding(get: { model.mode }, set: model.setMode)) {
+                        Text("Clean up").tag(DictationMode.clean)
+                        Text("Literal").tag(DictationMode.literal)
+                    }
+                }
+                Described("A warm glow around the window you’re talking into, with flames that follow your voice. Still, with no flames, when Reduce motion is on.") {
+                    Toggle("Edge glow while dictating", isOn: Binding(get: { model.edgeGlow }, set: model.setEdgeGlow))
+                }
+            }
+            Section("Meetings") {
                 Toggle("Meeting reminders", isOn: Binding(get: { model.meetingReminders }, set: model.setMeetingReminders))
                 if model.meetingReminders && !model.notificationsAllowed {
                     HStack {
@@ -597,7 +612,16 @@ private struct SettingsPage: View {
                 if #available(macOS 14.2, *) {
                     Toggle("Offer to take notes when a call starts", isOn: Binding(get: { model.offerCallNotes }, set: model.setOfferCallNotes))
                 }
-                LabeledContent("Server") {
+            }
+            Section("This Mac") {
+                Toggle("Open at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
+                Toggle("Show in menu bar", isOn: Binding(get: { model.showInMenuBar }, set: model.setShowInMenuBar))
+                if model.showInMenuBar && !model.menuBarIconShown {
+                    MenuBarHint()
+                }
+            }
+            Section("Workspace") {
+                LabeledContent("Address") {
                     HStack {
                         TextField("", text: Binding(get: { model.suiteServerDraft }, set: { model.suiteServerDraft = $0 }))
                             .textFieldStyle(.roundedBorder)
@@ -610,46 +634,30 @@ private struct SettingsPage: View {
                 if let error = model.suiteServerError {
                     Text(error).font(.system(size: 11)).foregroundStyle(Hotsauce.ember)
                 }
-                LabeledContent("Setup") {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Button("Run setup again", action: model.runSetupAgain)
-                        Text("Walks through the first-run steps again. Nothing is reset.")
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                LabeledContent("Signed in as") { Text(model.account ?? "Not connected").foregroundStyle(Hotsauce.inkSoft) }
+                if ServerAddress.differs(model.server, model.suiteServer) {
+                    LabeledContent("Dictate connected to") {
+                        Text(model.server).font(.system(size: 11, design: .monospaced)).foregroundStyle(Hotsauce.inkFaint)
                     }
                 }
-            }
-            Section("Dictation") {
-                Picker("Hotkey", selection: Binding(get: { model.hotkey }, set: model.setHotkey)) {
-                    ForEach(Hotkey.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                Picker("Mode", selection: Binding(get: { model.mode }, set: model.setMode)) {
-                    Text("Clean up (removes ums, applies corrections)").tag(DictationMode.clean)
-                    Text("Literal (exactly as spoken)").tag(DictationMode.literal)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Toggle("Edge glow while dictating", isOn: Binding(get: { model.edgeGlow }, set: model.setEdgeGlow))
-                    Text("A warm glow around the window you’re talking into, with flames that follow your voice. Still, with no flames, when Reduce motion is on.")
-                        .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-                }
-                Toggle("Show in menu bar", isOn: Binding(get: { model.showInMenuBar }, set: model.setShowInMenuBar))
-                if model.showInMenuBar && !model.menuBarIconShown {
-                    MenuBarHint()
-                }
-            }
-            Section("Permissions") {
-                PermissionRow(title: "Microphone", granted: model.microphone, action: model.requestMicrophone)
-                PermissionRow(title: "Accessibility", granted: model.accessibility, action: model.requestAccessibility)
-                LabeledContent("Keyboard shortcut") {
-                    Text(model.listening ? "Listening" : "Not listening").foregroundStyle(model.listening ? Hotsauce.moss : Hotsauce.ember)
-                }
-            }
-            Section("Account") {
-                LabeledContent("Connected as") { Text(model.account ?? "Not connected").foregroundStyle(Hotsauce.inkSoft) }
                 HStack {
                     Button("Open Dictate in \(Brand.name)", action: model.openWeb)
+                    Spacer()
                     if model.account != nil { Button("Disconnect this Mac", role: .destructive, action: model.disconnect) }
                 }
-                LabeledContent("Server") { Text(model.server).font(.system(size: 11, design: .monospaced)).foregroundStyle(Hotsauce.inkFaint) }
+            }
+            Section("Setup") {
+                PermissionRow(title: "Microphone", granted: model.microphone, action: model.requestMicrophone)
+                PermissionRow(title: "Accessibility", granted: model.accessibility, action: model.requestAccessibility)
+                LabeledContent("Hotkey") {
+                    Text(model.listening ? "Listening" : "Not listening").foregroundStyle(model.listening ? Hotsauce.moss : Hotsauce.ember)
+                }
+                LabeledContent {
+                    Button("Run setup again", action: model.runSetupAgain)
+                } label: {
+                    Text("First-run steps")
+                    Text("Walks through them again. Nothing is reset.")
+                }
             }
             Section {
                 Picker("Keep history for", selection: Binding(get: { model.retentionDays }, set: model.setRetention)) {
@@ -668,6 +676,24 @@ private struct SettingsPage: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .padding(.horizontal, 12)
+    }
+}
+
+/// A settings row with a line of explanation under it, in the form's caption style.
+private struct Described<Content: View>: View {
+    let text: String
+    let content: Content
+
+    init(_ text: String, @ViewBuilder content: () -> Content) {
+        self.text = text
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            content
+            Text(text).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
+        }
     }
 }
 
