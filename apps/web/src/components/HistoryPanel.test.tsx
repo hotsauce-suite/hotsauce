@@ -14,14 +14,17 @@ describe('HistoryPanel', () => {
     const row = within(item as HTMLElement)
     expect(row.getByText(/via Cursor/)).toBeInTheDocument()
     expect((item as HTMLElement).textContent).toContain('Sam Okafor via Cursor')
-    expect((item as HTMLElement).textContent).not.toContain('Hearth-Via')
+    expect((item as HTMLElement).textContent).not.toContain('Hotsauce-Via')
   })
 
-  it('drops only the Hearth-Via trailer from the message', () => {
+  it('drops only the Hotsauce-Via trailer from the message', () => {
+    expect(withoutVia('docs: edit "Q4"\n\nHotsauce-Via: mcp (client "Cursor")')).toBe(
+      'docs: edit "Q4"',
+    )
     expect(withoutVia('docs: edit "Q4"\n\nHearth-Via: mcp (client "Cursor")')).toBe(
       'docs: edit "Q4"',
     )
     expect(withoutVia('docs: edit "Q4"')).toBe('docs: edit "Q4"')
-    expect(withoutVia('Hearth-Via: kept as a subject')).toBe('Hearth-Via: kept as a subject')
+    expect(withoutVia('Hotsauce-Via: kept as a subject')).toBe('Hotsauce-Via: kept as a subject')
   })
 })

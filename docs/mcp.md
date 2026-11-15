@@ -5,8 +5,8 @@ remote MCP server over Streamable HTTP and can send a header (Claude Code, Claud
 Codex, or a script) connects with a personal access token and then searches, reads and writes your
 Hotsauce Docs and Meetings as you: it sees exactly the spaces you see (the team space and your own
 personal space, never anyone else's), and everything it writes is a Git commit authored by you with
-a `Hearth-Via` trailer naming the tool, for example
-`Hearth-Via: mcp (client "Cursor", token "My laptop")`. A document's history then reads
+a `Hotsauce-Via` trailer naming the tool, for example
+`Hotsauce-Via: mcp (client "Cursor", token "My laptop")`. A document's history then reads
 "Morgan via Cursor".
 
 ChatGPT and Grok connect to apps only through a browser sign-in (OAuth), not a token. Hotsauce is
@@ -43,8 +43,8 @@ claude mcp add --transport http --scope user hotsauce https://office.example.com
 `/mcp` inside Claude Code. The connector is named after your workspace's product name, so a
 white-labelled instance shows its own name instead of `hotsauce`.
 
-Connected an older version under the name `hearth`? Rename it by removing it and adding it again
-with the command above: `claude mcp remove hearth --scope user`. Your token keeps working.
+Connected an older version under the name `hotsauce`? Rename it by removing it and adding it again
+with the command above: `claude mcp remove hotsauce --scope user`. Your token keeps working.
 
 ## 2b. Claude desktop
 
@@ -195,7 +195,7 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | `list_drive_files` | Files uploaded to Hotsauce Files in a space, by folder or words (names, sizes, links) |
 | `get_drive_file` | One uploaded file's details, link and the text pulled out of it (PDF, Word, PowerPoint, Excel, text); never the file itself |
 
-Every write is a commit authored by you with `Hearth-Via: mcp (client "<tool>", token "<name>")`. Commits from before the tool was recorded read `Hearth-Via: mcp (token "<name>")`.
+Every write is a commit authored by you with `Hotsauce-Via: mcp (client "<tool>", token "<name>")`. Commits from before the tool was recorded read `Hotsauce-Via: mcp (token "<name>")`, and commits from before 0.15 spell the trailer `Hearth-Via`.
 
 ### Things to try
 
@@ -210,7 +210,7 @@ Every write is a commit authored by you with `Hearth-Via: mcp (client "<tool>", 
 
 The same token also works on Hotsauce's HTTP API (`/api/…`, see `docs/ARCHITECTURE.md` §3.8), for
 scripts: `curl -H "Authorization: Bearer hth_…" https://office.example.com/api/me`. Saves made this way
-carry `Hearth-Via: api (token "<name>")`. A token can't create, list or revoke tokens; that takes a
+carry `Hotsauce-Via: api (token "<name>")`. A token can't create, list or revoke tokens; that takes a
 signed-in browser.
 
 ## Troubleshooting

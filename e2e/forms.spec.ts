@@ -1,6 +1,6 @@
 import { expect, test, uid } from './fixtures'
 
-// Hearth Forms (docs/plans/2026-11-12-forms.md R5–R14): a member builds a public form with a
+// Hotsauce Forms (docs/plans/2026-11-12-forms.md R5–R14): a member builds a public form with a
 // condition and a file question in the app; someone signed out answers it; the member reads the
 // answer, opens the file, summarizes and downloads CSV.
 

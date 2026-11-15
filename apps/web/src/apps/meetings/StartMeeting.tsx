@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { calendarApi } from '../../api/calendar'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import type { CalendarEvent, Track } from '../../api/types'
 import { product } from '../../brand/product'
@@ -76,7 +76,7 @@ function useCalendarEvent(id: string | null, meet: string | null): CalendarEvent
   return event
 }
 
-/** The Hearth Chrome extension's version when it's installed in this browser. */
+/** The Hotsauce Chrome extension's version when it's installed in this browser. */
 function useExtensionVersion(): string | null {
   const [version, setVersion] = useState<string | null>(null)
   useEffect(() => {
@@ -255,7 +255,7 @@ function StartForm() {
       dispatch({
         type: 'failed',
         message:
-          err instanceof HearthApiError ? err.message : 'The meeting didn’t start. Try again.',
+          err instanceof HotsauceApiError ? err.message : 'The meeting didn’t start. Try again.',
       })
     }
   }

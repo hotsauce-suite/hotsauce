@@ -138,7 +138,7 @@ export class Index {
 
   /**
    * Files (any space) whose frontmatter `share` is this read-only link token (ARCHITECTURE §20).
-   * Hearth Files pointers keep their own links (§18.3) and are left out.
+   * Hotsauce Files pointers keep their own links (§18.3) and are left out.
    */
   filesByShareToken(token: string): FileRow[] {
     return this.#q.byShareToken.all(token).map(toFileRow)

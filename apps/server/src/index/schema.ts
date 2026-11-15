@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3'
 /**
  * Forward-only migrations; entry N takes the schema from version N to N+1. Never edit a shipped
  * entry, append a new one. The index is a rebuildable cache, so a migration may drop and
- * recreate tables and leave `hearth reindex` to refill them.
+ * recreate tables and leave `hotsauce reindex` to refill them.
  */
 export const MIGRATIONS: readonly string[] = [
   `
@@ -94,18 +94,18 @@ export const MIGRATIONS: readonly string[] = [
   DELETE FROM sync_state;
   `,
   `
-  -- Hearth Tasks (ARCHITECTURE §12.1): one task per file under tasks/, its own kind. Forgetting the
+  -- Hotsauce Tasks (ARCHITECTURE §12.1): one task per file under tasks/, its own kind. Forgetting the
   -- sync points re-indexes every space on its next sync, which fills in what this UPDATE can't.
   UPDATE files SET kind = 'task' WHERE path LIKE 'tasks/%';
   DELETE FROM sync_state;
   `,
   `
-  -- Hearth Notes (ARCHITECTURE §14.1): one note per file under notes/, its own kind.
+  -- Hotsauce Notes (ARCHITECTURE §14.1): one note per file under notes/, its own kind.
   UPDATE files SET kind = 'note' WHERE path LIKE 'notes/%';
   DELETE FROM sync_state;
   `,
   `
-  -- Hearth Whiteboard (ARCHITECTURE §15.1): one board per file under boards/, its own kind.
+  -- Hotsauce Whiteboard (ARCHITECTURE §15.1): one board per file under boards/, its own kind.
   UPDATE files SET kind = 'board' WHERE path LIKE 'boards/%';
   DELETE FROM sync_state;
   `,
@@ -116,7 +116,7 @@ export const MIGRATIONS: readonly string[] = [
   DELETE FROM sync_state;
   `,
   `
-  -- Hearth Files (ARCHITECTURE §18.1): one pointer per stored file under files/, its own kind.
+  -- Hotsauce Files (ARCHITECTURE §18.1): one pointer per stored file under files/, its own kind.
   UPDATE files SET kind = 'file' WHERE path LIKE 'files/%';
   DELETE FROM sync_state;
   `,

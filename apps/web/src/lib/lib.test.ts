@@ -1,4 +1,4 @@
-import { extractTitle, newDoc, parseFrontmatter } from '@hearth/format'
+import { extractTitle, newDoc, parseFrontmatter } from '@hotsauce/format'
 import { describe, expect, it, vi } from 'vitest'
 import { clearDrafts, draftKey, findDraft, saveDraft } from './drafts'
 import { firstHeading, NEW_DOC_TITLE, propertyList, renameTarget, syncTitle } from './format'

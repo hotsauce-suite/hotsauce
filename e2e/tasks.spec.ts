@@ -2,7 +2,7 @@ import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { uid } from './fixtures'
 import { expect, type Member, test } from './meetings-fixtures'
 
-// Hearth Tasks (ARCHITECTURE §12), against the built server with fake transcriber and model.
+// Hotsauce Tasks (ARCHITECTURE §12), against the built server with fake transcriber and model.
 // Each test gets a fresh member, so their personal tasks and "mine" views never mix.
 
 test.use({ timezoneId: 'UTC' })

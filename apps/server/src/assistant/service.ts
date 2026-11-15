@@ -1,5 +1,5 @@
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type AgentProgress, type AssistantEvent, runAgent, type WriteTracker } from './agent.js'
 import type { AssistantModel, ContentBlockParam, MessageParam } from './model.js'
 import { estimateCostUsd } from './pricing.js'
@@ -81,7 +81,7 @@ export class Assistant {
     const month = this.#now().toISOString().slice(0, 7)
     const used = this.#store.usageOf(principal.userId, month)?.costUsd ?? 0
     if (used >= monthlyLimitUsd) {
-      throw new HearthError(
+      throw new HotsauceError(
         'rate_limited',
         `You've used this month's ${this.name()} allowance ($${monthlyLimitUsd}). An admin can raise it in Settings.`,
       )
@@ -96,12 +96,12 @@ export class Assistant {
     signal?: AbortSignal,
   ): Promise<void> {
     const text = input.text.trim()
-    if (text === '') throw new HearthError('bad_request', 'Ask a question first')
+    if (text === '') throw new HotsauceError('bad_request', 'Ask a question first')
     if (this.#store.ownedByOther(principal.userId, input.conversationId)) {
-      throw new HearthError('not_found', 'No such conversation')
+      throw new HotsauceError('not_found', 'No such conversation')
     }
     if (input.context && !this.#deps.spaces.canAccess(principal, input.context.space)) {
-      throw new HearthError(
+      throw new HotsauceError(
         'forbidden',
         `You don't have access to the space "${input.context.space}"`,
       )
@@ -224,8 +224,8 @@ export class Assistant {
     try {
       const conv = this.#store.get(principal.userId, conversationId)
       const view = conv?.display.flatMap((m) => m.tools ?? []).find((t) => t.id === toolId)
-      if (!conv || !view) throw new HearthError('not_found', 'Nothing to confirm')
-      if (view.status !== 'waiting') throw new HearthError('conflict', 'That was already handled')
+      if (!conv || !view) throw new HotsauceError('not_found', 'Nothing to confirm')
+      if (view.status !== 'waiting') throw new HotsauceError('conflict', 'That was already handled')
       // Marked before it runs, so a crash mid-call can't leave it to run a second time.
       view.status = 'confirmed'
       this.#store.save(principal.userId, conv, this.#now())
@@ -265,11 +265,11 @@ export class Assistant {
 
   async #undo(principal: Principal, undoId: string): Promise<{ restored: string[] }> {
     const record = this.#store.getUndo(principal.userId, undoId)
-    if (!record) throw new HearthError('not_found', 'Nothing to undo')
-    if (record.undoneAt) throw new HearthError('conflict', 'Already undone')
+    if (!record) throw new HotsauceError('not_found', 'Nothing to undo')
+    if (record.undoneAt) throw new HotsauceError('conflict', 'Already undone')
     for (const c of record.changes) {
       if (!this.#deps.spaces.canAccess(principal, c.space)) {
-        throw new HearthError('forbidden', `You don't have access to the space "${c.space}"`)
+        throw new HotsauceError('forbidden', `You don't have access to the space "${c.space}"`)
       }
     }
     const restored = await undoChanges(this.#deps, principal, record.changes)
@@ -299,7 +299,7 @@ export class Assistant {
   #lock(principal: Principal): () => void {
     const key = principal.userId
     if (this.#busy.has(key)) {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         'Still working on your last request. Wait for it to finish, or press Stop.',
       )
@@ -362,7 +362,7 @@ function titleOf(text: string): string {
 }
 
 function errorText(err: unknown): string {
-  return err instanceof HearthError ? err.message : 'Something went wrong; try again.'
+  return err instanceof HotsauceError ? err.message : 'Something went wrong; try again.'
 }
 
 const NO_USAGE = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }

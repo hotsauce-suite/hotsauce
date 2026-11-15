@@ -170,7 +170,7 @@ struct MainView: View {
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Hearth.inkSoft)
+                .foregroundStyle(Hotsauce.inkSoft)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -186,9 +186,9 @@ struct MainView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .background(Hearth.paper)
+            .background(Hotsauce.paper)
         }
-        .tint(Hearth.ember)
+        .tint(Hotsauce.ember)
     }
 }
 
@@ -197,19 +197,19 @@ private struct TopBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(model.page.rawValue).font(Hearth.display(20)).foregroundStyle(Hearth.ink)
+            Text(model.page.rawValue).font(Hotsauce.display(20)).foregroundStyle(Hotsauce.ink)
             Spacer()
             if model.listening && model.account != nil {
                 HStack(spacing: 6) {
-                    Circle().fill(Hearth.ember).frame(width: 7, height: 7)
+                    Circle().fill(Hotsauce.ember).frame(width: 7, height: 7)
                     Text("Hold \(model.hotkey.shortName) to dictate")
                 }
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Hearth.inkSoft)
+                .foregroundStyle(Hotsauce.inkSoft)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Hearth.raised))
-                .overlay(Capsule().strokeBorder(Hearth.ash))
+                .background(Capsule().fill(Hotsauce.raised))
+                .overlay(Capsule().strokeBorder(Hotsauce.ash))
             } else {
                 Button("Finish setting up", action: model.openSetup)
                     .buttonStyle(.borderedProminent)
@@ -256,12 +256,12 @@ private struct DictationsPage: View {
                                         AppIcon(bundle: app.bundle, size: 20)
                                         VStack(alignment: .leading, spacing: 4) {
                                             HStack {
-                                                Text(app.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Hearth.ink)
+                                                Text(app.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Hotsauce.ink)
                                                 Spacer()
-                                                Text("\(app.words.formatted()) words").font(.system(size: 11)).foregroundStyle(Hearth.inkFaint)
+                                                Text("\(app.words.formatted()) words").font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
                                             }
                                             GeometryReader { geo in
-                                                Capsule().fill(Hearth.ember.opacity(0.75))
+                                                Capsule().fill(Hotsauce.ember.opacity(0.75))
                                                     .frame(width: max(4, geo.size.width * CGFloat(app.words) / CGFloat(most)), height: 4)
                                             }
                                             .frame(height: 4)
@@ -279,7 +279,7 @@ private struct DictationsPage: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Recent dictations").font(Hearth.display(16)).foregroundStyle(Hearth.ink)
+                        Text("Recent dictations").font(Hotsauce.display(16)).foregroundStyle(Hotsauce.ink)
                         Spacer()
                         TextField("Search", text: $model.search)
                             .textFieldStyle(.roundedBorder)
@@ -316,14 +316,14 @@ private struct Tile: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Hearth.inkFaint).textCase(.uppercase)
-            Text(value).font(Hearth.display(26)).foregroundStyle(Hearth.ink)
-            Text(detail).font(.system(size: 11)).foregroundStyle(Hearth.inkSoft)
+            Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Hotsauce.inkFaint).textCase(.uppercase)
+            Text(value).font(Hotsauce.display(26)).foregroundStyle(Hotsauce.ink)
+            Text(detail).font(.system(size: 11)).foregroundStyle(Hotsauce.inkSoft)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Hearth.raised))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hearth.ash))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Hotsauce.raised))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hotsauce.ash))
     }
 }
 
@@ -333,13 +333,13 @@ private struct Card<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(Hearth.display(15)).foregroundStyle(Hearth.ink)
+            Text(title).font(Hotsauce.display(15)).foregroundStyle(Hotsauce.ink)
             content
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Hearth.raised))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hearth.ash))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Hotsauce.raised))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hotsauce.ash))
     }
 }
 
@@ -347,7 +347,7 @@ private struct Empty: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(.system(size: 12)).foregroundStyle(Hearth.inkFaint).frame(maxWidth: .infinity, alignment: .leading)
+        Text(text).font(.system(size: 12)).foregroundStyle(Hotsauce.inkFaint).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -363,20 +363,20 @@ private struct ActivityGrid: View {
                 ForEach(cells) { cell in
                     switch cell.kind {
                     case let .weekday(symbol):
-                        Text(symbol).font(.system(size: 9, weight: .semibold)).foregroundStyle(Hearth.inkFaint)
+                        Text(symbol).font(.system(size: 9, weight: .semibold)).foregroundStyle(Hotsauce.inkFaint)
                     case .blank:
                         Color.clear.frame(width: 26, height: 22)
                     case let .day(number, day):
                         RoundedRectangle(cornerRadius: 5)
                             .fill(color(level: month.level(for: day)))
                             .frame(width: 26, height: 22)
-                            .overlay(Text("\(number)").font(.system(size: 8)).foregroundStyle(Hearth.inkFaint.opacity(0.7)))
+                            .overlay(Text("\(number)").font(.system(size: 8)).foregroundStyle(Hotsauce.inkFaint.opacity(0.7)))
                             .help("\(day.date.formatted(date: .abbreviated, time: .omitted)): \(day.words) words")
                     }
                 }
             }
             Text("\(month.activeDays) active \(month.activeDays == 1 ? "day" : "days")")
-                .font(.system(size: 11)).foregroundStyle(Hearth.inkSoft)
+                .font(.system(size: 11)).foregroundStyle(Hotsauce.inkSoft)
         }
     }
 
@@ -400,11 +400,11 @@ private struct ActivityGrid: View {
 
     private func color(level: Int) -> Color {
         switch level {
-        case 0: Hearth.sunk
-        case 1: Hearth.glow.opacity(0.35)
-        case 2: Hearth.glow.opacity(0.65)
-        case 3: Hearth.ember.opacity(0.75)
-        default: Hearth.ember
+        case 0: Hotsauce.sunk
+        case 1: Hotsauce.glow.opacity(0.35)
+        case 2: Hotsauce.glow.opacity(0.65)
+        case 3: Hotsauce.ember.opacity(0.75)
+        default: Hotsauce.ember
         }
     }
 }
@@ -417,7 +417,7 @@ private struct AppIcon: View {
         if let image = AppIcons.icon(for: bundle) {
             Image(nsImage: image).resizable().frame(width: size, height: size)
         } else {
-            Image(systemName: "app.dashed").font(.system(size: size * 0.8)).foregroundStyle(Hearth.inkFaint).frame(width: size, height: size)
+            Image(systemName: "app.dashed").font(.system(size: size * 0.8)).foregroundStyle(Hotsauce.inkFaint).frame(width: size, height: size)
         }
     }
 }
@@ -432,15 +432,15 @@ private struct RecordRow: View {
             AppIcon(bundle: record.appBundle, size: 26)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
-                    Text(record.appName ?? "Unknown app").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hearth.ink)
-                    Text(record.date.formatted(.relative(presentation: .named))).font(.system(size: 11)).foregroundStyle(Hearth.inkFaint)
+                    Text(record.appName ?? "Unknown app").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hotsauce.ink)
+                    Text(record.date.formatted(.relative(presentation: .named))).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
                     if !record.cleaned {
-                        Text("as spoken").font(.system(size: 10, weight: .medium)).foregroundStyle(Hearth.inkFaint)
+                        Text("as spoken").font(.system(size: 10, weight: .medium)).foregroundStyle(Hotsauce.inkFaint)
                             .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Capsule().fill(Hearth.sunk))
+                            .background(Capsule().fill(Hotsauce.sunk))
                     }
                 }
-                Text(record.text).font(.system(size: 13)).foregroundStyle(Hearth.ink).lineLimit(5).textSelection(.enabled)
+                Text(record.text).font(.system(size: 13)).foregroundStyle(Hotsauce.ink).lineLimit(5).textSelection(.enabled)
             }
             Spacer(minLength: 8)
             VStack(spacing: 6) {
@@ -451,8 +451,8 @@ private struct RecordRow: View {
             .controlSize(.small)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Hearth.raised))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hearth.ash))
+        .background(RoundedRectangle(cornerRadius: 12).fill(Hotsauce.raised))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hotsauce.ash))
     }
 }
 
@@ -465,9 +465,9 @@ private struct DictionaryPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Names and terms \(Brand.name) should hear and spell exactly as written. Yours apply to your dictations; the team’s apply to everyone on the team.")
-                    .font(.system(size: 13)).foregroundStyle(Hearth.inkSoft).fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 13)).foregroundStyle(Hotsauce.inkSoft).fixedSize(horizontal: false, vertical: true)
                 if let state = model.wordsState {
-                    Text(state).font(.system(size: 12)).foregroundStyle(Hearth.inkFaint)
+                    Text(state).font(.system(size: 12)).foregroundStyle(Hotsauce.inkFaint)
                 }
                 HStack(alignment: .top, spacing: 12) {
                     WordList(model: model, scope: .mine, title: "My words", hint: "Only you", words: model.mine)
@@ -494,27 +494,27 @@ private struct WordList: View {
 
     var body: some View {
         Card(title: title) {
-            Text(hint).font(.system(size: 11)).foregroundStyle(Hearth.inkFaint)
+            Text(hint).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
             if words.isEmpty {
                 Empty("None yet.")
             } else {
                 Flow(spacing: 6) {
                     ForEach(words, id: \.self) { word in
                         HStack(spacing: 4) {
-                            Text(word).font(.system(size: 12)).foregroundStyle(Hearth.ink)
+                            Text(word).font(.system(size: 12)).foregroundStyle(Hotsauce.ink)
                             Button {
                                 model.editWords([], [word], scope) { _ in }
                             } label: {
                                 Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
                             }
                             .buttonStyle(.plain)
-                            .foregroundStyle(Hearth.inkFaint)
+                            .foregroundStyle(Hotsauce.inkFaint)
                             .help("Remove \(word)")
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Capsule().fill(Hearth.paper))
-                        .overlay(Capsule().strokeBorder(Hearth.ash))
+                        .background(Capsule().fill(Hotsauce.paper))
+                        .overlay(Capsule().strokeBorder(Hotsauce.ash))
                     }
                 }
             }
@@ -583,7 +583,7 @@ private struct SettingsPage: View {
                 if model.meetingReminders && !model.notificationsAllowed {
                     HStack {
                         Text("Notifications are off for \(Brand.name) in System Settings.")
-                            .font(.system(size: 11)).foregroundStyle(Hearth.ember)
+                            .font(.system(size: 11)).foregroundStyle(Hotsauce.ember)
                         Button("Open Notifications settings") {
                             if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
                                 NSWorkspace.shared.open(url)
@@ -606,7 +606,7 @@ private struct SettingsPage: View {
                     }
                 }
                 if let error = model.suiteServerError {
-                    Text(error).font(.system(size: 11)).foregroundStyle(Hearth.ember)
+                    Text(error).font(.system(size: 11)).foregroundStyle(Hotsauce.ember)
                 }
             }
             Section("Dictation") {
@@ -620,7 +620,7 @@ private struct SettingsPage: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Toggle("Edge glow while dictating", isOn: Binding(get: { model.edgeGlow }, set: model.setEdgeGlow))
                     Text("A warm glow around the window you’re talking into, with flames that follow your voice. Still, with no flames, when Reduce motion is on.")
-                        .font(.system(size: 11)).foregroundStyle(Hearth.inkFaint)
+                        .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
                 }
                 Toggle("Show in menu bar", isOn: Binding(get: { model.showInMenuBar }, set: model.setShowInMenuBar))
                 if model.showInMenuBar && !model.menuBarIconShown {
@@ -631,16 +631,16 @@ private struct SettingsPage: View {
                 PermissionRow(title: "Microphone", granted: model.microphone, action: model.requestMicrophone)
                 PermissionRow(title: "Accessibility", granted: model.accessibility, action: model.requestAccessibility)
                 LabeledContent("Keyboard shortcut") {
-                    Text(model.listening ? "Listening" : "Not listening").foregroundStyle(model.listening ? Hearth.moss : Hearth.ember)
+                    Text(model.listening ? "Listening" : "Not listening").foregroundStyle(model.listening ? Hotsauce.moss : Hotsauce.ember)
                 }
             }
             Section("Account") {
-                LabeledContent("Connected as") { Text(model.account ?? "Not connected").foregroundStyle(Hearth.inkSoft) }
+                LabeledContent("Connected as") { Text(model.account ?? "Not connected").foregroundStyle(Hotsauce.inkSoft) }
                 HStack {
                     Button("Open Dictate in \(Brand.name)", action: model.openWeb)
                     if model.account != nil { Button("Disconnect this Mac", role: .destructive, action: model.disconnect) }
                 }
-                LabeledContent("Server") { Text(model.server).font(.system(size: 11, design: .monospaced)).foregroundStyle(Hearth.inkFaint) }
+                LabeledContent("Server") { Text(model.server).font(.system(size: 11, design: .monospaced)).foregroundStyle(Hotsauce.inkFaint) }
             }
             Section {
                 Picker("Keep history for", selection: Binding(get: { model.retentionDays }, set: model.setRetention)) {
@@ -653,7 +653,7 @@ private struct SettingsPage: View {
                 Text("History")
             } footer: {
                 Text("Dictation text stays on this Mac, readable only by you. It is never uploaded and never includes audio.")
-                    .font(.system(size: 11)).foregroundStyle(Hearth.inkFaint)
+                    .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
             }
         }
         .formStyle(.grouped)
@@ -670,7 +670,7 @@ private struct PermissionRow: View {
     var body: some View {
         LabeledContent(title) {
             if granted {
-                Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(Hearth.moss)
+                Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(Hotsauce.moss)
             } else {
                 Button("Allow…", action: action)
             }
@@ -685,10 +685,10 @@ struct MenuBarHint: View {
         VStack(alignment: .leading, spacing: 4) {
             Label("The mic icon may be hidden in the menu bar", systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Hearth.ember)
+                .foregroundStyle(Hotsauce.ember)
             Text("On a MacBook the camera notch can cover it. ⌘-drag it to the right, or hide other icons. If it's switched off, turn on \(Brand.name) under System Settings → Menu Bar.")
                 .font(.system(size: 11))
-                .foregroundStyle(Hearth.inkSoft)
+                .foregroundStyle(Hotsauce.inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Open Menu Bar settings") {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension") {

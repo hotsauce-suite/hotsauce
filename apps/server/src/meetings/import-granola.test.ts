@@ -1,4 +1,4 @@
-import { parseFrontmatter, parseTranscript } from '@hearth/format'
+import { parseFrontmatter, parseTranscript } from '@hotsauce/format'
 import { describe, expect, it } from 'vitest'
 import { blobOidOf } from './enhance/note.js'
 import {

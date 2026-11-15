@@ -49,7 +49,7 @@ export function docPath(folder: string, title: string): string {
   return [SPACE_LAYOUT.docs, ...folder.split('/').filter(Boolean), `${slugify(title)}.md`].join('/')
 }
 
-/** A new document at the top of `docs/`, in the style Hearth generates. */
+/** A new document at the top of `docs/`, in the style Hotsauce generates. */
 export function newDoc(title: string): { path: string; text: string } {
   const name = title.replace(/\s+/g, ' ').trim() || 'Untitled'
   const created = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')

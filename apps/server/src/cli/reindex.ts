@@ -4,7 +4,7 @@
  * indexed from scratch. index.sqlite itself is kept, so recents, stars, rail pins, conflicts and sync state
  * survive. Safe to run while the server is up.
  *
- *   pnpm --filter @hearth/server reindex [space]      (development)
+ *   pnpm --filter @hotsauce/server reindex [space]      (development)
  *   node apps/server/dist/cli/reindex.js [space]       (production image)
  */
 import { loadConfig } from '../config.js'

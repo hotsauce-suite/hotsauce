@@ -28,7 +28,7 @@ export interface Transcriber {
     sessionId: string
     language?: string
     vocabulary?: string[]
-    /** Treat a dropped connection as an error instead of reconnecting (Hearth Dictate). */
+    /** Treat a dropped connection as an error instead of reconnecting (Hotsauce Dictate). */
     failOnDrop?: boolean
   }): Promise<TranscriberSession>
 }

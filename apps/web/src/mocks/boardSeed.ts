@@ -1,7 +1,7 @@
 // Sample whiteboards for the demo: Excalidraw elements written out in full, so the canvas opens
 // them as it would a saved board.
 
-import type { BoardElement, BoardScene } from '@hearth/format'
+import type { BoardElement, BoardScene } from '@hotsauce/format'
 
 let seq = 0
 const nextSeed = () => {

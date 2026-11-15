@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
-import { parseFrontmatter, parseTranscript, transcriptPathFor } from '@hearth/format'
+import { parseFrontmatter, parseTranscript, transcriptPathFor } from '@hotsauce/format'
 import { stringify as toYaml } from 'yaml'
 import type { Authenticator, Principal } from '../auth/index.js'
 import type { Checkins } from '../checkins/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
 import type { Index } from '../index/index.js'
@@ -148,7 +148,7 @@ export class AgentBriefs {
 
   async saveNotes(principal: Principal, text: string, via?: string): Promise<void> {
     if (text.length > MAX_NOTES_CHARS) {
-      throw new HearthError('bad_request', `Notes are limited to ${MAX_NOTES_CHARS} characters`)
+      throw new HotsauceError('bad_request', `Notes are limited to ${MAX_NOTES_CHARS} characters`)
     }
     const space = await this.#personal(principal)
     await this.#lock.run(principal.email, async () => {
@@ -261,7 +261,7 @@ export class AgentBriefs {
       maxTokens: 8_000,
     })
     const body = cleanBrief(text)
-    if (body === '') throw new HearthError('llm_error', 'The brief came back empty')
+    if (body === '') throw new HotsauceError('llm_error', 'The brief came back empty')
     const frontmatter = toYaml({
       type: 'agent-brief',
       generated: now.toISOString(),
@@ -369,10 +369,13 @@ export class AgentBriefs {
     const recent = (this.#forced.get(email) ?? []).filter((t) => now - t < 86_400_000)
     const last = recent.at(-1)
     if (last !== undefined && now - last < this.#d.forcedGapMs) {
-      throw new HearthError('rate_limited', 'Your brief was just rewritten. Try again in a minute.')
+      throw new HotsauceError(
+        'rate_limited',
+        'Your brief was just rewritten. Try again in a minute.',
+      )
     }
     if (recent.length >= FORCED_PER_DAY) {
-      throw new HearthError(
+      throw new HotsauceError(
         'rate_limited',
         'Your brief has been rewritten a lot today. Try again tomorrow.',
       )
@@ -395,14 +398,14 @@ export class AgentBriefs {
       message,
     })
     if (result.status === 'conflict') {
-      throw new HearthError('conflict', 'Your agent brief changed while it was being saved')
+      throw new HotsauceError('conflict', 'Your agent brief changed while it was being saved')
     }
     await this.#d.syncer.afterHeadChanged(space)
   }
 
   async #personal(principal: Principal): Promise<string> {
     const own = (await this.#d.spaces.visibleSpaces(principal)).find((s) => s.kind === 'personal')
-    if (!own) throw new HearthError('forbidden', 'Your personal space isn’t available')
+    if (!own) throw new HotsauceError('forbidden', 'Your personal space isn’t available')
     return own.name
   }
 
@@ -413,7 +416,7 @@ export class AgentBriefs {
     return {
       space,
       path: BRIEF_PATH,
-      // The title line is Hearth's; agents and the page show the sections.
+      // The title line is Hotsauce's; agents and the page show the sections.
       body: body.replace(/^\s*# [^\n]*\n+/, '').trim(),
       generated: typeof data.generated === 'string' ? data.generated : '',
       model: typeof data.model === 'string' ? data.model : '',
@@ -430,7 +433,7 @@ export class AgentBriefs {
     try {
       return await this.#d.git.readFile(space, path)
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return null
+      if (err instanceof HotsauceError && err.code === 'not_found') return null
       throw err
     }
   }

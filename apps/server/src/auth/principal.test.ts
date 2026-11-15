@@ -12,7 +12,7 @@ describe('deriveHandle', () => {
     ['ada@example.test', 'ada'],
     ['Ada@Example.test', 'ada'],
     ['ada.lovelace@example.test', 'ada-lovelace'],
-    ['ada+hearth@example.test', 'ada-hearth'],
+    ['ada+hotsauce@example.test', 'ada-hotsauce'],
     ['a..b__c@example.test', 'a-b-c'],
     ['a--b@example.test', 'a-b'],
     ['.jo.@example.test', 'jo'],

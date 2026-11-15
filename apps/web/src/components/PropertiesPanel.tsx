@@ -1,4 +1,4 @@
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import { propertyList } from '../lib/format'
 import { SidePanel } from './SidePanel'
 

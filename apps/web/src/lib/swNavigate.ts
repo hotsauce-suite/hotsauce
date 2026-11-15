@@ -1,4 +1,4 @@
-// A meeting reminder clicked while Hearth is already open (public/push-sw.js): the service worker
+// A meeting reminder clicked while Hotsauce is already open (public/push-sw.js): the service worker
 // focuses the tab and asks it to go to the reminder's page. The tab moves in-app, because a full
 // page load would end a meeting being recorded there.
 

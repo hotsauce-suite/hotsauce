@@ -1,6 +1,6 @@
-import { parseSpaceConfig, SPACE_LAYOUT } from '@hearth/format'
+import { parseSpaceConfig, SPACE_LAYOUT } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { SpaceRecord } from '../index/index.js'
 
 // Structural slices of GitStore (ARCHITECTURE §3.2) and HostAdapter (§3.3), copied exactly so the
@@ -88,7 +88,7 @@ function ownerKey(p: Principal): string {
   return p.email.toLowerCase()
 }
 
-/** Minimal stand-in for tests; main.ts passes `initialSpaceFiles` from @hearth/format. */
+/** Minimal stand-in for tests; main.ts passes `initialSpaceFiles` from @hotsauce/format. */
 export function defaultInitialFiles(name: string): Array<{ path: string; content: string }> {
   return [
     {
@@ -146,12 +146,12 @@ export class SpaceService {
     const name = p.handle
     const owner = ownerKey(p)
     if (name === '' || name === TEAM_SPACE) {
-      throw new HearthError('forbidden', `${owner} can't have a personal space named "${name}"`)
+      throw new HotsauceError('forbidden', `${owner} can't have a personal space named "${name}"`)
     }
     // Check and claim with no await in between, so two members racing for one handle can't both win.
     const existing = this.#registry.getSpace(name)
     if (existing && existing.ownerEmail !== owner) {
-      throw new HearthError('forbidden', 'handle already claimed by another member')
+      throw new HotsauceError('forbidden', 'handle already claimed by another member')
     }
     if (!existing) this.#registry.upsertSpace({ name, kind: 'personal', ownerEmail: owner })
 
@@ -218,7 +218,7 @@ export class SpaceService {
     const recorded = await this.#ownerInGit(name)
     if (recorded === null || recorded === owner) return
     this.#registry.upsertSpace({ name, kind: 'personal', ownerEmail: recorded })
-    throw new HearthError('forbidden', 'handle already claimed by another member')
+    throw new HotsauceError('forbidden', 'handle already claimed by another member')
   }
 
   /** The owner in `.hearth/space.yaml`; null for a new repo, or one whose config names nobody. */
@@ -227,7 +227,7 @@ export class SpaceService {
     try {
       text = (await this.#git.readFile(name, SPACE_CONFIG)).content
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return null
+      if (err instanceof HotsauceError && err.code === 'not_found') return null
       throw err
     }
     try {
@@ -241,7 +241,7 @@ export class SpaceService {
 
   /**
    * Makes sure the repo exists on the host. A space that is already cloned doesn't need the host
-   * to be up: Hearth keeps serving the clone, with its remote URL, and syncs once the host is back.
+   * to be up: Hotsauce keeps serving the clone, with its remote URL, and syncs once the host is back.
    */
   async #cloneUrl(name: string): Promise<string> {
     let cloneUrl: string

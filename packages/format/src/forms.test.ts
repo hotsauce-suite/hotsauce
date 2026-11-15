@@ -11,7 +11,7 @@ import {
   visibleQuestions,
 } from './forms.js'
 
-// Hearth Forms (docs/plans/2026-11-12-forms.md R1–R4).
+// Hotsauce Forms (docs/plans/2026-11-12-forms.md R1–R4).
 
 const ID = '01JD0000000000000000000000'
 const ID2 = '01JD0000000000000000000001'

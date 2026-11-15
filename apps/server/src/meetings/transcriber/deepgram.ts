@@ -1,6 +1,6 @@
 import WebSocket from 'ws'
 import { z } from 'zod'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { SessionEvents } from './events.js'
 import {
   PCM_BYTES_PER_MS,
@@ -328,7 +328,7 @@ class TrackStream {
     ws.on('error', (err) => {
       // The detail (status, network cause) can name the account; it stays in the server log.
       this.#config.log(`deepgram ${this.#config.sessionId}/${this.#track}: ${err.message}`)
-      this.#fail(new HearthError('asr_error', 'Live transcription failed; audio is still saved'))
+      this.#fail(new HotsauceError('asr_error', 'Live transcription failed; audio is still saved'))
     })
     ws.on('close', (code) => {
       if (this.#keepAlive) clearInterval(this.#keepAlive)
@@ -339,7 +339,7 @@ class TrackStream {
       // whole recording is sent again rather than a transcript with a hole in it.
       if (this.#config.failOnDrop && !this.#finishing) {
         this.#config.log(`deepgram ${this.#config.sessionId}/${this.#track}: dropped (${code})`)
-        this.#fail(new HearthError('asr_error', 'Live transcription dropped'))
+        this.#fail(new HotsauceError('asr_error', 'Live transcription dropped'))
       }
     })
   }

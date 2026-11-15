@@ -1,4 +1,4 @@
-// Client for `/api/clips` (ARCHITECTURE §10.2): Hearth Clips.
+// Client for `/api/clips` (ARCHITECTURE §10.2): Hotsauce Clips.
 
 import { request } from './client'
 

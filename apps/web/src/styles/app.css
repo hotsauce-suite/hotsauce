@@ -52,7 +52,7 @@ body {
   line-height: 1.55;
   color: var(--ink);
   background-color: var(--paper);
-  /* Atmosphere: warmth rising from the lower left, where the sidebar's hearth sits,
+  /* Atmosphere: warmth rising from the lower left, where the sidebar's hotsauce sits,
      and a faint grain so the paper isn't a flat fill. */
   background-image:
     radial-gradient(
@@ -92,21 +92,21 @@ button {
 /* The one orchestrated moment: the shell warms up once per page load. Opacity and
    transform only, so nothing reflows. */
 
-@keyframes hearth-sidebar-in {
+@keyframes hotsauce-sidebar-in {
   from {
     opacity: 0;
     transform: translateX(-10px);
   }
 }
 
-@keyframes hearth-main-in {
+@keyframes hotsauce-main-in {
   from {
     opacity: 0;
     transform: translateY(6px);
   }
 }
 
-@keyframes hearth-glow-in {
+@keyframes hotsauce-glow-in {
   from {
     opacity: 0;
     transform: scale(0.85);
@@ -115,19 +115,19 @@ button {
 
 .shell-rail,
 .shell-sidebar {
-  animation: hearth-sidebar-in 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: hotsauce-sidebar-in 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 .shell-tabbar {
-  animation: hearth-main-in 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: hotsauce-main-in 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 .shell-main {
-  animation: hearth-main-in 360ms 60ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: hotsauce-main-in 360ms 60ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-.hearth-glow {
-  animation: hearth-glow-in 400ms ease-out both;
+.hotsauce-glow {
+  animation: hotsauce-glow-in 400ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -135,7 +135,7 @@ button {
   .shell-tabbar,
   .shell-sidebar,
   .shell-main,
-  .hearth-glow {
+  .hotsauce-glow {
     animation: none;
   }
 }
@@ -192,17 +192,17 @@ button {
 }
 
 /* AI-written lines of an enhanced meeting note (frontmatter `ai_ranges`). */
-.hearth-editor .cm-line.cm-ai-line {
+.hotsauce-editor .cm-line.cm-ai-line {
   color: var(--ink-ai);
 }
 
 /* ------------------------------------------------------------------ editor */
 
-.hearth-editor {
+.hotsauce-editor {
   height: 100%;
 }
 
-.hearth-editor .cm-editor {
+.hotsauce-editor .cm-editor {
   height: 100%;
   background: transparent;
   color: var(--ink);
@@ -210,22 +210,22 @@ button {
   font-size: 1.0625rem;
 }
 
-.hearth-editor .cm-editor.cm-focused {
+.hotsauce-editor .cm-editor.cm-focused {
   outline: none;
 }
 
 /* The caret shows where focus is; a ring around the whole page of text is noise. */
-.hearth-editor .cm-content:focus-visible {
+.hotsauce-editor .cm-content:focus-visible {
   box-shadow: none;
 }
 
-.hearth-editor .cm-scroller {
+.hotsauce-editor .cm-scroller {
   font-family: inherit;
   line-height: 1.7;
   overflow: auto;
 }
 
-.hearth-editor .cm-content {
+.hotsauce-editor .cm-content {
   max-width: var(--measure);
   margin: 0 auto;
   padding: 2.5rem 1.5rem 40vh;
@@ -233,23 +233,23 @@ button {
 }
 
 @media (max-width: 767px) {
-  .hearth-editor .cm-content {
+  .hotsauce-editor .cm-content {
     padding: 1.25rem 1rem 40vh;
   }
 }
 
-.hearth-editor .cm-cursor {
+.hotsauce-editor .cm-cursor {
   border-left: 2px solid var(--ember);
 }
 
-.hearth-editor .cm-panels {
+.hotsauce-editor .cm-panels {
   background: var(--paper-raised);
   color: var(--ink);
   border-color: var(--ash);
 }
 
-.hearth-editor .cm-panels input,
-.hearth-editor .cm-panels button {
+.hotsauce-editor .cm-panels input,
+.hotsauce-editor .cm-panels button {
   font: inherit;
   font-size: 0.85rem;
 }
@@ -298,25 +298,25 @@ button {
 }
 
 /* Compact mode: a notepad sharing the page with other things (the live meeting). */
-.hearth-editor-compact .cm-editor {
+.hotsauce-editor-compact .cm-editor {
   font-size: 1rem;
 }
 
-.hearth-editor-compact .cm-content {
+.hotsauce-editor-compact .cm-content {
   max-width: none;
   padding: 1.25rem 1.5rem 30vh;
 }
 
-.hearth-editor-compact .cm-lp-h1 {
+.hotsauce-editor-compact .cm-lp-h1 {
   font-size: 1.6em;
 }
 
-.hearth-editor-compact .cm-lp-h2 {
+.hotsauce-editor-compact .cm-lp-h2 {
   font-size: 1.3em;
 }
 
 @media (max-width: 767px) {
-  .hearth-editor-compact .cm-content {
+  .hotsauce-editor-compact .cm-content {
     padding: 1rem 1rem 30vh;
   }
 }
@@ -413,7 +413,7 @@ button {
   background: linear-gradient(90deg, transparent, var(--ash-strong), transparent);
 }
 
-.hearth-editor .cm-line.cm-lp-quote {
+.hotsauce-editor .cm-line.cm-lp-quote {
   border-left: 3px solid var(--ash-strong);
   padding-left: 0.9em;
   color: var(--ink-soft);
@@ -466,7 +466,7 @@ button {
   padding: 0.1em 0.3em;
 }
 
-.hearth-editor .cm-line.cm-lp-fence {
+.hotsauce-editor .cm-line.cm-lp-fence {
   font-family: var(--type-mono);
   font-size: 0.86em;
   background: var(--code-bg);
@@ -520,7 +520,7 @@ button {
 
 /* ---------------------------------------------------------- reading view */
 
-.prose-hearth {
+.prose-hotsauce {
   max-width: var(--measure);
   margin: 0 auto;
   padding: 2.5rem 1.5rem 30vh;
@@ -530,104 +530,104 @@ button {
 }
 
 @media (max-width: 767px) {
-  .prose-hearth {
+  .prose-hotsauce {
     padding: 1.25rem 1rem 30vh;
   }
 }
 
-.prose-hearth > * + * {
+.prose-hotsauce > * + * {
   margin-top: 0.9em;
 }
 
-.prose-hearth h1,
-.prose-hearth h2,
-.prose-hearth h3 {
+.prose-hotsauce h1,
+.prose-hotsauce h2,
+.prose-hotsauce h3 {
   font-family: var(--type-display);
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.22;
 }
 
-.prose-hearth h1 {
+.prose-hotsauce h1 {
   font-size: 2.3em;
   font-variation-settings: "opsz" 96;
 }
 
-.prose-hearth h2 {
+.prose-hotsauce h2 {
   font-size: 1.55em;
   margin-top: 1.6em;
 }
 
-.prose-hearth h3 {
+.prose-hotsauce h3 {
   font-size: 1.25em;
   margin-top: 1.3em;
 }
 
 /* The agent brief (Meetings → Agent brief): a card of short sections. */
-.prose-hearth.brief-body {
+.prose-hotsauce.brief-body {
   font-size: 1rem;
 }
 
-.prose-hearth.brief-body h2 {
+.prose-hotsauce.brief-body h2 {
   font-size: 1.2em;
   margin-top: 1.4em;
 }
 
-.prose-hearth.brief-body > :first-child {
+.prose-hotsauce.brief-body > :first-child {
   margin-top: 0;
 }
 
-.prose-hearth h4,
-.prose-hearth h5,
-.prose-hearth h6 {
+.prose-hotsauce h4,
+.prose-hotsauce h5,
+.prose-hotsauce h6 {
   font-weight: 600;
   margin-top: 1.2em;
 }
 
-.prose-hearth h5 {
+.prose-hotsauce h5 {
   font-size: 0.95em;
 }
 
-.prose-hearth h6 {
+.prose-hotsauce h6 {
   font-size: 0.85em;
   color: var(--ink-soft);
   letter-spacing: 0.02em;
 }
 
-.prose-hearth a {
+.prose-hotsauce a {
   color: var(--ember-strong);
   text-decoration: underline;
   text-decoration-color: color-mix(in oklab, var(--ember) 40%, transparent);
   text-underline-offset: 3px;
 }
 
-.prose-hearth ul,
-.prose-hearth ol {
+.prose-hotsauce ul,
+.prose-hotsauce ol {
   padding-left: 1.4em;
 }
 
-.prose-hearth ul {
+.prose-hotsauce ul {
   list-style: disc;
 }
 
-.prose-hearth ol {
+.prose-hotsauce ol {
   list-style: decimal;
 }
 
-.prose-hearth li::marker {
+.prose-hotsauce li::marker {
   color: var(--ember);
 }
 
-.prose-hearth li + li {
+.prose-hotsauce li + li {
   margin-top: 0.25em;
 }
 
-.prose-hearth .contains-task-list {
+.prose-hotsauce .contains-task-list {
   list-style: none;
   padding-left: 0.2em;
 }
 
-.prose-hearth input[type="checkbox"] {
+.prose-hotsauce input[type="checkbox"] {
   appearance: none;
   width: 1.05em;
   height: 1.05em;
@@ -640,12 +640,12 @@ button {
   place-content: center;
 }
 
-.prose-hearth input[type="checkbox"]:checked {
+.prose-hotsauce input[type="checkbox"]:checked {
   background: var(--ember);
   border-color: var(--ember);
 }
 
-.prose-hearth input[type="checkbox"]:checked::after {
+.prose-hotsauce input[type="checkbox"]:checked::after {
   content: "";
   width: 0.55em;
   height: 0.3em;
@@ -654,13 +654,13 @@ button {
   transform: rotate(-45deg) translate(0.03em, -0.04em);
 }
 
-.prose-hearth blockquote {
+.prose-hotsauce blockquote {
   border-left: 3px solid var(--ash-strong);
   padding-left: 1em;
   color: var(--ink-soft);
 }
 
-.prose-hearth .callout {
+.prose-hotsauce .callout {
   border-left: 3px solid var(--ember);
   background: var(--ember-wash);
   border-radius: 0 8px 8px 0;
@@ -668,30 +668,30 @@ button {
   color: var(--ink);
 }
 
-.prose-hearth .callout-title {
+.prose-hotsauce .callout-title {
   font-weight: 600;
   margin-bottom: 0.25em;
   color: var(--ember-strong);
 }
 
-.prose-hearth .callout-warning,
-.prose-hearth .callout-caution,
-.prose-hearth .callout-danger {
+.prose-hotsauce .callout-warning,
+.prose-hotsauce .callout-caution,
+.prose-hotsauce .callout-danger {
   border-left-color: var(--ember-strong);
 }
 
-.prose-hearth .callout-tip,
-.prose-hearth .callout-success {
+.prose-hotsauce .callout-tip,
+.prose-hotsauce .callout-success {
   border-left-color: var(--moss);
   background: var(--moss-wash);
 }
 
-.prose-hearth .callout-tip .callout-title,
-.prose-hearth .callout-success .callout-title {
+.prose-hotsauce .callout-tip .callout-title,
+.prose-hotsauce .callout-success .callout-title {
   color: var(--moss);
 }
 
-.prose-hearth code {
+.prose-hotsauce code {
   font-family: var(--type-mono);
   font-size: 0.86em;
   background: var(--code-bg);
@@ -699,7 +699,7 @@ button {
   padding: 0.1em 0.3em;
 }
 
-.prose-hearth pre {
+.prose-hotsauce pre {
   background: var(--code-bg);
   border-radius: 8px;
   padding: 0.9em 1.1em;
@@ -707,12 +707,12 @@ button {
   line-height: 1.55;
 }
 
-.prose-hearth pre code {
+.prose-hotsauce pre code {
   background: none;
   padding: 0;
 }
 
-.prose-hearth table {
+.prose-hotsauce table {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.94em;
@@ -720,70 +720,70 @@ button {
   overflow-x: auto;
 }
 
-.prose-hearth th,
-.prose-hearth td {
+.prose-hotsauce th,
+.prose-hotsauce td {
   border-bottom: 1px solid var(--ash);
   padding: 0.45em 0.8em 0.45em 0;
   text-align: left;
 }
 
-.prose-hearth th {
+.prose-hotsauce th {
   font-weight: 600;
   border-bottom-color: var(--ash-strong);
 }
 
-.prose-hearth img {
+.prose-hotsauce img {
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid var(--ash);
 }
 
-.prose-hearth hr {
+.prose-hotsauce hr {
   border: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--ash-strong), transparent);
   margin: 2em 0;
 }
 
-.prose-hearth .footnotes {
+.prose-hotsauce .footnotes {
   font-size: 0.88em;
   color: var(--ink-soft);
 }
 
 /* highlight.js tokens, mapped onto the same code palette as the editor */
-.prose-hearth .hljs-keyword,
-.prose-hearth .hljs-built_in,
-.prose-hearth .hljs-selector-tag {
+.prose-hotsauce .hljs-keyword,
+.prose-hotsauce .hljs-built_in,
+.prose-hotsauce .hljs-selector-tag {
   color: var(--code-keyword);
 }
 
-.prose-hearth .hljs-string,
-.prose-hearth .hljs-regexp {
+.prose-hotsauce .hljs-string,
+.prose-hotsauce .hljs-regexp {
   color: var(--code-string);
 }
 
-.prose-hearth .hljs-number,
-.prose-hearth .hljs-literal {
+.prose-hotsauce .hljs-number,
+.prose-hotsauce .hljs-literal {
   color: var(--code-number);
 }
 
-.prose-hearth .hljs-comment {
+.prose-hotsauce .hljs-comment {
   color: var(--code-comment);
   font-style: italic;
 }
 
-.prose-hearth .hljs-title,
-.prose-hearth .hljs-title.function_ {
+.prose-hotsauce .hljs-title,
+.prose-hotsauce .hljs-title.function_ {
   color: var(--code-function);
 }
 
-.prose-hearth .hljs-type,
-.prose-hearth .hljs-title.class_ {
+.prose-hotsauce .hljs-type,
+.prose-hotsauce .hljs-title.class_ {
   color: var(--code-type);
 }
 
-.prose-hearth .hljs-attr,
-.prose-hearth .hljs-property {
+.prose-hotsauce .hljs-attr,
+.prose-hotsauce .hljs-property {
   color: var(--code-property);
 }
 
@@ -872,7 +872,7 @@ button {
 
 /* -------------------------------------------------- editor autocomplete */
 
-.hearth-editor .cm-tooltip {
+.hotsauce-editor .cm-tooltip {
   background: var(--paper-raised);
   border: 1px solid var(--ash);
   border-radius: 8px;
@@ -880,21 +880,21 @@ button {
   overflow: hidden;
 }
 
-.hearth-editor .cm-tooltip-autocomplete > ul {
+.hotsauce-editor .cm-tooltip-autocomplete > ul {
   font-family: var(--type-ui);
   max-height: 16rem;
 }
 
-.hearth-editor .cm-tooltip-autocomplete > ul > li {
+.hotsauce-editor .cm-tooltip-autocomplete > ul > li {
   padding: 0.35rem 0.7rem;
 }
 
-.hearth-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
+.hotsauce-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
   background: var(--ember-wash);
   color: var(--ink);
 }
 
-.hearth-editor .cm-completionDetail {
+.hotsauce-editor .cm-completionDetail {
   color: var(--ink-faint);
   font-style: normal;
   margin-left: 0.75rem;
@@ -902,7 +902,7 @@ button {
 }
 
 /* ---------------------------------------------------------- dictate keycap */
-/* Hearth Dictate's hero: the key you hold, a coal's glow under it while it listens, and the
+/* Hotsauce Dictate's hero: the key you hold, a coal's glow under it while it listens, and the
    level pill the Mac app shows. One slow loop; still under reduced motion. */
 
 .dictate-keycap {
@@ -1014,7 +1014,7 @@ button {
 }
 
 /* ------------------------------------------------------- dictate voice notes */
-/* Hearth Dictate on a phone: one big round record button, the coal's glow behind it, and a
+/* Hotsauce Dictate on a phone: one big round record button, the coal's glow behind it, and a
    sound wave that follows the microphone while it records. */
 
 .voice-record {
@@ -1089,7 +1089,7 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
   line-height: 1.5;
 }
 
-/* Two classes: the reading view's `.prose-hearth ul` would otherwise indent it. */
+/* Two classes: the reading view's `.prose-hotsauce ul` would otherwise indent it. */
 .task-query .task-query-list {
   list-style: none;
   margin: 0;
@@ -1115,7 +1115,7 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
 }
 
 .task-query a,
-.prose-hearth .task-query a {
+.prose-hotsauce .task-query a {
   color: var(--ink);
   text-decoration: none;
   min-width: 0;

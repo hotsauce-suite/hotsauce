@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Hearth: one container serving the API, WebSockets, and the built web app.
+# Hotsauce: one container serving the API, WebSockets, and the built web app.
 # Stages: base → deps (pnpm fetch + offline install) → build → runtime.
 
 FROM node:22-slim AS base
@@ -29,18 +29,18 @@ FROM deps AS build
 # so the Clerk publishable key (public by design) comes in as a build arg from fly.toml.
 ARG VITE_CLERK_PUBLISHABLE_KEY
 # Packages without a build script are skipped; pnpm builds in dependency order.
-RUN pnpm --filter @hearth/format --filter @hearth/web --filter @hearth/server run build
+RUN pnpm --filter @hotsauce/format --filter @hotsauce/web --filter @hotsauce/server run build
 # The Chrome extension, built for any server: the server writes its own address and name into
 # the zip it offers at /downloads/ (apps/server/src/extension), so one image serves everyone.
 # The zip copied here is the unstamped fallback.
-RUN pnpm --filter @hearth/extension run build \
+RUN pnpm --filter @hotsauce/extension run build \
  && mkdir -p apps/web/dist/downloads \
  && cp apps/extension/release/hotsauce-meetings-chrome.zip apps/web/dist/downloads/ \
  && cp apps/extension/release/hotsauce-meetings-chrome.zip apps/web/dist/downloads/hearth-meetings-chrome.zip
 # The Mac app can't be built on Linux: scripts/build-app.sh builds it on a Mac and the zip is
 # committed, so this copies them as they are (Dictate → Download for Mac).
 # A checkout without the built app (the public repository) simply offers no download.
-# Hotsauce.dmg and .zip, also under their old names (Hearth.*, HearthDictate.*) so links already
+# Hotsauce.dmg and .zip, also under their old names (Hotsauce.*, HotsauceDictate.*) so links already
 # shared work.
 RUN for ext in dmg zip; do \
       if [ -f "apps/dictate-mac/release/Hotsauce.$ext" ]; then \
@@ -52,7 +52,7 @@ RUN for ext in dmg zip; do \
 # The server's production dependencies, with workspace packages copied in, not
 # linked. pnpm 10's deploy reads the shared lockfile only when workspace
 # packages are injected; setting that here alone leaves dev symlinks alone.
-RUN pnpm --config.inject-workspace-packages=true --filter @hearth/server \
+RUN pnpm --config.inject-workspace-packages=true --filter @hotsauce/server \
     deploy --prod --offline /prod/server
 
 
@@ -73,12 +73,12 @@ COPY --from=build /repo/apps/web/dist apps/web/dist
 COPY --from=build /repo/apps/extension/dist apps/extension/dist
 # The release this image is, reported by /api/health and compared with newer releases.
 COPY HOTSAUCE_VERSION ./HOTSAUCE_VERSION
-COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/hearth-entrypoint
+COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/hotsauce-entrypoint
 RUN mkdir -p /data && chown node:node /data
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:' + process.env.PORT + '/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 # The entrypoint starts as root only to hand /data to the `node` user, then
 # runs the server as `node` (see scripts/docker-entrypoint.sh).
-ENTRYPOINT ["hearth-entrypoint"]
+ENTRYPOINT ["hotsauce-entrypoint"]
 CMD ["node", "apps/server/dist/main.js"]

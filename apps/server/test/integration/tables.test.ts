@@ -12,7 +12,7 @@ import { createServices, type Services } from '../../src/services.js'
 import { writeXlsx } from '../../src/tables/xlsx.js'
 import { catFile, makeTempDir, removeDir } from '../helpers/git.js'
 
-// Hearth Tables (ARCHITECTURE §22) through the API
+// Hotsauce Tables (ARCHITECTURE §22) through the API
 // and MCP with dev auth.
 
 const ALICE = 'alice@example.test'
@@ -23,7 +23,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-tables-')
+  root = await makeTempDir('hotsauce-tables-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -283,7 +283,7 @@ describe('Tables', () => {
     })
     expect(updated.rows[3]).toEqual(['', '', 'Sum', '48'])
     expect(updated.rows[4]).toEqual(['Tape', '1', '3', '3'])
-    expect(await lastCommit('team')).toContain('Hearth-Via: mcp')
+    expect(await lastCommit('team')).toContain('Hotsauce-Via: mcp')
     const stale = await tool('update_table', {
       space: 'team',
       id: t.id,

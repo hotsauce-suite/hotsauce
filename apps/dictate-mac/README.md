@@ -12,8 +12,8 @@ Without a Developer ID, macOS asks each person to confirm the app once (System S
 
 While Dictate listens, a glow lines the edges of the focused window (found with the Accessibility API; the pointer's screen when there's no window or it's full screen), with flames along the bottom that follow the mic level. It pulses while the text is written up and fades after the paste. Settings → Dictation → "Edge glow while dictating" turns it off; Reduce motion makes it still. Colours, sizes and timings are constants in `EdgeGlowLook` (`Sources/DictateCore/EdgeGlow.swift`); the plan is `docs/PLAN-dictate-edge-glow.md`.
 
-- `HearthDictate --render-edge-glow <folder>` draws it over a stand-in window to PNGs (no screen access needed).
-- `HearthDictate --edge-glow-demo [seconds] [--reduce-motion]` shows it on screen with a made-up voice. A build without Accessibility permission frames the whole screen, and macOS may ask to grant that permission.
+- `HotsauceDictate --render-edge-glow <folder>` draws it over a stand-in window to PNGs (no screen access needed).
+- `HotsauceDictate --edge-glow-demo [seconds] [--reduce-motion]` shows it on screen with a made-up voice. A build without Accessibility permission frames the whole screen, and macOS may ask to grant that permission.
 
 ## First run
 

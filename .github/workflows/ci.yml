@@ -90,20 +90,20 @@ jobs:
           set -euo pipefail
           # The CLI must run as Forgejo's service user, "git" in this image.
           docker exec --user git "$FORGEJO_CONTAINER" forgejo admin user create \
-            --admin --username hearth-admin --password hearth-admin-password \
+            --admin --username hotsauce-admin --password hotsauce-admin-password \
             --email admin@hearth.test --must-change-password=false
           token=$(docker exec --user git "$FORGEJO_CONTAINER" forgejo admin user generate-access-token \
-            --username hearth-admin --token-name ci --scopes all --raw)
+            --username hotsauce-admin --token-name ci --scopes all --raw)
           echo "::add-mask::$token"
           curl -fsS -o /dev/null -X POST http://localhost:3300/api/v1/orgs \
             -H "Authorization: token $token" -H 'Content-Type: application/json' \
-            -d '{"username":"hearth-test","visibility":"private"}'
+            -d '{"username":"hotsauce-test","visibility":"private"}'
           {
             echo "FORGEJO_URL=http://localhost:3300"
             echo "FORGEJO_TOKEN=$token"
-            echo "FORGEJO_ORG=hearth-test"
+            echo "FORGEJO_ORG=hotsauce-test"
           } >> "$GITHUB_ENV"
-      # Hearth Clips assembles and probes video with ffmpeg (as the Docker image does).
+      # Hotsauce Clips assembles and probes video with ffmpeg (as the Docker image does).
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: pnpm test:integration --coverage
 
@@ -119,7 +119,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
-      # Hearth Clips assembles and probes video with ffmpeg (as the Docker image does).
+      # Hotsauce Clips assembles and probes video with ffmpeg (as the Docker image does).
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4

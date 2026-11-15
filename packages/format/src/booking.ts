@@ -1,6 +1,6 @@
 // Booking links (ARCHITECTURE §19): a booking type is a file in the member's personal space,
 // `.hearth/booking/<slug>.md`, and `openSlots` is the pure slot math the public page and the
-// booking check share. Written fresh for Hearth (no code copied); every instant is UTC.
+// booking check share. Written fresh for Hotsauce (no code copied); every instant is UTC.
 
 import { z } from 'zod'
 

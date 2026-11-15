@@ -1,7 +1,7 @@
-// "Copy as markdown" and "Copy as rich text" for a doc or meeting note. Frontmatter is Hearth's
+// "Copy as markdown" and "Copy as rich text" for a doc or meeting note. Frontmatter is Hotsauce's
 // bookkeeping, not part of what someone pastes into an email or Slack, so both leave it out.
 
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 
 export function markdownForCopy(text: string): string {
   return parseFrontmatter(text).body.replace(/^(\r?\n)+/, '')

@@ -152,11 +152,11 @@ describe('object store config (R2)', () => {
       R2_ACCOUNT_ID: 'acct',
       R2_ACCESS_KEY_ID: 'k',
       R2_SECRET_ACCESS_KEY: 's',
-      R2_BUCKET: 'hearth-audio',
+      R2_BUCKET: 'hotsauce-audio',
     })
     expect(config.OBJECT_STORE?.endpoint).toBe('https://acct.r2.cloudflarestorage.com')
     const store = createAudioStore(config) as R2AudioStore
-    expect(store.client.url('k')).toBe('https://acct.r2.cloudflarestorage.com/hearth-audio/k')
+    expect(store.client.url('k')).toBe('https://acct.r2.cloudflarestorage.com/hotsauce-audio/k')
   })
 
   it('AUDIO_STORE=s3 means the bucket store, and needs a bucket', () => {

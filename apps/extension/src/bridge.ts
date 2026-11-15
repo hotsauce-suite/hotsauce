@@ -1,4 +1,4 @@
-// Content script on Hearth's own pages: relays the page's window messages to the service worker
+// Content script on Hotsauce's own pages: relays the page's window messages to the service worker
 // and back. The page can't call chrome.runtime itself without knowing this extension's id.
 
 import { type CaptureReply, EXTENSION_SOURCE, isPageMessage, type WorkerMessage } from './protocol'

@@ -1,9 +1,9 @@
-// The Meet tab's audio through the Hearth Meetings Chrome extension (apps/extension), which
+// The Meet tab's audio through the Hotsauce Meetings Chrome extension (apps/extension), which
 // skips Chrome's "pick a tab, tick share audio" dialog. This is the page side of
 // apps/extension/src/protocol.ts; keep the two in step.
 //
-// The extension's bridge script answers window messages on Hearth's own pages. It hands back a
-// stream id for the Meet tab the person clicked the Hearth icon on, and getUserMedia turns that
+// The extension's bridge script answers window messages on Hotsauce's own pages. It hands back a
+// stream id for the Meet tab the person clicked the Hotsauce icon on, and getUserMedia turns that
 // id into the tab's audio.
 
 const PAGE = 'hearth-page'

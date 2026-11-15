@@ -1,7 +1,7 @@
-// Client for `/api/files` (ARCHITECTURE §18.2): Hearth Files.
+// Client for `/api/files` (ARCHITECTURE §18.2): Hotsauce Files.
 
-import type { PreviewKind } from '@hearth/format'
-import { HearthApiError, request } from './client'
+import type { PreviewKind } from '@hotsauce/format'
+import { HotsauceApiError, request } from './client'
 
 export interface DriveFile {
   id: string
@@ -19,7 +19,7 @@ export interface DriveFile {
   textStatus: 'extracted' | 'none' | 'failed'
   shareToken: string | null
   blobOid: string
-  /** Where Hearth opens it. */
+  /** Where Hotsauce opens it. */
   url: string
   /** Short-lived URLs for the bytes (shown in the browser, or downloaded). */
   contentUrl: string
@@ -116,7 +116,8 @@ export async function uploadFile(
           await request<void>(`${url}/chunks/${seq}`, { method: 'PUT', body: part })
           break
         } catch (err) {
-          const retryable = err instanceof HearthApiError && (err.status === 0 || err.status >= 500)
+          const retryable =
+            err instanceof HotsauceApiError && (err.status === 0 || err.status >= 500)
           if (!retryable || attempt >= 3) throw err
           await new Promise((r) => setTimeout(r, 500 * attempt))
         }
@@ -133,7 +134,7 @@ export async function uploadFile(
       try {
         return await request<DriveFile>(`${url}/complete`, { method: 'POST', json: {} })
       } catch (err) {
-        const retryable = err instanceof HearthApiError && (err.status === 0 || err.status >= 500)
+        const retryable = err instanceof HotsauceApiError && (err.status === 0 || err.status >= 500)
         if (!retryable || attempt >= 4) throw err
         await new Promise((r) => setTimeout(r, 1000 * attempt))
       }

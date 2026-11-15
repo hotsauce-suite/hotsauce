@@ -73,7 +73,7 @@ test('a page Claude publishes over MCP shows in Pages, walled off, with its vers
   const transport = new StreamableHTTPClientTransport(new URL('/mcp', baseURL), {
     requestInit: { headers: { authorization: `Bearer ${token}` } },
   })
-  const client = new Client({ name: 'hearth-e2e', version: '1.0.0' })
+  const client = new Client({ name: 'hotsauce-e2e', version: '1.0.0' })
   await client.connect(transport)
   const publish = async (args: Record<string, unknown>) => {
     const r = (await client.callTool({ name: 'publish_page', arguments: args })) as CallToolResult

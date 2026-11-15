@@ -1,5 +1,5 @@
-import { parseSpaceConfig, SPACE_LAYOUT } from '@hearth/format'
-import { HearthError } from '../errors.js'
+import { parseSpaceConfig, SPACE_LAYOUT } from '@hotsauce/format'
+import { HotsauceError } from '../errors.js'
 import { type SpaceRegistry, TEAM_SPACE } from './service.js'
 
 const SPACE_CONFIG = `${SPACE_LAYOUT.meta}/space.yaml`
@@ -51,7 +51,7 @@ async function readSpaceConfig(
   try {
     text = (await git.readFile(name, SPACE_CONFIG)).content
   } catch (err) {
-    if (err instanceof HearthError && err.code === 'not_found') return null
+    if (err instanceof HotsauceError && err.code === 'not_found') return null
     throw err
   }
   try {

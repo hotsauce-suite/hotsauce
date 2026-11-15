@@ -1,7 +1,7 @@
 // When a check-in's rounds open (ARCHITECTURE §24.2). Pure: every function takes the instant
 // and the zone, so tests pin both.
 
-import { type CheckinFrontmatter, WEEKDAYS, type Weekday } from '@hearth/format'
+import { type CheckinFrontmatter, WEEKDAYS, type Weekday } from '@hotsauce/format'
 import { zonedParts } from '../meetings/zoned-time.js'
 
 const MINUTE = 60_000

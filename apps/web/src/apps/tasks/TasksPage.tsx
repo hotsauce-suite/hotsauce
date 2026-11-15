@@ -1,7 +1,7 @@
-import { addDays } from '@hearth/format'
+import { addDays } from '@hotsauce/format'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useMatches, useNavigate, useParams } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import {
   memberTimeZone,
   type Priority,
@@ -78,7 +78,7 @@ function useRouteKind(): TasksRouteKind {
   return 'inbox'
 }
 
-/** Every list of Hearth Tasks, with quick add, the detail panel, shortcuts and Undo. */
+/** Every list of Hotsauce Tasks, with quick add, the detail panel, shortcuts and Undo. */
 export default function TasksPage() {
   const kind = useRouteKind()
   const params = useParams()
@@ -130,7 +130,7 @@ export default function TasksPage() {
         if (!live) return
         setMissing(true)
         setItemView((v) => v ?? { id: 'inbox' })
-        if (!(err instanceof HearthApiError && err.status === 404)) notify(errorMessage(err))
+        if (!(err instanceof HotsauceApiError && err.status === 404)) notify(errorMessage(err))
       },
     )
     return () => {
@@ -199,7 +199,7 @@ export default function TasksPage() {
         },
         (err: unknown) => {
           // Someone changed the title or notes being overwritten: show theirs.
-          if (err instanceof HearthApiError && err.status === 409) {
+          if (err instanceof HotsauceApiError && err.status === 409) {
             tasksApi.get(task.space, task.id).then(list.adopt, () => {})
           }
         },

@@ -1,8 +1,8 @@
-import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS } from '@hearth/format'
+import { MAX_TABLE_COLUMNS, MAX_TABLE_ROWS } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'
@@ -32,7 +32,7 @@ const NewTable = z.object({
 const fileName = (title: string, ext: string) =>
   `${title.replace(/[^\w .-]+/g, '').trim() || 'table'}.${ext}`
 
-/** Hearth Tables (ARCHITECTURE §22.3); spaces are checked in the service. */
+/** Hotsauce Tables (ARCHITECTURE §22.3); spaces are checked in the service. */
 export function tableRoutes(deps: Pick<AppDeps, 'tables' | 'forms'>) {
   const { tables, forms } = deps
   return (
@@ -51,7 +51,7 @@ export function tableRoutes(deps: Pick<AppDeps, 'tables' | 'forms'>) {
         bodyLimit({
           maxSize: MAX_IMPORT_BYTES + 64 * 1024,
           onError: () => {
-            throw new HearthError('bad_request', 'Import files are 5 MB at most', { status: 413 })
+            throw new HotsauceError('bad_request', 'Import files are 5 MB at most', { status: 413 })
           },
         }),
         async (c) => {
@@ -59,11 +59,11 @@ export function tableRoutes(deps: Pick<AppDeps, 'tables' | 'forms'>) {
           const file = body.file
           const space = typeof body.space === 'string' ? body.space : ''
           if (!(file instanceof File)) {
-            throw new HearthError('bad_request', 'Send the file as multipart form field "file"')
+            throw new HotsauceError('bad_request', 'Send the file as multipart form field "file"')
           }
-          if (!space) throw new HearthError('bad_request', 'Say which space the table goes in')
+          if (!space) throw new HotsauceError('bad_request', 'Say which space the table goes in')
           if (file.size > MAX_IMPORT_BYTES) {
-            throw new HearthError('bad_request', 'Import files are 5 MB at most', { status: 413 })
+            throw new HotsauceError('bad_request', 'Import files are 5 MB at most', { status: 413 })
           }
           const p = c.get('principal')
           const bytes = new Uint8Array(await file.arrayBuffer())

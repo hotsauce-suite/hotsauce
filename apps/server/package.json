@@ -1,5 +1,5 @@
 {
-  "name": "@hearth/server",
+  "name": "@hotsauce/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
     "@clerk/backend": "^3.23.1",
-    "@hearth/format": "workspace:*",
+    "@hotsauce/format": "workspace:*",
     "@hono/node-server": "^1.19.17",
     "@hono/node-ws": "^1.3.1",
     "@hono/zod-validator": "^0.9.1",

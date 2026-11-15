@@ -2,7 +2,7 @@
 // few seconds. Chunks go one at a time, in order, and each is retried until the server has it: a
 // network blip only delays them. The server stores chunks by number, so a resend is harmless.
 
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 
 export interface UploadState {
   /** Chunks made so far (the next chunk's number). */
@@ -20,7 +20,7 @@ export type PutChunk = (seq: number, data: Blob) => Promise<void>
 
 /** Errors worth retrying: no connection, timeouts, rate limits and the server's own failures. */
 export function isRetryable(err: unknown): boolean {
-  if (!(err instanceof HearthApiError)) return true
+  if (!(err instanceof HotsauceApiError)) return true
   return err.status === 0 || err.status === 408 || err.status === 429 || err.status >= 500
 }
 

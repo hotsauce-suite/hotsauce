@@ -1,10 +1,10 @@
 import { createHmac } from 'node:crypto'
 import { join } from 'node:path'
-import { initialSpaceFiles, parseSpaceConfig } from '@hearth/format'
+import { initialSpaceFiles, parseSpaceConfig } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { type Config, loadConfig } from '../../src/config.js'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import { runGit } from '../../src/git/index.js'
 import { ForgejoHost } from '../../src/hosts/index.js'
 import { SNIPPET_CLOSE, SNIPPET_OPEN } from '../../src/index/index.js'
@@ -22,7 +22,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-api-')
+  root = await makeTempDir('hotsauce-api-')
   config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -174,7 +174,7 @@ describe('health and identity', () => {
 describe('personal space provisioning', () => {
   const TEAM = { name: 'team', kind: 'team', label: 'Team' }
   const hostDown = async (): Promise<never> => {
-    throw new HearthError('host_error', 'Forgejo could not be reached')
+    throw new HotsauceError('host_error', 'Forgejo could not be reached')
   }
 
   it('leaves a member the team space when the host cannot provision theirs', async () => {

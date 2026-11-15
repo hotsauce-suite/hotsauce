@@ -1,4 +1,4 @@
-import { columnName } from '@hearth/format'
+import { columnName } from '@hotsauce/format'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import type { AppDeps } from '../../api/env.js'
@@ -12,7 +12,7 @@ const Id = z.string().min(1).max(40).describe('The table id from list_tables or 
 const Row = z.array(z.string().max(10_000)).max(52)
 
 /**
- * Hearth Tables (ARCHITECTURE §22.7): spreadsheets with Excel-style formulas, kept as CSV in Git.
+ * Hotsauce Tables (ARCHITECTURE §22.7): spreadsheets with Excel-style formulas, kept as CSV in Git.
  * Claude reads values (formulas worked out) and writes cells by A1 address.
  */
 export function registerTableTools(

@@ -1,4 +1,4 @@
-// Messages between the Hearth page, the bridge content script, and the service worker.
+// Messages between the Hotsauce page, the bridge content script, and the service worker.
 // apps/web/src/apps/meetings/extension.ts speaks the page side of this; keep the two in step.
 
 /** Page → bridge, through window.postMessage. */
@@ -21,7 +21,7 @@ export type PageMessage =
 
 export type CaptureFailure =
   /**
-   * No Meet tab the person clicked the Hearth icon on is still on the page's call (or, when the
+   * No Meet tab the person clicked the Hotsauce icon on is still on the page's call (or, when the
    * page didn't say which call, on any call they clicked it on in the last ten minutes).
    */
   | 'not-invoked'

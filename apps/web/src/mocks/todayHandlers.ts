@@ -7,7 +7,7 @@ import {
   moveTile,
   parseTodayLayout,
   type TodayLayout,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { TaskView } from '../api/tasks'
 import type { TodayMeeting, TodayView, TodayWeather, WeatherPlace } from '../api/today'

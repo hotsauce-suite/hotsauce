@@ -47,7 +47,7 @@ const calendar: CalendarSource = {
 }
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'hearth-reminders-'))
+  dir = await mkdtemp(join(tmpdir(), 'hotsauce-reminders-'))
   store = new ReminderStore(dir)
   sender = new FakePushSender()
   events = []
@@ -145,7 +145,7 @@ describe('MeetingReminders', () => {
       'https://fcm.googleapis.com:8443/fcm/send/abc',
       'https://localhost/push',
       'https://169.254.169.254/latest/meta-data',
-      'https://hearth-example.internal:3000/api',
+      'https://hotsauce-example.internal:3000/api',
       'https://fcm.googleapis.com.evil.example/abc',
       'not a url',
     ]) {

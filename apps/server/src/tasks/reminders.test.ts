@@ -73,7 +73,7 @@ describe('TaskReminders', () => {
   }
 
   beforeEach(async () => {
-    dir = await mkdtemp(path.join(tmpdir(), 'hearth-task-reminders-'))
+    dir = await mkdtemp(path.join(tmpdir(), 'hotsauce-task-reminders-'))
     store = new ReminderStore(dir)
     sender = new FakePushSender()
     open = [task('A', NOW.toISOString(), { project: 'Ops' }), task('B', NOW.toISOString())]

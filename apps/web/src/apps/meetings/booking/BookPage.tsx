@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { type Booked, bookingApi, type PublicBookingPage, type Slot } from '../../../api/booking'
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import { product } from '../../../brand/product'
 import { Icon } from '../../../components/Icon'
 import {
@@ -34,7 +34,7 @@ function addDays(ms: number, n: number): number {
 }
 
 function errorText(err: unknown): string {
-  return err instanceof HearthApiError || err instanceof Error
+  return err instanceof HotsauceApiError || err instanceof Error
     ? err.message
     : 'Something went wrong.'
 }
@@ -93,7 +93,7 @@ export default function BookPage() {
       )
     } catch (err) {
       setLoadError({
-        status: err instanceof HearthApiError ? err.status : 0,
+        status: err instanceof HotsauceApiError ? err.status : 0,
         message: errorText(err),
       })
     }
@@ -346,7 +346,7 @@ function BookingForm({
       onBooked(await book({ start: slot.start, name, email, answers, token }))
     } catch (err) {
       setBusy(false)
-      if (err instanceof HearthApiError && err.status === 409) return onTaken(err.message)
+      if (err instanceof HotsauceApiError && err.status === 409) return onTaken(err.message)
       setError(errorText(err))
       // A Turnstile token works once; the next try needs a new one.
       if (page.robotCheck?.kind === 'turnstile') {

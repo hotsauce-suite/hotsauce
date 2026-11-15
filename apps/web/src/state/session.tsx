@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { api } from '../api/client'
 import type { Me, RecentItem, Space, StarItem } from '../api/types'
-import { hearthSocket } from '../api/ws'
+import { hotsauceSocket } from '../api/ws'
 import { TreeStore } from './treeStore'
 
 const DEFAULT_IDLE_COMMIT_MS = 60_000
@@ -87,15 +87,15 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
   }, [refreshRecents])
 
   useEffect(() => {
-    hearthSocket.start()
-    const offChanged = hearthSocket.onChanged((event) =>
+    hotsauceSocket.start()
+    const offChanged = hotsauceSocket.onChanged((event) =>
       store.refreshPaths(event.space, event.paths),
     )
-    const offReconnect = hearthSocket.onReconnect(() => store.refreshAll())
+    const offReconnect = hotsauceSocket.onReconnect(() => store.refreshAll())
     return () => {
       offChanged()
       offReconnect()
-      hearthSocket.stop()
+      hotsauceSocket.stop()
     }
   }, [store])
 

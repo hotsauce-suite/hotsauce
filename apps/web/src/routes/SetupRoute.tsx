@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouteLoaderData } from 'react-router'
-import { HearthApiError } from '../api/client'
+import { HotsauceApiError } from '../api/client'
 import { type OrgState, orgEditor, waitForRestart } from '../api/org'
 import type { Health } from '../api/types'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
@@ -76,7 +76,7 @@ export default function SetupRoute() {
       const next = STEPS.find((x) => x.id !== 'welcome' && !s.settings.stepsDone.includes(x.id))
       if (s.settings.stepsDone.length > 0 && next) setStep(next.id)
     } catch (err) {
-      if (err instanceof HearthApiError && err.status === 401) {
+      if (err instanceof HotsauceApiError && err.status === 401) {
         try {
           sessionStorage.removeItem(TOKEN_KEY)
         } catch {

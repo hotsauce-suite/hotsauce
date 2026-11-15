@@ -84,7 +84,7 @@ import Testing
         #expect(SuiteRouter.deepLinkPath(url("hearth://meetings/start?event=1")) == "/meetings/start?event=1")
         #expect(SuiteRouter.deepLinkPath(url("hearth:///docs/team/a.md#L3")) == "/docs/team/a.md#L3")
         #expect(SuiteRouter.deepLinkPath(url("hearth://")) == "/")
-        #expect(SuiteRouter.deepLinkPath(url("HEARTH://clips")) == "/clips")
+        #expect(SuiteRouter.deepLinkPath(url("HOTSAUCE://clips")) == "/clips")
         #expect(SuiteRouter.deepLinkPath(url("hearth-dictate://open?path=/meetings")) == "/meetings")
         #expect(SuiteRouter.deepLinkPath(url("hearth-dictate://open?path=//evil.com")) == nil)
         #expect(SuiteRouter.deepLinkPath(url("hearth-dictate://connect?token=x")) == nil)

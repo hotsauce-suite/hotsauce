@@ -8,9 +8,9 @@ import {
   TODAY_LAYOUT_PATH,
   type TodayLayout,
   TodayLayoutError,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore } from '../git/index.js'
 import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
@@ -41,7 +41,7 @@ export class TodayLayouts {
     try {
       content = (await this.#deps.git.readFile(space, TODAY_LAYOUT_PATH)).content
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found')
+      if (err instanceof HotsauceError && err.code === 'not_found')
         return { layout: defaultTodayLayout(), saved: false }
       throw err
     }
@@ -60,12 +60,12 @@ export class TodayLayouts {
     try {
       layout = parseTodayLayout(input)
     } catch (err) {
-      if (err instanceof TodayLayoutError) throw new HearthError('bad_request', err.message)
+      if (err instanceof TodayLayoutError) throw new HotsauceError('bad_request', err.message)
       throw err
     }
     const space = await this.#personalSpace(principal)
     if (!space)
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         'You have no personal space to save your Today layout in',
       )

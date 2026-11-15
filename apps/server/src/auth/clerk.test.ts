@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { ClerkAuth, type ClerkClientLike, type ClerkUserLike } from './clerk.js'
 
 function user(email: string, extra: Partial<ClerkUserLike> = {}): ClerkUserLike {
@@ -92,7 +92,7 @@ describe('ClerkAuth', () => {
   it('deletes the Clerk user and throws domain_not_allowed for an outside domain', async () => {
     const { clerk, deleted } = fakeClerk({ userId: 'user_x', user: user('eve@gmail.com') })
     const attempt = authWith(clerk).authenticate(request())
-    await expect(attempt).rejects.toBeInstanceOf(HearthError)
+    await expect(attempt).rejects.toBeInstanceOf(HotsauceError)
     await expect(attempt).rejects.toMatchObject({ code: 'domain_not_allowed', status: 403 })
     expect(deleted).toEqual(['user_x'])
   })

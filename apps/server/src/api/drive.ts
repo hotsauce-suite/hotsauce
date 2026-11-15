@@ -21,7 +21,7 @@ const Token = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/)
 const Name = z.string().min(1).max(400)
 const Folder = z.string().max(2000)
 
-/** Hearth Files (ARCHITECTURE §18.2). Spaces are checked in the service, as for Notes. */
+/** Hotsauce Files (ARCHITECTURE §18.2). Spaces are checked in the service, as for Notes. */
 export function driveRoutes(deps: AppDeps) {
   const { files } = deps
   const view = (v: FileView) => withUrls(files, v)
@@ -259,8 +259,8 @@ function send(c: any, target: LocalMedia): Response {
     'Cache-Control': 'private, max-age=3600',
     'X-Content-Type-Options': 'nosniff',
     'Content-Disposition': target.inline ? 'inline' : contentDisposition(target.name),
-    // A file may be framed by Hearth's own preview, never elsewhere. Anything but a PDF (which
-    // Chrome won't show sandboxed) gets a sandbox, so nothing it holds runs in Hearth's origin.
+    // A file may be framed by Hotsauce's own preview, never elsewhere. Anything but a PDF (which
+    // Chrome won't show sandboxed) gets a sandbox, so nothing it holds runs in Hotsauce's origin.
     'X-Frame-Options': 'SAMEORIGIN',
     'Content-Security-Policy':
       target.inline && target.mime === 'application/pdf'

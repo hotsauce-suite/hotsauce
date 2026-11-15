@@ -1,21 +1,23 @@
-// "Save to Hearth": the pure parts. The service worker opens Hearth's save page for a page or a
+// "Save to Hotsauce": the pure parts. The service worker opens Hotsauce's save page for a page or a
 // link in a background tab; that page tells the worker (through the bridge) once it has saved,
 // and the worker closes the tab.
 
-/** Which pages can be saved: web pages, not Chrome's own or Hearth itself. */
-export function savable(url: string | undefined, hearthOrigins: readonly string[]): boolean {
+/** Which pages can be saved: web pages, not Chrome's own or Hotsauce itself. */
+export function savable(url: string | undefined, hotsauceOrigins: readonly string[]): boolean {
   if (!url) return false
   try {
     const u = new URL(url)
-    return (u.protocol === 'http:' || u.protocol === 'https:') && !hearthOrigins.includes(u.origin)
+    return (
+      (u.protocol === 'http:' || u.protocol === 'https:') && !hotsauceOrigins.includes(u.origin)
+    )
   } catch {
     return false
   }
 }
 
-/** Hearth's save page for `page`. */
-export function savePageUrl(hearthUrl: string, page: { url: string; title?: string }): string {
-  const url = new URL('/links/save', hearthUrl)
+/** Hotsauce's save page for `page`. */
+export function savePageUrl(hotsauceUrl: string, page: { url: string; title?: string }): string {
+  const url = new URL('/links/save', hotsauceUrl)
   url.searchParams.set('url', page.url)
   const title = page.title?.replace(/\s+/g, ' ').trim()
   if (title) url.searchParams.set('title', title.slice(0, 300))

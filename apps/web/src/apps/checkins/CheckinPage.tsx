@@ -6,8 +6,8 @@ import {
   type CheckinView,
   checkinsApi,
 } from '../../api/checkins'
-import { HearthApiError } from '../../api/client'
-import { hearthSocket } from '../../api/ws'
+import { HotsauceApiError } from '../../api/client'
+import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { DictateButton } from '../../components/DictateButton'
@@ -18,7 +18,7 @@ import { CheckinForm } from './CheckinForm'
 import { roundLabel, whenLabel } from './format'
 
 const message = (e: unknown, fallback: string) =>
-  e instanceof HearthApiError || e instanceof Error ? e.message : fallback
+  e instanceof HotsauceApiError || e instanceof Error ? e.message : fallback
 
 /** `/checkins/:id`: answer this round, and read everyone's answers, newest round first. */
 export default function CheckinPage() {
@@ -49,7 +49,7 @@ export default function CheckinPage() {
 
   useEffect(() => {
     void load()
-    const off = hearthSocket.onChanged(() => void load())
+    const off = hotsauceSocket.onChanged(() => void load())
     return off
   }, [load])
 

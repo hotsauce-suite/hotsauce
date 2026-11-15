@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { readFile, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { extractLinks, resolveRelative, rewriteLinksForMove } from '@hearth/format'
+import { extractLinks, resolveRelative, rewriteLinksForMove } from '@hotsauce/format'
 import { ulid } from 'ulid'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -17,7 +17,7 @@ import {
   ALICE,
   catFile,
   commitCount,
-  HEARTH,
+  HOTSAUCE,
   identities,
   makeTempDir,
   OutsideEditor,
@@ -26,7 +26,7 @@ import {
 } from '../helpers/git.js'
 
 const MAIN = 'refs/heads/main'
-const ALICE_BY_HEARTH = 'Alice Example <alice@example.test> | Hearth <hearth@example.test>'
+const ALICE_BY_HOTSAUCE = 'Alice Example <alice@example.test> | Hotsauce <hotsauce@example.test>'
 
 let root: string
 let host: LocalHost
@@ -41,7 +41,7 @@ afterEach(async () => {
 })
 
 function newStore(opts: Partial<GitStoreOptions> = {}, dataDir = join(root, 'data')): GitStore {
-  return new GitStore({ dataDir, committer: HEARTH, ...opts })
+  return new GitStore({ dataDir, committer: HOTSAUCE, ...opts })
 }
 
 /** Creates the space's bare remote with `files` pushed by an outside editor, and clones it. */
@@ -231,7 +231,7 @@ describe('GitStore: an empty remote', () => {
 })
 
 describe('GitStore: commit', () => {
-  it('records the human as author and Hearth as committer, and pushes', async () => {
+  it('records the human as author and Hotsauce as committer, and pushes', async () => {
     const store = newStore()
     const { remote } = await seed(store, 'team', { 'docs/a.md': 'one\n' })
     const message = formatCommitMessage({ app: 'docs', verb: 'edit', title: 'A' })
@@ -242,7 +242,7 @@ describe('GitStore: commit', () => {
     )
 
     expect(await refOid(remote, MAIN)).toBe(result.oid)
-    expect(await identities(remote, result.oid)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(remote, result.oid)).toBe(ALICE_BY_HOTSAUCE)
     expect(await catFile(remote, MAIN, 'docs/a.md')).toBe('two\n')
     expect(result.blobOid).toBe((await store.readFile('team', 'docs/a.md')).blobOid)
     expect((await store.log('team', { limit: 1 }))[0]).toMatchObject({
@@ -334,7 +334,7 @@ describe('GitStore: commit', () => {
     expect(await refOid(remote, MAIN)).toBe(outsideOid)
     expect(conflict.conflictRef).toMatch(/^refs\/heads\/conflicts\/[0-9A-Z]{26}$/)
     expect(await catFile(remote, conflict.conflictRef, path)).toBe(ours)
-    expect(await identities(remote, conflict.conflictRef)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(remote, conflict.conflictRef)).toBe(ALICE_BY_HOTSAUCE)
     expect(await store.listConflicts('team')).toEqual([
       { ref: conflict.conflictRef, path, createdAt: expect.any(String) },
     ])
@@ -356,7 +356,7 @@ describe('GitStore: commit', () => {
     const merged = expectStatus(resolved, 'merged')
     expect(merged.content).toBe('title\nshared (both)\nl3\nl4\nend (later)\n')
     expect(await catFile(remote, MAIN, path)).toBe(merged.content)
-    expect(await identities(remote, MAIN)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(remote, MAIN)).toBe(ALICE_BY_HOTSAUCE)
     expect(await refOid(remote, conflict.conflictRef)).toBeNull()
     expect(await store.listConflicts('team')).toEqual([])
     await expect(
@@ -487,7 +487,7 @@ describe('GitStore: sync', () => {
     })
     expect(await catFile(remote, MAIN, 'docs/a.md')).toBe('a (alice)\n')
     expect(await catFile(remote, MAIN, 'docs/b.md')).toBe('b (outside)\n')
-    expect(await identities(remote, MAIN)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(remote, MAIN)).toBe(ALICE_BY_HOTSAUCE)
   })
 
   it('on a rebase conflict, keeps our version on a conflict branch and takes theirs', async () => {
@@ -516,7 +516,7 @@ describe('GitStore: sync', () => {
     expect(conflicts.map((c) => c.path)).toEqual(['docs/a.md'])
     const ref = conflicts[0]?.ref ?? ''
     expect(await catFile(remote, ref, 'docs/a.md')).toBe('a (alice)\n')
-    expect(await identities(remote, ref)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(remote, ref)).toBe(ALICE_BY_HOTSAUCE)
   })
 
   it('adopts history rewritten on the host instead of pushing the old commits back', async () => {
@@ -561,7 +561,7 @@ describe('GitStore: sync', () => {
     expect((await runGit(remote, ['rev-parse', `${head}^`])).trim()).toBe(seeded.seedOid)
     expect(await catFile(remote, MAIN, 'docs/a.md')).toBe('a\n')
     expect(await catFile(remote, MAIN, 'docs/b.md')).toBe('b (alice)\n')
-    expect(await identities(remote, MAIN)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(remote, MAIN)).toBe(ALICE_BY_HOTSAUCE)
   })
 })
 
@@ -583,7 +583,7 @@ describe('GitStore: move', () => {
       '[b](b.md)\n<!-- docs/a.md -> notes/a.md -->\n',
     )
     await expect(store.readFile('team', 'docs/a.md')).rejects.toMatchObject({ code: 'not_found' })
-    expect(await identities(remote, oid)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(remote, oid)).toBe(ALICE_BY_HOTSAUCE)
   })
 
   it('moves a folder, rewriting every markdown file in it', async () => {
@@ -690,7 +690,7 @@ describe('GitStore: move', () => {
     })
   })
 
-  it('log --follow tracks a file across a move and reads the Hearth-Label trailer', async () => {
+  it('log --follow tracks a file across a move and reads the Hotsauce-Label trailer', async () => {
     const store = newStore()
     await seed(store, 'team', { 'docs/draft.md': 'v1\nsome more text\n' })
     await store.commit('team', {
@@ -737,8 +737,8 @@ describe('GitStore: move', () => {
     await expect(store.readFile('alice', 'docs/idea.md')).rejects.toMatchObject({
       code: 'not_found',
     })
-    expect(await identities(team.remote, MAIN)).toBe(ALICE_BY_HEARTH)
-    expect(await identities(personal.remote, MAIN)).toBe(ALICE_BY_HEARTH)
+    expect(await identities(team.remote, MAIN)).toBe(ALICE_BY_HOTSAUCE)
+    expect(await identities(personal.remote, MAIN)).toBe(ALICE_BY_HOTSAUCE)
 
     await expect(
       store.moveAcrossSpaces(
@@ -870,7 +870,7 @@ describe('GitStore: crash recovery', () => {
 
 describe('GitStore: safety', () => {
   it('never follows symlinks pushed from outside: hidden, unreadable, unwritable', async () => {
-    const secretDir = await makeTempDir('hearth-secret-')
+    const secretDir = await makeTempDir('hotsauce-secret-')
     try {
       const secretFile = join(secretDir, 'secret.txt')
       await writeFile(secretFile, 'top secret\n')
@@ -916,7 +916,7 @@ describe('GitStore: safety', () => {
     const store = newStore()
     const { outside, cloneUrl } = await seed(store, 'team', { 'docs/a.md': 'a\n' })
     const forged = `refs/heads/conflicts/${ulid()}`
-    await outside.pushEmptyCommit(forged, 'forged\n\nHearth-Conflict-Path: ../../etc/passwd')
+    await outside.pushEmptyCommit(forged, 'forged\n\nHotsauce-Conflict-Path: ../../etc/passwd')
 
     const fresh = newStore({}, join(root, 'data-fresh'))
     await fresh.ensureClone('team', cloneUrl)

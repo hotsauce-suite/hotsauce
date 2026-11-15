@@ -1,4 +1,4 @@
-// Hearth Whiteboard (ARCHITECTURE §15): Excalidraw boards. One board per Markdown file,
+// Hotsauce Whiteboard (ARCHITECTURE §15): Excalidraw boards. One board per Markdown file,
 // `boards/<id>.md`: its settings in frontmatter, then the text on the board as a list (so search,
 // agents and anyone reading the repo see it), then the Excalidraw scene as JSON in a fenced
 // `excalidraw` block, one element per line so Git diffs stay readable. Everything here is pure.
@@ -48,7 +48,7 @@ export const BoardFrontmatter = z.looseObject({
 export type BoardFrontmatter = z.infer<typeof BoardFrontmatter>
 
 /**
- * One Excalidraw element. Hearth only reads `id`, `version`, `isDeleted`, `type` and `text`;
+ * One Excalidraw element. Hotsauce only reads `id`, `version`, `isDeleted`, `type` and `text`;
  * every other field is kept exactly as Excalidraw wrote it.
  */
 export const BoardElement = z.looseObject({

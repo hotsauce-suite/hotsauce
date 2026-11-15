@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { parse as parseYaml } from 'yaml'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   completeActionItem,
   deleteMeeting,
@@ -32,7 +32,7 @@ export function meetingRoutes(deps: AppDeps) {
 
   const assertAccess = (principal: AppEnv['Variables']['principal'], space: string) => {
     if (!spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
@@ -59,20 +59,21 @@ export function meetingRoutes(deps: AppDeps) {
           const { space, id, track } = c.req.valid('query')
           assertAccess(c.get('principal'), space)
           const store = meetings.audioStore
-          if (!store) throw new HearthError('not_found', 'Kept audio isn’t set up on this server')
+          if (!store) throw new HotsauceError('not_found', 'Kept audio isn’t set up on this server')
           const { content } = await git.readFile(space, keptAudioPath(id))
           const pointer = KeptAudioSchema.safeParse(parseYaml(content))
           const kept = pointer.success ? pointer.data : null
           const key = keptAudioKey(space, id, track)
-          // A pointer for another meeting, or naming another key, was not written by Hearth.
+          // A pointer for another meeting, or naming another key, was not written by Hotsauce.
           if (kept?.id !== id || kept.tracks[track]?.key !== key) {
-            throw new HearthError('not_found', `No ${track} audio kept for ${id}`)
+            throw new HotsauceError('not_found', `No ${track} audio kept for ${id}`)
           }
           if (kept.store !== store.kind) {
-            throw new HearthError('not_found', `This audio is in ${kept.store} storage`)
+            throw new HotsauceError('not_found', `This audio is in ${kept.store} storage`)
           }
           const object = await store.get(key)
-          if (!object) throw new HearthError('not_found', `${key} is missing from the audio store`)
+          if (!object)
+            throw new HotsauceError('not_found', `${key} is missing from the audio store`)
           return c.body(object.body, 200, {
             'Content-Type': 'audio/wav',
             'Content-Length': String(object.size),
@@ -89,7 +90,7 @@ export function meetingRoutes(deps: AppDeps) {
         async (c) => {
           sessionOnly(c.get('principal'))
           if (!meetings.reminders) {
-            throw new HearthError('bad_request', 'Meeting reminders aren’t set up on this server')
+            throw new HotsauceError('bad_request', 'Meeting reminders aren’t set up on this server')
           }
           await meetings.reminderStore.subscribe(
             c.get('principal'),
@@ -103,7 +104,7 @@ export function meetingRoutes(deps: AppDeps) {
         const principal = sessionOnly(c.get('principal'))
         const sender = meetings.pushSender
         if (!sender) {
-          throw new HearthError('bad_request', 'Notifications aren’t set up on this server')
+          throw new HotsauceError('bad_request', 'Notifications aren’t set up on this server')
         }
         const mine = (await meetings.reminderStore.subscribers()).filter(
           (s) => s.principal.email === principal.email,

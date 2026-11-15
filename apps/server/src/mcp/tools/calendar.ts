@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { meetingNotesByEvent } from '../../api/calendar.js'
 import type { AppDeps } from '../../api/env.js'
 import type { Principal } from '../../auth/index.js'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import {
   type CalendarEvent,
   type NoteRef,
@@ -25,7 +25,7 @@ const REFRESH_MAX_AGE_MS = 60_000
 const Instant = z.string().refine((s) => !Number.isNaN(Date.parse(s)), 'an ISO date or time')
 
 /**
- * The calling member's own Google Calendar, from Hearth's synced copy (ARCHITECTURE §7.8, §8.2).
+ * The calling member's own Google Calendar, from Hotsauce's synced copy (ARCHITECTURE §7.8, §8.2).
  * `CalendarSource.upcoming` is keyed by the principal, so no member can read another's calendar.
  */
 export function registerCalendarTools(
@@ -40,7 +40,7 @@ export function registerCalendarTools(
     if (!calendarSync) return
     const now = Date.now()
     if (start < now - SEARCH_BACK_MS - HOUR_MS || end > now + SEARCH_AHEAD_MS + HOUR_MS) {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         'The calendar is kept from 30 days ago to 15 days ahead; ask within that range',
       )
@@ -88,9 +88,9 @@ export function registerCalendarTools(
       runTool(async () => {
         const start = from ? Date.parse(from) : Date.now()
         const end = to ? Date.parse(to) : start + DAY_MS
-        if (end <= start) throw new HearthError('bad_request', '`to` must be after `from`')
+        if (end <= start) throw new HotsauceError('bad_request', '`to` must be after `from`')
         if (end - start > MAX_RANGE_MS) {
-          throw new HearthError('bad_request', 'A range is at most 62 days')
+          throw new HotsauceError('bad_request', 'A range is at most 62 days')
         }
         assertSynced(start, end)
         const [events, notes] = await Promise.all([
@@ -124,7 +124,7 @@ export function registerCalendarTools(
             ? await read(now - SEARCH_BACK_MS, now + SEARCH_AHEAD_MS)
             : await read(at - DAY_MS, at + DAY_MS)
         const event = events.find((e) => e.id === id)
-        if (!event) throw new HearthError('not_found', `No event ${id} on your calendar`)
+        if (!event) throw new HotsauceError('not_found', `No event ${id} on your calendar`)
         const notes = await meetingNotesByEvent(deps, principal)
         return {
           ...shape(event, notes.get(event.id) ?? null),

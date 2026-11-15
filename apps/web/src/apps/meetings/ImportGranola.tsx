@@ -1,6 +1,6 @@
 import { type DragEvent, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
@@ -58,7 +58,7 @@ export default function ImportGranola() {
         }
       } catch (err) {
         const reason =
-          err instanceof HearthApiError || err instanceof Error
+          err instanceof HotsauceApiError || err instanceof Error
             ? err.message
             : 'Something went wrong.'
         setOutcome({

@@ -18,9 +18,9 @@ import {
   parseFrontmatter,
   patchFrontmatter,
   SPACE_LAYOUT,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import { type Space, type SpaceService, TEAM_SPACE } from '../spaces/index.js'
@@ -159,7 +159,7 @@ function personalOf(spaces: Space[]): Space | undefined {
 }
 
 /**
- * Hearth Notes on the server (ARCHITECTURE §14.2): one Markdown file per note, listed from the
+ * Hotsauce Notes on the server (ARCHITECTURE §14.2): one Markdown file per note, listed from the
  * index, every write a read → patch → commit retried on a concurrent change.
  */
 export class Notes {
@@ -298,7 +298,7 @@ export class Notes {
         const titleChanged = patch.title !== undefined && base?.title !== (cur.fm.title ?? '')
         const bodyChanged = patch.body !== undefined && base?.body !== cur.body
         if (base === null || titleChanged || bodyChanged) {
-          throw new HearthError(
+          throw new HotsauceError(
             'conflict',
             'Someone else changed this note; reload to see their version',
           )
@@ -313,7 +313,7 @@ export class Notes {
       }
       if (patch.color !== undefined) {
         if (patch.color !== null && !(NOTE_COLORS as readonly string[]).includes(patch.color)) {
-          throw new HearthError('bad_request', `Unknown color "${patch.color}"`)
+          throw new HotsauceError('bad_request', `Unknown color "${patch.color}"`)
         }
         fields.color = patch.color ?? undefined
       }
@@ -392,7 +392,7 @@ export class Notes {
     if (toSpace === space) return this.get(principal, space, id)
     const path = notePath(id)
     if (await this.#exists(toSpace, path)) {
-      throw new HearthError('conflict', `A note with id ${id} is already in ${toSpace}`)
+      throw new HotsauceError('conflict', `A note with id ${id} is already in ${toSpace}`)
     }
     for (let attempt = 1; ; attempt++) {
       const file = await this.#read(space, id)
@@ -401,7 +401,7 @@ export class Notes {
         toSpace !== TEAM_SPACE &&
         file.record.fm.created_by.toLowerCase() !== principal.email.toLowerCase()
       ) {
-        throw new HearthError(
+        throw new HotsauceError(
           'forbidden',
           'Only the person who wrote a team note can make it private',
         )
@@ -423,7 +423,10 @@ export class Notes {
         })
         return this.#viewOf(toSpace, path, file.content, added)
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
         // Changed meanwhile: the next attempt rewrites the copy with the newer version.
@@ -459,7 +462,7 @@ export class Notes {
     via?: string,
   ): Promise<{ imported: number; skipped: number }> {
     const space = await this.#personalSpace(principal)
-    if (!space) throw new HearthError('forbidden', 'Your personal space isn’t ready yet')
+    if (!space) throw new HotsauceError('forbidden', 'Your personal space isn’t ready yet')
     const done = new Set(
       this.#records([{ name: space }])
         .map((r) => r.fm.source)
@@ -503,7 +506,7 @@ export class Notes {
 
   #assertAccess(principal: Principal, space: string): void {
     if (!this.#spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
@@ -536,14 +539,14 @@ export class Notes {
     space: string,
     id: string,
   ): Promise<{ content: string; record: NoteRecord; body: string }> {
-    if (!NOTE_ID.test(id)) throw new HearthError('not_found', `No note ${id} in ${space}`)
+    if (!NOTE_ID.test(id)) throw new HotsauceError('not_found', `No note ${id} in ${space}`)
     const path = notePath(id)
     let file: { content: string; blobOid: string }
     try {
       file = await this.#git.readFile(space, path)
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') {
-        throw new HearthError('not_found', `No note ${id} in ${space}`)
+      if (err instanceof HotsauceError && err.code === 'not_found') {
+        throw new HotsauceError('not_found', `No note ${id} in ${space}`)
       }
       throw err
     }
@@ -551,11 +554,11 @@ export class Notes {
     try {
       parsed = parseFrontmatter(file.content)
     } catch (err) {
-      if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+      if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
       throw err
     }
     const fm = parseNote(parsed.data)
-    if (!fm) throw new HearthError('bad_request', `${path} in ${space} isn’t a note`)
+    if (!fm) throw new HotsauceError('bad_request', `${path} in ${space} isn’t a note`)
     return {
       content: file.content,
       record: { space, path, id, blobOid: file.blobOid, fm },
@@ -568,7 +571,7 @@ export class Notes {
       await this.#git.readFile(space, path)
       return true
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return false
+      if (err instanceof HotsauceError && err.code === 'not_found') return false
       throw err
     }
   }
@@ -603,7 +606,7 @@ export class Notes {
       try {
         text = await edit(cur, file.record.blobOid)
       } catch (err) {
-        if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+        if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
         throw err
       }
       if (text === null) return toView(file.record, file.body)
@@ -619,7 +622,10 @@ export class Notes {
         })
         return this.#viewOf(space, file.record.path, text, result)
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }
@@ -667,7 +673,10 @@ export class Notes {
         })
         return
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }
@@ -702,11 +711,11 @@ export class Notes {
   }
 
   #viewOf(space: string, path: string, text: string, result: CommitResult): NoteView {
-    if (result.status === 'conflict') throw new HearthError('internal', 'Unexpected conflict')
+    if (result.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
     const parsed = parseFrontmatter(text)
     const fm = parseNote(parsed.data)
     const id = noteIdOf(path)
-    if (!fm || !id) throw new HearthError('internal', `${path} isn’t a note after writing it`)
+    if (!fm || !id) throw new HotsauceError('internal', `${path} isn’t a note after writing it`)
     return toView({ space, path, id, blobOid: result.blobOid, fm }, noteTextOf(parsed.body))
   }
 }

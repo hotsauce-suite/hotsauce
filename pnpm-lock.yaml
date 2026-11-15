@@ -72,9 +72,6 @@ importers:
       '@clerk/backend':
         specifier: ^3.23.1
         version: 3.23.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@hearth/format':
-        specifier: workspace:*
-        version: link:../../packages/format
       '@hono/node-server':
         specifier: ^1.19.17
         version: 1.19.17(hono@4.13.13)
@@ -84,6 +81,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.9.1
         version: 0.9.1(hono@4.13.13)(zod@4.6.5)
+      '@hotsauce/format':
+        specifier: workspace:*
+        version: link:../../packages/format
       '@ironcalc/wasm':
         specifier: 0.9.1
         version: 0.9.1
@@ -184,7 +184,7 @@ importers:
       '@excalidraw/excalidraw':
         specifier: 0.18.1
         version: 0.18.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@hearth/format':
+      '@hotsauce/format':
         specifier: workspace:*
         version: link:../../packages/format
       '@ironcalc/wasm':

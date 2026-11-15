@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { uid } from './fixtures'
 import { expect, type Member, test } from './meetings-fixtures'
 
-// Hearth Notes (ARCHITECTURE §14), against the built server. Each test gets a fresh member; team
+// Hotsauce Notes (ARCHITECTURE §14), against the built server. Each test gets a fresh member; team
 // notes are shared by every worker, so titles carry a unique id.
 
 interface NoteView {
@@ -140,7 +140,7 @@ test('a note moved to Team is visible to a teammate; a personal one is not', asy
   expect(theirs).not.toContain(`Private ${id}`)
 })
 
-test('a checklist line becomes a Hearth task', async ({ page, member }) => {
+test('a checklist line becomes a Hotsauce task', async ({ page, member }) => {
   const id = uid()
   await member.request.post('/api/notes', {
     data: { title: `Errands ${id}`, body: `- [ ] Post the forms ${id}` },

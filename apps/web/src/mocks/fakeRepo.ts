@@ -2,7 +2,7 @@
 // UI state is reachable: stale-base PUTs merge or conflict, history and diffs are real, deletes
 // go to .trash, and an "outside edit" can be armed to race the next save.
 
-import { extractTitle, parseFrontmatter, slugify } from '@hearth/format'
+import { extractTitle, parseFrontmatter, slugify } from '@hotsauce/format'
 import type {
   Author,
   Commit,

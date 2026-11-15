@@ -1,4 +1,4 @@
-// "Any app on this Mac" (docs/PLAN-record-any-call.md): inside the Hearth Mac app, the app
+// "Any app on this Mac" (docs/PLAN-record-any-call.md): inside the Hotsauce Mac app, the app
 // records the microphone (echo cancelled) as "me" and everything the Mac plays as "them", and
 // hands this page 100 ms PCM16 frames. The page sends them on the meeting socket like any other.
 
@@ -18,7 +18,7 @@ type MacWindow = Window & {
   webkit?: { messageHandlers?: { hearthMeetingAudio?: MacBridge } }
 }
 
-/** The app's bridge, when this page runs in a Hearth Mac app that can record the whole Mac. */
+/** The app's bridge, when this page runs in a Hotsauce Mac app that can record the whole Mac. */
 export function macBridge(win: Window = window): MacBridge | null {
   const w = win as MacWindow
   if (!w.hearthMac?.meetingAudio) return null

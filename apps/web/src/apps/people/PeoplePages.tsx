@@ -4,7 +4,7 @@
 
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import {
   type CompanyView,
   companyUrl,
@@ -15,7 +15,7 @@ import {
   peopleApi,
   personUrl,
 } from '../../api/people'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon, type IconName } from '../../components/Icon'
 import { useListKeys } from '../../keyboard/listKeys'
@@ -46,8 +46,8 @@ function useLive<T>(fetcher: () => Promise<T>, key: string) {
     } catch (err) {
       if (ask !== latest.current) return
       setError({
-        status: err instanceof HearthApiError ? err.status : 0,
-        message: err instanceof HearthApiError ? err.message : 'This didn’t load.',
+        status: err instanceof HotsauceApiError ? err.status : 0,
+        message: err instanceof HotsauceApiError ? err.message : 'This didn’t load.',
       })
     }
   }, [])
@@ -62,8 +62,8 @@ function useLive<T>(fetcher: () => Promise<T>, key: string) {
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => void load(), REFRESH_DEBOUNCE_MS)
     }
-    const offChanged = hearthSocket.onChanged(soon)
-    const offReconnect = hearthSocket.onReconnect(soon)
+    const offChanged = hotsauceSocket.onChanged(soon)
+    const offReconnect = hotsauceSocket.onReconnect(soon)
     return () => {
       offChanged()
       offReconnect()
@@ -381,9 +381,9 @@ function About({
       setDraft(null)
     } catch (err) {
       setProblem(
-        err instanceof HearthApiError && err.status === 409
+        err instanceof HotsauceApiError && err.status === 409
           ? 'Someone else changed this note. Copy your text, reload, and try again.'
-          : err instanceof HearthApiError
+          : err instanceof HotsauceApiError
             ? err.message
             : 'Didn’t save. Try again.',
       )

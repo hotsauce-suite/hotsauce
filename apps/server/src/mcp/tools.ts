@@ -1,11 +1,11 @@
-import { NOTE_COLORS, parseFrontmatter, transcriptPathFor } from '@hearth/format'
+import { NOTE_COLORS, parseFrontmatter, transcriptPathFor } from '@hotsauce/format'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { type AppDeps, authorOf } from '../api/env.js'
 import { saveFile } from '../api/save.js'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { normalizeRepoPath } from '../git/validate.js'
 import { type FileKind, SNIPPET_CLOSE, SNIPPET_OPEN } from '../index/index.js'
 import { listMeetings } from '../meetings/index.js'
@@ -52,9 +52,9 @@ const Space = z.string().min(1).describe('A space name from list_spaces, e.g. "t
 const Path = z.string().min(1).describe('A file path inside the space, e.g. "docs/plan.md"')
 
 /**
- * Hearth's MCP tools (ARCHITECTURE §8.2), bound to one member. Every space a tool is given is
+ * Hotsauce's MCP tools (ARCHITECTURE §8.2), bound to one member. Every space a tool is given is
  * checked with `spaces.canAccess`; anything that lists or searches covers only the member's
- * visible spaces. Writes are commits authored by the member with a `Hearth-Via` trailer.
+ * visible spaces. Writes are commits authored by the member with a `Hotsauce-Via` trailer.
  */
 export function registerTools(
   server: McpServer,
@@ -67,7 +67,7 @@ export function registerTools(
   const tasks = deps.tasks.service
   const assertAccess = (space: string) => {
     if (!spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
   const visible = async () => (await spaces.visibleSpaces(principal)).map((s) => s.name)
@@ -224,7 +224,7 @@ export function registerTools(
         const blob = await git.readBlob(space, path, ref)
         const text = textOf(blob.content)
         if (text === null) {
-          throw new HearthError(
+          throw new HotsauceError(
             'bad_request',
             `${path} is a binary file; download it from /api/spaces/${space}/raw`,
           )
@@ -275,7 +275,7 @@ export function registerTools(
           via,
         })
         if (result.status === 'conflict') {
-          throw new HearthError(
+          throw new HotsauceError(
             'conflict',
             `${path} was changed by someone else in a way that overlaps your edit. Your version is kept on ${result.conflictRef}; resolve it in the web app, or read the file again and rewrite.`,
           )
@@ -327,7 +327,7 @@ export function registerTools(
         const note = await git.readFile(space, path)
         const { data } = parseFrontmatter(note.content)
         if (data.type !== 'meeting') {
-          throw new HearthError('bad_request', `${path} is not a meeting note`)
+          throw new HotsauceError('bad_request', `${path} is not a meeting note`)
         }
         const transcriptPath = transcriptPathFor(path, data)
         let transcript: string | null = null
@@ -335,7 +335,7 @@ export function registerTools(
           transcript = await git.readFile(space, transcriptPath).then(
             (f) => f.content,
             (err: unknown) => {
-              if (err instanceof HearthError && err.code === 'not_found') return null
+              if (err instanceof HotsauceError && err.code === 'not_found') return null
               throw err
             },
           )
@@ -462,7 +462,7 @@ const TaskSpace = Space.describe(
 const TaskId = z.string().min(1).describe('The task id from list_tasks or add_task')
 const Zone = z.string().min(1).describe('Your IANA time zone, e.g. "America/New_York"; default UTC')
 
-/** Hearth Tasks (ARCHITECTURE §12.4). */
+/** Hotsauce Tasks (ARCHITECTURE §12.4). */
 function registerTaskTools(
   server: McpServer,
   tasks: McpDeps['tasks']['service'],
@@ -574,7 +574,7 @@ const NoteSpace = Space.describe(
 const NoteId = z.string().min(1).describe('The note id from list_notes or add_note')
 const NoteColor = z.enum(NOTE_COLORS)
 
-/** Hearth Notes (ARCHITECTURE §14.4). */
+/** Hotsauce Notes (ARCHITECTURE §14.4). */
 function registerNoteTools(
   server: McpServer,
   notes: McpDeps['notes'],
@@ -661,13 +661,13 @@ function textOf(bytes: Uint8Array): string | null {
   }
 }
 
-/** A tool's result as JSON text; a Hearth error is a tool error the model can read and act on. */
+/** A tool's result as JSON text; a Hotsauce error is a tool error the model can read and act on. */
 async function run(fn: () => Promise<unknown>): Promise<CallToolResult> {
   try {
     const value = await fn()
     return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] }
   } catch (err) {
-    if (err instanceof HearthError) {
+    if (err instanceof HotsauceError) {
       return { isError: true, content: [{ type: 'text', text: `${err.code}: ${err.message}` }] }
     }
     console.error('mcp: tool failed:', err)

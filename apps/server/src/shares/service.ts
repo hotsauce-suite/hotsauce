@@ -4,9 +4,9 @@ import {
   parseFrontmatter,
   patchFrontmatter,
   resolveRelative,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import { normalizeRepoPath } from '../git/validate.js'
 import { extractDoc, type FileKind, type Index, kindOf } from '../index/index.js'
@@ -107,7 +107,7 @@ export class Shares {
       try {
         text = patchFrontmatter(content, { share: token ?? undefined })
       } catch (err) {
-        if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+        if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
         throw err
       }
       const message = withVia(
@@ -122,7 +122,7 @@ export class Shares {
           unchanged: { path, blobOid },
         })
       } catch (err) {
-        if (err instanceof HearthError && err.code === 'conflict' && attempt < WRITE_ATTEMPTS) {
+        if (err instanceof HotsauceError && err.code === 'conflict' && attempt < WRITE_ATTEMPTS) {
           continue
         }
         throw err
@@ -188,12 +188,12 @@ export class Shares {
 
   async #readShareable(principal: Principal, space: string, rawPath: string) {
     if (!this.#deps.spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
     const path = normalizeRepoPath(rawPath)
     const target = path.split('/').some((s) => s.startsWith('.')) ? null : this.#shareable(path)
     if (!target) {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         'Only a doc, a meeting note, a note or a page can have a read-only link',
       )
@@ -234,5 +234,5 @@ function imageSources(markdown: string): Set<string> {
   return out
 }
 
-const notShared = () => new HearthError('not_found', 'This link doesn’t exist or was turned off')
-const noAsset = () => new HearthError('not_found', 'No such image')
+const notShared = () => new HotsauceError('not_found', 'This link doesn’t exist or was turned off')
+const noAsset = () => new HotsauceError('not_found', 'No such image')

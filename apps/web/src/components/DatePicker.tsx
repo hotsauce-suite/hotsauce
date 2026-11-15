@@ -1,4 +1,4 @@
-import { addDays, addMonths, monthGrid, WEEK_DAY_NAMES } from '@hearth/format'
+import { addDays, addMonths, monthGrid, WEEK_DAY_NAMES } from '@hotsauce/format'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'

@@ -127,11 +127,11 @@ export const ConfigSchema = z
     CHAT_MODEL: z.string().min(1).default('claude-opus-5-5'),
     // After-call transcript cleanup (ARCHITECTURE §7.11): the spelling pass's model.
     CLEANUP_MODEL: z.string().min(1).default('claude-haiku-5-5'),
-    // Hearth Dictate's cleanup pass runs on every dictation, so it uses a fast model.
+    // Hotsauce Dictate's cleanup pass runs on every dictation, so it uses a fast model.
     DICTATION_MODEL: z.string().min(1).default('claude-haiku-5-5'),
-    // Hearth Clips (ARCHITECTURE §10): the title and summary model, and where ffmpeg is.
+    // Hotsauce Clips (ARCHITECTURE §10): the title and summary model, and where ffmpeg is.
     CLIPS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
-    // Hearth Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
+    // Hotsauce Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
     TASKS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Saved links (ARCHITECTURE §23): how pages are fetched (fake in development and test), and
     // the model that summarizes and tags them.

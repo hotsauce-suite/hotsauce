@@ -4,7 +4,7 @@ import {
   checklistToText,
   type NoteColor,
   textToChecklist,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { useEffect, useRef, useState } from 'react'
 import type { NoteInput } from '../../api/notes'
 import { ChecklistEditor } from './ChecklistEditor'

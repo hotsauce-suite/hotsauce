@@ -213,7 +213,7 @@ function CommitDetail({
       ) : content === null ? (
         <p className="p-2 text-xs text-ink-faint">Loading this version…</p>
       ) : (
-        <div className="max-h-[50vh] overflow-y-auto rounded-md text-[0.8rem] [&_.prose-hearth]:p-2">
+        <div className="max-h-[50vh] overflow-y-auto rounded-md text-[0.8rem] [&_.prose-hotsauce]:p-2">
           <Suspense fallback={null}>
             <ReadingView
               markdown={content}
@@ -250,11 +250,11 @@ function ViewTab({
   )
 }
 
-/** The message without its `Hearth-Via` trailer, which the author line already shows. */
+/** The message without its `Hotsauce-Via` (or older `Hearth-Via`) trailer, which the author line already shows. */
 export function withoutVia(message: string): string {
   return message
     .split('\n')
-    .filter((line, i) => i === 0 || !line.startsWith('Hearth-Via:'))
+    .filter((line, i) => i === 0 || !/^(?:Hotsauce|Hearth)-Via:/.test(line))
     .join('\n')
     .trimEnd()
 }

@@ -14,7 +14,7 @@ async function connect(baseURL: string, token: string): Promise<Client> {
   const transport = new StreamableHTTPClientTransport(new URL('/mcp', baseURL), {
     requestInit: { headers: { authorization: `Bearer ${token}` } },
   })
-  const client = new Client({ name: 'hearth-e2e', version: '1.0.0' })
+  const client = new Client({ name: 'hotsauce-e2e', version: '1.0.0' })
   await client.connect(transport)
   return client
 }
@@ -73,9 +73,9 @@ test('a token made in Settings connects an MCP client that searches, reads and w
 
   const [commit] = await api.history(user.personal, file)
   expect(commit?.author.email).toBe(user.email)
-  expect(commit?.message).toContain(`Hearth-Via: mcp (client "hearth-e2e", token "e2e ${id}")`)
+  expect(commit?.message).toContain(`Hotsauce-Via: mcp (client "hotsauce-e2e", token "e2e ${id}")`)
 
-  // The member sees it in Hearth Docs too.
+  // The member sees it in Hotsauce Docs too.
   await page.goto(`/docs/${user.personal}/${file}`)
   await expect(page.getByTestId('editor-content')).toContainText(`The ${word} plan.`)
 
@@ -86,7 +86,9 @@ test('a token made in Settings connects an MCP client that searches, reads and w
   const history = await tool(client, 'file_history', { space: user.personal, path: moved })
   expect(history.length).toBeGreaterThanOrEqual(2)
   expect(history[0].message).toContain('hotsauce: move')
-  expect(history[0].message).toContain(`Hearth-Via: mcp (client "hearth-e2e", token "e2e ${id}")`)
+  expect(history[0].message).toContain(
+    `Hotsauce-Via: mcp (client "hotsauce-e2e", token "e2e ${id}")`,
+  )
   await tool(client, 'delete_file', { space: user.personal, path: moved })
   expect(await api.readFile(user.personal, moved)).toBeNull()
   await tool(client, 'restore_file', { space: user.personal, path: moved, oid: history[0].oid })

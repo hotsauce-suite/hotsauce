@@ -2,7 +2,7 @@ import { product } from '../../brand/product'
 import { docUrl } from '../../lib/paths'
 import type { AppManifest } from '../registry'
 
-/** Hearth Clips keeps no files in a space: clips live in their own store (ARCHITECTURE §10). */
+/** Hotsauce Clips keeps no files in a space: clips live in their own store (ARCHITECTURE §10). */
 export const clipsApp: AppManifest = {
   id: 'clips',
   get name() {

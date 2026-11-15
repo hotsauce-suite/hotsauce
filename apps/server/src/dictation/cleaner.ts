@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { LLM } from '../meetings/llm/types.js'
 import { buildCleanupPrompt, type CleanupInput, extractCleaned } from './prompt.js'
 
@@ -40,7 +40,7 @@ export async function cleanTranscript(
   try {
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new HearthError('llm_error', 'timed out')), timeoutMs)
+      timer = setTimeout(() => reject(new HotsauceError('llm_error', 'timed out')), timeoutMs)
     })
     const { text } = await Promise.race([
       llm.complete({
@@ -66,7 +66,7 @@ export async function cleanTranscript(
     return { text: cleaned, cleaned: true }
   } catch (err) {
     log(
-      `dictation cleanup failed: ${err instanceof HearthError ? `${err.code} ${err.message}` : err instanceof Error ? err.name : 'error'}`,
+      `dictation cleanup failed: ${err instanceof HotsauceError ? `${err.code} ${err.message}` : err instanceof Error ? err.name : 'error'}`,
     )
     return { text: raw, cleaned: false }
   }

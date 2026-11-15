@@ -1,7 +1,7 @@
 import { docUrl } from './fixtures'
 import { expect, type Member, test } from './meetings-fixtures'
 
-// A `tasks` block in a doc is a live list of Hearth Tasks; the file keeps only the query.
+// A `tasks` block in a doc is a live list of Hotsauce Tasks; the file keeps only the query.
 
 test.use({ timezoneId: 'UTC' })
 

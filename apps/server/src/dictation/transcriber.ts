@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { readWav } from './wav.js'
 
 export interface TranscribeOptions {
@@ -64,7 +64,7 @@ export function deepgramBatchUrl(
 export function mapDeepgramResponse(body: unknown): TranscribeResult {
   const parsed = DeepgramResponse.safeParse(body)
   if (!parsed.success)
-    throw new HearthError('asr_error', 'The transcription service answered oddly')
+    throw new HotsauceError('asr_error', 'The transcription service answered oddly')
   const text = parsed.data.results.channels[0]?.alternatives[0]?.transcript.trim() ?? ''
   const seconds = parsed.data.metadata?.duration ?? 0
   return { text, durationMs: Math.round(seconds * 1000) }
@@ -99,12 +99,12 @@ export class DeepgramDictationTranscriber implements DictationTranscriber {
       })
     } catch (err) {
       log(`deepgram dictation request failed: ${err instanceof Error ? err.name : 'error'}`)
-      throw new HearthError('asr_error', 'Couldn’t reach the transcription service')
+      throw new HotsauceError('asr_error', 'Couldn’t reach the transcription service')
     }
     if (!res.ok) {
       // Deepgram's error body names the problem, never the audio's content.
       log(`deepgram dictation ${res.status}: ${(await res.text()).slice(0, 300)}`)
-      throw new HearthError('asr_error', 'The transcription service refused this audio')
+      throw new HotsauceError('asr_error', 'The transcription service refused this audio')
     }
     return mapDeepgramResponse(await res.json())
   }

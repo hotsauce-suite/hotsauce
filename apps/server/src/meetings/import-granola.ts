@@ -5,10 +5,10 @@ import {
   newId,
   patchFrontmatter,
   type TranscriptLine,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { z } from 'zod'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import type { SpaceService } from '../spaces/index.js'
@@ -79,7 +79,7 @@ async function importBatch(
   tz: string,
 ): Promise<{ imported: number; skipped: number; space: string }> {
   const space = (await deps.spaces.visibleSpaces(principal)).find((s) => s.kind === 'personal')
-  if (!space) throw new HearthError('forbidden', 'Your personal space isn’t ready yet')
+  if (!space) throw new HotsauceError('forbidden', 'Your personal space isn’t ready yet')
   // Bring the index up to date first (an earlier batch whose indexing failed, outside pushes),
   // since it is what tells us which meetings are already here.
   await deps.afterCommit(space.name)
@@ -162,7 +162,7 @@ export function granolaFiles(
     transcript: transcript.slice(transcript.lastIndexOf('/') + 1),
     // Granola's summary is AI-written: shown as AI text, and Enhance may replace it unasked.
     ai_ranges: summary ? [[aiFrom, lastLine]] : [],
-    // The body as Hearth wrote it, so Enhance knows the note hasn't been edited since.
+    // The body as Hotsauce wrote it, so Enhance knows the note hasn't been edited since.
     models: summary
       ? { enhance: 'granola', enhanced_blob: blobOidOf(body) }
       : { enhanced_blob: blobOidOf(body) },

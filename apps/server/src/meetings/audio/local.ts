@@ -3,7 +3,7 @@ import { mkdir, rename, rm, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import type { AudioStore } from './types.js'
 
 /** Kept audio in a folder on the volume: `DATA_DIR/kept-audio/<key>`. For development and tests. */
@@ -37,14 +37,14 @@ export class LocalAudioStore implements AudioStore {
     await rm(this.#file(key), { force: true })
   }
 
-  /** Where `key` is on disk, for serving byte ranges of it (Hearth Clips playback). */
+  /** Where `key` is on disk, for serving byte ranges of it (Hotsauce Clips playback). */
   pathOf(key: string): string {
     return this.#file(key)
   }
 
   #file(key: string): string {
     if (!/^[A-Za-z0-9._/-]+$/.test(key) || key.split('/').some((p) => p === '' || p === '..')) {
-      throw new HearthError('bad_request', `Invalid audio key: ${key}`)
+      throw new HotsauceError('bad_request', `Invalid audio key: ${key}`)
     }
     return path.join(this.#root, key)
   }

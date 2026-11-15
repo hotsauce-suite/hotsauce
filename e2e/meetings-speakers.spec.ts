@@ -9,7 +9,7 @@ test('names an unnamed speaker from Claude’s guess, in the transcript and the 
   const id = uid()
   const base = `meetings/2026/11/2026-11-12-pilot-call-${id}`
   const body = [`# Pilot call ${id}`, '', '- Speaker 1 wants SSO first', ''].join('\n')
-  // As Hearth's Enhance leaves it: the body's git blob id, so the note counts as unedited.
+  // As Hotsauce's Enhance leaves it: the body's git blob id, so the note counts as unedited.
   const bytes = Buffer.from(body, 'utf8')
   const blob = createHash('sha1')
     .update(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`), bytes]))

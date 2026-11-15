@@ -11,7 +11,7 @@ import {
   nextDue,
   type ParsedTask,
   weekday,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { TaskFilter, TaskPatch, TaskView } from '../../api/tasks'
 
 export type ViewId = 'inbox' | 'today' | 'upcoming' | 'all' | 'project' | 'done'

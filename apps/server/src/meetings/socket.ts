@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Authenticator, Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   MAX_AUTH_FRAME_BYTES,
   principalFromAuthMessage,
@@ -164,7 +164,7 @@ export class MeetingSocketServer {
     socket: AudioSocket,
   ): Promise<AudioConnection> {
     const session = this.#sessions.get(sessionId, principal)
-    if (session.state === 'saved') throw new HearthError('not_found', 'already saved')
+    if (session.state === 'saved') throw new HotsauceError('not_found', 'already saved')
     return this.#sessions.attachAudio(sessionId, socket)
   }
 
@@ -188,15 +188,15 @@ export class MeetingSocketServer {
     } catch (err) {
       send({
         type: 'error',
-        message: err instanceof HearthError ? err.message : 'Something went wrong',
+        message: err instanceof HotsauceError ? err.message : 'Something went wrong',
       })
-      if (!(err instanceof HearthError)) console.error(`meeting ${sessionId}:`, err)
+      if (!(err instanceof HotsauceError)) console.error(`meeting ${sessionId}:`, err)
     }
   }
 }
 
 function closeFor(err: unknown): [number, string] {
-  if (err instanceof HearthError) {
+  if (err instanceof HotsauceError) {
     if (err.code === 'forbidden') return [WS_FORBIDDEN, 'not your meeting']
     if (err.code === 'not_found' || err.code === 'conflict') return [WS_NOT_FOUND, err.message]
   }

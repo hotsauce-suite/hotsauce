@@ -228,7 +228,7 @@ function likePattern(q: string): string {
 }
 
 /**
- * Hearth Clips' metadata and transcripts (ARCHITECTURE §10.1). Its own SQLite file beside the
+ * Hotsauce Clips' metadata and transcripts (ARCHITECTURE §10.1). Its own SQLite file beside the
  * index, like Dictate's: the index is rebuilt from Git, and clips aren't in Git.
  */
 export class ClipStore {

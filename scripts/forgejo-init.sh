@@ -9,10 +9,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 FORGEJO_URL="${FORGEJO_URL:-http://localhost:3300}"
-ADMIN_USER="${FORGEJO_ADMIN_USER:-hearth-admin}"
+ADMIN_USER="${FORGEJO_ADMIN_USER:-hotsauce-admin}"
 # Dev-only container on localhost; not a secret.
-ADMIN_PASSWORD="${FORGEJO_ADMIN_PASSWORD:-hearth-admin-password}"
-ADMIN_EMAIL="${FORGEJO_ADMIN_EMAIL:-hearth-admin@localhost.test}"
+ADMIN_PASSWORD="${FORGEJO_ADMIN_PASSWORD:-hotsauce-admin-password}"
+ADMIN_EMAIL="${FORGEJO_ADMIN_EMAIL:-hotsauce-admin@localhost.test}"
 TOKEN_FILE=".data/forgejo-token"
 
 # The forgejo CLI refuses to run as root; the container's service user is `git`.
@@ -49,7 +49,7 @@ fi
 
 TOKEN="$(forgejo_cli admin user generate-access-token \
   --username "$ADMIN_USER" \
-  --token-name "hearth-$(date +%Y%m%d%H%M%S)-$$" \
+  --token-name "hotsauce-$(date +%Y%m%d%H%M%S)-$$" \
   --scopes all \
   --raw | tr -d '[:space:]')"
 if [ -z "$TOKEN" ]; then
@@ -61,4 +61,4 @@ mkdir -p "$(dirname "$TOKEN_FILE")"
 (umask 077 && printf '%s\n' "$TOKEN" >"$TOKEN_FILE")
 echo "Wrote $TOKEN_FILE"
 echo "Run Forgejo tests with:"
-echo "  FORGEJO_URL=$FORGEJO_URL FORGEJO_TOKEN=\"\$(cat $TOKEN_FILE)\" pnpm --filter @hearth/server exec vitest run --config vitest.integration.config.ts"
+echo "  FORGEJO_URL=$FORGEJO_URL FORGEJO_TOKEN=\"\$(cat $TOKEN_FILE)\" pnpm --filter @hotsauce/server exec vitest run --config vitest.integration.config.ts"

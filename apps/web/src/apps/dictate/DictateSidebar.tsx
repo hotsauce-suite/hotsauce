@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import { Icon, type IconName } from '../../components/Icon'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
 
-/** Hearth Dictate's sidebar: voice notes, the Mac page's sections, then the app's download. */
+/** Hotsauce Dictate's sidebar: voice notes, the Mac page's sections, then the app's download. */
 export function DictateSidebar() {
   return (
     <nav aria-label="Dictate" className="mt-1 px-2">

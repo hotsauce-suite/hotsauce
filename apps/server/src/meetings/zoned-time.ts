@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 export interface ZonedParts {
   year: number
@@ -16,7 +16,7 @@ export function assertTimeZone(timeZone: string): void {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone })
   } catch {
-    throw new HearthError('bad_request', `Unknown time zone: ${timeZone}`)
+    throw new HotsauceError('bad_request', `Unknown time zone: ${timeZone}`)
   }
 }
 

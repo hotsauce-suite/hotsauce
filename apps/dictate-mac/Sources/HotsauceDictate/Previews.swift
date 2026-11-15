@@ -3,7 +3,7 @@ import DictateCore
 import SwiftUI
 import WebKit
 
-/// `HearthDictate --render-previews <folder> [--dark]`: draws each page of the main window, with
+/// `HotsauceDictate --render-previews <folder> [--dark]`: draws each page of the main window, with
 /// made-up history held only in memory, to PNGs, for checking the design without screen access.
 @MainActor
 enum Previews {

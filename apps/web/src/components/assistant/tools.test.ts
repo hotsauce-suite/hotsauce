@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { hearthTarget, toolLine } from './tools'
+import { hotsauceTarget, toolLine } from './tools'
 
-describe('hearthTarget', () => {
+describe('hotsauceTarget', () => {
   it('reads a space and path, decoding what Markdown encoded', () => {
-    expect(hearthTarget('hearth:team/docs/Launch%20plan.md')).toEqual({
+    expect(hotsauceTarget('hearth:team/docs/Launch%20plan.md')).toEqual({
       space: 'team',
       path: 'docs/Launch plan.md',
     })
-    expect(hearthTarget('hearth:alice/tasks/01J.md')).toEqual({
+    expect(hotsauceTarget('hearth:alice/tasks/01J.md')).toEqual({
       space: 'alice',
       path: 'tasks/01J.md',
     })
   })
 
   it('ignores anything else', () => {
-    expect(hearthTarget('https://example.com')).toBeNull()
-    expect(hearthTarget('hearth:team')).toBeNull()
-    expect(hearthTarget('javascript:alert(1)')).toBeNull()
+    expect(hotsauceTarget('https://example.com')).toBeNull()
+    expect(hotsauceTarget('hearth:team')).toBeNull()
+    expect(hotsauceTarget('javascript:alert(1)')).toBeNull()
   })
 })
 

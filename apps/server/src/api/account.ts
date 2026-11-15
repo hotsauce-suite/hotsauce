@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { PathParam, valid } from './validate.js'
 
@@ -23,7 +23,7 @@ export function accountRoutes(deps: AppDeps) {
   const { config, index, spaces } = deps
   const assertAccess = (principal: AppEnv['Variables']['principal'], space: string) => {
     if (!spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
   return new Hono<AppEnv>()

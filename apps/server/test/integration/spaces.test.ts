@@ -1,8 +1,8 @@
-import { initialSpaceFiles } from '@hearth/format'
+import { initialSpaceFiles } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Principal } from '../../src/auth/index.js'
 import { deriveHandle } from '../../src/auth/index.js'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import { Index } from '../../src/index/index.js'
 import {
   defaultInitialFiles,
@@ -11,7 +11,7 @@ import {
 } from '../../src/spaces/index.js'
 import { MemoryGit, MemoryHost } from '../fixtures/memory-git.js'
 
-const HEARTH = { name: 'Hearth', email: 'hearth@example.test' }
+const HOTSAUCE = { name: 'Hotsauce', email: 'hotsauce@example.test' }
 
 function member(email: string, extra: Partial<Principal> = {}): Principal {
   return {
@@ -34,7 +34,7 @@ let registry: Index
 let spaces: SpaceService
 
 function newService(): SpaceService {
-  return new SpaceService({ git, host, registry, committer: HEARTH })
+  return new SpaceService({ git, host, registry, committer: HOTSAUCE })
 }
 
 beforeEach(() => {
@@ -49,14 +49,14 @@ afterEach(() => {
 })
 
 describe('ensureTeamSpace', () => {
-  it('creates, clones and seeds the team repo authored by Hearth', async () => {
+  it('creates, clones and seeds the team repo authored by Hotsauce', async () => {
     expect(await spaces.ensureTeamSpace()).toEqual({ name: 'team', kind: 'team', label: 'Team' })
     expect(host.ensureRepoCalls).toEqual(['team'])
     expect(git.clones).toEqual([{ space: 'team', remoteUrl: 'file:///remotes/team.git' }])
     expect(git.commits).toEqual([
       {
         space: 'team',
-        author: HEARTH,
+        author: HOTSAUCE,
         message: 'hotsauce: create space "team"',
         paths: ['README.md', '.hearth/space.yaml'],
       },
@@ -117,7 +117,7 @@ describe('ensurePersonalSpace', () => {
     let fail = true
     const ensureRepo = host.ensureRepo.bind(host)
     host.ensureRepo = async (name) => {
-      if (fail) throw new HearthError('host_error', 'host down')
+      if (fail) throw new HotsauceError('host_error', 'host down')
       return ensureRepo(name)
     }
     await expect(spaces.ensurePersonalSpace(ada)).rejects.toMatchObject({ code: 'host_error' })
@@ -130,14 +130,14 @@ describe('ensurePersonalSpace', () => {
     await spaces.ensureTeamSpace()
     await spaces.ensurePersonalSpace(ada)
     host.ensureRepo = async () => {
-      throw new HearthError('host_error', 'host down')
+      throw new HotsauceError('host_error', 'host down')
     }
     const logs: string[] = []
     const restarted = new SpaceService({
       git,
       host,
       registry,
-      committer: HEARTH,
+      committer: HOTSAUCE,
       log: (m) => logs.push(m),
     })
 
@@ -157,7 +157,7 @@ describe('ensurePersonalSpace', () => {
   it('lists only team while the personal space cannot be provisioned', async () => {
     const ensureRepo = host.ensureRepo.bind(host)
     host.ensureRepo = async () => {
-      throw new HearthError('host_error', 'host down')
+      throw new HotsauceError('host_error', 'host down')
     }
     await expect(spaces.ensurePersonalSpace(jo)).rejects.toMatchObject({ code: 'host_error' })
     expect(await spaces.visibleSpaces(jo)).toEqual([{ name: 'team', kind: 'team', label: 'Team' }])
@@ -173,7 +173,7 @@ describe('ensurePersonalSpace', () => {
       git,
       host,
       registry,
-      committer: HEARTH,
+      committer: HOTSAUCE,
       initialFiles: (name, opts) => {
         calls.push({ name, ...opts })
         return [{ path: 'HELLO.md', content: `# ${name}\n` }]
@@ -206,7 +206,7 @@ describe('handle collisions', () => {
     await spaces.ensurePersonalSpace(dotted)
 
     const attempt = spaces.ensurePersonalSpace(hyphenated)
-    await expect(attempt).rejects.toBeInstanceOf(HearthError)
+    await expect(attempt).rejects.toBeInstanceOf(HotsauceError)
     await expect(attempt).rejects.toMatchObject({
       code: 'forbidden',
       message: 'handle already claimed by another member',
@@ -317,7 +317,7 @@ describe('webhooks', () => {
   const webhook = { url: 'https://hearth.test/api/webhooks/git', secret: 'a'.repeat(32) }
 
   it('registers the push webhook on every space it provisions', async () => {
-    const service = new SpaceService({ git, host, registry, committer: HEARTH, webhook })
+    const service = new SpaceService({ git, host, registry, committer: HOTSAUCE, webhook })
     await service.ensureTeamSpace()
     await service.ensurePersonalSpace(ada)
     expect(host.webhooks).toEqual([
@@ -328,14 +328,14 @@ describe('webhooks', () => {
 
   it('provisions the space anyway when the webhook cannot be registered', async () => {
     host.ensureWebhook = async () => {
-      throw new HearthError('host_error', 'hooks are down')
+      throw new HotsauceError('host_error', 'hooks are down')
     }
     const logs: string[] = []
     const service = new SpaceService({
       git,
       host,
       registry,
-      committer: HEARTH,
+      committer: HOTSAUCE,
       webhook,
       log: (m) => logs.push(m),
     })

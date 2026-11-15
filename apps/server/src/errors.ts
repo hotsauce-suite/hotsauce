@@ -34,14 +34,14 @@ const DEFAULT_STATUS: Record<ErrorCode, number> = {
   internal: 500,
 }
 
-export class HearthError extends Error {
+export class HotsauceError extends Error {
   readonly code: ErrorCode
   readonly status: number
   readonly details: unknown
 
   constructor(code: ErrorCode, message: string, opts?: { status?: number; details?: unknown }) {
     super(message)
-    this.name = 'HearthError'
+    this.name = 'HotsauceError'
     this.code = code
     this.status = opts?.status ?? DEFAULT_STATUS[code]
     this.details = opts?.details

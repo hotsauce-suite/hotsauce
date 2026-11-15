@@ -22,7 +22,7 @@ function useTodayCount(): number | null {
   return count
 }
 
-/** Hearth Tasks' sidebar: Add task, the lists, the projects of each space, import. */
+/** Hotsauce Tasks' sidebar: Add task, the lists, the projects of each space, import. */
 export function TasksSidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()

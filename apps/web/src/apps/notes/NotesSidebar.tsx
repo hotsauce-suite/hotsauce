@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { labelUrl } from './logic'
 import { notesBus, useNoteLabels } from './useNotes'
 
-/** Hearth Notes' sidebar: New note, the board, labels, Archive, Trash, import. */
+/** Hotsauce Notes' sidebar: New note, the board, labels, Archive, Trash, import. */
 export function NotesSidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()

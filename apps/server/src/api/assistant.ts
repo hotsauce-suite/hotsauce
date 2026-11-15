@@ -6,7 +6,7 @@ import { DEFAULT_ASSISTANT_MODEL } from '../assistant/index.js'
 import { ASSISTANT_MODELS } from '../assistant/pricing.js'
 import { MAX_QUESTION_CHARS } from '../assistant/service.js'
 import { monthOf } from '../assistant/store.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'
 
@@ -41,7 +41,7 @@ export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config' | 'or
     }
   }
   const adminOnly = (p: { isAdmin: boolean; via?: unknown }, what: string) => {
-    if (!p.isAdmin || p.via) throw new HearthError('forbidden', `Only an admin can ${what}`)
+    if (!p.isAdmin || p.via) throw new HotsauceError('forbidden', `Only an admin can ${what}`)
   }
   return (
     new Hono<AppEnv>()
@@ -57,13 +57,13 @@ export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config' | 'or
       )
       .get('/conversations/:id', valid('param', z.object({ id: Id })), (c) => {
         const conv = assistant.store.get(c.get('principal').userId, c.req.valid('param').id)
-        if (!conv) throw new HearthError('not_found', 'No such conversation')
+        if (!conv) throw new HotsauceError('not_found', 'No such conversation')
         const { messages: _hidden, ...shown } = conv
         return c.json(shown)
       })
       .delete('/conversations/:id', valid('param', z.object({ id: Id })), (c) => {
         const gone = assistant.store.delete(c.get('principal').userId, c.req.valid('param').id)
-        if (!gone) throw new HearthError('not_found', 'No such conversation')
+        if (!gone) throw new HotsauceError('not_found', 'No such conversation')
         return c.body(null, 204)
       })
       /** Answers as Server-Sent Events: text, tool, tool_result, confirm, then done or error. */
@@ -77,7 +77,7 @@ export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config' | 'or
           const body = c.req.valid('json')
           // Refusals that need no model call answer as plain HTTP errors, before the stream.
           if (config.LLM_PROVIDER === 'none') {
-            throw new HearthError(
+            throw new HotsauceError(
               'not_configured',
               'The assistant needs an Anthropic API key. An admin can add one in Settings.',
             )
@@ -107,9 +107,9 @@ export function assistantRoutes(deps: Pick<AppDeps, 'assistant' | 'config' | 'or
               )
             } catch (err) {
               if (abort.signal.aborted) return
-              if (!(err instanceof HearthError)) console.error('assistant: ask failed:', err)
+              if (!(err instanceof HotsauceError)) console.error('assistant: ask failed:', err)
               const message =
-                err instanceof HearthError ? err.message : 'Something went wrong; try again.'
+                err instanceof HotsauceError ? err.message : 'Something went wrong; try again.'
               send({ type: 'error', message })
             } finally {
               clearInterval(keepalive)

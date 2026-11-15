@@ -1,10 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { newId } from '@hearth/format'
+import { newId } from '@hotsauce/format'
 import { z } from 'zod'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { KeyedMutex } from '../git/mutex.js'
 
 /** Every access token starts with this, so a request can tell a token from a Clerk session. */
@@ -79,14 +79,14 @@ export class TokenStore {
   async create(principal: Principal, rawName: string): Promise<TokenSummary & { token: string }> {
     const name = rawName.replace(/\s+/g, ' ').trim()
     if (name === '' || name.length > MAX_TOKEN_NAME) {
-      throw new HearthError('bad_request', `A token name is 1 to ${MAX_TOKEN_NAME} characters`)
+      throw new HotsauceError('bad_request', `A token name is 1 to ${MAX_TOKEN_NAME} characters`)
     }
     const token = mintToken()
     let created: StoredToken | null = null
     await this.#update((s) => {
       const mine = s.tokens.filter((t) => t.userId === principal.userId)
       if (mine.length >= MAX_TOKENS_PER_MEMBER) {
-        throw new HearthError(
+        throw new HotsauceError(
           'bad_request',
           `You have ${MAX_TOKENS_PER_MEMBER} tokens already. Revoke one you no longer use first.`,
         )
@@ -113,7 +113,7 @@ export class TokenStore {
     await this.#update((s) => {
       const before = s.tokens.length
       s.tokens = s.tokens.filter((t) => !(t.id === id && t.userId === principal.userId))
-      if (s.tokens.length === before) throw new HearthError('not_found', 'No such token')
+      if (s.tokens.length === before) throw new HotsauceError('not_found', 'No such token')
     })
     this.#lastWritten.delete(id)
   }

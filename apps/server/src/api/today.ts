@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { Places, roundPlace, Today, TodayLayouts, Weather } from '../today/index.js'
 import { readVersion } from '../updates/version.js'
 import type { AppDeps, AppEnv } from './env.js'
@@ -80,7 +80,7 @@ export function todayRoutes(
         if (lat !== undefined && lon !== undefined)
           return c.json(await weather.forecast(lat, lon, who))
         if (lat !== undefined || lon !== undefined) {
-          throw new HearthError('bad_request', 'Send both lat and lon, or neither')
+          throw new HotsauceError('bad_request', 'Send both lat and lon, or neither')
         }
         const team = teamPlace()
         if (!team) return c.json(null)
@@ -94,7 +94,7 @@ export function todayRoutes(
       .put('/today/default-place', valid('json', DefaultPlace), (c) => {
         const p = c.get('principal')
         if (!p.isAdmin || p.via) {
-          throw new HearthError('forbidden', 'Only an admin can set the team’s weather city')
+          throw new HotsauceError('forbidden', 'Only an admin can set the team’s weather city')
         }
         const { place } = c.req.valid('json')
         return c.json({ place: deps.org.saveSettings({ weatherPlace: place }).weatherPlace })

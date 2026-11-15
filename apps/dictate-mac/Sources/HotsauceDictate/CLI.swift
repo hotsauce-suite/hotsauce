@@ -1,7 +1,7 @@
 import DictateCore
 import Foundation
 
-/// `HearthDictate --transcribe-file <path> [--literal] [--stream] [--app-name <name>] [--app-bundle <id>] [--server <url>]`
+/// `HotsauceDictate --transcribe-file <path> [--literal] [--stream] [--app-name <name>] [--app-bundle <id>] [--server <url>]`
 ///
 /// The app's own upload, for automated end-to-end tests. The token comes from HOTSAUCE_DICTATE_TOKEN
 /// (or the old HEARTH_DICTATE_TOKEN) only, never the saved connection, so this can’t send the app’s own token to a server it names; the
