@@ -220,7 +220,10 @@ export const shots = {
   async clipsPlayer({ page, signIn, startCapture, wait, moveTo, click, point, type }) {
     const dir = process.env.DEMO_CLIP
     if (!dir) throw new Error('set DEMO_CLIP to a dir with composite.mp4 and thumb.jpg')
-    const now = new Date().toISOString()
+    // Recorded a little before the page clock (TOUR_CLOCK), so it reads as this morning.
+    const now = new Date(
+      (process.env.TOUR_CLOCK ? Date.parse(process.env.TOUR_CLOCK) : Date.now()) - 50 * 60_000,
+    ).toISOString()
     let clip = {
       id: 'demo-q4',
       title: 'Q4 plan, before Friday’s board meeting',
@@ -352,6 +355,59 @@ export const shots = {
     await wait(1200)
     await page.getByText('Record a voice note here').first().click()
     await wait(2500)
+  },
+
+  // The Mac app's step-by-step setup, from the app's own drawings (mac-setup/index.html).
+  async macSetup({ page, startCapture, wait, moveTo, click }) {
+    await page.goto(new URL('./mac-setup/index.html', import.meta.url).href)
+    await page.evaluate(() => document.fonts.ready)
+    await wait(600)
+    await startCapture()
+    const show = (s) => page.evaluate((n) => window.show(n), s)
+    const hot = (id) => page.getByTestId(id)
+    await moveTo(900, 600, 10)
+    await wait(500)
+    await click(hot('field'), { ms: 700 })
+    await wait(500)
+    await click(hot('continueField'), { ms: 600 })
+    await show(1)
+    await wait(1300)
+    await click(hot('next'), { ms: 800 })
+    await show(2)
+    await wait(1200)
+    await click(hot('google'), { ms: 800 })
+    await wait(500)
+    await show(3)
+    await wait(2600)
+    await click(hot('next'), { ms: 800 })
+    await show(4)
+    await wait(2600)
+    await click(hot('skip'), { ms: 700 })
+    await show(5)
+    await wait(1200)
+    await click(hot('open'), { ms: 700, after: 1200 })
+  },
+
+  // Send feedback from any page, with a picture of that page attached.
+  async feedback({ page, signIn, startCapture, wait, moveTo, click, type }) {
+    await signIn()
+    await page.goto(`${B}/tasks`)
+    await wait(2000)
+    await startCapture()
+    await moveTo(900, 450, 10)
+    await wait(700)
+    await click(page.getByRole('link', { name: 'Send feedback' }), { ms: 900, after: 1400 })
+    await click(page.getByText('I have an idea'), { ms: 700 })
+    await click(page.getByRole('textbox').first(), { ms: 500 })
+    await type('Let me drag a task onto a day in the week view to reschedule it.', 38)
+    await wait(500)
+    await click(page.getByRole('button', { name: 'Add a picture of the page you were on' }), {
+      ms: 700,
+      after: 1300,
+    })
+    await click(page.getByRole('button', { name: 'Send' }), { ms: 700, after: 2200 })
+    await moveTo(760, 700, 700)
+    await wait(1800)
   },
 
   async boards({ page, signIn, startCapture, wait, moveTo }) {

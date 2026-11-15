@@ -1,0 +1,77 @@
+<!doctype html>
+<!-- The Mac app's setup window for the tour video. The screens are the app's own drawings
+     (`HearthDictate --render-previews <dir>`, apps/dictate-mac/Sources/HearthDictate/Previews.swift),
+     shown in a window on a desktop; the macSetup shot in shots.mjs clicks through them. -->
+<html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap">
+<style>
+:root{--paper:#fff4e2;--ink:#16262d;--muted:#46565b;--rust:#a94e26;--spruce:#1f4d3a}
+*{box-sizing:border-box;margin:0}
+html,body{width:1600px;height:900px;overflow:hidden;font-family:"DM Sans",sans-serif;color:var(--ink)}
+body{background:var(--paper);background-image:radial-gradient(circle at 80% 75%,rgba(169,78,38,.22),transparent 48%),radial-gradient(circle at 12% 15%,rgba(31,77,58,.16),transparent 42%)}
+.menubar{position:absolute;top:0;left:0;right:0;height:26px;background:rgba(255,255,255,.55);backdrop-filter:blur(8px);display:flex;align-items:center;gap:20px;padding:0 18px;font:600 13px -apple-system,"DM Sans",system-ui,sans-serif}
+.menubar .r{margin-left:auto;font-weight:500}
+.win{position:absolute;left:250px;top:38px;transform:scale(.96);transform-origin:top center;width:500px;height:748px;border-radius:12px;overflow:hidden;background:#ececec;
+  box-shadow:0 30px 70px rgba(22,38,45,.32),0 0 0 1px rgba(0,0,0,.12)}
+.bar{height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;background:#ececec;position:relative;z-index:2}
+.bar i{width:12px;height:12px;border-radius:50%;display:block}
+.bar i:nth-child(1){background:#ff5f57}.bar i:nth-child(2){background:#febc2e}.bar i:nth-child(3){background:#28c840}
+.screens{position:relative;width:500px;height:720px}
+.screens img{position:absolute;inset:0;width:500px;height:720px;opacity:0;transition:opacity .35s ease}
+.screens img.on{opacity:1}
+.hot{position:absolute;z-index:3}
+.steps{position:absolute;left:860px;top:210px;width:560px}
+.steps h2{font:800 58px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.03em;margin-bottom:34px}
+.steps h2 em{font-style:normal;color:var(--rust)}
+.steps ol{list-style:none;padding:0;display:flex;flex-direction:column;gap:16px}
+.steps li{display:flex;align-items:center;gap:18px;font:500 28px "DM Sans",sans-serif;color:var(--muted);opacity:.55;transition:all .35s}
+.steps li b{width:44px;height:44px;border-radius:50%;border:2px solid currentColor;display:grid;place-items:center;font:600 20px "DM Sans",sans-serif;flex:none}
+.steps li.on{opacity:1;color:var(--ink)}.steps li.on b{background:var(--rust);border-color:var(--rust);color:#fff4e2}
+.steps li.done{opacity:.9;color:var(--spruce)}.steps li.done b{background:var(--spruce);border-color:var(--spruce);color:#fff4e2}
+.steps small{display:block;font-size:19px;color:var(--muted);margin-top:2px}
+</style></head><body>
+<div class="menubar"><span></span><span>Hotsauce</span><span style="font-weight:400">File</span><span style="font-weight:400">Window</span><span class="r">Tue Nov 17 8:31 AM</span></div>
+<div class="win">
+  <div class="bar"><i></i><i></i><i></i></div>
+  <div class="screens">
+    <img src="workspace-empty.png" alt="Setup step 1, workspace, empty" class="on" data-s="0">
+    <img src="workspace-found.png" alt="Setup step 1, workspace found" data-s="1">
+    <img src="step-signin.png" alt="Setup step 2, sign in with Google" data-s="2">
+    <img src="step-dictate.png" alt="Setup step 3, try Dictate" data-s="3">
+    <img src="step-permissions.png" alt="Setup step 4, permissions" data-s="4">
+    <img src="step-done.png" alt="Setup done" data-s="5">
+  </div>
+</div>
+<div class="steps">
+  <h2>Set up the <em>Mac app</em></h2>
+  <ol>
+    <li data-k="0"><b>1</b><div>Your workspace<small>Type the address once</small></div></li>
+    <li data-k="1"><b>2</b><div>Sign in with Google<small>Also connects Dictate</small></div></li>
+    <li data-k="2"><b>3</b><div>Try Dictate<small>Hold a key and talk</small></div></li>
+    <li data-k="3"><b>4</b><div>Permissions<small>Each one explained</small></div></li>
+  </ol>
+</div>
+<script>
+// Hotspots over the screens' buttons, in the 500x720 window's points (screens are 1000x1440 at 2x).
+const W = { x: 0, y: 28 }
+const spots = {
+  field: [38, 186, 345, 22], continueField: [409, 186, 54, 22], next: [405, 683, 70, 22],
+  google: [38, 140, 196, 28], skip: [304, 683, 91, 22], open: [366, 683, 110, 22],
+}
+for (const [id, [x, y, w, h]] of Object.entries(spots)) {
+  const d = document.createElement('div'); d.className = 'hot'; d.dataset.testid = id
+  Object.assign(d.style, { left: `${W.x + x}px`, top: `${W.y + y}px`, width: `${w}px`, height: `${h}px` })
+  document.querySelector('.win').appendChild(d)
+}
+const stepOf = [0, 0, 1, 2, 3, 4]
+window.show = (s) => {
+  for (const i of document.querySelectorAll('.screens img')) i.classList.toggle('on', +i.dataset.s === s)
+  const k = stepOf[s]
+  document.querySelectorAll('.steps li').forEach((li) => {
+    li.classList.toggle('on', +li.dataset.k === k && s < 5)
+    li.classList.toggle('done', +li.dataset.k < k || s === 5)
+  })
+}
+show(0)
+</script>
+</body></html>

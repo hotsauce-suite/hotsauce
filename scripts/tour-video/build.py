@@ -13,6 +13,7 @@ SCRIPT = json.loads((HERE / "script.json").read_text())
 FPS = 30
 LEAD, TAIL = 0.35, 0.7
 INTRO, OUTRO = 3.0, 5.0
+SLACK = 3.0
 
 # Which shots fill each segment, with the share of its time each gets.
 SHOTS = {
@@ -22,17 +23,21 @@ SHOTS = {
     "ask": [("ask", 1)],
     "tasks": [("tasks", 1)],
     "notes": [("notes", 1)],
+    "checkins": [("checkins", 1)],
     "clips": [("clipsRecorder", 0.3), ("clipsPlayer", 0.7)],
     "dictate": [("dictate", 1)],
+    "mac": [("macSetup", 1)],
+    "feedback": [("feedback", 1)],
     # Montage: each shot starts when the voice says its cue word.
     "more": [("boards", "whiteboards"), ("people", "people"), ("files", "files"), ("forms", "forms"),
-             ("booking", "booking"), ("briefcast", "briefcast")],
+             ("briefcast", "briefcast")],
     "close": [],  # the outro card
 }
 # The short per-app cuts: segments each one strings together.
 CUTS = {
     "today": ["today"], "docs": ["docs"], "meetings": ["meetings", "ask"], "tasks": ["tasks"],
-    "notes": ["notes"], "clips": ["clips"], "dictate": ["dictate"],
+    "notes": ["notes"], "checkins": ["checkins"], "clips": ["clips"], "dictate": ["dictate"],
+    "mac": ["mac"], "feedback": ["feedback"],
 }
 
 def run(*a):
@@ -116,7 +121,9 @@ def segment(work, shots_dir, seg, idx, ov):
     parts = SHOTS[seg]
     cued = parts and isinstance(parts[0][1], str)
     # Room for the voice, and enough for the footage to play at no more than 1.5x.
-    T = LEAD + dur(wav) + TAIL if cued else max(LEAD + dur(wav) + TAIL, sum(dur(shots_dir / f"{p}.mp4") for p, _ in parts) / 1.5)
+    # Footage may run up to SLACK seconds past the voice; beyond that its end is trimmed.
+    voiced = LEAD + dur(wav) + TAIL
+    T = voiced if cued else max(voiced, min(voiced + SLACK, sum(dur(shots_dir / f"{p}.mp4") for p, _ in parts) / 1.5))
     # When the footage runs longer than the voice, start the voice later so it lands on the action.
     start = LEAD + 0.6 * (T - LEAD - dur(wav) - TAIL)
     if cued:
@@ -138,7 +145,7 @@ def segment(work, shots_dir, seg, idx, ov):
             wants = [T * w / wsum for _, w in parts]
         for i, (shot, w) in enumerate(parts):
             f = shots_dir / f"{shot}.mp4"; have = dur(f); want = wants[i]
-            speed = min(1.6, max(1.0, have / want))
+            speed = min(1.75, max(1.0, have / want))
             inputs += ["-i", f]
             filt.append(f"[{i}:v]setpts=PTS/{speed:.4f},fps={FPS},trim=duration={want:.3f},tpad=stop_mode=clone:stop_duration={want:.3f},trim=duration={want:.3f},setpts=PTS-STARTPTS,setsar=1[s{i}]")
         filt.append("".join(f"[s{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0,format=yuv420p[base]")

@@ -32,3 +32,11 @@ Notes from recording the hotsauce.work tour (scripts in `scripts/tour-video/`).
 - **`wait` in a shell that started the server with `&` waits for the server too.** Start servers in their own command, or the screenshot step never returns.
 - **The default and branded Docs stills need `CHAT_URL` set** on the dev server, or the rail has no Chat pin and doesn't match the mock (which has one). The branded one also needs `PRODUCT_NAME=Fieldwork` for the "Fieldwork Docs" header; the brand used is primary `#1f6f5c`, cool neutral, the "modern" fonts and a teal mark. A doc you write with front matter keeps it and gains an `id`, so write the roadmap without front matter to get "1 property".
 - **The "This week" tile isn't on the mock's default Today.** Add it in Edit Today before the still (the loop does this on camera).
+
+## The 0.12.12 overview (Nov 15)
+
+- **Native screens can go in the video without taking over a Mac.** The Mac app's `--render-previews <dir>` draws every setup step offscreen to PNG. A small HTML page (`mac-setup/index.html`) puts them in a window on a desktop with invisible hotspots over the buttons, so the normal `rec.mjs` cursor and click helpers drive it like any web shot. The installed app was too old to draw the new steps; building from `main` on the Mac fixed that.
+- **Keep native windows above the captions.** Captions sit about 135 px from the bottom of a 1080p frame; a full-height window put its Continue buttons under them. Scale the window so its bottom bar ends above that band.
+- **Footage, not voice, set the length.** With the speed-up capped at 1.5×, long shots stretched short lines (Notes: 6.6 s of voice, 16.6 s of picture) and the cut ran 3:21. Allowing 1.75× and trimming footage that runs more than 3 s past the voice brought it to 3:01 with every action still visible.
+- **The feedback page keeps state on the dev server.** Exploring it first left a sent item in "Your feedback"; start the server on a fresh `DATA_DIR` right before recording.
+- **The cloud sandbox's Playwright doesn't match the repo's.** Point `PLAYWRIGHT_CHROMIUM` at `/opt/pw-browsers/chromium`; `overlays.mjs` now honors it too.
