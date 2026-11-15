@@ -1,4 +1,4 @@
-// Settings → Weather (this device's place) and Settings → Organization → Weather (the team's
+// Settings → General → Weather (this device's place) and Settings → Workspace (the team's
 // default place). docs/PLAN-weather-place.md W4, W6.
 
 import { useEffect, useState } from 'react'
@@ -14,7 +14,7 @@ function placeLabel(place: { name?: string | undefined; detail?: string | undefi
   return place.detail ? `${place.name}, ${place.detail}` : (place.name ?? '')
 }
 
-/** Settings → Weather: where Today's weather is for, on this device. */
+/** Settings → General → Weather: where Today's weather is for, on this device. */
 export function WeatherSettingsSection() {
   const device = useDeviceWeather()
   const [team, setTeam] = useState<WeatherPlace | null>(null)
@@ -129,7 +129,7 @@ export function WeatherSettingsSection() {
   )
 }
 
-/** Settings → Organization → Weather: the city everyone sees until they pick their own. */
+/** Settings → Workspace: the city everyone sees until they pick their own. */
 export function OrgWeatherSection() {
   const [place, setPlace] = useState<WeatherPlace | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)

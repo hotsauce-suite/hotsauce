@@ -67,6 +67,18 @@ describe('Command-K commands (C1)', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
   })
 
+  // docs/PLAN-settings-pages.md, G5: each command opens the page its setting is on.
+  it.each([
+    ['connect', 'cmdk-command-go-connect-claude', '/settings/connections', '#ai-tools'],
+    ['mac app', 'cmdk-command-go-mac-app', '/settings/apps', '#mac-app'],
+  ])('“%s” opens its own Settings page', async (typed, row, pathname, hash) => {
+    const { user, router } = await openPalette()
+    await user.type(screen.getByTestId('cmdk-input'), typed)
+    await user.click(await screen.findByTestId(row))
+    await waitFor(() => expect(router.state.location.pathname).toBe(pathname))
+    expect(router.state.location.hash).toBe(hash)
+  })
+
   it('changes the theme and the single-key switch', async () => {
     const { user } = await openPalette()
     await user.type(screen.getByTestId('cmdk-input'), 'dark')

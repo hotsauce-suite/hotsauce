@@ -24,7 +24,7 @@ import {
 
 /**
  * The organization editor's sections (ARCHITECTURE §11.2). The setup wizard shows them one per
- * step; Settings → Organization shows them all. Each saves on its own.
+ * step; the Organization pages of Settings show them grouped (OrgSettingsRoute). Each saves on its own.
  */
 
 export interface SectionProps {
@@ -330,7 +330,7 @@ export function OrgSection(props: SectionProps & { part?: OrgPart }) {
           hint={
             part
               ? 'Admins see the Organization pages in Settings and can change everything on them.'
-              : 'Admins can change these settings later in Settings → Organization. Use your own email here.'
+              : 'Admins can change these settings later in Settings, under Organization. Use your own email here.'
           }
         >
           {(id) => (
@@ -1258,7 +1258,7 @@ export function StorageSection(props: SectionProps) {
   )
 }
 
-/** What's set, in one glance: the wizard's last step and the top of Settings → Organization. */
+/** What's set, in one glance: the wizard's last step and the top of Settings → Workspace. */
 export function Summary({ state }: { state: OrgState }) {
   const s = state.settings
   const e = state.effective

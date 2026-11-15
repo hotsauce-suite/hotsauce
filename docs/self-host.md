@@ -97,9 +97,9 @@ The link works only while the instance is new. It walks you through:
 5. **Files and audio**: repositories on the server's disk, or in a GitHub organization; Clips videos and kept meeting audio on the server's disk, or in a Cloudflare R2 bucket if you want more room.
 6. **Review and launch**: the server restarts with your settings and you sign in.
 
-Admins change any of it later in **Settings → Organization**. Keys are stored encrypted on the volume and are never shown again.
+Admins change any of it later in **Settings**, under **Organization**. Keys are stored encrypted on the volume and are never shown again.
 
-Each member's own **Settings** holds their account and Sign out, **Install** (the Mac app, the web app and the Chrome extension), and **Notifications**: one switch per device for everything it pushes (meeting and task reminders, check-in questions and the daily briefing), with a **Send test notification** button to check it works. Push needs no setup: the server makes its own push keys on first start (or uses `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` if you set them). On iPhone and iPad, notifications work only after the app is added to the Home Screen. In the Mac app, the section shows macOS’s own notification setting for the app and a button to open it.
+Each member's own **Settings** has three pages: **General** (their account and Sign out, appearance, notifications, keyboard, weather), **Connections** (calendars and AI tool tokens) and **Apps** (the Mac app, the web app and the Chrome extension). **Notifications** is one switch per device for everything it pushes (meeting and task reminders, check-in questions and the daily briefing), with a **Send test notification** button to check it works. Push needs no setup: the server makes its own push keys on first start (or uses `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` if you set them). On iPhone and iPad, notifications work only after the app is added to the Home Screen. In the Mac app, the section shows macOS’s own notification setting for the app and a button to open it.
 
 ## Configuring by environment instead
 

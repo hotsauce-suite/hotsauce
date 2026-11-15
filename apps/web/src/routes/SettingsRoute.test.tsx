@@ -326,7 +326,7 @@ describe('Settings: General, Apps, and the help strip', () => {
     ).toHaveLength(0)
   })
 
-  // T1: the six steps are there, folded until asked for.
+  // T1: the steps are there, folded until asked for.
   it('folds the Mac app’s first-install steps', async () => {
     renderApp('/settings/apps')
     const fold = await screen.findByTestId('mac-app-first-install')
@@ -337,7 +337,7 @@ describe('Settings: General, Apps, and the help strip', () => {
     expect(within(fold).getByTestId('mac-app-setup-link')).toBeInTheDocument()
   })
 
-  // T2: inside the Mac app there's nothing to download.
+  // T2: inside the Mac app there's no install guide, only the newest build.
   it('says you’re using the Mac app inside it, with no download', async () => {
     const postMessage = vi.fn().mockResolvedValue('on')
     Object.assign(window, { webkit: { messageHandlers: { hearthNotifications: { postMessage } } } })
@@ -346,6 +346,11 @@ describe('Settings: General, Apps, and the help strip', () => {
       const card = await screen.findByTestId('mac-app')
       expect(within(card).getByTestId('mac-app-in-use')).toHaveTextContent('Installed')
       expect(card).toHaveTextContent('You’re using it on this Mac.')
+      // The app doesn't update itself, so the newest build is still one click away.
+      expect(await within(card).findByTestId('mac-app-download-newest')).toHaveAttribute(
+        'href',
+        '/downloads/Hotsauce.dmg',
+      )
       expect(screen.queryByTestId('mac-app-download')).toBeNull()
       expect(screen.queryByTestId('mac-app-first-install')).toBeNull()
     } finally {

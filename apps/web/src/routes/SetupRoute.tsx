@@ -97,7 +97,7 @@ export default function SetupRoute() {
       <Frame>
         <h1 className="font-display text-3xl font-semibold tracking-tight">Already set up</h1>
         <p className="mt-2 text-ink-soft">
-          This workspace is ready. Admins can change it in Settings → Organization.
+          This workspace is ready. Admins can change it in Settings, under Organization.
         </p>
         <a href="/sign-in" className={`${primaryButton} mt-6`}>
           Sign in
@@ -453,7 +453,7 @@ function Review({
           Review and launch
         </h2>
         <p className="mt-2 text-ink-soft">
-          Check everything over. You can change any of it later in Settings → Organization.
+          Check everything over. You can change any of it later in Settings, under Organization.
         </p>
       </div>
       <Summary state={state} />

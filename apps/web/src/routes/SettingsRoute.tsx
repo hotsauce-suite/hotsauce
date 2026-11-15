@@ -267,7 +267,7 @@ function AccountSection() {
   )
 }
 
-/** Every way to install it: the Mac app, the web app in the browser, and the Chrome extension. */
+/** Settings → Apps: the Mac app, the web app in the browser, and the Chrome extension. */
 function InstallSection() {
   return (
     <section aria-labelledby="install-title" data-testid="settings-install">

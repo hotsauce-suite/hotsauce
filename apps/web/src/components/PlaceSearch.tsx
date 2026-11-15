@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import { HearthApiError } from '../api/client'
 import { todayApi, type WeatherPlace } from '../api/today'
 
-/** Type a city, pick one of the matches (Settings → Weather, the header, the team default). */
+/** Type a city, pick one of the matches (Settings → General, the header, the team default). */
 export function PlaceSearch({
   onPick,
   label = 'City',

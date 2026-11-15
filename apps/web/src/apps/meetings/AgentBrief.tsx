@@ -227,7 +227,7 @@ export default function AgentBrief() {
             </section>
           ) : null}
 
-          <section className="mt-10">
+          <section className="mt-10" data-testid="agent-brief-connect">
             <h3 className="text-sm font-semibold text-ink-soft">Use it with your AI tool</h3>
             <p className="mt-1 text-sm text-ink-soft">
               Connect your AI tool (Claude, Cursor, Codex and others) to {product()} once from{' '}

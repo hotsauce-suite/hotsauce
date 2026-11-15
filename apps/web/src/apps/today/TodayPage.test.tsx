@@ -43,8 +43,12 @@ describe('Today', () => {
       ),
     )
     renderApp('/today')
-    expect(await screen.findByTestId('today-calendar-error')).toHaveTextContent(
-      'Connect your Google Calendar first.',
+    const calendarError = await screen.findByTestId('today-calendar-error')
+    expect(calendarError).toHaveTextContent('Connect your Google Calendar first.')
+    // Straight to Calendars, not the top of Settings (docs/PLAN-settings-pages.md, G5).
+    expect(within(calendarError).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings/connections#calendars',
     )
     expect(screen.getByTestId('today-tasks')).toBeInTheDocument()
     expect(screen.getByTestId('today-docs')).toBeInTheDocument()

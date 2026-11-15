@@ -1,6 +1,6 @@
 import { request } from './client'
 
-/** Settings → Organization → Updates (docs/PLAN-releases-and-updates.md). Admins only. */
+/** Settings → Data and updates (docs/PLAN-releases-and-updates.md). Admins only. */
 export interface UpdateStatus {
   current: string
   latest: { version: string; notes: string; url: string; publishedAt: string } | null

@@ -15,11 +15,11 @@ Layout
 L1. Settings has a menu: **General**, **Connections**, **Apps** for everyone, and under an
     **Organization** heading **Workspace**, **Brand**, **People and access**, **AI**, **Data and
     updates** for admins only. A column on wide screens, a row of tabs on narrow ones. The current
-    page is marked `aria-current="page"`. [SettingsLayout.test]
+    page is marked `aria-current="page"`. [settingsPages.test]
 L2. Members never see the Organization group, and an organization page says only admins can change
-    it. [SettingsLayout.test, e2e/org-settings.spec.ts]
+    it. [settingsPages.test, e2e/org-settings.spec.ts]
 L3. Help center, FAQ, Send feedback, the version and Reload are one strip that shows on every
-    Settings page, not sections of one page. [SettingsLayout.test]
+    Settings page, not sections of one page. [settingsPages.test]
 
 Your pages
 G1. `/settings` is General: Account (with Sign out), then Appearance, Notifications, Keyboard and
@@ -30,7 +30,7 @@ G3. `/settings/apps` holds the Mac app (`#mac-app`), the web app and the Chrome 
     [SettingsRoute.test]
 G4. Old addresses keep working: `/settings#mac-app` goes to `/settings/apps#mac-app`,
     `/settings#calendars` and `/settings#ai-tools` to Connections; `#notifications` and
-    `#keyboard` stay on General. [SettingsLayout.test, e2e/dictate.spec.ts]
+    `#keyboard` stay on General. [settingsPages.test, e2e/dictate.spec.ts]
 G5. Links that said "Settings" open the exact page: Today's calendar error and the agent brief
     (Connections), the command menu's "Connect an AI tool" and "Mac app". [their tests]
 
@@ -38,22 +38,23 @@ Trims
 T1. The Mac app card's first-install steps are folded under "How to install it the first time",
     closed until asked for. A "Get the Mac app" link (`#mac-app`) counts as asking and opens
     them. [SettingsRoute.test, e2e/dictate.spec.ts]
-T2. Inside the Mac app the card says you're using it and offers no download. [SettingsRoute.test]
+T2. Inside the Mac app the card says you're using it, with no install guide: only a "Download the
+    newest version" link, since the app doesn't update itself. [SettingsRoute.test]
 T3. The AI tools intro is two sentences; the detail of what a token can do is folded under "What
     can a connected tool do?". [SettingsRoute.test]
 
 Organization pages
 O1. `/settings/organization` is Workspace: the summary, organization and workspace names, the
-    default weather city, the team chat link and chat rooms for form answers. [OrgPages.test]
-O2. `/settings/organization/brand` is Brand. [OrgPages.test, e2e/org-settings.spec.ts]
+    default weather city, the team chat link and chat rooms for form answers. [settingsPages.test]
+O2. `/settings/organization/brand` is Brand. [settingsPages.test, e2e/org-settings.spec.ts]
 O3. `/settings/organization/people` is People and access: email domains, invited people, admins,
-    the sign-in keys and read-only links. [OrgPages.test]
+    the sign-in keys and read-only links. [settingsPages.test]
 O4. `/settings/organization/ai` is AI: the Anthropic and Deepgram keys, then the Assistant.
-    [OrgPages.test, e2e/assistant.spec.ts]
+    [settingsPages.test, e2e/assistant.spec.ts]
 O5. `/settings/organization/data` is Data and updates: where files live, backups, updates.
-    [OrgPages.test]
+    [settingsPages.test]
 O6. Saving names, people or the chat link sends only that page's fields, and the "saved, apply to
-    restart" banner follows the admin across organization pages until applied. [OrgPages.test]
+    restart" banner follows the admin across organization pages until applied. [settingsPages.test]
 O7. The setup wizard keeps its steps and its one "Your organization" form. [e2e/setup.spec.ts]
 O8. No section points "above" or "below" at something on another page. [review]
 

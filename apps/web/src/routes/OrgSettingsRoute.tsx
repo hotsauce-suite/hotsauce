@@ -23,11 +23,22 @@ import { UpdatesSection } from './org/UpdatesSection'
 import { ORG_PAGES, type OrgPageId, orgPageOf } from './settings/pages'
 
 /**
+ * Whether a save is waiting for the server to restart. Kept outside the component so the banner
+ * is still there when an admin visits General or Apps and comes back; applying reloads the page,
+ * which clears it.
+ */
+let unapplied = false
+
+/** For tests: forget a save left waiting by an earlier test. */
+export function forgetUnapplied() {
+  unapplied = false
+}
+
+/**
  * `/settings/organization` and its pages, for admins: the setup wizard's sections and the
  * organization's other settings, grouped (ARCHITECTURE §11.2, docs/PLAN-settings-pages.md O1–O6).
  * Brand changes show at once; settings and keys take effect when the server restarts, which the
- * Apply button does. One component serves every page, so a save waiting to be applied follows
- * the admin from page to page.
+ * Apply button does. A save waiting to be applied follows the admin from page to page.
  */
 export default function OrgSettingsRoute() {
   const page = orgPageOf(useParams().page)
@@ -36,7 +47,11 @@ export default function OrgSettingsRoute() {
   const isAdmin = me ? me.principal.isAdmin : null
   const [state, setState] = useState<OrgState | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const [pending, setPendingState] = useState(unapplied)
+  const setPending = (on: boolean) => {
+    unapplied = on
+    setPendingState(on)
+  }
   const [applying, setApplying] = useState<'idle' | 'restarting' | 'slow'>('idle')
 
   const label = ORG_PAGES.find((p) => p.id === page)?.label ?? 'Organization'

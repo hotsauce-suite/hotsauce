@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Link,
   NavLink,
@@ -39,24 +39,53 @@ export default function SettingsLayout() {
     if (moved) void navigate(moved, { replace: true })
   }, [moved, navigate])
 
-  // The router doesn't scroll to a section named in the address.
+  // The router doesn't scroll to a section named in the address, and the pane outlives the page:
+  // a new page starts at its top, or at its section.
+  const pane = useRef<HTMLDivElement>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is the reason to scroll
   useEffect(() => {
-    if (!hash || moved) return
+    if (moved) return
+    if (!hash) {
+      pane.current?.scrollTo?.({ top: 0 })
+      return
+    }
     const id = hash.slice(1)
+    let last: number | null = null
     let tries = 0
-    // The page is loaded lazily, so its section may not be there on the first frame.
+    // The page loads lazily and what sits above the section (calendars, the organization's
+    // state) arrives later still, so keep the section in place until it stops moving.
     const timer = window.setInterval(() => {
       const el = document.getElementById(id)
-      el?.scrollIntoView({ block: 'start' })
-      if (el || ++tries > 20) window.clearInterval(timer)
-    }, 50)
-    return () => window.clearInterval(timer)
-  }, [hash, moved])
+      const top = el?.getBoundingClientRect().top ?? null
+      if (el && top !== last) el.scrollIntoView({ block: 'start' })
+      last = el ? el.getBoundingClientRect().top : null
+      if (++tries > 30) window.clearInterval(timer)
+    }, 100)
+    // Their own scrolling wins over ours.
+    const stop = () => window.clearInterval(timer)
+    window.addEventListener('wheel', stop, { once: true, passive: true })
+    window.addEventListener('touchmove', stop, { once: true, passive: true })
+    window.addEventListener('keydown', stop, { once: true })
+    return () => {
+      stop()
+      window.removeEventListener('wheel', stop)
+      window.removeEventListener('touchmove', stop)
+      window.removeEventListener('keydown', stop)
+    }
+  }, [pathname, hash, moved])
+
+  // On a phone the menu is one row that scrolls: keep the current page's tab in view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is the reason to scroll
+  useEffect(() => {
+    document
+      .querySelector('[data-testid="settings-nav"] [aria-current="page"]')
+      ?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' })
+  }, [pathname, isAdmin])
 
   return (
     <>
       <MeetingsPageHeader title="Settings" />
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="settings-scroll">
+      <div ref={pane} className="min-h-0 flex-1 overflow-y-auto" data-testid="settings-scroll">
         <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-x-10 px-4 pt-4 pb-24 md:grid-cols-[13rem_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:px-6 md:pt-10">
           <nav
             aria-label="Settings"
@@ -73,13 +102,20 @@ export default function SettingsLayout() {
                   Organization
                 </span>
                 <span aria-hidden="true" className="mx-1 w-px shrink-0 bg-ash md:hidden" />
-                <Group pages={ORG_PAGES} />
+                {/* The heading is hidden on phones; the group still says what these are. */}
+                {/* biome-ignore lint/a11y/useSemanticElements: links in a nav, not form fields */}
+                <div role="group" aria-label="Organization" className="contents">
+                  <Group pages={ORG_PAGES} />
+                </div>
               </>
             ) : null}
           </nav>
-          <main className="min-w-0 pt-4 md:col-start-2 md:row-span-2 md:row-start-1 md:pt-0">
+          <div
+            data-testid="settings-page"
+            className="min-w-0 pt-4 md:col-start-2 md:row-span-2 md:row-start-1 md:pt-0"
+          >
             <Outlet context={shell} />
-          </main>
+          </div>
           <HelpStrip />
         </div>
       </div>

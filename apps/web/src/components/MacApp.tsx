@@ -53,12 +53,13 @@ export function useMacAppBuild(enabled = true): boolean | null {
 /**
  * Settings → Apps, the Mac app's card: the download, or the source for a server without a build.
  * `#mac-app` (MAC_APP_SETTINGS) scrolls to it. The first-install steps stay folded until asked
- * for, and inside the Mac app the card just says so (docs/PLAN-settings-pages.md, T1, T2).
+ * for, and inside the Mac app the card says so and offers only the newest build
+ * (docs/PLAN-settings-pages.md, T1, T2).
  */
 export function MacAppCard() {
   // A Mac app new enough to answer its bridge; an older one still sees the download.
   const inMacApp = hasMacNotifications()
-  const hasBuild = useMacAppBuild(!inMacApp)
+  const hasBuild = useMacAppBuild()
   // Someone sent here by a “Get the Mac app” link is about to install it: show them the steps.
   const sentHere = useLocation().hash === '#mac-app'
   if (inMacApp) {
@@ -74,7 +75,23 @@ export function MacAppCard() {
           <h3 id="mac-app-title" className="font-medium text-ink">
             Mac app
           </h3>
-          <span className="block text-sm text-ink-soft">You’re using it on this Mac.</span>
+          <span className="block text-sm text-ink-soft">
+            You’re using it on this Mac.
+            {/* The app doesn't update itself: a newer build is fetched from here. */}
+            {hasBuild ? (
+              <>
+                {' '}
+                <a
+                  href={MAC_APP_DOWNLOAD}
+                  download
+                  data-testid="mac-app-download-newest"
+                  className="underline decoration-ash-strong underline-offset-2 hover:text-ink"
+                >
+                  Download the newest version
+                </a>
+              </>
+            ) : null}
+          </span>
         </span>
         <span
           data-testid="mac-app-in-use"

@@ -1,11 +1,14 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import type { OrgState } from '../../api/org'
 import { server, TEST_USER } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
+import { forgetUnapplied } from '../OrgSettingsRoute'
 import { movedSection, orgPageOf } from './pages'
+
+beforeEach(forgetUnapplied)
 
 // docs/PLAN-settings-pages.md: the menu (L1–L3), old addresses (G4), and the organization's
 // pages (O1–O6).
@@ -150,6 +153,12 @@ describe('Settings: the menu', () => {
       expect(screen.getByTestId('settings-nav-org')).toHaveTextContent('Organization'),
     )
     const menu = await nav()
+    // The heading is hidden on phones; the group names the organization's pages either way.
+    expect(
+      within(menu.getByRole('group', { name: 'Organization' }))
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['Workspace', 'Brand', 'People and access', 'AI', 'Data and updates'])
     expect(menu.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
       ['General', '/settings'],
       ['Connections', '/settings/connections'],
@@ -209,6 +218,18 @@ describe('Settings: addresses from before the pages', () => {
     await page('mac-app')
     expect(router.state.location.pathname).toBe('/settings/apps')
     expect(router.state.location.hash).toBe('#mac-app')
+  })
+
+  it.each([
+    ['/settings#calendars', '/settings/connections', '#calendars'],
+    ['/settings#ai-tools', '/settings/connections', '#ai-tools'],
+  ])('opens Connections for %s', async (old, pathname, hash) => {
+    serve({ admin: false })
+    const { router } = renderApp(old)
+    await page('settings-connections')
+    expect(router.state.location.pathname).toBe(pathname)
+    expect(router.state.location.hash).toBe(hash)
+    expect(document.getElementById(hash.slice(1))).not.toBeNull()
   })
 
   it('keeps /settings#notifications on General', async () => {
@@ -325,6 +346,21 @@ describe('Settings: the organization’s pages', () => {
     expect(within(await page('org-names-section')).getByTestId('org-name')).toHaveValue(
       'Acme Research',
     )
+
+    // Until it's applied: a look at General and back doesn't lose the banner.
+    await user.click((await nav()).getByRole('link', { name: 'General' }))
+    await page('settings-account')
+    expect(screen.queryByTestId('apply-banner')).toBeNull()
+    await user.click((await nav()).getByRole('link', { name: 'AI' }))
+    await page('ai-section')
+    expect(screen.getByTestId('apply-banner')).toBeInTheDocument()
+  })
+
+  it('shows no apply banner when nothing was saved', async () => {
+    serve({ admin: true })
+    renderApp('/settings/organization')
+    await page('org-names-section')
+    expect(screen.queryByTestId('apply-banner')).toBeNull()
   })
 
   it('says so for an address that names no page', async () => {
