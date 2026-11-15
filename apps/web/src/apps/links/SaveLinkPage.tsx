@@ -14,20 +14,29 @@ export const EXTENSION_WAIT_MS = 1500
 
 const SOURCES: readonly LinkSource[] = ['extension', 'share', 'shortcut']
 
-/** Asks the Chrome extension whether it opened this tab; false without an answer. */
-function extensionOpenedThis(): Promise<boolean> {
+/**
+ * Asks the Chrome extension whether it opened this tab; `ok` false without an answer. `page` is
+ * the page as the member saw it, when the extension took one ("Save page").
+ */
+function extensionOpenedThis(): Promise<{ ok: boolean; page: string | null }> {
   const id = `may-save-${Math.random().toString(36).slice(2)}`
   return new Promise((resolve) => {
-    const done = (ok: boolean) => {
+    const done = (ok: boolean, page: string | null = null) => {
       window.removeEventListener('message', listen)
       clearTimeout(timer)
-      resolve(ok)
+      resolve({ ok, page: ok ? page : null })
     }
     const listen = (event: MessageEvent) => {
       if (event.source !== window || event.origin !== window.location.origin) return
-      const d = event.data as { source?: unknown; type?: unknown; id?: unknown; ok?: unknown }
+      const d = event.data as {
+        source?: unknown
+        type?: unknown
+        id?: unknown
+        ok?: unknown
+        page?: unknown
+      }
       if (d?.source === 'hearth-extension' && d.type === 'may-save' && d.id === id) {
-        done(d.ok === true)
+        done(d.ok === true, typeof d.page === 'string' ? d.page : null)
       }
     }
     const timer = setTimeout(() => done(false), EXTENSION_WAIT_MS)
@@ -53,34 +62,38 @@ export default function SaveLinkPage() {
   const shown =
     params.get('url') || findLinkUrl(params.get('text') ?? '') || params.get('text') || ''
 
-  const save = useCallback(() => {
-    setSaving(true)
-    const tell = (ok: boolean) => {
-      if (via !== 'extension') return
-      window.postMessage(
-        { source: 'hearth-page', type: LINK_SAVED_MESSAGE, id: 'save', ok },
-        window.location.origin,
-      )
-    }
-    linksApi
-      .save({
-        ...(params.get('url') ? { url: params.get('url') ?? '' } : {}),
-        ...(params.get('text') ? { text: params.get('text') ?? '' } : {}),
-        ...(params.get('title') ? { title: params.get('title') ?? '' } : {}),
-        source: via && SOURCES.includes(via) ? via : 'share',
-      })
-      .then(
-        (link) => {
-          setSaved(link)
-          tell(true)
-        },
-        (e: unknown) => {
-          setError(errorMessage(e, 'That didn’t save. Check your connection and try again.'))
-          tell(false)
-        },
-      )
-      .finally(() => setSaving(false))
-  }, [params, via])
+  const save = useCallback(
+    (page: string | null = null) => {
+      setSaving(true)
+      const tell = (ok: boolean) => {
+        if (via !== 'extension') return
+        window.postMessage(
+          { source: 'hearth-page', type: LINK_SAVED_MESSAGE, id: 'save', ok },
+          window.location.origin,
+        )
+      }
+      linksApi
+        .save({
+          ...(params.get('url') ? { url: params.get('url') ?? '' } : {}),
+          ...(params.get('text') ? { text: params.get('text') ?? '' } : {}),
+          ...(params.get('title') ? { title: params.get('title') ?? '' } : {}),
+          source: via && SOURCES.includes(via) ? via : 'share',
+          ...(page ? { page: { html: page } } : {}),
+        })
+        .then(
+          (link) => {
+            setSaved(link)
+            tell(true)
+          },
+          (e: unknown) => {
+            setError(errorMessage(e, 'That didn’t save. Check your connection and try again.'))
+            tell(false)
+          },
+        )
+        .finally(() => setSaving(false))
+    },
+    [params, via],
+  )
 
   useEffect(() => {
     document.title = `Save a link · ${product()}`
@@ -91,9 +104,9 @@ export default function SaveLinkPage() {
       setAsking(false)
       return
     }
-    void extensionOpenedThis().then((ok) => {
+    void extensionOpenedThis().then(({ ok, page }) => {
       setAsking(false)
-      if (ok) save()
+      if (ok) save(page)
     })
   }, [via, save])
 
@@ -143,7 +156,7 @@ export default function SaveLinkPage() {
                 type="button"
                 className={primaryButton}
                 data-testid="link-save-confirm"
-                onClick={save}
+                onClick={() => save()}
               >
                 Save to Links
               </button>

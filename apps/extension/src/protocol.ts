@@ -12,7 +12,11 @@ export type PageMessage =
   | { source: typeof PAGE_SOURCE; type: 'capture-meet'; id: string; code?: string }
   /** The save page (/links/save?via=extension) saved its link, or couldn't. */
   | { source: typeof PAGE_SOURCE; type: 'link-saved'; id: string; ok: boolean }
-  /** The save page asks whether this extension opened it (then it saves without a click). */
+  /**
+   * The save page asks whether this extension opened it (then it saves without a click). The
+   * answer, `{ type: 'may-save', id, ok, page? }`, carries the page as the person saw it, when
+   * "Save page" took one.
+   */
   | { source: typeof PAGE_SOURCE; type: 'may-save'; id: string }
 
 export type CaptureFailure =

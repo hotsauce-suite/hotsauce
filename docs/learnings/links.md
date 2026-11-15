@@ -16,3 +16,14 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   picture's label when there are none).
 - **A fix to the reader doesn't fix links already saved.** Existing copies only change on a re-read,
   so short copies (under 150 words) now offer "Get the page again".
+- **A browser copy is the member's view, not the public page.** The first cut let a member's
+  signed-in copy replace a thin *team* link's copy, which could publish their account page to the
+  whole team. Anything taken from a member's session belongs in their personal space only.
+- **Re-reading must never make a copy worse.** A second save can arrive mid cookie-wall, and the
+  server's fetch can fail that time; compare word counts before writing over a good copy.
+- **Testing an extension in headless Chromium:** load `dist/` with `launchPersistentContext`
+  (`--load-extension`), sign in through the dev form (extra headers don't reach the app's own
+  session), and reach the worker with `context.serviceWorkers()`. Context menus and the toolbar
+  popup can't be clicked, and without the `tabs` permission `tab.url` is empty, so a scratch copy
+  of the build that exposes the save function on `globalThis` and adds `http://localhost/*` to
+  `host_permissions` (standing in for `activeTab`) drives the real flow end to end.

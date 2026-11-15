@@ -1480,7 +1480,7 @@ Pick 5 of the directory picks (2026-11-12): a Pocket-style read-later list. "Sav
 
 ### 23.4 API (members; the space is checked in the service)
 
-`GET /api/links?view=unread|archive|all&tag=&q=&space=` (newest saved first, from the index); `GET /api/links/tags`; `POST /api/links {url? | text?, title?, tags?, space?, source?}` (201, or 200 with `existing: true`; a link is found inside `text`, as Android shares it); `GET|PATCH|DELETE /api/links/:space/:id` (patch `title, tags, archived`); `POST …/refetch`; `POST …/move {toSpace}` ("Share with team"; only the member who saved a team link can make it private). Delete moves the file to `.trash/<date>/links/`.
+`GET /api/links?view=unread|archive|all&tag=&q=&space=` (newest saved first, from the index); `GET /api/links/tags`; `POST /api/links {url? | text?, title?, tags?, space?, source?, page?: {html}}` (201, or 200 with `existing: true`; a link is found inside `text`, as Android shares it; `page` is §23.8's browser copy); `GET|PATCH|DELETE /api/links/:space/:id` (patch `title, tags, archived`); `POST …/refetch`; `POST …/move {toSpace}` ("Share with team"; only the member who saved a team link can make it private). Delete moves the file to `.trash/<date>/links/`.
 
 ### 23.5 MCP, Ask and Briefcast
 
@@ -1492,14 +1492,18 @@ Pick 5 of the directory picks (2026-11-12): a Pocket-style read-later list. "Sav
 
 - `/links`: paste box, Unread and Archive, search, tag chips, rows with summary, "Getting the page…" (polled every 2.5 s) or the error and Try again, Done. `/links/:space/:id`: the reader (title, site, Open original, Done or Move to Unread, Share with team or Make private, Delete, tags, summary, the copy rendered by react-markdown with every link opening outside and pictures as links; a copy under 150 words also offers "Get the page again", which is `refetch`). `/links/save?url=&title=&text=&via=` shows the link and a Save button, then says Saved or Already saved; signed out, sign-in keeps the query and comes back to it. Any site could open that address in a member's browser, so the page saves without a tap only when the Chrome extension confirms it opened that tab (`may-save`, answered by the worker from the tabs it opened).
 - The PWA manifest's `share_target` (GET `/links/save`) puts Hearth in Android's share sheet once installed. iPhone Safari has no share target: an Apple Shortcut ("Save to Hotsauce") opens the same page.
-- Chrome extension 0.3.0 (named with `PRODUCT_NAME`): the popup on a web page offers "Save to Hotsauce"; right-click a page or a link offers "Save page/link to Hotsauce". The worker opens the save page in a background tab, remembers it in session storage (changes serialized), and the page posts `{source: 'hearth-page', type: 'link-saved', ok}`; the bridge (on Hearth origins only) relays it, and the worker closes only a tab it opened and puts a ✓ on the icon. A save tab that hasn't reported in 12 s (signed out) comes to the front. New permissions: `activeTab`, `contextMenus`.
+- Chrome extension 0.5.0 (named with `PRODUCT_NAME`): the popup on a web page offers "Save to Hotsauce"; right-click a page or a link offers "Save page/link to Hotsauce". The worker opens the save page in a background tab, remembers it in session storage (changes serialized), and the page posts `{source: 'hearth-page', type: 'link-saved', ok}`; the bridge (on Hearth origins only) relays it, and the worker closes only a tab it opened and puts a ✓ on the icon. A save tab that hasn't reported in 12 s (signed out) comes to the front. New permissions: `activeTab`, `contextMenus`. "Save page" (popup, shortcut, right-click on the page; not "Save link") also takes the page as the member sees it (§23.8).
 
 ### 23.7 Known limits
 
-- The server fetches pages signed out, so paywalled or sign-in pages keep only what they show the public. Saving the page as the member sees it in Chrome is a later step.
+- The server fetches pages signed out, so paywalled or sign-in pages saved any way but the extension's "Save page" keep only what they show the public.
 - PDFs and other files keep the link without a copy (Files could read them later).
 - "Done" on a team link is done for everyone.
 - No import from Pocket or browser bookmarks; no highlights or notes on a link.
+
+### 23.8 The page as the member sees it
+
+Plan `docs/PLAN-links-page-copy.md`. The extension's "Save page" runs `pageCopy` (`apps/extension/src/capture.ts`) in the tab through `chrome.scripting.executeScript` (allowed by `activeTab`, since the save was a click on the extension): a clone of the rendered page without `script, style, noscript, template, iframe, frame, frameset, object, embed, svg, canvas, video, audio, link`, then without inline `style` and `srcset` if still over 2 MB, else nothing. The worker keeps it in session storage under `page-<saveTabId>` beside the save tab (dropped with the tab, or after ten minutes) and hands it out once, in its `may-save` answer to that tab only (`{ok: true, page}`); the save page posts it as `page.html`. The server holds a copy in memory only until its read (≤ 2 MB each, ≤ 40 MB in all; past either it fetches) and reads it with `readPage` against the link's own address, exactly as a fetched page; under 150 words it fetches too and keeps whichever copy has more words, and keeps the browser copy if the fetch fails. Saving an existing link with a copy re-reads it when its copy failed or is under 150 words, keeping the result only when it has more words; a team link never takes a member's copy (it could show their account). A save tab closed or older than ten minutes drops its copy. Git keeps only the readable Markdown, never the HTML; after a restart, "Try again" fetches.
 
 ## 24. Check-ins
 
