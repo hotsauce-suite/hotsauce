@@ -113,8 +113,9 @@ describe('the public booking page', () => {
     await userEvent.type(screen.getByTestId('book-email'), 'jo@bolt.example')
     await userEvent.click(screen.getByTestId('book-submit'))
     expect(await screen.findByTestId('book-notice')).toHaveTextContent('That time was just taken')
+    // queryAll: late on a Sunday the taken time can be the week's last one, leaving none.
     await waitFor(() =>
-      expect(screen.getAllByTestId('book-time').map((b) => b.dataset.start)).not.toContain(start),
+      expect(screen.queryAllByTestId('book-time').map((b) => b.dataset.start)).not.toContain(start),
     )
   })
 
