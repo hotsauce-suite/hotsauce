@@ -39,8 +39,8 @@ Deepgram keys; a small team spends a few dollars a month on them.
 screen recording and more share one sign-in, one search, one brand and one place your team's knowledge
 lives.
 
-**Agents are first-class.** A built-in MCP server lets any AI tool (Claude, Cursor, Codex or a script;
-ChatGPT and Grok once sign-in lands) search, read and write your docs, meetings, tasks, clips
+**Agents are first-class.** A built-in MCP server lets any AI tool (Claude, ChatGPT, Grok, Cursor, Codex or a
+script; sign in or use a token) search, read and write your docs, meetings, tasks, clips
 and files as you, with the same permissions you have. History shows which tool made each change.
 
 ## What's in the box

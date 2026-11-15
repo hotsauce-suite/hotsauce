@@ -9,8 +9,9 @@ a `Hotsauce-Via` trailer naming the tool, for example
 `Hotsauce-Via: mcp (client "Cursor", token "My laptop")`. A document's history then reads
 "Morgan via Cursor".
 
-ChatGPT and Grok connect to apps only through a browser sign-in (OAuth), not a token. Hotsauce is
-adding that sign-in; until it lands they can't connect (section 2e).
+Claude (claude.ai on the web, the Claude desktop and phone apps), ChatGPT and Grok connect by
+signing in instead (OAuth): add a custom connector with the server address, press Connect, and
+press Allow on the Hotsauce page that opens. No token to copy (section 2e).
 
 The design is in `docs/ARCHITECTURE.md` §8.
 
@@ -75,8 +76,9 @@ The header goes through `env` because Claude desktop mangles spaces inside `args
 config has a `"hearth"` entry, rename that key to `"hotsauce"` and restart Claude; the token inside
 it keeps working.
 
-A claude.ai custom connector (in the browser) signs in with OAuth, not a token, so it waits for
-the same sign-in as ChatGPT (2e).
+Simpler: add Hotsauce as a custom connector in Claude's Settings → Connectors instead (2e). It
+signs in with your browser, needs no Node and no token, and works in Claude on the web and phone
+too.
 
 ## 2c. Cursor
 
@@ -113,11 +115,26 @@ example `~/.zshrc`) and open a new terminal:
 export HOTSAUCE_TOKEN="hth_…"
 ```
 
-## 2e. ChatGPT and Grok: coming with sign-in
+## 2e. Claude, ChatGPT and Grok: connect by signing in
 
-ChatGPT's and Grok's connectors accept only a browser sign-in (OAuth) or no sign-in at all, never a
-pasted token. Hotsauce is adding that sign-in. Until then, Settings shows them as "Needs sign-in,
-coming soon".
+These tools add a remote MCP server as a "custom connector" and sign in through the browser
+(standard MCP authorization: OAuth 2.1 with PKCE). Settings → **Connect by signing in** shows the
+address to paste.
+
+- **Claude** (claude.ai, desktop and phone apps): Settings → Connectors → Add custom connector.
+  Name it "Hotsauce", paste `https://office.example.com/mcp`, press Add, then Connect. On a Team or
+  Enterprise plan an owner adds it once under the organization's connectors and each member
+  presses Connect.
+- **ChatGPT**: Settings → Apps & Connectors → Create (on plans where it's hidden, turn on Developer
+  mode under Advanced first). Paste the address and choose OAuth.
+- **Grok**: add a remote MCP connector with the address and sign in when it asks.
+
+The tool opens a Hotsauce page: "Let Claude use your Hotsauce?". Sign in if you aren't, check the
+name and the address it returns to, and press **Allow**. The connection has your access (the team
+space and your own), writes are marked with the tool's name, and it can't change settings or make
+tokens. It lasts until you press **Disconnect** under Settings → Connected apps, or you leave the
+organization. Nothing to set up on the server: it works on any Hotsauce reachable over HTTPS at its
+`PUBLIC_URL`.
 
 ## 2f. Any other tool or a script
 
