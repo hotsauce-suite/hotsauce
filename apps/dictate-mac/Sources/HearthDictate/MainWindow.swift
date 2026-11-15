@@ -86,6 +86,8 @@ final class MainModel: ObservableObject {
     var disconnect: () -> Void = {}
     var openWeb: () -> Void = {}
     var openSetup: () -> Void = {}
+    /// Settings → Run setup again (docs/PLAN-replay-setup.md R1).
+    var runSetupAgain: () -> Void = {}
     var requestMicrophone: () -> Void = {}
     var requestAccessibility: () -> Void = {}
     /// Saves the suite's server; returns why not, or nil.
@@ -607,6 +609,13 @@ private struct SettingsPage: View {
                 }
                 if let error = model.suiteServerError {
                     Text(error).font(.system(size: 11)).foregroundStyle(Hearth.ember)
+                }
+                LabeledContent("Setup") {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Button("Run setup again", action: model.runSetupAgain)
+                        Text("Walks through the first-run steps again. Nothing is reset.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
                 }
             }
             Section("Dictation") {

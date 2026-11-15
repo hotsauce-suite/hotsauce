@@ -75,4 +75,22 @@ import Testing
         #expect(SetupFlow.migratedSignIn(alreadyMigrated: false, hasOnboarded: true, hasWorkspace: false) == false)
         #expect(SetupFlow.migratedSignIn(alreadyMigrated: true, hasOnboarded: true, hasWorkspace: true) == nil)
     }
+
+    // docs/PLAN-replay-setup.md R1-R2: Run setup again walks every step, even finished ones.
+    @Test func aReplayVisitsEveryStepInOrder() {
+        for done in [state(), state(signedIn: false, dictate: false, missing: [.microphone])] {
+            var visited: [Step] = [.workspace]
+            while let last = visited.last, last != .done {
+                visited.append(SetupFlow.next(after: last, done, replaying: true))
+            }
+            #expect(visited == Step.allCases)
+        }
+    }
+
+    @Test func withoutAReplayContinueStillSkipsFinishedSteps() {
+        #expect(SetupFlow.next(after: .workspace, state(), replaying: false) == .done)
+        #expect(SetupFlow.next(after: .workspace, state(dictate: false), replaying: false) == .dictate)
+        #expect(SetupFlow.next(after: .workspace, state(), replaying: false) == SetupFlow.next(after: .workspace, state()))
+        #expect(SetupFlow.next(after: .done, state(), replaying: true) == .done)
+    }
 }

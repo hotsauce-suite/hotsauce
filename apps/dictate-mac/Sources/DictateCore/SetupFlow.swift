@@ -69,6 +69,13 @@ public enum SetupFlow {
         Step.allCases.first { $0.rawValue > step.rawValue && (!isFinished($0, state) || $0 == .done) } ?? .done
     }
 
+    /// Continue on a replay (Settings → Run setup again, R1-R2 of docs/PLAN-replay-setup.md): every
+    /// step in order, finished or not, so the member sees each one again. Otherwise `next(after:_:)`.
+    public static func next(after step: Step, _ state: State, replaying: Bool) -> Step {
+        guard replaying else { return next(after: step, state) }
+        return Step(rawValue: step.rawValue + 1) ?? .done
+    }
+
     /// Whether launch opens the window (R11, R12): a Mac set up before opens straight to its window
     /// unless a permission went missing; any other unfinished step (no workspace, not signed in, or
     /// a first run) opens it at that step.

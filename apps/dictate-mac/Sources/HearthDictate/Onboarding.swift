@@ -10,6 +10,9 @@ final class OnboardingModel: ObservableObject {
     @Published var step: SetupFlow.Step = .workspace
     /// Steps skipped in this window (Dictate, Permissions); asked again next launch.
     @Published var skipped: Set<SetupFlow.Step> = []
+    /// Settings → Run setup again: Continue visits every step, finished ones too
+    /// (docs/PLAN-replay-setup.md R1-R2). Ends when the window closes or opens any other way.
+    @Published var replaying = false
     @Published var signedIn = false
     var isSignedIn: () -> Bool = { false }
     /// Done's button: the suite's window, at Today.
@@ -123,7 +126,7 @@ final class OnboardingModel: ObservableObject {
         let wasSignedIn = signedIn
         signedIn = isSignedIn()
         // Signing in happens in the browser and the app's window: move on when it lands.
-        if step == .signIn, signedIn, !wasSignedIn { step = SetupFlow.next(after: .signIn, flowState) }
+        if step == .signIn, signedIn, !wasSignedIn { step = SetupFlow.next(after: .signIn, flowState, replaying: replaying) }
         outsideApplications = notInApplications()
         menuBarHidden = isMenuBarIconHidden()
         if accessibility, !hotkeyReady() { startHotkey() }
@@ -185,6 +188,7 @@ final class OnboardingModel: ObservableObject {
     /// Where the window opens: the first unfinished step, or Permissions when everything is done
     /// (the menu's Check Permissions…).
     func openAtFirstUnfinished() {
+        replaying = false
         refresh()
         let first = SetupFlow.firstUnfinished(flowState)
         step = first == .done ? .permissions : first
@@ -194,7 +198,21 @@ final class OnboardingModel: ObservableObject {
     /// Continue: on to the next step that needs the member; Skip marks this one skipped first.
     func advance(skipping: Bool = false) {
         if skipping { skipped.insert(step) }
-        step = SetupFlow.next(after: step, flowState)
+        step = SetupFlow.next(after: step, flowState, replaying: replaying)
+    }
+
+    /// Run setup again: from step 1, touching nothing that's set up (R1, R3). A Mac with no
+    /// workspace yet gets the field to fill, as on a first run.
+    func beginReplay() {
+        refresh()
+        skipped = []
+        replaying = true
+        editingWorkspace = false
+        workspaceError = nil
+        workspaceFound = nil
+        filledFromLink = false
+        step = .workspace
+        if workspace() == nil { beginWorkspace() }
     }
 
     func back() {
@@ -259,14 +277,23 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     var isVisible: Bool { window?.isVisible ?? false }
     /// The setup window at its Workspace step: a Mac with no workspace, or "Change workspace address".
     func showWorkspace(address: URL? = nil) {
+        model.replaying = false
         model.beginWorkspace(address: address)
         show(atFirstUnfinished: false)
     }
 
     /// Opens the window at `step` (Check Permissions…).
     func show(at step: SetupFlow.Step) {
+        model.replaying = false
         model.refresh()
         model.step = step
+        show(atFirstUnfinished: false)
+    }
+
+    /// Settings → Run setup again (and the menus' Run Setup Again…): the whole setup from step 1,
+    /// even when the window is already open (docs/PLAN-replay-setup.md R1).
+    func replay() {
+        model.beginReplay()
         show(atFirstUnfinished: false)
     }
 
@@ -301,6 +328,7 @@ final class OnboardingWindow: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         model.stopWatching()
         model.awaiting = nil
+        model.replaying = false
         // A half-finished address change doesn't come back next time.
         model.editingWorkspace = false
         model.filledFromLink = false
@@ -422,7 +450,7 @@ private struct Header: View {
         case .signIn: return "Sign in with your Google account. Your browser opens to confirm it’s you, then brings you back here."
         case .dictate: return "Hold a key, speak, and the text lands wherever your cursor is."
         case .permissions: return "\(Brand.name) needs these on this Mac. This window opens each time the app starts until every one is on."
-        case .done: return "\(Brand.name) is ready on this Mac. Open this window again from \(Brand.name) → Check Permissions… or the menu bar icon."
+        case .done: return "\(Brand.name) is ready on this Mac. Go through these steps again any time from Settings → Run setup again, or check permissions from \(Brand.name) → Check Permissions…"
         }
     }
 }
