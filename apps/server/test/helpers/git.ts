@@ -4,11 +4,11 @@ import { dirname, join } from 'node:path'
 import type { Author } from '../../src/git/index.js'
 import { GitError, runGit } from '../../src/git/index.js'
 
-export const HEARTH: Author = { name: 'Hearth', email: 'hearth@example.test' }
+export const HOTSAUCE: Author = { name: 'Hotsauce', email: 'hotsauce@example.test' }
 export const ALICE: Author = { name: 'Alice Example', email: 'alice@example.test' }
 export const OUTSIDE: Author = { name: 'Outside Editor', email: 'outside@example.test' }
 
-export async function makeTempDir(prefix = 'hearth-test-'): Promise<string> {
+export async function makeTempDir(prefix = 'hotsauce-test-'): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix))
 }
 
@@ -114,7 +114,7 @@ export class OutsideEditor {
     await runGit(this.dir, ['push', '--quiet', 'origin', `${commit}:${ref}`])
   }
 
-  /** The blob oid of `path` on the remote's main, as Hearth's client would have it. */
+  /** The blob oid of `path` on the remote's main, as Hotsauce's client would have it. */
   async blobOid(path: string): Promise<string> {
     await runGit(this.dir, ['fetch', '--quiet', 'origin'])
     return (await runGit(this.dir, ['rev-parse', `origin/main:${path}`])).trim()

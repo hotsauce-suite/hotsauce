@@ -32,7 +32,7 @@ export function redactCredentials(text: string): string {
   return text.replace(/([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/gi, '$1***@')
 }
 
-// Hearth's git behavior must not depend on the machine's ~/.gitconfig (signing, hooks paths,
+// Hotsauce's git behavior must not depend on the machine's ~/.gitconfig (signing, hooks paths,
 // credential helpers), must never prompt, must treat paths literally (a file named `*.md` is not a
 // glob), and must print English so push rejections can be recognized.
 const FIXED_ENV: Record<string, string> = {

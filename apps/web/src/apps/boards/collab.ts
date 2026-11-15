@@ -3,7 +3,7 @@
 // since it last sent or saw them) and where the pointer is, and hands on what others send.
 // Saving is not its job: BoardSession saves, and every editor's save merges by element version.
 
-import { BLOCKED_ELEMENT_TYPES, type BoardElement } from '@hearth/format'
+import { BLOCKED_ELEMENT_TYPES, type BoardElement } from '@hotsauce/format'
 import { authMessage, type SocketAuthMessage } from '../../api/ws'
 
 /** Someone else on the board. */

@@ -1,4 +1,4 @@
-import { type ParsedTask, parseQuickAdd } from '@hearth/format'
+import { type ParsedTask, parseQuickAdd } from '@hotsauce/format'
 import { type KeyboardEvent, type ReactNode, useMemo, useRef, useState } from 'react'
 import { type TaskPerson, type TaskView, tasksApi } from '../../api/tasks'
 import { Icon, type IconName } from '../../components/Icon'

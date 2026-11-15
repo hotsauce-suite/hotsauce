@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { boardPath } from '@hearth/format'
+import { boardPath } from '@hotsauce/format'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -20,7 +20,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-boards-')
+  root = await makeTempDir('hotsauce-boards-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

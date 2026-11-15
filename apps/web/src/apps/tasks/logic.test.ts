@@ -1,4 +1,4 @@
-import { parseQuickAdd } from '@hearth/format'
+import { parseQuickAdd } from '@hotsauce/format'
 import { describe, expect, it } from 'vitest'
 import type { TaskView } from '../../api/tasks'
 import {

@@ -13,7 +13,7 @@ enum Inserter {
     /// How long the target app gets to read the pasteboard before it is put back. Electron apps
     /// (Slack, VS Code) can take a while; restoring too soon would paste the old clipboard.
     static let restoreDelay: TimeInterval = 1.0
-    /// Marks the events Hearth Dictate posts, so its own key tap ignores them.
+    /// Marks the events Hotsauce Dictate posts, so its own key tap ignores them.
     static let syntheticMarker: Int64 = 0x4844_4354 // "HDCT"
 
     static func insert(_ text: String, into target: NSRunningApplication?) -> Outcome {

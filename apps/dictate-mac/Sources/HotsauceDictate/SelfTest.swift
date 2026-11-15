@@ -3,7 +3,7 @@ import DictateCore
 import UserNotifications
 import WebKit
 
-/// `HearthDictate --self-test <server> <folder> [--sign-in-dev <email>] [--remind]`: drives the
+/// `HotsauceDictate --self-test <server> <folder> [--sign-in-dev <email>] [--remind]`: drives the
 /// app's real suite window against a server and writes what it saw (`result.json`) and snapshots
 /// of the page (PNG) to the folder, for automated end-to-end checks of the window: loading,
 /// storage that survives a relaunch, in-place route changes, the reminders' API call, and (with

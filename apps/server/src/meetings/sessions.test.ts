@@ -2,10 +2,10 @@ import { mkdtemp, readdir, readFile, rm, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Readable } from 'node:stream'
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Change, CommitResult } from '../git/index.js'
 import { type AudioStore, LocalAudioStore } from './audio/index.js'
 import { FakeCalendar } from './calendar/fake.js'
@@ -37,7 +37,7 @@ class MemoryRepo {
 
   async readFile(_space: string, path: string): Promise<{ content: string; blobOid: string }> {
     const content = this.files.get(path)
-    if (content === undefined) throw new HearthError('not_found', path)
+    if (content === undefined) throw new HotsauceError('not_found', path)
     return { content, blobOid: 'blob' }
   }
 
@@ -52,7 +52,7 @@ class MemoryRepo {
     this.last = { author: args.author, message: args.message }
     if (this.failNextPush) {
       this.failNextPush = false
-      throw new HearthError('push_failed', 'the host rejected the push')
+      throw new HotsauceError('push_failed', 'the host rejected the push')
     }
     return { status: 'committed', oid: 'commit', blobOid: 'blob' }
   }
@@ -74,7 +74,7 @@ const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'hearth-sessions-'))
+  dir = await mkdtemp(join(tmpdir(), 'hotsauce-sessions-'))
   repo = new MemoryRepo()
   clock = Date.now()
   sessions = openSessions()

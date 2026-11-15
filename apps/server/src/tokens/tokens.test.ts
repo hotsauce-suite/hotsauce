@@ -20,7 +20,7 @@ let dir: string
 let store: TokenStore
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'hearth-tokens-'))
+  dir = await mkdtemp(join(tmpdir(), 'hotsauce-tokens-'))
   store = new TokenStore(dir)
 })
 

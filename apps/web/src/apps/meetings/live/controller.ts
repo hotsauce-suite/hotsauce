@@ -1,7 +1,7 @@
 // The meeting being recorded. Module-level, like the docs socket, so recording carries on
 // while the member looks something up in Docs; the live page and the chrome only observe it.
 
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import { meetingsApi } from '../../../api/meetings'
 import type { MeetingSession, MeetingState, StopResult, Track } from '../../../api/types'
 import { product } from '../../../brand/product'
@@ -338,7 +338,7 @@ export class LiveMeeting {
     } catch (err) {
       // A 4xx (stopped meanwhile, or refused) won't change by asking again; no answer (status 0)
       // or a 5xx might.
-      const status = err instanceof HearthApiError ? err.status : 0
+      const status = err instanceof HotsauceApiError ? err.status : 0
       failed = status === 0 || status >= 500
     }
     this.keepAudioSending = false

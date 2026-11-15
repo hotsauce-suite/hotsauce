@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { FakeLLM } from '../llm/fake.js'
 import { loadBuiltinTemplates } from '../templates.js'
 import { assembleEnhancedNote } from './assemble.js'
@@ -170,7 +170,7 @@ describe('Enhancer', () => {
   it('refuses an empty answer', async () => {
     const enhancer = new Enhancer(new FakeLLM(() => '  \n# Acme sync\n'), { model: 'm' })
     const failure = await enhancer.enhance(INPUT).catch((e) => e)
-    expect(failure).toBeInstanceOf(HearthError)
+    expect(failure).toBeInstanceOf(HotsauceError)
     expect(failure.code).toBe('llm_error')
   })
 

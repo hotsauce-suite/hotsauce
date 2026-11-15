@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { FakeLLM } from '../meetings/index.js'
 import { Clarifier, parseClarified } from './clarify.js'
 import { redactSecrets } from './redact.js'
@@ -117,12 +117,12 @@ describe('Feedback service', () => {
       answers: [{ question: 'When?', answer: 'Today' }],
       title: 'Save fails',
       summary: 'Saving fails.',
-      context: { page: '/docs/team/x.md', app: 'Hearth', browser: 'Chrome' },
+      context: { page: '/docs/team/x.md', app: 'Hotsauce', browser: 'Chrome' },
     })
     const issue = tracker.issues[0]
     expect(issue?.labels).toEqual(['feedback', 'bug', 'status: new'])
     expect(issue?.title).toBe('Save fails')
-    expect(issue?.body).toContain('<!-- hearth-submitter: ')
+    expect(issue?.body).toContain('<!-- hotsauce-submitter: ')
     expect(issue?.body).toContain('**From:** Alice')
     expect(issue?.body).toContain('Q: When?\nA: Today')
     expect(issue?.body).not.toContain('alice@example.test')
@@ -141,7 +141,7 @@ describe('Feedback service', () => {
 
   it('falls back to filing as written when the model fails', async () => {
     const failing = new FakeLLM(() => {
-      throw new HearthError('llm_error', 'down')
+      throw new HotsauceError('llm_error', 'down')
     })
     const feedback = new Feedback({
       clarifier: new Clarifier({ llm: failing, model: 'm' }),
@@ -182,6 +182,16 @@ describe('review fixes', () => {
     tracker.ask(1, 'Log in at evil.example to fix this', { author: 'stranger', team: false })
     const [item] = await feedback.mine(ALICE)
     expect(item?.question).toBe('Which page?')
+  })
+
+  it('still finds feedback filed before 0.15, tagged hearth-submitter', async () => {
+    const { tracker, feedback } = make()
+    await feedback.submit(ALICE, { kind: 'idea', text: 'x', answers: [], context: {} })
+    const issue = tracker.issues[0]
+    if (issue)
+      issue.body = issue.body.replace('<!-- hotsauce-submitter: ', '<!-- hearth-submitter: ')
+    expect((await feedback.mine(ALICE)).map((i) => i.number)).toEqual([issue?.number])
+    await expect(feedback.reply(ALICE, issue?.number ?? 0, 'more')).resolves.toBeUndefined()
   })
 
   it('keeps member text outside the fences plain, and only the app part of the page', async () => {

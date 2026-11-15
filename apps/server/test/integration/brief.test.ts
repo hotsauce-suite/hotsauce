@@ -21,7 +21,7 @@ let llm: FakeLLM
 let respond: (req: LLMRequest) => string | Promise<string>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-brief-')
+  root = await makeTempDir('hotsauce-brief-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -314,7 +314,7 @@ describe('agent brief', () => {
     expect(value.brief).toContain('Newest meeting: Northwind pricing')
     expect(value.basedOn).toEqual({ meetings: 1, tasks: 0 })
     expect(await runGit(bare('alice'), ['log', '-1', '--format=%B', 'main'])).toContain(
-      'Hearth-Via: mcp',
+      'Hotsauce-Via: mcp',
     )
     await client.close()
   })

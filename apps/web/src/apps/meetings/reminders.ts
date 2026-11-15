@@ -1,6 +1,6 @@
 // "Remind me before meetings" (PRD §6.1): this browser's push subscription, kept in step with the
 // server. Push needs a service worker, so it works in the built app, not under `pnpm dev`; on
-// iPhone and iPad only once Hearth is added to the Home Screen.
+// iPhone and iPad only once Hotsauce is added to the Home Screen.
 
 import { meetingsApi } from '../../api/meetings'
 

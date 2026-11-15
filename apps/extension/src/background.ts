@@ -1,5 +1,5 @@
-// The service worker. It marks Meet calls on the toolbar icon, opens Hearth when the person
-// clicks "Take notes", and hands the Hearth page a stream id for the Meet tab's audio, which
+// The service worker. It marks Meet calls on the toolbar icon, opens Hotsauce when the person
+// clicks "Take notes", and hands the Hotsauce page a stream id for the Meet tab's audio, which
 // spares the person Chrome's "pick a tab, tick share audio" dialog.
 
 import { MAX_PAGE_BYTES, pageCopy, pageKey } from './capture'
@@ -120,14 +120,14 @@ async function copyOf(tabId: number): Promise<string | null> {
  * Opens the server's save page for `page` in a background tab beside `from`. With `copy`, the
  * page `from` shows goes along, so the server needn't fetch it signed out.
  */
-async function saveToHearth(
+async function saveToHotsauce(
   page: { url: string; title?: string },
   from: chrome.tabs.Tab | undefined,
   copy = false,
-): Promise<void> {
+): Promise<boolean> {
   const server = await getServer()
   // Not connected yet: the popup asks which server first.
-  if (!server || !savable(page.url, originsFor(server.url))) return
+  if (!server || !savable(page.url, originsFor(server.url))) return false
   const html = copy && from?.id !== undefined ? await copyOf(from.id) : null
   const tab = await chrome.tabs.create({
     url: savePageUrl(server.url, page),
@@ -135,7 +135,7 @@ async function saveToHearth(
     ...(from?.windowId !== undefined ? { windowId: from.windowId } : {}),
     ...(from?.index !== undefined ? { index: from.index + 1 } : {}),
   })
-  if (tab.id === undefined) return
+  if (tab.id === undefined) return false
   const saveTabId = tab.id
   await changeSaveTabs(
     (list) => ({
@@ -152,6 +152,7 @@ async function saveToHearth(
       }
     })
   }, SAVE_WAIT_MS)
+  return true
 }
 
 /** The save page said how it went: on success its tab closes and the icon shows a tick. */
@@ -181,12 +182,12 @@ async function linkSaved(saveTabId: number, ok: boolean): Promise<void> {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === 'save-link' && info.linkUrl) {
-    void saveToHearth(
+    void saveToHotsauce(
       { url: info.linkUrl, ...(info.selectionText ? { title: info.selectionText } : {}) },
       tab,
     )
   } else if (info.menuItemId === 'save-page' && tab?.url) {
-    void saveToHearth({ url: tab.url, ...(tab.title ? { title: tab.title } : {}) }, tab, true)
+    void saveToHotsauce({ url: tab.url, ...(tab.title ? { title: tab.title } : {}) }, tab, true)
   }
 })
 // A save tab closed before it saved (signed out, given up) drops its page copy.
@@ -250,7 +251,7 @@ async function captureMeet(consumerTabId: number, code: string | null): Promise<
 }
 
 chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendResponse) => {
-  // Only this extension's popup (no tab) may open notes; only a Hearth page may ask for audio.
+  // Only this extension's popup (no tab) may open notes; only a Hotsauce page may ask for audio.
   if (message.type === 'take-notes' && sender.id === chrome.runtime.id && !sender.tab) {
     takeNotes(message.tabId).then(
       () => sendResponse({ ok: true }),
@@ -259,15 +260,19 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendRespon
     return true
   }
   if (message.type === 'save-page' && sender.id === chrome.runtime.id && !sender.tab) {
-    chrome.tabs.get(message.tabId).then(
-      (tab) =>
-        saveToHearth(
+    chrome.tabs
+      .get(message.tabId)
+      .then((tab) =>
+        saveToHotsauce(
           { url: tab.url ?? '', ...(tab.title ? { title: tab.title } : {}) },
           tab,
           true,
-        ).then(() => sendResponse({ ok: true })),
-      () => sendResponse({ ok: false }),
-    )
+        ),
+      )
+      .then(
+        (ok) => sendResponse({ ok }),
+        () => sendResponse({ ok: false }),
+      )
     return true
   }
   // Messages from pages are answered only on the server's own pages.

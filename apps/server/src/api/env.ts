@@ -73,12 +73,12 @@ export interface AppDeps {
 export type AppEnv = {
   Variables: {
     principal: Principal
-    /** Set when a Hearth Dictate device token authenticated the request: that device's id. */
+    /** Set when a Hotsauce Dictate device token authenticated the request: that device's id. */
     deviceId?: string
   }
 }
 
-/** Commits made for a member are authored by them; Hearth is only the committer. */
+/** Commits made for a member are authored by them; Hotsauce is only the committer. */
 export function authorOf(p: Principal): Author {
   return { name: p.name, email: p.email }
 }

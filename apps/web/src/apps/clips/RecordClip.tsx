@@ -178,7 +178,7 @@ export default function RecordClip() {
     if (phase === 'finished' && state?.clip) navigate(`/clips/${state.clip.id}`, { replace: true })
   }, [phase, state?.clip, navigate])
 
-  // The tab's title is the timer, for when Hearth is in the background.
+  // The tab's title is the timer, for when Hotsauce is in the background.
   const [now, setNow] = useState(() => performance.now())
   useEffect(() => {
     if (!active) {
@@ -195,7 +195,7 @@ export default function RecordClip() {
     }
   }, [phase, elapsed])
 
-  // Leaving mid-recording asks first: within Hearth, and closing the tab.
+  // Leaving mid-recording asks first: within Hotsauce, and closing the tab.
   // Read from a ref so the jump to the finished clip, made in the same commit, isn't blocked.
   // Not while saving: leaving then lets the save finish in the background (dispose).
   const guarding = useRef(false)

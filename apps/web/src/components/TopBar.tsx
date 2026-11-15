@@ -39,7 +39,7 @@ interface TopBarProps {
   onOpenDrawer: () => void
   /** Offered after a retitle: move the file to the new title's slug, or keep its name. */
   rename: { to: string; onRename: () => void; onKeep: () => void } | null
-  /** Shows "Attach a file" (Hearth Files' picker). */
+  /** Shows "Attach a file" (Hotsauce Files' picker). */
   onAttachFile?: () => void
 }
 

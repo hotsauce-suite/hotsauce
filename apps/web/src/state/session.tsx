@@ -131,15 +131,15 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
   }, [notify, userId])
 
   useEffect(() => {
-    hearthSocket.start()
-    const offChanged = hearthSocket.onChanged((event) =>
+    hotsauceSocket.start()
+    const offChanged = hotsauceSocket.onChanged((event) =>
       store.refreshPaths(event.space, event.paths),
     )
-    const offReconnect = hearthSocket.onReconnect(() => store.refreshAll())
+    const offReconnect = hotsauceSocket.onReconnect(() => store.refreshAll())
     return () => {
       offChanged()
       offReconnect()
-      hearthSocket.stop()
+      hotsauceSocket.stop()
     }
   }, [store])
 

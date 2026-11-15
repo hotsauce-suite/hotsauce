@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { useSession } from '../../state/session'
 import { filesBus } from './bus'
 
-/** Hearth Files' sidebar: upload, then Team files, My files and Recent. */
+/** Hotsauce Files' sidebar: upload, then Team files, My files and Recent. */
 export function FilesSidebar() {
   const { pathname, search } = useLocation()
   const session = useSession()

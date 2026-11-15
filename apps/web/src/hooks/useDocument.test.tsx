@@ -1,10 +1,10 @@
-import { newDoc, parseFrontmatter } from '@hearth/format'
+import { newDoc, parseFrontmatter } from '@hotsauce/format'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import { api } from '../api/client'
 import type { ServerEvent } from '../api/types'
-import { hearthSocket } from '../api/ws'
+import { hotsauceSocket } from '../api/ws'
 import type { EditorBridge } from '../components/MarkdownEditor'
 import { reportReachable } from '../lib/connection'
 import { draftKey, findDraft, saveDraft } from '../lib/drafts'
@@ -175,7 +175,7 @@ describe('useDocument', () => {
   })
 
   it('refetches on a socket change when there are no local edits', async () => {
-    hearthSocket.start()
+    hotsauceSocket.start()
     const { result } = renderDocument(Q4)
     await loaded(result)
     const commit = mockApi().repo.outsideEdit(SPACE, Q4, {
@@ -190,7 +190,7 @@ describe('useDocument', () => {
   })
 
   it('does not clobber local edits on a socket change; the next save merges', async () => {
-    hearthSocket.start()
+    hotsauceSocket.start()
     const { result } = renderDocument(Q4, { idleCommitMs: 60_000 })
     await loaded(result)
     const mine = result.current.getText().replace('# Q4 plan', '# Q4 plan (draft)')
@@ -207,7 +207,7 @@ describe('useDocument', () => {
     }
     const read = vi.spyOn(api, 'readFile')
     const delivered = vi.fn()
-    hearthSocket.onChanged(delivered)
+    hotsauceSocket.onChanged(delivered)
     await broadcastUntil(event, () => expect(delivered).toHaveBeenCalled())
     await new Promise((r) => setTimeout(r, 50))
     expect(read).not.toHaveBeenCalled()

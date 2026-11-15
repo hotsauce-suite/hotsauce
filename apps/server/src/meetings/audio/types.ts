@@ -10,6 +10,6 @@ export interface AudioStore {
   put(key: string, body: Readable, size: number, contentType: string): Promise<void>
   /** The object's bytes, or null when there's nothing at `key`. */
   get(key: string): Promise<{ body: ReadableStream<Uint8Array>; size: number } | null>
-  /** Removes the object at `key`; nothing there is not an error. Hearth Clips' delete uses it. */
+  /** Removes the object at `key`; nothing there is not an error. Hotsauce Clips' delete uses it. */
   delete(key: string): Promise<void>
 }

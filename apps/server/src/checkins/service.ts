@@ -20,11 +20,11 @@ import {
   SPACE_LAYOUT,
   scheduleLabel,
   type Weekday,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { ulid } from 'ulid'
 import { stringify as toYaml } from 'yaml'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { ChatRooms } from '../forms/rooms.js'
 import {
   type Author,
@@ -333,16 +333,16 @@ export class Checkins {
     const body = cleanText(text, MAX_CHECKIN_ANSWER, 'Your answer')
     const { fm } = await this.#read(id)
     const me = principal.email.toLowerCase()
-    if (!me) throw new HearthError('forbidden', 'Only members answer check-ins')
+    if (!me) throw new HotsauceError('forbidden', 'Only members answer check-ins')
     const round = currentRound(fm, this.#now(), await this.#zoneOf(me, fm.tz))
     const date = opts.date ?? round?.date
     if (!date || !isCheckinDate(date)) {
-      throw new HearthError('bad_request', 'This check-in hasn’t asked its first question yet')
+      throw new HotsauceError('bad_request', 'This check-in hasn’t asked its first question yet')
     }
     const existing = this.#answerOf(id, date, me)
     // Your own earlier answer can be edited any time; a new one only goes to the round open now.
     if (!existing && date !== round?.date) {
-      throw new HearthError('bad_request', 'That round is over; answer the current one')
+      throw new HotsauceError('bad_request', 'That round is over; answer the current one')
     }
     return this.#answerLock.run(`${id} ${date} ${me}`, async () => {
       // Re-read under the lock: a double submit finds the first answer and edits it.
@@ -375,12 +375,15 @@ export class Checkins {
           })
           break
         } catch (err) {
-          if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS)
+          if (
+            !(err instanceof HotsauceError && err.code === 'conflict') ||
+            attempt >= WRITE_ATTEMPTS
+          )
             throw err
         }
       }
       const saved = this.#answerOf(id, date, me)
-      if (!saved) throw new HearthError('conflict', 'Your answer was saved but can’t be read yet')
+      if (!saved) throw new HotsauceError('conflict', 'Your answer was saved but can’t be read yet')
       return this.#view(saved, principal)
     })
   }
@@ -394,13 +397,13 @@ export class Checkins {
   ): Promise<AnswerView> {
     const body = cleanText(text, MAX_CHECKIN_REPLY, 'A reply')
     const { fm } = await this.#read(id)
-    if (!principal.email) throw new HearthError('forbidden', 'Only members reply')
+    if (!principal.email) throw new HotsauceError('forbidden', 'Only members reply')
     const row = this.#answerRows(id).find((a) => a.fm.id === answerId)
-    if (!row) throw new HearthError('not_found', 'No such answer')
+    if (!row) throw new HotsauceError('not_found', 'No such answer')
     for (let attempt = 1; ; attempt++) {
       const prior = await this.#readAnswer(row.row.path)
       if (prior.fm.replies.length >= MAX_CHECKIN_REPLIES) {
-        throw new HearthError('bad_request', `At most ${MAX_CHECKIN_REPLIES} replies`)
+        throw new HotsauceError('bad_request', `At most ${MAX_CHECKIN_REPLIES} replies`)
       }
       const reply: CheckinReply = {
         id: ulid(),
@@ -420,12 +423,12 @@ export class Checkins {
         })
         break
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS)
+        if (!(err instanceof HotsauceError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS)
           throw err
       }
     }
     const saved = this.#answerRows(id).find((a) => a.fm.id === answerId)
-    if (!saved) throw new HearthError('not_found', 'No such answer')
+    if (!saved) throw new HotsauceError('not_found', 'No such answer')
     return this.#view(saved, principal)
   }
 
@@ -517,7 +520,7 @@ export class Checkins {
       })
     } catch (err) {
       // Another pass wrote it first: nothing to do.
-      if (err instanceof HearthError && err.code === 'conflict') return
+      if (err instanceof HotsauceError && err.code === 'conflict') return
       throw err
     }
     this.#summarized.add(key)
@@ -658,18 +661,18 @@ export class Checkins {
     const parsed = parseFrontmatter(file.content)
     const fm = CheckinAnswerFrontmatter.safeParse(parsed.data)
     if (!fm.success)
-      throw new HearthError('conflict', 'This answer’s file can’t be read; fix it in Git')
+      throw new HotsauceError('conflict', 'This answer’s file can’t be read; fix it in Git')
     return { fm: fm.data, body: parsed.body.trim(), blobOid: file.blobOid }
   }
 
   async #read(id: string) {
     if (!isCheckinId(id)) throw notFound()
     const file = await this.#d.git.readFile(TEAM_SPACE, checkinPath(id)).catch((err) => {
-      throw err instanceof HearthError && err.code === 'not_found' ? notFound() : err
+      throw err instanceof HotsauceError && err.code === 'not_found' ? notFound() : err
     })
     const fm = CheckinFrontmatter.safeParse(parseFrontmatter(file.content).data)
     if (!fm.success || fm.data.id !== id) {
-      throw new HearthError('conflict', 'This check-in’s file can’t be read; fix it in Git')
+      throw new HotsauceError('conflict', 'This check-in’s file can’t be read; fix it in Git')
     }
     return { fm: fm.data, content: file.content, blobOid: file.blobOid }
   }
@@ -737,9 +740,9 @@ export class Checkins {
 
   #clean(input: CheckinInput) {
     const title = input.title.replace(/\s+/g, ' ').trim().slice(0, MAX_CHECKIN_QUESTION)
-    if (!title) throw new HearthError('bad_request', 'Write the question')
+    if (!title) throw new HotsauceError('bad_request', 'Write the question')
     if (input.room !== null && !this.#d.rooms.has(input.room)) {
-      throw new HearthError('bad_request', 'That chat room was removed; pick another')
+      throw new HotsauceError('bad_request', 'That chat room was removed; pick another')
     }
     return {
       title,
@@ -755,7 +758,7 @@ export class Checkins {
     const parsed = CheckinFrontmatter.safeParse(value)
     if (!parsed.success) {
       const issue = parsed.error.issues[0]
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         `${issue?.path.join('.') || 'check-in'}: ${issue?.message}`,
       )
@@ -765,7 +768,7 @@ export class Checkins {
 
   #assertManager(principal: Principal): void {
     if (!principal.isAdmin || principal.via) {
-      throw new HearthError('forbidden', 'Only an admin can set up check-ins')
+      throw new HotsauceError('forbidden', 'Only an admin can set up check-ins')
     }
   }
 
@@ -797,7 +800,7 @@ export class Checkins {
       unchanged: args.unchanged,
     })
     if (result.status === 'conflict') {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         'Someone changed this at the same time; reload and try again',
       )
@@ -813,15 +816,15 @@ interface AnswerRow {
   body: string
 }
 
-function notFound(): HearthError {
-  return new HearthError('not_found', 'No such check-in')
+function notFound(): HotsauceError {
+  return new HotsauceError('not_found', 'No such check-in')
 }
 
 function cleanText(text: string, max: number, what: string): string {
   const clean = text.replace(/\r\n/g, '\n').trim()
-  if (!clean) throw new HearthError('bad_request', `${what} is empty`)
+  if (!clean) throw new HotsauceError('bad_request', `${what} is empty`)
   if (clean.length > max)
-    throw new HearthError('bad_request', `${what} is too long (at most ${max} characters)`)
+    throw new HotsauceError('bad_request', `${what} is too long (at most ${max} characters)`)
   return clean
 }
 

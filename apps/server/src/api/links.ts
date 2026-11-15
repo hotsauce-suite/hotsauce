@@ -1,4 +1,4 @@
-import { extractLinks, type Link, relativeLink, resolveRelative } from '@hearth/format'
+import { extractLinks, type Link, relativeLink, resolveRelative } from '@hotsauce/format'
 
 interface Edit {
   from: number

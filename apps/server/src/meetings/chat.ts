@@ -1,6 +1,6 @@
-import { chunkMarkdown, parseTranscript, transcriptPathFor } from '@hearth/format'
+import { chunkMarkdown, parseTranscript, transcriptPathFor } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { GitStore } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import type { SpaceService } from '../spaces/index.js'
@@ -100,12 +100,12 @@ export class MeetingChat {
   async #scopeSpaces(principal: Principal, scope: ChatScope): Promise<string[]> {
     if (scope.space !== undefined) {
       if (!this.#spaces.canAccess(principal, scope.space)) {
-        throw new HearthError('forbidden', `You don't have access to the space "${scope.space}"`)
+        throw new HotsauceError('forbidden', `You don't have access to the space "${scope.space}"`)
       }
       return [scope.space]
     }
     if (scope.meetingPath !== undefined) {
-      throw new HearthError('bad_request', 'A meeting scope needs its space')
+      throw new HotsauceError('bad_request', 'A meeting scope needs its space')
     }
     return (await this.#spaces.visibleSpaces(principal)).map((s) => s.name)
   }
@@ -150,7 +150,7 @@ export class MeetingChat {
     return this.#index
       .search(question, {
         spaces,
-        // Uploaded files' text (Hearth Files, §18.3) answers too: a contract, a deck; and the
+        // Uploaded files' text (Hotsauce Files, §18.3) answers too: a contract, a deck; and the
         // readable copies of saved links (§23).
         kinds: ['meeting', 'transcript', 'file', 'link'],
         anyTerm: true,
@@ -171,7 +171,7 @@ export class MeetingChat {
       content = (await this.#git.readFile(space, path)).content
     } catch (err) {
       // An index entry for a file gone since, or a transcript left in another space.
-      if (err instanceof HearthError && err.code === 'not_found') return []
+      if (err instanceof HotsauceError && err.code === 'not_found') return []
       throw err
     }
     return chunkFile(space, path, content)

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { RobotCheckWidget } from '../api/booking'
 
-// Cloudflare Turnstile on Hearth's signed-out pages (booking links §19, public forms §21): the
+// Cloudflare Turnstile on Hotsauce's signed-out pages (booking links §19, public forms §21): the
 // widget, loaded once per page. Dev and test servers send `{ kind: 'dev' }` instead, which
 // accepts DEV_TURNSTILE_TOKEN without showing anything.
 

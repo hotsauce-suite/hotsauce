@@ -9,9 +9,9 @@
 // marked as waiting, and goes up by itself when the connection is back, even after a reload.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, HearthApiError } from '../api/client'
+import { api, HotsauceApiError } from '../api/client'
 import type { CommitResult, ConflictSummary, PutFileBody } from '../api/types'
-import { hearthSocket } from '../api/ws'
+import { hotsauceSocket } from '../api/ws'
 import type { EditorBridge } from '../components/MarkdownEditor'
 import { isOnline, onBackOnline } from '../lib/connection'
 import { clearDrafts, type Draft, findDraft, saveDraft } from '../lib/drafts'
@@ -37,7 +37,7 @@ export interface ConflictView {
 
 export interface DocumentState {
   status: 'loading' | 'ready' | 'error'
-  error: HearthApiError | null
+  error: HotsauceApiError | null
   /** Not on the server yet (created from "New doc", not saved). */
   isNew: boolean
   /** Text the editor mounts with. Replaced only on load; later server text is adopted in place. */
@@ -60,7 +60,7 @@ export interface DocumentState {
 export type CommitOutcome = 'committed' | 'noop' | 'conflict' | 'error' | 'taken'
 
 export interface CommitOptions {
-  /** Save version: names the commit (`Hearth-Label` trailer) and commits even without edits. */
+  /** Save version: names the commit (`Hotsauce-Label` trailer) and commits even without edits. */
   label?: string
   keepalive?: boolean
   /**
@@ -301,14 +301,14 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
           if (
             creating &&
             commitOpts.createAt &&
-            err instanceof HearthApiError &&
+            err instanceof HotsauceApiError &&
             err.status === 409
           ) {
             // The name was taken after it was picked; the caller picks another. Still unsaved.
             setSaveState('dirty')
             return 'taken'
           }
-          if (err instanceof HearthApiError && err.status === 404 && base.current.blobOid) {
+          if (err instanceof HotsauceApiError && err.status === 404 && base.current.blobOid) {
             // Someone moved or deleted this doc while it was open here. Retrying can't help: say
             // so, keep the text in the editor and the browser, and let the member copy it.
             setSaveState('saved', { saveError: GONE_WHILE_EDITING })
@@ -434,7 +434,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
           return
         }
         const startNew =
-          err instanceof HearthApiError &&
+          err instanceof HotsauceApiError &&
           err.status === 404 &&
           (opts.current.isNew || draft?.blobOid === 'new')
         if (startNew && waitingHere(draft) && draft.blobOid === 'new') {
@@ -457,7 +457,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
           return
         }
         const error =
-          err instanceof HearthApiError ? err : new HearthApiError('internal', String(err), 0)
+          err instanceof HotsauceApiError ? err : new HotsauceApiError('internal', String(err), 0)
         setState((s) => ({ ...s, status: 'error', error }))
       },
     )
@@ -477,12 +477,12 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
 
   // Socket events for this file.
   useEffect(() => {
-    const offChanged = hearthSocket.onChanged((event) => {
+    const offChanged = hotsauceSocket.onChanged((event) => {
       if (event.space !== space || !event.paths.includes(path)) return
       if (ownCommits.current.has(event.headOid)) return
       void refetchRef.current()
     })
-    const offConflict = hearthSocket.onConflict((event) => {
+    const offConflict = hotsauceSocket.onConflict((event) => {
       if (event.space !== space || event.path !== path) return
       setState((s) =>
         s.serverConflicts.some((c) => c.ref === event.ref) || s.conflict?.ref === event.ref
@@ -496,7 +496,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
             },
       )
     })
-    const offReconnect = hearthSocket.onReconnect(() => {
+    const offReconnect = hotsauceSocket.onReconnect(() => {
       void refetchRef.current()
       void loadConflicts()
     })

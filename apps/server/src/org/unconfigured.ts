@@ -1,6 +1,6 @@
 import type { ClipTranscriber } from '../clips/transcriber.js'
 import type { DictationTranscriber } from '../dictation/transcriber.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { LLM } from '../meetings/llm/types.js'
 import type { Transcriber } from '../meetings/transcriber/types.js'
 
@@ -16,24 +16,24 @@ export const DEEPGRAM_MISSING =
 
 export class UnconfiguredLLM implements LLM {
   async complete(): Promise<never> {
-    throw new HearthError('not_configured', ANTHROPIC_MISSING)
+    throw new HotsauceError('not_configured', ANTHROPIC_MISSING)
   }
 }
 
 export class UnconfiguredTranscriber implements Transcriber {
   async start(): Promise<never> {
-    throw new HearthError('not_configured', DEEPGRAM_MISSING)
+    throw new HotsauceError('not_configured', DEEPGRAM_MISSING)
   }
 }
 
 export class UnconfiguredDictationTranscriber implements DictationTranscriber {
   async transcribe(): Promise<never> {
-    throw new HearthError('not_configured', DEEPGRAM_MISSING)
+    throw new HotsauceError('not_configured', DEEPGRAM_MISSING)
   }
 }
 
 export class UnconfiguredClipTranscriber implements ClipTranscriber {
   async transcribe(): Promise<never> {
-    throw new HearthError('not_configured', DEEPGRAM_MISSING)
+    throw new HotsauceError('not_configured', DEEPGRAM_MISSING)
   }
 }

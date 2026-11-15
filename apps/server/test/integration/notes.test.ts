@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { notePath } from '@hearth/format'
+import { notePath } from '@hotsauce/format'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -20,7 +20,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-notes-')
+  root = await makeTempDir('hotsauce-notes-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -349,7 +349,7 @@ describe('MCP tools', () => {
     })
     const log = await runGit(bare('alice'), ['log', '-1', '--format=%an <%ae>|%B', 'main'])
     expect(log).toContain(`Alice <${ALICE}>|notes: create "Offsite"`)
-    expect(log).toContain('Hearth-Via: mcp')
+    expect(log).toContain('Hotsauce-Via: mcp')
 
     expect((await tool(client, 'list_notes')).value.map((n: NoteView) => n.title)).toEqual([
       'Offsite',

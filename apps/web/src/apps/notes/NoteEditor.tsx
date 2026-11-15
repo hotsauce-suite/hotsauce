@@ -4,10 +4,10 @@ import {
   checklistToText,
   parseChecklist,
   textToChecklist,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { type NoteInput, type NoteView, notesApi } from '../../api/notes'
 import { AttachmentChips, FilePicker } from '../../components/FilePicker'
 import { below, Menu, type MenuAnchor } from '../../components/Menu'
@@ -92,7 +92,7 @@ export function NoteEditor({
           onSavedRef.current(next)
           return next
         } catch (err) {
-          if (err instanceof HearthApiError && err.status === 409) setConflict(true)
+          if (err instanceof HotsauceApiError && err.status === 409) setConflict(true)
           else setError(errorMessage(err))
           throw err
         } finally {

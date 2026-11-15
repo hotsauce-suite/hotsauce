@@ -1,7 +1,7 @@
 // Tiles a member can add to Today (ARCHITECTURE §16.4, plan T1–T5). Each loads its own data, so
 // one that fails leaves the rest of Today alone.
 
-import type { TodayTile } from '@hearth/format'
+import type { TodayTile } from '@hotsauce/format'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { type BoardSummary, type BoardView, boardsApi } from '../../../api/boards'

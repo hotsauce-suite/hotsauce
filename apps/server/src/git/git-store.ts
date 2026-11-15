@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { ulid } from 'ulid'
-import { type ErrorCode, HearthError } from '../errors.js'
+import { type ErrorCode, HotsauceError } from '../errors.js'
 import { parseCommitMessage, withVia } from './message.js'
 import { KeyedMutex } from './mutex.js'
 import { GitError, runGit, runGitBuffer } from './run-git.js'
@@ -22,7 +22,7 @@ export interface GitStoreOptions {
   committer: Author
   /**
    * Fixes a moved markdown file's own relative links. Wired to `rewriteLinksForMove` from
-   * @hearth/format. `folder` is given when the file moved with a folder, whose other files moved too.
+   * @hotsauce/format. `folder` is given when the file moved with a folder, whose other files moved too.
    */
   rewriteLinks?: RewriteLinks
   /** Test seam: runs right before every push of main, so a test can land a concurrent push. */
@@ -39,7 +39,8 @@ export type RewriteLinks = (
 const MAIN = 'refs/heads/main'
 const ORIGIN_MAIN = 'refs/remotes/origin/main'
 const CONFLICT_PREFIX = 'refs/heads/conflicts/'
-const CONFLICT_PATH_TRAILER = 'Hearth-Conflict-Path'
+// Conflict commits before 0.15 say `Hearth-Conflict-Path`; both are read.
+const CONFLICT_PATH_TRAILER = 'Hotsauce-Conflict-Path'
 const MAX_PUSH_ATTEMPTS = 3
 const MAX_REBASE_STEPS = 500
 const BLOB_OID = /^[0-9a-f]{40}([0-9a-f]{24})?$/
@@ -75,7 +76,7 @@ export class GitStore {
       }
       await mkdir(this.reposDir, { recursive: true })
       await runGit(this.reposDir, ['clone', '--quiet', '--', remoteUrl, space])
-      // An empty remote clones with an unborn HEAD; Hearth always works on main.
+      // An empty remote clones with an unborn HEAD; Hotsauce always works on main.
       if ((await this.revParse(dir, 'HEAD')) === null) {
         await this.git(dir, ['symbolic-ref', 'HEAD', MAIN])
       }
@@ -116,11 +117,11 @@ export class GitStore {
   async headOid(space: string): Promise<string> {
     const dir = this.requireClone(space)
     const head = await this.revParse(dir, 'HEAD')
-    if (head === null) throw new HearthError('not_found', `Space ${space} has no commits yet`)
+    if (head === null) throw new HotsauceError('not_found', `Space ${space} has no commits yet`)
     return head
   }
 
-  /** Symlinks are invisible to Hearth: never listed, read, or written. Reading one is not_found. */
+  /** Symlinks are invisible to Hotsauce: never listed, read, or written. Reading one is not_found. */
   async readFile(
     space: string,
     rawPath: string,
@@ -131,7 +132,7 @@ export class GitStore {
     const dir = this.requireClone(space)
     const entry = await this.treeEntry(dir, ref, path)
     if (entry === null || !isRegularFile(entry)) {
-      throw new HearthError('not_found', `${path} not found at ${ref} in ${space}`)
+      throw new HotsauceError('not_found', `${path} not found at ${ref} in ${space}`)
     }
     const content = await this.git(dir, ['cat-file', 'blob', entry.oid])
     return { content, blobOid: entry.oid }
@@ -139,7 +140,7 @@ export class GitStore {
 
   /** A blob's text by its oid, such as the version a client last read; bad_request if unknown. */
   async readBlobText(space: string, oid: string): Promise<string> {
-    if (!BLOB_OID.test(oid)) throw new HearthError('bad_request', `Invalid blob: ${oid}`)
+    if (!BLOB_OID.test(oid)) throw new HotsauceError('bad_request', `Invalid blob: ${oid}`)
     return this.blobContent(this.requireClone(space), oid)
   }
 
@@ -154,7 +155,7 @@ export class GitStore {
     const dir = this.requireClone(space)
     const entry = await this.treeEntry(dir, ref, path)
     if (entry === null || !isRegularFile(entry)) {
-      throw new HearthError('not_found', `${path} not found at ${ref} in ${space}`)
+      throw new HotsauceError('not_found', `${path} not found at ${ref} in ${space}`)
     }
     const content = await runGitBuffer(dir, ['cat-file', 'blob', entry.oid])
     return { content, blobOid: entry.oid }
@@ -197,7 +198,7 @@ export class GitStore {
   async log(space: string, opts: { path?: string; limit?: number } = {}): Promise<Commit[]> {
     const path = opts.path === undefined ? undefined : normalizeRepoPath(opts.path)
     if (opts.limit !== undefined && !(Number.isInteger(opts.limit) && opts.limit > 0)) {
-      throw new HearthError('bad_request', `Invalid limit: ${opts.limit}`)
+      throw new HotsauceError('bad_request', `Invalid limit: ${opts.limit}`)
     }
     const dir = this.requireClone(space)
     if ((await this.revParse(dir, 'HEAD')) === null) return []
@@ -235,7 +236,7 @@ export class GitStore {
       return await this.git(dir, ['diff', '--no-color', '--no-ext-diff', from, to, '--', path])
     } catch (err) {
       if (err instanceof GitError && err.exitCode === 128) {
-        throw new HearthError('not_found', `Cannot diff ${from}..${to}: ${err.stderr.trim()}`)
+        throw new HotsauceError('not_found', `Cannot diff ${from}..${to}: ${err.stderr.trim()}`)
       }
       throw err
     }
@@ -248,7 +249,7 @@ export class GitStore {
     const dir = this.requireClone(space)
     for (const rev of [from, to]) {
       if ((await this.revParse(dir, rev)) === null) {
-        throw new HearthError('not_found', `Unknown commit ${rev} in ${space}`)
+        throw new HotsauceError('not_found', `Unknown commit ${rev} in ${space}`)
       }
     }
     return this.diffNames(dir, from, to)
@@ -294,7 +295,7 @@ export class GitStore {
     },
   ): Promise<CommitResult> {
     assertSpace(space)
-    if (args.changes.length === 0) throw new HearthError('bad_request', 'No changes to commit')
+    if (args.changes.length === 0) throw new HotsauceError('bad_request', 'No changes to commit')
     const changes = args.changes.map((c) => ({
       path: normalizeRepoPath(c.path),
       content: c.content,
@@ -317,7 +318,7 @@ export class GitStore {
       )
     }
     if (!BLOB_OID.test(args.base.blobOid)) {
-      throw new HearthError('bad_request', `Invalid base blob: ${args.base.blobOid}`)
+      throw new HotsauceError('bad_request', `Invalid base blob: ${args.base.blobOid}`)
     }
     const base = { path: normalizeRepoPath(args.base.path), blobOid: args.base.blobOid }
     return this.write(space, (dir) =>
@@ -336,14 +337,14 @@ export class GitStore {
     rawTo: string,
     author: Author,
     extraChanges?: (headOid: string) => Promise<Change[]>,
-    /** A `Hearth-Via` trailer for the commit (an agent made the move, ARCHITECTURE §8.2). */
+    /** A `Hotsauce-Via` trailer for the commit (an agent made the move, ARCHITECTURE §8.2). */
     opts: { via?: string | undefined } = {},
   ): Promise<{ oid: string }> {
     assertSpace(space)
     const from = normalizeRepoPath(rawFrom)
     const to = normalizeRepoPath(rawTo)
     if (to === from || to.startsWith(`${from}/`)) {
-      throw new HearthError('bad_request', `Cannot move ${from} into ${to}`)
+      throw new HotsauceError('bad_request', `Cannot move ${from} into ${to}`)
     }
     return this.write(space, (dir) =>
       this.moveUnlocked(space, dir, { from, to, author, extraChanges, via: opts.via }),
@@ -368,7 +369,7 @@ export class GitStore {
     const from = { space: rawFrom.space, path: normalizeRepoPath(rawFrom.path) }
     const to = { space: rawTo.space, path: normalizeRepoPath(rawTo.path) }
     if (from.space === to.space) {
-      throw new HearthError('bad_request', 'moveAcrossSpaces needs two different spaces')
+      throw new HotsauceError('bad_request', 'moveAcrossSpaces needs two different spaces')
     }
 
     const source = await this.write(from.space, async (dir) => {
@@ -379,12 +380,12 @@ export class GitStore {
     const added = await this.write(to.space, async (dir) => {
       await this.catchUp(to.space, dir)
       if ((await this.treeEntry(dir, 'HEAD', to.path)) !== null) {
-        throw new HearthError('conflict', `${to.path} already exists in ${to.space}`)
+        throw new HotsauceError('conflict', `${to.path} already exists in ${to.space}`)
       }
       return this.commitUnlocked(to.space, dir, {
         changes: [{ path: to.path, content: source.content }],
         author,
-        message: withVia(`hearth: add "${to.path}" from ${from.space}`, opts.via),
+        message: withVia(`hotsauce: add "${to.path}" from ${from.space}`, opts.via),
       })
     })
 
@@ -392,7 +393,7 @@ export class GitStore {
       this.commitUnlocked(from.space, dir, {
         changes: [{ path: from.path, content: null }],
         author,
-        message: withVia(`hearth: move "${from.path}" to ${to.space}`, opts.via),
+        message: withVia(`hotsauce: move "${from.path}" to ${to.space}`, opts.via),
         unchanged: { path: from.path, blobOid: source.blobOid, missingOk: true },
       }),
     )
@@ -412,7 +413,7 @@ export class GitStore {
         } catch (err) {
           // HEAD has already moved, and the indexer needs these paths. Unpushed commits are safe
           // in the clone and the next commit or sync pushes them; commit() reports push failures.
-          if (err instanceof HearthError && err.code === 'push_failed') break
+          if (err instanceof HotsauceError && err.code === 'push_failed') break
           throw err
         }
       }
@@ -449,11 +450,12 @@ export class GitStore {
     assertConflictRef(ref)
     return this.write(space, async (dir) => {
       if ((await this.revParse(dir, ref)) === null) {
-        throw new HearthError('not_found', `Conflict ${ref} not found in ${space}`)
+        throw new HotsauceError('not_found', `Conflict ${ref} not found in ${space}`)
       }
       const message = await this.git(dir, ['log', '-1', '--format=%B', ref])
       const path = conflictPathFromMessage(message)
-      if (path === null) throw new HearthError('bad_request', `${ref} has no conflict path trailer`)
+      if (path === null)
+        throw new HotsauceError('bad_request', `${ref} has no conflict path trailer`)
       // The trailer is repo data, not trusted input.
       assertRepoPath(path)
 
@@ -461,7 +463,7 @@ export class GitStore {
       const result = await this.commitUnlocked(space, dir, {
         changes: [{ path, content: resolved.content }],
         author,
-        message: `hearth: resolve conflict on "${path}"`,
+        message: `hotsauce: resolve conflict on "${path}"`,
         ...(parentEntry ? { base: { path, blobOid: parentEntry.oid } } : {}),
         // Resolving a conflict on a file main has since deleted brings it back, on purpose.
         allowRecreate: true,
@@ -509,7 +511,7 @@ export class GitStore {
         const head = await this.treeEntry(dir, 'HEAD', args.unchanged.path)
         const gone = head === null && !args.unchanged.missingOk
         if (gone || (head !== null && head.oid !== args.unchanged.blobOid)) {
-          throw new HearthError(
+          throw new HotsauceError(
             'conflict',
             `${args.unchanged.path} changed in ${space} while it was being saved`,
           )
@@ -523,7 +525,7 @@ export class GitStore {
         !args.allowRecreate &&
         (await this.treeEntry(dir, 'HEAD', args.base.path)) === null
       ) {
-        throw new HearthError(
+        throw new HotsauceError(
           'not_found',
           `${args.base.path} was moved or deleted while it was being edited`,
         )
@@ -583,7 +585,7 @@ export class GitStore {
         ? { status: 'committed', oid, blobOid }
         : { status: 'merged', oid, blobOid, content: merged }
     }
-    throw new HearthError(
+    throw new HotsauceError(
       'push_failed',
       `Push to origin was rejected ${MAX_PUSH_ATTEMPTS} times; another writer keeps winning the race`,
     )
@@ -606,16 +608,16 @@ export class GitStore {
       const before = await this.revParse(dir, 'HEAD')
       const source = await this.treeEntry(dir, 'HEAD', from)
       if (before === null || source === null) {
-        throw new HearthError('not_found', `${from} not found in ${space}`)
+        throw new HotsauceError('not_found', `${from} not found in ${space}`)
       }
       if ((await this.treeEntry(dir, 'HEAD', to)) !== null) {
-        throw new HearthError('conflict', `${to} already exists in ${space}`)
+        throw new HotsauceError('conflict', `${to} already exists in ${space}`)
       }
 
       // Every file that moves; a folder moves all the files under it.
       const files = source.type === 'tree' ? await this.treeFilesUnder(dir, from) : [source]
       if (!files.every(isRegularFile)) {
-        throw new HearthError('bad_request', `${from} is or contains a symlink or submodule`)
+        throw new HotsauceError('bad_request', `${from} is or contains a symlink or submodule`)
       }
       await assertSafeWorktreePath(dir, from, source.type === 'tree' ? 'dir' : 'file')
       await assertSafeWorktreePath(dir, to)
@@ -624,7 +626,7 @@ export class GitStore {
         [from, to].some((p) => path === p || path.startsWith(`${p}/`))
       const normalized = extra.map((c) => ({ path: normalizeRepoPath(c.path), content: c.content }))
       if (normalized.some((c) => moving(c.path))) {
-        throw new HearthError('bad_request', `Extra changes can't touch ${from} or ${to}`)
+        throw new HotsauceError('bad_request', `Extra changes can't touch ${from} or ${to}`)
       }
 
       await mkdir(dirname(join(dir, to)), { recursive: true })
@@ -650,7 +652,7 @@ export class GitStore {
           '--quiet',
           '--no-verify',
           '-m',
-          withVia(`hearth: move "${from}" to "${to}"`, args.via),
+          withVia(`hotsauce: move "${from}" to "${to}"`, args.via),
         ],
         { GIT_AUTHOR_NAME: author.name, GIT_AUTHOR_EMAIL: author.email },
       )
@@ -661,7 +663,7 @@ export class GitStore {
       }
       return { oid: (await this.revParse(dir, 'HEAD')) ?? '' }
     }
-    throw new HearthError('push_failed', `Push to origin was rejected ${MAX_PUSH_ATTEMPTS} times`)
+    throw new HotsauceError('push_failed', `Push to origin was rejected ${MAX_PUSH_ATTEMPTS} times`)
   }
 
   /**
@@ -707,7 +709,8 @@ export class GitStore {
         : ['rebase', '--quiet', '--onto', ORIGIN_MAIN, rewrittenSince],
     )
     for (let step = 0; this.rebaseInProgress(dir); step++) {
-      if (step >= MAX_REBASE_STEPS) throw new HearthError('internal', `Rebase of ${space} stalled`)
+      if (step >= MAX_REBASE_STEPS)
+        throw new HotsauceError('internal', `Rebase of ${space} stalled`)
       const unmerged = await this.unmergedStages(dir)
       if (unmerged.size === 0) {
         await this.rebaseStep(dir, [
@@ -758,7 +761,7 @@ export class GitStore {
     author: Author,
   ): Promise<string> {
     const ref = `${CONFLICT_PREFIX}${ulid()}`
-    const tmp = await mkdtemp(join(tmpdir(), 'hearth-conflict-'))
+    const tmp = await mkdtemp(join(tmpdir(), 'hotsauce-conflict-'))
     try {
       const contentFile = join(tmp, 'content')
       await writeFile(contentFile, content)
@@ -779,7 +782,7 @@ export class GitStore {
         indexEnv,
       )
       const tree = (await this.git(dir, ['write-tree'], indexEnv)).trim()
-      const message = `hearth: conflict on "${path}"\n\n${CONFLICT_PATH_TRAILER}: ${path}`
+      const message = `hotsauce: conflict on "${path}"\n\n${CONFLICT_PATH_TRAILER}: ${path}`
       const commit = (
         await this.git(
           dir,
@@ -812,7 +815,7 @@ export class GitStore {
     const dir = this.repoDir(space)
     // Deliberately not not_found: callers read not_found on a path as "the file was deleted".
     if (!existsSync(join(dir, '.git'))) {
-      throw new HearthError('internal', `Space ${space} has no clone; call ensureClone first`)
+      throw new HotsauceError('internal', `Space ${space} has no clone; call ensureClone first`)
     }
     return dir
   }
@@ -877,7 +880,7 @@ export class GitStore {
   }
 
   private git(dir: string, args: string[], env?: Record<string, string>): Promise<string> {
-    // Hearth is the committer of everything it writes, rebased commits included.
+    // Hotsauce is the committer of everything it writes, rebased commits included.
     return runGit(dir, args, {
       GIT_COMMITTER_NAME: this.committer.name,
       GIT_COMMITTER_EMAIL: this.committer.email,
@@ -930,7 +933,7 @@ export class GitStore {
       return await this.git(dir, ['cat-file', 'blob', oid])
     } catch (err) {
       if (err instanceof GitError && err.exitCode === 128) {
-        throw new HearthError('bad_request', `Unknown blob ${oid}`)
+        throw new HotsauceError('bad_request', `Unknown blob ${oid}`)
       }
       throw err
     }
@@ -941,7 +944,7 @@ export class GitStore {
     return parseLsTree(out).filter((e) => e.path.startsWith(`${folder}/`))
   }
 
-  /** The only place Hearth writes into a work tree; every path is re-checked here. */
+  /** The only place Hotsauce writes into a work tree; every path is re-checked here. */
   private async writeChanges(dir: string, changes: Change[]): Promise<void> {
     const paths = changes.map((c) => c.path)
     for (const path of paths) assertRepoPath(path)
@@ -949,7 +952,7 @@ export class GitStore {
       const out = await this.git(dir, ['ls-tree', '-z', '--long', 'HEAD', '--', ...paths])
       const notFile = parseLsTree(out).find((e) => paths.includes(e.path) && !isRegularFile(e))
       if (notFile) {
-        throw new HearthError(
+        throw new HotsauceError(
           'bad_request',
           `Refusing to write ${notFile.path}: not a regular file`,
         )
@@ -992,7 +995,7 @@ export class GitStore {
     base: string,
     theirs: string,
   ): Promise<{ clean: boolean; text: string }> {
-    const tmp = await mkdtemp(join(tmpdir(), 'hearth-merge-'))
+    const tmp = await mkdtemp(join(tmpdir(), 'hotsauce-merge-'))
     try {
       const files = {
         ours: join(tmp, 'ours'),
@@ -1118,7 +1121,7 @@ function fileEntry(path: string, e: TreeEntry): Entry {
 }
 
 function conflictPathFromMessage(message: string): string | null {
-  const match = new RegExp(`^${CONFLICT_PATH_TRAILER}: (.+)$`, 'm').exec(message)
+  const match = /^(?:Hotsauce|Hearth)-Conflict-Path: (.+)$/m.exec(message)
   return match?.[1]?.trim() ?? null
 }
 
@@ -1126,14 +1129,14 @@ function conflictPathFromMessage(message: string): string | null {
  * Git's output names server paths and remote URLs, so it goes to the server log in full and
  * clients get `message` alone.
  */
-function loggedError(code: ErrorCode, message: string, cause: unknown): HearthError {
+function loggedError(code: ErrorCode, message: string, cause: unknown): HotsauceError {
   console.error(`${message}:`, cause)
-  return new HearthError(code, message)
+  return new HotsauceError(code, message)
 }
 
 function committedOid(result: CommitResult): string {
   if (result.status === 'conflict') {
-    throw new HearthError('internal', 'Unexpected conflict while moving across spaces')
+    throw new HotsauceError('internal', 'Unexpected conflict while moving across spaces')
   }
   return result.oid
 }

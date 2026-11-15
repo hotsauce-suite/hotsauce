@@ -2,7 +2,7 @@
 // the page, Turndown writes it as Markdown. Words, headings, lists, quotes, code, tables and
 // links; pictures become links to the original.
 
-import { MAX_LINK_BODY, oneLine, siteOf, wordCount } from '@hearth/format'
+import { MAX_LINK_BODY, oneLine, siteOf, wordCount } from '@hotsauce/format'
 import { gfm } from '@joplin/turndown-plugin-gfm'
 import { Readability } from '@mozilla/readability'
 import { parseHTML } from 'linkedom'

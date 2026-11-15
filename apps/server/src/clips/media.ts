@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { setPriority } from 'node:os'
 import { promisify } from 'node:util'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { ClipContainer } from './store.js'
 
 const run = promisify(execFile)
@@ -61,7 +61,7 @@ async function ffmpeg(
   } catch (err) {
     const stderr = (err as { stderr?: string }).stderr ?? ''
     const reason = stderr.trim().split('\n').slice(-3).join(' | ') || (err as Error).message
-    throw new HearthError('internal', `ffmpeg failed: ${reason.slice(0, 500)}`)
+    throw new HotsauceError('internal', `ffmpeg failed: ${reason.slice(0, 500)}`)
   }
 }
 
@@ -101,7 +101,7 @@ export async function probe(paths: FfmpegPaths, file: string): Promise<Probe> {
       { timeout: 60_000, maxBuffer: 4 * 1024 * 1024 },
     ))
   } catch (err) {
-    throw new HearthError('internal', `ffprobe failed: ${(err as Error).message.slice(0, 300)}`)
+    throw new HotsauceError('internal', `ffprobe failed: ${(err as Error).message.slice(0, 300)}`)
   }
   const out = ProbeOutput.parse(JSON.parse(stdout))
   const video = out.streams.find((s) => s.codec_type === 'video')

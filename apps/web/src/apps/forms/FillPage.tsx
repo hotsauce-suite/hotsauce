@@ -1,7 +1,7 @@
-import { checkAnswers, type Question, visibleQuestions } from '@hearth/format'
+import { checkAnswers, type Question, visibleQuestions } from '@hotsauce/format'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { formsApi, type FillPage as Page } from '../../api/forms'
 import { useAuthState } from '../../auth/AuthContext'
 import { org, product } from '../../brand/product'
@@ -44,8 +44,9 @@ export default function FillPage() {
       },
       (err: unknown) => {
         if (!live) return
-        if (err instanceof HearthApiError && err.status === 401) setLoad({ status: 'sign-in' })
-        else if (err instanceof HearthApiError && err.status === 404) setLoad({ status: 'missing' })
+        if (err instanceof HotsauceApiError && err.status === 401) setLoad({ status: 'sign-in' })
+        else if (err instanceof HotsauceApiError && err.status === 404)
+          setLoad({ status: 'missing' })
         else setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Failed' })
       },
     )
@@ -190,7 +191,7 @@ function FillForm({ link, page, onSent }: { link: string; page: Page; onSent: ()
       onSent()
     } catch (err) {
       setBusy(false)
-      const details = err instanceof HearthApiError ? (err.details as { errors?: unknown }) : null
+      const details = err instanceof HotsauceApiError ? (err.details as { errors?: unknown }) : null
       if (details && typeof details.errors === 'object' && details.errors) {
         setErrors(details.errors as Record<string, string>)
       }

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useRouteLoaderData } from 'react-router'
-import { HearthApiError } from '../api/client'
+import { HotsauceApiError } from '../api/client'
 import type { Health } from '../api/types'
 import { useAuthState } from '../auth/AuthContext'
 import { product } from '../brand/product'
@@ -27,7 +27,7 @@ export default function SignInRoute() {
     <div className="relative flex min-h-full items-center justify-center overflow-clip p-6">
       <div
         aria-hidden="true"
-        className="hearth-glow pointer-events-none absolute -bottom-40 left-1/2 size-[36rem] -translate-x-1/2 rounded-full blur-3xl"
+        className="hotsauce-glow pointer-events-none absolute -bottom-40 left-1/2 size-[36rem] -translate-x-1/2 rounded-full blur-3xl"
         style={{
           background:
             'radial-gradient(circle, color-mix(in oklab, var(--glow) 30%, transparent), color-mix(in oklab, var(--ember) 10%, transparent) 45%, transparent 70%)',
@@ -85,7 +85,7 @@ function DevSignInForm({ from, domain }: { from: string; domain: string | null |
       navigate(from, { replace: true })
     } catch (err) {
       setError(
-        err instanceof HearthApiError && err.code !== 'network'
+        err instanceof HotsauceApiError && err.code !== 'network'
           ? err.message
           : `Couldn’t reach the ${product()} server. Is it running?`,
       )

@@ -108,6 +108,9 @@ export const ConfigSchema = z
     GITHUB_TOKEN: z.string().optional(),
     GITHUB_ORG: z.string().optional(),
 
+    HOTSAUCE_COMMITTER_NAME: z.string().optional(),
+    HOTSAUCE_COMMITTER_EMAIL: z.string().email().optional(),
+    // The old names, still read so existing deployments keep their committer.
     HEARTH_COMMITTER_NAME: z.string().optional(),
     HEARTH_COMMITTER_EMAIL: z.string().email().optional(),
     WEBHOOK_SECRET: z.string().default(DEV_WEBHOOK_SECRET),
@@ -124,11 +127,11 @@ export const ConfigSchema = z
     CHAT_MODEL: z.string().min(1).default('claude-opus-5-5'),
     // After-call transcript cleanup (ARCHITECTURE §7.11): the spelling pass's model.
     CLEANUP_MODEL: z.string().min(1).default('claude-haiku-5-5'),
-    // Hearth Dictate's cleanup pass runs on every dictation, so it uses a fast model.
+    // Hotsauce Dictate's cleanup pass runs on every dictation, so it uses a fast model.
     DICTATION_MODEL: z.string().min(1).default('claude-haiku-5-5'),
-    // Hearth Clips (ARCHITECTURE §10): the title and summary model, and where ffmpeg is.
+    // Hotsauce Clips (ARCHITECTURE §10): the title and summary model, and where ffmpeg is.
     CLIPS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
-    // Hearth Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
+    // Hotsauce Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
     TASKS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Saved links (ARCHITECTURE §23): how pages are fetched (fake in development and test), and
     // the model that summarizes and tags them.
@@ -223,6 +226,7 @@ export const ConfigSchema = z
       }
     })()
     const committerEmail =
+      c.HOTSAUCE_COMMITTER_EMAIL ??
       c.HEARTH_COMMITTER_EMAIL ??
       `hotsauce@${publicHost.includes('.') ? publicHost : 'hotsauce.invalid'}`
     return {
@@ -233,8 +237,9 @@ export const ConfigSchema = z
         c.ALLOWED_EMAIL_DOMAINS.length === 0 && !production
           ? ['example.test']
           : c.ALLOWED_EMAIL_DOMAINS,
-      HEARTH_COMMITTER_NAME: c.HEARTH_COMMITTER_NAME ?? c.PRODUCT_NAME,
-      HEARTH_COMMITTER_EMAIL: committerEmail,
+      HOTSAUCE_COMMITTER_NAME:
+        c.HOTSAUCE_COMMITTER_NAME ?? c.HEARTH_COMMITTER_NAME ?? c.PRODUCT_NAME,
+      HOTSAUCE_COMMITTER_EMAIL: committerEmail,
       VAPID_SUBJECT: c.VAPID_SUBJECT ?? `mailto:${committerEmail}`,
       // In production a provider without a key is 'none': its features say "add a key" instead
       // of refusing to start, so an organization can bring its own keys later.

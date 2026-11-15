@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { createApp } from '../../src/app.js'
 import { bubbleGeometry, FakeClipTranscriber, probe } from '../../src/clips/index.js'
 import { type Config, loadConfig } from '../../src/config.js'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import { FakeLLM, LocalAudioStore } from '../../src/meetings/index.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
@@ -26,7 +26,7 @@ let cameraWebm: Buffer
 
 /** What Chrome's MediaRecorder makes, near enough: a live-style WebM and a fragmented MP4. */
 beforeAll(async () => {
-  fixtures = await makeTempDir('hearth-clip-fixtures-')
+  fixtures = await makeTempDir('hotsauce-clip-fixtures-')
   const src = [
     '-f',
     'lavfi',
@@ -141,7 +141,7 @@ let asr: FakeClipTranscriber
 let llm: FakeLLM
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-clips-')
+  root = await makeTempDir('hotsauce-clips-')
   config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -426,7 +426,7 @@ describe('transcripts', () => {
       calls: 0,
       async transcribe() {
         this.calls++
-        throw new HearthError('asr_error', 'The transcription service refused this audio')
+        throw new HotsauceError('asr_error', 'The transcription service refused this audio')
       },
     }
     const real = asr

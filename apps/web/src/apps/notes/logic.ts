@@ -1,6 +1,6 @@
-// Pure helpers for Hearth Notes' web app (ARCHITECTURE §14.5).
+// Pure helpers for Hotsauce Notes' web app (ARCHITECTURE §14.5).
 
-import { NOTE_COLORS, type NoteColor } from '@hearth/format'
+import { NOTE_COLORS, type NoteColor } from '@hotsauce/format'
 import type { NoteView } from '../../api/notes'
 
 export const COLOR_NAMES: Record<NoteColor, string> = {

@@ -8,7 +8,7 @@ import {
   patchFrontmatter,
   renameSpeakers,
   transcriptPathFor,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
 import type {
   ChatScope,

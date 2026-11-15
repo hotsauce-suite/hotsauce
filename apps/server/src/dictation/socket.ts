@@ -1,7 +1,7 @@
 import { ulid } from 'ulid'
 import { z } from 'zod'
 import type { Authenticator, Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type {
   Transcriber,
   TranscriberSession,
@@ -159,10 +159,10 @@ export class DictationSocketServer {
       phase = 'done'
       stopTimers()
       const error =
-        err instanceof HearthError
+        err instanceof HotsauceError
           ? err
-          : new HearthError('asr_error', 'The dictation stream failed')
-      if (!(err instanceof HearthError)) {
+          : new HotsauceError('asr_error', 'The dictation stream failed')
+      if (!(err instanceof HotsauceError)) {
         console.error(`dictation stream failed: ${err instanceof Error ? err.name : 'error'}`)
       }
       socket.send(JSON.stringify({ type: 'error', code: error.code, message: error.message }))
@@ -171,17 +171,17 @@ export class DictationSocketServer {
     }
 
     const timer = setTimeout(() => {
-      if (phase === 'auth') fail(new HearthError('unauthorized', 'No start message'))
+      if (phase === 'auth') fail(new HotsauceError('unauthorized', 'No start message'))
     }, this.#authTimeoutMs)
     const lifetimeTimer = setTimeout(
-      () => fail(new HearthError('bad_request', 'A dictation can be at most 10 minutes')),
+      () => fail(new HotsauceError('bad_request', 'A dictation can be at most 10 minutes')),
       MAX_LIFETIME_MS,
     )
     const stillHearing = () => {
       clearTimeout(idleTimer)
       idleTimer = setTimeout(() => {
         if (phase === 'starting' || phase === 'streaming') {
-          fail(new HearthError('asr_error', 'No audio for 20 seconds'))
+          fail(new HotsauceError('asr_error', 'No audio for 20 seconds'))
         }
       }, this.#idleMs)
     }
@@ -258,18 +258,18 @@ export class DictationSocketServer {
         try {
           json = JSON.parse(data)
         } catch {
-          return fail(new HearthError('bad_request', 'Not JSON'))
+          return fail(new HotsauceError('bad_request', 'Not JSON'))
         }
         if (phase === 'auth') {
           const message = Start.safeParse(json)
           if (!message.success)
-            return fail(new HearthError('unauthorized', 'Start with a device token'))
+            return fail(new HotsauceError('unauthorized', 'Start with a device token'))
           clearTimeout(timer)
           begin(message.data).catch(fail)
           return
         }
         const control = Control.safeParse(json)
-        if (!control.success) return fail(new HearthError('bad_request', 'Unknown message'))
+        if (!control.success) return fail(new HotsauceError('bad_request', 'Unknown message'))
         if (control.data.type === 'cancel') {
           phase = 'done'
           stopTimers()
@@ -289,7 +289,7 @@ export class DictationSocketServer {
         stillHearing()
         bytes += data.length
         if (bytes > MAX_STREAM_BYTES) {
-          return fail(new HearthError('bad_request', 'A dictation can be at most 10 minutes'))
+          return fail(new HotsauceError('bad_request', 'A dictation can be at most 10 minutes'))
         }
         if (phase === 'streaming' && session) {
           session.sendAudio('me', data)
@@ -298,7 +298,7 @@ export class DictationSocketServer {
         earlyBytes += data.length
         if (earlyBytes > MAX_EARLY_BYTES) {
           return fail(
-            new HearthError('asr_error', 'The transcription service took too long to start'),
+            new HotsauceError('asr_error', 'The transcription service took too long to start'),
           )
         }
         early.push(data)
@@ -314,7 +314,7 @@ export class DictationSocketServer {
   }
 }
 
-function closeCodeFor(error: HearthError): number {
+function closeCodeFor(error: HotsauceError): number {
   switch (error.code) {
     case 'unauthorized':
       return WS_DICTATION_UNAUTHORIZED

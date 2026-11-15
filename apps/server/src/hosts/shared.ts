@@ -1,19 +1,19 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 const REPO_NAME = /^[a-z0-9][a-z0-9._-]{0,99}$/i
 
 /** Repo names end up in file paths (local) and URLs (remote hosts). */
 export function assertRepoName(name: string): void {
   if (!REPO_NAME.test(name) || name.includes('..') || name.toLowerCase().endsWith('.git')) {
-    throw new HearthError('bad_request', `Invalid repository name: ${JSON.stringify(name)}`)
+    throw new HotsauceError('bad_request', `Invalid repository name: ${JSON.stringify(name)}`)
   }
 }
 
 export function assertNotProduction(action: string): void {
   if (process.env.NODE_ENV === 'production') {
-    throw new HearthError('forbidden', `${action} is disabled in production`)
+    throw new HotsauceError('forbidden', `${action} is disabled in production`)
   }
 }
 
@@ -38,7 +38,7 @@ const PushPayload = z.object({
   repository: z.object({ name: z.string().min(1) }),
 })
 
-/** The fields Hearth needs from a push event body (same shape on GitHub and Forgejo). */
+/** The fields Hotsauce needs from a push event body (same shape on GitHub and Forgejo). */
 export function parsePushPayload(rawBody: string): { repo: string; ref: string } | null {
   let json: unknown
   try {
@@ -56,7 +56,7 @@ export async function hostFetch(host: string, url: string, init: RequestInit): P
     return await fetch(url, init)
   } catch (err) {
     console.error(`${host}: ${init.method ?? 'GET'} ${new URL(url).pathname} failed:`, err)
-    throw new HearthError('host_error', `${host} could not be reached`)
+    throw new HotsauceError('host_error', `${host} could not be reached`)
   }
 }
 
@@ -64,9 +64,9 @@ export async function hostFetch(host: string, url: string, init: RequestInit): P
  * A host_error for a failed response. The body is where hosts explain themselves, so it goes to
  * the server log; clients get only what failed and the status.
  */
-export async function hostError(host: string, what: string, res: Response): Promise<HearthError> {
+export async function hostError(host: string, what: string, res: Response): Promise<HotsauceError> {
   const body = await res.text().catch(() => '')
   const message = `${host}: ${what} failed (${res.status})`
   console.error(`${message}: ${body.slice(0, 500)}`)
-  return new HearthError('host_error', message)
+  return new HotsauceError('host_error', message)
 }

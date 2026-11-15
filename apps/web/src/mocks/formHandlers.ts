@@ -1,4 +1,4 @@
-// MSW routes for Hearth Forms (`/api/forms`, `/api/form/<link>`, `/api/chat-rooms`; ARCHITECTURE
+// MSW routes for Hotsauce Forms (`/api/forms`, `/api/form/<link>`, `/api/chat-rooms`; ARCHITECTURE
 // §21), in memory and shaped like the server's (apps/server/src/forms). The answer check, the CSV
 // and the question rules are the format's own. Files in answers are stored in the mock's Files.
 
@@ -14,7 +14,7 @@ import {
   newId,
   type Question,
   questionsProblem,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { type AnyHandler, delay, HttpResponse, http } from 'msw'
 import type { AnswerRow, FormSummary, FormView, Tally } from '../api/forms'
 import type { FakeUser } from './fakeRepo'

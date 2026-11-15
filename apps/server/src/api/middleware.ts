@@ -1,7 +1,7 @@
 import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { authenticateDevice, deviceTokenFrom, MAX_DICTATION_BYTES } from '../dictation/index.js'
-import { type ErrorCode, HearthError } from '../errors.js'
+import { type ErrorCode, HotsauceError } from '../errors.js'
 import { FILE_MEDIA_PREFIX } from '../files/index.js'
 import { PUBLIC_BOOKING_PREFIX } from './booking.js'
 import { BRIEFCAST_FEED_PREFIX } from './briefcast.js'
@@ -14,11 +14,11 @@ import { SHARED_PREFIX } from './shares.js'
 // Above the 10 MB upload limit, which the assets route checks itself.
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024
 const DICTATION_UPLOAD = '/api/dictation/transcribe'
-// A Hearth Tasks ramble is a voice note, up to the same 15 MB as a dictation.
+// A Hotsauce Tasks ramble is a voice note, up to the same 15 MB as a dictation.
 const RAMBLE_UPLOAD = '/api/tasks/ramble'
 
 /**
- * The only requests a Hearth Dictate device token can make. Anything else with one is refused,
+ * The only requests a Hotsauce Dictate device token can make. Anything else with one is refused,
  * so a token lifted from a Mac can dictate and edit the word lists, but never read a document.
  */
 function deviceTokenMayCall(method: string, path: string): boolean {
@@ -41,7 +41,7 @@ function isPublic(path: string): boolean {
     path.startsWith('/api/org/') ||
     path.startsWith('/api/setup/') ||
     path.startsWith(CLIP_MEDIA_PREFIX) ||
-    // Hearth Files' local bytes: signed URLs, like clip media.
+    // Hotsauce Files' local bytes: signed URLs, like clip media.
     path.startsWith(FILE_MEDIA_PREFIX) ||
     // A member's private podcast feed: podcast apps can't sign in; the URL's token is the key.
     path.startsWith(BRIEFCAST_FEED_PREFIX) ||
@@ -68,7 +68,7 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
     if (c.req.path.startsWith(SHARED_PREFIX) || c.req.path.startsWith(FORM_FILL_PREFIX)) {
       // An outsider's session (domain_not_allowed) counts as none; anything else is a real error.
       const principal = await deps.auth.authenticate(c.req.raw).catch((err: unknown) => {
-        if (err instanceof HearthError) return null
+        if (err instanceof HotsauceError) return null
         throw err
       })
       if (principal) c.set('principal', principal)
@@ -77,7 +77,7 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
     const deviceToken = deviceTokenFrom(c.req.header('authorization'))
     if (deviceToken !== null) {
       if (!deviceTokenMayCall(c.req.method, c.req.path)) {
-        throw new HearthError('unauthorized', 'A Dictate device can only dictate')
+        throw new HotsauceError('unauthorized', 'A Dictate device can only dictate')
       }
       const { principal, deviceId } = await authenticateDevice(
         deps.auth,
@@ -89,12 +89,12 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
       return next()
     }
     const principal = await deps.auth.authenticate(c.req.raw)
-    if (principal === null) throw new HearthError('unauthorized', 'Sign in first')
+    if (principal === null) throw new HotsauceError('unauthorized', 'Sign in first')
     try {
       await deps.spaces.ensurePersonalSpace(principal)
       teamOnly.delete(principal.email)
     } catch (err) {
-      if (!(err instanceof HearthError && TEAM_ONLY.has(err.code))) throw err
+      if (!(err instanceof HotsauceError && TEAM_ONLY.has(err.code))) throw err
       if (!teamOnly.has(principal.email)) {
         teamOnly.add(principal.email)
         console.warn(`${principal.email} has team access only: ${err.code}: ${err.message}`)
@@ -111,7 +111,7 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
  */
 export function limitBody() {
   const tooLarge = () => {
-    throw new HearthError('bad_request', 'Request body is too large', { status: 413 })
+    throw new HotsauceError('bad_request', 'Request body is too large', { status: 413 })
   }
   const limit = bodyLimit({ maxSize: MAX_REQUEST_BYTES, onError: tooLarge })
   // A dictation or a ramble is up to 15 MB of audio; the route checks it again.
@@ -133,7 +133,7 @@ export function authorizeSpace(deps: Pick<AppDeps, 'spaces'>) {
   return createMiddleware<AppEnv>(async (c, next) => {
     const space = c.req.param('space') ?? ''
     if (!deps.spaces.canAccess(c.get('principal'), space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
     await next()
   })

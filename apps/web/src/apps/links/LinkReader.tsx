@@ -93,7 +93,7 @@ export default function LinkReader() {
   const body = useMemo(
     () =>
       link?.body ? (
-        <div className="prose-hearth !p-0" data-testid="link-body">
+        <div className="prose-hotsauce !p-0" data-testid="link-body">
           <Markdown remarkPlugins={[remarkGfm]} components={components}>
             {link.body}
           </Markdown>

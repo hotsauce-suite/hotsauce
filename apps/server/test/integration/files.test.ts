@@ -23,7 +23,7 @@ let app: ReturnType<typeof createApp>
 let config: ReturnType<typeof loadConfig>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-files-')
+  root = await makeTempDir('hotsauce-files-')
   config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -321,7 +321,7 @@ describe('personal files and share links', () => {
   it('refuses pointers written outside Files, so a revoked link can’t be rebuilt', async () => {
     const f = await upload('salary.pdf', pdf('Secret plan'), { space: 'alice' })
     const pointer = (await api('GET', `/api/spaces/alice/file?path=files/${f.id}.md`)).content
-    // Bob copies the pointer into the team space through Docs; Hearth refuses it.
+    // Bob copies the pointer into the team space through Docs; Hotsauce refuses it.
     await api('PUT', '/api/spaces/team/file', {
       as: BOB,
       status: 403,

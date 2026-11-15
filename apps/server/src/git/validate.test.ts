@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   assertConflictRef,
   assertRepoPath,
@@ -13,7 +13,7 @@ function code(fn: () => unknown): string | null {
     fn()
     return null
   } catch (err) {
-    return err instanceof HearthError ? err.code : 'not-a-hearth-error'
+    return err instanceof HotsauceError ? err.code : 'not-a-hotsauce-error'
   }
 }
 

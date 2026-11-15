@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 /** Text to speech for Briefcast (plan `docs/plans/2026-11-12-briefcast.md`). Returns MP3 bytes. */
 export interface Speaker {
@@ -62,13 +62,13 @@ export class OpenAISpeaker implements Speaker {
       })
     } catch (err) {
       console.error(`briefcast: text to speech request failed: ${errorText(err)}`)
-      throw new HearthError('llm_error', 'The voice service couldn’t be reached')
+      throw new HotsauceError('llm_error', 'The voice service couldn’t be reached')
     }
     if (!res.ok) {
       // The detail stays in the server log: OpenAI's errors can name part of the key.
       const detail = (await res.text().catch(() => '')).slice(0, 300)
       console.error(`briefcast: text to speech failed (${res.status}): ${detail}`)
-      throw new HearthError('llm_error', `The voice service refused the request (${res.status})`)
+      throw new HotsauceError('llm_error', `The voice service refused the request (${res.status})`)
     }
     return new Uint8Array(await res.arrayBuffer())
   }
@@ -92,7 +92,7 @@ export class UnconfiguredSpeaker implements Speaker {
   readonly voice = ''
 
   async speak(): Promise<Uint8Array> {
-    throw new HearthError('not_configured', 'Briefcast audio needs an OpenAI key')
+    throw new HotsauceError('not_configured', 'Briefcast audio needs an OpenAI key')
   }
 }
 

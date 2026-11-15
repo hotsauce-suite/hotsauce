@@ -1,4 +1,4 @@
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { meetingsApi } from '../../../api/meetings'

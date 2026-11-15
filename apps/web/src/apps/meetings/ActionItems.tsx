@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import type { MeetingActionItems } from '../../api/types'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import { meetingUrl } from '../../lib/paths'
 
 /** How many items show before "Show all". */
@@ -55,7 +55,7 @@ function useActionItems(): { rows: Row[]; setRows: (update: (rows: Row[]) => Row
   // Each refetch reads up to 60 notes on the server; a burst of saves refetches once.
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const off = hearthSocket.onChanged((event) => {
+    const off = hotsauceSocket.onChanged((event) => {
       if (!event.paths.some((p) => p.startsWith('meetings/'))) return
       clearTimeout(timer)
       timer = setTimeout(() => setVersion((v) => v + 1), REFETCH_DEBOUNCE_MS)
@@ -91,7 +91,7 @@ export function ActionItems() {
     } catch (err) {
       setRows((current) => (current.some((r) => r.key === row.key) ? current : [row, ...current]))
       setError(
-        err instanceof HearthApiError
+        err instanceof HotsauceApiError
           ? err.message
           : 'That didn’t save. Check your connection and try again.',
       )

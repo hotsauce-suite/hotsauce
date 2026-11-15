@@ -1,4 +1,4 @@
-// .xlsx in and out for Hearth Tables (ARCHITECTURE §22.5): just the first sheet's cells, as text,
+// .xlsx in and out for Hotsauce Tables (ARCHITECTURE §22.5): just the first sheet's cells, as text,
 // numbers, dates and formulas. Written fresh from the Office Open XML spreadsheet layout; the
 // zip is fflate (MIT).
 
@@ -9,7 +9,7 @@ import {
   normalizeCells,
   parseA1,
   shiftFormula,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 
 /** A workbook's XML may not unzip past this (a zip bomb stops here). */

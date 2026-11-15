@@ -17,14 +17,14 @@ import type {
   StarItem,
 } from './types'
 
-export class HearthApiError extends Error {
+export class HotsauceApiError extends Error {
   readonly code: string
   readonly status: number
   readonly details: unknown
 
   constructor(code: string, message: string, status: number, details?: unknown) {
     super(message)
-    this.name = 'HearthApiError'
+    this.name = 'HotsauceApiError'
     this.code = code
     this.status = status
     this.details = details
@@ -88,8 +88,8 @@ function isConflictResult(body: unknown): body is Extract<CommitResult, { status
   )
 }
 
-/** Maps a non-2xx response to a HearthApiError, preferring the server's `{ error: { code, message } }`. */
-export async function toApiError(res: Response): Promise<HearthApiError> {
+/** Maps a non-2xx response to a HotsauceApiError, preferring the server's `{ error: { code, message } }`. */
+export async function toApiError(res: Response): Promise<HotsauceApiError> {
   let body: unknown = null
   try {
     body = await res.json()
@@ -97,10 +97,10 @@ export async function toApiError(res: Response): Promise<HearthApiError> {
     // Not JSON (proxy error page, empty body): fall back to the status.
   }
   if (isErrorBody(body)) {
-    return new HearthApiError(body.error.code, body.error.message, res.status, body.error.details)
+    return new HotsauceApiError(body.error.code, body.error.message, res.status, body.error.details)
   }
   const code = CODE_BY_STATUS[res.status] ?? (res.status >= 500 ? 'server_error' : 'http_error')
-  return new HearthApiError(code, res.statusText || `Request failed (${res.status})`, res.status)
+  return new HotsauceApiError(code, res.statusText || `Request failed (${res.status})`, res.status)
 }
 
 interface RequestOptions {

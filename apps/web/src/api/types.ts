@@ -155,7 +155,7 @@ export interface ApiErrorBody {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Hearth Meetings: hand-written mirror of ARCHITECTURE §7.1–7.3.
+// Hotsauce Meetings: hand-written mirror of ARCHITECTURE §7.1–7.3.
 
 export type Track = 'me' | 'them'
 

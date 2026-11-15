@@ -1,6 +1,6 @@
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import { type AudioTrack, meetingsApi } from '../../../api/meetings'
 import { Icon } from '../../../components/Icon'
 import { NEEDS_CONNECTION } from '../../../components/Offline'
@@ -97,7 +97,7 @@ export function MeetingHeader({
       await doc.refetch()
       setPhase({ name: 'idle' })
     } catch (err) {
-      if (err instanceof HearthApiError && err.status === 409) setPhase({ name: 'confirm' })
+      if (err instanceof HotsauceApiError && err.status === 409) setPhase({ name: 'confirm' })
       else {
         setPhase({
           name: 'error',

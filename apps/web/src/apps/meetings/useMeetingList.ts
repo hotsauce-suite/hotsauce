@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import type { MeetingFilters, MeetingSummary } from '../../api/types'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 
 export interface MeetingList {
   status: 'loading' | 'ready' | 'error'
@@ -25,7 +25,7 @@ export function useMeetingList(filters: MeetingFilters): MeetingList {
       },
       (err: unknown) => {
         if (cancelled) return
-        const error = err instanceof HearthApiError ? err.message : 'Meetings didn’t load.'
+        const error = err instanceof HotsauceApiError ? err.message : 'Meetings didn’t load.'
         setList((current) => ({ ...current, status: 'error', error }))
       },
     )
@@ -35,7 +35,7 @@ export function useMeetingList(filters: MeetingFilters): MeetingList {
   }, [key, version])
 
   useEffect(() => {
-    const off = hearthSocket.onChanged((event) => {
+    const off = hotsauceSocket.onChanged((event) => {
       if (event.paths.some((p) => p.startsWith('meetings/'))) setVersion((v) => v + 1)
     })
     return () => {

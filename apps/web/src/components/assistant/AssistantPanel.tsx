@@ -17,14 +17,14 @@ import { formatSpec } from '../../keyboard/keys'
 import { fileUrl } from '../../lib/paths'
 import { Icon } from '../Icon'
 import { takePrompt, useAssistantState } from './state'
-import { hearthTarget, toolLine } from './tools'
+import { hotsauceTarget, toolLine } from './tools'
 
 const urlTransform = (url: string) => (url.startsWith('hearth:') ? url : defaultUrlTransform(url))
 
 const components: Components = {
   img: () => null,
   a: ({ href = '', children }) => {
-    const target = hearthTarget(href)
+    const target = hotsauceTarget(href)
     if (target) return <Link to={fileUrl(target.space, target.path)}>{children}</Link>
     return (
       <a href={href} target="_blank" rel="noopener noreferrer">

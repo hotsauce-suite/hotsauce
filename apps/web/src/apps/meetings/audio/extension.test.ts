@@ -37,7 +37,7 @@ afterEach(() => {
   uninstall = null
 })
 
-describe('the Hearth extension', () => {
+describe('the Hotsauce extension', () => {
   it('is not installed when nothing answers hello', async () => {
     expect(await extensionVersion()).toBeNull()
     const media = { getUserMedia: vi.fn() }
@@ -68,7 +68,7 @@ describe('the Hearth extension', () => {
     uninstall = installBridge((m) =>
       m.type === 'hello'
         ? { version: '0.1.0' }
-        : { ok: false, reason: 'not-invoked', message: 'Click the Hearth icon' },
+        : { ok: false, reason: 'not-invoked', message: 'Click the Hotsauce icon' },
     )
     const media = { getUserMedia: vi.fn() }
     expect(await meetTabFromExtension(null, media, vi.fn())).toBeNull()

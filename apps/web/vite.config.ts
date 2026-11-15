@@ -19,7 +19,7 @@ const API_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:3000'
 function mswWorkerFile(): Plugin {
   const file = createRequire(import.meta.url).resolve('msw/mockServiceWorker.js')
   return {
-    name: 'hearth-msw-worker-file',
+    name: 'hotsauce-msw-worker-file',
     apply: 'build',
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'mockServiceWorker.js', source: readFileSync(file) })
@@ -38,7 +38,7 @@ function excalidrawFonts(): Plugin {
   const fonts = join(dirname(entry), 'fonts')
   let outDir = 'dist'
   return {
-    name: 'hearth-excalidraw-fonts',
+    name: 'hotsauce-excalidraw-fonts',
     configResolved(config) {
       outDir = config.build.outDir
     },
@@ -195,7 +195,7 @@ export default defineConfig(({ mode }) => ({
     // The demo is served by the hotsauce.work site worker (site/worker.js) at demo.hotsauce.work.
     ...(mode === 'demo' ? { outDir: '../../site/public/demo', emptyOutDir: true } : {}),
     rolldownOptions: {
-      // @hearth/format is pure (ARCHITECTURE §2) but its package.json doesn't say so. Without
+      // @hotsauce/format is pure (ARCHITECTURE §2) but its package.json doesn't say so. Without
       // this, any import of it (slugify in the sidebar) keeps its top-level zod schemas, and so
       // zod and yaml, in the shell chunk.
       treeshake: { moduleSideEffects: (id) => !id.includes('/packages/format/') },

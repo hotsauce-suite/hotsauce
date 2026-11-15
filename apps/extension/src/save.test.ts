@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { rememberSaveTab, SAVE_TAB_TTL_MS, savable, savePageUrl, takeSaveTab } from './save'
 
-const HEARTH = ['https://office.example.com']
+const HOTSAUCE = ['https://office.example.com']
 
-describe('save to Hearth', () => {
-  it('saves web pages only, never Chrome’s own pages or Hearth itself', () => {
-    expect(savable('https://example.com/a', HEARTH)).toBe(true)
-    expect(savable('http://example.com', HEARTH)).toBe(true)
-    expect(savable('chrome://extensions', HEARTH)).toBe(false)
-    expect(savable('https://office.example.com/links', HEARTH)).toBe(false)
-    expect(savable('file:///x.pdf', HEARTH)).toBe(false)
-    expect(savable(undefined, HEARTH)).toBe(false)
+describe('save to Hotsauce', () => {
+  it('saves web pages only, never Chrome’s own pages or Hotsauce itself', () => {
+    expect(savable('https://example.com/a', HOTSAUCE)).toBe(true)
+    expect(savable('http://example.com', HOTSAUCE)).toBe(true)
+    expect(savable('chrome://extensions', HOTSAUCE)).toBe(false)
+    expect(savable('https://office.example.com/links', HOTSAUCE)).toBe(false)
+    expect(savable('file:///x.pdf', HOTSAUCE)).toBe(false)
+    expect(savable(undefined, HOTSAUCE)).toBe(false)
   })
 
   it('opens the save page with the address, a tidy title and where it came from', () => {

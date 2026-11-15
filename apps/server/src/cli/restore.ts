@@ -11,7 +11,7 @@
  *   restore <key> [--target <dir>]        that backup, into <dir> (default DATA_DIR)
  *   ... --force                           move what's in the target aside first
  *
- *   pnpm --filter @hearth/server restore list          (development)
+ *   pnpm --filter @hotsauce/server restore list          (development)
  *   node apps/server/dist/cli/restore.js list            (production image)
  */
 import { backupInstance, restoreBackup } from '../backup/index.js'

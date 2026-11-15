@@ -22,7 +22,7 @@ afterEach(async () => {
 
 /** An instance on one data directory; a second call with other env is the same server restarted. */
 async function instance(env: Record<string, string>) {
-  root ??= await makeTempDir('hearth-invited-')
+  root ??= await makeTempDir('hotsauce-invited-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

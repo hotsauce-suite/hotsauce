@@ -59,7 +59,7 @@ describe('attachments', () => {
     expect(a.url).toBe(`/files/alice/${ID}`)
   })
 
-  it('ignores links that aren’t Hearth files', () => {
+  it('ignores links that aren’t Hotsauce files', () => {
     expect(attachmentsIn('[x](https://example.com) [y](/files/team/nope)')).toEqual([])
   })
 })

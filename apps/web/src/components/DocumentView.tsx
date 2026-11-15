@@ -5,7 +5,7 @@ import {
   parseFrontmatter,
   relativeLink,
   resolveRelative,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import {
   lazy,
   type ReactNode,
@@ -182,7 +182,7 @@ export function DocumentView({
       },
       resolveImage: (src: string) => images.resolve(src),
       openLink: (href: string) => {
-        // A Hearth Files attachment (§18.4) opens in Files.
+        // A Hotsauce Files attachment (§18.4) opens in Files.
         if (/^\/files\//.test(href)) {
           navigate(href)
           return

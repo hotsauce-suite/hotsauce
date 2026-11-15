@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { parseFrontmatter, SPACE_LAYOUT } from '@hearth/format'
+import { parseFrontmatter, SPACE_LAYOUT } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { GitStore } from '../git/index.js'
 import type { SpaceService } from '../spaces/index.js'
 
@@ -29,7 +29,7 @@ export interface TemplateDoc {
 /** Custom templates live here in the team space (shared) and a personal space (yours). */
 export const TEMPLATES_DIR = `${SPACE_LAYOUT.meta}/meetings/templates`
 export const DEFAULT_TEMPLATE = 'general'
-/** A recording of one person talking (Hearth Dictate on a phone): named by Enhance from what was said. */
+/** A recording of one person talking (Hotsauce Dictate on a phone): named by Enhance from what was said. */
 export const VOICE_NOTE_TEMPLATE = 'voice-note'
 
 // Next to this module in src/ and in dist/ (the build copies the .md files).
@@ -139,7 +139,7 @@ export class MeetingTemplates {
   /** The template with this id, or bad_request. */
   async getTemplate(principal: Principal, id: string): Promise<TemplateDoc> {
     const template = (await this.listTemplates(principal)).find((t) => t.id === id)
-    if (!template) throw new HearthError('bad_request', `No meeting template "${id}"`)
+    if (!template) throw new HotsauceError('bad_request', `No meeting template "${id}"`)
     return template
   }
 

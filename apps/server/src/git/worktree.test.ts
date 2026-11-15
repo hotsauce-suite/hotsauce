@@ -9,8 +9,8 @@ describe('assertSafeWorktreePath', () => {
   let outside: string
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'hearth-worktree-'))
-    outside = await mkdtemp(join(tmpdir(), 'hearth-outside-'))
+    root = await mkdtemp(join(tmpdir(), 'hotsauce-worktree-'))
+    outside = await mkdtemp(join(tmpdir(), 'hotsauce-outside-'))
     await mkdir(join(root, 'docs'))
     await writeFile(join(root, 'docs', 'a.md'), 'a')
     await symlink(outside, join(root, 'escape'))

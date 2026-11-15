@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useOutletContext, useRouteLoaderData } from 'react-router'
 import { calendarApi } from '../api/calendar'
-import { api, HearthApiError } from '../api/client'
+import { api, HotsauceApiError } from '../api/client'
 import { type AccessToken, tokensApi } from '../api/tokens'
 import type { CalendarChoice, Health } from '../api/types'
 import {
@@ -517,7 +517,7 @@ function CalendarPicker() {
 }
 
 function messageOf(err: unknown): string {
-  return err instanceof HearthApiError || err instanceof Error ? err.message : String(err)
+  return err instanceof HotsauceApiError || err instanceof Error ? err.message : String(err)
 }
 
 const THEMES: { value: ThemeChoice; label: string }[] = [

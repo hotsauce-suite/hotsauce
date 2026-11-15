@@ -1,6 +1,6 @@
 import Foundation
 
-/// A 16-bit PCM WAV file in memory. Hearth Dictate never writes audio to disk.
+/// A 16-bit PCM WAV file in memory. Hotsauce Dictate never writes audio to disk.
 public enum WAV {
     public static let headerBytes = 44
 

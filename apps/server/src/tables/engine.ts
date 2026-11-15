@@ -4,7 +4,7 @@
 
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { plainText } from '@hearth/format'
+import { plainText } from '@hotsauce/format'
 import { initSync, Model } from '@ironcalc/wasm'
 
 let ready = false

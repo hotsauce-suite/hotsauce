@@ -5,7 +5,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { z } from 'zod'
 import { CLOUDFLARE_MEDIA, CLOUDFLARE_REPOS, loadConfig } from '../config.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { ASSET_TYPES, BrandPatchSchema, FONT_CHOICES, MAX_ASSET_BYTES } from '../org/brand.js'
 import { type OrgSettings, SECRET_NAMES, type SecretName } from '../org/store.js'
 import { testForgejo, testProvider, testStorage } from '../org/test-keys.js'
@@ -168,7 +168,7 @@ function stateOf(deps: AppDeps) {
 function saveSettings(deps: AppDeps, body: unknown): OrgSettings {
   const parsed = SettingsPatch.safeParse(body)
   if (!parsed.success) {
-    throw new HearthError('bad_request', parsed.error.issues[0]?.message ?? 'Invalid settings', {
+    throw new HotsauceError('bad_request', parsed.error.issues[0]?.message ?? 'Invalid settings', {
       details: parsed.error.issues,
     })
   }
@@ -290,7 +290,7 @@ function editorRoutes(deps: AppDeps, opts: { onSaved: () => void; validate: bool
         const problems = nextConfigProblems(deps)
         if (problems.length > 0) {
           deps.org.restore(before)
-          throw new HearthError(
+          throw new HotsauceError(
             'bad_request',
             `Not saved: the server wouldn’t start with this: ${problems.join('; ')}`,
             {
@@ -304,7 +304,7 @@ function editorRoutes(deps: AppDeps, opts: { onSaved: () => void; validate: bool
     .put('/brand', async (c) => {
       const parsed = BrandPatchSchema.safeParse(await c.req.json().catch(() => ({})))
       if (!parsed.success) {
-        throw new HearthError('bad_request', parsed.error.issues[0]?.message ?? 'Invalid brand')
+        throw new HotsauceError('bad_request', parsed.error.issues[0]?.message ?? 'Invalid brand')
       }
       deps.brand.save(parsed.data)
       return c.json(stateOf(deps))
@@ -314,16 +314,16 @@ function editorRoutes(deps: AppDeps, opts: { onSaved: () => void; validate: bool
       bodyLimit({
         maxSize: MAX_ASSET_BYTES,
         onError: () => {
-          throw new HearthError('bad_request', 'Logos are limited to 1 MB', { status: 413 })
+          throw new HotsauceError('bad_request', 'Logos are limited to 1 MB', { status: 413 })
         },
       }),
       async (c) => {
         const kind = c.req.param('kind') as 'logo' | 'mark'
         const type = (c.req.header('content-type') ?? '').split(';')[0]?.trim() ?? ''
         const ext = ASSET_TYPES[type]
-        if (!ext) throw new HearthError('bad_request', 'Use an SVG, PNG, JPEG or WebP image')
+        if (!ext) throw new HotsauceError('bad_request', 'Use an SVG, PNG, JPEG or WebP image')
         const bytes = new Uint8Array(await c.req.arrayBuffer())
-        if (bytes.length === 0) throw new HearthError('bad_request', 'The file is empty')
+        if (bytes.length === 0) throw new HotsauceError('bad_request', 'The file is empty')
         const name = `${kind}.${ext}`
         for (const other of Object.values(ASSET_TYPES)) {
           if (other !== ext) rmSync(deps.org.assetPath(`${kind}.${other}`), { force: true })
@@ -391,10 +391,10 @@ function editorRoutes(deps: AppDeps, opts: { onSaved: () => void; validate: bool
 function requireSetup(deps: AppDeps) {
   return createMiddleware<AppEnv>(async (c, next) => {
     if (deps.config.AUTH_MODE !== 'setup') {
-      throw new HearthError('forbidden', 'This instance is already set up. Sign in instead.')
+      throw new HotsauceError('forbidden', 'This instance is already set up. Sign in instead.')
     }
     if (!deps.org.checkSetupToken(c.req.header(SETUP_TOKEN_HEADER))) {
-      throw new HearthError(
+      throw new HotsauceError(
         'unauthorized',
         'That setup link isn’t valid. Use the link printed in the server log when it started.',
       )
@@ -406,8 +406,8 @@ function requireSetup(deps: AppDeps) {
 function requireAdmin() {
   return createMiddleware<AppEnv>(async (c, next) => {
     const p = c.get('principal')
-    if (!p?.isAdmin) throw new HearthError('forbidden', 'Only admins can change the organization')
-    if (p.via) throw new HearthError('forbidden', 'Access tokens can’t change the organization')
+    if (!p?.isAdmin) throw new HotsauceError('forbidden', 'Only admins can change the organization')
+    if (p.via) throw new HotsauceError('forbidden', 'Access tokens can’t change the organization')
     await next()
   })
 }
@@ -422,7 +422,7 @@ export function orgPublicRoutes(deps: AppDeps) {
     .get('/org/assets/:kind{logo|mark}', (c) => {
       const name = deps.brand.get()[c.req.param('kind') as 'logo' | 'mark']
       const file = name ? deps.org.assetPath(name) : null
-      if (!file || !existsSync(file)) throw new HearthError('not_found', 'No such image')
+      if (!file || !existsSync(file)) throw new HotsauceError('not_found', 'No such image')
       const ext = name?.split('.').pop() ?? ''
       const type =
         Object.entries(ASSET_TYPES).find(([, e]) => e === ext)?.[0] ?? 'application/octet-stream'
@@ -443,14 +443,14 @@ export function setupRoutes(deps: AppDeps) {
     .post('/setup/finish', (c) => {
       const missing = missingForFinish(deps)
       if (missing.length > 0) {
-        throw new HearthError('bad_request', `Still needed: ${missing.join('; ')}`, {
+        throw new HotsauceError('bad_request', `Still needed: ${missing.join('; ')}`, {
           details: { missing },
         })
       }
       ensureWebhookSecret(deps)
       const problems = nextConfigProblems(deps)
       if (problems.length > 0) {
-        throw new HearthError(
+        throw new HotsauceError(
           'bad_request',
           `The server wouldn’t start with these settings: ${problems.join('; ')}`,
           {
@@ -496,7 +496,7 @@ export function adminOrgRoutes(deps: AppDeps) {
         try {
           backups = await b.list()
         } catch (err) {
-          throw new HearthError('internal', `Couldn’t list backups: ${(err as Error).message}`)
+          throw new HotsauceError('internal', `Couldn’t list backups: ${(err as Error).message}`)
         }
         return c.json({
           enabled: true as const,
@@ -508,7 +508,7 @@ export function adminOrgRoutes(deps: AppDeps) {
       .post('/admin/org/backups/run', async (c) => {
         const b = deps.backups
         if (!b)
-          throw new HearthError('bad_request', 'Backups need a storage bucket (Files and audio)')
+          throw new HotsauceError('bad_request', 'Backups need a storage bucket (Files and audio)')
         return c.json({ status: await b.run() })
       })
       // Updates (docs/PLAN-releases-and-updates.md): the running and newest release, the
@@ -524,7 +524,7 @@ export function adminOrgRoutes(deps: AppDeps) {
       .put('/admin/org/updates/auto', async (c) => {
         const body = (await c.req.json().catch(() => null)) as { on?: unknown } | null
         if (typeof body?.on !== 'boolean') {
-          throw new HearthError('bad_request', 'Send {"on": true} or {"on": false}')
+          throw new HotsauceError('bad_request', 'Send {"on": true} or {"on": false}')
         }
         return c.json(deps.updates.setAuto(body.on))
       })
@@ -532,14 +532,14 @@ export function adminOrgRoutes(deps: AppDeps) {
         try {
           return c.json(await deps.updates.start())
         } catch (err) {
-          throw new HearthError('conflict', err instanceof Error ? err.message : String(err))
+          throw new HotsauceError('conflict', err instanceof Error ? err.message : String(err))
         }
       })
       .post('/admin/org/apply', (c) => {
         ensureWebhookSecret(deps)
         const problems = nextConfigProblems(deps)
         if (problems.length > 0) {
-          throw new HearthError(
+          throw new HotsauceError(
             'bad_request',
             `Not applied: the server wouldn’t start with these settings: ${problems.join('; ')}`,
             {

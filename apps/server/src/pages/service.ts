@@ -1,7 +1,7 @@
-import { parseFrontmatter, patchFrontmatter, SPACE_LAYOUT } from '@hearth/format'
+import { parseFrontmatter, patchFrontmatter, SPACE_LAYOUT } from '@hotsauce/format'
 import { ulid } from 'ulid'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import type { ShareState } from '../shares/index.js'
@@ -75,10 +75,10 @@ export class Pages {
     const space = input.space ?? TEAM_SPACE
     this.#assertAccess(principal, space)
     const title = input.title.replace(/\s+/g, ' ').trim().slice(0, 200)
-    if (!title) throw new HearthError('bad_request', 'A page needs a title')
-    if (!input.html.trim()) throw new HearthError('bad_request', 'A page needs some HTML')
+    if (!title) throw new HotsauceError('bad_request', 'A page needs a title')
+    if (!input.html.trim()) throw new HotsauceError('bad_request', 'A page needs some HTML')
     if (Buffer.byteLength(input.html) > MAX_PAGE_BYTES) {
-      throw new HearthError('bad_request', 'A page can be at most 2 MB of HTML', { status: 413 })
+      throw new HotsauceError('bad_request', 'A page can be at most 2 MB of HTML', { status: 413 })
     }
     if (input.id !== undefined && !PAGE_ID.test(input.id)) throw notFound(input.id)
     const now = (this.#deps.now?.() ?? new Date()).toISOString().replace(/\.\d+Z$/, 'Z')
@@ -103,7 +103,7 @@ export class Pages {
         })}${text}\n`
       } else {
         const cur = await this.#deps.git.readFile(space, pointerPath).catch((err) => {
-          throw err instanceof HearthError && err.code === 'not_found' ? notFound(id) : err
+          throw err instanceof HotsauceError && err.code === 'not_found' ? notFound(id) : err
         })
         blobOid = cur.blobOid
         const patched = patchFrontmatter(cur.content, {
@@ -125,7 +125,7 @@ export class Pages {
           unchanged: { path: pointerPath, blobOid },
         })
       } catch (err) {
-        if (err instanceof HearthError && err.code === 'conflict' && attempt < WRITE_ATTEMPTS) {
+        if (err instanceof HotsauceError && err.code === 'conflict' && attempt < WRITE_ATTEMPTS) {
           continue
         }
         throw err
@@ -154,14 +154,14 @@ export class Pages {
     this.#assertAccess(principal, space)
     if (!PAGE_ID.test(id)) throw notFound(id)
     const pointer = await this.#deps.git.readFile(space, pagePointerPath(id)).catch((err) => {
-      throw err instanceof HearthError && err.code === 'not_found' ? notFound(id) : err
+      throw err instanceof HotsauceError && err.code === 'not_found' ? notFound(id) : err
     })
     const log = await this.#deps.git.log(space, { path: pageHtmlPath(id), limit: MAX_VERSIONS })
     const versions = log.map((c) => ({ oid: c.oid, date: c.date, author: c.author.name }))
     let html: string
     if (version) {
       if (!versions.some((v) => v.oid === version)) {
-        throw new HearthError('not_found', `No version ${version} of this page`)
+        throw new HotsauceError('not_found', `No version ${version} of this page`)
       }
       html = await this.#deps.git.show(space, version, pageHtmlPath(id))
     } else {
@@ -183,7 +183,7 @@ export class Pages {
     this.#assertAccess(principal, space)
     if (!PAGE_ID.test(id)) throw notFound(id)
     const pointer = await this.#deps.git.readFile(space, pagePointerPath(id)).catch((err) => {
-      throw err instanceof HearthError && err.code === 'not_found' ? notFound(id) : err
+      throw err instanceof HotsauceError && err.code === 'not_found' ? notFound(id) : err
     })
     const html = await this.#deps.git.readFile(space, pageHtmlPath(id))
     const day = (this.#deps.now?.() ?? new Date()).toISOString().slice(0, 10)
@@ -205,7 +205,7 @@ export class Pages {
 
   #assertAccess(principal: Principal, space: string) {
     if (!this.#deps.spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 }
@@ -258,4 +258,4 @@ export function pageText(html: string): string {
     .slice(0, MAX_PAGE_TEXT_CHARS)
 }
 
-const notFound = (id: string) => new HearthError('not_found', `No page ${id}`)
+const notFound = (id: string) => new HotsauceError('not_found', `No page ${id}`)

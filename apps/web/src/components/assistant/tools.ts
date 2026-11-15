@@ -69,7 +69,7 @@ export function toolLine(tool: Pick<ToolView, 'name' | 'input'>): string {
 }
 
 /** A `hearth:<space>/<path>` link from the model, as an in-app address; null when it isn't one. */
-export function hearthTarget(href: string): { space: string; path: string } | null {
+export function hotsauceTarget(href: string): { space: string; path: string } | null {
   const match = /^hearth:([^/\s]+)\/(.+)$/.exec(href)
   if (!match?.[1] || !match[2]) return null
   try {

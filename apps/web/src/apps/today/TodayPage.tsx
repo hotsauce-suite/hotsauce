@@ -1,11 +1,11 @@
-import { defaultTodayLayout, type TodayLayout } from '@hearth/format'
+import { defaultTodayLayout, type TodayLayout } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { dictationApi } from '../../api/dictation'
 import type { TaskView } from '../../api/tasks'
 import { type TodayView, todayApi } from '../../api/today'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { MAC_APP_SETTINGS, useMacAppBuild } from '../../components/MacApp'
@@ -47,7 +47,7 @@ export default function TodayPage() {
       setError(null)
     } catch (err) {
       if (ask !== latest.current) return
-      setError(err instanceof HearthApiError ? err.message : 'Today didn’t load.')
+      setError(err instanceof HotsauceApiError ? err.message : 'Today didn’t load.')
     } finally {
       setLoadedAt(new Date())
     }
@@ -61,8 +61,8 @@ export default function TodayPage() {
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => void load(), REFRESH_DEBOUNCE_MS)
     }
-    const offChanged = hearthSocket.onChanged(soon)
-    const offReconnect = hearthSocket.onReconnect(soon)
+    const offChanged = hotsauceSocket.onChanged(soon)
+    const offReconnect = hotsauceSocket.onReconnect(soon)
     const every = setInterval(() => void load(), REFRESH_EVERY_MS)
     return () => {
       offChanged()
@@ -178,7 +178,7 @@ function useLayout() {
       return true
     } catch (err) {
       setError(
-        err instanceof HearthApiError
+        err instanceof HotsauceApiError
           ? `Your Today layout didn’t save: ${err.message}`
           : 'Your Today layout didn’t save. Try again.',
       )

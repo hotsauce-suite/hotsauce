@@ -2,7 +2,7 @@
 // (https://api.met.no/doc/TermsOfService): an identifying User-Agent, at most 4 decimals of
 // position, and cached answers. We round to 2 decimals (about 1 km) and keep each place 20 min.
 
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 export const WEATHER_TTL_MS = 20 * 60_000
 const MET_URL = 'https://api.met.no/weatherapi/locationforecast/2.0/compact'
@@ -82,12 +82,12 @@ export class Weather {
     const failedAt = this.#failed.get(key)
     if (failedAt !== undefined && now - failedAt < WEATHER_FAILURE_TTL_MS) {
       if (hit) return hit.view
-      throw new HearthError('host_error', 'The weather service didn’t answer. Try again later.')
+      throw new HotsauceError('host_error', 'The weather service didn’t answer. Try again later.')
     }
     const recent = (this.#misses.get(who) ?? []).filter((t) => now - t < 60_000)
     if (recent.length >= WEATHER_MISSES_PER_MINUTE) {
       if (hit) return hit.view
-      throw new HearthError('rate_limited', 'Too many weather lookups. Try again in a minute.')
+      throw new HotsauceError('rate_limited', 'Too many weather lookups. Try again in a minute.')
     }
     recent.push(now)
     this.#misses.set(who, recent)
@@ -106,12 +106,12 @@ export class Weather {
       if (this.#failed.size > MAX_PLACES) this.#failed.clear()
       // A stale answer beats none.
       if (hit) return hit.view
-      throw new HearthError('host_error', 'The weather service didn’t answer. Try again later.')
+      throw new HotsauceError('host_error', 'The weather service didn’t answer. Try again later.')
     }
     const view = summarize(body, this.#now())
     if (!view) {
       if (hit) return hit.view
-      throw new HearthError('host_error', 'The weather service sent something unexpected.')
+      throw new HotsauceError('host_error', 'The weather service sent something unexpected.')
     }
     this.#failed.delete(key)
     this.#cache.delete(key)

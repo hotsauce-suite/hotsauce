@@ -1,6 +1,6 @@
 // Client for `GET /api/today` (ARCHITECTURE §16): the Today page in one read.
 
-import type { TodayLayout } from '@hearth/format'
+import type { TodayLayout } from '@hotsauce/format'
 import { request } from './client'
 import type { TaskView } from './tasks'
 import type { MeetingActionItems } from './types'

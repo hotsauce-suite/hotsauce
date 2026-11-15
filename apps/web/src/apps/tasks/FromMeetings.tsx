@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { meetingsApi } from '../../api/meetings'
 import { type TaskView, tasksApi } from '../../api/tasks'
 import type { MeetingActionItems } from '../../api/types'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import { Icon } from '../../components/Icon'
 import { meetingUrl } from '../../lib/paths'
 import { errorMessage, useTasksChanged } from './useTaskList'
@@ -64,7 +64,7 @@ export function FromMeetings({
   useTasksChanged(load)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const off = hearthSocket.onChanged((event) => {
+    const off = hotsauceSocket.onChanged((event) => {
       if (!event.paths.some((p) => p.startsWith('meetings/'))) return
       clearTimeout(timer)
       timer = setTimeout(load, 2000)

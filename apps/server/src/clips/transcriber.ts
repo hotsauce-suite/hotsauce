@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { TranscriptSegment } from './store.js'
 
 export interface ClipTranscribeOptions {
@@ -95,7 +95,7 @@ const round = (s: number) => Math.round(s * 100) / 100
 export function mapDeepgramClip(body: unknown): TranscriptSegment[] {
   const parsed = DeepgramResponse.safeParse(body)
   if (!parsed.success) {
-    throw new HearthError('asr_error', 'The transcription service answered oddly')
+    throw new HotsauceError('asr_error', 'The transcription service answered oddly')
   }
   const alt = parsed.data.results.channels[0]?.alternatives[0]
   const sentences = (alt?.paragraphs?.paragraphs ?? []).flatMap((p) =>
@@ -152,12 +152,12 @@ export class DeepgramClipTranscriber implements ClipTranscriber {
       })
     } catch (err) {
       log(`deepgram clip request failed: ${err instanceof Error ? err.name : 'error'}`)
-      throw new HearthError('asr_error', 'Couldn’t reach the transcription service')
+      throw new HotsauceError('asr_error', 'Couldn’t reach the transcription service')
     }
     if (!res.ok) {
       // Deepgram's error body names the problem, never the audio's content.
       log(`deepgram clip ${res.status}: ${(await res.text()).slice(0, 300)}`)
-      throw new HearthError('asr_error', 'The transcription service refused this audio')
+      throw new HotsauceError('asr_error', 'The transcription service refused this audio')
     }
     return mapDeepgramClip(await res.json())
   }

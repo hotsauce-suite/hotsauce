@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
-import { hearthSocket } from '../api/ws'
+import { hotsauceSocket } from '../api/ws'
 import { forgetPins } from '../apps/pins'
 import { resetConnectionForTests } from '../lib/connection'
 import { resetMockApi, server, TEST_USER } from './mockServer'
@@ -39,7 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  hearthSocket.stop()
+  hotsauceSocket.stop()
   setUnauthorizedHandler(null)
   localStorage.clear()
   forgetPins()

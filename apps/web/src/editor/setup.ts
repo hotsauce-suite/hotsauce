@@ -16,7 +16,7 @@ import { type LinkTarget, wikiLinkSource } from './wikiLink'
 export const remoteChange = Annotation.define<boolean>()
 
 // Colors come from tokens.css so code follows the light/dark theme.
-const hearthHighlight = HighlightStyle.define([
+const hotsauceHighlight = HighlightStyle.define([
   {
     tag: [t.keyword, t.operatorKeyword, t.modifier, t.controlKeyword],
     color: 'var(--code-keyword)',
@@ -48,7 +48,7 @@ export function editorExtensions(services: EditorServices): Extension[] {
   return [
     history(),
     markdown({ base: markdownLanguage, codeLanguages: languages }),
-    syntaxHighlighting(hearthHighlight),
+    syntaxHighlighting(hotsauceHighlight),
     search({ top: true }),
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({

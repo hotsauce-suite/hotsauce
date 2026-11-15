@@ -24,7 +24,7 @@ describe('R2AudioStore', () => {
       accountId: 'acct',
       accessKeyId: 'AKID',
       secretAccessKey: 'secret',
-      bucket: 'hearth-audio',
+      bucket: 'hotsauce-audio',
       fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
         const req = new Request(input, init)
         const body = req.body ? new Uint8Array(await req.arrayBuffer()) : null
@@ -41,7 +41,9 @@ describe('R2AudioStore', () => {
 
     const { req, body } = seen[0] ?? { req: new Request('about:blank'), body: null }
     expect(req.method).toBe('PUT')
-    expect(req.url).toBe('https://acct.r2.cloudflarestorage.com/hearth-audio/meetings/01ABC/me.wav')
+    expect(req.url).toBe(
+      'https://acct.r2.cloudflarestorage.com/hotsauce-audio/meetings/01ABC/me.wav',
+    )
     expect(req.headers.get('authorization')).toMatch(/^AWS4-HMAC-SHA256 Credential=AKID\//)
     expect(req.headers.get('x-amz-content-sha256')).toBe('UNSIGNED-PAYLOAD')
     expect(req.headers.get('content-type')).toBe('audio/wav')

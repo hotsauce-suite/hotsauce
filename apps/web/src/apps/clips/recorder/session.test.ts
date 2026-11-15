@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import type { Clip } from '../../../api/clips'
 import { elapsedMs, RecordingSession, type SessionDeps } from './session'
 
@@ -234,7 +234,7 @@ describe('RecordingSession', () => {
 
   it('finishes without the camera when the server refused its upload', async () => {
     api.putChunk = vi.fn(async (_id, _seq, _data, track) => {
-      if (track === 'camera') throw new HearthApiError('too_large', 'nope', 413)
+      if (track === 'camera') throw new HotsauceApiError('too_large', 'nope', 413)
     })
     const session = new RecordingSession(deps)
     await session.start(opts())
@@ -328,7 +328,7 @@ describe('RecordingSession', () => {
   })
 
   it('keeps the error and offers a retry when the connection fails while finishing', async () => {
-    const offline = new HearthApiError('network', 'Could not reach the Hearth server', 0)
+    const offline = new HotsauceApiError('network', 'Could not reach the Hotsauce server', 0)
     api.finish = vi
       .fn()
       .mockRejectedValueOnce(offline)
@@ -342,7 +342,7 @@ describe('RecordingSession', () => {
     await session.stop()
     expect(session.state).toMatchObject({
       phase: 'finishing',
-      error: 'Could not reach the Hearth server',
+      error: 'Could not reach the Hotsauce server',
     })
     // Navigating away mid-save, or a stray Discard in the bubble, doesn't delete it.
     session.cancel()
@@ -355,7 +355,7 @@ describe('RecordingSession', () => {
   it('discards, saying why, when the save can’t succeed: the server refuses it', async () => {
     api.finish = vi
       .fn()
-      .mockRejectedValue(new HearthApiError('conflict', 'Chunks 0 haven’t arrived', 409))
+      .mockRejectedValue(new HotsauceApiError('conflict', 'Chunks 0 haven’t arrived', 409))
     const session = new RecordingSession(deps)
     await session.start(opts())
     await session.stop()
@@ -386,7 +386,7 @@ describe('RecordingSession', () => {
     await session.start(opts())
     recorder.emit('a')
     await session.restart()
-    fail(new HearthApiError('not_found', 'No such clip', 404))
+    fail(new HotsauceApiError('not_found', 'No such clip', 404))
     await flush()
     expect(session.state.upload.fatal).toBeNull()
   })

@@ -109,7 +109,7 @@ describe('parseBoardBody', () => {
     )
   })
 
-  it('keeps fields Hearth does not know', () => {
+  it('keeps fields Hotsauce does not know', () => {
     const s = parseBoardBody(
       '```excalidraw\n{"elements":[{"id":"a","type":"arrow","version":3,"points":[[0,0],[5,5]]}],"appState":{"viewBackgroundColor":"#fff","zoom":2},"files":{}}\n```\n',
     )
@@ -152,7 +152,7 @@ describe('boardTexts and boardSearchText', () => {
 
   it('search text also drops the marker comment older boards were written with', () => {
     const body =
-      '<!-- A Hearth Whiteboard. Open it in Hearth to draw; the list is the text on the board. -->\n- Roadmap\n'
+      '<!-- A Hotsauce Whiteboard. Open it in Hotsauce to draw; the list is the text on the board. -->\n- Roadmap\n'
     const text = boardSearchText(body)
     expect(text).toContain('Roadmap')
     expect(text).not.toContain('Whiteboard')

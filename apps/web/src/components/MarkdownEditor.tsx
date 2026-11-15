@@ -175,7 +175,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     <div
       ref={host}
       data-testid="editor"
-      className={props.compact ? 'hearth-editor hearth-editor-compact' : 'hearth-editor'}
+      className={props.compact ? 'hotsauce-editor hotsauce-editor-compact' : 'hotsauce-editor'}
     />
   )
 }

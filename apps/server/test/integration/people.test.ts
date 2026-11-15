@@ -36,7 +36,7 @@ let app: ReturnType<typeof createApp>
 let calendar: TestCalendar
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-people-')
+  root = await makeTempDir('hotsauce-people-')
   calendar = new TestCalendar()
   services = createServices(
     loadConfig({

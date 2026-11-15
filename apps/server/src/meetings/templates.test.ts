@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   loadBuiltinTemplates,
   MeetingTemplates,
@@ -107,7 +107,7 @@ function fakeDeps(files: Record<string, Record<string, string>>, personal = true
       },
       async readFile(space: string, path: string) {
         const content = files[space]?.[path]
-        if (content === undefined) throw new HearthError('not_found', path)
+        if (content === undefined) throw new HotsauceError('not_found', path)
         return { content, blobOid: 'x' }
       },
     },

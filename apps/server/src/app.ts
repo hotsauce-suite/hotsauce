@@ -43,7 +43,7 @@ import {
   todayRoutes,
   tokenRoutes,
 } from './api/index.js'
-import { HearthError } from './errors.js'
+import { HotsauceError } from './errors.js'
 import { mcpRoutes } from './mcp/index.js'
 
 /**
@@ -97,7 +97,7 @@ export function createApp(deps: AppDeps) {
   app.use('/mcp', authenticate(deps)).use('/mcp', limitBody()).route('/mcp', mcpRoutes(deps))
   // Unknown API paths get a JSON 404, never the web app's index.html.
   app.all('/api/*', () => {
-    throw new HearthError('not_found', 'No such API route')
+    throw new HotsauceError('not_found', 'No such API route')
   })
   app.onError(handleError)
   return routes
