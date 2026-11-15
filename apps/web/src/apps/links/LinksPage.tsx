@@ -1,6 +1,13 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { type LinkView, linksApi, readingTime, webUrl } from '../../api/links'
+import {
+  type LinkView,
+  linksApi,
+  READ_TO_END,
+  readingTime,
+  readProgress,
+  webUrl,
+} from '../../api/links'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
@@ -249,6 +256,8 @@ function LinkRow({
 }) {
   const { spaceLabel } = useSession()
   const blurb = l.summary || l.description
+  const progress = readProgress(l.reading)
+  const furthest = l.reading?.furthest ?? 0
   return (
     <li
       className="group flex gap-3 py-4"
@@ -266,9 +275,24 @@ function LinkRow({
           {l.title || l.url}
         </Link>
         <p className="mt-0.5 truncate text-xs text-ink-faint">
-          {[l.site, readingTime(l.words), `saved ${savedDay(l.saved)}`].filter(Boolean).join(' · ')}
+          {[l.site, readingTime(l.words), progress, `saved ${savedDay(l.saved)}`]
+            .filter(Boolean)
+            .join(' · ')}
           {l.space === 'team' ? ` · ${spaceLabel('team')}` : ''}
         </p>
+        {progress && furthest < READ_TO_END ? (
+          <div
+            className="mt-1.5 h-1 w-full max-w-48 overflow-hidden rounded-full bg-ash/70"
+            role="progressbar"
+            aria-label="How much you've read"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.floor(furthest)}
+            data-testid="link-progress-bar"
+          >
+            <div className="h-full rounded-full bg-ember" style={{ width: `${furthest}%` }} />
+          </div>
+        ) : null}
         {l.status === 'fetching' ? (
           <p className="mt-1 text-sm text-ink-soft" data-testid="link-fetching">
             Getting the page…
