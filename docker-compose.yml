@@ -3,7 +3,7 @@
 # to .data/forgejo-token. Web UI and API at http://localhost:3300.
 
 # A fixed project name so every checkout and worktree shares one container and volume.
-name: hotsauce
+name: hearth  # kept: renaming it would start dev machines on an empty Forgejo
 
 services:
   forgejo:

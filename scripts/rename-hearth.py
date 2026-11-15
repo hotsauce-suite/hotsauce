@@ -11,7 +11,8 @@ EXT = ('.ts','.tsx','.js','.mjs','.cjs','.json','.jsonc','.css','.html','.swift'
 PROTECT = [
   r'\.hearth(?![-\w])',            # data folder .hearth/
   r'hearth:',                       # link scheme, storage keys, SW message
-  r'hearth-dictate', r'hearth://',
+  r'hearth-dictate', r'hearth://', r'HEARTH://', r'mcp remove hearth', r'name `hearth`',
+  r'`hearth`', r'Hearth\.\*', r'HearthDictate\.\*', r'HEARTH_COMMITTER_\*', r'name: hearth  # kept', r'hearth_forgejo-data',
   r"'hearth'", r'"hearth"',
   r'Hearth-Via', r'Hearth-Label', r'Hearth-Conflict-Path',
   r'hearth(?:Mac|Location|Notifications|MeetingAudio|DictateConnect|Download|SignIn|Ticket|Booking)\b',

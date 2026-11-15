@@ -43,8 +43,8 @@ claude mcp add --transport http --scope user hotsauce https://office.example.com
 `/mcp` inside Claude Code. The connector is named after your workspace's product name, so a
 white-labelled instance shows its own name instead of `hotsauce`.
 
-Connected an older version under the name `hotsauce`? Rename it by removing it and adding it again
-with the command above: `claude mcp remove hotsauce --scope user`. Your token keeps working.
+Connected an older version under the name `hearth`? Rename it by removing it and adding it again
+with the command above: `claude mcp remove hearth --scope user`. Your token keeps working.
 
 ## 2b. Claude desktop
 

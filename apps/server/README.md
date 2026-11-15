@@ -107,7 +107,7 @@ FORGEJO_URL=http://localhost:3300 FORGEJO_TOKEN="$(cat .data/forgejo-token)" \
   `host.docker.internal`. If your Docker setup names the host differently (for example a CI service
   container), set `FORGEJO_WEBHOOK_HOST`.
 - The init script is safe to re-run; each run mints a new token. Stop Forgejo with
-  `docker compose stop forgejo`; its data lives in the `hotsauce_forgejo-data` volume.
+  `docker compose stop forgejo`; its data lives in the `hearth_forgejo-data` volume (the compose project keeps its old name).
 
 ### With GitHub
 

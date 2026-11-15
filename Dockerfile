@@ -40,7 +40,7 @@ RUN pnpm --filter @hotsauce/extension run build \
 # The Mac app can't be built on Linux: scripts/build-app.sh builds it on a Mac and the zip is
 # committed, so this copies them as they are (Dictate → Download for Mac).
 # A checkout without the built app (the public repository) simply offers no download.
-# Hotsauce.dmg and .zip, also under their old names (Hotsauce.*, HotsauceDictate.*) so links already
+# Hotsauce.dmg and .zip, also under their old names (Hearth.*, HearthDictate.*) so links already
 # shared work.
 RUN for ext in dmg zip; do \
       if [ -f "apps/dictate-mac/release/Hotsauce.$ext" ]; then \
