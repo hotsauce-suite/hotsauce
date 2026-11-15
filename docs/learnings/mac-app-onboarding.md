@@ -88,3 +88,7 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
   clears it, so launch and Check Permissions… keep skipping.
 - **The sign-in auto-advance in `refresh()` also calls `next`**; it has to pass the flag too, or a
   sign-in landing mid-replay skips the Dictate step.
+- **Squash merges keep the commit count low.** `build-app.sh` takes its build number from
+  `git rev-list --count HEAD`, and on main after #103 that was 107, lower than the published
+  build (108). macOS and the updater treat a lower CFBundleVersion as older, so pass
+  `BUILD_NUMBER=` above the published one (read it from the zip on the `mac-app` release).
