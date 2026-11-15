@@ -263,7 +263,11 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendRespon
     chrome.tabs
       .get(message.tabId)
       .then((tab) =>
-        saveToHotsauce({ url: tab.url ?? '', ...(tab.title ? { title: tab.title } : {}) }, tab, true),
+        saveToHotsauce(
+          { url: tab.url ?? '', ...(tab.title ? { title: tab.title } : {}) },
+          tab,
+          true,
+        ),
       )
       .then(
         (ok) => sendResponse({ ok }),
