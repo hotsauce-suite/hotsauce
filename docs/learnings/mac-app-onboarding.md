@@ -76,3 +76,15 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
   (asked only after the ticket signed it in) is now the signal.
 - **A new workspace is a new sign-in.** Changing the address clears the app's signed-in flag, and a
   Dictate connection only counts for the workspace it's connected to.
+
+## Run setup again
+
+- **"Onboarding" meant the Mac app.** The web app has no member tour; its `/setup` wizard only runs
+  in setup mode with a one-time token, so it can't be replayed from Settings. Check what exists
+  before reading a request as "build a tour".
+- **A replay needs its own Continue rule.** `SetupFlow.next` skips finished steps, so opening the
+  window at step 1 on a set-up Mac jumped straight to Done. The replay is a flag on the window's
+  model (`replaying`) that `next(after:_:replaying:)` reads; every other way of opening the window
+  clears it, so launch and Check Permissions… keep skipping.
+- **The sign-in auto-advance in `refresh()` also calls `next`**; it has to pass the flag too, or a
+  sign-in landing mid-replay skips the Dictate step.
