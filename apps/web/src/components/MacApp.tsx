@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
 import { hasMacNotifications } from '../lib/macNotifications'
@@ -59,6 +59,8 @@ export function MacAppCard() {
   // A Mac app new enough to answer its bridge; an older one still sees the download.
   const inMacApp = hasMacNotifications()
   const hasBuild = useMacAppBuild(!inMacApp)
+  // Someone sent here by a “Get the Mac app” link is about to install it: show them the steps.
+  const sentHere = useLocation().hash === '#mac-app'
   if (inMacApp) {
     return (
       <section
@@ -136,7 +138,7 @@ export function MacAppCard() {
       </div>
 
       {hasBuild ? (
-        <details data-testid="mac-app-first-install" className="mt-4">
+        <details data-testid="mac-app-first-install" className="mt-4" open={sentHere}>
           <summary className="cursor-pointer text-sm font-medium text-ink-soft hover:text-ink">
             How to install it the first time
           </summary>

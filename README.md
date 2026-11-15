@@ -68,10 +68,10 @@ templates for customer calls, interviews and stand-ups. Also in Meetings:
 - **Ask** questions across every past meeting.
 - **Agent brief:** a page about what you're working on, written from your meetings and tasks.
 - **Booking links:** share your free times and let people book a call, checked against your calendar.
-- **Google Calendar** reminders before each call (switch on **Settings → Notifications** on each
+- **Google Calendar** reminders before each call (switch on **Settings → General** on each
   device; task reminders come with it), and **Import from Granola** to bring your history.
 - **Voice notes from your phone:** on your first visit from a phone, Hotsauce offers to install
-  itself on your home screen (or use **Settings → Install**). Record up to two hours.
+  itself on your home screen (or use **Settings → Apps**). Record up to two hours.
 
 ### Tasks
 
@@ -132,7 +132,7 @@ doc or meeting you have open, answers with links to what it used, and makes docs
 when you ask, each with an Undo. Deleting or moving a file, sharing a link or publishing a page waits for your Confirm. It works through
 the same tools as [the MCP server](docs/mcp.md), as you, so it sees only what you can see.
 Conversations are private to each person. Admins pick the model (Claude Sonnet or Opus), see each
-person’s use this month, and can set a monthly limit, in Settings → Organization → Assistant.
+person’s use this month, and can set a monthly limit, in Settings → AI.
 
 ### Keyboard first
 

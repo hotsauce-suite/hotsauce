@@ -10,9 +10,9 @@ import type { Transcriber } from '../meetings/transcriber/types.js'
  * feature says so instead of the server refusing to start.
  */
 export const ANTHROPIC_MISSING =
-  'AI features are off: an admin can add an Anthropic API key in Settings → Organization'
+  'AI features are off: an admin can add an Anthropic API key in Settings → AI'
 export const DEEPGRAM_MISSING =
-  'Transcription is off: an admin can add a Deepgram API key in Settings → Organization'
+  'Transcription is off: an admin can add a Deepgram API key in Settings → AI'
 
 export class UnconfiguredLLM implements LLM {
   async complete(): Promise<never> {

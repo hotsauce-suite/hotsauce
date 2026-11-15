@@ -207,6 +207,8 @@ describe('Settings: Mac app', () => {
     renderApp('/settings/apps#mac-app')
     const section = await screen.findByTestId('mac-app')
     expect(within(section).getByRole('heading', { name: 'Mac app' })).toBeInTheDocument()
+    // Sent here to install it, so the steps are open.
+    expect(await within(section).findByTestId('mac-app-first-install')).toHaveAttribute('open')
     expect(await within(section).findByTestId('mac-app-download')).toHaveAttribute(
       'href',
       '/downloads/Hotsauce.dmg',

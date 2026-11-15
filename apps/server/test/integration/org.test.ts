@@ -404,7 +404,7 @@ describe('bring your own keys', () => {
     expect(config.ASR_PROVIDER).toBe('none')
     await expect(new UnconfiguredLLM().complete()).rejects.toMatchObject({
       code: 'not_configured',
-      message: expect.stringContaining('Settings → Organization'),
+      message: expect.stringContaining('Settings → AI'),
     })
     expect(new HearthError('not_configured', 'x').status).toBe(503)
   })

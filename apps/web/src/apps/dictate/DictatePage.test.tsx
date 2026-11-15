@@ -15,7 +15,10 @@ describe('Hearth Dictate page', () => {
   it('connects this Mac and the word lists, and sends the download to Settings', async () => {
     renderApp('/dictate')
     expect(await screen.findByTestId('dictate-connect')).toHaveTextContent('Connect this Mac')
-    expect(screen.getByTestId('dictate-get-app-link')).toHaveAttribute('href', '/settings/apps#mac-app')
+    expect(screen.getByTestId('dictate-get-app-link')).toHaveAttribute(
+      'href',
+      '/settings/apps#mac-app',
+    )
     // The download and the install steps live in Settings now.
     expect(screen.queryByTestId('mac-app-download')).toBeNull()
     expect(screen.queryByTestId('mac-app-install-steps')).toBeNull()

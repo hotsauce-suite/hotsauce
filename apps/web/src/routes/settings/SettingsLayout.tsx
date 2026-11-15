@@ -47,10 +47,7 @@ export default function SettingsLayout() {
     // The page is loaded lazily, so its section may not be there on the first frame.
     const timer = window.setInterval(() => {
       const el = document.getElementById(id)
-      if (el) {
-        if (el instanceof HTMLDetailsElement) el.open = true
-        el.scrollIntoView({ block: 'start' })
-      }
+      el?.scrollIntoView({ block: 'start' })
       if (el || ++tries > 20) window.clearInterval(timer)
     }, 50)
     return () => window.clearInterval(timer)

@@ -36,7 +36,8 @@ G5. Links that said "Settings" open the exact page: Today's calendar error and t
 
 Trims
 T1. The Mac app card's first-install steps are folded under "How to install it the first time",
-    closed until asked for. [SettingsRoute.test]
+    closed until asked for. A "Get the Mac app" link (`#mac-app`) counts as asking and opens
+    them. [SettingsRoute.test, e2e/dictate.spec.ts]
 T2. Inside the Mac app the card says you're using it and offers no download. [SettingsRoute.test]
 T3. The AI tools intro is two sentences; the detail of what a token can do is folded under "What
     can a connected tool do?". [SettingsRoute.test]
