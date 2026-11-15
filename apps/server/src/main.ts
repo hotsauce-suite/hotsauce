@@ -7,7 +7,11 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { type Context, Hono } from 'hono'
 import { createApp } from './app.js'
 import { loadConfig } from './config.js'
-import { EXTENSION_ZIP_PATH, extensionZip } from './extension/download.js'
+import {
+  EXTENSION_ZIP_PATH,
+  extensionZip,
+  LEGACY_EXTENSION_ZIP_PATH,
+} from './extension/download.js'
 import { legacyHostRedirect } from './legacyHosts.js'
 import { MacAppDownloads, releaseAsset } from './macApp.js'
 import { OrgStore } from './org/store.js'
@@ -123,12 +127,14 @@ async function main(): Promise<void> {
     name: config.PRODUCT_NAME,
   })
   if (zipFile) {
-    app.get(EXTENSION_ZIP_PATH, (c) => {
-      c.header('Content-Type', 'application/zip')
-      c.header('Content-Disposition', 'attachment; filename="hearth-meetings-chrome.zip"')
-      c.header('Cache-Control', 'no-cache')
-      return c.body(new Uint8Array(zipFile))
-    })
+    for (const zipPath of [EXTENSION_ZIP_PATH, LEGACY_EXTENSION_ZIP_PATH]) {
+      app.get(zipPath, (c) => {
+        c.header('Content-Type', 'application/zip')
+        c.header('Content-Disposition', 'attachment; filename="hotsauce-meetings-chrome.zip"')
+        c.header('Cache-Control', 'no-cache')
+        return c.body(new Uint8Array(zipFile))
+      })
+    }
   }
   serveWebApp(
     app,

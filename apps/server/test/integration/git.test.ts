@@ -204,7 +204,7 @@ describe('GitStore: an empty remote', () => {
         { path: 'docs/.gitkeep', content: '' },
       ],
       author: ALICE,
-      message: 'hearth: create space',
+      message: 'hotsauce: create space',
     })
     const committed = expectStatus(result, 'committed')
     expect(await refOid(host.repoPath('alice'), MAIN)).toBe(committed.oid)
@@ -710,7 +710,7 @@ describe('GitStore: move', () => {
 
     expect(history.map((c) => c.message)).toEqual([
       'docs: edit "Final"',
-      'hearth: move "docs/draft.md" to "docs/final.md"',
+      'hotsauce: move "docs/draft.md" to "docs/final.md"',
       'docs: edit "Draft"',
       'seed',
     ])

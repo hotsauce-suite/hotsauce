@@ -1,5 +1,5 @@
 /**
- * `hearth reindex [space]`: rebuilds the index from the working clones. The spaces table comes
+ * `reindex [space]`: rebuilds the index from the working clones. The spaces table comes
  * back from each clone's .hearth/space.yaml, and the files of every space (or just `space`) are
  * indexed from scratch. index.sqlite itself is kept, so recents, stars, rail pins, conflicts and sync state
  * survive. Safe to run while the server is up.

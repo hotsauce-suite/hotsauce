@@ -140,7 +140,7 @@ export function migrate(db: Database.Database, migrations: readonly string[] = M
     if (current > migrations.length) {
       throw new Error(
         `Index schema v${current} is newer than this build (v${migrations.length}). ` +
-          'Delete the index file and run `hearth reindex`.',
+          'Delete the index file and run `node apps/server/dist/cli/reindex.js`.',
       )
     }
     for (const sql of migrations.slice(current)) db.exec(sql)

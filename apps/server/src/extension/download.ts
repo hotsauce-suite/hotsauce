@@ -4,7 +4,9 @@ import { stampForServer } from './stamp.js'
 import { zip } from './zip.js'
 
 /** Where Meetings → Chrome extension downloads it (the web app links here). */
-export const EXTENSION_ZIP_PATH = '/downloads/hearth-meetings-chrome.zip'
+export const EXTENSION_ZIP_PATH = '/downloads/hotsauce-meetings-chrome.zip'
+/** The old name, still served: links to it are out in chat and docs. */
+export const LEGACY_EXTENSION_ZIP_PATH = '/downloads/hearth-meetings-chrome.zip'
 
 /**
  * The Chrome extension zip for this server: the generic build (`apps/extension/dist`, copied

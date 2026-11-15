@@ -191,7 +191,7 @@ for (const [name, makeCase] of factories) {
       const result = await writer.commit(first.repo, {
         changes: [{ path: 'README.md', content: '# Round trip\n' }],
         author: ALICE,
-        message: 'hearth: create space',
+        message: 'hotsauce: create space',
       })
       expect(result.status).toBe('committed')
 

@@ -4,7 +4,7 @@ Take notes on a Google Meet call without Chrome's "pick a tab, tick share audio"
 contract is in `docs/ARCHITECTURE.md` §7.6.
 
 ```sh
-pnpm --filter @hearth/extension build   # dist/ + release/hearth-meetings-chrome.zip for the address in HEARTH_URL
+pnpm --filter @hearth/extension build   # dist/ + release/hotsauce-meetings-chrome.zip for the address in HOTSAUCE_URL
 pnpm --filter @hearth/extension dev     # the same, for http://localhost:5173 and :3000
 ```
 

@@ -108,6 +108,9 @@ export const ConfigSchema = z
     GITHUB_TOKEN: z.string().optional(),
     GITHUB_ORG: z.string().optional(),
 
+    HOTSAUCE_COMMITTER_NAME: z.string().optional(),
+    HOTSAUCE_COMMITTER_EMAIL: z.string().email().optional(),
+    // The old names, still read so existing deployments keep their committer.
     HEARTH_COMMITTER_NAME: z.string().optional(),
     HEARTH_COMMITTER_EMAIL: z.string().email().optional(),
     WEBHOOK_SECRET: z.string().default(DEV_WEBHOOK_SECRET),
@@ -223,6 +226,7 @@ export const ConfigSchema = z
       }
     })()
     const committerEmail =
+      c.HOTSAUCE_COMMITTER_EMAIL ??
       c.HEARTH_COMMITTER_EMAIL ??
       `hotsauce@${publicHost.includes('.') ? publicHost : 'hotsauce.invalid'}`
     return {
@@ -233,8 +237,9 @@ export const ConfigSchema = z
         c.ALLOWED_EMAIL_DOMAINS.length === 0 && !production
           ? ['example.test']
           : c.ALLOWED_EMAIL_DOMAINS,
-      HEARTH_COMMITTER_NAME: c.HEARTH_COMMITTER_NAME ?? c.PRODUCT_NAME,
-      HEARTH_COMMITTER_EMAIL: committerEmail,
+      HOTSAUCE_COMMITTER_NAME:
+        c.HOTSAUCE_COMMITTER_NAME ?? c.HEARTH_COMMITTER_NAME ?? c.PRODUCT_NAME,
+      HOTSAUCE_COMMITTER_EMAIL: committerEmail,
       VAPID_SUBJECT: c.VAPID_SUBJECT ?? `mailto:${committerEmail}`,
       // In production a provider without a key is 'none': its features say "add a key" instead
       // of refusing to start, so an organization can bring its own keys later.

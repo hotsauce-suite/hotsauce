@@ -57,7 +57,7 @@ describe('ensureTeamSpace', () => {
       {
         space: 'team',
         author: HEARTH,
-        message: 'hearth: create space "team"',
+        message: 'hotsauce: create space "team"',
         paths: ['README.md', '.hearth/space.yaml'],
       },
     ])
@@ -83,7 +83,7 @@ describe('ensurePersonalSpace', () => {
       {
         space: 'ada',
         author: { name: ada.name, email: ada.email },
-        message: 'hearth: create space "ada"',
+        message: 'hotsauce: create space "ada"',
         paths: ['README.md', '.hearth/space.yaml'],
       },
     ])

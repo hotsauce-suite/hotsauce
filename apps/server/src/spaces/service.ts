@@ -205,7 +205,7 @@ export class SpaceService {
     await this.#git.commit(name, {
       changes: this.#initialFiles(name, opts),
       author,
-      message: `hearth: create space "${name}"`,
+      message: `hotsauce: create space "${name}"`,
     })
   }
 

@@ -187,7 +187,7 @@ export interface ServiceOverrides {
 
 /** The real services, wired from config. Shared by the server and the CLI. */
 export function createServices(config: Config, overrides: ServiceOverrides = {}) {
-  const committer = { name: config.HEARTH_COMMITTER_NAME, email: config.HEARTH_COMMITTER_EMAIL }
+  const committer = { name: config.HOTSAUCE_COMMITTER_NAME, email: config.HOTSAUCE_COMMITTER_EMAIL }
   const git = new GitStore({
     dataDir: config.DATA_DIR,
     committer,

@@ -384,7 +384,7 @@ export class GitStore {
       return this.commitUnlocked(to.space, dir, {
         changes: [{ path: to.path, content: source.content }],
         author,
-        message: withVia(`hearth: add "${to.path}" from ${from.space}`, opts.via),
+        message: withVia(`hotsauce: add "${to.path}" from ${from.space}`, opts.via),
       })
     })
 
@@ -392,7 +392,7 @@ export class GitStore {
       this.commitUnlocked(from.space, dir, {
         changes: [{ path: from.path, content: null }],
         author,
-        message: withVia(`hearth: move "${from.path}" to ${to.space}`, opts.via),
+        message: withVia(`hotsauce: move "${from.path}" to ${to.space}`, opts.via),
         unchanged: { path: from.path, blobOid: source.blobOid, missingOk: true },
       }),
     )
@@ -461,7 +461,7 @@ export class GitStore {
       const result = await this.commitUnlocked(space, dir, {
         changes: [{ path, content: resolved.content }],
         author,
-        message: `hearth: resolve conflict on "${path}"`,
+        message: `hotsauce: resolve conflict on "${path}"`,
         ...(parentEntry ? { base: { path, blobOid: parentEntry.oid } } : {}),
         // Resolving a conflict on a file main has since deleted brings it back, on purpose.
         allowRecreate: true,
@@ -650,7 +650,7 @@ export class GitStore {
           '--quiet',
           '--no-verify',
           '-m',
-          withVia(`hearth: move "${from}" to "${to}"`, args.via),
+          withVia(`hotsauce: move "${from}" to "${to}"`, args.via),
         ],
         { GIT_AUTHOR_NAME: author.name, GIT_AUTHOR_EMAIL: author.email },
       )
@@ -779,7 +779,7 @@ export class GitStore {
         indexEnv,
       )
       const tree = (await this.git(dir, ['write-tree'], indexEnv)).trim()
-      const message = `hearth: conflict on "${path}"\n\n${CONFLICT_PATH_TRAILER}: ${path}`
+      const message = `hotsauce: conflict on "${path}"\n\n${CONFLICT_PATH_TRAILER}: ${path}`
       const commit = (
         await this.git(
           dir,

@@ -35,7 +35,8 @@ RUN pnpm --filter @hearth/format --filter @hearth/web --filter @hearth/server ru
 # The zip copied here is the unstamped fallback.
 RUN pnpm --filter @hearth/extension run build \
  && mkdir -p apps/web/dist/downloads \
- && cp apps/extension/release/hearth-meetings-chrome.zip apps/web/dist/downloads/
+ && cp apps/extension/release/hotsauce-meetings-chrome.zip apps/web/dist/downloads/ \
+ && cp apps/extension/release/hotsauce-meetings-chrome.zip apps/web/dist/downloads/hearth-meetings-chrome.zip
 # The Mac app can't be built on Linux: scripts/build-app.sh builds it on a Mac and the zip is
 # committed, so this copies them as they are (Dictate → Download for Mac).
 # A checkout without the built app (the public repository) simply offers no download.

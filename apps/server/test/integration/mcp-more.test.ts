@@ -117,7 +117,7 @@ describe('file tools', () => {
     expect(index.content).toContain('(archive/plan.md)')
     const log = await lastCommit('team')
     expect(log).toContain(`<${ALICE}>`)
-    expect(log).toContain('hearth: move "docs/plan.md" to "docs/archive/plan.md"')
+    expect(log).toContain('hotsauce: move "docs/plan.md" to "docs/archive/plan.md"')
     expect(log).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
   })
 

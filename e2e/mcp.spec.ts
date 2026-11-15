@@ -85,7 +85,7 @@ test('a token made in Settings connects an MCP client that searches, reads and w
   expect(move.path).toBe(moved)
   const history = await tool(client, 'file_history', { space: user.personal, path: moved })
   expect(history.length).toBeGreaterThanOrEqual(2)
-  expect(history[0].message).toContain('hearth: move')
+  expect(history[0].message).toContain('hotsauce: move')
   expect(history[0].message).toContain(`Hearth-Via: mcp (client "hearth-e2e", token "e2e ${id}")`)
   await tool(client, 'delete_file', { space: user.personal, path: moved })
   expect(await api.readFile(user.personal, moved)).toBeNull()
