@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
-import { newTaskFile, parseFrontmatter, patchFrontmatter } from '@hearth/format'
+import { newTaskFile, parseFrontmatter, patchFrontmatter } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Change, CommitResult } from '../git/index.js'
 import { Index } from '../index/index.js'
 import type { Space } from '../spaces/index.js'
@@ -38,13 +38,13 @@ class FakeGit {
 
   async readFile(space: string, path: string) {
     const content = this.files.get(`${space}:${path}`)
-    if (content === undefined) throw new HearthError('not_found', `${path} not found`)
+    if (content === undefined) throw new HotsauceError('not_found', `${path} not found`)
     return { content, blobOid: oid(content) }
   }
 
   async readBlobText(_space: string, blob: string): Promise<string> {
     for (const content of this.files.values()) if (oid(content) === blob) return content
-    throw new HearthError('bad_request', 'Unknown blob')
+    throw new HotsauceError('bad_request', 'Unknown blob')
   }
 
   async commit(
@@ -65,7 +65,7 @@ class FakeGit {
         args.unchanged.blobOid === null
           ? now === undefined
           : now !== undefined && oid(now) === args.unchanged.blobOid
-      if (!ok) throw new HearthError('conflict', 'changed')
+      if (!ok) throw new HotsauceError('conflict', 'changed')
     }
     for (const c of args.changes) this.put(space, c.path, c.content as string | null)
     this.commits.push({ space, message: args.message, paths: args.changes.map((c) => c.path) })
@@ -195,7 +195,7 @@ describe('resolveAssignee', () => {
     expect(resolveAssignee('alex.smith', people)).toBe('alex.smith@example.test')
     expect(resolveAssignee('BOB@example.test', people)).toBe(BOB)
     expect(() => resolveAssignee('carol', people)).toThrow(/No member called "carol"/)
-    expect(() => resolveAssignee('bob@elsewhere.com', people)).toThrow(HearthError)
+    expect(() => resolveAssignee('bob@elsewhere.com', people)).toThrow(HotsauceError)
   })
 
   it('keeps an invited namesake apart from the member', () => {

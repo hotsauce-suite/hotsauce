@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   DeepgramDictationTranscriber,
   deepgramBatchUrl,
@@ -30,7 +30,7 @@ describe('mapDeepgramResponse', () => {
   })
 
   it('is asr_error for anything else', () => {
-    expect(() => mapDeepgramResponse({ err_code: 'Bad Request' })).toThrow(HearthError)
+    expect(() => mapDeepgramResponse({ err_code: 'Bad Request' })).toThrow(HotsauceError)
   })
 })
 
@@ -59,11 +59,11 @@ describe('DeepgramDictationTranscriber', () => {
     })
     const result = await asr.transcribe(new Uint8Array([1, 2, 3]), {
       mimeType: 'audio/wav',
-      keyterms: ['Hearth'],
+      keyterms: ['Hotsauce'],
     })
     expect(result.durationMs).toBe(6250)
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit]
-    expect(new URL(url).searchParams.getAll('keyterm')).toEqual(['Hearth'])
+    expect(new URL(url).searchParams.getAll('keyterm')).toEqual(['Hotsauce'])
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({ Authorization: 'Token dg-key', 'Content-Type': 'audio/wav' })
   })

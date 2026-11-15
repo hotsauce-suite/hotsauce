@@ -29,7 +29,7 @@ export function authMessage(headers: Record<string, string>): SocketAuthMessage 
   return null
 }
 
-export class HearthSocket {
+export class HotsauceSocket {
   private socket: WebSocket | null = null
   private stopped = true
   private attempts = 0
@@ -118,4 +118,4 @@ export class HearthSocket {
   }
 }
 
-export const hearthSocket = new HearthSocket()
+export const hotsauceSocket = new HotsauceSocket()

@@ -21,7 +21,7 @@ test('a new doc commits on idle with the signed-in user as author', async ({
   expect((await saved).ok()).toBe(true)
   await waitForState('save-state', 'committed', { timeout: 3_000 })
 
-  // One commit in Git, authored by the user (Hearth is only the committer).
+  // One commit in Git, authored by the user (Hotsauce is only the committer).
   expect((await api.readFile(doc.space, doc.path))?.content).toContain(text)
   const commits = await api.history(doc.space, doc.path)
   expect(commits.map((c) => c.author)).toEqual([{ name: user.name, email: user.email }])

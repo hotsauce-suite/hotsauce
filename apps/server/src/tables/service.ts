@@ -1,4 +1,4 @@
-// Hearth Tables (ARCHITECTURE §22): a table is `tables/<id>.md` in a space, its cells a CSV block
+// Hotsauce Tables (ARCHITECTURE §22): a table is `tables/<id>.md` in a space, its cells a CSV block
 // under YAML frontmatter. Members edit in the grid (the browser runs IronCalc); Claude reads and
 // writes through MCP; the server works out formulas with the same engine. Written fresh.
 
@@ -18,10 +18,10 @@ import {
   tableFile,
   tablePath,
   tableProblem,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { ulid } from 'ulid'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Forms } from '../forms/index.js'
 import {
   type Author,
@@ -117,7 +117,7 @@ export class Tables {
     const width = cells[0]?.length ?? 1
     const columns = fitColumns(input.columns ?? [], width)
     const problem = tableProblem(columns, cells)
-    if (problem) throw new HearthError('bad_request', problem)
+    if (problem) throw new HotsauceError('bad_request', problem)
     const id = ulid()
     const now = this.#iso()
     const fm = TableFrontmatter.parse({
@@ -155,7 +155,7 @@ export class Tables {
       try {
         cells = readXlsx(bytes)
       } catch (err) {
-        if (err instanceof XlsxError) throw new HearthError('bad_request', err.message)
+        if (err instanceof XlsxError) throw new HotsauceError('bad_request', err.message)
         throw err
       }
     } else if (lower.endsWith('.csv') || lower.endsWith('.tsv') || lower.endsWith('.txt')) {
@@ -164,16 +164,19 @@ export class Tables {
         ? text.split(/\r?\n/).map((l) => l.split('\t'))
         : parseCsv(text)
     } else {
-      throw new HearthError('bad_request', 'Import a .csv or .xlsx file')
+      throw new HotsauceError('bad_request', 'Import a .csv or .xlsx file')
     }
     // Checked before the cells are squared up: a file of commas and blank lines mustn't make
     // the server build a grid of millions of empty cells.
     if (cells.length > MAX_TABLE_ROWS) {
-      throw new HearthError('bad_request', `A table can have ${MAX_TABLE_ROWS - 1} rows at most`)
+      throw new HotsauceError('bad_request', `A table can have ${MAX_TABLE_ROWS - 1} rows at most`)
     }
     cells = cells.map(trimRow)
     if (cells.some((r) => r.length > MAX_TABLE_COLUMNS)) {
-      throw new HearthError('bad_request', `A table can have ${MAX_TABLE_COLUMNS} columns at most`)
+      throw new HotsauceError(
+        'bad_request',
+        `A table can have ${MAX_TABLE_COLUMNS} columns at most`,
+      )
     }
     const title = name.replace(/\.[^.]+$/, '')
     return this.create(principal, space, { title, cells }, via)
@@ -213,10 +216,11 @@ export class Tables {
     const { fm } = await this.#read(space, id)
     const cells = normalizeCells(input.cells)
     const parsedColumns = TableFrontmatter.shape.columns.safeParse(input.columns)
-    if (!parsedColumns.success) throw new HearthError('bad_request', 'Those columns can’t be saved')
+    if (!parsedColumns.success)
+      throw new HotsauceError('bad_request', 'Those columns can’t be saved')
     const columns = fitColumns(parsedColumns.data, cells[0]?.length ?? 1)
     const title = cleanTitle(input.title)
-    if (!title) throw new HearthError('bad_request', 'A table needs a name')
+    if (!title) throw new HotsauceError('bad_request', 'A table needs a name')
     await this.#write(principal, space, fm, { title, columns, cells }, input.blobOid, 'edit', via)
     return this.get(principal, space, id)
   }
@@ -241,7 +245,7 @@ export class Tables {
     }
     for (const [address, value] of Object.entries(edits.set ?? {})) {
       const at = parseA1(address)
-      if (!at) throw new HearthError('bad_request', `"${address}" isn’t a cell address like B3`)
+      if (!at) throw new HotsauceError('bad_request', `"${address}" isn’t a cell address like B3`)
       put(at.row, at.column, String(value))
     }
     let last = grid.length
@@ -329,7 +333,7 @@ export class Tables {
     via: string | undefined,
   ) {
     const problem = tableProblem(next.columns, next.cells)
-    if (problem) throw new HearthError('bad_request', problem)
+    if (problem) throw new HotsauceError('bad_request', problem)
     const updated = TableFrontmatter.parse({
       ...fm,
       title: next.title,
@@ -349,7 +353,7 @@ export class Tables {
   async #read(space: string, id: string) {
     if (!isTableId(id)) throw notFound()
     const file = await this.#deps.git.readFile(space, tablePath(id)).catch((err) => {
-      throw err instanceof HearthError && err.code === 'not_found' ? notFound() : err
+      throw err instanceof HotsauceError && err.code === 'not_found' ? notFound() : err
     })
     try {
       const { fm, cells } = parseTableFile(file.content)
@@ -357,7 +361,7 @@ export class Tables {
       return { fm, cells, content: file.content, blobOid: file.blobOid }
     } catch (err) {
       if (!(err instanceof TableFormatError)) throw err
-      throw new HearthError('conflict', 'This table’s file can’t be read; fix it in Git')
+      throw new HotsauceError('conflict', 'This table’s file can’t be read; fix it in Git')
     }
   }
 
@@ -387,7 +391,7 @@ export class Tables {
         unchanged: args.unchanged,
       })
       .catch((err) => {
-        throw err instanceof HearthError && err.code === 'conflict' ? stale() : err
+        throw err instanceof HotsauceError && err.code === 'conflict' ? stale() : err
       })
     if (result.status === 'conflict') throw stale()
     await this.#deps.syncer.afterHeadChanged(space)
@@ -395,7 +399,7 @@ export class Tables {
 
   #assertAccess(principal: Principal, space: string) {
     if (!this.#deps.spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
@@ -438,6 +442,6 @@ function view(space: string, fm: TableFrontmatter, cells: string[][], blobOid: s
   }
 }
 
-const notFound = () => new HearthError('not_found', 'No such table')
+const notFound = () => new HotsauceError('not_found', 'No such table')
 const stale = () =>
-  new HearthError('conflict', 'Someone changed this table at the same time; reload to see it')
+  new HotsauceError('conflict', 'Someone changed this table at the same time; reload to see it')

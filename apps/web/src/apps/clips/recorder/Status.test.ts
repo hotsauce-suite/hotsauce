@@ -5,7 +5,7 @@ describe('describeShare', () => {
   it('names the kind of share, and the window or tab when Chrome gives a readable name', () => {
     expect(describeShare('monitor', 'screen:1:0')).toBe('Entire screen')
     expect(describeShare('window', 'Pricing – Figma')).toBe('A window: Pricing – Figma')
-    expect(describeShare('browser', 'Hearth Docs')).toBe('A Chrome tab: Hearth Docs')
+    expect(describeShare('browser', 'Hotsauce Docs')).toBe('A Chrome tab: Hotsauce Docs')
     expect(describeShare('window', 'window:4423:0')).toBe('A window')
     expect(describeShare(null, null)).toBe('Your screen')
   })

@@ -1,5 +1,5 @@
 import type { Principal } from '../../auth/index.js'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { type CalendarCache, PRIMARY } from './cache.js'
 import {
   classifyGoogleEvent,
@@ -115,14 +115,14 @@ export class CalendarSync {
   }
 
   /** The last failure of a member who has never synced, if it was within `withinMs`. */
-  recentFirstFailure(userId: string, withinMs: number): HearthError | null {
+  recentFirstFailure(userId: string, withinMs: number): HotsauceError | null {
     const { attemptedAt, syncedAt } = this.#cache.status(userId)
     const error = this.#lastError.get(userId)
     if (syncedAt !== null || attemptedAt === null || !error) return null
     return this.#now() - attemptedAt < withinMs ? error : null
   }
 
-  readonly #lastError = new Map<string, HearthError>()
+  readonly #lastError = new Map<string, HotsauceError>()
 
   async #sync(principal: Principal): Promise<void> {
     const { userId } = principal
@@ -135,7 +135,7 @@ export class CalendarSync {
           // rest; one Google no longer lets them read is dropped from their choices.
           if (calendarId === PRIMARY) throw err
           if (
-            err instanceof HearthError &&
+            err instanceof HotsauceError &&
             (err.code === 'forbidden' || err.code === 'not_found')
           ) {
             this.#cache.dropCalendar(userId, calendarId)
@@ -152,7 +152,8 @@ export class CalendarSync {
       this.#logged.delete(userId)
       this.#lastError.delete(userId)
     } catch (err) {
-      const error = err instanceof HearthError ? err : new HearthError('host_error', String(err))
+      const error =
+        err instanceof HotsauceError ? err : new HotsauceError('host_error', String(err))
       this.#cache.recordAttempt(userId, this.#now(), error.message)
       this.#lastError.set(userId, error)
       this.#logOnce(principal, error.message)
@@ -214,7 +215,7 @@ export class CalendarSync {
       if (!result.nextPageToken) return { items, nextSyncToken: result.nextSyncToken ?? null }
       pageToken = result.nextPageToken
     }
-    throw new HearthError('host_error', 'Google Calendar returned too many pages')
+    throw new HotsauceError('host_error', 'Google Calendar returned too many pages')
   }
 }
 

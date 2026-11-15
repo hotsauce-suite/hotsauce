@@ -9,7 +9,7 @@ import {
   type BoardScene,
   compactTombstone,
   mergeScenes,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { BoardView } from '../../api/boards'
 
 export const SAVE_DELAY_MS = 2000

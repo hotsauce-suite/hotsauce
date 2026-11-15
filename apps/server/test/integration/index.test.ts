@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import {
   Index,
   Indexer,
@@ -24,7 +24,7 @@ let git: MemoryGit
 let indexer: Indexer
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hearth-index-'))
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hotsauce-index-'))
   file = indexPath(dir)
   index = new Index(file)
   git = new MemoryGit()
@@ -233,7 +233,7 @@ describe('Indexer', () => {
   it('full() indexes a repo with no commits as empty and records no sync point', async () => {
     class EmptyGit extends MemoryGit {
       override async headOid(space: string): Promise<string> {
-        throw new HearthError('not_found', `Space ${space} has no commits yet`)
+        throw new HotsauceError('not_found', `Space ${space} has no commits yet`)
       }
     }
     await indexer.full('team')

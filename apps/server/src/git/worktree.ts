@@ -1,10 +1,10 @@
 import { lstat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 /**
  * Refuses a work-tree write whose path runs through a symlink: anyone with push access can commit
- * one, and following it would let a Hearth write land outside the clone. Walks every component of
+ * one, and following it would let a Hotsauce write land outside the clone. Walks every component of
  * `path` under `root` with lstat. Components that don't exist yet are fine (mkdir makes real
  * directories). An existing final component must be a regular file, or a directory when `final`
  * is 'dir' (moving a folder).
@@ -26,7 +26,7 @@ export async function assertSafeWorktreePath(
       throw err
     }
     const bad = (why: string) =>
-      new HearthError('bad_request', `Refusing to write ${JSON.stringify(path)}: ${why}`)
+      new HotsauceError('bad_request', `Refusing to write ${JSON.stringify(path)}: ${why}`)
     const shown = segments.slice(0, i + 1).join('/')
     if (stat.isSymbolicLink()) throw bad(`${shown} is a symlink`)
     const isLast = i === segments.length - 1

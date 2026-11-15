@@ -1,4 +1,4 @@
-import { SPACE_LAYOUT, transcriptPathFor } from '@hearth/format'
+import { SPACE_LAYOUT, transcriptPathFor } from '@hotsauce/format'
 import type { Index } from '../index/index.js'
 
 export interface MeetingListItem {

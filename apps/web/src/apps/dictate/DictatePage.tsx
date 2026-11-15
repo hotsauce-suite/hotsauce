@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import {
   connectLink,
   type DictationDevice,
@@ -446,7 +446,7 @@ function Keycap() {
 }
 
 function messageOf(err: unknown): string {
-  if (err instanceof HearthApiError) return err.message
+  if (err instanceof HotsauceApiError) return err.message
   return err instanceof Error ? err.message : 'Something went wrong'
 }
 

@@ -9,7 +9,7 @@ import {
   parseFrontmatter,
   parseTranscript,
   patchFrontmatter,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type {
   Author,
   CalendarChoice,

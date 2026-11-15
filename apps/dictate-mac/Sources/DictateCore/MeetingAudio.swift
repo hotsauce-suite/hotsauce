@@ -1,6 +1,6 @@
 import Foundation
 
-/// "Any app on this Mac" for Hearth Meetings (docs/PLAN-record-any-call.md): the app records the
+/// "Any app on this Mac" for Hotsauce Meetings (docs/PLAN-record-any-call.md): the app records the
 /// microphone and everything the Mac plays, and hands the Meetings page in its web view 100 ms
 /// frames of 16 kHz mono PCM16 LE, which the page sends on the meeting socket unchanged.
 public enum MeetingAudio {

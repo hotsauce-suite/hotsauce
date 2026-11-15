@@ -1,4 +1,4 @@
-// Which tabs are Google Meet calls, and which of them the person asked Hearth to listen to.
+// Which tabs are Google Meet calls, and which of them the person asked Hotsauce to listen to.
 // Pure, so the service worker's choices are tested without Chrome.
 
 const MEET_CALL = /^https:\/\/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})(?=$|[/?#])/
@@ -9,8 +9,8 @@ export function meetCode(url: string | undefined): string | null {
 }
 
 /**
- * A Meet tab the person clicked the Hearth icon on. Chrome lets an extension capture a tab only
- * after the person invoked it there, so these are the only tabs Hearth may capture.
+ * A Meet tab the person clicked the Hotsauce icon on. Chrome lets an extension capture a tab only
+ * after the person invoked it there, so these are the only tabs Hotsauce may capture.
  */
 export interface Invoked {
   tabId: number
@@ -30,7 +30,7 @@ export function remember(list: readonly Invoked[], entry: Invoked): Invoked[] {
 }
 
 /**
- * The tab to capture. Given the call's code (the Hearth page knows it from Take notes or the
+ * The tab to capture. Given the call's code (the Hotsauce page knows it from Take notes or the
  * calendar event): the newest invoked tab still on that call. Without one: the newest invoked
  * tab still on its call, and only if it was invoked in the last ten minutes, so a call from
  * earlier that's still open is never recorded by mistake. `urlOf` answers undefined for a

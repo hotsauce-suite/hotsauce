@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router'
 import { Icon, type IconName } from '../../components/Icon'
 
-/** Hearth Clips' sidebar: record, and the two lists. */
+/** Hotsauce Clips' sidebar: record, and the two lists. */
 export function ClipsSidebar() {
   const { pathname, search } = useLocation()
   const scope = new URLSearchParams(search).get('scope') === 'team' ? 'team' : 'mine'

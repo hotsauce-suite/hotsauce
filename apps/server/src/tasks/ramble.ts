@@ -1,4 +1,4 @@
-import { localNow, type ParsedTask, parseQuickAdd, weekday } from '@hearth/format'
+import { localNow, type ParsedTask, parseQuickAdd, weekday } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
 import type { Dictation } from '../dictation/index.js'
 import { rambleLines } from '../meetings/llm/fake.js'

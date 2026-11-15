@@ -34,7 +34,7 @@ BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
 
 rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" release
-cp "$BIN/HearthDictate" "$APP/Contents/MacOS/${APP_NAME}"
+cp "$BIN/HotsauceDictate" "$APP/Contents/MacOS/${APP_NAME}"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -78,12 +78,12 @@ if [[ -n "$IDENTITY" ]]; then
   echo "Signing with $IDENTITY (hardened runtime)"
   SIGNER="$IDENTITY"
   codesign --force --deep --options runtime --timestamp \
-    --entitlements Resources/HearthDictate.entitlements -s "$IDENTITY" "$APP"
+    --entitlements Resources/HotsauceDictate.entitlements -s "$IDENTITY" "$APP"
 elif grep -q "\"$INTERNAL\"" <<<"$(security find-identity -p codesigning 2>/dev/null)"; then
   echo "Signing with $INTERNAL (self-signed, stable across builds)"
   SIGNER="$INTERNAL"
   codesign --force --deep --options runtime \
-    --entitlements Resources/HearthDictate.entitlements -s "$INTERNAL" "$APP"
+    --entitlements Resources/HotsauceDictate.entitlements -s "$INTERNAL" "$APP"
 else
   echo "No signing identity: signing ad hoc (run scripts/create-signing-identity.sh once to keep permissions across updates)"
   codesign --force --deep -s - "$APP"

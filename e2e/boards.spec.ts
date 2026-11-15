@@ -2,7 +2,7 @@ import type { APIRequestContext, Page } from '@playwright/test'
 import { openApp, signIn, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
-// Hearth Whiteboard (ARCHITECTURE §15), against the built server: draw, autosave, reload,
+// Hotsauce Whiteboard (ARCHITECTURE §15), against the built server: draw, autosave, reload,
 // search, embed in a doc, and Excalidraw staying out of every other app's chunks.
 
 interface BoardView {

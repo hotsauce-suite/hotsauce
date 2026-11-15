@@ -17,7 +17,7 @@ export interface TaskQueryListProps {
 const timeZone = memberTimeZone
 
 /**
- * A live list of Hearth Tasks from a `tasks` block in a doc (docs/plans/2026-11-12-docs-task-
+ * A live list of Hotsauce Tasks from a `tasks` block in a doc (docs/plans/2026-11-12-docs-task-
  * lists.md). The file keeps only the query; this refetches whenever any task changes.
  */
 export function TaskQueryList({ source, personalSpace, onOpen }: TaskQueryListProps) {

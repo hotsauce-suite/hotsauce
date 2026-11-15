@@ -8,8 +8,8 @@ import { READ_ONLY, runTool } from '../result.js'
 export type DriveToolDeps = Pick<AppDeps, 'files' | 'config'>
 
 /**
- * Hearth Files (ARCHITECTURE §18, §8.2): uploaded files' details and the text pulled from them.
- * Never the bytes: a link opens the file in Hearth for the member.
+ * Hotsauce Files (ARCHITECTURE §18, §8.2): uploaded files' details and the text pulled from them.
+ * Never the bytes: a link opens the file in Hotsauce for the member.
  */
 export function registerDriveTools(server: McpServer, deps: DriveToolDeps, principal: Principal) {
   const { files } = deps

@@ -3,7 +3,7 @@ import Foundation
 
 // The edge glow: while Dictate listens, a warm glow hugs the edges of the window being typed into,
 // with flames along the bottom that follow the voice (docs/PLAN-dictate-edge-glow.md). The pieces
-// here have no AppKit in them, so they can be tested; HearthDictate/EdgeGlow.swift draws it.
+// here have no AppKit in them, so they can be tested; HotsauceDictate/EdgeGlow.swift draws it.
 
 /// What the glow looks like. Every tunable lives here, so the look can be changed in one place.
 public enum EdgeGlowLook {

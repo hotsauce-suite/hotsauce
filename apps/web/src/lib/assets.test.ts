@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { api, HearthApiError } from '../api/client'
+import { api, HotsauceApiError } from '../api/client'
 import { ImageUrls, safeImageBlob } from './assets'
 
 describe('ImageUrls', () => {
@@ -53,7 +53,7 @@ describe('ImageUrls', () => {
   it('retries an image that failed to load', async () => {
     const raw = vi
       .spyOn(api, 'raw')
-      .mockRejectedValueOnce(new HearthApiError('not_found', 'missing', 404))
+      .mockRejectedValueOnce(new HotsauceApiError('not_found', 'missing', 404))
       .mockResolvedValue(new Blob(['png']))
     const images = new ImageUrls('team', 'docs/a.md')
 

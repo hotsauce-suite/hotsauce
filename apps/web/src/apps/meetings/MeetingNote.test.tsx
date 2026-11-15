@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view'
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
@@ -107,7 +107,7 @@ describe('Meeting note page', () => {
   it('finds the transcript from frontmatter `transcript`, not from the note’s file name', async () => {
     const path = await acmeKickoff()
     const space = mockApi().repo.space('ada')
-    // Renamed outside Hearth: the transcript kept its name, the frontmatter still points at it.
+    // Renamed outside Hotsauce: the transcript kept its name, the frontmatter still points at it.
     const renamed = path.replace(/[^/]+$/, 'kickoff-with-acme.md')
     space.commit(
       new Map([

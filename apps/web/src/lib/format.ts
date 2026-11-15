@@ -1,6 +1,6 @@
-// Web-only helpers over @hearth/format, which owns how Hearth files look.
+// Web-only helpers over @hotsauce/format, which owns how Hotsauce files look.
 
-import { extractTitle, parseFrontmatter, patchFrontmatter, slugify } from '@hearth/format'
+import { extractTitle, parseFrontmatter, patchFrontmatter, slugify } from '@hotsauce/format'
 
 /** What a new doc is called until its author types a title over it. */
 export const NEW_DOC_TITLE = 'Untitled'
@@ -57,7 +57,7 @@ export function syncTitle(base: string, next: string): string {
   try {
     return patchFrontmatter(next, { title: heading })
   } catch {
-    // Frontmatter Hearth can't patch in place stays as written; the server says so on save.
+    // Frontmatter Hotsauce can't patch in place stays as written; the server says so on save.
     return next
   }
 }

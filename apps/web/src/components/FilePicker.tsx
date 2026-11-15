@@ -7,7 +7,7 @@ import { Dialog } from './Dialog'
 import { Icon } from './Icon'
 
 /**
- * One picker for attaching a Hearth file to a Doc, a meeting note, a Note or a Task (§18.4):
+ * One picker for attaching a Hotsauce file to a Doc, a meeting note, a Note or a Task (§18.4):
  * browse Team files and My files, search, or upload a new one. Resolves with the link to put in.
  */
 export function FilePicker({
@@ -205,7 +205,7 @@ export function FilePicker({
 
 export interface Attachment {
   name: string
-  /** Where it opens in Hearth. */
+  /** Where it opens in Hotsauce. */
   url: string
   /** A Markdown link to it. */
   markdown: string
@@ -232,7 +232,7 @@ function needsShareLink(file: DriveFile, targetSpace: string): boolean {
 
 const LINK = /\[((?:\\.|[^\]\\])+)\]\((\/files\/(?:s\/[A-Za-z0-9_-]+|[^/\s)]+\/[0-9A-Z]{26}))\)/g
 
-/** The Hearth Files links in some text, in order, without repeats. */
+/** The Hotsauce Files links in some text, in order, without repeats. */
 export function attachmentsIn(text: string): Array<{ name: string; url: string }> {
   const seen = new Set<string>()
   const out: Array<{ name: string; url: string }> = []

@@ -1,5 +1,5 @@
 // Today's tiles and edit mode (ARCHITECTURE §16.4, plan E1–E4): two columns of tiles the member
-// picks, moves and removes. The layout logic is in @hearth/format; this file only draws it.
+// picks, moves and removes. The layout logic is in @hotsauce/format; this file only draws it.
 
 import {
   addableTiles,
@@ -15,7 +15,7 @@ import {
   type TodayTile,
   type TodayTileKind,
   updateTile,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import {
   Fragment,
   type ReactNode,

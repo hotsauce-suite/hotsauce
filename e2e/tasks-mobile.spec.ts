@@ -1,7 +1,7 @@
 import { uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
-// Hearth Tasks on a phone (Pixel 7): quick add, completing, and the detail sheet.
+// Hotsauce Tasks on a phone (Pixel 7): quick add, completing, and the detail sheet.
 
 test.use({ timezoneId: 'UTC' })
 

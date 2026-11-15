@@ -1,4 +1,4 @@
-import { type BoardElement, type BoardScene, mergeScenes } from '@hearth/format'
+import { type BoardElement, type BoardScene, mergeScenes } from '@hotsauce/format'
 import { describe, expect, it, vi } from 'vitest'
 import type { BoardView } from '../../api/boards'
 import {

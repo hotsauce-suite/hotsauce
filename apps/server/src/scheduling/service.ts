@@ -11,11 +11,11 @@ import {
   parseFrontmatter,
   rulesOf,
   type Slot,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { stringify as toYaml } from 'yaml'
 import type { Principal } from '../auth/index.js'
 import { RateLimiter } from '../dictation/rate-limit.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore } from '../git/index.js'
 import type { SpaceRegistry, SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
@@ -139,14 +139,14 @@ export class Bookings {
 
   async save(principal: Principal, slug: string, input: BookingInput): Promise<BookingLink> {
     if (!isBookingSlug(slug)) {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         'A link name is lowercase letters, numbers and dashes, up to 50',
       )
     }
     this.#deps.register(principal)
     if (!(await this.#deps.google.canWrite(principal))) {
-      throw new HearthError(
+      throw new HotsauceError(
         'forbidden',
         'Turn on booking links first: sign out and back in to allow adding events to your calendar',
       )
@@ -171,7 +171,7 @@ export class Bookings {
     })
     if (!fm.success) {
       const issue = fm.error.issues[0]
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         `${issue?.path.join('.') || 'link'}: ${issue?.message ?? 'invalid'}`,
       )
@@ -191,7 +191,7 @@ export class Bookings {
     })
     await this.#deps.syncer.afterHeadChanged(space)
     if (result.status === 'conflict') {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         input.blobOid === null
           ? `You already have a link named ${slug}`
@@ -202,11 +202,11 @@ export class Bookings {
   }
 
   async remove(principal: Principal, slug: string, blobOid: string): Promise<void> {
-    if (!isBookingSlug(slug)) throw new HearthError('not_found', 'No such booking link')
+    if (!isBookingSlug(slug)) throw new HotsauceError('not_found', 'No such booking link')
     const space = await this.#ownSpace(principal)
     const path = bookingPath(slug)
     const existing = await this.#read(space, path)
-    if (!existing) throw new HearthError('not_found', 'No such booking link')
+    if (!existing) throw new HotsauceError('not_found', 'No such booking link')
     const title = typeof existing.data.title === 'string' ? existing.data.title : slug
     const result = await this.#deps.git.commit(space, {
       changes: [{ path, content: null }],
@@ -220,7 +220,10 @@ export class Bookings {
     })
     await this.#deps.syncer.afterHeadChanged(space)
     if (result.status === 'conflict') {
-      throw new HearthError('conflict', 'This link was changed somewhere else meanwhile; reload it')
+      throw new HotsauceError(
+        'conflict',
+        'This link was changed somewhere else meanwhile; reload it',
+      )
     }
   }
 
@@ -232,14 +235,14 @@ export class Bookings {
     range: { from?: string | undefined; to?: string | undefined; ip: string | null },
   ): Promise<PublicBookingPage> {
     if (!this.#views.take(range.ip ?? 'unknown', this.#now().getTime())) {
-      throw new HearthError('rate_limited', 'Too many requests; try again in a while')
+      throw new HotsauceError('rate_limited', 'Too many requests; try again in a while')
     }
     const { owner, link } = await this.#publicLink(handle, slug)
     const now = this.#now()
     const from = parseInstant(range.from) ?? now.getTime()
     const to = parseInstant(range.to) ?? from + 7 * DAY
     if (!(to > from) || to - from > MAX_RANGE_DAYS * DAY) {
-      throw new HearthError('bad_request', `Ask for up to ${MAX_RANGE_DAYS} days at a time`)
+      throw new HotsauceError('bad_request', `Ask for up to ${MAX_RANGE_DAYS} days at a time`)
     }
     const fm = link.fm
     // Nothing can be booked outside notice..horizon, so Google isn't asked about it.
@@ -274,34 +277,34 @@ export class Bookings {
   ): Promise<{ start: string; end: string; meetLink: string | null }> {
     const robot = this.#deps.robotCheck
     if (!robot) {
-      throw new HearthError('not_configured', "This booking page can't take bookings yet")
+      throw new HotsauceError('not_configured', "This booking page can't take bookings yet")
     }
     const { owner, link } = await this.#publicLink(handle, slug)
     const fm = link.fm
     const start = parseInstant(req.start)
     const name = req.name.replace(/\s+/g, ' ').trim()
     const email = req.email.trim().toLowerCase()
-    if (start === null) throw new HearthError('bad_request', 'Pick a time')
-    if (!name || name.length > 120) throw new HearthError('bad_request', 'Add your name')
+    if (start === null) throw new HotsauceError('bad_request', 'Pick a time')
+    if (!name || name.length > 120) throw new HotsauceError('bad_request', 'Add your name')
     if (!/^[^\s@<>",]+@[^\s@<>",]+\.[^\s@<>",]+$/.test(email) || email.length > 254) {
-      throw new HearthError('bad_request', 'Add a valid email address')
+      throw new HotsauceError('bad_request', 'Add a valid email address')
     }
     if (req.answers.length > fm.questions.length || req.answers.some((a) => a.length > 2000)) {
-      throw new HearthError('bad_request', 'Answers are up to 2,000 characters each')
+      throw new HotsauceError('bad_request', 'Answers are up to 2,000 characters each')
     }
     const now = this.#now().getTime()
     if (!this.#perIp.take(req.ip ?? 'unknown', now)) {
-      throw new HearthError('rate_limited', 'Too many bookings from here; try again in an hour')
+      throw new HotsauceError('rate_limited', 'Too many bookings from here; try again in an hour')
     }
     const linkKey = `${handle}/${slug}`
     if (!this.#perLink.allows(linkKey, now)) {
-      throw new HearthError('rate_limited', 'This link has had too many bookings today')
+      throw new HotsauceError('rate_limited', 'This link has had too many bookings today')
     }
     if (!(await robot.verify(req.token, req.ip))) {
-      throw new HearthError('forbidden', "Couldn't confirm you're a person; try the check again")
+      throw new HotsauceError('forbidden', "Couldn't confirm you're a person; try the check again")
     }
     if (email === owner.principal.email.toLowerCase()) {
-      throw new HearthError('bad_request', 'That’s the address of the person you’re booking with')
+      throw new HotsauceError('bad_request', 'That’s the address of the person you’re booking with')
     }
 
     const end = start + fm.minutes * MIN
@@ -315,12 +318,12 @@ export class Bookings {
         booked,
       })
       if (!open.some((s) => Date.parse(s.start) === start)) {
-        throw new HearthError('conflict', 'That time was just taken. Pick another one.')
+        throw new HotsauceError('conflict', 'That time was just taken. Pick another one.')
       }
       const startIso = new Date(start).toISOString()
       const endIso = new Date(end).toISOString()
       if (!this.#perLink.take(linkKey, now)) {
-        throw new HearthError('rate_limited', 'This link has had too many bookings today')
+        throw new HotsauceError('rate_limited', 'This link has had too many bookings today')
       }
       let event: { id: string; meetLink: string | null }
       try {
@@ -338,13 +341,16 @@ export class Bookings {
         })
       } catch (err) {
         this.#log(`booking ${handle}/${slug} at ${startIso}: ${err}`)
-        if (err instanceof HearthError && err.code === 'conflict') {
-          throw new HearthError(
+        if (err instanceof HotsauceError && err.code === 'conflict') {
+          throw new HotsauceError(
             'conflict',
             'That time was just taken. If you booked it, the invite is on its way to your email.',
           )
         }
-        throw new HearthError('host_error', "Couldn't add the meeting to the calendar. Try again.")
+        throw new HotsauceError(
+          'host_error',
+          "Couldn't add the meeting to the calendar. Try again.",
+        )
       }
       const key = owner.principal.email.toLowerCase()
       const recent = (this.#recent.get(key) ?? []).filter((r) => r.at > now - RECENT_MS)
@@ -362,7 +368,7 @@ export class Bookings {
       (s) => s.kind === 'personal',
     )
     if (!own) {
-      throw new HearthError('forbidden', "Your personal space isn't ready yet; try again shortly")
+      throw new HotsauceError('forbidden', "Your personal space isn't ready yet; try again shortly")
     }
     return own.name
   }
@@ -389,7 +395,7 @@ export class Bookings {
       const parsed = parseFrontmatter(content)
       return { data: parsed.data, body: parsed.body, blobOid }
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return null
+      if (err instanceof HotsauceError && err.code === 'not_found') return null
       throw err
     }
   }
@@ -398,7 +404,7 @@ export class Bookings {
     handle: string,
     slug: string,
   ): Promise<{ owner: Owner; link: { fm: BookingFrontmatter } }> {
-    const missing = new HearthError('not_found', 'This booking link does not exist')
+    const missing = new HotsauceError('not_found', 'This booking link does not exist')
     if (!isBookingSlug(slug) || !/^[a-z0-9-]{1,100}$/.test(handle)) throw missing
     const record = this.#deps.registry.getSpace(handle)
     if (record?.kind !== 'personal' || !record.ownerEmail) throw missing
@@ -447,7 +453,7 @@ export class Bookings {
         fresh = { at: now, busy, booked }
       } catch (err) {
         this.#log(`booking calendar for ${owner}: ${err}`)
-        throw new HearthError('not_configured', "This booking page isn't available right now")
+        throw new HotsauceError('not_configured', "This booking page isn't available right now")
       }
       if (this.#busy.size > 500) this.#busy.clear()
       this.#busy.set(key, fresh)

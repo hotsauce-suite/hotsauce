@@ -7,7 +7,11 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { type Context, Hono } from 'hono'
 import { createApp } from './app.js'
 import { loadConfig } from './config.js'
-import { EXTENSION_ZIP_PATH, extensionZip } from './extension/download.js'
+import {
+  EXTENSION_ZIP_PATH,
+  extensionZip,
+  LEGACY_EXTENSION_ZIP_PATH,
+} from './extension/download.js'
 import { legacyHostRedirect } from './legacyHosts.js'
 import { MacAppDownloads, releaseAsset } from './macApp.js'
 import { OrgStore } from './org/store.js'
@@ -123,12 +127,14 @@ async function main(): Promise<void> {
     name: config.PRODUCT_NAME,
   })
   if (zipFile) {
-    app.get(EXTENSION_ZIP_PATH, (c) => {
-      c.header('Content-Type', 'application/zip')
-      c.header('Content-Disposition', 'attachment; filename="hearth-meetings-chrome.zip"')
-      c.header('Cache-Control', 'no-cache')
-      return c.body(new Uint8Array(zipFile))
-    })
+    for (const zipPath of [EXTENSION_ZIP_PATH, LEGACY_EXTENSION_ZIP_PATH]) {
+      app.get(zipPath, (c) => {
+        c.header('Content-Type', 'application/zip')
+        c.header('Content-Disposition', 'attachment; filename="hotsauce-meetings-chrome.zip"')
+        c.header('Cache-Control', 'no-cache')
+        return c.body(new Uint8Array(zipFile))
+      })
+    }
   }
   serveWebApp(
     app,
@@ -221,7 +227,7 @@ function serveWebApp(
   // or rebases its URLs. Scripts aren't restricted here: Clerk loads its own from its domain.
   app.use('*', async (c, next) => {
     await next()
-    // A route that set its own policy keeps it (Hearth Files' previews frame a PDF); every other
+    // A route that set its own policy keeps it (Hotsauce Files' previews frame a PDF); every other
     // response gets this one. Framing is denied unless the route said otherwise.
     if (!c.res.headers.has('Content-Security-Policy')) {
       c.header(
@@ -251,7 +257,7 @@ function serveWebApp(
     return built ? next() : c.text(NO_WEB_BUILD)
   })
   if (!built) return
-  // The install name is the organization's ("Hearth", "Acme"), not the build's.
+  // The install name is the organization's ("Hotsauce", "Acme"), not the build's.
   app.get('/manifest.webmanifest', (c) => {
     const file = path.join(dir, 'manifest.webmanifest')
     if (!existsSync(file)) return c.notFound()

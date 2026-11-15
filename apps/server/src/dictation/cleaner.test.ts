@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { FakeLLM } from '../meetings/llm/fake.js'
 import { cleanTranscript, cleanupTokenBudget } from './cleaner.js'
 
@@ -23,7 +23,7 @@ describe('cleanTranscript', () => {
   it('falls back to the raw transcript when the model fails', async () => {
     const log = vi.fn()
     const llm = new FakeLLM(() => {
-      throw new HearthError('llm_error', 'Claude is busy')
+      throw new HotsauceError('llm_error', 'Claude is busy')
     })
     expect(await cleanTranscript(llm, 'm', input, log)).toEqual({
       text: input.transcript,

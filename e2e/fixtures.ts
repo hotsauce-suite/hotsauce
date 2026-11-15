@@ -49,8 +49,8 @@ export interface E2EUser {
   personal: string
 }
 
-/** Thin client for the Hearth API, authenticated as `email` via the dev-auth header. */
-export class HearthApi {
+/** Thin client for the Hotsauce API, authenticated as `email` via the dev-auth header. */
+export class HotsauceApi {
   constructor(
     private readonly request: APIRequestContext,
     readonly email: string,
@@ -119,7 +119,7 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   return stdout.trim()
 }
 
-/** A clone of a space's bare remote in a temp dir, for simulating pushes from outside Hearth. */
+/** A clone of a space's bare remote in a temp dir, for simulating pushes from outside Hotsauce. */
 export class Checkout {
   constructor(readonly dir: string) {}
 
@@ -182,7 +182,7 @@ export interface TestFixtures {
 }
 
 export interface WorkerFixtures {
-  api: HearthApi
+  api: HotsauceApi
   user: E2EUser
 }
 
@@ -197,7 +197,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         baseURL,
         extraHTTPHeaders: { 'x-hearth-dev-user': email },
       })
-      await use(new HearthApi(request, email))
+      await use(new HotsauceApi(request, email))
       await request.dispose()
     },
     { scope: 'worker' },
@@ -230,9 +230,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
   // biome-ignore lint/correctness/noEmptyPattern: Playwright reads fixture dependencies from this pattern.
   remote: async ({}, use) => {
-    const localHostDir = process.env.HEARTH_E2E_LOCAL_HOST_DIR
+    const localHostDir = process.env.HOTSAUCE_E2E_LOCAL_HOST_DIR
     if (!localHostDir)
-      throw new Error('HEARTH_E2E_LOCAL_HOST_DIR is unset; run via playwright.config.ts')
+      throw new Error('HOTSAUCE_E2E_LOCAL_HOST_DIR is unset; run via playwright.config.ts')
     const dirs: string[] = []
     await use({
       async clone(repo) {
@@ -243,7 +243,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
               'set CI=1 to never reuse one.',
           )
         }
-        const dir = await mkdtemp(path.join(os.tmpdir(), 'hearth-e2e-outside-'))
+        const dir = await mkdtemp(path.join(os.tmpdir(), 'hotsauce-e2e-outside-'))
         dirs.push(dir)
         await git(dir, 'clone', '--quiet', '--branch', 'main', `file://${bare}`, '.')
         return new Checkout(dir)

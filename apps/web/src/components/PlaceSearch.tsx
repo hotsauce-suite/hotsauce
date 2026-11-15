@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { HearthApiError } from '../api/client'
+import { HotsauceApiError } from '../api/client'
 import { todayApi, type WeatherPlace } from '../api/today'
 
 /** Type a city, pick one of the matches (Settings → General, the header, the team default). */
@@ -38,7 +38,7 @@ export function PlaceSearch({
         (err) => {
           if (cancelled) return
           setResults(null)
-          setError(err instanceof HearthApiError ? err.message : 'Couldn’t search places')
+          setError(err instanceof HotsauceApiError ? err.message : 'Couldn’t search places')
         },
       )
     }, 250)

@@ -156,7 +156,7 @@ export default function AgentBrief() {
               </p>
               <article
                 data-testid="brief-body"
-                className="prose-hearth mt-3 rounded-xl border border-ash bg-paper-raised/60 brief-body"
+                className="prose-hotsauce mt-3 rounded-xl border border-ash bg-paper-raised/60 brief-body"
                 style={{ padding: '1.25rem 1.5rem', maxWidth: 'none' }}
               >
                 <Markdown remarkPlugins={[remarkGfm]} components={components}>

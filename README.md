@@ -279,9 +279,10 @@ pnpm test                    # unit + integration (Vitest)
 pnpm build && pnpm test:e2e  # Playwright, against the built app
 ```
 
-Hotsauce started as an internal tool called Hearth, so package names, some identifiers and the git
-trailer `Hearth-Via` still say "hearth". They're stable on purpose: files written by older versions keep
-working.
+Hotsauce started as an internal tool called Hearth. A few saved names still say "hearth" on purpose,
+so files, links and apps from older versions keep working: each space's `.hearth/` folder, `hearth:`
+links between documents, the Mac app's `hearth://` and `hearth-dictate://` links, and commit trailers
+from before 0.15 (`Hearth-Via`, `Hearth-Label`, still read beside today's `Hotsauce-Via`).
 
 `site/` is [hotsauce.work](https://hotsauce.work), static pages on Cloudflare Workers.
 

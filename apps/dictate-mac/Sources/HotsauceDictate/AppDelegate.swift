@@ -344,6 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.reload()
         }
         model.openSetup = { [weak self] in self?.onboarding.show() }
+        model.runSetupAgain = { [weak self] in self?.onboarding.replay() }
         model.requestMicrophone = { Permissions.requestMicrophone { _ in model.reload() } }
         model.requestAccessibility = { Permissions.requestAccessibility() }
     }
@@ -572,6 +573,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
         menu.addItem(item("Check permissions…", #selector(showOnboarding)))
+        menu.addItem(item("Run setup again…", #selector(runSetupAgain)))
         if ConnectionStore.connection() != nil {
             menu.addItem(item("Disconnect this Mac", #selector(disconnect)))
         }
@@ -637,6 +639,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Check Permissions…: straight to the permissions, wherever setup stopped (P5).
     @objc func showOnboarding() { onboarding.show(at: .permissions) }
+
+    /// Run setup again: every setup step from the start, changing nothing (docs/PLAN-replay-setup.md).
+    @objc func runSetupAgain() { onboarding.replay() }
 
     /// Meeting reminders and call-notes offers are the only things that show notifications; call
     /// detection runs only on macOS 14.2 and later.
@@ -790,7 +795,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Connects with a link or a pasted code. Asks Hearth whose token it is first, and asks the
+    /// Connects with a link or a pasted code. Asks Hotsauce whose token it is first, and asks the
     /// member before using a link (any web page can open one), another server, or replacing a
     /// connection. Calls back with why it didn't connect, or nil when it did.
     private func connect(code: String, fromLink: Bool, done: @escaping (String?) -> Void) {

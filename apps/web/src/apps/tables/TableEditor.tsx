@@ -1,7 +1,7 @@
-import { type Column, fitColumns, normalizeCells } from '@hearth/format'
+import { type Column, fitColumns, normalizeCells } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { peopleApi } from '../../api/people'
 import { type TableView, tablesApi } from '../../api/tables'
 import { product } from '../../brand/product'
@@ -125,7 +125,7 @@ function TableEditor() {
         timer.current = setTimeout(() => void save(), SAVE_AFTER_MS)
       }
     } catch (e) {
-      if (e instanceof HearthApiError && e.status === 409) {
+      if (e instanceof HotsauceApiError && e.status === 409) {
         setStatus('conflict')
       } else {
         setStatus('error')

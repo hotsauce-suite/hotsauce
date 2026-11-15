@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import { stringify as toYaml } from 'yaml'
 import type { Authenticator, Principal } from '../auth/index.js'
 import { type BriefMembers, isDue } from '../brief/index.js'
 import type { Checkins } from '../checkins/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
 import { extractDoc, type Index, kindOf } from '../index/index.js'
@@ -173,7 +173,7 @@ export class Briefcasts {
 
   async episode(principal: Principal, date: string): Promise<Episode> {
     const episode = await this.#read(await this.#personal(principal), assertDate(date))
-    if (!episode) throw new HearthError('not_found', 'No Briefcast for that day')
+    if (!episode) throw new HotsauceError('not_found', 'No Briefcast for that day')
     return episode
   }
 
@@ -240,7 +240,7 @@ export class Briefcasts {
       maxTokens: 3_000,
     })
     const script = cleanScript(text)
-    if (script === '') throw new HearthError('llm_error', 'The Briefcast script came back empty')
+    if (script === '') throw new HotsauceError('llm_error', 'The Briefcast script came back empty')
 
     // Audio first, so a script in Git means its audio was stored (when there is a voice).
     let seconds: number | null = null
@@ -455,7 +455,7 @@ export class Briefcasts {
       )
       for (const path of paths) {
         if (docs.length >= MAX_DOCS) break
-        // Markdown documents: not meetings, transcripts, tasks or Hearth's own files.
+        // Markdown documents: not meetings, transcripts, tasks or Hotsauce's own files.
         if (path.startsWith('.') || path.includes('/.') || !/\.md$/i.test(path)) continue
         const kind = kindOf(path)
         if (kind !== 'docs' && kind !== 'other') continue
@@ -654,7 +654,7 @@ export class Briefcasts {
   }
 
   async #feedOwner(token: string): Promise<Principal> {
-    const refused = new HearthError('not_found', 'No such feed')
+    const refused = new HotsauceError('not_found', 'No such feed')
     const userId = token.length >= 16 ? await this.#d.state.userForToken(token) : null
     if (!userId) throw refused
     const principal = await this.#d.auth.principalForUser(userId)
@@ -673,7 +673,7 @@ export class Briefcasts {
 
   async #audioFor(userId: string, date: string): Promise<Uint8Array> {
     const found = this.#d.audio ? await this.#d.audio.get(audioKey(userId, date)) : null
-    if (!found) throw new HearthError('not_found', 'This episode’s audio isn’t available')
+    if (!found) throw new HotsauceError('not_found', 'This episode’s audio isn’t available')
     return new Uint8Array(await new Response(found.body).arrayBuffer())
   }
 
@@ -725,7 +725,7 @@ export class Briefcasts {
     try {
       return (await this.#d.git.readFile(space, path)).content
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return null
+      if (err instanceof HotsauceError && err.code === 'not_found') return null
       throw err
     }
   }
@@ -747,7 +747,7 @@ export class Briefcasts {
       message,
     })
     if (result.status === 'conflict') {
-      throw new HearthError('conflict', 'Your Briefcast changed while it was being saved')
+      throw new HotsauceError('conflict', 'Your Briefcast changed while it was being saved')
     }
     await this.#d.syncer.afterHeadChanged(space)
   }
@@ -755,9 +755,9 @@ export class Briefcasts {
   async #personal(principal: Principal): Promise<string> {
     // Audio and feeds are keyed by user id; a principal without one can't have them.
     if (principal.userId === '')
-      throw new HearthError('forbidden', 'Briefcast needs a signed-in member')
+      throw new HotsauceError('forbidden', 'Briefcast needs a signed-in member')
     const own = (await this.#d.spaces.visibleSpaces(principal)).find((s) => s.kind === 'personal')
-    if (!own) throw new HearthError('forbidden', 'Your personal space isn’t available')
+    if (!own) throw new HotsauceError('forbidden', 'Your personal space isn’t available')
     return own.name
   }
 
@@ -775,10 +775,10 @@ export class Briefcasts {
     const recent = (this.#forced.get(email) ?? []).filter((t) => now - t < 86_400_000)
     const last = recent.at(-1)
     if (last !== undefined && now - last < this.#d.forcedGapMs) {
-      throw new HearthError('rate_limited', 'A Briefcast was just made. Try again in a minute.')
+      throw new HotsauceError('rate_limited', 'A Briefcast was just made. Try again in a minute.')
     }
     if (recent.length >= FORCED_PER_DAY) {
-      throw new HearthError(
+      throw new HotsauceError(
         'rate_limited',
         'You’ve made a lot of Briefcasts today. Try again tomorrow.',
       )
@@ -822,7 +822,7 @@ export function localDay(
 
 function assertDate(date: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
-    throw new HearthError('not_found', 'No Briefcast for that day')
+    throw new HotsauceError('not_found', 'No Briefcast for that day')
   return date
 }
 

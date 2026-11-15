@@ -1,4 +1,4 @@
-import { parseQuickAdd } from '@hearth/format'
+import { parseQuickAdd } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { type TaskPerson, type TaskView, tasksApi } from '../../api/tasks'
 import { product } from '../../brand/product'

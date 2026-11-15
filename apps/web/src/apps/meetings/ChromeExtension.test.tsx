@@ -16,7 +16,7 @@ describe('Chrome extension page', () => {
     renderApp('/meetings/extension')
     expect(await screen.findByTestId('extension-download')).toHaveAttribute(
       'href',
-      '/downloads/hearth-meetings-chrome.zip',
+      '/downloads/hotsauce-meetings-chrome.zip',
     )
     expect(screen.getByText(/Load unpacked/)).toBeInTheDocument()
     expect(screen.queryByTestId('extension-installed')).not.toBeInTheDocument()

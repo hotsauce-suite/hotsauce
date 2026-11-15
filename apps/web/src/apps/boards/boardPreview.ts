@@ -2,7 +2,7 @@
 // doc embeds a board, so Excalidraw stays out of the Docs chunk.
 import './excalidrawAssets'
 import { exportToSvg } from '@excalidraw/excalidraw'
-import { boardIdOf, liveElements } from '@hearth/format'
+import { boardIdOf, liveElements } from '@hotsauce/format'
 import { boardsApi } from '../../api/boards'
 import { api } from '../../api/client'
 

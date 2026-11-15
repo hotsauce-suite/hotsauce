@@ -25,7 +25,7 @@ let base: string
 let llm: FakeLLM
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-dictation-stream-')
+  root = await makeTempDir('hotsauce-dictation-stream-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

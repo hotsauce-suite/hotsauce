@@ -383,7 +383,7 @@ private final class EdgeGlowView: NSView {
     }
 }
 
-/// `HearthDictate --edge-glow-demo [seconds] [--reduce-motion]`: shows the glow around the
+/// `HotsauceDictate --edge-glow-demo [seconds] [--reduce-motion]`: shows the glow around the
 /// frontmost window with a made-up voice for a few seconds, then the write-up pulse and the fade,
 /// for checking the look without a microphone, a server or a sound.
 @MainActor
@@ -415,7 +415,7 @@ enum EdgeGlowDemo {
     }
 }
 
-/// `HearthDictate --render-edge-glow <folder>`: draws the glow over a stand-in window to PNGs
+/// `HotsauceDictate --render-edge-glow <folder>`: draws the glow over a stand-in window to PNGs
 /// (loud, quiet, writing up, reduce motion), for checking the look without screen access.
 @MainActor
 enum EdgeGlowPreview {

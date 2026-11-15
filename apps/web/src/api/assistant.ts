@@ -1,6 +1,6 @@
 // Client for `/api/assistant` (docs/PLAN-assistant.md). Answers stream as Server-Sent Events.
 
-import { apiUrl, getAuthHeaders, HearthApiError, request, toApiError } from './client'
+import { apiUrl, getAuthHeaders, HotsauceApiError, request, toApiError } from './client'
 
 export interface AssistantInfo {
   name: string
@@ -100,7 +100,7 @@ export function newConversationId(): string {
 
 /**
  * Sends one message and calls `onEvent` for each event as it arrives. Resolves when the answer
- * ends; a refusal before the answer starts (no key, over the limit) throws a HearthApiError.
+ * ends; a refusal before the answer starts (no key, over the limit) throws a HotsauceApiError.
  */
 export async function askAssistant(
   conversationId: string,
@@ -118,7 +118,7 @@ export async function askAssistant(
     })
   } catch (err) {
     if (signal?.aborted) return
-    throw new HearthApiError('network', 'Could not reach the server', 0, err)
+    throw new HotsauceApiError('network', 'Could not reach the server', 0, err)
   }
   if (!res.ok || !res.body) throw await toApiError(res)
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
@@ -145,7 +145,7 @@ export async function askAssistant(
     throw err
   }
   if (!finished && !signal?.aborted) {
-    throw new HearthApiError('network', 'The answer was cut off. Ask again.', 0)
+    throw new HotsauceApiError('network', 'The answer was cut off. Ask again.', 0)
   }
 }
 

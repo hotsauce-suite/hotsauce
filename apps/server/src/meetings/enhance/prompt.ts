@@ -1,4 +1,4 @@
-import { dropEchoes, formatTranscriptLine, UNNAMED_SPEAKER } from '@hearth/format'
+import { dropEchoes, formatTranscriptLine, UNNAMED_SPEAKER } from '@hotsauce/format'
 import type { TemplateDoc } from '../templates.js'
 import type { TranscriptSegment } from '../transcriber/types.js'
 

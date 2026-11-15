@@ -1,4 +1,4 @@
-import { MeetingFrontmatter, parseFrontmatter, parseTranscript } from '@hearth/format'
+import { MeetingFrontmatter, parseFrontmatter, parseTranscript } from '@hotsauce/format'
 import { describe, expect, it } from 'vitest'
 import {
   attendeeLabel,

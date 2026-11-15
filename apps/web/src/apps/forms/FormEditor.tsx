@@ -5,10 +5,10 @@ import {
   type Question,
   type QuestionType,
   questionsProblem,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { type ChatRoom, type FormInput, type FormView, formsApi } from '../../api/forms'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
@@ -117,7 +117,7 @@ export default function FormEditor() {
       setError(null)
     } catch (e) {
       setError(
-        e instanceof HearthApiError && e.status === 409
+        e instanceof HotsauceApiError && e.status === 409
           ? 'Someone else changed this form. Reload the page to see their version.'
           : e instanceof Error
             ? e.message

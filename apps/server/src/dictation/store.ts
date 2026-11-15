@@ -3,9 +3,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { ulid } from 'ulid'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
-/** A Mac connected to Hearth Dictate. The token itself is never stored, only its hash. */
+/** A Mac connected to Hotsauce Dictate. The token itself is never stored, only its hash. */
 export interface DictationDevice {
   id: string
   userId: string
@@ -124,7 +124,7 @@ export class DictationStore {
   ): { device: DictationDevice; token: string } {
     const active = this.listDevices(member.userId)
     if (active.length >= MAX_DEVICES_PER_MEMBER) {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         `You have ${active.length} connected devices; revoke one first`,
       )
@@ -183,10 +183,10 @@ export class DictationStore {
         'UPDATE dictation_devices SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL',
       )
       .run(new Date().toISOString(), id, userId)
-    if (result.changes === 0) throw new HearthError('not_found', 'No such device')
+    if (result.changes === 0) throw new HotsauceError('not_found', 'No such device')
   }
 
-  /** Every device of a user who may no longer use Hearth. */
+  /** Every device of a user who may no longer use Hotsauce. */
   revokeAllForUser(userId: string): void {
     this.#db
       .prepare(
@@ -225,7 +225,10 @@ export class DictationStore {
   #setWords(scope: string, words: readonly string[]): string[] {
     const list = normalizeWords(words)
     if (list.length > MAX_WORDS_PER_LIST) {
-      throw new HearthError('bad_request', `A word list holds at most ${MAX_WORDS_PER_LIST} words`)
+      throw new HotsauceError(
+        'bad_request',
+        `A word list holds at most ${MAX_WORDS_PER_LIST} words`,
+      )
     }
     this.#db.prepare('DELETE FROM dictation_words WHERE scope = ?').run(scope)
     const insert = this.#db.prepare(

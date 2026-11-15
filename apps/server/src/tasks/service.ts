@@ -17,10 +17,10 @@ import {
   type TaskSource,
   taskIdOf,
   taskPath,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
 import { nameFromEmail } from '../auth/principal.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import {
@@ -177,7 +177,7 @@ export function resolveAssignee(value: string, people: readonly Person[]): strin
   const person = v.includes('@')
     ? people.find((p) => p.email === v)
     : (people.find((p) => p.handle === v) ?? (byLocal.length === 1 ? byLocal[0] : undefined))
-  if (!person) throw new HearthError('bad_request', `No member called "${value.trim()}"`)
+  if (!person) throw new HotsauceError('bad_request', `No member called "${value.trim()}"`)
   return person.email
 }
 
@@ -202,7 +202,7 @@ function isoNow(now: Date): string {
 function assertDue(due: string): void {
   // addDays(d, 0) round-trips only a real calendar date (2026-02-30 comes back as March 2).
   if (!DUE.test(due) || addDays(due.slice(0, 10), 0) !== due.slice(0, 10)) {
-    throw new HearthError(
+    throw new HotsauceError(
       'bad_request',
       `Invalid due date: ${due} (use YYYY-MM-DD or YYYY-MM-DDTHH:mm)`,
     )
@@ -252,14 +252,14 @@ function toView(
   return { ...view, mine: isMine(view, principal, personal) }
 }
 
-/** Parses a task file's frontmatter; null when it isn't a Hearth task. */
+/** Parses a task file's frontmatter; null when it isn't a Hotsauce task. */
 function parseTask(data: unknown): TaskFrontmatter | null {
   const parsed = TaskFrontmatter.safeParse(data)
   return parsed.success ? parsed.data : null
 }
 
 /**
- * Hearth Tasks on the server (ARCHITECTURE §12.2): one Markdown file per task, listed from the
+ * Hotsauce Tasks on the server (ARCHITECTURE §12.2): one Markdown file per task, listed from the
  * index, every write a read → patch → commit retried on a concurrent change.
  */
 export class Tasks {
@@ -417,12 +417,12 @@ export class Tasks {
     { space, path }: { space: string; path: string },
   ): Promise<MeetingActionItems[]> {
     if (!visible.some((s) => s.name === space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
     const { content } = await this.#git.readFile(space, path)
     const { data } = parseFrontmatter(content)
     if (data.type !== 'meeting')
-      throw new HearthError('bad_request', `${path} is not a meeting note`)
+      throw new HotsauceError('bad_request', `${path} is not a meeting note`)
     return [
       {
         space,
@@ -519,7 +519,7 @@ export class Tasks {
     assertTimeZone(input.tz)
     const today = localNow(this.#now(), input.tz).date
     const parsed = parseQuickAdd(input.text, { today })
-    if (!parsed.title) throw new HearthError('bad_request', 'A task needs a title')
+    if (!parsed.title) throw new HotsauceError('bad_request', 'A task needs a title')
     return this.create(
       principal,
       {
@@ -565,7 +565,7 @@ export class Tasks {
         const titleChanged = patch.title !== undefined && base?.title !== cur.fm.title
         const notesChanged = patch.notes !== undefined && base?.notes !== cur.notes
         if (base === null || titleChanged || notesChanged) {
-          throw new HearthError(
+          throw new HotsauceError(
             'conflict',
             'Someone else changed this task’s title or notes; reload to see theirs',
           )
@@ -658,7 +658,7 @@ export class Tasks {
     const file = await this.#read(space, id)
     this.#assertAssignable(toSpace, file.record.fm.assignee, principal.email.toLowerCase())
     if (await this.#exists(toSpace, path)) {
-      throw new HearthError('conflict', `A task with id ${id} is already in ${toSpace}`)
+      throw new HotsauceError('conflict', `A task with id ${id} is already in ${toSpace}`)
     }
     let added = await this.#commit(principal, toSpace, {
       changes: [{ path, content: file.content }],
@@ -704,13 +704,13 @@ export class Tasks {
 
   #assertAccess(principal: Principal, space: string): void {
     if (!this.#spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
   #assertAssignable(space: string, assignee: string | undefined, me: string): void {
     if (space !== TEAM_SPACE && assignee && assignee !== me) {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         'A personal task can’t be assigned to someone else; move it to Team first',
       )
@@ -746,14 +746,14 @@ export class Tasks {
     space: string,
     id: string,
   ): Promise<{ content: string; record: TaskRecord; notes: string }> {
-    if (!TASK_ID.test(id)) throw new HearthError('not_found', `No task ${id} in ${space}`)
+    if (!TASK_ID.test(id)) throw new HotsauceError('not_found', `No task ${id} in ${space}`)
     const path = taskPath(id)
     let file: { content: string; blobOid: string }
     try {
       file = await this.#git.readFile(space, path)
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') {
-        throw new HearthError('not_found', `No task ${id} in ${space}`)
+      if (err instanceof HotsauceError && err.code === 'not_found') {
+        throw new HotsauceError('not_found', `No task ${id} in ${space}`)
       }
       throw err
     }
@@ -761,11 +761,11 @@ export class Tasks {
     try {
       parsed = parseFrontmatter(file.content)
     } catch (err) {
-      if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+      if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
       throw err
     }
     const fm = parseTask(parsed.data)
-    if (!fm) throw new HearthError('bad_request', `${path} in ${space} isn’t a task`)
+    if (!fm) throw new HotsauceError('bad_request', `${path} in ${space} isn’t a task`)
     return {
       content: file.content,
       record: { space, path, id, blobOid: file.blobOid, fm },
@@ -778,7 +778,7 @@ export class Tasks {
       await this.#git.readFile(space, path)
       return true
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return false
+      if (err instanceof HotsauceError && err.code === 'not_found') return false
       throw err
     }
   }
@@ -805,12 +805,12 @@ export class Tasks {
     const f: Record<string, unknown> = {}
     if (input.title !== undefined) {
       const title = singleLine(input.title)
-      if (!title) throw new HearthError('bad_request', 'A task needs a title')
+      if (!title) throw new HotsauceError('bad_request', 'A task needs a title')
       f.title = title
     }
     if (input.priority !== undefined) {
       if (![1, 2, 3, 4].includes(input.priority)) {
-        throw new HearthError('bad_request', 'Priority is 1 (most urgent) to 4 (none)')
+        throw new HotsauceError('bad_request', 'Priority is 1 (most urgent) to 4 (none)')
       }
       f.priority = input.priority === 4 ? undefined : input.priority
     }
@@ -832,7 +832,7 @@ export class Tasks {
       } else {
         const rule = normalizeRecurrence(input.recur)
         if (!rule) {
-          throw new HearthError('bad_request', `Couldn’t understand the repeat “${input.recur}”`)
+          throw new HotsauceError('bad_request', `Couldn’t understand the repeat “${input.recur}”`)
         }
         f.recur = rule
         const due = 'due' in f ? f.due : current?.due
@@ -873,7 +873,7 @@ export class Tasks {
       try {
         text = await edit(cur, file.record.blobOid)
       } catch (err) {
-        if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+        if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
         throw err
       }
       if (text === null) {
@@ -890,7 +890,10 @@ export class Tasks {
         })
         return this.#viewOf(principal, space, file.record.path, text, result)
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }
@@ -929,7 +932,10 @@ export class Tasks {
           unchanged: { path: file.record.path, blobOid: file.record.blobOid },
         })
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }
@@ -970,11 +976,11 @@ export class Tasks {
     text: string,
     result: CommitResult,
   ): Promise<TaskView> {
-    if (result.status === 'conflict') throw new HearthError('internal', 'Unexpected conflict')
+    if (result.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
     const parsed = parseFrontmatter(text)
     const fm = parseTask(parsed.data)
     const id = taskIdOf(path)
-    if (!fm || !id) throw new HearthError('internal', `${path} isn’t a task after writing it`)
+    if (!fm || !id) throw new HotsauceError('internal', `${path} isn’t a task after writing it`)
     return toView(
       { space, path, id, blobOid: result.blobOid, fm },
       notesOf(parsed.body),
@@ -1026,7 +1032,7 @@ function indexReader(index: Pick<Index, 'bodyAt'>): Pick<GitStore, 'readFile'> {
   return {
     readFile: async (space, path) => {
       const at = index.bodyAt(space, path)
-      if (at === null) throw new HearthError('not_found', `${path} is not indexed`)
+      if (at === null) throw new HotsauceError('not_found', `${path} is not indexed`)
       // Blank lines where the frontmatter was, so to-do line numbers are the file's own.
       const content = '\n'.repeat(at.line - 1) + at.body
       return { content, blobOid: '' } as Awaited<ReturnType<GitStore['readFile']>>

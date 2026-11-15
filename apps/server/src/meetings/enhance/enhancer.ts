@@ -1,5 +1,5 @@
-import { extractLinks } from '@hearth/format'
-import { HearthError } from '../../errors.js'
+import { extractLinks } from '@hotsauce/format'
+import { HotsauceError } from '../../errors.js'
 import type { LLM, LLMUsage } from '../llm/types.js'
 import {
   buildEnhancePrompt,
@@ -56,7 +56,7 @@ export class Enhancer {
       }
     }
     const cleaned = cleanModelOutput(rest)
-    if (cleaned === '') throw new HearthError('llm_error', 'Claude returned an empty note')
+    if (cleaned === '') throw new HotsauceError('llm_error', 'Claude returned an empty note')
     const body = withAllRawLines(cleaned, input.rawNotes)
     const title = newTitle ?? input.title
     return {
@@ -177,7 +177,7 @@ export function splitTitle(text: string): { title: string | undefined; rest: str
 
 /**
  * The model's body without what the prompt asked it to leave out but it may add anyway: a code
- * fence around everything, or a title heading (Hearth writes the title itself).
+ * fence around everything, or a title heading (Hotsauce writes the title itself).
  */
 export function cleanModelOutput(text: string): string {
   let lines = text.replace(/\r\n?/g, '\n').trim().split('\n')

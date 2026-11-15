@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { DEV_USER_HEADER, DevAuth } from './dev.js'
 
 const auth = new DevAuth({
@@ -40,7 +40,7 @@ describe('DevAuth', () => {
 
   it('applies the domain lock', async () => {
     const attempt = auth.authenticate(req({ [DEV_USER_HEADER]: 'eve@eng.example.test' }))
-    await expect(attempt).rejects.toBeInstanceOf(HearthError)
+    await expect(attempt).rejects.toBeInstanceOf(HotsauceError)
     await expect(attempt).rejects.toMatchObject({ code: 'domain_not_allowed', status: 403 })
   })
 

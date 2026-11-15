@@ -33,7 +33,7 @@ let push: FakePushSender
 let now: Date
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-checkins-')
+  root = await makeTempDir('hotsauce-checkins-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

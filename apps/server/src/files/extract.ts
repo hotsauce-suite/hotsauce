@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { fileExtension, MAX_FILE_TEXT_CHARS } from '@hearth/format'
+import { fileExtension, MAX_FILE_TEXT_CHARS } from '@hotsauce/format'
 import { strFromU8, unzipSync } from 'fflate'
 
 /** Files bigger than this aren't read for text: a 2 GB video has none worth the memory. */

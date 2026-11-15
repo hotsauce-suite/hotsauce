@@ -59,10 +59,10 @@ describe('corpus', () => {
     })
 
     it('adds a key without touching anything else', () => {
-      const out = patchFrontmatter(text, { hearth_added: 'yes it is' })
+      const out = patchFrontmatter(text, { hotsauce_added: 'yes it is' })
       const parsed = parseFrontmatter(out)
-      expect(parsed.data).toEqual({ ...data, hearth_added: 'yes it is' })
-      expect(Object.keys(parsed.data)).toEqual([...keys, 'hearth_added'])
+      expect(parsed.data).toEqual({ ...data, hotsauce_added: 'yes it is' })
+      expect(Object.keys(parsed.data)).toEqual([...keys, 'hotsauce_added'])
       expect(parsed.body).toBe(body)
       expect(hasLoneLf(out)).toBe(hasLoneLf(text))
       expect(out.endsWith('\n')).toBe(text.endsWith('\n'))
@@ -70,15 +70,15 @@ describe('corpus', () => {
       if (yamlText !== null) {
         const { removed, added } = changedLines(text, out)
         expect(removed).toEqual([])
-        expect(added.map((l) => l.trimEnd())).toEqual(['hearth_added: yes it is'])
+        expect(added.map((l) => l.trimEnd())).toEqual(['hotsauce_added: yes it is'])
       }
     })
 
     it.skipIf(yamlText === null)('removing an added key restores the original', () => {
-      const added = patchFrontmatter(text, { hearth_added: 'x', hearth_other: [1, 2] })
-      expect(patchFrontmatter(added, { hearth_added: undefined, hearth_other: undefined })).toBe(
-        text,
-      )
+      const added = patchFrontmatter(text, { hotsauce_added: 'x', hotsauce_other: [1, 2] })
+      expect(
+        patchFrontmatter(added, { hotsauce_added: undefined, hotsauce_other: undefined }),
+      ).toBe(text)
     })
 
     it.skipIf(keys.length === 0)('changes only the lines of the key it patches', () => {

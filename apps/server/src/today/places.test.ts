@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { PLACE_SEARCHES_PER_MINUTE, PLACES_TTL_MS, Places } from './places.js'
 
 // W5: a typed city becomes a place, through Open-Meteo's geocoding API.
@@ -87,7 +87,7 @@ describe('Places', () => {
     const fetch = fakeFetch(BURLINGTON)
     const places = new Places({ fetch, now: () => NOW })
     for (let i = 0; i < PLACE_SEARCHES_PER_MINUTE; i++) await places.search(`City ${i}`, 'a@x')
-    await expect(places.search('One more', 'a@x')).rejects.toBeInstanceOf(HearthError)
+    await expect(places.search('One more', 'a@x')).rejects.toBeInstanceOf(HotsauceError)
     // Someone else, and a cached query, still work.
     await places.search('One more', 'b@x')
     await places.search('City 1', 'a@x')

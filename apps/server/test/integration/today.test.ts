@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import type { Principal } from '../../src/auth/index.js'
 import { loadConfig } from '../../src/config.js'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import type { CalendarEvent, CalendarSource } from '../../src/meetings/calendar/types.js'
 import { FakeLLM, type LLMRequest } from '../../src/meetings/index.js'
 import { createServices, type Services } from '../../src/services.js'
@@ -36,7 +36,7 @@ let calendar: TestCalendar
 const llmCalls: LLMRequest[] = []
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-today-')
+  root = await makeTempDir('hotsauce-today-')
   calendar = new TestCalendar()
   llmCalls.length = 0
   services = createServices(
@@ -281,7 +281,7 @@ describe('GET /api/today', () => {
   })
 
   it('T6: with no calendar grant the meetings card says why and the rest still loads', async () => {
-    calendar.fail = new HearthError('forbidden', 'Connect your Google Calendar in Settings.')
+    calendar.fail = new HotsauceError('forbidden', 'Connect your Google Calendar in Settings.')
     await api('POST', '/api/tasks/quick', ALICE, { text: 'Still here today', tz: TZ })
     const view = await today()
     expect(view.meetings).toEqual({

@@ -1,7 +1,7 @@
-import { isId } from '@hearth/format'
+import { isId } from '@hotsauce/format'
 import { describe, expect, it, vi } from 'vitest'
 import { boardsApi } from '../api/boards'
-import { getAuthHeaders, HearthApiError } from '../api/client'
+import { getAuthHeaders, HotsauceApiError } from '../api/client'
 import { BoardCollab, boardSocketUrl, browserCollabIO } from '../apps/boards/collab'
 import { mockApi } from '../test/mockServer'
 
@@ -69,8 +69,8 @@ describe('mock whiteboard', () => {
         },
       })
       .catch((e: unknown) => e)
-    expect(err).toBeInstanceOf(HearthApiError)
-    expect((err as HearthApiError).status).toBe(400)
+    expect(err).toBeInstanceOf(HotsauceApiError)
+    expect((err as HotsauceApiError).status).toBe(400)
   })
 
   it('answers the board socket as a room with only you in it', async () => {

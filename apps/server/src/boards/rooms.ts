@@ -3,7 +3,7 @@
 // stores nothing. Saving stays the HTTP save (each editor saves what it has, merged by element
 // version), so a dropped socket or a restart loses nothing but cursors.
 
-import { BLOCKED_ELEMENT_TYPES, isId } from '@hearth/format'
+import { BLOCKED_ELEMENT_TYPES, isId } from '@hotsauce/format'
 import { z } from 'zod'
 import type { Authenticator, Principal } from '../auth/index.js'
 import {

@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 /** Where filed feedback lives (plan R4): GitHub issues in production, memory in dev and test. */
 export interface FeedbackTracker {
@@ -97,7 +97,7 @@ export class MemoryTracker implements FeedbackTracker {
   async comment(number: number, body: string): Promise<void> {
     this.#get(number).comments.push({
       body,
-      author: 'hearth-bot',
+      author: 'hotsauce-bot',
       createdAt: new Date().toISOString(),
       team: true,
     })
@@ -131,7 +131,7 @@ export class MemoryTracker implements FeedbackTracker {
 
   #get(number: number) {
     const issue = this.issues.find((i) => i.number === number)
-    if (!issue) throw new HearthError('not_found', 'No such feedback')
+    if (!issue) throw new HotsauceError('not_found', 'No such feedback')
     return issue
   }
 }
@@ -243,11 +243,11 @@ export class GitHubTracker implements FeedbackTracker {
       })
     } catch (err) {
       console.error(`feedback: GitHub ${method} ${path} failed: ${String(err)}`)
-      throw new HearthError('host_error', "Couldn't reach GitHub")
+      throw new HotsauceError('host_error', "Couldn't reach GitHub")
     }
     if (!res.ok) {
       console.error(`feedback: GitHub ${method} ${path} → ${res.status}`)
-      throw new HearthError('host_error', `GitHub refused the feedback request (${res.status})`, {
+      throw new HotsauceError('host_error', `GitHub refused the feedback request (${res.status})`, {
         details: { status: res.status },
       })
     }

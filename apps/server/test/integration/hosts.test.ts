@@ -4,7 +4,7 @@ import { ulid } from 'ulid'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { GitStore } from '../../src/git/index.js'
 import { ForgejoHost, GitHubHost, type HostAdapter, LocalHost } from '../../src/hosts/index.js'
-import { ALICE, HEARTH, makeTempDir, removeDir } from '../helpers/git.js'
+import { ALICE, HOTSAUCE, makeTempDir, removeDir } from '../helpers/git.js'
 import { restClient, webhookReceiver, withTimeout } from '../helpers/hosts.js'
 
 // The same suite runs against every adapter this environment can reach. LocalHost always;
@@ -47,7 +47,7 @@ function localCase(dir: string): HostCase {
 }
 
 function forgejoCase(url: string, token: string): HostCase {
-  const org = process.env.FORGEJO_ORG ?? 'hearth-test'
+  const org = process.env.FORGEJO_ORG ?? 'hotsauce-test'
   const api = restClient(`${url.replace(/\/+$/, '')}/api/v1`, { Authorization: `token ${token}` })
   const username = `u-${runId}`.slice(0, 39)
   let userCreated = false
@@ -99,7 +99,7 @@ function githubCase(token: string, org: string): HostCase {
   const api = restClient('https://api.github.com', {
     Authorization: `Bearer ${token}`,
     Accept: 'application/vnd.github+json',
-    'User-Agent': 'hearth-tests',
+    'User-Agent': 'hotsauce-tests',
   })
   const collaborator = process.env.GITHUB_TEST_COLLABORATOR
   return {
@@ -169,7 +169,7 @@ for (const [name, makeCase] of factories) {
     }
 
     beforeAll(async () => {
-      root = await makeTempDir('hearth-hosts-')
+      root = await makeTempDir('hotsauce-hosts-')
       c = makeCase(root)
     })
 
@@ -185,17 +185,17 @@ for (const [name, makeCase] of factories) {
       expect(second.cloneUrl).toBe(first.cloneUrl)
       if (c.isPrivate) expect(await c.isPrivate(first.repo)).toBe(true)
 
-      const writer = new GitStore({ dataDir: join(root, 'writer'), committer: HEARTH })
+      const writer = new GitStore({ dataDir: join(root, 'writer'), committer: HOTSAUCE })
       await writer.ensureClone(first.repo, first.cloneUrl)
       expect(await writer.listAll(first.repo)).toEqual([])
       const result = await writer.commit(first.repo, {
         changes: [{ path: 'README.md', content: '# Round trip\n' }],
         author: ALICE,
-        message: 'hearth: create space',
+        message: 'hotsauce: create space',
       })
       expect(result.status).toBe('committed')
 
-      const reader = new GitStore({ dataDir: join(root, 'reader'), committer: HEARTH })
+      const reader = new GitStore({ dataDir: join(root, 'reader'), committer: HOTSAUCE })
       await reader.ensureClone(first.repo, first.cloneUrl)
       expect(await reader.readFile(first.repo, 'README.md')).toMatchObject({
         content: '# Round trip\n',
@@ -205,7 +205,7 @@ for (const [name, makeCase] of factories) {
 
     it('deleteRepo removes the repository; ensureRepo then recreates it empty', async () => {
       const { repo, cloneUrl } = await ensure('delete')
-      const store = new GitStore({ dataDir: join(root, 'delete-1'), committer: HEARTH })
+      const store = new GitStore({ dataDir: join(root, 'delete-1'), committer: HOTSAUCE })
       await store.ensureClone(repo, cloneUrl)
       await store.commit(repo, {
         changes: [{ path: 'a.md', content: 'a\n' }],
@@ -217,7 +217,7 @@ for (const [name, makeCase] of factories) {
       await c.host.deleteRepo(repo) // already gone: still fine
 
       const again = await c.host.ensureRepo(repo)
-      const fresh = new GitStore({ dataDir: join(root, 'delete-2'), committer: HEARTH })
+      const fresh = new GitStore({ dataDir: join(root, 'delete-2'), committer: HOTSAUCE })
       await fresh.ensureClone(repo, again.cloneUrl)
       expect(await fresh.listAll(repo)).toEqual([])
     })
@@ -264,7 +264,7 @@ for (const [name, makeCase] of factories) {
         const secret = `secret-${runId}`
         await c.host.ensureWebhook(repo, receiver.url, secret)
 
-        const store = new GitStore({ dataDir: join(root, 'delivery'), committer: HEARTH })
+        const store = new GitStore({ dataDir: join(root, 'delivery'), committer: HOTSAUCE })
         await store.ensureClone(repo, cloneUrl)
         await store.commit(repo, {
           changes: [{ path: 'docs/a.md', content: 'a\n' }],

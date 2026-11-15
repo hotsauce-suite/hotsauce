@@ -1,6 +1,6 @@
 import { expect, test, uid } from './fixtures'
 
-// Hearth Tables (ARCHITECTURE §22): a member makes a table, types
+// Hotsauce Tables (ARCHITECTURE §22): a member makes a table, types
 // numbers and a formula, sees the total, sorts, reloads and finds it saved; then opens a form's
 // answers as a table and copies them.
 

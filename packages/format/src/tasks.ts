@@ -1,4 +1,4 @@
-// Hearth Tasks (ARCHITECTURE §12): one task per Markdown file, `tasks/<id>.md`, with the task's
+// Hotsauce Tasks (ARCHITECTURE §12): one task per Markdown file, `tasks/<id>.md`, with the task's
 // fields in frontmatter and its notes as the body. Everything here is pure: dates are the
 // member's wall-clock dates, and the caller says what "today" is in their time zone.
 
@@ -251,7 +251,7 @@ const SHORTCUTS: Record<string, string> = {
   'every workday': 'every weekday',
 }
 
-/** Parses a rule (case and spacing don't matter); null when it isn't one Hearth understands. */
+/** Parses a rule (case and spacing don't matter); null when it isn't one Hotsauce understands. */
 export function parseRecurrence(rule: string): Recurrence | null {
   let text = rule.toLowerCase().replace(/\s+/g, ' ').trim()
   text = SHORTCUTS[text] ?? text

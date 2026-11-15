@@ -5,7 +5,7 @@ import { PRIYA } from './seed'
 
 /**
  * Dev-only (`VITE_MOCK_API=1`): the whole API runs in the page against an in-memory repo.
- * `window.hearthMock.outsideEdit(space, path, find, replace)` simulates a teammate's push.
+ * `window.hotsauceMock.outsideEdit(space, path, find, replace)` simulates a teammate's push.
  */
 export async function startMockApi(): Promise<void> {
   const mock = createMockApi({ latencyMs: 90 })
@@ -38,7 +38,7 @@ export async function startMockApi(): Promise<void> {
     return commit?.oid ?? null
   }
   Object.assign(window, {
-    hearthMock: {
+    hotsauceMock: {
       repo: mock.repo,
       meetings: mock.meetings,
       outsideEdit,

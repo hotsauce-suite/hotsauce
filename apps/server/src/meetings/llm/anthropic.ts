@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import type { LLM, LLMRequest, LLMUsage } from './types.js'
 
 const DEFAULT_MAX_TOKENS = 16_000
@@ -35,11 +35,11 @@ export class AnthropicLLM implements LLM {
     } catch (err) {
       if (!(err instanceof Anthropic.APIError)) throw err
       this.#log(`anthropic ${model} failed: ${err.status ?? 'no status'} ${err.message}`)
-      throw new HearthError('llm_error', messageFor(err))
+      throw new HotsauceError('llm_error', messageFor(err))
     }
     if (message.stop_reason === 'refusal') {
       this.#log(`anthropic ${model} declined: ${JSON.stringify(message.stop_details ?? null)}`)
-      throw new HearthError('llm_error', 'Claude declined this request')
+      throw new HotsauceError('llm_error', 'Claude declined this request')
     }
     let text = ''
     for (const block of message.content) {

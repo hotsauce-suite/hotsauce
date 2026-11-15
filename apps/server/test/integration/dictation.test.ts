@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { type Config, loadConfig } from '../../src/config.js'
 import { FakeDictationTranscriber } from '../../src/dictation/index.js'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import { FakeLLM, type LLMRequest, wavHeader } from '../../src/meetings/index.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
@@ -20,7 +20,7 @@ let respond: (req: LLMRequest) => string
 let llm: FakeLLM
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-dictation-')
+  root = await makeTempDir('hotsauce-dictation-')
   config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -142,7 +142,7 @@ describe('POST /api/dictation/transcribe', () => {
 
   it('returns the raw transcript when the model fails', async () => {
     respond = () => {
-      throw new HearthError('llm_error', 'busy')
+      throw new HotsauceError('llm_error', 'busy')
     }
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const body = await json(
@@ -163,7 +163,7 @@ describe('POST /api/dictation/transcribe', () => {
       vi.spyOn(console, m).mockImplementation(() => {}),
     )
     respond = () => {
-      throw new HearthError('llm_error', 'busy')
+      throw new HotsauceError('llm_error', 'busy')
     }
     await json(
       await call('POST', '/api/dictation/transcribe', {
@@ -280,7 +280,7 @@ describe('POST /api/dictation/transcribe', () => {
 })
 
 describe('device tokens', () => {
-  it('dictate and read the words, and do nothing else in Hearth', async () => {
+  it('dictate and read the words, and do nothing else in Hotsauce', async () => {
     const { token } = await connect()
     expect(token).toMatch(/^hdt_/)
     const body = await json(

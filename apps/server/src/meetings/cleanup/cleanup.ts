@@ -1,5 +1,5 @@
-import { fixTranscriptWords, parseTranscript } from '@hearth/format'
-import { HearthError } from '../../errors.js'
+import { fixTranscriptWords, parseTranscript } from '@hotsauce/format'
+import { HotsauceError } from '../../errors.js'
 import { formatCommitMessage, type GitStore } from '../../git/index.js'
 import { transcriptText } from '../files.js'
 import type { LLM } from '../llm/types.js'
@@ -168,7 +168,7 @@ export class TranscriptCleanup {
         unchanged: { path: job.transcriptPath, blobOid: saved.blobOid },
       })
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'conflict') {
+      if (err instanceof HotsauceError && err.code === 'conflict') {
         this.#log(`meeting ${job.id}: the transcript changed since it was saved; cleanup dropped`)
         return 'skipped'
       }
@@ -224,7 +224,7 @@ export class TranscriptCleanup {
       segments = results.flat()
     } catch (err) {
       if (signal.aborted) return null
-      const why = err instanceof HearthError ? err.message : String(err)
+      const why = err instanceof HotsauceError ? err.message : String(err)
       this.#log(
         `meeting ${job.id}: re-transcribing kept audio failed (${why}); spelling pass instead`,
       )

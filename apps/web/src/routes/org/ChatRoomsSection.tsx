@@ -70,7 +70,7 @@ export function ChatRoomsSection() {
           ) : null}
           , and under the room you want, copy its <b>Slack-compatible webhook URL</b> (it ends in
           /slack) and paste it here. The link decides the room; the name is only how forms list it.
-          Hearth posts a test message to check the link before saving it. Slack webhook links work
+          Hotsauce posts a test message to check the link before saving it. Slack webhook links work
           too.
         </p>
       </div>

@@ -1,6 +1,6 @@
-// Hearth Forms (ARCHITECTURE §21): a form is `forms/<id>.md` in a space and each answer is
+// Hotsauce Forms (ARCHITECTURE §21): a form is `forms/<id>.md` in a space and each answer is
 // `forms/<form id>/<answer id>.md` beside it. The question schema, the show-if rules and the
-// answer check live here so the fill page and the server agree. Written fresh for Hearth.
+// answer check live here so the fill page and the server agree. Written fresh for Hotsauce.
 
 import { z } from 'zod'
 
@@ -132,7 +132,7 @@ export function questionsProblem(questions: readonly Question[]): string | null 
   return null
 }
 
-/** A stored file an answer carries (Hearth Files, ARCHITECTURE §18). */
+/** A stored file an answer carries (Hotsauce Files, ARCHITECTURE §18). */
 export interface AnswerFile {
   id: string
   name: string

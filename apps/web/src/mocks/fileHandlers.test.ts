@@ -1,4 +1,4 @@
-import { isId } from '@hearth/format'
+import { isId } from '@hotsauce/format'
 import { describe, expect, it } from 'vitest'
 import { filesApi, uploadFile } from '../api/files'
 import { mockApi } from '../test/mockServer'

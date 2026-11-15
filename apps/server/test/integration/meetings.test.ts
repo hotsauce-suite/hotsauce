@@ -51,7 +51,7 @@ let speakers = 0
 let retranscriber: MeetingRetranscriber | null = null
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-meetings-')
+  root = await makeTempDir('hotsauce-meetings-')
   config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -365,11 +365,11 @@ describe('import from Granola', () => {
     })
     expect(again).toEqual({ imported: 0, skipped: 2, space: 'alice' })
 
-    // Hearth can enhance it without asking to replace edits: Granola's summary is AI text.
+    // Hotsauce can enhance it without asking to replace edits: Granola's summary is AI text.
     let prompt = ''
     respond = (req) => {
       prompt = req.messages.at(-1)?.content ?? ''
-      return '## Summary\n- Hearth summary'
+      return '## Summary\n- Hotsauce summary'
     }
     await api('POST', '/api/meetings/enhance', {
       json: { space: 'alice', path: 'meetings/2026/03/2026-03-04-acme-kickoff.md' },
@@ -392,9 +392,9 @@ describe('import from Granola', () => {
     })
     const path = 'meetings/2026/03/2026-03-04-late-call.md'
     expect(await readRemote('alice', path)).toMatch(/^date: '?2026-03-04T21:30:00-05:00'?$/m)
-    respond = () => '## Summary\n- Hearth summary'
+    respond = () => '## Summary\n- Hotsauce summary'
     await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path } })
-    expect(await readRemote('alice', path)).toContain('Hearth summary')
+    expect(await readRemote('alice', path)).toContain('Hotsauce summary')
   })
 
   it('refuses a batch that is too big or malformed', async () => {
@@ -463,7 +463,7 @@ describe('speakers on the call', () => {
     expect(note).toContain('Dana wants SSO before rollout')
     expect(note).not.toContain('speaker_guesses')
 
-    // Hearth's own rename doesn't count as the member editing the note.
+    // Hotsauce's own rename doesn't count as the member editing the note.
     respond = () => '## Summary\n- again'
     await api('POST', '/api/meetings/enhance', { json: { space: 'alice', path: saved.path } })
 
@@ -1274,7 +1274,7 @@ describe('voice notes', () => {
     ).toBeNull()
   })
 
-  it('deletes only a transcript beside the note, never Hearth files or another note', async () => {
+  it('deletes only a transcript beside the note, never Hotsauce files or another note', async () => {
     const id = '01JAAAAAAAAAAAAAAAAAAAAAAA'
     const meetingNote = (transcript: string) =>
       `---\nid: ${id}\ntype: meeting\ntitle: t\ndate: 2026-11-11T10:00:00Z\ntranscript: ${transcript}\n---\n# t\n`
@@ -1419,7 +1419,7 @@ describe('configuration', () => {
       R2_ACCOUNT_ID: 'acct',
       R2_ACCESS_KEY_ID: 'id',
       R2_SECRET_ACCESS_KEY: 'secret',
-      R2_BUCKET: 'hearth-audio',
+      R2_BUCKET: 'hotsauce-audio',
     }
     expect(loadConfig(production).AUDIO_STORE).toBe('local')
     expect(loadConfig({ ...production, ...r2 }).AUDIO_STORE).toBe('r2')

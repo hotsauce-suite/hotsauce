@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { defaultTodayLayout, TODAY_LAYOUT_PATH } from '@hearth/format'
+import { defaultTodayLayout, TODAY_LAYOUT_PATH } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
@@ -16,7 +16,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-today-layout-')
+  root = await makeTempDir('hotsauce-today-layout-')
   services = createServices(
     loadConfig({
       NODE_ENV: 'test',

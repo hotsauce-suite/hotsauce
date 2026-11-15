@@ -63,7 +63,7 @@ describe('segmentsFromUtterances', () => {
 describe('DeepgramRetranscriber', () => {
   let dir: string
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'hearth-retranscribe-'))
+    dir = await mkdtemp(join(tmpdir(), 'hotsauce-retranscribe-'))
     await writeFile(join(dir, 'them.pcm'), new Uint8Array(3200).fill(7))
   })
   afterEach(() => rm(dir, { recursive: true, force: true }))

@@ -1,4 +1,4 @@
-import { WEEKDAYS } from '@hearth/format'
+import { WEEKDAYS } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppDeps, AppEnv } from './env.js'

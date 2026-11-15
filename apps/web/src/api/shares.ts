@@ -1,6 +1,6 @@
 // Clients for read-only links and published pages (ARCHITECTURE §20).
 
-import { getAuthHeaders, HearthApiError, request, toApiError } from './client'
+import { getAuthHeaders, HotsauceApiError, request, toApiError } from './client'
 
 export interface ShareState {
   token: string | null
@@ -54,7 +54,7 @@ async function sharedFetch(path: string): Promise<Response> {
   try {
     res = await fetch(path, { headers: await getAuthHeaders() })
   } catch (err) {
-    throw new HearthApiError('network', 'Could not reach the server', 0, err)
+    throw new HotsauceApiError('network', 'Could not reach the server', 0, err)
   }
   if (!res.ok) throw await toApiError(res)
   return res

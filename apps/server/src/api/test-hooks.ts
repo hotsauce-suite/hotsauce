@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'
 
@@ -11,7 +11,7 @@ import { valid } from './validate.js'
 export function testRoutes(deps: AppDeps) {
   const { fakeGoogle, calendarSync, recordedPushes, reminders } = deps.meetings
   const google = () => {
-    if (!fakeGoogle) throw new HearthError('not_found', 'No fake Google on this server')
+    if (!fakeGoogle) throw new HotsauceError('not_found', 'No fake Google on this server')
     return fakeGoogle
   }
   return new Hono<AppEnv>()
@@ -65,11 +65,11 @@ export function testRoutes(deps: AppDeps) {
       return c.json({ ok: true })
     })
     .get('/pushes', (c) => {
-      if (!recordedPushes) throw new HearthError('not_found', 'Pushes are not recorded')
+      if (!recordedPushes) throw new HotsauceError('not_found', 'Pushes are not recorded')
       return c.json(recordedPushes.sent)
     })
     .post('/reminders/tick', async (c) => {
-      if (!reminders) throw new HearthError('not_found', 'Reminders are off')
+      if (!reminders) throw new HotsauceError('not_found', 'Reminders are off')
       await reminders.tick()
       await deps.tasks.reminders?.tick()
       return c.json({ ok: true })
@@ -80,9 +80,9 @@ export function testRoutes(deps: AppDeps) {
       (c) => {
         // Send feedback: what was filed, and the screenshots saved for it, as GitHub would hold them.
         const tracker = deps.feedback.memoryTracker
-        if (!tracker) throw new HearthError('not_found', 'No in-memory feedback on this server')
+        if (!tracker) throw new HotsauceError('not_found', 'No in-memory feedback on this server')
         const issue = tracker.issues.find((i) => i.number === c.req.valid('param').number)
-        if (!issue) throw new HearthError('not_found', 'No such feedback')
+        if (!issue) throw new HotsauceError('not_found', 'No such feedback')
         const uploads = tracker.uploads
           .filter((u) => issue.body.includes(u.path))
           .map((u) => ({ path: u.path, bytes: u.bytes.length }))
@@ -96,7 +96,7 @@ export function testRoutes(deps: AppDeps) {
       (c) => {
         // Send feedback: the team asks the member a question, as the daily review would.
         const tracker = deps.feedback.memoryTracker
-        if (!tracker) throw new HearthError('not_found', 'No in-memory feedback on this server')
+        if (!tracker) throw new HotsauceError('not_found', 'No in-memory feedback on this server')
         tracker.ask(c.req.valid('param').number, c.req.valid('json').question)
         deps.feedback.forgetCache()
         return c.json({ ok: true })

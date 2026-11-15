@@ -1,9 +1,9 @@
 // The tiles Today always had (ARCHITECTURE §16): they show what `GET /api/today` returned.
 
-import { parseQuickAdd } from '@hearth/format'
+import { parseQuickAdd } from '@hotsauce/format'
 import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router'
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import { memberTimeZone, type TaskView, tasksApi } from '../../../api/tasks'
 import type { TodayMeeting, TodayView } from '../../../api/today'
 import { Icon } from '../../../components/Icon'
@@ -172,7 +172,7 @@ export function TasksCard({
       setText('')
       if (task.mine && task.due !== null && task.due.slice(0, 10) <= date) onAdded(task)
     } catch (err) {
-      setError(err instanceof HearthApiError ? err.message : 'That task didn’t save.')
+      setError(err instanceof HotsauceApiError ? err.message : 'That task didn’t save.')
     } finally {
       setBusy(false)
     }

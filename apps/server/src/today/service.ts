@@ -3,7 +3,7 @@
 // budget (platform PRD §9) however many files the spaces hold.
 
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Index } from '../index/index.js'
 import type { MeetingActionItems } from '../meetings/action-items.js'
 import type { CalendarEvent, CalendarSource } from '../meetings/calendar/types.js'
@@ -156,7 +156,7 @@ export class Today {
     } catch (err) {
       // No calendar grant (or Google down): the rest of Today still loads, and this says why.
       const message =
-        err instanceof HearthError ? err.message : 'Your calendar didn’t load right now.'
+        err instanceof HotsauceError ? err.message : 'Your calendar didn’t load right now.'
       return { events: [], error: message }
     }
     const byEvent = new Map<string, MeetingFile>()

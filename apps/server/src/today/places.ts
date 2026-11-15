@@ -2,7 +2,7 @@
 // Open-Meteo's free geocoding API (https://open-meteo.com/en/docs/geocoding-api, no key; data from
 // GeoNames, CC BY 4.0). Only the typed name is sent. Positions are rounded like a shared location.
 
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { roundPlace } from './weather.js'
 
 const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search'
@@ -59,7 +59,7 @@ export class Places {
 
     const recent = (this.#searches.get(who) ?? []).filter((t) => now - t < 60_000)
     if (recent.length >= PLACE_SEARCHES_PER_MINUTE) {
-      throw new HearthError('rate_limited', 'Too many place searches. Try again in a minute.')
+      throw new HotsauceError('rate_limited', 'Too many place searches. Try again in a minute.')
     }
     recent.push(now)
     this.#searches.set(who, recent)
@@ -80,7 +80,7 @@ export class Places {
       body = (await res.json()) as GeocodingResponse
     } catch {
       if (hit) return hit.places
-      throw new HearthError('host_error', 'The place search didn’t answer. Try again later.')
+      throw new HotsauceError('host_error', 'The place search didn’t answer. Try again later.')
     }
     const places = (body.results ?? []).flatMap((r): PlaceView[] => {
       if (!r.name || typeof r.latitude !== 'number' || typeof r.longitude !== 'number') return []

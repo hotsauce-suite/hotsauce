@@ -2,7 +2,7 @@ import { type AppDeps, authorOf } from '../api/env.js'
 import { restore } from '../api/history.js'
 import { afterCommit } from '../api/save.js'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { withVia } from '../git/message.js'
 import type { WriteTracker } from './agent.js'
 import type { AssistantStore, UndoRecord } from './store.js'
@@ -67,7 +67,7 @@ export async function undoChanges(
   for (const c of changes) {
     const now = await blobAt(deps, c.space, c.path, 'HEAD')
     if (now !== c.afterBlob) {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         `${c.path} changed after the assistant's edit; open its history to restore it by hand`,
       )
@@ -85,7 +85,7 @@ export async function undoChanges(
         via: VIA,
       })
       if (result.status === 'conflict') {
-        throw new HearthError(
+        throw new HotsauceError(
           'conflict',
           `${c.path} changed while undoing; nothing else was undone`,
         )
@@ -121,7 +121,7 @@ async function blobAt(
   try {
     return (await deps.git.readBlob(space, path, ref)).blobOid
   } catch (err) {
-    if (err instanceof HearthError && err.code === 'not_found') return null
+    if (err instanceof HotsauceError && err.code === 'not_found') return null
     throw err
   }
 }

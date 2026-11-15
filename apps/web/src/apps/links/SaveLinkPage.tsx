@@ -1,4 +1,4 @@
-import { findLinkUrl } from '@hearth/format'
+import { findLinkUrl } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { type LinkSource, type LinkView, linksApi } from '../../api/links'

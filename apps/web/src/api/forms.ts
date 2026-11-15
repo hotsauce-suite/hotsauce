@@ -1,7 +1,7 @@
-// Client for Hearth Forms (ARCHITECTURE §21): building forms and reading answers at
+// Client for Hotsauce Forms (ARCHITECTURE §21): building forms and reading answers at
 // `/api/forms`, chat rooms at `/api/chat-rooms`, and the fill page at `/api/form/<link>`.
 
-import type { Answers, FormAccess, Question } from '@hearth/format'
+import type { Answers, FormAccess, Question } from '@hotsauce/format'
 import type { RobotCheckWidget } from './booking'
 import { request, requestBlob } from './client'
 
@@ -12,7 +12,7 @@ export type {
   FormAccess,
   Question,
   QuestionType,
-} from '@hearth/format'
+} from '@hotsauce/format'
 
 export interface FormSummary {
   space: string

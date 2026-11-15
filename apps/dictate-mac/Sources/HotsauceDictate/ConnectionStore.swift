@@ -2,7 +2,7 @@ import DictateCore
 import Foundation
 import Security
 
-/// This Mac's connection to Hearth: the device token and its server, kept together so nothing can
+/// This Mac's connection to Hotsauce: the device token and its server, kept together so nothing can
 /// point the token at another server without going through Connect (and its prompt).
 ///
 /// Stored in ~/Library/Application Support/HearthDictate/connection.json (0600, in a 0700 folder),
@@ -13,7 +13,7 @@ enum ConnectionStore {
     struct Connection: Codable, Equatable {
         let token: String
         let server: URL
-        /// Whose Hearth it is, for the windows. Missing in connections saved before 0.1.1.
+        /// Whose Hotsauce it is, for the windows. Missing in connections saved before 0.1.1.
         var account: String? = nil
     }
 

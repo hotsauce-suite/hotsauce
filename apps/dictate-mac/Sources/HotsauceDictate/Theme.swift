@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// Hearth's tokens (apps/web/src/styles/tokens.css): warm paper by day, charcoal by night, one
+/// Hotsauce's tokens (apps/web/src/styles/tokens.css): warm paper by day, charcoal by night, one
 /// ember accent. Each colour follows the system appearance.
-enum Hearth {
+enum Hotsauce {
     static let paper = dynamic(light: 0xF2EADF, dark: 0x1D1815)
     static let raised = dynamic(light: 0xFAF5EE, dark: 0x28211D)
     static let sunk = dynamic(light: 0xE8DDCF, dark: 0x161210)

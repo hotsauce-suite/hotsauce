@@ -1,6 +1,6 @@
 // Client for `/api/boards` (ARCHITECTURE §15.3). The shapes are the server's (§15.2).
 
-import type { BoardScene } from '@hearth/format'
+import type { BoardScene } from '@hotsauce/format'
 import { request } from './client'
 
 export type { BoardScene }

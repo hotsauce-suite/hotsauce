@@ -12,7 +12,7 @@ const Id = z.string().min(1).max(40).describe('The page id that publish_page or 
 
 /**
  * Published pages and read-only links (ARCHITECTURE §20). A page is HTML the member's team reads
- * in Hearth; each publish is a version kept in Git. A read-only link opens one doc, meeting note,
+ * in Hotsauce; each publish is a version kept in Git. A read-only link opens one doc, meeting note,
  * note or page for anyone allowed to follow links.
  */
 export function registerPageTools(

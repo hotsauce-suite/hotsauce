@@ -3,12 +3,12 @@ import {
   parseTranscript,
   type TranscriptLine,
   transcriptPathFor,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { api, HearthApiError } from '../../../api/client'
+import { api, HotsauceApiError } from '../../../api/client'
 import { meetingsApi } from '../../../api/meetings'
-import { hearthSocket } from '../../../api/ws'
+import { hotsauceSocket } from '../../../api/ws'
 import { product } from '../../../brand/product'
 import { SidePanel } from '../../../components/SidePanel'
 import type { DocumentHandle } from '../../../hooks/useDocument'
@@ -62,11 +62,11 @@ export function TranscriptPanel({
       setNaming(null)
     } catch (err) {
       setNameError(
-        err instanceof HearthApiError && err.status === 409 && /cleaned up/.test(err.message)
+        err instanceof HotsauceApiError && err.status === 409 && /cleaned up/.test(err.message)
           ? `${product()} is still tidying this transcript. Try again in a moment.`
-          : err instanceof HearthApiError && err.status === 409
+          : err instanceof HotsauceApiError && err.status === 409
             ? 'The transcript changed meanwhile. Look again, then try once more.'
-            : err instanceof HearthApiError
+            : err instanceof HotsauceApiError
               ? err.message
               : 'The name didn’t save.',
       )
@@ -96,7 +96,7 @@ export function TranscriptPanel({
       },
       (err: unknown) => {
         if (cancelled) return
-        if (err instanceof HearthApiError && err.status === 404) setLoaded({ status: 'missing' })
+        if (err instanceof HotsauceApiError && err.status === 404) setLoaded({ status: 'missing' })
         else setLoaded({ status: 'error', message: 'The transcript didn’t load.' })
       },
     )
@@ -106,7 +106,7 @@ export function TranscriptPanel({
   }, [space, path, version])
 
   useEffect(() => {
-    const off = hearthSocket.onChanged((event) => {
+    const off = hotsauceSocket.onChanged((event) => {
       if (event.space === space && path && event.paths.includes(path)) setVersion((v) => v + 1)
     })
     return () => {

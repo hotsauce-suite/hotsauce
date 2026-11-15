@@ -18,7 +18,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-shares-')
+  root = await makeTempDir('hotsauce-shares-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

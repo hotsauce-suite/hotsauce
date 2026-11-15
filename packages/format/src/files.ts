@@ -1,4 +1,4 @@
-// Hearth Files (ARCHITECTURE §18): one pointer file per stored file, `files/<id>.md`. The bytes
+// Hotsauce Files (ARCHITECTURE §18): one pointer file per stored file, `files/<id>.md`. The bytes
 // live in object storage under `key`; the frontmatter says what they are and where they sit;
 // the body is the text pulled out of them, so search reads it like any other file. Pure.
 

@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 /** The token the dev and test robot check accepts. */
@@ -35,11 +35,11 @@ export class Turnstile implements RobotCheck {
         signal: AbortSignal.timeout(10_000),
       })
     } catch (err) {
-      throw new HearthError('host_error', `Couldn't reach Cloudflare Turnstile (${err})`)
+      throw new HotsauceError('host_error', `Couldn't reach Cloudflare Turnstile (${err})`)
     }
     if (!res.ok) {
       await res.body?.cancel()
-      throw new HearthError('host_error', `Cloudflare Turnstile answered ${res.status}`)
+      throw new HotsauceError('host_error', `Cloudflare Turnstile answered ${res.status}`)
     }
     const body = (await res.json()) as { success?: unknown }
     return body.success === true

@@ -1,4 +1,4 @@
-import { parseFrontmatter, SPACE_LAYOUT, transcriptPathFor } from '@hearth/format'
+import { parseFrontmatter, SPACE_LAYOUT, transcriptPathFor } from '@hotsauce/format'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { type AppDeps, authorOf } from '../../api/env.js'
@@ -6,7 +6,7 @@ import { besideNote, linksInto, moveToTrash, transcriptFollows } from '../../api
 import { restore } from '../../api/history.js'
 import { isAtOrUnder, readIfExists, writablePath } from '../../api/save.js'
 import type { Principal } from '../../auth/index.js'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { TEAM_SPACE } from '../../spaces/index.js'
 import { mcpVia, READ_ONLY, runTool } from '../result.js'
 
@@ -19,7 +19,7 @@ const Path = z.string().min(1).describe('A file path inside the space, e.g. "doc
  * Moving, deleting and restoring files, and their history (ARCHITECTURE §8.2). The same rules as
  * the web app's file routes: links into a moved doc are rewritten, a meeting note's transcript
  * moves with it, delete goes to the trash, restore is a new commit. Each write is a commit
- * authored by the member with the `Hearth-Via` trailer.
+ * authored by the member with the `Hotsauce-Via` trailer.
  */
 export function registerFileTools(
   server: McpServer,
@@ -33,7 +33,7 @@ export function registerFileTools(
   const via = mcpVia(principal, client)
   const assertAccess = (space: string) => {
     if (!spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
   const write = { readOnlyHint: false, openWorldHint: false } as const
@@ -79,14 +79,14 @@ export function registerFileTools(
         // Across spaces only from a personal space to the team, as the web app's Share to team:
         // pulling a team file into a personal space would hide it from everyone else.
         if (target !== TEAM_SPACE || space === TEAM_SPACE) {
-          throw new HearthError(
+          throw new HotsauceError(
             'bad_request',
             'Files move between spaces only from your personal space to the team space',
           )
         }
         const note = await readIfExists(git, space, from)
         if (note === null) {
-          throw new HearthError(
+          throw new HotsauceError(
             'not_found',
             `${from} not found in ${space} (only files move between spaces)`,
           )
@@ -103,7 +103,10 @@ export function registerFileTools(
         // Nothing moves unless every target is free, so a note never lands without its transcript.
         for (const m of moves) {
           if (await readIfExists(git, target, m.to)) {
-            throw new HearthError('conflict', `${m.to} already exists in ${target}; nothing moved`)
+            throw new HotsauceError(
+              'conflict',
+              `${m.to} already exists in ${target}; nothing moved`,
+            )
           }
         }
         const moved: string[] = []
@@ -122,7 +125,7 @@ export function registerFileTools(
         } catch (err) {
           if (moved.length === 0) throw err
           const reason = err instanceof Error ? err.message : String(err)
-          throw new HearthError(
+          throw new HotsauceError(
             'conflict',
             `Moved ${moved.join(', ')} to ${target}, then stopped: ${reason}. Move the rest by hand.`,
           )
@@ -147,7 +150,7 @@ export function registerFileTools(
         assertAccess(space)
         const path = writablePath(rawPath)
         if (isAtOrUnder(path, SPACE_LAYOUT.trash)) {
-          throw new HearthError('bad_request', `${path} is already in the trash`)
+          throw new HotsauceError('bad_request', `${path} is already in the trash`)
         }
         const oid = await moveToTrash(git, space, path, author, via)
         await syncer.afterHeadChanged(space)
@@ -193,7 +196,7 @@ export function registerFileTools(
         assertAccess(space)
         const result = await restore(deps, { space, path, oid, author, via })
         if (result.status === 'conflict') {
-          throw new HearthError(
+          throw new HotsauceError(
             'conflict',
             `${path} changed while restoring; your restore is kept on ${result.conflictRef}`,
           )

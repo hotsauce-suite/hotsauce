@@ -1,5 +1,5 @@
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { LLM } from '../meetings/llm/types.js'
 import { cleanTranscript } from './cleaner.js'
 import { type DictationStyle, styleForApp } from './prompt.js'
@@ -156,7 +156,7 @@ export interface DictateResult {
   ms: { asr: number; llm: number }
 }
 
-/** Hearth Dictate on the server (ARCHITECTURE §9): transcribe, then clean, with the member's words. */
+/** Hotsauce Dictate on the server (ARCHITECTURE §9): transcribe, then clean, with the member's words. */
 export class Dictation {
   readonly store: DictationStore
   readonly #transcriber: DictationTranscriber
@@ -197,7 +197,10 @@ export class Dictation {
   /** Counts one dictation against the member's 30 a minute; rate_limited past it. */
   takeSlot(principal: Principal): void {
     if (!this.#limiter.take(principal.email)) {
-      throw new HearthError('rate_limited', 'Too many dictations in the last minute; wait a moment')
+      throw new HotsauceError(
+        'rate_limited',
+        'Too many dictations in the last minute; wait a moment',
+      )
     }
   }
 
@@ -224,22 +227,22 @@ export class Dictation {
 
   /**
    * The transcript of one recording with the member's words, no cleanup: counted against their
-   * 30 a minute, at most 15 MB and (for a WAV) 10 minutes. Hearth Tasks' Ramble uses it too.
+   * 30 a minute, at most 15 MB and (for a WAV) 10 minutes. Hotsauce Tasks' Ramble uses it too.
    */
   async hear(
     principal: Principal,
     req: { audio: Uint8Array; mimeType: string; language?: string | undefined },
   ): Promise<{ text: string; durationMs: number }> {
     this.takeSlot(principal)
-    if (req.audio.length === 0) throw new HearthError('bad_request', 'No audio was sent')
+    if (req.audio.length === 0) throw new HotsauceError('bad_request', 'No audio was sent')
     if (req.audio.length > MAX_DICTATION_BYTES) {
-      throw new HearthError('bad_request', 'A dictation can be at most 15 MB', { status: 413 })
+      throw new HotsauceError('bad_request', 'A dictation can be at most 15 MB', { status: 413 })
     }
     if (req.mimeType.startsWith('audio/') && req.mimeType.includes('wav')) {
       const wav = readWav(req.audio)
-      if (!wav) throw new HearthError('bad_request', 'That isn’t a WAV file this can read')
+      if (!wav) throw new HotsauceError('bad_request', 'That isn’t a WAV file this can read')
       if (wav.durationMs > MAX_DICTATION_MS) {
-        throw new HearthError('bad_request', 'A dictation can be at most 10 minutes', {
+        throw new HotsauceError('bad_request', 'A dictation can be at most 10 minutes', {
           status: 413,
         })
       }

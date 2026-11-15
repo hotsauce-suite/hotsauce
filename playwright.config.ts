@@ -12,13 +12,13 @@ const BASE_URL = `http://localhost:${PORT}`
 // Created here rather than in a globalSetup because Playwright starts the
 // webServer before globalSetup runs. Workers load this file again but inherit
 // the main process's env, so the check keeps one dir per run.
-if (!process.env.HEARTH_E2E_DATA_DIR) {
-  process.env.HEARTH_E2E_DATA_DIR = mkdtempSync(path.join(os.tmpdir(), 'hearth-e2e-'))
+if (!process.env.HOTSAUCE_E2E_DATA_DIR) {
+  process.env.HOTSAUCE_E2E_DATA_DIR = mkdtempSync(path.join(os.tmpdir(), 'hotsauce-e2e-'))
 }
-const dataDir = process.env.HEARTH_E2E_DATA_DIR
+const dataDir = process.env.HOTSAUCE_E2E_DATA_DIR
 // LocalHost keeps its bare repos here; e2e/fixtures.ts pushes "outside" edits to them.
 const localHostDir = path.join(dataDir, 'remotes')
-process.env.HEARTH_E2E_LOCAL_HOST_DIR = localHostDir
+process.env.HOTSAUCE_E2E_LOCAL_HOST_DIR = localHostDir
 
 // A second, brand-new instance for the setup wizard (e2e/setup.spec.ts): Clerk sign-in with no
 // keys yet, so it starts in setup mode. It runs under the container's entrypoint, which starts
@@ -70,7 +70,7 @@ export default defineConfig({
     {
       // Runs the built server (apps/server/dist), which also serves apps/web/dist:
       // run `pnpm build` first.
-      command: 'pnpm --filter @hearth/server start',
+      command: 'pnpm --filter @hotsauce/server start',
       url: `${BASE_URL}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

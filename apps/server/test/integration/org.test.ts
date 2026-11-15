@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { CLOUDFLARE_MEDIA, CLOUDFLARE_REPOS, loadConfig } from '../../src/config.js'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import { OrgStore } from '../../src/org/store.js'
 import { testProvider } from '../../src/org/test-keys.js'
 import { UnconfiguredLLM } from '../../src/org/unconfigured.js'
@@ -230,11 +230,11 @@ describe('setup mode', () => {
       ...org.toEnv(),
       NODE_ENV: 'test',
       AUTH_MODE: 'dev',
-      PRODUCT_NAME: 'Hearth',
+      PRODUCT_NAME: 'Hotsauce',
       ALLOWED_EMAIL_DOMAINS: 'example.org',
       DATA_DIR: join(root, 'data'),
     })
-    expect(config.PRODUCT_NAME).toBe('Hearth')
+    expect(config.PRODUCT_NAME).toBe('Hotsauce')
     expect(config.ORG_NAME).toBe('Saved')
   })
 })
@@ -331,12 +331,12 @@ describe('a running instance', () => {
       AUTH_MODE: 'dev',
       ALLOWED_EMAIL_DOMAINS: 'example.org',
       ADMIN_EMAILS: ADMIN,
-      PRODUCT_NAME: 'Hearth',
+      PRODUCT_NAME: 'Hotsauce',
       ORG_NAME: 'Acme',
     })
     const brand = await (await call('GET', '/api/org/brand')).json()
     expect(brand).toMatchObject({
-      productName: 'Hearth',
+      productName: 'Hotsauce',
       orgName: 'Acme',
       primary: '#c63d19',
       logoUrl: null,
@@ -406,7 +406,7 @@ describe('bring your own keys', () => {
       code: 'not_configured',
       message: expect.stringContaining('Settings → AI'),
     })
-    expect(new HearthError('not_configured', 'x').status).toBe(503)
+    expect(new HotsauceError('not_configured', 'x').status).toBe(503)
   })
 
   it('still refuses fakes in production, and needs sign-in domains', () => {

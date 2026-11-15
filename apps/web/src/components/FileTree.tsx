@@ -29,11 +29,11 @@ import { FolderPicker } from './FolderPicker'
 import { Icon } from './Icon'
 import { Menu, type MenuAnchor, MenuItem } from './Menu'
 
-const DRAG_TYPE = 'application/x-hearth-path'
+const DRAG_TYPE = 'application/x-hotsauce-path'
 
-// @hearth/format brings yaml with it; the sidebar paints from the entry chunk, so it loads the
+// @hotsauce/format brings yaml with it; the sidebar paints from the entry chunk, so it loads the
 // format only when a name is actually turned into a slug.
-const slugify = async (name: string) => (await import('@hearth/format')).slugify(name)
+const slugify = async (name: string) => (await import('@hotsauce/format')).slugify(name)
 
 type Editing = { kind: 'rename'; entry: Entry } | { kind: 'new-folder'; dir: string } | null
 type Pending = { kind: 'move' | 'delete'; entry: Entry } | null

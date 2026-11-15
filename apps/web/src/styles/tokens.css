@@ -1,4 +1,4 @@
-/* Hearth design tokens. Paper-warm by day, charcoal and ash by night, one ember accent.
+/* Hotsauce design tokens. Paper-warm by day, charcoal and ash by night, one ember accent.
    Never pure black or white. Components read these through Tailwind's @theme mapping
    (app.css) or directly as var(--…). */
 

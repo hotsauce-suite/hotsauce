@@ -65,13 +65,13 @@ describe('Start screen state machine', () => {
       { type: 'granted', tracks: ['me'] },
       { type: 'checked', track: 'me', arrived: true },
       { type: 'start' },
-      { type: 'failed', message: 'Could not reach the Hearth server' },
+      { type: 'failed', message: 'Could not reach the Hotsauce server' },
     ])
     expect(error).toEqual({
       step: 'error',
       mode: 'mic-only',
       tracks: { me: 'ok' },
-      message: 'Could not reach the Hearth server',
+      message: 'Could not reach the Hotsauce server',
     })
     expect(run([{ type: 'start' }], error).step).toBe('starting')
   })

@@ -12,7 +12,7 @@ describe('extractLinks', () => {
     ])
   })
 
-  it('classifies hrefs as relative, hearth, or external', () => {
+  it('classifies hrefs as relative, hotsauce, or external', () => {
     const md = `[a](../a.md) [b](hearth://${ID}) [c](https://x.com) [d](mailto:a@b.co) [e](#top) [f](/docs/f.md) [g](//cdn.x.com/g)`
     expect(extractLinks(md).map((l) => l.kind)).toEqual([
       'relative',
@@ -93,7 +93,7 @@ Also [nothing][missing] and [unknown].
     expect(hrefs('[^1]: https://source.example.com')).toEqual(['https://source.example.com'])
   })
 
-  it('reports autolinks, including email and hearth autolinks', () => {
+  it('reports autolinks, including email and hotsauce autolinks', () => {
     const md = `<https://example.com/a?b=c> <mailto:x@y.org> <dana@acme.com> <hearth://${ID}>`
     expect(extractLinks(md).map((l) => [l.href, l.text, l.kind])).toEqual([
       ['https://example.com/a?b=c', 'https://example.com/a?b=c', 'external'],
@@ -214,7 +214,7 @@ describe('rewriteLinksForMove', () => {
     )
   })
 
-  it('does not touch external, hearth, fragment, or root-absolute links', () => {
+  it('does not touch external, hotsauce, fragment, or root-absolute links', () => {
     const md = `[a](https://x.com/a.md) [b](hearth://${ID}) [c](#top) [d](/docs/d.md) <https://y.com> www.z.com [e](mailto:a@b.co)`
     expect(rewriteLinksForMove(md, 'docs/a.md', 'docs/deep/er/a.md')).toBe(md)
   })
