@@ -1,5 +1,5 @@
 // The toolbar popup. Not connected yet: which server? On a Meet call: "Take notes". On another
-// web page: "Save this page". Anywhere else: how to get to the server.
+// web page: it saves the page straight away. Anywhere else: how to get to the server.
 
 import { meetCode } from './meet'
 import type { WorkerMessage } from './protocol'
@@ -80,6 +80,27 @@ function askForServer(current: Server | null, found: Server | null = null): void
   }
 }
 
+/**
+ * Shows "Saved" once the worker puts the tick on this tab's icon. If the save needs the person
+ * (signed out, or it failed), the worker brings the save tab forward, which closes this popup.
+ */
+function watchSaved(tabId: number, name: string): void {
+  const status = document.getElementById('save-status') as HTMLElement
+  const started = Date.now()
+  const timer = setInterval(() => {
+    void chrome.action.getBadgeText({ tabId }).then((text) => {
+      if (text === '✓') {
+        clearInterval(timer)
+        status.textContent = `Saved to ${name}`
+        setTimeout(() => window.close(), 1200)
+      } else if (Date.now() - started > 15_000) {
+        clearInterval(timer)
+        status.textContent = `Still saving. A ✓ on the icon means it's in ${name}.`
+      }
+    })
+  }, 250)
+}
+
 async function main(): Promise<void> {
   hideAll()
   const server = await getServer()
@@ -95,19 +116,14 @@ async function main(): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   const code = meetCode(tab?.url)
   if (tab?.id !== undefined && !code && savable(tab.url, originsFor(server.url))) {
+    // One click: opening the popup on a page saves it. The popup then says how it went.
     show('save')
     show('page-title').textContent = tab.title || tab.url || ''
     const links = document.getElementById('open-links') as HTMLAnchorElement
     links.href = new URL('/links', server.url).toString()
-    const save = document.getElementById('save-page') as HTMLButtonElement
     const tabId = tab.id
-    save.addEventListener('click', () => {
-      save.disabled = true
-      save.textContent = 'Saving…'
-      const message: WorkerMessage = { type: 'save-page', tabId }
-      void chrome.runtime.sendMessage(message).finally(() => window.close())
-    })
-    save.focus()
+    const message: WorkerMessage = { type: 'save-page', tabId }
+    void chrome.runtime.sendMessage(message).then(() => watchSaved(tabId, server.name))
     return
   }
   if (!tab?.id || !code) {
