@@ -2,9 +2,13 @@
 
 ## Status
 
-- **Step A (this plan's first PR, `offline-step-a`): in progress.** The app opens with no
-  connection, starts as the last signed-in member, shows an Offline bar, greys out what needs the
-  server, and Docs never lose a save.
+- **Step A (PR #102, `offline-step-a`): built and tested.** The app opens with no connection,
+  starts as the last signed-in member, shows an Offline bar, greys out what needs the server, and
+  Docs never lose a save. A5: the Mac app's window runs the service worker (checked on
+  2026-11-15 with a WKWebView configured like the app's, against a local server and against
+  hotsauce.havenbiosec.com: registered, installed, controlling; with the server stopped, the
+  window opened the cached app with the Offline bar, not the retry page). No Mac app change
+  needed.
 - Step B (read recently used things offline): not started.
 - Step C (edit offline, sync when back): not started.
 - Approved by the owner on 2026-11-15 from the scope page (three steps, A then B then C; skip a
@@ -75,6 +79,8 @@ starts as the last signed-in member instead of the error page or the sign-in scr
 **A5. The Mac app.** Check whether its window (WKWebView) runs the service worker for the remote
 site. If it does, the window shows the cached app offline instead of its retry page. If it
 doesn't, record it here as a step B item and leave the Mac app as it is.
+- Result: it does (see Status). The window's own "can't reach" page appears only when a load
+  fails, and a load the service worker answers doesn't fail, so nothing changes in the app.
 
 Not in step A: an organization switch to turn offline off (step B, when real data is stored),
 reading docs never opened on this device, new docs made offline.

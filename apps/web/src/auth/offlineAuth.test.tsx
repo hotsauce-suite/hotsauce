@@ -1,8 +1,10 @@
 import { act, render, screen } from '@testing-library/react'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { reportReachable, reportUnreachable, resetConnectionForTests } from '../lib/connection'
 import { rememberedMember, rememberMember } from '../lib/offlineStart'
-import { useAuthState } from './AuthContext'
+import SignInRoute from '../routes/SignInRoute'
+import { AuthContext, useAuthState } from './AuthContext'
 import { DevAuthProvider } from './devAuth'
 import { OfflineAuthProvider } from './offlineAuth'
 
@@ -77,4 +79,25 @@ describe('starting offline (A2)', () => {
     act(() => screen.getByRole('button', { name: 'Sign out' }).click())
     expect(rememberedMember()).toBeNull()
   })
+})
+
+it('offline with nobody remembered, the sign-in page says it needs a connection (A2.3)', async () => {
+  const router = createMemoryRouter(
+    [
+      {
+        id: 'root',
+        path: '/sign-in',
+        element: (
+          <AuthContext.Provider
+            value={{ mode: 'clerk', status: 'signed-out', offline: true, signOut: () => {} }}
+          >
+            <SignInRoute />
+          </AuthContext.Provider>
+        ),
+      },
+    ],
+    { initialEntries: ['/sign-in'] },
+  )
+  render(<RouterProvider router={router} />)
+  expect(await screen.findByTestId('signin-offline')).toHaveTextContent('You’re offline')
 })
