@@ -5,7 +5,14 @@
 import { MAX_PAGE_BYTES, pageCopy, pageKey } from './capture'
 import { type Invoked, meetCode, pickTarget, remember } from './meet'
 import type { CaptureReply, WorkerMessage } from './protocol'
-import { rememberSaveTab, type SaveTab, savable, savePageUrl, takeSaveTab } from './save'
+import {
+  rememberSaveTab,
+  SAVE_TAB_TTL_MS,
+  type SaveTab,
+  savable,
+  savePageUrl,
+  takeSaveTab,
+} from './save'
 import { DEFAULT_NAME, getServer, isServerPage, originsFor } from './server'
 
 const INVOKED_KEY = 'invoked'
@@ -182,6 +189,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     void saveToHearth({ url: tab.url, ...(tab.title ? { title: tab.title } : {}) }, tab, true)
   }
 })
+// A save tab closed before it saved (signed out, given up) drops its page copy.
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void changeSaveTabs((list) => ({
+    list: list.filter((s) => s.saveTabId !== tabId),
+    result: null,
+  })).catch(() => {})
+})
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.url !== undefined || info.status === 'complete') markTab(tabId, tab.url)
 })
@@ -270,7 +284,8 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendRespon
       // page's Save button, so another site can't make a signed-in member save something.
       if (message.type === 'may-save') {
         const list = await saveTabs()
-        if (!list.some((s) => s.saveTabId === tabId)) return sendResponse({ ok: false })
+        const entry = list.find((s) => s.saveTabId === tabId)
+        if (!entry || Date.now() - entry.at > SAVE_TAB_TTL_MS) return sendResponse({ ok: false })
         // The page copy goes to this tab once.
         const key = pageKey(tabId)
         const page = (await chrome.storage.session.get(key))[key]

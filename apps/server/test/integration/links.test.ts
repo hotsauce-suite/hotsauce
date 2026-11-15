@@ -24,6 +24,8 @@ let llm: FakeLLM
 let fetched: string[]
 /** While set, page fetches wait for it. */
 let hold: Promise<void> | null = null
+/** While set, page fetches fail. */
+let fail = false
 
 beforeEach(async () => {
   root = await makeTempDir('hearth-links-')
@@ -38,11 +40,13 @@ beforeEach(async () => {
   })
   llm = new FakeLLM(scriptedResponse)
   fetched = []
+  fail = false
   services = createServices(config, {
     llm,
     linkFetch: async (url) => {
       fetched.push(url)
       if (hold) await hold
+      if (fail) throw new LinkFetchError('Couldn’t reach the site')
       return fakePageFetcher(url)
     },
   })
@@ -366,6 +370,40 @@ describe('the page as the member sees it', () => {
     expect(kept.status).toBe('ready')
     await services.links.idle()
     expect((await api('GET', `/api/links/alice/${good.id}`)).body).toBe(before.body)
+  })
+
+  it('R4: never puts a member’s own page into a team link, and never makes a copy worse', async () => {
+    const team = await save({ url: 'https://vendor.stub.test/a/account', space: 'team' })
+    expect((await api('GET', `/api/links/team/${team.id}`)).words).toBeLessThan(150)
+    // Bob, signed in to the vendor, saves the same page: his account page stays his.
+    const again = await api('POST', '/api/links', {
+      as: BOB,
+      json: {
+        url: 'https://vendor.stub.test/a/account',
+        page: { html: article('Bob’s orders and billing', 400) },
+      },
+    })
+    expect(again).toMatchObject({ id: team.id, existing: true })
+    await services.links.idle()
+    expect((await api('GET', `/api/links/team/${team.id}`)).body).not.toContain('Signed in')
+
+    // A short copy whose browser copy is thinner still, and whose fetch now fails, stays as it was.
+    const short = await save({ url: 'https://blog.stub.test/a/cookie-wall' })
+    const before = await api('GET', `/api/links/alice/${short.id}`)
+    fail = true
+    await api('POST', '/api/links', {
+      json: {
+        url: 'https://blog.stub.test/a/cookie-wall',
+        page: { html: '<html><body><p>Accept cookies?</p></body></html>' },
+      },
+    })
+    await services.links.idle()
+    fail = false
+    expect(await api('GET', `/api/links/alice/${short.id}`)).toMatchObject({
+      status: 'ready',
+      body: before.body,
+      words: before.words,
+    })
   })
 })
 

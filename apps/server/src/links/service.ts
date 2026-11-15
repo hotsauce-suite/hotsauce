@@ -234,7 +234,8 @@ export class Links {
       const view = same.fm.archived
         ? await this.update(principal, same.space, same.id, { archived: false }, via)
         : this.#view(same)
-      const html = input.page?.html
+      // A member's own page never goes into a team link: it may show their account.
+      const html = same.space === TEAM_SPACE ? undefined : input.page?.html
       const thin = view.status === 'ready' && (view.words ?? 0) < SHORT_COPY_WORDS
       if (view.status === 'failed' || (html && thin)) {
         // A save from the page itself replaces a copy that failed or came out short.
@@ -482,10 +483,14 @@ export class Links {
     const copy = this.#take(`${space}\n${id}`)
     const start = await this.#read(space, id)
     const fetchedAt = isoNow(this.#now())
+    // A copy from the browser for a link already read only ever makes its copy better.
+    const had =
+      start.record.fm.fetched && !start.record.fm.fetch_error ? (start.record.fm.words ?? 0) : null
     let fields: Record<string, unknown>
     let body: string | null = null
     try {
       const read = await this.#readable(start.record.fm.url, copy)
+      if (copy !== null && had !== null && read.words <= had) return
       const ai = start.record.fm.tags_set
         ? null
         : await this.#summarize(principal, read.title || start.record.fm.title || '', read)
@@ -502,6 +507,7 @@ export class Links {
       body = read.markdown
     } catch (err) {
       if (!(err instanceof LinkFetchError)) throw err
+      if (copy !== null && had !== null) return
       fields = { fetch_error: err.message }
     }
     await this.#edit(principal, space, id, 'read', via, (cur) => {

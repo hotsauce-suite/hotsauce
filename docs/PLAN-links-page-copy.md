@@ -1,6 +1,6 @@
 # Plan: save the page as you see it
 
-Status (2026-11-15): building. Step 1 of the Links roadmap Morgan accepted on 2026-11-15 (ideas
+Status (2026-11-15): built in PR #96 (release 0.14.0, extension 0.5.0); all requirements have tests. Not covered: open shadow roots and declarative shadow DOM aren't copied (a thin copy, so the server fetches), and a copy sent while the same link is already being read is dropped. Step 1 of the Links roadmap Morgan accepted on 2026-11-15 (ideas
 drawn from Omnivore, AGPL, so ideas only: no code from it). Steps 2 to 4 (reading position,
 highlights, PDFs) get their own plans.
 
@@ -22,7 +22,8 @@ R3. A copy over 2 MB (UTF-8), or one that gives under 150 words, makes the serve
     as before and keep whichever copy has more words; when that fetch fails, the browser copy is
     kept if it has any words.
 R4. Saving a link that is already saved, with a page copy, re-reads it from the copy when its copy
-    failed or is under 150 words. A good copy is left alone.
+    failed or is under 150 words, and only keeps the result when it has more words. A good copy is
+    left alone. A team link never takes a member's browser copy (it may show their account).
 R5. The page copy is treated like a fetched page: same size limit, same parser and element limit,
     never run, never written to Git as HTML. It is held in memory only until it is read, with at
     most 40 MB held in all (beyond that the server fetches instead).
