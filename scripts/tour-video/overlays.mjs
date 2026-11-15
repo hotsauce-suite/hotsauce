@@ -53,7 +53,9 @@ caps.lines.forEach((l, i) => {
   ])
 })
 
-const b = await chromium.launch()
+const b = await chromium.launch(
+  process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {},
+)
 const p = await b.newPage({ viewport: { width: 1920, height: 1080 } })
 for (const [name, body] of pages) {
   await p.setContent(`<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`, {

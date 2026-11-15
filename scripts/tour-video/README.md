@@ -18,7 +18,7 @@ The demo data (neutral names, a realistic agent brief and briefing) lives in `ap
    cd apps/web && VITE_MOCK_API=1 npx vite --port 5191 --strictPort
    ```
 2. Record every shot. Each makes `<shot>.mp4` and a contact sheet:
-   `DEMO_FILES=$PWD/scripts/tour-video/demo-files scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask tasks notes clipsRecorder clipsPlayer dictate boards people files forms booking briefcast`
+   `DEMO_FILES=$PWD/scripts/tour-video/demo-files DEMO_CLIP=/tmp/demo-clip scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask assistant tasks notes checkins clipsRecorder clipsPlayer dictate macSetup feedback boards people files forms booking briefcast`
 
    The `files` shot uploads the sample files in `demo-files/` into a new folder, so use a fresh `DATA_DIR` or change the folder name in `shots.mjs`.
 3. Voice, captions, overlays and the cut (needs `OPENAI_API_KEY`):
@@ -31,6 +31,11 @@ The demo data (neutral names, a realistic agent brief and briefing) lives in `ap
    This writes `hotsauce-tour.mp4` and one short cut per app.
 
 ## Notes
+
+- **The Mac app shot (`macSetup`)** clicks through `mac-setup/index.html`, which shows the app's own drawings of its setup window. Redraw them when the setup window changes: on a Mac, build the app (`swift build -c release` in `apps/dictate-mac`) and run `.build/release/HearthDictate --render-previews <dir>`. It draws offscreen, with no windows, sound or permissions. Copy `workspace-empty`, `workspace-found`, `step-signin`, `step-dictate`, `step-permissions` and `step-done` into `mac-setup/`. The installed app only draws them if it is new enough (0.12.12 or later).
+- **`DEMO_CLIP`** is a folder holding `composite.mp4` and `thumb.jpg` for the Clips player shot: screen footage (another shot, such as `docs.mp4`) with the camera bubble, made with the server's own `composite()` from `apps/server/dist/clips/media.js`. The face is an AI-generated still with a slow zoompan, so no real person is shown.
+- **No matching Playwright browser?** Set `PLAYWRIGHT_CHROMIUM` to a Chromium binary; `rec.mjs`, `explore.mjs` and `overlays.mjs` all use it.
+- **Footage longer than the voice** plays at up to 1.75× and may run `SLACK` (3 s) past the voice; past that its end is trimmed.
 
 - Ports busy? Run the server on another `PORT`, start Vite with `API_PROXY_TARGET=http://localhost:<server port>` and another `--port`, and give the scripts `TOUR_BASE=http://localhost:<vite port>`. `TOUR_CLOCK=2026-11-13T07:30:00-08:00` starts the page clock at that time (for Today's "Good morning").
 
