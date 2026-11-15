@@ -1,15 +1,7 @@
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
-import {
-  allEntries,
-  entryId,
-  MAX_PINS,
-  pinnedEntries,
-  type RailEntry,
-  savePins,
-  usePins,
-} from '../apps/pins'
+import { allEntries, entryId, pinnedEntries, type RailEntry, savePins, usePins } from '../apps/pins'
 import type { AppId } from '../apps/registry'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
@@ -83,7 +75,6 @@ function Launcher({
   const order = dragOrder ?? [...saved]
   const pinned = pinnedEntries(order)
   const pinnedIds = new Set(pinned.map(entryId))
-  const full = pinned.length >= MAX_PINS
 
   const save = (next: readonly string[]) => {
     savePins(next).catch(() => session.notify("Couldn't save your pinned apps. Try again."))
@@ -92,7 +83,7 @@ function Launcher({
   const toggle = (id: string) => {
     const known = pinned.map(entryId)
     if (pinnedIds.has(id)) save(known.filter((p) => p !== id))
-    else if (!full) save([...known, id])
+    else save([...known, id])
   }
   const move = (id: string, by: number) => {
     const known = pinned.map(entryId)
@@ -219,7 +210,7 @@ function Launcher({
         </div>
         {editing ? (
           <p data-testid="launcher-help" className="px-1 pb-2 text-xs text-ink-faint">
-            Click an app below to pin or unpin it. Drag pinned apps to reorder. Up to {MAX_PINS}.
+            Click an app below to pin or unpin it. Drag pinned apps to reorder.
           </p>
         ) : null}
         <ul
@@ -285,14 +276,8 @@ function Launcher({
                     aria-pressed={isPinned}
                     aria-label={`${isPinned ? 'Unpin' : 'Pin'} ${entryName(entry)}`}
                     data-testid={`launcher-toggle-${id}`}
-                    disabled={!isPinned && full}
-                    title={
-                      !isPinned && full
-                        ? `Unpin an app to add another (${MAX_PINS} at most)`
-                        : undefined
-                    }
                     onClick={() => toggle(id)}
-                    className={`${TILE} disabled:opacity-45`}
+                    className={TILE}
                   >
                     <TileIcon icon={entryIcon(entry)} badge={isPinned ? 'check' : 'plus'} />
                     <TileLabel entry={entry} />

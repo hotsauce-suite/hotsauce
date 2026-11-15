@@ -225,9 +225,13 @@ function RailApps({ children }: { children: ReactNode }) {
     list.addEventListener('scroll', check, { passive: true })
     const observer = new ResizeObserver(check)
     observer.observe(list)
+    // Pinning an app grows the list's content, not the list itself: look again when apps change.
+    const added = new MutationObserver(check)
+    added.observe(list, { childList: true })
     return () => {
       list.removeEventListener('scroll', check)
       observer.disconnect()
+      added.disconnect()
     }
   }, [])
   return (

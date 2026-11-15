@@ -1,6 +1,6 @@
 # Plan: pinned apps on the rail, and a launcher with every app
 
-**Status:** shipped in 0.12.0 (Nov 13, 2026), PR #65 with imagery in #71. Every requirement below has a passing test.
+**Status:** shipped in 0.12.0 (Nov 13, 2026), PR #65 with imagery in #71; the six-pin cap was lifted in 0.14.2 (Nov 15). Every requirement below has a passing test.
 
 With fifteen apps the desktop rail had become a scrolling list. Now it shows only the apps each
 member pins, like the "Your favorites" row of Google's app launcher, and a grid button opens a
@@ -22,8 +22,11 @@ launcher with every app.
 5. The launcher's top row is "Your pinned apps" with a pencil (Edit). In edit mode a click pins or
    unpins an app, pinned apps drag into a new order, and Alt plus an arrow key moves the focused
    one. *(AppRail.test: launcher test; e2e app-rail: "pins an app from the launcher")*
-6. Six pins at most; past that, unpinned apps can't be added until one is unpinned. *(AppRail.test;
-   server api.test "rail pins")*
+6. No cap: a member pins as many apps and links as they like (it was six until 0.14.2, Morgan,
+   Nov 15). When they don't all fit, the rail's list scrolls and fades at the bottom; the window
+   never scrolls, and the launcher, Settings and account stay in place below. The server refuses
+   only an absurd list (over 100). *(AppRail.test launcher test; server api.test "rail pins"; e2e
+   app-rail: "every app can be pinned")*
 7. Pins are saved per member on the server (`GET/PUT /api/pins`, the index's `pins` table, kept by
    reindex like stars) and survive a reload and a new device. The browser keeps a copy so the rail
    draws without waiting, and forgets it at sign-out. *(api.test "rail pins"; e2e reload)*
