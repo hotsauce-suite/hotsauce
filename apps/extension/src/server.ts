@@ -31,6 +31,28 @@ export function parseServerUrl(input: string): { url: string } | { error: string
   return { url: url.origin }
 }
 
+/**
+ * The server the person has open, from its tab's address and what that tab's `/api/health`
+ * answered; null when the tab isn't a Hotsauce page. The popup offers it so a Web Store copy
+ * connects with one click.
+ */
+export function serverInTab(tabUrl: string | undefined, health: unknown): Server | null {
+  if (!tabUrl || typeof health !== 'object' || health === null) return null
+  const h = health as { ok?: unknown; productName?: unknown; setupRequired?: unknown }
+  if (h.ok !== true || h.setupRequired === true) return null
+  let origin: string
+  try {
+    origin = new URL(tabUrl).origin
+  } catch {
+    return null
+  }
+  const parsed = parseServerUrl(origin)
+  if ('error' in parsed) return null
+  const name =
+    typeof h.productName === 'string' && h.productName.trim() ? h.productName.trim() : DEFAULT_NAME
+  return { url: parsed.url, name }
+}
+
 /** Pages that may talk to the extension: the server, and both dev ports on localhost. */
 export function originsFor(serverUrl: string): string[] {
   const origin = new URL(serverUrl).origin
