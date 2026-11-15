@@ -63,12 +63,12 @@ async function createToken(
 }
 
 /** A real MCP client whose HTTP goes straight into the Hono app. */
-async function connect(headers: Record<string, string>): Promise<Client> {
+async function connect(headers: Record<string, string>, clientName = 'test'): Promise<Client> {
   const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {
     requestInit: { headers },
     fetch: async (input, init) => app.request(new Request(input, init)),
   })
-  const client = new Client({ name: 'test', version: '1.0.0' })
+  const client = new Client({ name: clientName, version: '1.0.0' })
   await client.connect(transport)
   return client
 }
@@ -332,7 +332,7 @@ describe('MCP tools', () => {
     ])
     expect(log).toContain(`Alice <${ALICE}>|Hotsauce`)
     expect(log).toContain('docs: add agent notes')
-    expect(log).toContain('Hearth-Via: mcp (token "Claude Code")')
+    expect(log).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
 
     const read = await tool(alice, 'read_file', { space: 'team', path: 'docs/agent-notes.md' })
     expect(read.value.content).toContain('The quokka protocol is ready.')
@@ -343,6 +343,45 @@ describe('MCP tools', () => {
       expect.objectContaining({ space: 'team', path: 'docs/agent-notes.md', title: 'Agent notes' }),
     ])
     expect(found.value[0].snippet).toContain('**quokka**')
+  })
+
+  it('names the AI tool from its handshake on every write, and in the history list', async () => {
+    const { token } = await createToken(ALICE, 'My laptop')
+    const cursor = await connect({ authorization: `Bearer ${token}` }, 'cursor-vscode')
+    try {
+      const written = await tool(cursor, 'write_file', {
+        space: 'team',
+        path: 'docs/from-cursor.md',
+        content: '# From Cursor\n',
+      })
+      expect(written.isError, written.text).toBe(false)
+      const log = await runGit(join(root, 'data', 'repos', 'team'), ['log', '-1', '--format=%B'])
+      expect(log).toContain('Hearth-Via: mcp (client "Cursor", token "My laptop")')
+
+      const res = await call('GET', '/api/spaces/team/history?path=docs/from-cursor.md', {
+        as: ALICE,
+      })
+      const [commit] = (await res.json()) as Array<{ via?: string; author: { name: string } }>
+      expect(commit).toMatchObject({ via: 'Cursor', author: { name: 'Alice' } })
+    } finally {
+      await cursor.close()
+    }
+  })
+
+  it('keeps an unknown client name, cleaned, and history without a trailer has no via', async () => {
+    const { token } = await createToken(ALICE, 'Bot')
+    const odd = await connect({ authorization: `Bearer ${token}` }, 'My "Odd"\nTool')
+    try {
+      await tool(odd, 'write_file', { space: 'team', path: 'docs/odd.md', content: '# Odd\n' })
+      const log = await runGit(join(root, 'data', 'repos', 'team'), ['log', '-1', '--format=%B'])
+      expect(log).toContain('Hearth-Via: mcp (client "My Odd Tool", token "Bot")')
+    } finally {
+      await odd.close()
+    }
+    await put(ALICE, 'team', 'docs/by-hand.md', '# By hand\n')
+    const res = await call('GET', '/api/spaces/team/history?path=docs/by-hand.md', { as: ALICE })
+    const [commit] = (await res.json()) as Array<Record<string, unknown>>
+    expect(commit).not.toHaveProperty('via')
   })
 
   it('write_file with a stale base merges a non-overlapping concurrent edit', async () => {

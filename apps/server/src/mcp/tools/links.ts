@@ -13,12 +13,18 @@ const Space = z
 const Id = z.string().min(1).max(40).describe('The link id from list_links or save_link')
 
 /** Saved links (ARCHITECTURE §23.5): the member's read-later list. */
-export function registerLinkTools(server: McpServer, deps: LinkToolDeps, principal: Principal) {
+export function registerLinkTools(
+  server: McpServer,
+  deps: LinkToolDeps,
+  principal: Principal,
+  /** The AI tool's friendly name, from the `initialize` handshake. */
+  client?: string,
+) {
   const { links } = deps
   const base = deps.config.PUBLIC_URL.replace(/\/+$/, '')
   const appUrl = (space: string, id: string) =>
     `${base}/links/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
-  const via = mcpVia(principal)
+  const via = mcpVia(principal, client)
 
   server.registerTool(
     'list_links',

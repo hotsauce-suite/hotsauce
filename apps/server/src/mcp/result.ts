@@ -15,9 +15,20 @@ export async function runTool(fn: () => Promise<unknown>): Promise<CallToolResul
   }
 }
 
-/** The `Hearth-Via` trailer for a write made through MCP by this principal. */
-export function mcpVia(principal: { via?: { kind: 'token'; tokenName: string } }): string {
-  return principal.via?.kind === 'token' ? `mcp (token "${principal.via.tokenName}")` : 'mcp'
+/**
+ * The `Hearth-Via` trailer for a write made through MCP by this principal, naming the AI tool
+ * (its friendly name from `clientLabel`) when the server knows it:
+ * `mcp (client "Cursor", token "My laptop")`.
+ */
+export function mcpVia(
+  principal: { via?: { kind: 'token'; tokenName: string } },
+  client?: string,
+): string {
+  const parts = [
+    ...(client ? [`client "${client}"`] : []),
+    ...(principal.via?.kind === 'token' ? [`token "${principal.via.tokenName}"`] : []),
+  ]
+  return parts.length > 0 ? `mcp (${parts.join(', ')})` : 'mcp'
 }
 
 export const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const

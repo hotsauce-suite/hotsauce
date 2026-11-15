@@ -2,7 +2,7 @@ import { FrontmatterError, parseFrontmatter, patchFrontmatter } from '@hearth/fo
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HearthError } from '../errors.js'
-import { type Author, withVia } from '../git/index.js'
+import { type Author, viaLabel, withVia } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import {
   afterCommit,
@@ -37,7 +37,13 @@ export function historyRoutes(deps: AppDeps) {
           ...(path ? { path } : {}),
           limit: limit ?? DEFAULT_HISTORY_LIMIT,
         })
-        return c.json(commits)
+        // `via` names the AI tool (or token) behind an agent's change, for "Morgan via Cursor".
+        return c.json(
+          commits.map((commit) => {
+            const via = viaLabel(commit.message)
+            return via === undefined ? commit : { ...commit, via }
+          }),
+        )
       },
     )
     .get('/show', valid('query', z.object({ oid: Rev, path: PathParam })), async (c) => {

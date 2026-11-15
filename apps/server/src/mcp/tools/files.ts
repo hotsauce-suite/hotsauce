@@ -21,10 +21,16 @@ const Path = z.string().min(1).describe('A file path inside the space, e.g. "doc
  * moves with it, delete goes to the trash, restore is a new commit. Each write is a commit
  * authored by the member with the `Hearth-Via` trailer.
  */
-export function registerFileTools(server: McpServer, deps: FileToolDeps, principal: Principal) {
+export function registerFileTools(
+  server: McpServer,
+  deps: FileToolDeps,
+  principal: Principal,
+  /** The AI tool's friendly name, from the `initialize` handshake. */
+  client?: string,
+) {
   const { git, spaces, syncer } = deps
   const author = authorOf(principal)
-  const via = mcpVia(principal)
+  const via = mcpVia(principal, client)
   const assertAccess = (space: string) => {
     if (!spaces.canAccess(principal, space)) {
       throw new HearthError('forbidden', `You don't have access to the space "${space}"`)

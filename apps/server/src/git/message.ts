@@ -49,3 +49,24 @@ export function parseCommitMessage(raw: string): { message: string; label?: stri
   const message = rest.length > 0 ? `${head}\n\n${rest.join('\n')}` : head
   return label ? { message, label } : { message }
 }
+
+/**
+ * Who made a change through an agent channel, for the history list ("Morgan via Cursor"): the
+ * AI tool's name from a `Hearth-Via: mcp (client "Cursor", token "My laptop")` trailer, else the
+ * token's name (older trailers), else "an AI tool" for a bare `mcp`. Other channels have none.
+ */
+export function viaLabel(message: string): string | undefined {
+  const line = message
+    .split('\n')
+    .slice(1)
+    .find((l) => l.startsWith(`${VIA_TRAILER}:`))
+  if (line === undefined) return undefined
+  const via = line.slice(VIA_TRAILER.length + 1).trim()
+  const channel = /^(mcp|api)\b/.exec(via)?.[1]
+  if (channel === undefined) return undefined
+  const client = /\bclient "([^"]*)"/.exec(via)?.[1]
+  if (client) return client
+  const token = /\btoken "([^"]*)"/.exec(via)?.[1]
+  if (token) return token
+  return channel === 'mcp' ? 'an AI tool' : undefined
+}

@@ -15,12 +15,18 @@ const Row = z.array(z.string().max(10_000)).max(52)
  * Hearth Tables (ARCHITECTURE §22.7): spreadsheets with Excel-style formulas, kept as CSV in Git.
  * Claude reads values (formulas worked out) and writes cells by A1 address.
  */
-export function registerTableTools(server: McpServer, deps: TableToolDeps, principal: Principal) {
+export function registerTableTools(
+  server: McpServer,
+  deps: TableToolDeps,
+  principal: Principal,
+  /** The AI tool's friendly name, from the `initialize` handshake. */
+  client?: string,
+) {
   const { tables } = deps
   const base = deps.config.PUBLIC_URL.replace(/\/+$/, '')
   const tableUrl = (space: string, id: string) =>
     `${base}/tables/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
-  const via = mcpVia(principal)
+  const via = mcpVia(principal, client)
   const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const
 
   server.registerTool(

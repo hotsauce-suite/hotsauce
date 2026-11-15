@@ -102,7 +102,7 @@ describe('published pages', () => {
     const commit = await lastCommit('team')
     expect(commit).toContain('Alice <alice@example.test>')
     expect(commit).toContain('pages: publish "Q4 plan"')
-    expect(commit).toContain('Hearth-Via: mcp (token "Claude Code")')
+    expect(commit).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
 
     const second = await tool('publish_page', { id, title: 'Q4 plan (final)', html: PAGE('v2') })
     expect(second.value).toMatchObject({ id, title: 'Q4 plan (final)', version: 2 })
