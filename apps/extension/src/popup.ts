@@ -4,7 +4,7 @@
 import { meetCode } from './meet'
 import type { WorkerMessage } from './protocol'
 import { savable } from './save'
-import { connect, DEFAULT_NAME, getServer, originsFor, type Server } from './server'
+import { connect, DEFAULT_NAME, getServer, originsFor, type Server, serverInTab } from './server'
 
 function show(id: string): HTMLElement {
   const el = document.getElementById(id)
@@ -21,8 +21,30 @@ function setName(name: string): void {
   for (const el of document.querySelectorAll('.product')) el.textContent = name
 }
 
+/**
+ * The Hotsauce server open in the active tab, if it is one. Opening this popup lets the extension
+ * read that tab (`activeTab`), so the tab asks its own `/api/health`.
+ */
+async function serverInActiveTab(): Promise<Server | null> {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (tab?.id === undefined || !/^https?:/.test(tab.url ?? '')) return null
+    const [first] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () =>
+        fetch('/api/health', { credentials: 'omit' }).then(
+          (r) => (r.ok ? r.json() : null),
+          () => null,
+        ),
+    })
+    return serverInTab(tab.url, first?.result)
+  } catch {
+    return null
+  }
+}
+
 /** Asks which server; the person's click lets Chrome ask for access to that site. */
-function askForServer(current: Server | null): void {
+function askForServer(current: Server | null, found: Server | null = null): void {
   hideAll()
   setName(current?.name ?? DEFAULT_NAME)
   show('setup')
@@ -32,6 +54,15 @@ function askForServer(current: Server | null): void {
   const button = document.getElementById('server-connect') as HTMLButtonElement
   if (current) input.value = current.url
   input.focus()
+  if (found && !current) {
+    // The person has their server open: one click connects.
+    input.value = found.url
+    setName(found.name)
+    // The address, not the name the page gives itself, is what the person is agreeing to.
+    show('setup-title').textContent = `Connect to ${new URL(found.url).host}?`
+    show('setup-hint').textContent = `The ${found.name} you have open in this tab.`
+    button.focus()
+  }
   // Assigned, not added: the form can be shown again by Change server.
   form.onsubmit = (event) => {
     event.preventDefault()
@@ -53,7 +84,7 @@ async function main(): Promise<void> {
   hideAll()
   const server = await getServer()
   if (!server) {
-    askForServer(null)
+    askForServer(null, await serverInActiveTab())
     return
   }
   setName(server.name)
