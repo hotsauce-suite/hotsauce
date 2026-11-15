@@ -3,7 +3,7 @@ import { type FetchedPage, LinkFetchError, type PageFetcher } from './fetch.js'
 /**
  * Stand-in pages for development and tests (LINK_FETCH=fake): any address gives a short article
  * named after its last path segment; a host ending in `fail.test` can't be reached, and one
- * ending in `pdf.test` is a PDF.
+ * ending in `pdf.test` is a PDF, and one ending in `stub.test` gives only a few words.
  */
 export const fakePageFetcher: PageFetcher = async (url: string): Promise<FetchedPage> => {
   const parsed = new URL(url)
@@ -15,6 +15,10 @@ export const fakePageFetcher: PageFetcher = async (url: string): Promise<Fetched
   }
   const slug = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).at(-1) ?? 'home')
   const title = slug.replace(/[-_]+/g, ' ').replace(/^./, (c) => c.toUpperCase())
+  if (parsed.hostname.endsWith('stub.test')) {
+    const stub = `<!doctype html><html><head><title>${title}</title></head><body><article><p>${title}, cut short.</p></article></body></html>`
+    return { url, contentType: 'text/html', text: stub }
+  }
   const para = `${title} is the subject of this page. `.repeat(12)
   const text = `<!doctype html><html><head><title>${title}</title>
 <meta property="og:site_name" content="${parsed.hostname.replace(/^www\./, '')}">

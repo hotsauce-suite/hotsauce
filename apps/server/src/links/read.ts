@@ -36,6 +36,7 @@ export function readPage(text: string, url: string, contentType: string): Readab
 
 function readHtml(text: string, url: string): ReadablePage {
   const { document } = parseHTML(text) as unknown as { document: Document }
+  revealStreamedParts(document)
   const meta = (names: string[]): string => {
     for (const name of names) {
       const el = document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)
@@ -68,6 +69,73 @@ function readHtml(text: string, url: string): ReadablePage {
     words: wordCount(markdown),
   }
 }
+
+/**
+ * Puts a streamed React page together the way its scripts would in a browser. React sends the
+ * slow parts of a page (often the article itself) at the end, in hidden `<div hidden id="S:x">`
+ * blocks, with a script that moves each into its placeholder: a `<template id="B:y">` boundary,
+ * whose loading stand-in runs from the `<!--$?-->` before it to the matching `<!--/$-->`
+ * (`$RC("B:y","S:x")`), or a `<template id="P:y">` segment (`$RS("S:x","P:y")`). Readability drops
+ * hidden blocks, so without this only the page's header is left.
+ */
+export function revealStreamedParts(document: Document): void {
+  // Where each part goes: the page's own calls (React 18 numbers boundaries and parts apart),
+  // else the placeholder with the same number (React 19 numbers them alike).
+  const named = new Map<string, string>()
+  for (const script of Array.from(document.querySelectorAll('script'))) {
+    const code = script.textContent ?? ''
+    if (!code.includes('$R')) continue
+    for (const m of code.matchAll(/\$RC\(\s*["'](B:[^"']+)["']\s*,\s*["'](S:[^"']+)["']/g)) {
+      named.set(m[2] as string, m[1] as string)
+    }
+    for (const m of code.matchAll(/\$RS\(\s*["'](S:[^"']+)["']\s*,\s*["'](P:[^"']+)["']/g)) {
+      named.set(m[1] as string, m[2] as string)
+    }
+  }
+  for (const part of Array.from(document.querySelectorAll('div[hidden][id^="S:"]'))) {
+    const key = part.id.slice(2)
+    const ids = [named.get(part.id) ?? `B:${key}`, `P:${key}`]
+    const placeholder = ids
+      .map((id) => document.getElementById(id))
+      .find((el) => el?.tagName === 'TEMPLATE')
+    const parent = placeholder?.parentNode
+    // A placeholder inside its own part can't be filled (only a hostile page does that).
+    if (!placeholder || !parent || part.contains(parent)) continue
+    let before: Node | null = null
+    if (placeholder.id.startsWith('B:')) {
+      const opener = placeholder.previousSibling
+      if (opener?.nodeType !== 8 || (opener as Comment).data !== '$?') continue
+      // Take out the stand-in, from the template to its matching "/$" comment.
+      let depth = 0
+      let node: Node | null = placeholder
+      while (node) {
+        if (node.nodeType === 8) {
+          const data = (node as Comment).data
+          if (data === '/$') {
+            if (depth === 0) break
+            depth--
+          } else if (data === '$' || data === '$?' || data === '$!') depth++
+        }
+        const next: Node | null = node.nextSibling
+        parent.removeChild(node)
+        node = next
+      }
+      before = node
+      ;(opener as Comment).data = '$'
+    } else {
+      before = placeholder.nextSibling
+      parent.removeChild(placeholder)
+    }
+    while (part.firstChild) parent.insertBefore(part.firstChild, before)
+    part.parentNode?.removeChild(part)
+  }
+}
+
+/** An address with its parentheses escaped, so it can't end a Markdown link early. */
+const parens = (url: string): string => url.replace(/\(/g, '%28').replace(/\)/g, '%29')
+
+/** A picture as `toMarkdown` writes it, with its label in group 1. */
+const PICTURE = /\[(Picture[^\]]*)\]\([^)]*\)/g
 
 function absolute(href: string, base: string): string | null {
   try {
@@ -142,18 +210,20 @@ export function toMarkdown(html: string, base: string): string {
       const src = absolute(el.getAttribute('src') ?? '', base)
       if (!src) return ''
       const alt = oneLine(el.getAttribute('alt') ?? '').replace(/[[\]]/g, '')
-      return `[Picture${alt ? `: ${alt}` : ''}](${src})`
+      return `[Picture${alt ? `: ${alt}` : ''}](${parens(src)})`
     },
   })
   turndown.addRule('link', {
     filter: (node) => node.nodeName === 'A' && !!(node as HTMLElement).getAttribute('href'),
     replacement: (content, node) => {
       const href = absolute((node as HTMLElement).getAttribute('href') ?? '', base)
-      const text = content.trim()
+      // A picture inside a link (a logo, a thumbnail) would make a link inside a link, which
+      // Markdown can't show: keep the link's words, or the picture's label when it has none.
+      const text = content.replace(PICTURE, '').trim() || content.replace(PICTURE, '$1').trim()
       if (!href || !text) return content
       // A link on the page itself (#section) isn't useful in a copy.
       if (href.split('#')[0] === base.split('#')[0]) return content
-      return `[${text}](${href.replace(/\(/g, '%28').replace(/\)/g, '%29')})`
+      return `[${text}](${parens(href)})`
     },
   })
   return turndown

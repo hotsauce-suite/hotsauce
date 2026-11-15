@@ -167,6 +167,38 @@ describe('the reader', () => {
     )
   })
 
+  it('offers a fresh read when only part of the page came through, and not otherwise', async () => {
+    const user = userEvent.setup()
+    store[0] = link({
+      id: '01JC0000000000000000000001',
+      words: 3,
+      body: '[EA Forum](https://x.test/)',
+    })
+    let refetched = 0
+    server.use(
+      http.post('/api/links/:space/:id/refetch', () => {
+        refetched++
+        const { body: _b, ...rest } = store[0] as LinkWithBody
+        return HttpResponse.json({ ...rest, status: 'fetching' })
+      }),
+    )
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-short')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Get the page again' }))
+    await waitFor(() => expect(refetched).toBe(1))
+    await waitFor(() => expect(screen.getByTestId('link-fetching')).toBeInTheDocument())
+    cleanup()
+    store[0] = link({ id: '01JC0000000000000000000001' })
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-body')).toBeInTheDocument())
+    expect(screen.queryByTestId('link-short')).toBeNull()
+    cleanup()
+    store[0] = link({ id: '01JC0000000000000000000001', words: null })
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-body')).toBeInTheDocument())
+    expect(screen.queryByTestId('link-short')).toBeNull()
+  })
+
   it('edits tags', async () => {
     const user = userEvent.setup()
     renderApp('/links/ada/01JC0000000000000000000001')

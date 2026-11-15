@@ -10,6 +10,9 @@ import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { errorMessage, savedDay, useLinksChanged, usePollWhile } from './useLinks'
 
+/** A readable copy shorter than this is offered a fresh read: the page may not have come through. */
+const SHORT_COPY_WORDS = 150
+
 const isWeb = (href: string) => /^https?:\/\//i.test(href)
 
 // The copy is someone else's page: every link opens outside, and no picture loads from it.
@@ -304,21 +307,40 @@ export default function LinkReader() {
                   Try again
                 </button>
               </p>
+            ) : body ? (
+              <>
+                {body}
+                {link.words != null && link.words < SHORT_COPY_WORDS ? (
+                  <p className="mt-6 text-sm text-ink-soft" data-testid="link-short">
+                    Only part of the page may have come through.{' '}
+                    <button
+                      type="button"
+                      className="text-ember-strong underline"
+                      onClick={() =>
+                        act(async () => {
+                          const next = await linksApi.refetch(link.space, link.id)
+                          setLink({ ...link, ...next })
+                        })
+                      }
+                    >
+                      Get the page again
+                    </button>
+                  </p>
+                ) : null}
+              </>
             ) : (
-              (body ?? (
-                <p className="text-sm text-ink-soft">
-                  There’s no readable copy of this page.{' '}
-                  <a
-                    href={webUrl(link.url) ?? undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-ember-strong underline"
-                  >
-                    Open the original
-                  </a>
-                  .
-                </p>
-              ))
+              <p className="text-sm text-ink-soft">
+                There’s no readable copy of this page.{' '}
+                <a
+                  href={webUrl(link.url) ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ember-strong underline"
+                >
+                  Open the original
+                </a>
+                .
+              </p>
             )}
           </div>
         </article>
