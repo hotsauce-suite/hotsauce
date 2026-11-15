@@ -171,9 +171,13 @@ function seedTeam(repo: FakeRepo): void {
   })
   team.commit(new Map([[q4, Q4_V1]]), ADA, 'docs: create "Q4 plan"', { date: daysAgo(6) })
   team.commit(new Map([[q4, Q4_V2]]), PRIYA, 'docs: edit "Q4 plan"', { date: daysAgo(4) })
-  team.commit(new Map([['docs/plans/hiring.md', HIRING]]), SAM, 'docs: create "Hiring plan"', {
-    date: daysAgo(3),
-  })
+  // Sam drafted the hiring plan with an AI tool: the history shows "Sam via Cursor".
+  team.commit(
+    new Map([['docs/plans/hiring.md', HIRING]]),
+    SAM,
+    'docs: create "Hiring plan"\n\nHearth-Via: mcp (client "Cursor", token "Sam\'s laptop")',
+    { date: daysAgo(3), via: 'Cursor' },
+  )
   team.commit(new Map([[q4, Q4_V3]]), ADA, 'docs: edit "Q4 plan"', {
     label: 'Board draft',
     date: daysAgo(1),

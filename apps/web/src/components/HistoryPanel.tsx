@@ -69,6 +69,9 @@ export default function HistoryPanel({
                 <span className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                     {commit.author.name}
+                    {commit.via ? (
+                      <span className="font-normal text-ink-soft"> via {commit.via}</span>
+                    ) : null}
                   </span>
                   <time dateTime={commit.date} className="shrink-0 text-xs text-ink-faint">
                     {relativeTime(commit.date)}
@@ -81,7 +84,7 @@ export default function HistoryPanel({
                   </span>
                 ) : null}
                 <span className="mt-0.5 block truncate text-xs text-ink-soft">
-                  {commit.message}
+                  {withoutVia(commit.message)}
                 </span>
               </button>
               {isOpen ? (
@@ -245,4 +248,13 @@ function ViewTab({
       {children}
     </button>
   )
+}
+
+/** The message without its `Hearth-Via` trailer, which the author line already shows. */
+export function withoutVia(message: string): string {
+  return message
+    .split('\n')
+    .filter((line, i) => i === 0 || !line.startsWith('Hearth-Via:'))
+    .join('\n')
+    .trimEnd()
 }

@@ -8,7 +8,18 @@ import { server, TEST_USER } from '../test/mockServer'
 import { renderApp } from '../test/renderApp'
 
 describe('Settings: access tokens', () => {
-  it('creates a token, shows it once with the Claude commands, and revokes it', async () => {
+  it('names no single AI tool, and starts with an empty token name', async () => {
+    renderApp('/settings')
+    expect(
+      await screen.findByRole('heading', { name: 'Connect an AI tool to Hotsauce' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/such as ChatGPT, Claude, Grok or Cursor/)).toBeInTheDocument()
+    expect(screen.getByTestId('token-name')).toHaveValue('')
+    expect(screen.getByTestId('token-name')).toHaveAttribute('placeholder', 'My AI tool')
+    expect(screen.getByTestId('token-create')).toBeDisabled()
+  })
+
+  it('creates a token, shows it once with one AI tool’s steps at a time, and revokes it', async () => {
     const user = userEvent.setup()
     renderApp('/settings')
     expect(await screen.findByText('No tokens yet.')).toBeInTheDocument()
@@ -20,12 +31,43 @@ describe('Settings: access tokens', () => {
 
     const secret = (await screen.findByTestId('token-secret')).textContent ?? ''
     expect(secret).toMatch(/^hth_/)
+    const origin = window.location.origin
+    // Claude Code first, alone.
     expect(screen.getByTestId('token-command').textContent).toBe(
-      `claude mcp add --transport http --scope user hotsauce ${window.location.origin}/mcp --header "Authorization: Bearer ${secret}"`,
+      `claude mcp add --transport http --scope user hotsauce ${origin}/mcp --header "Authorization: Bearer ${secret}"`,
     )
+    expect(screen.queryByTestId('token-desktop-config')).not.toBeInTheDocument()
+
+    await user.click(screen.getByTestId('ai-tool-claude-desktop'))
+    expect(screen.queryByTestId('token-command')).not.toBeInTheDocument()
     const desktop = JSON.parse(screen.getByTestId('token-desktop-config').textContent ?? '')
     expect(desktop.mcpServers.hotsauce.env.MCP_AUTH).toBe(`Bearer ${secret}`)
-    expect(desktop.mcpServers.hotsauce.args).toContain(`${window.location.origin}/mcp`)
+    expect(desktop.mcpServers.hotsauce.args).toContain(`${origin}/mcp`)
+
+    await user.click(screen.getByTestId('ai-tool-cursor'))
+    const cursor = JSON.parse(screen.getByTestId('token-cursor-config').textContent ?? '')
+    expect(cursor.mcpServers.hotsauce).toEqual({
+      url: `${origin}/mcp`,
+      headers: { Authorization: `Bearer ${secret}` },
+    })
+
+    await user.click(screen.getByTestId('ai-tool-codex'))
+    expect(screen.getByTestId('token-codex-config').textContent).toContain(`url = "${origin}/mcp"`)
+    expect(screen.getByTestId('token-codex-export').textContent).toBe(
+      `export HOTSAUCE_TOKEN="${secret}"`,
+    )
+
+    await user.click(screen.getByTestId('ai-tool-other'))
+    expect(screen.getByTestId('token-url').textContent).toBe(`${origin}/mcp`)
+    expect(screen.getByTestId('token-header').textContent).toBe(`Authorization: Bearer ${secret}`)
+
+    for (const tool of ['chatgpt', 'grok']) {
+      await user.click(screen.getByTestId(`ai-tool-${tool}`))
+      expect(screen.getByTestId('ai-tool-coming-soon')).toHaveTextContent(
+        'Needs sign-in, coming soon',
+      )
+      expect(screen.getByTestId('ai-tool-steps').textContent).not.toContain(secret)
+    }
 
     const item = await screen.findByTestId('token-item')
     expect(within(item).getByText('Laptop')).toBeInTheDocument()

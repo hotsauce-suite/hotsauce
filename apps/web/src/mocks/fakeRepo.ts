@@ -71,7 +71,7 @@ export class FakeSpace {
     changes: Map<string, string | null>,
     author: Author,
     message: string,
-    opts: { label?: string | undefined; date?: Date } = {},
+    opts: { label?: string | undefined; date?: Date; via?: string } = {},
   ) {
     const date = (opts.date ?? this.clock()).toISOString()
     const label = opts.label
@@ -90,6 +90,7 @@ export class FakeSpace {
       message,
       changes,
       ...(label ? { label } : {}),
+      ...(opts.via ? { via: opts.via } : {}),
     }
     this.commits.push(record)
     return record

@@ -82,6 +82,8 @@ export interface Commit {
   date: string
   message: string
   label?: string
+  /** The AI tool (or token) behind an agent's change, as the server parsed it: "Cursor". */
+  via?: string
 }
 
 // `committed` carries `content` when the server changed the text it was sent (it adds a

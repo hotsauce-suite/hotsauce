@@ -2,7 +2,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useOutletContext, useRouteLoaderData } from 'react-router'
 import { calendarApi } from '../api/calendar'
 import { api, HearthApiError } from '../api/client'
-import { type AccessToken, claudeCodeCommand, claudeDesktopConfig, tokensApi } from '../api/tokens'
+import { type AccessToken, tokensApi } from '../api/tokens'
 import type { CalendarChoice, Health } from '../api/types'
 import {
   MeetingsPageHeader,
@@ -11,6 +11,7 @@ import {
 } from '../apps/meetings/components/common'
 import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
+import { NewToken } from '../components/AiToolSetup'
 import { feedbackLink, initials, useFeedbackEnabled, useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
 import { Icon } from '../components/Icon'
@@ -45,7 +46,7 @@ const when = (iso: string | null) =>
  */
 export default function SettingsRoute() {
   const [tokens, setTokens] = useState<AccessToken[] | null>(null)
-  const [name, setName] = useState('Claude Code')
+  const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<(AccessToken & { token: string }) | null>(null)
@@ -131,17 +132,17 @@ export default function SettingsRoute() {
           <KeyboardSettings />
 
           <h2 className="mt-12 font-display text-[1.6rem] font-semibold tracking-tight">
-            Connect Claude to {product()}
+            Connect an AI tool to {product()}
           </h2>
           <p className="mt-2 text-ink-soft">
-            An access token lets Claude Code, Claude desktop or a script work in {product()} as you:
-            search, read, write, move and restore Docs; read Meetings and ask about them; manage
-            Tasks and Notes; read Clips and your calendar. It sees exactly what you see, and
-            everything it writes is saved under your name, marked as made through Claude. Treat a
-            token like a password, and revoke it when you stop using it.
+            An access token lets an AI tool such as ChatGPT, Claude, Grok or Cursor, or a script,
+            work in {product()} as you: search, read, write, move and restore Docs; read Meetings
+            and ask about them; manage Tasks and Notes; read Clips and your calendar. It sees
+            exactly what you see, and everything it writes is saved under your name, marked with the
+            tool that made it. Treat a token like a password, and revoke it when you stop using it.
           </p>
           <p className="mt-2 text-ink-soft">
-            Once connected, Claude reads your{' '}
+            Once connected, your AI tool reads your{' '}
             <Link to="/meetings/brief" className="text-ember-strong underline">
               agent brief
             </Link>{' '}
@@ -154,6 +155,7 @@ export default function SettingsRoute() {
               <input
                 data-testid="token-name"
                 value={name}
+                placeholder="My AI tool"
                 maxLength={80}
                 onChange={(e) => setName(e.target.value)}
                 className="h-10 rounded-lg border border-ash-strong bg-paper-raised px-3 text-ink focus:border-ember focus:outline-none"
@@ -510,73 +512,6 @@ function CalendarPicker() {
         </ul>
       ) : null}
     </section>
-  )
-}
-
-function NewToken({
-  token,
-  origin,
-  onDone,
-}: {
-  token: AccessToken & { token: string }
-  origin: string
-  onDone: () => void
-}) {
-  return (
-    <section
-      data-testid="token-created"
-      className="mt-6 rounded-xl border border-ember/40 bg-paper-raised/70 p-4"
-    >
-      <p className="text-sm font-medium text-ink">
-        Copy “{token.name}” now. {product()} won’t show it again.
-      </p>
-      <CopyBlock testId="token-secret" text={token.token} />
-
-      <h4 className="mt-5 text-sm font-semibold text-ink-soft">Claude Code</h4>
-      <p className="mt-1 text-sm text-ink-soft">Run this once in a terminal:</p>
-      <CopyBlock testId="token-command" text={claudeCodeCommand(origin, token.token)} />
-
-      <h4 className="mt-5 text-sm font-semibold text-ink-soft">Claude desktop</h4>
-      <p className="mt-1 text-sm text-ink-soft">
-        Add this to <code className="font-mono text-xs">claude_desktop_config.json</code> (Settings
-        → Developer → Edit Config), then restart Claude. It needs Node installed.
-      </p>
-      <CopyBlock testId="token-desktop-config" text={claudeDesktopConfig(origin, token.token)} />
-
-      <button type="button" onClick={onDone} className={`${secondaryButton} mt-5 h-9`}>
-        Done
-      </button>
-    </section>
-  )
-}
-
-function CopyBlock({ text, testId }: { text: string; testId: string }) {
-  const [copied, setCopied] = useState(false)
-  const copy = () =>
-    void navigator.clipboard?.writeText(text).then(
-      () => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
-      },
-      () => {},
-    )
-  return (
-    <div className="mt-2 flex items-start gap-2 rounded-lg border border-ash bg-paper-sunk p-2">
-      <pre
-        data-testid={testId}
-        className="min-w-0 flex-1 overflow-x-auto font-mono text-xs leading-relaxed whitespace-pre-wrap break-all text-ink"
-      >
-        {text}
-      </pre>
-      <button
-        type="button"
-        onClick={copy}
-        aria-label="Copy"
-        className="shrink-0 rounded-md p-1.5 text-ink-faint hover:bg-paper hover:text-ink"
-      >
-        <Icon name={copied ? 'check' : 'copy'} className="size-4" />
-      </button>
-    </div>
   )
 }
 

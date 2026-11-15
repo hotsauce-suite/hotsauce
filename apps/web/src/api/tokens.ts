@@ -61,3 +61,47 @@ export function claudeDesktopConfig(origin: string, token: string): string {
     2,
   )
 }
+
+/** The server's MCP address, for tools that take a URL. */
+export function mcpUrl(origin: string): string {
+  return `${origin}/mcp`
+}
+
+/** The header every token-based tool sends. */
+export function authHeader(token: string): string {
+  return `Authorization: Bearer ${token}`
+}
+
+/** Cursor's `~/.cursor/mcp.json` entry: a remote server with a URL and headers. */
+export function cursorConfig(origin: string, token: string): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        [connectorName()]: {
+          url: mcpUrl(origin),
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      },
+    },
+    null,
+    2,
+  )
+}
+
+/** The environment variable Codex reads the token from ("HOTSAUCE_TOKEN"). */
+export function codexTokenVar(): string {
+  return `${connectorName().toUpperCase().replace(/-/g, '_')}_TOKEN`
+}
+
+/**
+ * Codex's `~/.codex/config.toml` table: a Streamable HTTP server whose bearer token comes from an
+ * environment variable (Codex docs, checked Nov 14 2026).
+ */
+export function codexConfig(origin: string): string {
+  return `[mcp_servers.${connectorName()}]\nurl = "${mcpUrl(origin)}"\nbearer_token_env_var = "${codexTokenVar()}"`
+}
+
+/** The shell line that gives Codex the token. */
+export function codexExport(token: string): string {
+  return `export ${codexTokenVar()}="${token}"`
+}
