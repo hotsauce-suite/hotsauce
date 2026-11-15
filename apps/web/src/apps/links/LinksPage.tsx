@@ -229,8 +229,8 @@ function EmptyList({ view, filtered }: { view: 'unread' | 'archive'; filtered: b
     <div className="rounded-xl border border-dashed border-ash-strong p-6 text-sm text-ink-soft">
       <p className="mb-2 font-medium text-ink">Nothing to read yet.</p>
       <p>
-        Paste a link above, use “Save to {product()}” in the Chrome extension, or share a page to{' '}
-        {product()} from your phone.
+        Paste a link above, click the Chrome extension, or share a page to {product()} from your
+        phone.
       </p>
     </div>
   )

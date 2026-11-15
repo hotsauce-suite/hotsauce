@@ -124,10 +124,10 @@ async function saveToHearth(
   page: { url: string; title?: string },
   from: chrome.tabs.Tab | undefined,
   copy = false,
-): Promise<void> {
+): Promise<boolean> {
   const server = await getServer()
   // Not connected yet: the popup asks which server first.
-  if (!server || !savable(page.url, originsFor(server.url))) return
+  if (!server || !savable(page.url, originsFor(server.url))) return false
   const html = copy && from?.id !== undefined ? await copyOf(from.id) : null
   const tab = await chrome.tabs.create({
     url: savePageUrl(server.url, page),
@@ -135,7 +135,7 @@ async function saveToHearth(
     ...(from?.windowId !== undefined ? { windowId: from.windowId } : {}),
     ...(from?.index !== undefined ? { index: from.index + 1 } : {}),
   })
-  if (tab.id === undefined) return
+  if (tab.id === undefined) return false
   const saveTabId = tab.id
   await changeSaveTabs(
     (list) => ({
@@ -152,6 +152,7 @@ async function saveToHearth(
       }
     })
   }, SAVE_WAIT_MS)
+  return true
 }
 
 /** The save page said how it went: on success its tab closes and the icon shows a tick. */
@@ -259,15 +260,15 @@ chrome.runtime.onMessage.addListener((message: WorkerMessage, sender, sendRespon
     return true
   }
   if (message.type === 'save-page' && sender.id === chrome.runtime.id && !sender.tab) {
-    chrome.tabs.get(message.tabId).then(
-      (tab) =>
-        saveToHearth(
-          { url: tab.url ?? '', ...(tab.title ? { title: tab.title } : {}) },
-          tab,
-          true,
-        ).then(() => sendResponse({ ok: true })),
-      () => sendResponse({ ok: false }),
-    )
+    chrome.tabs
+      .get(message.tabId)
+      .then((tab) =>
+        saveToHearth({ url: tab.url ?? '', ...(tab.title ? { title: tab.title } : {}) }, tab, true),
+      )
+      .then(
+        (ok) => sendResponse({ ok }),
+        () => sendResponse({ ok: false }),
+      )
     return true
   }
   // Messages from pages are answered only on the server's own pages.
