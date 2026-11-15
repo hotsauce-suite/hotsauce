@@ -22,6 +22,8 @@ final class EdgeGlow {
     private var animates = true
     /// Bumped by each dictation, so a slow window lookup for an earlier one is dropped.
     private var generation = 0
+    /// Bumped by each fade, so an older fade's completion can't hide a newer one early.
+    private var fadeID = 0
 
     /// Recording has started. `pid` is the app being dictated into; its focused window is looked
     /// up off the main thread, so a slow app never holds anything up.
@@ -50,7 +52,12 @@ final class EdgeGlow {
         guard machine.handle(.think) == .thinking else { return }
         stopTicking()
         level.reset()
-        guard let glowView else { return }
+        // Shown yet? If not, present() pulses when the window lookup comes back.
+        guard let glowView, panel?.isVisible == true else { return }
+        startPulse(in: glowView)
+    }
+
+    private func startPulse(in glowView: EdgeGlowView) {
         glowView.setFlames(level: 0, time: CACurrentMediaTime() - startedAt, animates: animates)
         if animates {
             let pulse = CABasicAnimation(keyPath: "opacity")
@@ -78,11 +85,13 @@ final class EdgeGlow {
         let from = root.presentation()?.opacity ?? root.opacity
         root.removeAnimation(forKey: "pulse")
         root.removeAnimation(forKey: "fadeIn")
+        fadeID += 1
+        let fadeID = fadeID
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
             MainActor.assumeIsolated {
-                // A dictation started during the fade keeps the panel.
-                guard let self, self.machine.handle(.faded) == .idle else { return }
+                // A newer fade owns the panel now; a dictation started during the fade keeps it.
+                guard let self, fadeID == self.fadeID, self.machine.handle(.faded) == .idle else { return }
                 self.panel?.orderOut(nil)
             }
         }
@@ -100,15 +109,18 @@ final class EdgeGlow {
 
     private func present(window: CGRect?, generation: Int) {
         // Too late: the dictation ended, or another one started, while the window was looked up.
-        guard generation == self.generation, machine.phase == .listening else { return }
-        let screens = NSScreen.screens.map(\.frame)
-        guard let placement = EdgeGlowGeometry.placement(window: window, screens: screens, mouse: NSEvent.mouseLocation) else { return }
+        // A short dictation may already be writing up: show it pulsing.
+        guard generation == self.generation, machine.phase == .listening || machine.phase == .thinking else { return }
+        let screens = NSScreen.screens
+        guard let placement = EdgeGlowGeometry.placement(window: window, screens: screens.map(\.frame), mouse: NSEvent.mouseLocation) else { return }
         let panel = panel ?? makePanel()
         guard let glowView else { return }
         panel.setFrame(placement.frame, display: false)
+        // The scale of the screen it lands on: the hidden panel's own can still be the last screen's.
+        let screen = screens.first { $0.frame.contains(CGPoint(x: placement.frame.midX, y: placement.frame.midY)) }
         glowView.layout(
             size: placement.frame.size,
-            scale: panel.backingScaleFactor,
+            scale: screen?.backingScaleFactor ?? panel.backingScaleFactor,
             cornerRadius: placement.isScreen ? EdgeGlowLook.screenCornerRadius : EdgeGlowLook.windowCornerRadius,
             flames: animates
         )
@@ -127,7 +139,11 @@ final class EdgeGlow {
         root.add(fadeIn, forKey: "fadeIn")
         // orderFrontRegardless shows it without activating the app or taking keyboard focus.
         panel.orderFrontRegardless()
-        if animates { startTicking(in: glowView) }
+        if machine.phase == .thinking {
+            startPulse(in: glowView)
+        } else if animates {
+            startTicking(in: glowView)
+        }
     }
 
     private func makePanel() -> NSPanel {
@@ -343,7 +359,8 @@ private final class EdgeGlowView: NSView {
     private static func flamePath(width: CGFloat, height: CGFloat, time: CFTimeInterval, seed: Double) -> CGPath {
         let path = CGMutablePath()
         path.move(to: .zero)
-        let step: CGFloat = 6
+        // About 320 points across, however wide, so a 5K screen costs no more per frame.
+        let step = max(6, width / 320)
         var x: CGFloat = 0
         let t = time + seed * 7.3
         while x <= width + step {
