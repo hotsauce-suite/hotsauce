@@ -5,7 +5,7 @@ import { api } from '../api/client'
 import { meetingsApi } from '../api/meetings'
 import { AudioRing } from '../apps/meetings/audio/ring-buffer'
 import { beginLive, currentLive } from '../apps/meetings/live/controller'
-import { DEFAULT_PINS, MAX_PINS } from '../apps/pins'
+import { DEFAULT_PINS } from '../apps/pins'
 import { APPS, railLinks } from '../apps/registry'
 import { MOBILE_QUERY } from '../hooks/useMediaQuery'
 import { renderApp } from '../test/renderApp'
@@ -165,11 +165,26 @@ describe('the app rail', () => {
       expect((await api.pins()).pins).toEqual(['today', 'docs', 'meetings', 'briefcast', 'chat']),
     )
 
-    // Six at most: the rest can't be added until one is unpinned.
-    await userEvent.click(within(launcher).getByTestId('launcher-toggle-notes'))
-    expect(MAX_PINS).toBe(6)
-    expect(within(launcher).getByTestId('launcher-toggle-files')).toBeDisabled()
-    expect(within(launcher).getByTestId('launcher-toggle-notes')).toBeEnabled()
+    // No cap: every app and link can be pinned, and the rail shows them all in pin order.
+    const every = [...APPS.map((app) => app.id), ...railLinks().map((link) => link.id)]
+    for (const id of every) {
+      const toggle = within(launcher).getByTestId(`launcher-toggle-${id}`)
+      expect(toggle).toBeEnabled()
+      if (toggle.getAttribute('aria-pressed') !== 'true') await userEvent.click(toggle)
+    }
+    await waitFor(async () => expect((await api.pins()).pins).toHaveLength(every.length))
+    const railIds = [...within(rail).getByTestId('rail-apps').querySelectorAll('a')].map((el) =>
+      el.getAttribute('data-testid')?.replace(/^app-(switch|link)-/, ''),
+    )
+    expect(railIds).toEqual((await api.pins()).pins)
+    expect(railIds.length).toBeGreaterThan(6)
+    // Files goes back off, so it opens from the "All apps" list below.
+    await userEvent.click(within(launcher).getByTestId('launcher-unpin-files'))
+    await waitFor(async () => expect((await api.pins()).pins).not.toContain('files'))
+    expect(within(launcher).getByTestId('launcher-toggle-files')).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
 
     // Done, then an app opens from the launcher, which closes.
     await userEvent.click(within(launcher).getByTestId('launcher-edit'))

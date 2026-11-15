@@ -27,6 +27,10 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   popup can't be clicked, and without the `tabs` permission `tab.url` is empty, so a scratch copy
   of the build that exposes the save function on `globalThis` and adds `http://localhost/*` to
   `host_permissions` (standing in for `activeTab`) drives the real flow end to end.
+- **A Web Store copy can find its server from the open tab.** Opening the popup grants
+  `activeTab`, so a same-origin `fetch('/api/health')` run in the tab tells whether it is a
+  Hotsauce page; no store ID, deep link or new permission needed. Show the host, not the page's
+  self-reported name, in what the person agrees to.
 - **Per-member state on shared files doesn't belong in Git.** A reading place changes every few
   seconds and is one person's even on a team link; a commit per scroll would bury the history and
   share one place between everyone. A small SQLite file on the volume (like Dictate's) is backed

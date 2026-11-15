@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isServerPage, matchPatterns, originsFor, parseServerUrl } from './server'
+import { isServerPage, matchPatterns, originsFor, parseServerUrl, serverInTab } from './server'
 
 describe('parseServerUrl', () => {
   it('keeps the origin and adds https to a bare host', () => {
@@ -31,5 +31,28 @@ describe('origins', () => {
     expect(isServerPage(server, 'https://office.example.com/meetings')).toBe(true)
     expect(isServerPage(server, 'https://evil.example/meetings')).toBe(false)
     expect(isServerPage(null, 'https://office.example.com/')).toBe(false)
+  })
+})
+
+describe('the server open in the tab', () => {
+  it('is offered when the tab is a Hotsauce page that answered its health check', () => {
+    const health = { ok: true, productName: 'Hearth', setupRequired: false }
+    expect(serverInTab('https://hotsauce.acme.com/links?x=1', health)).toEqual({
+      url: 'https://hotsauce.acme.com',
+      name: 'Hearth',
+    })
+    expect(serverInTab('http://localhost:3000/today', { ok: true })).toEqual({
+      url: 'http://localhost:3000',
+      name: 'Hotsauce',
+    })
+  })
+
+  it('is not offered for other pages, plain http, or a server still in setup', () => {
+    expect(serverInTab('https://news.test/a', null)).toBeNull()
+    expect(serverInTab('https://news.test/a', { ok: false })).toBeNull()
+    expect(serverInTab('https://news.test/a', '<html>')).toBeNull()
+    expect(serverInTab('http://office.example.com/', { ok: true })).toBeNull()
+    expect(serverInTab('https://new.acme.com/setup', { ok: true, setupRequired: true })).toBeNull()
+    expect(serverInTab(undefined, { ok: true })).toBeNull()
   })
 })
