@@ -44,7 +44,7 @@ Everything here is generic (no organization names in code) so it ports to public
   - *On by default* whenever an object store is configured; `BACKUP=off` turns it off.
   - *Admins see it*: Settings → Organization shows the last backup (when, size, or the error) and a
     "Back up now" button.
-- **Restore** (`pnpm --filter @hearth/server restore`, and `node dist/cli/restore.js` in the image):
+- **Restore** (`pnpm --filter @hotsauce/server restore`, and `node dist/cli/restore.js` in the image):
   lists backups, downloads one (default: newest), checks it, and unpacks it into an empty
   `DATA_DIR` (or a target folder). Refuses a non-empty folder unless `--force`, which moves the old
   contents aside. The server then starts as usual; search rebuilds.

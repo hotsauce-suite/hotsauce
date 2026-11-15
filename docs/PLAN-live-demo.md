@@ -4,7 +4,7 @@
 
 ## Shape
 
-- `pnpm --filter @hearth/web build:demo` builds the web app in `demo` mode into `site/public/demo/`.
+- `pnpm --filter @hotsauce/web build:demo` builds the web app in `demo` mode into `site/public/demo/`.
 - The site worker serves `demo.hotsauce.work/*` from `/demo/*`, with `/demo/index.html` as the fallback for app routes.
 - Each card's window on hotsauce.work shows the loop first, and a "Try it yourself" button swaps in the live app in an iframe.
 - Each visitor's demo runs in their own browser. Nothing is sent to a server, and a reload starts over.
