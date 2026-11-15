@@ -4,7 +4,7 @@ import {
   meetingPaths,
   patchFrontmatter,
   SPACE_LAYOUT,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { stringify } from 'yaml'
 import { z } from 'zod'
 import { PCM_BYTES_PER_MS, type TranscriptSegment } from './transcriber/types.js'

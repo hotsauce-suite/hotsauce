@@ -1,11 +1,11 @@
 import type { Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
-import { type ErrorCode, HearthError } from '../errors.js'
+import { type ErrorCode, HotsauceError } from '../errors.js'
 
-/** `HearthError` → `{ error: { code, message } }` with its status; anything else → a generic 500. */
+/** `HotsauceError` → `{ error: { code, message } }` with its status; anything else → a generic 500. */
 export function handleError(err: Error, c: Context): Response {
-  if (err instanceof HearthError) {
+  if (err instanceof HotsauceError) {
     const error = {
       code: err.code,
       message: err.message,

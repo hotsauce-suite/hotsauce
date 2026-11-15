@@ -12,7 +12,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-desktop-')
+  root = await makeTempDir('hotsauce-desktop-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

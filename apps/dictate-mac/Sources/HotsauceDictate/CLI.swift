@@ -1,11 +1,11 @@
 import DictateCore
 import Foundation
 
-/// `HearthDictate --transcribe-file <path> [--literal] [--stream] [--app-name <name>] [--app-bundle <id>] [--server <url>]`
+/// `HotsauceDictate --transcribe-file <path> [--literal] [--stream] [--app-name <name>] [--app-bundle <id>] [--server <url>]`
 ///
-/// The app's own upload, for automated end-to-end tests. The token comes from HEARTH_DICTATE_TOKEN
-/// only, never the saved connection, so this can’t send the app’s own token to a server it names; the
-/// server from --server or HEARTH_DICTATE_SERVER (there's no built-in one). Prints the JSON result;
+/// The app's own upload, for automated end-to-end tests. The token comes from HOTSAUCE_DICTATE_TOKEN
+/// (or the old HEARTH_DICTATE_TOKEN) only, never the saved connection, so this can’t send the app’s own token to a server it names; the
+/// server from --server or HOTSAUCE_DICTATE_SERVER (there's no built-in one). Prints the JSON result;
 /// exits 1 with a message on failure.
 enum CLI {
     static func run(arguments: [String]) -> Int32 {
@@ -13,7 +13,8 @@ enum CLI {
         var mode = DictationMode.clean
         var appName: String?
         var appBundle: String?
-        var serverText = ProcessInfo.processInfo.environment["HEARTH_DICTATE_SERVER"]
+        var serverText = ProcessInfo.processInfo.environment["HOTSAUCE_DICTATE_SERVER"]
+            ?? ProcessInfo.processInfo.environment["HEARTH_DICTATE_SERVER"]
         var streamed = false
         var index = 0
         func value() -> String? {
@@ -36,10 +37,12 @@ enum CLI {
             return fail("Couldn’t read the audio file")
         }
         guard let server = serverText.flatMap(ConnectLink.normalizedServer) else {
-            return fail("Set --server or HEARTH_DICTATE_SERVER to your workspace’s address")
+            return fail("Set --server or HOTSAUCE_DICTATE_SERVER to your workspace’s address")
         }
-        guard let token = ProcessInfo.processInfo.environment["HEARTH_DICTATE_TOKEN"], ConnectLink.isDeviceToken(token) else {
-            return fail("Set HEARTH_DICTATE_TOKEN to a device token")
+        guard let token = ProcessInfo.processInfo.environment["HOTSAUCE_DICTATE_TOKEN"]
+                ?? ProcessInfo.processInfo.environment["HEARTH_DICTATE_TOKEN"],
+              ConnectLink.isDeviceToken(token) else {
+            return fail("Set HOTSAUCE_DICTATE_TOKEN to a device token")
         }
         let request = DictationRequest(
             audio: audio,
@@ -80,7 +83,7 @@ enum CLI {
             done.signal()
         }
         done.wait()
-        FileHandle.standardError.write(Data("hearth-dictate: \(streamed ? "streamed" : "uploaded"), key-up to text \(keyUpToTextMs) ms\n".utf8))
+        FileHandle.standardError.write(Data("hotsauce-dictate: \(streamed ? "streamed" : "uploaded"), key-up to text \(keyUpToTextMs) ms\n".utf8))
         switch outcome {
         case let .success(result):
             let encoder = JSONEncoder()
@@ -103,7 +106,7 @@ enum CLI {
     }
 
     private static func fail(_ message: String) -> Int32 {
-        FileHandle.standardError.write(Data("hearth-dictate: \(message)\n".utf8))
+        FileHandle.standardError.write(Data("hotsauce-dictate: \(message)\n".utf8))
         return 1
     }
 }

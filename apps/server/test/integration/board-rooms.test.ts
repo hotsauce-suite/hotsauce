@@ -1,7 +1,7 @@
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
-import { newId } from '@hearth/format'
 import { serve } from '@hono/node-server'
+import { newId } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BoardRooms, MAX_BOARD_FRAME_BYTES, type RoomSocket } from '../../src/boards/index.js'
@@ -22,7 +22,7 @@ let rooms: BoardRooms
 let now = 1_000_000
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-rooms-')
+  root = await makeTempDir('hotsauce-rooms-')
   services = createServices(
     loadConfig({
       NODE_ENV: 'test',

@@ -6,7 +6,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ulid } from 'ulid'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type AudioStore, LocalAudioStore, R2AudioStore } from '../meetings/audio/index.js'
 import type { LLM } from '../meetings/llm/types.js'
 import { composite, extractAudio, type FfmpegPaths, probe, remux, thumbnail } from './media.js'
@@ -159,7 +159,7 @@ export function speakersOf(
 }
 
 /**
- * Hearth Clips on the server (ARCHITECTURE §10): recordings arrive as numbered chunks while they're
+ * Hotsauce Clips on the server (ARCHITECTURE §10): recordings arrive as numbered chunks while they're
  * made; Stop assembles them into a seekable video, stores it with a thumbnail, then transcribes.
  * One clip is processed at a time, in arrival order.
  */
@@ -215,7 +215,7 @@ export class Clips {
 
   #media(): AudioStore {
     if (!this.#opts.media) {
-      throw new HearthError(
+      throw new HotsauceError(
         'not_found',
         'Clips needs video storage, which isn’t set up (AUDIO_STORE=none)',
       )
@@ -226,7 +226,7 @@ export class Clips {
   /** The clip, or not_found. */
   #get(id: string): ClipRecord {
     const clip = /^[0-9A-Z]{26}$/.test(id) ? this.store.get(id) : null
-    if (!clip) throw new HearthError('not_found', 'No such clip')
+    if (!clip) throw new HotsauceError('not_found', 'No such clip')
     return clip
   }
 
@@ -234,7 +234,7 @@ export class Clips {
   #owned(principal: Principal, id: string): ClipRecord {
     const clip = this.#get(id)
     if (clip.ownerId !== principal.userId) {
-      throw new HearthError('forbidden', 'Only the person who recorded this clip can change it')
+      throw new HotsauceError('forbidden', 'Only the person who recorded this clip can change it')
     }
     return clip
   }
@@ -249,7 +249,7 @@ export class Clips {
       .withStatus(['recording'])
       .filter((c) => c.ownerId === principal.userId).length
     if (open >= MAX_OPEN_RECORDINGS) {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         'You have recordings open in other tabs; stop or discard one first',
       )
@@ -275,12 +275,12 @@ export class Clips {
   ): Promise<void> {
     const clip = this.#owned(principal, id)
     if (clip.status !== 'recording') {
-      throw new HearthError('conflict', 'This recording has already been finished')
+      throw new HotsauceError('conflict', 'This recording has already been finished')
     }
     if (!Number.isInteger(seq) || seq < 0 || seq >= MAX_CHUNKS) {
-      throw new HearthError('bad_request', `A chunk number is from 0 to ${MAX_CHUNKS - 1}`)
+      throw new HotsauceError('bad_request', `A chunk number is from 0 to ${MAX_CHUNKS - 1}`)
     }
-    if (bytes.length === 0) throw new HearthError('bad_request', 'An empty chunk')
+    if (bytes.length === 0) throw new HotsauceError('bad_request', 'An empty chunk')
     await this.#ensureRoom()
     const dir = this.#trackDir(id, track)
     await mkdir(dir, { recursive: true })
@@ -292,7 +292,7 @@ export class Clips {
         (await this.#uploadedBytes(this.#uploadDir(id))) +
           (await this.#uploadedBytes(this.#trackDir(id, 'camera')))) - replaced
     if (total + bytes.length > MAX_CLIP_BYTES) {
-      throw new HearthError('bad_request', 'A clip can be at most 2 GB', { status: 413 })
+      throw new HotsauceError('bad_request', 'A clip can be at most 2 GB', { status: 413 })
     }
     this.#uploaded.set(id, total + bytes.length)
     const tmp = `${file}.${randomBytes(4).toString('hex')}.tmp`
@@ -308,7 +308,7 @@ export class Clips {
     if (!this.store.get(id)) {
       await rm(this.#uploadDir(id), { recursive: true, force: true })
       this.#uploaded.delete(id)
-      throw new HearthError('not_found', 'No such clip')
+      throw new HotsauceError('not_found', 'No such clip')
     }
     // Recording activity keeps the clip from being swept as abandoned.
     this.store.update(id, {}, this.#nowIso())
@@ -323,7 +323,7 @@ export class Clips {
           () => Number.POSITIVE_INFINITY,
         )
     if (free < MIN_FREE_BYTES + extraBytes) {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         'The server’s disk is nearly full, so recording is paused. Delete old clips, or ask an admin to add storage.',
       )
@@ -347,7 +347,7 @@ export class Clips {
     if (clip.status !== 'recording') return this.view(clip, principal)
     const { chunks, camera } = req
     if (!Number.isInteger(chunks) || chunks < 1 || chunks > MAX_CHUNKS) {
-      throw new HearthError('bad_request', 'A recording has at least one chunk')
+      throw new HotsauceError('bad_request', 'A recording has at least one chunk')
     }
     await this.#requireChunks(id, 'screen', chunks, 'Chunks')
     // A camera that recorded nothing is left out rather than holding the clip up.
@@ -381,7 +381,7 @@ export class Clips {
       if (!present.has(chunkName(seq))) missing.push(seq)
     }
     if (missing.length > 0) {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         `${what} ${missing.slice(0, 10).join(', ')} haven’t arrived`,
       )
@@ -391,7 +391,7 @@ export class Clips {
   rename(principal: Principal, id: string, title: string): Promise<ClipView> {
     this.#owned(principal, id)
     const trimmed = title.trim()
-    if (!trimmed) throw new HearthError('bad_request', 'A title can’t be empty')
+    if (!trimmed) throw new HotsauceError('bad_request', 'A title can’t be empty')
     const clip = this.store.update(
       id,
       { title: trimmed.slice(0, MAX_TITLE_LENGTH), titleSet: true },
@@ -435,7 +435,7 @@ export class Clips {
     const known = new Set(speakersOf(clip).map((s) => String(s.id)))
     const speakers = { ...clip.speakers }
     for (const [key, raw] of Object.entries(names)) {
-      if (!known.has(key)) throw new HearthError('bad_request', `No speaker ${key} in this clip`)
+      if (!known.has(key)) throw new HotsauceError('bad_request', `No speaker ${key} in this clip`)
       const name = raw.replace(/\s+/g, ' ').trim().slice(0, 60)
       if (name) speakers[key] = name
       else delete speakers[key]
@@ -451,10 +451,10 @@ export class Clips {
   async generate(principal: Principal, id: string, kind: 'summary' | 'actions'): Promise<ClipView> {
     const clip = this.#get(id)
     if (clip.status === 'recording' && clip.ownerId !== principal.userId) {
-      throw new HearthError('not_found', 'No such clip')
+      throw new HotsauceError('not_found', 'No such clip')
     }
     if (clip.transcriptStatus !== 'ready' || clip.transcript.length === 0) {
-      throw new HearthError('conflict', 'There’s no transcript to work from yet')
+      throw new HotsauceError('conflict', 'There’s no transcript to work from yet')
     }
     const transcript = transcriptText(clip).slice(0, NOTES_TRANSCRIPT_CHARS)
     const ask =
@@ -483,10 +483,10 @@ export class Clips {
           }
         : { aiActions: checklistOnly(stripImages(tagged(text, 'actions') ?? '')).slice(0, 6000) }
     if (kind === 'summary' && !patch.aiSummary) {
-      throw new HearthError('llm_error', 'The summary came back empty; try again')
+      throw new HotsauceError('llm_error', 'The summary came back empty; try again')
     }
     const updated = this.store.update(id, patch, this.#nowIso())
-    if (!updated) throw new HearthError('not_found', 'No such clip')
+    if (!updated) throw new HotsauceError('not_found', 'No such clip')
     return this.view(updated, principal)
   }
 
@@ -494,7 +494,7 @@ export class Clips {
   record(principal: Principal, id: string): ClipRecord {
     const clip = this.#get(id)
     if (clip.status === 'recording' && clip.ownerId !== principal.userId) {
-      throw new HearthError('not_found', 'No such clip')
+      throw new HotsauceError('not_found', 'No such clip')
     }
     return clip
   }
@@ -502,7 +502,7 @@ export class Clips {
   /** Transcribes a ready clip again, after a failure. */
   retryTranscript(principal: Principal, id: string): Promise<ClipView> {
     const clip = this.#owned(principal, id)
-    if (clip.status !== 'ready') throw new HearthError('conflict', 'This clip isn’t ready yet')
+    if (clip.status !== 'ready') throw new HotsauceError('conflict', 'This clip isn’t ready yet')
     if (clip.transcriptStatus !== 'failed') return this.view(clip, principal)
     const updated = this.store.update(
       id,
@@ -517,7 +517,7 @@ export class Clips {
   /** Tries again to put the camera into the video, after a failure (from the kept camera file). */
   retryComposite(principal: Principal, id: string): Promise<ClipView> {
     const clip = this.#owned(principal, id)
-    if (clip.status !== 'ready') throw new HearthError('conflict', 'This clip isn’t ready yet')
+    if (clip.status !== 'ready') throw new HotsauceError('conflict', 'This clip isn’t ready yet')
     if (clip.compositeStatus !== 'failed' || !clip.cameraChunks) return this.view(clip, principal)
     const updated = this.store.update(id, { compositeStatus: 'pending' }, this.#nowIso())
     this.#enqueueComposite(id)
@@ -531,7 +531,7 @@ export class Clips {
     const clip = this.#get(id)
     // Another member's recording in progress isn't anything to watch yet.
     if (clip.status === 'recording' && clip.ownerId !== principal.userId) {
-      throw new HearthError('not_found', 'No such clip')
+      throw new HotsauceError('not_found', 'No such clip')
     }
     return { clip: await this.view(clip, principal), transcript: clip.transcript }
   }
@@ -601,7 +601,7 @@ export class Clips {
   }
 
   /**
-   * A URL the browser can stream and seek without Hearth's credentials: presigned R2 in
+   * A URL the browser can stream and seek without Hotsauce's credentials: presigned R2 in
    * production, so playback never passes through this server; HMAC-signed and served here with
    * the local store.
    */
@@ -645,7 +645,7 @@ export class Clips {
     download?: string | undefined
   }): Promise<{ path: string; contentType: string; size: number; download?: string }> {
     const media = this.#opts.media
-    const refused = new HearthError('not_found', 'This link has expired; reload the page')
+    const refused = new HotsauceError('not_found', 'This link has expired; reload the page')
     if (!(media instanceof LocalAudioStore)) throw refused
     const files: readonly string[] = MEDIA_FILES
     if (!files.includes(req.file)) throw refused
@@ -925,7 +925,7 @@ export class Clips {
           {
             transcriptStatus: 'failed',
             transcriptError:
-              err instanceof HearthError && err.code === 'asr_error'
+              err instanceof HotsauceError && err.code === 'asr_error'
                 ? err.message
                 : 'The transcript couldn’t be made',
           },

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
 import type { AssistantModel, ModelTurn, ModelTurnRequest } from '../../src/assistant/model.js'
 import { loadConfig } from '../../src/config.js'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import { createServices, type ServiceOverrides, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
@@ -15,7 +15,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 async function start(env: Record<string, string> = {}, overrides: ServiceOverrides = {}) {
-  root = await makeTempDir('hearth-assistant-')
+  root = await makeTempDir('hotsauce-assistant-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -286,7 +286,7 @@ describe('the assistant with a scripted model', () => {
       override async turn(req: ModelTurnRequest, onText: (d: string) => void): Promise<ModelTurn> {
         if (this.requests.length === 1) {
           this.requests.push(req)
-          throw new HearthError('llm_error', 'The model is overloaded')
+          throw new HotsauceError('llm_error', 'The model is overloaded')
         }
         return super.turn(req, onText)
       }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Microphone audio (any rate, any channel count, Float32) to what Hearth wants: 16 kHz mono
+/// Microphone audio (any rate, any channel count, Float32) to what Hotsauce wants: 16 kHz mono
 /// Int16. Streaming, so a long dictation is converted as it is recorded rather than held at the
 /// microphone's rate. Downsampling averages the input over each output sample's span (a box
 /// filter), which keeps speech free of the worst aliasing without a filter design.

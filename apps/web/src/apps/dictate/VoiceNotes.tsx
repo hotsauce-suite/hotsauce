@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { type DictationWords, dictationApi } from '../../api/dictation'
 import { meetingsApi } from '../../api/meetings'
 import type { MeetingSession, MeetingSummary, TranscriptSegment } from '../../api/types'
@@ -32,7 +32,7 @@ const SILENT_MS = 5000
 type Phase = { name: 'idle' } | { name: 'starting' } | { name: 'error'; message: string }
 
 /**
- * `/dictate/voice`: Hearth Dictate on a phone. One big button records a voice note through the
+ * `/dictate/voice`: Hotsauce Dictate on a phone. One big button records a voice note through the
  * Meetings recorder (mic only, saved in the member's personal space). Stopping opens the note,
  * which Enhance turns into a title, a summary, to-dos and the clean transcript.
  */
@@ -602,6 +602,6 @@ function startError(err: unknown): string {
 }
 
 function messageOf(err: unknown): string {
-  if (err instanceof HearthApiError) return err.message
+  if (err instanceof HotsauceApiError) return err.message
   return err instanceof Error ? err.message : 'Something went wrong. Try again.'
 }

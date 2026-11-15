@@ -87,11 +87,11 @@ describe('buildCleanupPrompt', () => {
       transcript: 'um ship it',
       style: 'chat',
       appName: 'Slack',
-      dictionary: ['Acme', 'Hearth'],
+      dictionary: ['Acme', 'Hotsauce'],
     })
     expect(system).toBe(CLEANUP_SYSTEM)
     expect(user).toContain('<context app="Slack">The text goes into a chat app.')
-    expect(user).toContain('<dictionary>Acme, Hearth</dictionary>')
+    expect(user).toContain('<dictionary>Acme, Hotsauce</dictionary>')
     expect(user).toMatch(/<transcript>\num ship it\n<\/transcript>$/)
   })
 

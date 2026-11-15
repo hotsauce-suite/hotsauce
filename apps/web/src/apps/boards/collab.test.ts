@@ -1,4 +1,4 @@
-import type { BoardElement } from '@hearth/format'
+import type { BoardElement } from '@hotsauce/format'
 import { describe, expect, it } from 'vitest'
 import { BoardCollab, type CollabSocket, type Peer, type PointerUpdate } from './collab'
 

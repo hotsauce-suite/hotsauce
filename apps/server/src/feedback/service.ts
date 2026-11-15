@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   type Clarified,
   type Clarifier,
@@ -30,9 +30,11 @@ const HOUR = 60 * 60 * 1000
 const LIST_TTL_MS = 30_000
 /** How long a just-filed issue is shown before GitHub lists it; after that, GitHub is the truth. */
 const FILED_TTL_MS = 10 * 60_000
-/** A reply Hearth posts for a member carries this, so it isn't read as the team's question. */
-export const REPLY_MARKER = '<!-- hearth-feedback-reply -->'
-const ISSUE_MARKER = '<!-- hearth-feedback v1 -->'
+/** A reply Hotsauce posts for a member carries this, so it isn't read as the team's question. */
+export const REPLY_MARKER = '<!-- hotsauce-feedback-reply -->'
+/** The marker on replies posted before 0.15. */
+const OLD_REPLY_MARKER = '<!-- hearth-feedback-reply -->'
+const ISSUE_MARKER = '<!-- hotsauce-feedback v1 -->'
 
 export interface FeedbackContext {
   page?: string | undefined
@@ -104,7 +106,7 @@ export class Feedback {
       })
     } catch (err) {
       // No model, or it failed: file what they wrote rather than lose it.
-      if (!(err instanceof HearthError)) throw err
+      if (!(err instanceof HotsauceError)) throw err
       return { ready: true, title: fallbackTitle(text, input.kind), summary: text.trim() }
     }
   }
@@ -160,8 +162,8 @@ export class Feedback {
 
   async mine(p: Principal): Promise<FeedbackItem[]> {
     const tracker = this.#tracked()
-    const marker = tagLine(this.#tag(p))
-    const issues = (await this.#list(tracker)).filter((i) => i.body.includes(marker))
+    const tag = this.#tag(p)
+    const issues = (await this.#list(tracker)).filter((i) => hasTag(i.body, tag))
     return Promise.all(
       issues.map(async (i) => {
         const status = statusOf(i)
@@ -175,7 +177,9 @@ export class Feedback {
         }
         if (status === 'needs info') {
           const question = (await tracker.comments(i.number))
-            .filter((c) => c.team && !c.body.includes(REPLY_MARKER))
+            .filter(
+              (c) => c.team && !c.body.includes(REPLY_MARKER) && !c.body.includes(OLD_REPLY_MARKER),
+            )
             .at(-1)
           if (question) item.question = question.body.slice(0, 4000)
         }
@@ -189,8 +193,8 @@ export class Feedback {
     const tracker = this.#tracked()
     this.#limit(`file:${p.userId}`, FILE_LIMIT_PER_HOUR)
     const issue = (await this.#list(tracker, true)).find((i) => i.number === number)
-    if (!issue?.body.includes(tagLine(this.#tag(p)))) {
-      throw new HearthError('not_found', 'No such feedback')
+    if (!issue || !hasTag(issue.body, this.#tag(p))) {
+      throw new HotsauceError('not_found', 'No such feedback')
     }
     await tracker.comment(
       number,
@@ -229,7 +233,7 @@ export class Feedback {
 
   #tracked(): FeedbackTracker {
     if (!this.#tracker)
-      throw new HearthError('not_configured', "Feedback isn't set up on this instance")
+      throw new HotsauceError('not_configured', "Feedback isn't set up on this instance")
     return this.#tracker
   }
 
@@ -255,7 +259,7 @@ export class Feedback {
     const recent = (this.#hits.get(key) ?? []).filter((t) => now - t < HOUR)
     if (recent.length >= max) {
       this.#hits.set(key, recent)
-      throw new HearthError(
+      throw new HotsauceError(
         'rate_limited',
         'That’s a lot of feedback for one hour. Try again later.',
       )
@@ -294,7 +298,7 @@ async function uploadScreenshots(
       out.urls.push((await tracker.upload(picture.path, picture.bytes, message)).url)
     } catch (err) {
       out.failed++
-      const status = err instanceof HearthError ? (err.details as { status?: number })?.status : 0
+      const status = err instanceof HotsauceError ? (err.details as { status?: number })?.status : 0
       if (status === 403 || status === 404) out.noPermission = true
       console.warn(
         `feedback: screenshot ${picture.path} wasn't saved: ${String(err)}${
@@ -322,7 +326,10 @@ function screenshotSection(s: UploadedScreenshots): string {
   return lines.join('\n').trimEnd()
 }
 
-const tagLine = (tag: string) => `<!-- hearth-submitter: ${tag} -->`
+const tagLine = (tag: string) => `<!-- hotsauce-submitter: ${tag} -->`
+/** Issues filed before 0.15 carry the tag as `hearth-submitter`. */
+const hasTag = (body: string, tag: string) =>
+  body.includes(tagLine(tag)) || body.includes(`<!-- hearth-submitter: ${tag} -->`)
 
 function redactQA(qa: QA): QA {
   return { question: redactSecrets(qa.question), answer: redactSecrets(qa.answer) }

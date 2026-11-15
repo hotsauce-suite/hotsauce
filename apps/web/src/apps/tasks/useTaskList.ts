@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { type TaskView, taskKey, tasksApi } from '../../api/tasks'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import { belongs, sortTasks, type TaskViewSpec, viewQuery } from './logic'
 
 export const REFETCH_DEBOUNCE_MS = 300
@@ -33,7 +33,7 @@ export function useTasksChanged(fn: () => void, delayMs = REFETCH_DEBOUNCE_MS): 
       clearTimeout(timer)
       timer = setTimeout(() => ref.current(), delayMs)
     }
-    const offSocket = hearthSocket.onChanged((event) => {
+    const offSocket = hotsauceSocket.onChanged((event) => {
       if (event.paths.some((p) => p.startsWith('tasks/'))) later()
     })
     const offBus = tasksBus.on((event) => {
@@ -48,7 +48,7 @@ export function useTasksChanged(fn: () => void, delayMs = REFETCH_DEBOUNCE_MS): 
 }
 
 export function errorMessage(err: unknown): string {
-  if (err instanceof HearthApiError && err.code !== 'network' && err.status < 500)
+  if (err instanceof HotsauceApiError && err.code !== 'network' && err.status < 500)
     return err.message
   return 'That didn’t save. Check your connection and try again.'
 }

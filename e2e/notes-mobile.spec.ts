@@ -1,7 +1,7 @@
 import { uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
-// Hearth Notes on a phone (Pixel 7): two columns, the composer, and the editor as a bottom sheet.
+// Hotsauce Notes on a phone (Pixel 7): two columns, the composer, and the editor as a bottom sheet.
 
 test('on a phone, taking a note and editing it in the sheet both work', async ({
   page,

@@ -1,7 +1,7 @@
-// Hearth Forms (ARCHITECTURE §21): a form is `forms/<id>.md` in a space, each answer
+// Hotsauce Forms (ARCHITECTURE §21): a form is `forms/<id>.md` in a space, each answer
 // `forms/<form id>/<answer id>.md` beside it. Members build forms in the app; the fill page at
 // `/f/<link>` takes answers from members (team forms) or anyone with the link (public forms,
-// behind Turnstile and rate limits). Written fresh for Hearth; no form builder's code was copied.
+// behind Turnstile and rate limits). Written fresh for Hotsauce; no form builder's code was copied.
 
 import { randomBytes } from 'node:crypto'
 import {
@@ -24,12 +24,12 @@ import {
   type Question,
   questionsProblem,
   SPACE_LAYOUT,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { ulid } from 'ulid'
 import { stringify as toYaml } from 'yaml'
 import type { Principal } from '../auth/index.js'
 import { RateLimiter } from '../dictation/rate-limit.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Files } from '../files/index.js'
 import {
   type Author,
@@ -241,12 +241,15 @@ export class Forms {
     })
     if (!parsed.success) {
       const issue = parsed.error.issues[0]
-      throw new HearthError('bad_request', `${issue?.path.join('.') ?? 'form'}: ${issue?.message}`)
+      throw new HotsauceError(
+        'bad_request',
+        `${issue?.path.join('.') ?? 'form'}: ${issue?.message}`,
+      )
     }
     const problem = questionsProblem(parsed.data.questions)
-    if (problem) throw new HearthError('bad_request', problem)
+    if (problem) throw new HotsauceError('bad_request', problem)
     if (parsed.data.room !== null && !this.#deps.rooms.has(parsed.data.room)) {
-      throw new HearthError('bad_request', 'That chat room was removed; pick another')
+      throw new HotsauceError('bad_request', 'That chat room was removed; pick another')
     }
     await this.#commit(space, principal, {
       changes: [{ path: formPath(id), content: formFile(parsed.data) }],
@@ -299,12 +302,12 @@ export class Forms {
     via?: string,
   ): Promise<void> {
     this.#assertAccess(principal, space)
-    if (!isFormId(answerId)) throw new HearthError('not_found', 'No such answer')
+    if (!isFormId(answerId)) throw new HotsauceError('not_found', 'No such answer')
     const { fm } = await this.#readForm(space, id)
     const at = answerPath(id, answerId)
     const file = await this.#deps.git.readFile(space, at).catch((err) => {
-      throw err instanceof HearthError && err.code === 'not_found'
-        ? new HearthError('not_found', 'No such answer')
+      throw err instanceof HotsauceError && err.code === 'not_found'
+        ? new HotsauceError('not_found', 'No such answer')
         : err
     })
     const trash = `${SPACE_LAYOUT.trash}/${this.#iso().slice(0, 10)}-${answerId.slice(-8)}`
@@ -367,7 +370,7 @@ export class Forms {
     const tallies = tally(fm.questions, all)
     if (all.length === 0) return { summary: null, tallies, read: 0, total: 0 }
     const llm = this.#deps.llm
-    if (!llm) throw new HearthError('not_configured', 'AI isn’t set up on this server')
+    if (!llm) throw new HotsauceError('not_configured', 'AI isn’t set up on this server')
     const blocks: string[] = []
     let chars = 0
     for (const a of all.slice(0, SUMMARY_MAX_ANSWERS)) {
@@ -390,7 +393,7 @@ export class Forms {
       })
       .catch((err) => {
         this.#log(`forms: summary failed: ${err}`)
-        throw new HearthError('llm_error', 'Claude couldn’t summarize the answers; try again')
+        throw new HotsauceError('llm_error', 'Claude couldn’t summarize the answers; try again')
       })
     return { summary: text.trim(), tallies, read: blocks.length, total: all.length }
   }
@@ -400,11 +403,11 @@ export class Forms {
   /** The form as the person answering sees it. A team form needs a member signed in. */
   async fillPage(link: string, principal: Principal | null, ip: string | null): Promise<FillPage> {
     if (!this.#views.take(ip ?? 'unknown')) {
-      throw new HearthError('rate_limited', 'Too many requests; try again later')
+      throw new HotsauceError('rate_limited', 'Too many requests; try again later')
     }
     const { fm } = await this.#byLink(link)
     if (fm.access === 'team' && !principal) {
-      throw new HearthError('unauthorized', 'Sign in to answer this form')
+      throw new HotsauceError('unauthorized', 'Sign in to answer this form')
     }
     const needsCheck = fm.access === 'public' && !principal
     return {
@@ -438,19 +441,19 @@ export class Forms {
     const found = await this.#byLink(link)
     const { fm } = found
     if (fm.access === 'team' && !principal) {
-      throw new HearthError('unauthorized', 'Sign in to answer this form')
+      throw new HotsauceError('unauthorized', 'Sign in to answer this form')
     }
-    if (!fm.open) throw new HearthError('conflict', 'This form isn’t taking answers any more')
+    if (!fm.open) throw new HotsauceError('conflict', 'This form isn’t taking answers any more')
     if (principal === null) {
       if (!this.#deps.robotCheck) {
-        throw new HearthError('not_configured', 'This form can’t take answers yet')
+        throw new HotsauceError('not_configured', 'This form can’t take answers yet')
       }
       if (!this.#perIp.allows(ip ?? 'unknown')) {
-        throw new HearthError('rate_limited', 'Too many answers from here; try again in an hour')
+        throw new HotsauceError('rate_limited', 'Too many answers from here; try again in an hour')
       }
     }
     if (!this.#perForm.allows(fm.id)) {
-      throw new HearthError(
+      throw new HotsauceError(
         'rate_limited',
         'This form has had a lot of answers today; try tomorrow',
       )
@@ -458,7 +461,7 @@ export class Forms {
     return found
   }
 
-  /** Takes one answer: checks, stores its files in Hearth Files, commits it, posts to chat. */
+  /** Takes one answer: checks, stores its files in Hotsauce Files, commits it, posts to chat. */
   async submit(
     link: string,
     principal: Principal | null,
@@ -473,14 +476,14 @@ export class Forms {
     const check = this.#deps.robotCheck
     if (principal === null && check) {
       if (!this.#perIp.take(input.ip ?? 'unknown')) {
-        throw new HearthError('rate_limited', 'Too many answers from here; try again in an hour')
+        throw new HotsauceError('rate_limited', 'Too many answers from here; try again in an hour')
       }
       if (!(await check.verify(input.token, input.ip))) {
-        throw new HearthError('forbidden', 'The robot check didn’t pass; try again')
+        throw new HotsauceError('forbidden', 'The robot check didn’t pass; try again')
       }
     }
     if (!this.#perForm.allows(fm.id)) {
-      throw new HearthError(
+      throw new HotsauceError(
         'rate_limited',
         'This form has had a lot of answers today; try tomorrow',
       )
@@ -500,7 +503,7 @@ export class Forms {
     }
     const checked = checkAnswers(fm.questions, raw)
     if (!checked.ok) {
-      throw new HearthError('bad_request', 'Some answers need another look', {
+      throw new HotsauceError('bad_request', 'Some answers need another look', {
         details: { errors: checked.errors },
       })
     }
@@ -513,7 +516,7 @@ export class Forms {
     )
     if (fileQuestions.length > 0) {
       if (!this.#deps.files.available) {
-        throw new HearthError('not_configured', 'File uploads aren’t set up on this server')
+        throw new HotsauceError('not_configured', 'File uploads aren’t set up on this server')
       }
       for (const q of fileQuestions) {
         const stored = []
@@ -605,11 +608,11 @@ export class Forms {
   async #readForm(space: string, id: string) {
     if (!isFormId(id)) throw notFound()
     const file = await this.#deps.git.readFile(space, formPath(id)).catch((err) => {
-      throw err instanceof HearthError && err.code === 'not_found' ? notFound() : err
+      throw err instanceof HotsauceError && err.code === 'not_found' ? notFound() : err
     })
     const parsed = FormFrontmatter.safeParse(parseFrontmatter(file.content).data)
     if (!parsed.success || parsed.data.id !== id) {
-      throw new HearthError('conflict', 'This form’s file can’t be read; fix it in Git')
+      throw new HotsauceError('conflict', 'This form’s file can’t be read; fix it in Git')
     }
     return { fm: parsed.data, content: file.content, blobOid: file.blobOid }
   }
@@ -694,7 +697,7 @@ export class Forms {
         if (result.status === 'conflict') throw stale()
         break
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict')) throw err
+        if (!(err instanceof HotsauceError && err.code === 'conflict')) throw err
         // A new answer only clashes with another commit landing at once: try again. A form
         // saved over an old version is stale: the member reloads.
         if (args.verb === 'answer' && attempt < WRITE_ATTEMPTS) continue
@@ -706,7 +709,7 @@ export class Forms {
 
   #assertAccess(principal: Principal, space: string) {
     if (!this.#deps.spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
@@ -786,6 +789,6 @@ function hostOf(url: string): string {
   }
 }
 
-const notFound = () => new HearthError('not_found', 'No such form')
+const notFound = () => new HotsauceError('not_found', 'No such form')
 const stale = () =>
-  new HearthError('conflict', 'Someone changed this form at the same time; reload to see it')
+  new HotsauceError('conflict', 'Someone changed this form at the same time; reload to see it')

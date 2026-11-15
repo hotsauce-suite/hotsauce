@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { BetaMessageStreamParams } from '@anthropic-ai/sdk/resources/beta/messages/messages'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { ANTHROPIC_MISSING } from '../org/unconfigured.js'
 
 export type MessageParam = Anthropic.Beta.BetaMessageParam
@@ -98,11 +98,11 @@ export class AnthropicAssistantModel implements AssistantModel {
     } catch (err) {
       if (!(err instanceof Anthropic.APIError)) throw err
       this.#log(`assistant ${req.model} failed: ${err.status ?? 'no status'} ${err.message}`)
-      throw new HearthError('llm_error', messageFor(err))
+      throw new HotsauceError('llm_error', messageFor(err))
     }
     if (message.stop_reason === 'refusal') {
       this.#log(`assistant ${req.model} declined: ${JSON.stringify(message.stop_details ?? null)}`)
-      throw new HearthError('llm_error', 'Claude declined this request')
+      throw new HotsauceError('llm_error', 'Claude declined this request')
     }
     const u = message.usage
     return {
@@ -133,7 +133,7 @@ function messageFor(err: InstanceType<typeof Anthropic.APIError>): string {
 /** No Anthropic key yet: every turn says so (Settings → Organization adds one). */
 export class UnconfiguredAssistantModel implements AssistantModel {
   async turn(): Promise<never> {
-    throw new HearthError('not_configured', ANTHROPIC_MISSING)
+    throw new HotsauceError('not_configured', ANTHROPIC_MISSING)
   }
 }
 

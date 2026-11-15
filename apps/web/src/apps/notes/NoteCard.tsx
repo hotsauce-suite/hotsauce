@@ -1,4 +1,4 @@
-import { notePreview, parseChecklist } from '@hearth/format'
+import { notePreview, parseChecklist } from '@hotsauce/format'
 import { type NoteColor, type NoteView, noteKey } from '../../api/notes'
 import { AttachmentChips, withoutAttachmentLinks } from '../../components/FilePicker'
 import { daysLeftInTrash } from './logic'

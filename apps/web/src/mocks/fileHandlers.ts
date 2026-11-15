@@ -1,4 +1,4 @@
-// MSW routes for Hearth Files (`/api/files`, ARCHITECTURE §18.2), in memory and shaped like the
+// MSW routes for Hotsauce Files (`/api/files`, ARCHITECTURE §18.2), in memory and shaped like the
 // server's (apps/server/src/files, api/drive.ts). Bytes stay in the page: an object URL serves
 // each file with its type, so image, PDF and text previews show the real thing.
 
@@ -11,7 +11,7 @@ import {
   isInFolder,
   newId,
   previewKind,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { type AnyHandler, delay, HttpResponse, http } from 'msw'
 import type { DriveFile, SharedFile } from '../api/files'
 import { type FakeUser, fakeOid } from './fakeRepo'

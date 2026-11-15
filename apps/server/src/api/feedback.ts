@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { FEEDBACK_KINDS, MAX_SCREENSHOTS } from '../feedback/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { sessionOnly } from './tokens.js'
@@ -35,7 +35,7 @@ export const MAX_FEEDBACK_SUBMIT_BYTES = 16 * 1024 * 1024
 const limitSubmit = bodyLimit({
   maxSize: MAX_FEEDBACK_SUBMIT_BYTES,
   onError: () => {
-    throw new HearthError('bad_request', 'Screenshots are limited to three of 5 MB each', {
+    throw new HotsauceError('bad_request', 'Screenshots are limited to three of 5 MB each', {
       status: 413,
     })
   },
@@ -56,15 +56,15 @@ async function readSubmit(
     try {
       form = await req.formData()
     } catch {
-      throw new HearthError('bad_request', 'Send the feedback as multipart form data')
+      throw new HotsauceError('bad_request', 'Send the feedback as multipart form data')
     }
     const payload = form.get('payload')
     if (typeof payload !== 'string') {
-      throw new HearthError('bad_request', 'Send the feedback in the multipart field "payload"')
+      throw new HotsauceError('bad_request', 'Send the feedback in the multipart field "payload"')
     }
     files = form.getAll('screenshot').filter((f): f is File => f instanceof File)
     if (files.length > MAX_SCREENSHOTS) {
-      throw new HearthError('bad_request', `Attach at most ${MAX_SCREENSHOTS} screenshots`)
+      throw new HotsauceError('bad_request', `Attach at most ${MAX_SCREENSHOTS} screenshots`)
     }
     raw = parseJson(payload)
   } else {
@@ -73,7 +73,7 @@ async function readSubmit(
   const parsed = Submit.safeParse(raw)
   if (!parsed.success) {
     const problems = parsed.error.issues.map((i) => `${i.path.join('.') || 'json'}: ${i.message}`)
-    throw new HearthError('bad_request', `Invalid json: ${problems.join('; ')}`)
+    throw new HotsauceError('bad_request', `Invalid json: ${problems.join('; ')}`)
   }
   const screenshots = await Promise.all(
     files.map(async (f) => new Uint8Array(await f.arrayBuffer())),
@@ -85,7 +85,7 @@ function parseJson(text: string): unknown {
   try {
     return JSON.parse(text)
   } catch {
-    throw new HearthError('bad_request', 'Invalid json: the body is not JSON')
+    throw new HotsauceError('bad_request', 'Invalid json: the body is not JSON')
   }
 }
 

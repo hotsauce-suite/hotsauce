@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { HearthError } from '../../src/errors.js'
+import { HotsauceError } from '../../src/errors.js'
 import type { Entry, GitReader } from '../../src/index/index.js'
 
 interface Author {
@@ -56,7 +56,7 @@ export class MemoryGit implements GitReader {
 
   async readFile(space: string, path: string): Promise<{ content: string; blobOid: string }> {
     const content = this.#space(space).get(path)
-    if (content === undefined) throw new HearthError('not_found', `${space}:${path} not found`)
+    if (content === undefined) throw new HotsauceError('not_found', `${space}:${path} not found`)
     return { content, blobOid: blobOid(content) }
   }
 
@@ -84,7 +84,7 @@ export class MemoryGit implements GitReader {
       files = new Map()
       this.#files.set(space, files)
     }
-    if (!files) throw new HearthError('not_found', `space ${space} is not cloned`)
+    if (!files) throw new HotsauceError('not_found', `space ${space} is not cloned`)
     return files
   }
 }

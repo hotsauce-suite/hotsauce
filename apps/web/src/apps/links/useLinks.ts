@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { HearthApiError } from '../../api/client'
-import { hearthSocket } from '../../api/ws'
+import { HotsauceApiError } from '../../api/client'
+import { hotsauceSocket } from '../../api/ws'
 
 /** Calls `fn` (debounced) whenever a commit touches `links/`, here or from anyone else. */
 export function useLinksChanged(fn: () => void, delayMs = 300): void {
@@ -8,7 +8,7 @@ export function useLinksChanged(fn: () => void, delayMs = 300): void {
   ref.current = fn
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const off = hearthSocket.onChanged((event) => {
+    const off = hotsauceSocket.onChanged((event) => {
       if (!event.paths.some((p) => p.startsWith('links/'))) return
       clearTimeout(timer)
       timer = setTimeout(() => ref.current(), delayMs)
@@ -32,7 +32,7 @@ export function usePollWhile(active: boolean, fn: () => void, ms = 2500): void {
 }
 
 export function errorMessage(err: unknown, fallback: string): string {
-  if (err instanceof HearthApiError && err.code !== 'network' && err.status < 500) {
+  if (err instanceof HotsauceApiError && err.code !== 'network' && err.status < 500) {
     return err.message
   }
   return fallback

@@ -22,10 +22,10 @@ import {
   patchFrontmatter,
   previewKind,
   SPACE_LAYOUT,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { ulid } from 'ulid'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type Change, formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import { type AudioStore, LocalAudioStore, R2AudioStore } from '../meetings/audio/index.js'
@@ -99,7 +99,7 @@ export interface FilesDeps {
   freeBytes?: () => Promise<number>
 }
 
-/** Hearth Files' locally stored bytes: the path every signed request to them starts with. */
+/** Hotsauce Files' locally stored bytes: the path every signed request to them starts with. */
 export const FILE_MEDIA_PREFIX = '/api/files/media/'
 
 export interface LocalMedia {
@@ -111,7 +111,7 @@ export interface LocalMedia {
 }
 
 /**
- * Hearth Files on the server (ARCHITECTURE §18): bytes in the object store, one pointer file
+ * Hotsauce Files on the server (ARCHITECTURE §18): bytes in the object store, one pointer file
  * per file in Git, listed from the index. Every write is a commit authored by the member.
  */
 export class Files {
@@ -210,7 +210,7 @@ export class Files {
   }
 
   /**
-   * URLs the browser can open without Hearth's credentials (an <img> or <video> can't send a
+   * URLs the browser can open without Hotsauce's credentials (an <img> or <video> can't send a
    * bearer token): presigned R2 in production, so bytes never pass through this server;
    * HMAC-signed and served here with the local store. Only made for someone already allowed.
    */
@@ -251,7 +251,7 @@ export class Files {
     sig: string
     download: boolean
   }): Promise<LocalMedia> {
-    const refused = new HearthError('not_found', 'This link has expired; reload the page')
+    const refused = new HotsauceError('not_found', 'This link has expired; reload the page')
     const store = this.#deps.store
     if (!(store instanceof LocalAudioStore)) throw refused
     const expected = Buffer.from(this.#sign(req.space, req.id, req.exp, req.download))
@@ -282,12 +282,12 @@ export class Files {
     this.#store()
     this.#assertAccess(principal, input.space)
     if (!Number.isInteger(input.size) || input.size < 0 || input.size > MAX_FILE_BYTES) {
-      throw new HearthError('bad_request', 'A file can be at most 2 GB', { status: 413 })
+      throw new HotsauceError('bad_request', 'A file can be at most 2 GB', { status: 413 })
     }
     await this.#sweep()
     const open = await this.#openUploads(principal.email)
     if (open >= MAX_OPEN_UPLOADS) {
-      throw new HearthError('conflict', 'Too many uploads at once; wait for some to finish')
+      throw new HotsauceError('conflict', 'Too many uploads at once; wait for some to finish')
     }
     await this.#ensureRoom(input.size)
     const name = cleanFileName(input.name)
@@ -313,11 +313,11 @@ export class Files {
     const meta = await this.#upload(principal, id)
     const chunks = chunkCount(meta.size)
     if (!Number.isInteger(seq) || seq < 0 || seq >= chunks) {
-      throw new HearthError('bad_request', `This upload has chunks 0 to ${chunks - 1}`)
+      throw new HotsauceError('bad_request', `This upload has chunks 0 to ${chunks - 1}`)
     }
     const expected = seq === chunks - 1 ? meta.size - seq * CHUNK_BYTES : CHUNK_BYTES
     if (bytes.length !== expected) {
-      throw new HearthError('bad_request', `Chunk ${seq} should be ${expected} bytes`)
+      throw new HotsauceError('bad_request', `Chunk ${seq} should be ${expected} bytes`)
     }
     const file = path.join(this.#uploadDir(id), `${String(seq).padStart(6, '0')}.part`)
     const tmp = `${file}.${randomBytes(4).toString('hex')}.tmp`
@@ -353,7 +353,10 @@ export class Files {
       if (!present.has(`${String(s).padStart(6, '0')}.part`)) missing.push(s)
     }
     if (missing.length > 0) {
-      throw new HearthError('conflict', `Chunks ${missing.slice(0, 10).join(', ')} haven’t arrived`)
+      throw new HotsauceError(
+        'conflict',
+        `Chunks ${missing.slice(0, 10).join(', ')} haven’t arrived`,
+      )
     }
     const whole = path.join(dir, 'whole')
     const hash = createHash('sha256')
@@ -370,7 +373,7 @@ export class Files {
       await finished(out)
       const size = (await stat(whole)).size
       if (size !== meta.size)
-        throw new HearthError('bad_request', 'The upload’s size doesn’t match')
+        throw new HotsauceError('bad_request', 'The upload’s size doesn’t match')
       const sha256 = hash.digest('hex')
       const extracted: Extracted = await extractText(whole, meta.name, meta.mime, size)
       const pointer = newFilePointer({
@@ -410,7 +413,7 @@ export class Files {
   }
 
   /**
-   * Stores a small file for Hearth Forms (an answer's upload, ARCHITECTURE §21): hashed, text read,
+   * Stores a small file for Hotsauce Forms (an answer's upload, ARCHITECTURE §21): hashed, text read,
    * put to the store and its pointer committed by `author`. The caller has checked who may write
    * to `space`; a signed-out person answering a public form has no principal of their own.
    */
@@ -538,7 +541,7 @@ export class Files {
     const file = await this.#read(space, id)
     const target = (await this.#deps.spaces.visibleSpaces(principal)).find((s) => s.name === to)
     if (target?.kind === 'personal' && file.view.createdBy !== principal.email.toLowerCase()) {
-      throw new HearthError(
+      throw new HotsauceError(
         'forbidden',
         'Only the person who uploaded a team file can make it private',
       )
@@ -587,7 +590,7 @@ export class Files {
   async createFolder(principal: Principal, space: string, folder: string, via?: string) {
     this.#assertAccess(principal, space)
     const clean = cleanFolder(folder)
-    if (!clean) throw new HearthError('bad_request', 'A folder needs a name')
+    if (!clean) throw new HotsauceError('bad_request', 'A folder needs a name')
     const saved = await this.#savedFolders(space)
     if (saved.includes(clean)) return { folder: clean }
     await this.#commit(principal, space, {
@@ -604,9 +607,10 @@ export class Files {
     this.#assertAccess(principal, space)
     const a = cleanFolder(from)
     const b = cleanFolder(to)
-    if (!a || !b) throw new HearthError('bad_request', 'A folder needs a name')
+    if (!a || !b) throw new HotsauceError('bad_request', 'A folder needs a name')
     if (a === b) return { folder: b }
-    if (isInFolder(b, a)) throw new HearthError('bad_request', 'A folder can’t move inside itself')
+    if (isInFolder(b, a))
+      throw new HotsauceError('bad_request', 'A folder can’t move inside itself')
     const moved = (p: string) => (p === a ? b : `${b}${p.slice(a.length)}`)
     const changes: Change[] = []
     for (const f of this.#records(space).filter((f) => isInFolder(f.folder, a))) {
@@ -633,7 +637,7 @@ export class Files {
   async removeFolder(principal: Principal, space: string, folder: string, via?: string) {
     this.#assertAccess(principal, space)
     const clean = cleanFolder(folder)
-    if (!clean) throw new HearthError('bad_request', 'Choose a folder')
+    if (!clean) throw new HotsauceError('bad_request', 'Choose a folder')
     const changes: Change[] = []
     for (const f of this.#records(space).filter((f) => isInFolder(f.folder, clean))) {
       const cur = await this.#read(space, f.id)
@@ -651,13 +655,13 @@ export class Files {
   // ── internals ────────────────────────────────────────────────────────────
 
   #store(): AudioStore {
-    if (!this.#deps.store) throw new HearthError('not_found', 'Files isn’t set up on this server')
+    if (!this.#deps.store) throw new HotsauceError('not_found', 'Files isn’t set up on this server')
     return this.#deps.store
   }
 
   #assertAccess(principal: Principal, space: string): void {
     if (!this.#deps.spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
@@ -676,14 +680,14 @@ export class Files {
   }
 
   async #read(space: string, id: string) {
-    if (!FILE_ID.test(id)) throw new HearthError('not_found', `No file ${id}`)
+    if (!FILE_ID.test(id)) throw new HotsauceError('not_found', `No file ${id}`)
     const p = filePointerPath(id)
     let file: { content: string; blobOid: string }
     try {
       file = await this.#deps.git.readFile(space, p)
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') {
-        throw new HearthError('not_found', `No file ${id} in ${space}`)
+      if (err instanceof HotsauceError && err.code === 'not_found') {
+        throw new HotsauceError('not_found', `No file ${id} in ${space}`)
       }
       throw err
     }
@@ -691,13 +695,13 @@ export class Files {
     try {
       parsed = parseFrontmatter(file.content)
     } catch (err) {
-      if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+      if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
       throw err
     }
     const fm = FileFrontmatter.safeParse(parsed.data)
     const view = fm.success ? toView(space, p, file.blobOid, parsed.data) : null
     if (!fm.success || !view)
-      throw new HearthError('bad_request', `${p} isn’t a file from the Files app`)
+      throw new HotsauceError('bad_request', `${p} isn’t a file from the Files app`)
     return { content: file.content, body: parsed.body, fm: fm.data, view }
   }
 
@@ -725,7 +729,10 @@ export class Files {
         })
         return (await this.#read(space, id)).view
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }
@@ -753,7 +760,7 @@ export class Files {
       ...(args.unchanged ? { unchanged: args.unchanged } : {}),
     })
     if (result.status === 'conflict') {
-      throw new HearthError('conflict', 'Someone changed this file at the same time; try again')
+      throw new HotsauceError('conflict', 'Someone changed this file at the same time; try again')
     }
     await this.#deps.syncer.afterHeadChanged(space)
   }
@@ -774,7 +781,7 @@ export class Files {
   }
 
   #uploadDir(id: string): string {
-    if (!FILE_ID.test(id)) throw new HearthError('not_found', 'No such upload')
+    if (!FILE_ID.test(id)) throw new HotsauceError('not_found', 'No such upload')
     return path.join(this.#uploadRoot, id)
   }
 
@@ -784,7 +791,7 @@ export class Files {
     )
     const meta = raw ? (JSON.parse(raw) as UploadMeta) : null
     if (!meta || meta.owner !== principal.email.toLowerCase()) {
-      throw new HearthError('not_found', 'No such upload')
+      throw new HotsauceError('not_found', 'No such upload')
     }
     return meta
   }
@@ -835,7 +842,7 @@ export class Files {
     const copies = this.#deps.store instanceof LocalAudioStore ? 3 : 2
     const pending = (await this.#uploadMetas()).reduce((n, m) => n + m.size, 0)
     if (free - copies * (size + pending) < MIN_FREE_BYTES) {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         'The server’s disk is too full for this upload right now. Try a smaller file, or ask an admin to add storage.',
       )
@@ -855,8 +862,8 @@ function chunkCount(size: number): number {
   return Math.max(1, Math.ceil(size / CHUNK_BYTES))
 }
 
-function notShared(): HearthError {
-  return new HearthError('not_found', 'This link has been turned off, or the file was deleted')
+function notShared(): HotsauceError {
+  return new HotsauceError('not_found', 'This link has been turned off, or the file was deleted')
 }
 
 function isoNow(d: Date): string {

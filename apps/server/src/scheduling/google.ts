@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { GOOGLE_TIMEOUT_MS, type GoogleGrantSource } from '../meetings/calendar/google.js'
 
 const API = 'https://www.googleapis.com/calendar/v3'
@@ -111,7 +111,10 @@ export class GoogleBookingHttp implements BookingGoogle {
     // A calendar Google couldn't read would look free: refuse rather than offer its times.
     const failed = Object.entries(res.calendars).find(([, c]) => (c.errors?.length ?? 0) > 0)
     if (failed) {
-      throw new HearthError('host_error', `Google couldn't read calendar ${failed[0]}'s free/busy`)
+      throw new HotsauceError(
+        'host_error',
+        `Google couldn't read calendar ${failed[0]}'s free/busy`,
+      )
     }
     return Object.values(res.calendars).flatMap((c) =>
       c.busy.map((b) => ({ start: b.start, end: b.end })),
@@ -169,7 +172,7 @@ export class GoogleBookingHttp implements BookingGoogle {
 
   async #call(principal: Principal, method: string, url: URL, body?: unknown): Promise<unknown> {
     const grant = await this.#grant(principal)
-    if (!grant) throw new HearthError('forbidden', 'Google Calendar is not connected')
+    if (!grant) throw new HotsauceError('forbidden', 'Google Calendar is not connected')
     let res: Response
     try {
       res = await this.#fetch(url, {
@@ -182,15 +185,18 @@ export class GoogleBookingHttp implements BookingGoogle {
         signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
       })
     } catch (err) {
-      throw new HearthError('host_error', `Couldn't reach Google Calendar (${err})`)
+      throw new HotsauceError('host_error', `Couldn't reach Google Calendar (${err})`)
     }
     if (!res.ok) {
       const text = (await res.text()).slice(0, 300)
       if (res.status === 401 || (res.status === 403 && !/rateLimitExceeded/i.test(text))) {
-        throw new HearthError('forbidden', `Google Calendar refused (${res.status}) ${text}`)
+        throw new HotsauceError('forbidden', `Google Calendar refused (${res.status}) ${text}`)
       }
-      if (res.status === 409) throw new HearthError('conflict', 'That event already exists')
-      throw new HearthError('host_error', `Google Calendar request failed (${res.status}) ${text}`)
+      if (res.status === 409) throw new HotsauceError('conflict', 'That event already exists')
+      throw new HotsauceError(
+        'host_error',
+        `Google Calendar request failed (${res.status}) ${text}`,
+      )
     }
     return res.json()
   }

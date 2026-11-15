@@ -44,7 +44,7 @@ describe('SharedLinkRoute', () => {
     expect(screen.getByRole('link', { name: 'the site' }).getAttribute('target')).toBe('_blank')
   })
 
-  it('shows a page in a sandboxed frame that can’t reach Hearth', async () => {
+  it('shows a page in a sandboxed frame that can’t reach Hotsauce', async () => {
     shared({
       kind: 'page',
       title: 'Report',

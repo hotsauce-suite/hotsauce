@@ -7,7 +7,7 @@
 
 import { stringify as toYaml } from 'yaml'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import type { CalendarSource } from '../meetings/calendar/types.js'
@@ -137,7 +137,7 @@ export function aboutPath(email: string): string {
 export function normalizeEmail(email: string): string {
   const e = email.trim().toLowerCase()
   if (!EMAIL.test(e) || e.length > 254 || e.includes('/')) {
-    throw new HearthError('bad_request', `"${email}" isn't an email address`)
+    throw new HotsauceError('bad_request', `"${email}" isn't an email address`)
   }
   return e
 }
@@ -198,7 +198,7 @@ export class People {
     const e = normalizeEmail(email)
     const g = await this.#gather(principal)
     const acc = g.byEmail.get(e)
-    if (!acc) throw new HearthError('not_found', `No one called ${e} in what you can read`)
+    if (!acc) throw new HotsauceError('not_found', `No one called ${e} in what you can read`)
     return {
       ...this.#summary(acc, g),
       history: acc.history.slice(0, MAX_HISTORY),
@@ -214,7 +214,7 @@ export class People {
     const accs = [...g.byEmail.values()].filter((a) => domainOf(a.email) === d)
     const people = accs.map((a) => this.#summary(a, g)).filter((p) => p.company === d)
     if (people.length === 0)
-      throw new HearthError('not_found', `No company ${d} in what you can read`)
+      throw new HotsauceError('not_found', `No company ${d} in what you can read`)
     const seen = new Set<string>()
     const meetings: MeetingRef[] = []
     for (const a of accs) {
@@ -246,14 +246,14 @@ export class People {
   ): Promise<{ blobOid: string }> {
     const e = normalizeEmail(email)
     if (!this.#deps.spaces.canAccess(principal, TEAM_SPACE)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${TEAM_SPACE}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${TEAM_SPACE}"`)
     }
     const g = await this.#gather(principal)
     const acc = g.byEmail.get(e)
-    if (!acc) throw new HearthError('not_found', `No one called ${e} in what you can read`)
+    if (!acc) throw new HotsauceError('not_found', `No one called ${e} in what you can read`)
     // A team file about someone only you can see would tell the team they exist.
     if (!acc.teamVisible) {
-      throw new HearthError(
+      throw new HotsauceError(
         'forbidden',
         `${e} is only in your own meetings, so they can't have a team note yet`,
       )
@@ -286,7 +286,7 @@ export class People {
     })
     await this.#deps.syncer.afterHeadChanged(TEAM_SPACE)
     if (result.status === 'conflict') {
-      throw new HearthError('conflict', `Someone changed the About for ${e} meanwhile`)
+      throw new HotsauceError('conflict', `Someone changed the About for ${e} meanwhile`)
     }
     return { blobOid: result.blobOid }
   }

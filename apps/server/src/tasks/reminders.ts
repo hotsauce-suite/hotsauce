@@ -24,7 +24,7 @@ export function dueForReminder(tasks: readonly TaskView[], now: Date): TaskView[
 }
 
 /**
- * Hearth Tasks reminders (ARCHITECTURE §12.2): a web push when a timed task of yours falls due,
+ * Hotsauce Tasks reminders (ARCHITECTURE §12.2): a web push when a timed task of yours falls due,
  * to every browser that turned on meeting reminders. Checked every 30 seconds; each task and due
  * time once per member.
  */
@@ -82,7 +82,7 @@ export class TaskReminders {
       if (!principal) continue
       try {
         // Spaces from the registry, not this process's provisioning, so a member who hasn't
-        // opened Hearth since a restart still gets reminded of personal tasks.
+        // opened Hotsauce since a restart still gets reminded of personal tasks.
         // Only timed tasks in the window, so the list's limit never drops one that's due.
         const open = await this.#tasks.list(
           principal,

@@ -5,7 +5,7 @@ import { extensionVersion } from './audio/extension'
 import { MeetingsPageHeader, primaryButton } from './components/common'
 
 /** Served by the server from the web build; the Dockerfile puts it there. */
-export const EXTENSION_DOWNLOAD = '/downloads/hearth-meetings-chrome.zip'
+export const EXTENSION_DOWNLOAD = '/downloads/hotsauce-meetings-chrome.zip'
 
 const code = 'rounded bg-paper-sunk px-1 py-0.5 font-mono text-[0.85em]'
 

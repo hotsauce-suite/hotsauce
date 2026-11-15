@@ -29,18 +29,18 @@ describe('the recording tab title', () => {
   })
 
   it('holds the title while pages set their own, and hands the last one back at the end', async () => {
-    document.title = 'Hearth Meetings'
+    document.title = 'Hotsauce Meetings'
     const { rerender } = render(<Probe snapshot={live()} />)
     expect(document.title).toBe('● Recording · Acme sync')
 
     // A doc opened meanwhile titles the tab; the recording label wins it back.
-    document.title = 'Q4 plan · Hearth Docs'
+    document.title = 'Q4 plan · Hotsauce Docs'
     await waitFor(() => expect(document.title).toBe('● Recording · Acme sync'))
 
     rerender(<Probe snapshot={live({ state: 'paused' })} />)
     expect(document.title).toBe('Paused · Acme sync')
 
     rerender(<Probe snapshot={null} />)
-    expect(document.title).toBe('Q4 plan · Hearth Docs')
+    expect(document.title).toBe('Q4 plan · Hotsauce Docs')
   })
 })

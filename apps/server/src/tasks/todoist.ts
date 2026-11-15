@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
-import { localNow, type NewTask, normalizeRecurrence, parseQuickAdd } from '@hearth/format'
+import { localNow, type NewTask, normalizeRecurrence, parseQuickAdd } from '@hotsauce/format'
 import { z } from 'zod'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Tasks } from './service.js'
 
 export const TODOIST_API = 'https://api.todoist.com/api/v1/'
@@ -74,7 +74,7 @@ function validZone(tz: string | null | undefined): string | null {
 }
 
 /**
- * A Todoist due (`date` or `datetime`, maybe with a zone) as a Hearth due and zone. A floating
+ * A Todoist due (`date` or `datetime`, maybe with a zone) as a Hotsauce due and zone. A floating
  * time is wall time in the task's zone (else `defaultTz`); a UTC time is converted to it.
  */
 export function mapTodoistDue(
@@ -108,7 +108,7 @@ function joinNotes(...parts: Array<string | null | undefined>): string | undefin
   return text || undefined
 }
 
-/** Maps what the Todoist API returned to Hearth tasks (ARCHITECTURE §12.2). */
+/** Maps what the Todoist API returned to Hotsauce tasks (ARCHITECTURE §12.2). */
 export function mapTodoistApi(
   data: { projects: unknown[]; sections: unknown[]; tasks: unknown[] },
   opts: { tz: string },
@@ -198,7 +198,7 @@ const LABEL_IN_CONTENT = /(^|\s)@([\p{L}\p{N}_\-/]+)/gu
 
 /**
  * A Todoist CSV export (`TYPE,CONTENT,DESCRIPTION,PRIORITY,INDENT,…,DATE,DATE_LANG,TIMEZONE,…`)
- * as Hearth tasks. `section` rows label the tasks after them; `INDENT` 2+ makes a sub-task of
+ * as Hotsauce tasks. `section` rows label the tasks after them; `INDENT` 2+ makes a sub-task of
  * the last task one level up; `@labels` in CONTENT become labels. CSV rows have no id, so the
  * ref is a hash of the project, section, parent and content, numbered when the same row repeats.
  */
@@ -210,7 +210,7 @@ export function parseTodoistCsv(
   if (!header) return []
   const col = new Map(header.map((h, i) => [h.trim().toUpperCase(), i]))
   if (!col.has('TYPE') || !col.has('CONTENT')) {
-    throw new HearthError(
+    throw new HotsauceError(
       'bad_request',
       'That isn’t a Todoist CSV export (no TYPE and CONTENT columns)',
     )
@@ -302,7 +302,8 @@ export class TodoistImport {
 
   async import(principal: Principal, input: TodoistImportInput): Promise<ImportResult> {
     const space = await this.#tasks.personalSpace(principal)
-    if (!space) throw new HearthError('forbidden', 'Your personal space isn’t available right now')
+    if (!space)
+      throw new HotsauceError('forbidden', 'Your personal space isn’t available right now')
     const tz = validZone(input.tz) ?? 'UTC'
     const all =
       'token' in input
@@ -347,16 +348,16 @@ export class TodoistImport {
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         })
       } catch {
-        throw new HearthError('host_error', 'Couldn’t reach Todoist; try again in a moment')
+        throw new HotsauceError('host_error', 'Couldn’t reach Todoist; try again in a moment')
       }
       if (res.status === 401 || res.status === 403) {
-        throw new HearthError('bad_request', 'Todoist didn’t accept that API token')
+        throw new HotsauceError('bad_request', 'Todoist didn’t accept that API token')
       }
       if (!res.ok)
-        throw new HearthError('host_error', `Todoist answered ${res.status} for ${endpoint}`)
+        throw new HotsauceError('host_error', `Todoist answered ${res.status} for ${endpoint}`)
       const parsed = Page.safeParse(await res.json().catch(() => null))
       if (!parsed.success)
-        throw new HearthError('host_error', `Todoist answered oddly for ${endpoint}`)
+        throw new HotsauceError('host_error', `Todoist answered oddly for ${endpoint}`)
       out.push(...parsed.data.results)
       cursor = parsed.data.next_cursor ?? null
       if (!cursor || out.length > MAX_IMPORT_TASKS * 4) break

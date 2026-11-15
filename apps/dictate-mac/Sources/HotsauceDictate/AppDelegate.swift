@@ -795,7 +795,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Connects with a link or a pasted code. Asks Hearth whose token it is first, and asks the
+    /// Connects with a link or a pasted code. Asks Hotsauce whose token it is first, and asks the
     /// member before using a link (any web page can open one), another server, or replacing a
     /// connection. Calls back with why it didn't connect, or nil when it did.
     private func connect(code: String, fromLink: Bool, done: @escaping (String?) -> Void) {

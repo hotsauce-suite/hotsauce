@@ -1,4 +1,4 @@
-import { parseTranscript, type TranscriptWordFix } from '@hearth/format'
+import { parseTranscript, type TranscriptWordFix } from '@hotsauce/format'
 import type { LLM } from '../llm/types.js'
 
 /** Past this many characters of transcript, the pass is skipped (about three hours of talk). */

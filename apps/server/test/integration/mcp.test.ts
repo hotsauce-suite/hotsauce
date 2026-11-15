@@ -17,7 +17,7 @@ let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-mcp-')
+  root = await makeTempDir('hotsauce-mcp-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -192,7 +192,7 @@ describe('access tokens', () => {
       '--format=%an <%ae>%n%B',
     ])
     expect(log).toContain(`Alice <${ALICE}>`)
-    expect(log).toContain('Hearth-Via: api (token "script")')
+    expect(log).toContain('Hotsauce-Via: api (token "script")')
   })
 })
 
@@ -280,7 +280,7 @@ describe('the /mcp endpoint', () => {
 })
 
 describe('the synced calendar window', () => {
-  it('list_events refuses a range Hearth holds no copy of, rather than answering free', async () => {
+  it('list_events refuses a range Hotsauce holds no copy of, rather than answering free', async () => {
     expect(services.meetings.calendarSync).not.toBeNull()
     const { token } = await createToken(ALICE)
     const client = await connect({ authorization: `Bearer ${token}` })
@@ -332,11 +332,11 @@ describe('MCP tools', () => {
     ])
     expect(log).toContain(`Alice <${ALICE}>|Hotsauce`)
     expect(log).toContain('docs: add agent notes')
-    expect(log).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
+    expect(log).toContain('Hotsauce-Via: mcp (client "test", token "Claude Code")')
 
     const read = await tool(alice, 'read_file', { space: 'team', path: 'docs/agent-notes.md' })
     expect(read.value.content).toContain('The quokka protocol is ready.')
-    expect(read.value.content).toMatch(/^---\nid: /) // Hearth gave it a stable id
+    expect(read.value.content).toMatch(/^---\nid: /) // Hotsauce gave it a stable id
 
     const found = await tool(alice, 'search', { query: 'quokka' })
     expect(found.value).toEqual([
@@ -356,7 +356,7 @@ describe('MCP tools', () => {
       })
       expect(written.isError, written.text).toBe(false)
       const log = await runGit(join(root, 'data', 'repos', 'team'), ['log', '-1', '--format=%B'])
-      expect(log).toContain('Hearth-Via: mcp (client "Cursor", token "My laptop")')
+      expect(log).toContain('Hotsauce-Via: mcp (client "Cursor", token "My laptop")')
 
       const res = await call('GET', '/api/spaces/team/history?path=docs/from-cursor.md', {
         as: ALICE,
@@ -374,7 +374,7 @@ describe('MCP tools', () => {
     try {
       await tool(odd, 'write_file', { space: 'team', path: 'docs/odd.md', content: '# Odd\n' })
       const log = await runGit(join(root, 'data', 'repos', 'team'), ['log', '-1', '--format=%B'])
-      expect(log).toContain('Hearth-Via: mcp (client "My Odd Tool", token "Bot")')
+      expect(log).toContain('Hotsauce-Via: mcp (client "My Odd Tool", token "Bot")')
     } finally {
       await odd.close()
     }

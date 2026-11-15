@@ -1,4 +1,4 @@
-import { type AnswerFile, type AnswerValue, displayValue } from '@hearth/format'
+import { type AnswerFile, type AnswerValue, displayValue } from '@hotsauce/format'
 import { useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import { Link, useSearchParams } from 'react-router'

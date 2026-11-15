@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { GitStore } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
 import type { Index, Indexer } from '../index/index.js'
@@ -11,7 +11,7 @@ export type SyncGit = Pick<
 
 /**
  * The one path from "HEAD moved" to "the index and every open client know": after a sync with
- * the host (webhook or poll), and after every commit Hearth makes itself.
+ * the host (webhook or poll), and after every commit Hotsauce makes itself.
  */
 export class Syncer {
   readonly #git: SyncGit
@@ -42,7 +42,7 @@ export class Syncer {
   /**
    * Indexes everything that changed between the space's recorded sync point and HEAD, records
    * HEAD as the new sync point, and broadcasts `changed`. Indexing from the sync point rather
-   * than from what one commit touched matters: a Hearth commit fast-forwards over outside pushes
+   * than from what one commit touched matters: a Hotsauce commit fast-forwards over outside pushes
    * first, and those files would otherwise never be indexed.
    */
   afterHeadChanged(space: string): Promise<void> {
@@ -75,7 +75,7 @@ export class Syncer {
         paths = await this.#git.changedPaths(space, last, head)
       } catch (err) {
         // The recorded commit is gone (say, a re-clone after a history rewrite): start over.
-        if (!(err instanceof HearthError && err.code === 'not_found')) throw err
+        if (!(err instanceof HotsauceError && err.code === 'not_found')) throw err
       }
       if (paths !== null) {
         await this.#indexer.incremental(space, paths)
@@ -104,7 +104,7 @@ export class Syncer {
     try {
       return await this.#git.headOid(space)
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return null
+      if (err instanceof HotsauceError && err.code === 'not_found') return null
       throw err
     }
   }

@@ -3,7 +3,7 @@ import DictateCore
 import SwiftUI
 import WebKit
 
-/// `HearthDictate --render-previews <folder> [--dark]`: draws each page of the main window, with
+/// `HotsauceDictate --render-previews <folder> [--dark]`: draws each page of the main window, with
 /// made-up history held only in memory, to PNGs, for checking the design without screen access.
 @MainActor
 enum Previews {
@@ -150,7 +150,7 @@ enum Previews {
             ("Notes", "com.apple.Notes", "- Call the lab about sample intake\n- Draft the Q1 hiring plan\n- Review Granola notes from Monday", 3.2, 9_800),
             ("Messages", "com.apple.MobileSMS", "Running ten minutes late, start without me", 5.5, 2_600),
             ("Mail", "com.apple.mail", "Following up on the Acme biosafety audit: the report is attached and the open items are on page four.", 8.0, 8_900),
-            ("Slack", "com.tinyspeck.slackmacgap", "Morning all, standup notes are in Hearth under meetings", 12.0, 4_400),
+            ("Slack", "com.tinyspeck.slackmacgap", "Morning all, standup notes are in Hotsauce under meetings", 12.0, 4_400),
             ("Ghostty", "com.mitchellh.ghostty", "git log --oneline -20", 15.0, 2_000),
             ("Slack", "com.tinyspeck.slackmacgap", "Love it. Let’s do that", 21.0, 1_900),
         ]
@@ -158,7 +158,7 @@ enum Previews {
             DictationRecord(date: now.addingTimeInterval(-days * 86_400), text: text, cleaned: app != "Ghostty", appName: app, appBundle: bundle, audioMs: ms)
         }
         model.mine = ["Priya", "Kestrel", "Fly.io"]
-        model.team = ["Acme", "Hearth", "Ember", "Granola", "Clerk", "Deepgram", "Anthropic", "Claude"]
+        model.team = ["Acme", "Hotsauce", "Ember", "Granola", "Clerk", "Deepgram", "Anthropic", "Claude"]
         model.wordsState = nil
         model.microphone = true
         model.accessibility = true

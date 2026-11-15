@@ -59,7 +59,7 @@ export function scriptedResponse(req: LLMRequest): string {
   if (page) {
     return JSON.stringify({ summary: `${page[1] || 'A page'}, in a sentence.`, tags: ['reading'] })
   }
-  // A Hearth Clips title and summary: named after the clip's first line.
+  // A Hotsauce Clips title and summary: named after the clip's first line.
   const clip = tagged(prompt, 'clip_transcript')
   const clipTask = tagged(prompt, 'task')
   if (clip !== null && clipTask === 'summary') {
@@ -129,7 +129,7 @@ export function scriptedResponse(req: LLMRequest): string {
     const title = (feedback.trim().split('\n')[0] ?? '').slice(0, 80).replace(/"/g, "'")
     return `<result>${JSON.stringify({ ready: true, title, summary: `Summary: ${feedback.trim()}` })}</result>`
   }
-  // A Hearth Tasks ramble: one quick-add line per sentence of what was said.
+  // A Hotsauce Tasks ramble: one quick-add line per sentence of what was said.
   const ramble = tagged(prompt, 'ramble')
   if (ramble !== null) return `<tasks>\n${rambleLines(ramble).join('\n')}\n</tasks>`
   const transcript = tagged(prompt, 'transcript')

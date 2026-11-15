@@ -7,7 +7,7 @@ import { useMeetingList } from './useMeetingList'
 
 const RECENT_COUNT = 10
 
-/** Hearth Meetings' sidebar (inside the shell's SidebarFrame): start, browse, ask, recent notes. */
+/** Hotsauce Meetings' sidebar (inside the shell's SidebarFrame): start, browse, ask, recent notes. */
 export function MeetingsSidebar({
   activeSpace,
   activePath,

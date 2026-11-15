@@ -8,9 +8,9 @@ import { isId, newId } from './ids.js'
 import { cleanLabels } from './notes.js'
 
 export const LINKS_FOLDER = 'links'
-/** The longest address Hearth keeps. */
+/** The longest address Hotsauce keeps. */
 export const MAX_LINK_URL = 2000
-/** The longest readable copy Hearth keeps, in characters. */
+/** The longest readable copy Hotsauce keeps, in characters. */
 export const MAX_LINK_BODY = 200_000
 
 export const LINK_SOURCES = ['web', 'extension', 'share', 'shortcut', 'mcp'] as const

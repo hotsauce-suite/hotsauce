@@ -121,7 +121,7 @@ export function RecordingStatus({
   compact?: boolean
 }) {
   const [now, setNow] = useState(() => performance.now())
-  // This window's own timer: the floating one stays visible while the Hearth tab is throttled.
+  // This window's own timer: the floating one stays visible while the Hotsauce tab is throttled.
   useEffect(() => {
     const timer = win.setInterval(() => setNow(performance.now()), 250)
     return () => win.clearInterval(timer)

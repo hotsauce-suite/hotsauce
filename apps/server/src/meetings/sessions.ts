@@ -1,8 +1,8 @@
 import type { WriteStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { newId, parseFrontmatter } from '@hearth/format'
+import { newId, parseFrontmatter } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore } from '../git/index.js'
 import { KeyedMutex } from '../git/mutex.js'
 import type { SpaceService } from '../spaces/index.js'
@@ -139,7 +139,7 @@ export interface MeetingSessionsOptions {
   idleStopMs?: number
   /** SESSION_MAX_HOURS: a session older than this is stopped and saved, connected or not. */
   maxAgeMs?: number
-  /** The member's and team's word lists (Hearth Dictate), sent to the transcriber as keyterms. */
+  /** The member's and team's word lists (Hotsauce Dictate), sent to the transcriber as keyterms. */
   keyterms?: (principal: Principal) => string[]
   /** After-call transcript cleanup (ARCHITECTURE §7.11); none when absent. */
   cleanup?: TranscriptCleanup | null
@@ -251,7 +251,7 @@ export class MeetingSessions {
       (s) => s.kind === 'personal',
     )
     if (!space) {
-      throw new HearthError(
+      throw new HotsauceError(
         'forbidden',
         "Your personal space isn't available right now, so there's nowhere to save a meeting",
       )
@@ -264,7 +264,7 @@ export class MeetingSessions {
           l.meta.owner === owner && (l.meta.state === 'recording' || l.meta.state === 'paused'),
       ).length + (this.#creating.get(owner) ?? 0)
     if (open >= MAX_OPEN_SESSIONS) {
-      throw new HearthError(
+      throw new HotsauceError(
         'conflict',
         `You already have ${open} meetings open (recording or paused). Stop one before starting another.`,
       )
@@ -393,7 +393,7 @@ export class MeetingSessions {
     const live = this.#require(id)
     this.#assertOpen(live)
     if (keep && !this.canKeepAudio) {
-      throw new HearthError('bad_request', 'Keeping audio isn’t set up on this server')
+      throw new HotsauceError('bad_request', 'Keeping audio isn’t set up on this server')
     }
     live.meta.keepAudio = keep
     await this.#store.writeMeta(live.meta)
@@ -429,7 +429,7 @@ export class MeetingSessions {
     if (live.meta.saved) return Promise.resolve(live.meta.saved)
     if (opts.keepAudio && !this.canKeepAudio) {
       return Promise.reject(
-        new HearthError('bad_request', 'Keeping audio isn’t set up on this server'),
+        new HotsauceError('bad_request', 'Keeping audio isn’t set up on this server'),
       )
     }
     if (!live.stopping) {
@@ -551,21 +551,21 @@ export class MeetingSessions {
 
   #require(id: string): Live {
     const live = this.#sessions.get(id)
-    if (!live) throw new HearthError('not_found', 'No such meeting session')
+    if (!live) throw new HotsauceError('not_found', 'No such meeting session')
     return live
   }
 
   #owned(id: string, principal: Principal): Live {
     const live = this.#require(id)
     if (live.meta.owner !== principal.email.toLowerCase()) {
-      throw new HearthError('forbidden', 'This meeting session belongs to someone else')
+      throw new HotsauceError('forbidden', 'This meeting session belongs to someone else')
     }
     return live
   }
 
   #assertOpen(live: Live): void {
     if (live.meta.state === 'stopped' || live.meta.state === 'saved') {
-      throw new HearthError('conflict', 'This meeting has been stopped')
+      throw new HotsauceError('conflict', 'This meeting has been stopped')
     }
   }
 
@@ -719,7 +719,7 @@ export class MeetingSessions {
         message: formatCommitMessage({ app: 'meetings', verb: 'capture', title: meta.title }),
       })
       if (result.status === 'conflict') {
-        throw new HearthError('internal', 'Unexpected conflict while saving a meeting')
+        throw new HotsauceError('internal', 'Unexpected conflict while saving a meeting')
       }
       return free
     })
@@ -842,7 +842,7 @@ export class MeetingSessions {
           message: formatCommitMessage({ app: 'meetings', verb: 'keep audio', title: meta.title }),
         })
         if (result.status === 'conflict') {
-          throw new HearthError('internal', 'Unexpected conflict while keeping audio')
+          throw new HotsauceError('internal', 'Unexpected conflict while keeping audio')
         }
         return false
       })
@@ -884,14 +884,14 @@ export class MeetingSessions {
       }
       if ((await this.#read(space, paths.transcript)) === null) return paths
     }
-    throw new HearthError('conflict', `Too many meetings called "${input.title}" that day`)
+    throw new HotsauceError('conflict', `Too many meetings called "${input.title}" that day`)
   }
 
   async #read(space: string, path: string): Promise<string | null> {
     try {
       return (await this.#opts.git.readFile(space, path)).content
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return null
+      if (err instanceof HotsauceError && err.code === 'not_found') return null
       throw err
     }
   }

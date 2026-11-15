@@ -1,7 +1,7 @@
 // Three past meetings across two days, each with a transcript, raw notes and `ai_ranges`:
 // two in the member's personal space, one shared to the team.
 
-import { meetingPaths } from '@hearth/format'
+import { meetingPaths } from '@hotsauce/format'
 import type { Author } from '../api/types'
 import {
   ACME_KICKOFF_EVENT,

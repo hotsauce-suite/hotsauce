@@ -1,6 +1,6 @@
 // MSW routes for `/api/tasks` (ARCHITECTURE §12.3), in memory, shaped exactly like the server's
 // TaskView (§12.2). The quick-add parser, recurrence and dates are the real ones from
-// @hearth/format, so the mock and the server agree on what a line means.
+// @hotsauce/format, so the mock and the server agree on what a line means.
 
 import {
   addDays,
@@ -15,7 +15,7 @@ import {
   parseFrontmatter,
   parseQuickAdd,
   type TaskSource,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { type AnyHandler, delay, HttpResponse, http } from 'msw'
 import { memberTimeZone, type Priority, type TaskInput, type TaskView } from '../api/tasks'
 import type { MeetingActionItems, ServerEvent } from '../api/types'

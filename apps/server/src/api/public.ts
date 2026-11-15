@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { backupHealth } from '../backup/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { readVersion } from '../updates/version.js'
 import type { AppDeps, AppEnv } from './env.js'
 
@@ -13,7 +13,7 @@ const SIGNATURE_HEADERS = ['x-hub-signature-256', 'x-forgejo-signature']
 // Anyone can reach the webhook, so an unsigned request is turned away before a byte of it is read.
 const requireSignature = createMiddleware<AppEnv>(async (c, next) => {
   if (!SIGNATURE_HEADERS.some((name) => c.req.header(name))) {
-    throw new HearthError('unauthorized', 'Webhook requests must be signed')
+    throw new HotsauceError('unauthorized', 'Webhook requests must be signed')
   }
   await next()
 })
@@ -21,7 +21,7 @@ const requireSignature = createMiddleware<AppEnv>(async (c, next) => {
 const limitWebhookBody = bodyLimit({
   maxSize: MAX_WEBHOOK_BYTES,
   onError: () => {
-    throw new HearthError('bad_request', 'Webhook payload is too large', { status: 413 })
+    throw new HotsauceError('bad_request', 'Webhook payload is too large', { status: 413 })
   },
 })
 
@@ -67,7 +67,7 @@ export function publicRoutes(deps: AppDeps) {
         // Null is a bad signature, or an event that isn't a push; adapters don't tell them apart.
         const event = host.parseWebhook(headers, rawBody, config.WEBHOOK_SECRET)
         if (event === null) {
-          throw new HearthError('unauthorized', 'Invalid webhook signature, or not a push event')
+          throw new HotsauceError('unauthorized', 'Invalid webhook signature, or not a push event')
         }
         if (index.getSpace(event.repo) !== null) {
           try {

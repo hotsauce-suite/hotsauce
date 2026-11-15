@@ -1,4 +1,4 @@
-import type { ChecklistItem } from '@hearth/format'
+import type { ChecklistItem } from '@hotsauce/format'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 

@@ -12,6 +12,7 @@ import { BYTES_PER_SECOND } from './pcm'
 export const RING_SECONDS = 5 * 60
 export const RING_BYTES_PER_TRACK = RING_SECONDS * BYTES_PER_SECOND
 
+// Kept from before the rename: recordings buffered by an older version are still found.
 const DB_NAME = 'hearth-meetings-audio'
 const STORE = 'chunks'
 

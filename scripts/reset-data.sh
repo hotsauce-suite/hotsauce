@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deletes local Hearth data in .data/: working clones, the local bare "remote"
+# Deletes local Hotsauce data in .data/: working clones, the local bare "remote"
 # repos, the SQLite index, and the Forgejo token. Asks first; --yes skips that.
 set -euo pipefail
 

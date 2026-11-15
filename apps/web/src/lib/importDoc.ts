@@ -1,8 +1,8 @@
 // Turning a file from elsewhere (Markdown, Word, a web page or a Google Docs HTML export) into a
-// Hearth doc. Conversion runs in the browser; the converters load only when someone imports.
+// Hotsauce doc. Conversion runs in the browser; the converters load only when someone imports.
 
-import { relativeLink, slugify } from '@hearth/format'
-import { api, HearthApiError } from '../api/client'
+import { relativeLink, slugify } from '@hotsauce/format'
+import { api, HotsauceApiError } from '../api/client'
 import { freeDocPath, type TreeStore } from '../state/treeStore'
 import { firstHeading } from './format'
 
@@ -16,7 +16,7 @@ export interface ConvertedDoc {
 }
 
 /** Stands in for image `i` until the doc has a path to link the uploaded image from. */
-export const imageToken = (i: number) => `hearth-import-image-${i}`
+export const imageToken = (i: number) => `hotsauce-import-image-${i}`
 
 export class UnsupportedImport extends Error {}
 
@@ -28,7 +28,7 @@ export async function convertFile(file: File): Promise<ConvertedDoc> {
   let markdown: string
   let images: File[] = []
   if (ext === 'md' || ext === 'markdown' || ext === 'txt') {
-    // Markdown comes in exactly as written (Hearth never reformats markdown it didn't write).
+    // Markdown comes in exactly as written (Hotsauce never reformats markdown it didn't write).
     markdown = await file.text()
   } else if (ext === 'html' || ext === 'htm') {
     ;({ markdown, images } = await htmlToMarkdown(await file.text()))
@@ -150,7 +150,7 @@ function dataUrlFile(src: string, n: number): File | null {
 /** Points each image token at its uploaded asset, linked relative to the doc. */
 export function linkImages(markdown: string, links: string[]): string {
   return markdown.replace(
-    /hearth-import-image-(\d+)/g,
+    /hotsauce-import-image-(\d+)/g,
     (token, i: string) => links[Number(i)] ?? token,
   )
 }
@@ -202,7 +202,7 @@ async function saveNew(
       await api.putFile(space, { path, content: linkImages(doc.markdown, links), createOnly: true })
       return path
     } catch (err) {
-      if (attempt > 0 || !(err instanceof HearthApiError && err.status === 409)) throw err
+      if (attempt > 0 || !(err instanceof HotsauceApiError && err.status === 409)) throw err
     }
   }
 }

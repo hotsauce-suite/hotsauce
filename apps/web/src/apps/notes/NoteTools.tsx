@@ -1,4 +1,4 @@
-import type { NoteColor } from '@hearth/format'
+import type { NoteColor } from '@hotsauce/format'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from '../../components/Icon'
 import { COLOR_NAMES, COLORS } from './logic'

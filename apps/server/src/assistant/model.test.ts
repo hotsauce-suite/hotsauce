@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { AnthropicAssistantModel, type BetaMessagesClient } from './model.js'
 import { estimateCostUsd } from './pricing.js'
 
@@ -68,7 +68,7 @@ describe('AnthropicAssistantModel', () => {
     const model = new AnthropicAssistantModel(client({ stop_reason: 'refusal' }), { log: () => {} })
     await expect(
       model.turn({ model: 'm', system: '', messages: [], tools: [] }, () => {}),
-    ).rejects.toThrow(HearthError)
+    ).rejects.toThrow(HotsauceError)
   })
 })
 

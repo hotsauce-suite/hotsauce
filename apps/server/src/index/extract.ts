@@ -1,11 +1,11 @@
-import { boardSearchText } from '@hearth/format'
+import { boardSearchText } from '@hotsauce/format'
 import { parse as parseYaml } from 'yaml'
 
 /**
  * `meeting` is a note under `meetings/`, `transcript` its `.transcript.md` sibling (ARCHITECTURE
  * §7.1), `task` a file under `tasks/` (§12.1), `note` a file under `notes/` (§14.1), `board` a
  * whiteboard under `boards/` (§15.1), `person` a person's About under `people/` (§17.3),
- * `file` a Hearth Files pointer under `files/` (§18.1), `page` a published page's pointer under
+ * `file` a Hotsauce Files pointer under `files/` (§18.1), `page` a published page's pointer under
  * `pages/` (§20.2), `form` a form under `forms/` and `form-answer` one of its answers beside it
  * (§21.1), `table` a table under `tables/` (§22.1), `link` a saved link under `links/` (§23.1), `checkin` a check-in
  * question under `checkins/` and `checkin-answer` an answer or summary beside it (§24.1).
@@ -107,7 +107,7 @@ function parseYamlObject(yaml: string): Record<string, unknown> | null {
       ? (value as Record<string, unknown>)
       : null
   } catch {
-    // Files pushed from outside Hearth can carry broken YAML; still index them.
+    // Files pushed from outside Hotsauce can carry broken YAML; still index them.
     return null
   }
 }

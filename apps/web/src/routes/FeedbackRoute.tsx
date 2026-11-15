@@ -1,6 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { HearthApiError } from '../api/client'
+import { HotsauceApiError } from '../api/client'
 import {
   type FeedbackItem,
   type FeedbackKind,
@@ -95,7 +95,7 @@ export default function FeedbackRoute() {
     try {
       await work()
     } catch (err) {
-      setError(err instanceof HearthApiError ? err.message : 'Something went wrong. Try again.')
+      setError(err instanceof HotsauceApiError ? err.message : 'Something went wrong. Try again.')
     } finally {
       setBusy(false)
     }
@@ -108,7 +108,7 @@ export default function FeedbackRoute() {
         result = await feedbackApi.clarify({ kind, text, answers, round: nextRound })
       } catch (err) {
         // Past the hour's limit on questions: send what they wrote rather than nothing.
-        if (err instanceof HearthApiError && err.status === 429) return file(answers)
+        if (err instanceof HotsauceApiError && err.status === 429) return file(answers)
         throw err
       }
       if (result.ready) {
@@ -352,7 +352,7 @@ function FeedbackRow({ item, onChanged }: { item: FeedbackItem; onChanged: () =>
       setReply('')
       onChanged()
     } catch (err) {
-      setError(err instanceof HearthApiError ? err.message : 'Couldn’t send that. Try again.')
+      setError(err instanceof HotsauceApiError ? err.message : 'Couldn’t send that. Try again.')
     } finally {
       setBusy(false)
     }

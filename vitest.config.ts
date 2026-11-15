@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config'
 // A package with more than one project ships one config file per extra project
 // (`vitest.integration.config.ts`), listed by the glob below. One config that
 // declares `projects` itself would also work, but Vitest 5 then namespaces the
-// children as "@hearth/server (server-unit)", which `--project server-unit`
+// children as "@hotsauce/server (server-unit)", which `--project server-unit`
 // does not match.
 export default defineConfig({
   test: {

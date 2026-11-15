@@ -10,7 +10,7 @@ export type ClipToolDeps = Pick<AppDeps, 'clips' | 'config'>
 const Instant = z.string().refine((s) => !Number.isNaN(Date.parse(s)), 'an ISO date or time')
 
 /**
- * Hearth Clips (ARCHITECTURE §10, §8.2): the same clips the member sees in the web app. Every
+ * Hotsauce Clips (ARCHITECTURE §10, §8.2): the same clips the member sees in the web app. Every
  * member's finished clips are visible to the team; another member's clip still recording is not.
  * Metadata, summary and transcript only: never video bytes or playback URLs.
  */

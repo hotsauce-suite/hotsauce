@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClerkClient } from '@clerk/backend'
-import { initialSpaceFiles, rewriteLinksForMove } from '@hearth/format'
+import { initialSpaceFiles, rewriteLinksForMove } from '@hotsauce/format'
 import dotenv from 'dotenv'
 import {
   AnthropicAssistantModel,
@@ -168,7 +168,7 @@ export interface ServiceOverrides {
   robotCheck?: RobotCheck | null
   /** Saved links' page fetcher (§23.2); tests pass their own pages. */
   linkFetch?: PageFetcher
-  /** Hearth Forms' chat posts (§21.5); tests pass a fake. */
+  /** Hotsauce Forms' chat posts (§21.5); tests pass a fake. */
   chatFetch?: typeof fetch
   /** Free bytes on the data volume, for Clips' disk check. */
   diskFreeBytes?: () => Promise<number>
@@ -187,7 +187,7 @@ export interface ServiceOverrides {
 
 /** The real services, wired from config. Shared by the server and the CLI. */
 export function createServices(config: Config, overrides: ServiceOverrides = {}) {
-  const committer = { name: config.HEARTH_COMMITTER_NAME, email: config.HEARTH_COMMITTER_EMAIL }
+  const committer = { name: config.HOTSAUCE_COMMITTER_NAME, email: config.HOTSAUCE_COMMITTER_EMAIL }
   const git = new GitStore({
     dataDir: config.DATA_DIR,
     committer,
@@ -454,7 +454,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     clips,
     tasks,
     notes: new Notes({ git, index, spaces, syncer }),
-    // Hearth Files keep their bytes beside Clips and kept audio, under files/ (ARCHITECTURE §18).
+    // Hotsauce Files keep their bytes beside Clips and kept audio, under files/ (ARCHITECTURE §18).
     files,
     briefs,
     feedback: new Feedback({
@@ -485,7 +485,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     shares: new Shares({ git, index, spaces, syncer }),
     // HTML pages Claude publishes over MCP, versioned in Git (§20.2).
     pages: new Pages({ git, index, spaces, syncer }),
-    // Forms and their answers in Git; answers' files in Hearth Files (§21).
+    // Forms and their answers in Git; answers' files in Hotsauce Files (§21).
     chatRooms,
     forms,
     // Tables: a CSV block in Git, formulas by IronCalc (§22).

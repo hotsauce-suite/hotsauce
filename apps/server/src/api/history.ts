@@ -1,7 +1,7 @@
-import { FrontmatterError, parseFrontmatter, patchFrontmatter } from '@hearth/format'
+import { FrontmatterError, parseFrontmatter, patchFrontmatter } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type Author, viaLabel, withVia } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import {
@@ -102,7 +102,7 @@ function withShareOf(content: string, current: string | undefined): string {
     if (parseFrontmatter(content).data.share === share) return content
     return patchFrontmatter(content, { share })
   } catch (err) {
-    if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+    if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
     throw err
   }
 }

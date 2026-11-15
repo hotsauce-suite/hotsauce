@@ -24,7 +24,7 @@ let broadcaster: Broadcaster
 let syncer: Syncer
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-sync-')
+  root = await makeTempDir('hotsauce-sync-')
   services = createServices(
     loadConfig({
       NODE_ENV: 'test',
@@ -113,7 +113,7 @@ describe('Syncer', () => {
     expect(services.index.getFile('team', 'docs/brief.md')).toBeNull()
   })
 
-  it('indexes outside pushes that a Hearth commit fast-forwarded over', async () => {
+  it('indexes outside pushes that a Hotsauce commit fast-forwarded over', async () => {
     const editor = await outside('team')
     await editor.push({ 'docs/outside.md': '# Outside\n' })
     // commit() catches up with origin first, so a later sync sees nothing new.

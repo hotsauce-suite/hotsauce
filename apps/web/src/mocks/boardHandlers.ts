@@ -1,4 +1,4 @@
-// MSW routes for Hearth Whiteboard (`/api/boards`, ARCHITECTURE §15.3), in memory and shaped like
+// MSW routes for Hotsauce Whiteboard (`/api/boards`, ARCHITECTURE §15.3), in memory and shaped like
 // the server's (apps/server/src/boards). Saves merge element by element with the format's own
 // mergeScenes, as the server does. The live-drawing socket is a room with only you in it.
 
@@ -13,7 +13,7 @@ import {
   newId,
   SPACE_LAYOUT,
   tidyScene,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
 import type { BoardSummary, BoardView } from '../api/boards'
 import { agendaScene, launchPlanScene, retroScene } from './boardSeed'

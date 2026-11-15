@@ -1,7 +1,7 @@
 // The `tasks` code block in a doc (docs/plans/2026-11-12-docs-task-lists.md): its plain-text
 // query, read into the `GET /api/tasks` filter plus what the server can't filter on.
 
-import { addDays, endOfWeek, localNow } from '@hearth/format'
+import { addDays, endOfWeek, localNow } from '@hotsauce/format'
 import type { TaskFilter, TaskView } from '../api/tasks'
 
 export const TASKS_INFO = 'tasks'

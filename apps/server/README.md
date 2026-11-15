@@ -1,14 +1,14 @@
-# @hearth/server
+# @hotsauce/server
 
-The Hearth server: one Node process (Hono) serving the API, WebSockets, and the built web app. See
+The Hotsauce server: one Node process (Hono) serving the API, WebSockets, and the built web app. See
 `docs/ARCHITECTURE.md` §3 for the module contract. Needs the real `git` CLI on `PATH` (2.30+).
 
 ## Running
 
 ```sh
-pnpm build:format && pnpm --filter @hearth/server dev    # dev auth, local host, data in .data/, port 3000
-pnpm --filter @hearth/server build && pnpm --filter @hearth/server start   # the built server (NODE_ENV defaults to production)
-pnpm --filter @hearth/server reindex [space]             # rebuild the index from the clones (keeps recents, stars, rail pins)
+pnpm build:format && pnpm --filter @hotsauce/server dev    # dev auth, local host, data in .data/, port 3000
+pnpm --filter @hotsauce/server build && pnpm --filter @hotsauce/server start   # the built server (NODE_ENV defaults to production)
+pnpm --filter @hotsauce/server reindex [space]             # rebuild the index from the clones (keeps recents, stars, rail pins)
 ```
 
 On start the server loads the repo-root `.env.local` if there is one, ensures the `team` space,
@@ -22,7 +22,7 @@ curl -H 'x-hearth-dev-user: you@example.com' localhost:3000/api/me
 ```
 
 Code layout: `app.ts` builds the API from injected services (`createApp`), `api/` holds the routes
-grouped by resource, `sync/` the Syncer, Poller and WebSocket Broadcaster, `meetings/` Hearth
+grouped by resource, `sync/` the Syncer, Poller and WebSocket Broadcaster, `meetings/` Hotsauce
 Meetings (below), `services.ts` wires the real services from config for `main.ts` and the CLI.
 
 ## Meetings
@@ -45,12 +45,12 @@ refuses the fakes and needs the keys:
 | `LLM_PROVIDER` | `fake`; `anthropic` in production | `anthropic` needs `ANTHROPIC_API_KEY` |
 | `ENHANCE_MODEL` | `claude-sonnet-5-5` | |
 | `CHAT_MODEL` | `claude-opus-5-5` | |
-| `DICTATION_MODEL` | `claude-haiku-5-5` | Hearth Dictate's cleanup pass; runs on every dictation, so a fast model. |
+| `DICTATION_MODEL` | `claude-haiku-5-5` | Hotsauce Dictate's cleanup pass; runs on every dictation, so a fast model. |
 | `KEEP_AUDIO` | `false` | whether Stop keeps the audio when the client doesn't say |
 | `AUDIO_STORE` | `r2` if the `R2_*` keys are set, else `local` (dev/test) or `none` (production) | where kept audio goes; `none` hides Keep audio |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | | the Cloudflare R2 bucket for kept audio |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | | web push keys for meeting reminders (`npx web-push generate-vapid-keys`); reminders are off without them |
-| `VAPID_SUBJECT` | `mailto:hearth@example.com` | the contact push services see |
+| `VAPID_SUBJECT` | `mailto:hotsauce@example.com` | the contact push services see |
 | `SESSION_IDLE_STOP_MINUTES` | `120` | a session with no socket for longer is stopped and saved by the server |
 | `SESSION_MAX_HOURS` | `8` | a session older than this is stopped and saved, connected or not |
 
@@ -78,8 +78,8 @@ it. `GET /api/meetings/sessions` lists the caller's own unsaved sessions, newest
 ## Tests
 
 ```sh
-pnpm --filter @hearth/server exec vitest run                                          # unit (server-unit)
-pnpm --filter @hearth/server exec vitest run --config vitest.integration.config.ts    # integration (server-integration)
+pnpm --filter @hotsauce/server exec vitest run                                          # unit (server-unit)
+pnpm --filter @hotsauce/server exec vitest run --config vitest.integration.config.ts    # integration (server-integration)
 ```
 
 From the repo root, `pnpm test:unit` and `pnpm test:integration` select the same projects by name.
@@ -98,16 +98,16 @@ root, http://localhost:3300):
 ```sh
 scripts/forgejo-init.sh        # starts the container, creates the admin user, writes .data/forgejo-token
 FORGEJO_URL=http://localhost:3300 FORGEJO_TOKEN="$(cat .data/forgejo-token)" \
-  pnpm --filter @hearth/server exec vitest run --config vitest.integration.config.ts
+  pnpm --filter @hotsauce/server exec vitest run --config vitest.integration.config.ts
 ```
 
-- `FORGEJO_ORG` (default `hearth-test`) is the organization the tests create repositories in; it is
+- `FORGEJO_ORG` (default `hotsauce-test`) is the organization the tests create repositories in; it is
   created if missing. Every test repository is deleted afterwards.
 - The webhook test has Forgejo deliver a real push event to a listener on this machine, reached as
   `host.docker.internal`. If your Docker setup names the host differently (for example a CI service
   container), set `FORGEJO_WEBHOOK_HOST`.
 - The init script is safe to re-run; each run mints a new token. Stop Forgejo with
-  `docker compose stop forgejo`; its data lives in the `hearth_forgejo-data` volume.
+  `docker compose stop forgejo`; its data lives in the `hearth_forgejo-data` volume (the compose project keeps its old name).
 
 ### With GitHub
 

@@ -151,7 +151,7 @@ async function main(): Promise<void> {
   }
   if (!tab?.id || !code) {
     show('elsewhere')
-    const open = document.getElementById('open-hearth') as HTMLAnchorElement
+    const open = document.getElementById('open-hotsauce') as HTMLAnchorElement
     open.href = new URL('/meetings', server.url).toString()
     return
   }

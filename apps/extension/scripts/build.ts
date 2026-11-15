@@ -1,8 +1,9 @@
-// Builds the Chrome extension into dist/ and packs dist/ as release/hearth-meetings-chrome.zip.
+// Builds the Chrome extension into dist/ and packs dist/ as release/hotsauce-meetings-chrome.zip.
 //
 //   PRODUCT_NAME  the name it shows (default Hotsauce; match the server's PRODUCT_NAME)
-//   HEARTH_URL  the instance it talks to (default http://localhost:3000). A localhost URL also
-//               allows both dev ports, :3000 (built server) and :5173 (Vite).
+//   HOTSAUCE_URL  the instance it talks to (default http://localhost:3000; the old name
+//                 HEARTH_URL still works). A localhost URL also allows both dev ports, :3000
+//                 (built server) and :5173 (Vite).
 //
 // The Dockerfile copies the zip to the web app's /downloads/, where Meetings links to it.
 
@@ -16,13 +17,14 @@ import { zip } from './zip.js'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const dist = path.join(root, 'dist')
 const release = path.join(root, 'release')
-const ZIP_NAME = 'hearth-meetings-chrome.zip'
+const ZIP_NAME = 'hotsauce-meetings-chrome.zip'
 
 const productName = process.env.PRODUCT_NAME?.trim() || 'Hotsauce'
 // Set for a copy that talks to one server (local dev). Otherwise the build is generic: a
 // Hotsauce server writes its own address into the zip it offers (apps/server/src/extension), and
 // a Chrome Web Store copy asks on first use.
-const hearthUrl = process.env.HEARTH_URL ? new URL(process.env.HEARTH_URL).origin : null
+const serverEnv = process.env.HOTSAUCE_URL || process.env.HEARTH_URL
+const serverUrl = serverEnv ? new URL(serverEnv).origin : null
 
 const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as {
   version: string
@@ -46,7 +48,7 @@ const manifest: Record<string, unknown> = {
     _execute_action: { suggested_key: { default: 'Alt+Shift+H' } },
   },
 }
-const stamped = hearthUrl ? stampForServer(manifest, { url: hearthUrl, name: productName }) : null
+const stamped = serverUrl ? stampForServer(manifest, { url: serverUrl, name: productName }) : null
 
 rmSync(dist, { recursive: true, force: true })
 await build({
@@ -76,5 +78,5 @@ writeFileSync(
   zip(files.map((name) => ({ name, data: readFileSync(path.join(dist, name)) }))),
 )
 console.log(
-  `${productName} extension ${version} ${hearthUrl ? `for ${hearthUrl}` : '(any server)'}: release/${ZIP_NAME}`,
+  `${productName} extension ${version} ${serverUrl ? `for ${serverUrl}` : '(any server)'}: release/${ZIP_NAME}`,
 )

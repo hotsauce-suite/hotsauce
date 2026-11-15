@@ -1,8 +1,8 @@
-import { assetPath, newId } from '@hearth/format'
+import { assetPath, newId } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import { afterCommit } from './save.js'
@@ -13,7 +13,7 @@ export const MAX_ASSET_BYTES = 10 * 1024 * 1024
 const MAX_UPLOAD_BYTES = MAX_ASSET_BYTES + 64 * 1024
 
 function tooLarge(): never {
-  throw new HearthError('bad_request', 'Files are limited to 10 MB', { status: 413 })
+  throw new HotsauceError('bad_request', 'Files are limited to 10 MB', { status: 413 })
 }
 
 // Types a browser may render inline. Anything else is served as a download.
@@ -38,7 +38,7 @@ export function assetRoutes(deps: AppDeps) {
       const space = c.req.param('space')
       const file = (await c.req.parseBody()).file
       if (!(file instanceof File)) {
-        throw new HearthError('bad_request', 'Send the upload as multipart form field "file"')
+        throw new HotsauceError('bad_request', 'Send the upload as multipart form field "file"')
       }
       if (file.size > MAX_ASSET_BYTES) tooLarge()
       const path = assetPath(file.name, new Date(), newId())
@@ -62,7 +62,7 @@ export function assetRoutes(deps: AppDeps) {
         'Cache-Control': 'private, no-cache',
         'X-Content-Type-Options': 'nosniff',
         // Files come from the repo, which anyone with push access can write: never let one
-        // run script in Hearth's origin (an SVG opened directly, say).
+        // run script in Hotsauce's origin (an SVG opened directly, say).
         'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
       }
       if (c.req.header('if-none-match') === etag) return c.body(null, 304, headers)

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { ConflictInfo, GitStore } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import { afterCommit, isMarkdown, readIfExists, withStableId, writablePath } from './save.js'
@@ -57,6 +57,6 @@ export function conflictRoutes(deps: AppDeps) {
 
 async function findConflict(git: GitStore, space: string, ref: string): Promise<ConflictInfo> {
   const conflict = (await git.listConflicts(space)).find((c) => c.ref === ref)
-  if (!conflict) throw new HearthError('not_found', `No conflict ${ref} in ${space}`)
+  if (!conflict) throw new HotsauceError('not_found', `No conflict ${ref} in ${space}`)
   return conflict
 }

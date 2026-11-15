@@ -22,7 +22,7 @@ afterEach(async () => {
 })
 
 async function instance(overrides: ServiceOverrides) {
-  root ??= await makeTempDir('hearth-updates-')
+  root ??= await makeTempDir('hotsauce-updates-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

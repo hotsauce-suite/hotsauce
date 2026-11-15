@@ -1,5 +1,5 @@
 import type { Readable } from 'node:stream'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { contentDisposition, r2Endpoint, S3Client } from '../../storage/s3.js'
 import type { AudioStore } from './types.js'
 
@@ -42,7 +42,7 @@ export class R2AudioStore implements AudioStore {
     try {
       await this.client.put(key, body, size, contentType)
     } catch (err) {
-      throw new HearthError('internal', `storage refused ${key}: ${(err as Error).message}`)
+      throw new HotsauceError('internal', `storage refused ${key}: ${(err as Error).message}`)
     }
   }
 
@@ -50,7 +50,10 @@ export class R2AudioStore implements AudioStore {
     try {
       return await this.client.get(key)
     } catch (err) {
-      throw new HearthError('internal', `storage read of ${key} failed: ${(err as Error).message}`)
+      throw new HotsauceError(
+        'internal',
+        `storage read of ${key} failed: ${(err as Error).message}`,
+      )
     }
   }
 
@@ -58,7 +61,7 @@ export class R2AudioStore implements AudioStore {
     try {
       await this.client.delete(key)
     } catch (err) {
-      throw new HearthError(
+      throw new HotsauceError(
         'internal',
         `storage delete of ${key} failed: ${(err as Error).message}`,
       )

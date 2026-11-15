@@ -1,14 +1,14 @@
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import { mockApi, server } from '../test/mockServer'
-import { api, HearthApiError, setAuthHeaders, setUnauthorizedHandler, toApiError } from './client'
-import { authMessage, HearthSocket } from './ws'
+import { api, HotsauceApiError, setAuthHeaders, setUnauthorizedHandler, toApiError } from './client'
+import { authMessage, HotsauceSocket } from './ws'
 
-async function rejection(promise: Promise<unknown>): Promise<HearthApiError> {
+async function rejection(promise: Promise<unknown>): Promise<HotsauceApiError> {
   try {
     await promise
   } catch (err) {
-    if (err instanceof HearthApiError) return err
+    if (err instanceof HotsauceApiError) return err
     throw err
   }
   throw new Error('expected the call to fail')
@@ -114,7 +114,7 @@ describe('socket', () => {
   })
 
   it('authenticates with the first message and then receives events', async () => {
-    const socket = new HearthSocket()
+    const socket = new HotsauceSocket()
     const changed = vi.fn()
     socket.onChanged(changed)
     socket.start()

@@ -26,7 +26,7 @@ private final class NonActivatingPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-/// The floating pill: live level while recording, a spinner while Hearth works, a short message.
+/// The floating pill: live level while recording, a spinner while Hotsauce works, a short message.
 final class Overlay {
     let model = OverlayModel()
     private let panel: NSPanel
@@ -68,7 +68,7 @@ final class Overlay {
         hideWork?.cancel()
         model.phase = phase
         position()
-        // orderFrontRegardless shows it without activating Hearth Dictate.
+        // orderFrontRegardless shows it without activating Hotsauce Dictate.
         panel.orderFrontRegardless()
         if let seconds {
             let work = DispatchWorkItem { [weak self] in self?.panel.orderOut(nil) }

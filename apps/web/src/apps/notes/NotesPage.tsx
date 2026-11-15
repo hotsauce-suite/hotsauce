@@ -1,4 +1,4 @@
-import { toggleChecklistItem } from '@hearth/format'
+import { toggleChecklistItem } from '@hotsauce/format'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useMatches, useNavigate, useParams } from 'react-router'
 import { type NoteColor, type NoteInput, type NoteView, noteKey, notesApi } from '../../api/notes'
@@ -42,7 +42,7 @@ interface Toast {
   link?: { to: string; label: string }
 }
 
-/** Hearth Notes: the board, a label, the archive or the trash, with a note open on top. */
+/** Hotsauce Notes: the board, a label, the archive or the trash, with a note open on top. */
 export default function NotesPage() {
   const kind = useKind()
   const params = useParams()

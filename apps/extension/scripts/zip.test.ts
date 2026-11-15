@@ -25,11 +25,11 @@ function unzip(archive: Buffer): Record<string, string> {
 describe('zip', () => {
   it('writes entries an unzipper reads back', () => {
     const archive = zip([
-      { name: 'manifest.json', data: Buffer.from('{"name":"Hearth"}') },
+      { name: 'manifest.json', data: Buffer.from('{"name":"Hotsauce"}') },
       { name: 'icons/a.txt', data: Buffer.from('café '.repeat(100)) },
     ])
     expect(unzip(archive)).toEqual({
-      'manifest.json': '{"name":"Hearth"}',
+      'manifest.json': '{"name":"Hotsauce"}',
       'icons/a.txt': 'café '.repeat(100),
     })
   })

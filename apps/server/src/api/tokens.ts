@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { MAX_TOKEN_NAME } from '../tokens/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'
@@ -37,12 +37,12 @@ export function tokenRoutes(deps: Pick<AppDeps, 'tokens'>) {
  */
 export function sessionOnly(principal: AppEnv['Variables']['principal']) {
   if (principal.via?.kind === 'token') {
-    throw new HearthError('forbidden', 'This needs a signed-in session, not an access token')
+    throw new HotsauceError('forbidden', 'This needs a signed-in session, not an access token')
   }
   return principal
 }
 
-/** The `Hearth-Via` trailer for a save made with an access token over the HTTP API. */
+/** The `Hotsauce-Via` trailer for a save made with an access token over the HTTP API. */
 export function viaFor(principal: AppEnv['Variables']['principal']): string | undefined {
   return principal.via?.kind === 'token'
     ? `api (token "${principal.via.tokenName.replace(/["\\]/g, '')}")`

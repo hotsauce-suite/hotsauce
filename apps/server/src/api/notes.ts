@@ -1,4 +1,4 @@
-import { KeepNote, NOTE_COLORS } from '@hearth/format'
+import { KeepNote, NOTE_COLORS } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { MAX_IMPORT_NOTES, MAX_NOTE_LIST } from '../notes/index.js'
@@ -29,7 +29,7 @@ const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_NOTE_LIST).optional(),
 })
 
-/** Hearth Notes (ARCHITECTURE §14.3). Space access is checked by the service (403). */
+/** Hotsauce Notes (ARCHITECTURE §14.3). Space access is checked by the service (403). */
 export function noteRoutes(deps: Pick<AppDeps, 'notes'>) {
   const service = deps.notes
   return new Hono<AppEnv>()

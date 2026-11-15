@@ -6,9 +6,9 @@ import {
   parseTranscript,
   patchFrontmatter,
   transcriptPathFor,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../../auth/index.js'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore } from '../../git/index.js'
 import { type CalendarSource, findEvent } from '../calendar/types.js'
 import { rawNotesPath } from '../files.js'
@@ -48,7 +48,7 @@ const CAPTURE_PREFIX = 'meetings: capture '
  * `POST /api/meetings/enhance`: rewrites a meeting note's body from its raw notes, transcript
  * and template, sets `ai_ranges`, `template` and `models` in its frontmatter, and commits
  * `meetings: enhance "<title>"` as the member. Refuses (conflict) when someone edited the note
- * since Hearth last wrote it, unless `force`.
+ * since Hotsauce last wrote it, unless `force`.
  */
 export async function enhanceNote(
   deps: EnhanceNoteDeps,
@@ -60,7 +60,7 @@ export async function enhanceNote(
   const note = await git.readFile(space, path)
   const parsed = parseFrontmatter(note.content)
   const meeting = MeetingFrontmatter.safeParse(parsed.data)
-  if (!meeting.success) throw new HearthError('bad_request', `${path} is not a meeting note`)
+  if (!meeting.success) throw new HotsauceError('bad_request', `${path} is not a meeting note`)
   const fm = meeting.data
   if (!args.force) await assertUnedited(git, space, path, parsed.body, fm.models)
   // Enhance right after Stop reads the cleaned-up transcript, not the live one it replaces.
@@ -73,7 +73,7 @@ export async function enhanceNote(
     deps.templates.getTemplate(principal, args.template ?? fm.template ?? DEFAULT_TEMPLATE),
   ])
   if (transcript === null) {
-    throw new HearthError('bad_request', `The transcript of this meeting isn't in ${space}`)
+    throw new HotsauceError('bad_request', `The transcript of this meeting isn't in ${space}`)
   }
   const calendar = fm.calendar_event_id
     ? await calendarContext(deps, principal, fm.calendar_event_id, fm.date)
@@ -125,13 +125,13 @@ export async function enhanceNote(
       models: { ...fm.models, enhance: deps.enhancer.model, enhanced_blob: blobOidOf(body) },
     })
   } catch (err) {
-    if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+    if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
     throw err
   }
 
   // The model call takes seconds; don't commit over an edit saved meanwhile.
   if ((await git.readFile(space, path)).blobOid !== note.blobOid) {
-    throw new HearthError('conflict', 'The note changed while it was being enhanced; try again')
+    throw new HotsauceError('conflict', 'The note changed while it was being enhanced; try again')
   }
   const result = await git.commit(space, {
     changes: [{ path, content }],
@@ -145,7 +145,7 @@ export async function enhanceNote(
   })
   await deps.afterCommit(space, path, result)
   if (result.status === 'conflict') {
-    throw new HearthError('conflict', 'The note changed while it was being enhanced; try again')
+    throw new HotsauceError('conflict', 'The note changed while it was being enhanced; try again')
   }
   return { path, aiRanges: assembled.aiRanges, usage }
 }
@@ -159,7 +159,7 @@ export function hasPlaceholderTitle(title: string): boolean {
 }
 
 /**
- * Hearth records the git blob oid of the body it wrote in `models.enhanced_blob` (the note's own
+ * Hotsauce records the git blob oid of the body it wrote in `models.enhanced_blob` (the note's own
  * blob can't be stored inside itself). A note never enhanced must still be exactly as captured:
  * its latest commit is the capture.
  */
@@ -175,7 +175,7 @@ async function assertUnedited(
     ? blobOidOf(body) !== enhanced
     : !(await git.log(space, { path, limit: 1 }))[0]?.message.startsWith(CAPTURE_PREFIX)
   if (edited) {
-    throw new HearthError(
+    throw new HotsauceError(
       'conflict',
       'This note was edited since it was last enhanced; enhancing again would replace those edits',
     )
@@ -246,7 +246,7 @@ async function readOrNull(
   try {
     return (await git.readFile(space, path)).content
   } catch (err) {
-    if (err instanceof HearthError && err.code === 'not_found') return null
+    if (err instanceof HotsauceError && err.code === 'not_found') return null
     throw err
   }
 }

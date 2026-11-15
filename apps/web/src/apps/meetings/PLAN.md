@@ -1,4 +1,4 @@
-# Hearth Meetings, web side: build plan
+# Hotsauce Meetings, web side: build plan
 
 Contract: `docs/ARCHITECTURE.md` §7 (7.2 API, 7.3 socket, 7.5 web). Product: `docs/prd/02-meetings.md`.
 Built against MSW mocks of the contract; the server is built in parallel.

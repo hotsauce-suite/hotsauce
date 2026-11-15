@@ -34,7 +34,7 @@ let calendar: MemberCalendar
 let alice: Client
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-mcp-more-')
+  root = await makeTempDir('hotsauce-mcp-more-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -117,8 +117,8 @@ describe('file tools', () => {
     expect(index.content).toContain('(archive/plan.md)')
     const log = await lastCommit('team')
     expect(log).toContain(`<${ALICE}>`)
-    expect(log).toContain('hearth: move "docs/plan.md" to "docs/archive/plan.md"')
-    expect(log).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
+    expect(log).toContain('hotsauce: move "docs/plan.md" to "docs/archive/plan.md"')
+    expect(log).toContain('Hotsauce-Via: mcp (client "test", token "Claude Code")')
   })
 
   it('moves a meeting note with its transcript, within a space and to another space', async () => {
@@ -152,7 +152,7 @@ describe('file tools', () => {
     await expect(services.git.readFile('alice', 'meetings/acme/sync.md')).rejects.toMatchObject({
       code: 'not_found',
     })
-    expect(await lastCommit('team')).toContain('Hearth-Via: mcp')
+    expect(await lastCommit('team')).toContain('Hotsauce-Via: mcp')
   })
 
   it('delete_file trashes; file_history and restore_file bring it back as a new commit', async () => {
@@ -162,7 +162,7 @@ describe('file tools', () => {
     await expect(services.git.readFile('alice', 'docs/keep.md')).rejects.toMatchObject({
       code: 'not_found',
     })
-    expect(await lastCommit('alice')).toContain('Hearth-Via: mcp')
+    expect(await lastCommit('alice')).toContain('Hotsauce-Via: mcp')
 
     const history = await tool('file_history', { space: 'alice', path: 'docs/keep.md' })
     expect(history.value.length).toBeGreaterThanOrEqual(1)
@@ -181,7 +181,7 @@ describe('file tools', () => {
     expect((await services.git.readFile('alice', 'docs/keep.md')).content).toContain('version one')
     const log = await lastCommit('alice')
     expect(log).toContain(`docs: restore "Keep" to ${created.oid.slice(0, 7)}`)
-    expect(log).toContain('Hearth-Via: mcp (client "test", token "Claude Code")')
+    expect(log).toContain('Hotsauce-Via: mcp (client "test", token "Claude Code")')
   })
 
   it('never moves a file a note’s frontmatter names outside its own folder as its transcript', async () => {

@@ -1,10 +1,10 @@
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
-import { patchFrontmatter } from '@hearth/format'
+import { patchFrontmatter } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { clipNote, freePath, MAX_CHUNKS, MAX_TITLE_LENGTH, speakersOf } from '../clips/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, withVia } from '../git/index.js'
 import { contentDisposition } from '../meetings/audio/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
@@ -27,7 +27,7 @@ function oneAtATime<T>(key: string, job: () => Promise<T>): Promise<T> {
   return run
 }
 
-/** Hearth Clips' locally stored media: the path every request to it starts with. */
+/** Hotsauce Clips' locally stored media: the path every request to it starts with. */
 export const CLIP_MEDIA_PREFIX = '/api/clips/media/'
 
 /** `bytes=a-b`, `bytes=a-` or `bytes=-n` against `size`; null for anything else (whole file). */
@@ -50,7 +50,7 @@ export function parseRange(header: string | undefined, size: number) {
 }
 
 /**
- * Hearth Clips (ARCHITECTURE §10.2). Any member can list and watch clips; only the owner sends a
+ * Hotsauce Clips (ARCHITECTURE §10.2). Any member can list and watch clips; only the owner sends a
  * recording's chunks, finishes, renames, deletes or retries it. `/media/...` is reached without a
  * session: its URLs carry their own short-lived signature (the middleware lets them through).
  */
@@ -92,7 +92,7 @@ export function clipRoutes(deps: AppDeps) {
             download: z.string().max(300).optional(),
           })
           .safeParse(c.req.query())
-        if (!query.success) throw new HearthError('not_found', 'No such file')
+        if (!query.success) throw new HotsauceError('not_found', 'No such file')
         const media = await clips.localMedia({
           id: c.req.param('id'),
           file: c.req.param('file'),
@@ -219,10 +219,10 @@ export function clipRoutes(deps: AppDeps) {
           const { to, transcript } = c.req.valid('json')
           const clip = clips.record(principal, c.req.valid('param').id)
           if (clip.status !== 'ready')
-            throw new HearthError('conflict', 'This clip isn’t ready yet')
+            throw new HotsauceError('conflict', 'This clip isn’t ready yet')
           const spaces = await deps.spaces.visibleSpaces(principal)
           const space = (spaces.find((s) => s.kind === 'personal') ?? spaces[0])?.name
-          if (!space) throw new HearthError('forbidden', 'You have no space to write to')
+          if (!space) throw new HotsauceError('forbidden', 'You have no space to write to')
           const url = `${deps.config.PUBLIC_URL.replace(/\/+$/, '')}/clips/${clip.id}`
           const note = clipNote({
             kind: to,
@@ -238,7 +238,7 @@ export function clipRoutes(deps: AppDeps) {
               deps.git.readFile(space, p).then(
                 () => true,
                 (err: unknown) => {
-                  if (err instanceof HearthError && err.code === 'not_found') return false
+                  if (err instanceof HotsauceError && err.code === 'not_found') return false
                   throw err
                 },
               )
@@ -281,7 +281,7 @@ export function clipRoutes(deps: AppDeps) {
               message,
             })
             if (result.status === 'conflict') {
-              throw new HearthError(
+              throw new HotsauceError(
                 'conflict',
                 'Someone wrote that file at the same moment; try again',
               )

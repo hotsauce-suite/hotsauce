@@ -1,5 +1,5 @@
 import type { Completion, CompletionContext, CompletionSource } from '@codemirror/autocomplete'
-import { relativeLink } from '@hearth/format'
+import { relativeLink } from '@hotsauce/format'
 
 export interface LinkTarget {
   path: string

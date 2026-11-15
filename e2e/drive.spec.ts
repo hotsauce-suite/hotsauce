@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 import { docUrl, signIn, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
-// Hearth Files (ARCHITECTURE §18), against the built server with the local store. The team
+// Hotsauce Files (ARCHITECTURE §18), against the built server with the local store. The team
 // space is shared by every worker, so file names carry a unique id.
 
 const PNG = Buffer.from(

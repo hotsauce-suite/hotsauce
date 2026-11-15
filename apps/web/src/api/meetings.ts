@@ -2,7 +2,7 @@
 // apps/meetings/audio/socket.ts.
 
 import type { GranolaMeeting } from '../apps/meetings/granolaExport'
-import { api, HearthApiError, request, requestBlob } from './client'
+import { api, HotsauceApiError, request, requestBlob } from './client'
 import type {
   ChatAnswer,
   ChatScope,
@@ -70,7 +70,7 @@ export const meetingsApi = {
       const { content } = await api.readFile(space, `.hearth/meetings/audio/${id}.yaml`)
       return (['me', 'them'] as const).filter((t) => new RegExp(`^  ${t}:`, 'm').test(content))
     } catch (err) {
-      if (err instanceof HearthApiError && err.status === 404) return []
+      if (err instanceof HotsauceApiError && err.status === 404) return []
       throw err
     }
   },

@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Index, IndexFile } from './db.js'
 import { isIndexable } from './extract.js'
 
@@ -36,7 +36,7 @@ export class Indexer {
     try {
       head = await this.#git.headOid(space)
     } catch (err) {
-      if (!(err instanceof HearthError && err.code === 'not_found')) throw err
+      if (!(err instanceof HotsauceError && err.code === 'not_found')) throw err
       this.#index.reindexSpace(space, [])
       return
     }
@@ -70,7 +70,7 @@ export class Indexer {
             const { content, blobOid } = await this.#git.readFile(space, path)
             found.push({ path, content, blobOid })
           } catch (err) {
-            if (err instanceof HearthError && err.code === 'not_found') missing.push(path)
+            if (err instanceof HotsauceError && err.code === 'not_found') missing.push(path)
             else throw err
           }
         }),

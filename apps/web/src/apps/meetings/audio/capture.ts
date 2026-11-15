@@ -1,6 +1,6 @@
 // Getting the two tracks (Meetings PRD §6.2): "them" is the Google Meet tab's audio, from the
-// Hearth extension when it's installed and otherwise from the share picker; "me" is the
-// microphone. Mic-only mode covers in-person meetings and phones. In the Hearth Mac app, "mac"
+// Hotsauce extension when it's installed and otherwise from the share picker; "me" is the
+// microphone. Mic-only mode covers in-person meetings and phones. In the Hotsauce Mac app, "mac"
 // mode has the app record the mic and everything the Mac plays (./mac.ts).
 
 import type { Track } from '../../../api/types'

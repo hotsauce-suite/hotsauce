@@ -1,4 +1,4 @@
-// Hearth Notes (ARCHITECTURE §14): a Keep-style board. One note per Markdown file,
+// Hotsauce Notes (ARCHITECTURE §14): a Keep-style board. One note per Markdown file,
 // `notes/<id>.md`, its card settings in frontmatter and its text as the body. A checklist is a
 // body made only of `- [ ]` / `- [x]` lines. Everything here is pure.
 
@@ -264,7 +264,7 @@ function usecToIso(v: number | string | undefined): string | undefined {
 }
 
 /**
- * A Keep note as a new Hearth note, or null when it should be skipped (trashed in Keep, or with
+ * A Keep note as a new Hotsauce note, or null when it should be skipped (trashed in Keep, or with
  * nothing in it). `ref` identifies it for idempotent re-imports (the Takeout file name).
  */
 export function mapKeepNote(keep: KeepNote, ref: string): Omit<NewNote, 'createdBy'> | null {

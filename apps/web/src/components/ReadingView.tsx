@@ -1,4 +1,4 @@
-import { parseFrontmatter, resolveRelative } from '@hearth/format'
+import { parseFrontmatter, resolveRelative } from '@hotsauce/format'
 import { type MouseEvent, useEffect, useMemo, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import { useNavigate } from 'react-router'
@@ -107,7 +107,7 @@ export default function ReadingView({
   )
 
   return (
-    <article data-testid={embedded ? undefined : 'reading-view'} className="prose-hearth">
+    <article data-testid={embedded ? undefined : 'reading-view'} className="prose-hotsauce">
       <Markdown
         remarkPlugins={[remarkGfm, remarkCallouts]}
         rehypePlugins={[rehypeHighlight]}
