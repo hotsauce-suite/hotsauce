@@ -1,5 +1,5 @@
 // The toolbar popup. Not connected yet: which server? On a Meet call: "Take notes". On another
-// web page: "Save this page". Anywhere else: how to get to the server.
+// web page: it saves the page straight away. Anywhere else: how to get to the server.
 
 import { meetCode } from './meet'
 import type { WorkerMessage } from './protocol'
@@ -45,6 +45,8 @@ async function serverInActiveTab(): Promise<Server | null> {
 
 /** Asks which server; the person's click lets Chrome ask for access to that site. */
 function askForServer(current: Server | null, found: Server | null = null): void {
+  // Don't let a save that finishes now close the popup while the person types.
+  stopWatching()
   hideAll()
   setName(current?.name ?? DEFAULT_NAME)
   show('setup')
@@ -80,6 +82,47 @@ function askForServer(current: Server | null, found: Server | null = null): void
   }
 }
 
+/** Saves the page once per opening of the popup; "Change server" and Connect don't save again. */
+let saveStarted = false
+let stopWatching: () => void = () => {}
+
+function say(text: string): void {
+  ;(document.getElementById('save-status') as HTMLElement).textContent = text
+  ;(document.getElementById('save-said') as HTMLElement).textContent = text
+}
+
+/**
+ * Saves the page in `tabId`, then shows "Saved" once the worker puts the tick on the tab's icon.
+ * If the save needs the person (signed out, or it failed), the worker brings the save tab
+ * forward, which closes this popup.
+ */
+async function saveNow(tabId: number, name: string): Promise<void> {
+  // A tick left from an earlier save on this tab must not read as this one.
+  await chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {})
+  const message: WorkerMessage = { type: 'save-page', tabId }
+  const reply = (await chrome.runtime.sendMessage(message).catch(() => null)) as {
+    ok?: boolean
+  } | null
+  if (reply?.ok !== true) {
+    say(`Couldn't save this page. Try again, or right-click it and choose Save page.`)
+    return
+  }
+  const started = Date.now()
+  const timer = setInterval(() => {
+    void chrome.action.getBadgeText({ tabId }).then((text) => {
+      if (text === '✓') {
+        stopWatching()
+        say(`Saved to ${name}`)
+        setTimeout(() => window.close(), 1200)
+      } else if (Date.now() - started > 15_000) {
+        stopWatching()
+        say(`Still saving. A ✓ on the icon means it's in ${name}.`)
+      }
+    })
+  }, 250)
+  stopWatching = () => clearInterval(timer)
+}
+
 async function main(): Promise<void> {
   hideAll()
   const server = await getServer()
@@ -95,19 +138,15 @@ async function main(): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   const code = meetCode(tab?.url)
   if (tab?.id !== undefined && !code && savable(tab.url, originsFor(server.url))) {
+    // One click: opening the popup on a page saves it. The popup then says how it went.
     show('save')
     show('page-title').textContent = tab.title || tab.url || ''
     const links = document.getElementById('open-links') as HTMLAnchorElement
     links.href = new URL('/links', server.url).toString()
-    const save = document.getElementById('save-page') as HTMLButtonElement
-    const tabId = tab.id
-    save.addEventListener('click', () => {
-      save.disabled = true
-      save.textContent = 'Saving…'
-      const message: WorkerMessage = { type: 'save-page', tabId }
-      void chrome.runtime.sendMessage(message).finally(() => window.close())
-    })
-    save.focus()
+    if (!saveStarted) {
+      saveStarted = true
+      void saveNow(tab.id, server.name)
+    }
     return
   }
   if (!tab?.id || !code) {
