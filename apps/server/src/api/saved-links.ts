@@ -1,13 +1,8 @@
 import { findLinkUrl, LINK_SOURCES, MAX_LINK_URL } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
-<<<<<<< HEAD
-import { HearthError } from '../errors.js'
-import { MAX_ANCHOR, MAX_LINK_LIST } from '../links/index.js'
-=======
 import { HotsauceError } from '../errors.js'
-import { MAX_LINK_LIST } from '../links/index.js'
->>>>>>> origin/main
+import { MAX_ANCHOR, MAX_LINK_LIST } from '../links/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'

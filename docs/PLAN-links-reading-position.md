@@ -1,6 +1,6 @@
 # Plan: remember where you are in a saved link
 
-Status (2026-11-15): built for release 0.15.0; every requirement has a test (server integration, web, and the e2e journey "a long read picks up where you left off"). Not covered: a copy read again can move the place a little (it is by block). Step 2 of the Links roadmap Morgan accepted on 2026-11-15
+Status (2026-11-15): built for release 0.16.0; every requirement has a test (server integration, web, and the e2e journey "a long read picks up where you left off"). Not covered: a copy read again can move the place a little (it is by block). Step 2 of the Links roadmap Morgan accepted on 2026-11-15
 (ideas drawn from Omnivore, AGPL, so ideas only: no code from it). Steps 3 and 4 (highlights,
 PDFs) get their own plans.
 
@@ -49,4 +49,4 @@ R9. MCP `list_links` and `get_link` include the member's `reading` (so an agent 
    integration tests through the app.
 2. Web: reader saves and restores (R5, R6, R8), list shows progress (R7): web tests with MSW and
    a real-browser check.
-3. Docs: ARCHITECTURE §23, help page, learnings. Release 0.15.0.
+3. Docs: ARCHITECTURE §23, help page, learnings. Release 0.16.0.
