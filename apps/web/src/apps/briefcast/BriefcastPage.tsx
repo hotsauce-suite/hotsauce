@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { type BriefcastOverview, briefcastApi, type Episode } from '../../api/briefcast'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { NEEDS_CONNECTION } from '../../components/Offline'
+import { useOnline } from '../../lib/connection'
 import { loadSpeed, SPEEDS, saveSpeed, speedLabel } from '../clips/speed'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 
@@ -17,6 +19,7 @@ export default function BriefcastPage() {
   const navigate = useNavigate()
   const [load, setLoad] = useState<Load>({ status: 'loading' })
   const [making, setMaking] = useState(false)
+  const online = useOnline()
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -70,7 +73,8 @@ export default function BriefcastPage() {
           type="button"
           className={`${primaryButton} h-9`}
           onClick={make}
-          disabled={making || load.status === 'loading'}
+          disabled={making || load.status === 'loading' || !online}
+          {...(online ? {} : { title: NEEDS_CONNECTION })}
           data-testid="briefcast-make"
         >
           <Icon name="sparkle" className="size-4" />

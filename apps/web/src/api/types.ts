@@ -21,6 +21,9 @@ export interface Health {
   version?: string
   /** Added by the root loader from /api/org/brand. */
   brand?: PublicBrand | null
+  /** Added by the root loader: the server didn't answer, so this is the copy kept on the device
+   * from the last start, and the app runs offline as the last signed-in member (lib/offlineStart). */
+  offlineStart?: boolean
 }
 
 /** The organization's brand kit, as GET /api/org/brand serves it (ARCHITECTURE §11.3). */

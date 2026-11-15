@@ -10,6 +10,11 @@ import {
 import { api } from '../api/client'
 import type { Me, RecentItem, Space, StarItem } from '../api/types'
 import { hearthSocket } from '../api/ws'
+import { org } from '../brand/product'
+import { isOnline, onBackOnline } from '../lib/connection'
+import { offlineMe, rememberedMember, rememberMember } from '../lib/offlineStart'
+import { displayName } from '../lib/paths'
+import { sendWaitingDrafts } from '../lib/sendWaiting'
 import { TreeStore } from './treeStore'
 
 const DEFAULT_IDLE_COMMIT_MS = 60_000
@@ -81,10 +86,41 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
   }, [])
 
   useEffect(() => {
-    api.me().then(setMe, () => {})
+    api.me().then(
+      (next) => {
+        setMe(next)
+        // What an offline start opens as (lib/offlineStart): id, name, email, workspace only.
+        rememberMember(next.principal, org() || null)
+      },
+      () => {
+        // Offline: who this device last saw signed in, so the shell still says who you are.
+        const member = rememberedMember()
+        if (member) setMe((current) => current ?? offlineMe(member))
+      },
+    )
     refreshRecents()
     api.stars().then(setStars, () => {})
   }, [refreshRecents])
+
+  // Doc saves that waited on this device for the connection (docs/PLAN-offline.md, A4.4): sent
+  // at start and whenever the connection comes back. An open doc sends its own.
+  useEffect(() => {
+    const send = () =>
+      void sendWaitingDrafts().then(({ sent, conflicts }) => {
+        if (sent > 0)
+          notify(
+            sent === 1
+              ? 'A doc you edited offline is saved.'
+              : `${sent} docs you edited offline are saved.`,
+          )
+        for (const path of conflicts)
+          notify(
+            `${displayName(path)} changed elsewhere while you were offline. Open it to choose what to keep.`,
+          )
+      })
+    if (isOnline()) send()
+    return onBackOnline(send)
+  }, [notify])
 
   useEffect(() => {
     hearthSocket.start()

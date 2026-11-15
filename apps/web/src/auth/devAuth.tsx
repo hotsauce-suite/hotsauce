@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, setAuthHeaders, setUnauthorizedHandler } from '../api/client'
+import { forgetMember } from '../lib/offlineStart'
 import { AuthContext, type AuthState } from './AuthContext'
 
 // Dev auth (AUTH_MODE=dev): the server trusts `x-hearth-dev-user`. The email survives
@@ -36,6 +37,7 @@ export function DevAuthProvider({ children }: { children: ReactNode }) {
   signRequestsAs(email)
 
   const signOut = useCallback(() => {
+    forgetMember()
     persistDevUser(null)
     setEmail(null)
   }, [])

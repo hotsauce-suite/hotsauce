@@ -1,11 +1,13 @@
 import { cpSync, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, normalize } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { msw } from 'msw/vite'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { type BuiltAsset, type BuiltChunk, screenFiles } from './src/build/precache.ts'
 
 // API_PROXY_TARGET points the dev server at a server on another port (e.g. two checkouts at once).
 const API_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:3000'
@@ -57,12 +59,45 @@ function excalidrawFonts(): Plugin {
   }
 }
 
+/**
+ * Every screen of the app is kept on the device by the service worker (docs/PLAN-offline.md, A1).
+ * This reads the finished bundle and hands the worker's precache list the files our screens need
+ * (src/build/precache.ts); library chunks loaded on demand stay cache-on-first-use.
+ */
+function appScreens() {
+  const files = new Set<string>()
+  const sourceDir = join(dirname(fileURLToPath(import.meta.url)), 'src')
+  const plugin: Plugin = {
+    name: 'hotsauce-app-screens',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      files.clear()
+      for (const name of screenFiles(bundle as Record<string, BuiltChunk | BuiltAsset>, sourceDir))
+        files.add(name)
+    },
+  }
+  /** workbox's manifestTransforms: drop asset files that aren't one of our screens' files. */
+  const transform = <Entry extends { url: string }>(entries: Entry[]) => ({
+    manifest: entries.filter(
+      (entry) =>
+        !entry.url.startsWith('assets/') ||
+        entry.url.endsWith('.woff2') ||
+        files.has(entry.url),
+    ),
+    warnings: [],
+  })
+  return { plugin, transform }
+}
+
+const screens = appScreens()
+
 export default defineConfig(({ mode }) => ({
   // Secrets (VITE_CLERK_PUBLISHABLE_KEY) live in the repo-root .env.local.
   envDir: '../../',
   plugins: [
     react(),
     excalidrawFonts(),
+    screens.plugin,
     tailwindcss(),
     // Serves /mockServiceWorker.js from the dev server only; production builds never ship it.
     { ...msw({ mode: 'worker-only' }), apply: 'serve' },
@@ -121,9 +156,12 @@ export default defineConfig(({ mode }) => ({
             importScripts: ['/push-sw.js'],
             navigateFallback: '/index.html',
             navigateFallbackDenylist: [/^\/api\//, /^\/ws/, /^\/downloads\//],
-            // Precache the shell only. Route and language chunks (dozens of CodeMirror modes) are
+            // Precache every screen (appScreens above), in the background once the page has
+            // loaded. Library chunks loaded on demand (dozens of CodeMirror modes, diagrams) are
             // cached the first time they load; their names are content-hashed, so cache-first is safe.
-            globPatterns: ['index.html', 'assets/index-*.{js,css}', '*.{svg,png}'],
+            globPatterns: ['index.html', 'assets/**/*.{js,css,woff2}', '*.{svg,png}'],
+            manifestTransforms: [screens.transform],
+            maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
             runtimeCaching: [
               {
                 urlPattern: ({ url, sameOrigin }) =>

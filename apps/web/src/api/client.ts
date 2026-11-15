@@ -1,4 +1,5 @@
 import { product } from '../brand/product'
+import { reportReachable, reportUnreachable } from '../lib/connection'
 import type {
   ApiErrorBody,
   Commit,
@@ -127,11 +128,16 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
     init.body = opts.body
   }
   if (opts.keepalive) init.keepalive = true
+  let res: Response
   try {
-    return await fetch(apiUrl(path, opts.query), init)
+    res = await fetch(apiUrl(path, opts.query), init)
   } catch (err) {
+    // No answer at all: the app is offline until the server answers again (lib/connection).
+    reportUnreachable()
     throw new HearthApiError('network', `Could not reach the ${product()} server`, 0, err)
   }
+  reportReachable()
+  return res
 }
 
 /** One authenticated call whose answer is a file, not JSON. */

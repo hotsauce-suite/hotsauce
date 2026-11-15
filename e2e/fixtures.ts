@@ -38,7 +38,7 @@ export interface Commit {
   message: string
   label?: string
 }
-export type SaveState = 'dirty' | 'saving' | 'saved' | 'committed' | 'conflict'
+export type SaveState = 'dirty' | 'saving' | 'saved' | 'offline' | 'committed' | 'conflict'
 
 /** The member a worker signs in as. Space names come from GET /api/me. */
 export interface E2EUser {

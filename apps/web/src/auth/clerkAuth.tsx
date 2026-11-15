@@ -13,6 +13,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useRouteLoaderData } from 'react-router'
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import type { Health } from '../api/types'
+import { forgetMember } from '../lib/offlineStart'
 import { AuthContext, type AuthState } from './AuthContext'
 
 // A key baked into the build wins (VITE_CLERK_PUBLISHABLE_KEY); otherwise the server says which
@@ -52,12 +53,17 @@ function ClerkBridge({ children }: { children: ReactNode }) {
   })
   // Clerk says signed in but the server refuses the session (it expired, or it belongs to another
   // address of this site): sign out, which lands on the sign-in page, instead of showing errors.
+  // Signed out (here, elsewhere, or the session ended): an offline start mustn't open as them.
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) forgetMember()
+  }, [isLoaded, isSignedIn])
   useEffect(() => {
     if (!isSignedIn) return
     let done = false
     setUnauthorizedHandler(() => {
       if (done) return
       done = true
+      forgetMember()
       void signOut()
     })
     return () => setUnauthorizedHandler(null)
@@ -66,7 +72,10 @@ function ClerkBridge({ children }: { children: ReactNode }) {
     () => ({
       mode: 'clerk',
       status: !isLoaded ? 'loading' : isSignedIn ? 'signed-in' : 'signed-out',
-      signOut: () => void signOut(),
+      signOut: () => {
+        forgetMember()
+        void signOut()
+      },
       signInWithTicket: async (ticket: string) => {
         if (!signIn || !setActive) throw new Error('Sign-in is still loading. Try again.')
         const attempt = await signIn.create({ strategy: 'ticket', ticket })

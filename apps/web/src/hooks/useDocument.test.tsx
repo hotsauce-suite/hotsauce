@@ -6,7 +6,8 @@ import { api } from '../api/client'
 import type { ServerEvent } from '../api/types'
 import { hearthSocket } from '../api/ws'
 import type { EditorBridge } from '../components/MarkdownEditor'
-import { draftKey, saveDraft } from '../lib/drafts'
+import { reportReachable } from '../lib/connection'
+import { draftKey, findDraft, saveDraft } from '../lib/drafts'
 import { PRIYA } from '../mocks/seed'
 import { mockApi, server } from '../test/mockServer'
 import { GONE_WHILE_EDITING, type SaveState, useDocument } from './useDocument'
@@ -223,8 +224,9 @@ describe('useDocument', () => {
     const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
     act(() => first.result.current.edit('# Q4 plan\n\nUnsaved thought.\n'))
     await waitFor(() => expect(localStorage.getItem(draftKey(SPACE, Q4, blob))).not.toBeNull())
-    // Simulate a crash: drop the hook without its unmount flush reaching the server.
-    server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+    // Simulate a crash: drop the hook without its unmount flush reaching the server. (A flush
+    // that fails to connect is the offline case instead: that draft is sent by itself, below.)
+    server.use(http.put('/api/spaces/:space/file', () => new Promise<Response>(() => {})))
     first.unmount()
 
     const second = renderDocument(Q4)
@@ -258,15 +260,95 @@ describe('useDocument', () => {
   })
 
   it('shows "saved" (kept on this device) when the save fails, and keeps the draft', async () => {
-    server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+    server.use(
+      http.put('/api/spaces/:space/file', () =>
+        HttpResponse.json({ error: { code: 'internal', message: 'Disk full' } }, { status: 500 }),
+      ),
+    )
     const { result } = renderDocument(Q4)
     await loaded(result)
-    act(() => result.current.edit('# Q4 plan\n\nOffline edit.\n'))
+    act(() => result.current.edit('# Q4 plan\n\nUnsaved edit.\n'))
     await waitFor(() => expect(result.current.state.saveState).toBe('saved'))
-    expect(result.current.state.saveError).toMatch(/reach/)
+    expect(result.current.state.saveError).toMatch(/Disk full/)
     const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
-    expect(localStorage.getItem(draftKey(SPACE, Q4, blob))).toContain('Offline edit.')
+    expect(localStorage.getItem(draftKey(SPACE, Q4, blob))).toContain('Unsaved edit.')
     await settle(result)
+  })
+
+  describe('offline (docs/PLAN-offline.md, A4)', () => {
+    const offlineEdit = '# Q4 plan\n\nOffline edit.\n'
+
+    it('a save that can’t reach the server waits on this device, marked as waiting (A4.1)', async () => {
+      server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      act(() => result.current.edit(offlineEdit))
+      await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+      expect(result.current.state.saveError).toBeNull()
+      expect(findDraft(SPACE, Q4)).toMatchObject({ content: offlineEdit, waiting: true })
+      server.resetHandlers(...mockApi().handlers)
+      act(() => reportReachable())
+      await settle(result)
+    })
+
+    it('sends it with its base version as soon as the connection is back (A4.2)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      act(() => result.current.edit(offlineEdit))
+      await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+      // Someone else changes the doc meanwhile; the server merges our save forward.
+      mockApi().repo.outsideEdit(SPACE, Q4, { author: PRIYA, apply: (c) => `${c}\nTheirs.\n` })
+      server.resetHandlers(...mockApi().handlers)
+      const puts: unknown[] = []
+      server.events.on('request:start', ({ request }) => {
+        if (request.method === 'PUT')
+          void request
+            .clone()
+            .json()
+            .then((b) => puts.push(b))
+      })
+      act(() => reportReachable())
+      await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
+      expect(puts[0]).toMatchObject({ baseBlobOid: blob })
+      expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
+      expect(findDraft(SPACE, Q4)).toBeNull()
+      server.events.removeAllListeners()
+    })
+
+    it('opens from the waiting save when offline, and sends it when back (A4.3)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      saveDraft(SPACE, Q4, blob, offlineEdit, { waiting: true })
+      server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      expect(result.current.state.initialText).toBe(offlineEdit)
+      expect(result.current.state.saveState).toBe('offline')
+      expect(result.current.state.draft).toBeNull()
+      server.resetHandlers(...mockApi().handlers)
+      act(() => reportReachable())
+      await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
+      expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
+    })
+
+    it('a waiting save is sent by itself when the doc opens online, not offered (A4.3)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      saveDraft(SPACE, Q4, blob, offlineEdit, { waiting: true })
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      expect(result.current.state.draft).toBeNull()
+      await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
+      expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
+      expect(findDraft(SPACE, Q4)).toBeNull()
+    })
+
+    it('offline with nothing on this device: an offline error, not a raw one', async () => {
+      server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await waitFor(() => expect(result.current.state.status).toBe('error'))
+      expect(result.current.state.error?.code).toBe('network')
+    })
   })
 
   it('a new doc is not created until the first save, then exactly one commit', async () => {

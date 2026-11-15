@@ -5,12 +5,15 @@
 // three-way merge: `merged` → adopt its text in place; `conflict` (409) → open the resolver.
 // Outside pushes arrive over the socket and refetch only when there are no local edits;
 // otherwise the next save merges them. Unsaved drafts live in localStorage until committed.
+// Offline (docs/PLAN-offline.md, A4), a save that can't reach the server waits in that draft,
+// marked as waiting, and goes up by itself when the connection is back, even after a reload.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, HearthApiError } from '../api/client'
 import type { CommitResult, ConflictSummary, PutFileBody } from '../api/types'
 import { hearthSocket } from '../api/ws'
 import type { EditorBridge } from '../components/MarkdownEditor'
+import { isOnline, onBackOnline } from '../lib/connection'
 import { clearDrafts, type Draft, findDraft, saveDraft } from '../lib/drafts'
 import { syncTitle } from '../lib/format'
 import { merge3 } from '../lib/merge3'
@@ -18,7 +21,9 @@ import { merge3 } from '../lib/merge3'
 export const GONE_WHILE_EDITING =
   'This doc was moved or deleted while you were editing it, so your latest changes aren’t saved. They’re still here: copy them into the doc at its new place.'
 
-export type SaveState = 'dirty' | 'saving' | 'saved' | 'committed' | 'conflict'
+/** `saved`: a save failed and is kept on this device; `offline`: the same, waiting for the
+ * connection, and sent by itself when it's back. */
+export type SaveState = 'dirty' | 'saving' | 'saved' | 'offline' | 'committed' | 'conflict'
 
 export interface ConflictView {
   /** Server conflict branch; null when the conflict was found client-side (edits during a merge). */
@@ -98,9 +103,15 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
   // Mutable working set. Refs, not state: they change on every keystroke and must be read
   // fresh inside async continuations.
   const text = useRef<DocText>('')
-  /** The server version our text descends from. */
-  const base = useRef<{ blobOid: string | null; content: string }>({ blobOid: null, content: '' })
+  /** The server version our text descends from; `content` is null when opened offline from a
+   * draft, which knows the version but not its text. */
+  const base = useRef<{ blobOid: string | null; content: string | null }>({
+    blobOid: null,
+    content: '',
+  })
   const dirty = useRef(false)
+  /** A save couldn't reach the server: the draft waits for the connection (lib/drafts). */
+  const waiting = useRef(false)
   const editSeq = useRef(0)
   const isNew = useRef(false)
   const inFlight = useRef<Promise<CommitOutcome> | null>(null)
@@ -139,13 +150,21 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
   const writeDraftNow = useCallback(() => {
     if (draftTimer.current) clearTimeout(draftTimer.current)
     draftTimer.current = null
-    if (dirty.current) {
-      saveDraft(space, path, base.current.blobOid ?? 'new', text.current.toString())
+    if (!dirty.current) return
+    // Offline, anything typed waits to be sent, even if the tab is closed before a save runs.
+    if (!isOnline()) waiting.current = true
+    saveDraft(space, path, base.current.blobOid ?? 'new', text.current.toString(), {
+      waiting: waiting.current,
+    })
+    if (waiting.current && saveStateRef.current === 'dirty') {
+      saveStateRef.current = 'offline'
+      if (mounted.current) setState((st) => ({ ...st, saveState: 'offline' }))
     }
   }, [space, path])
 
   const markClean = useCallback(() => {
     dirty.current = false
+    waiting.current = false
     if (draftTimer.current) clearTimeout(draftTimer.current)
     draftTimer.current = null
     clearDrafts(space, path)
@@ -234,8 +253,15 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
         setSaveState('committed')
         return 'noop'
       }
+      // Offline: keep it on this device; it goes up when the connection is back (onBackOnline).
+      if (!isOnline()) {
+        waiting.current = true
+        writeDraftNow()
+        setSaveState('offline', { saveError: null })
+        return 'error'
+      }
       // A retitled heading carries frontmatter `title` with it, in the editor too.
-      const sent = syncTitle(base.current.content, typed)
+      const sent = syncTitle(base.current.content ?? typed, typed)
       if (sent !== typed) adopt(sent)
       const seq = editSeq.current
       // A new doc's first save creates the file, and never replaces one someone else just made.
@@ -256,6 +282,9 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
           })
           return handleResult(result, sent, seq)
         } catch (err) {
+          // Offline: it waits on this device and goes up when the connection is back.
+          const offline = err instanceof HearthApiError && err.code === 'network'
+          if (offline) waiting.current = true
           // The draft is safe in localStorage; try again shortly.
           writeDraftNow()
           if (
@@ -272,6 +301,10 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
             // Someone moved or deleted this doc while it was open here. Retrying can't help: say
             // so, keep the text in the editor and the browser, and let the member copy it.
             setSaveState('saved', { saveError: GONE_WHILE_EDITING })
+            return 'error'
+          }
+          if (offline) {
+            setSaveState('offline', { saveError: null })
             return 'error'
           }
           const message = err instanceof Error ? err.message : 'Save failed'
@@ -335,12 +368,42 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
   // Load.
   useEffect(() => {
     let cancelled = false
+    /**
+     * Opens with a waiting draft's text (docs/PLAN-offline.md, A4.3): offline, because there's
+     * nothing else on this device; online, to send it at once against the version it came from.
+     */
+    const openWaiting = (draft: Draft, creating: boolean, baseContent: string | null = null) => {
+      isNew.current = creating
+      base.current = creating
+        ? { blobOid: null, content: opts.current.newDocText ?? '' }
+        : { blobOid: draft.blobOid, content: baseContent }
+      text.current = draft.content
+      dirty.current = true
+      waiting.current = true
+      editSeq.current += 1
+      saveStateRef.current = 'offline'
+      setState((s) => ({
+        ...s,
+        status: 'ready',
+        isNew: creating,
+        initialText: draft.content,
+        loadKey: s.loadKey + 1,
+        saveState: 'offline',
+        draft: null,
+      }))
+      if (isOnline()) void commitRef.current()
+    }
     api.readFile(space, path).then(
       (file) => {
         if (cancelled) return
+        const draft = findDraft(space, path)
+        if (draft?.waiting && draft.content !== file.content && draft.blobOid !== 'new') {
+          openWaiting(draft, false, draft.blobOid === file.blobOid ? file.content : null)
+          void loadConflicts()
+          return
+        }
         base.current = { blobOid: file.blobOid, content: file.content }
         text.current = file.content
-        const draft = findDraft(space, path)
         if (draft && draft.content === file.content) clearDrafts(space, path)
         setState((s) => ({
           ...s,
@@ -354,10 +417,19 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
       (err: unknown) => {
         if (cancelled) return
         const draft = findDraft(space, path)
+        // Offline with this doc's latest text on the device: open that.
+        if (err instanceof HearthApiError && err.code === 'network' && draft) {
+          openWaiting(draft, draft.blobOid === 'new')
+          return
+        }
         const startNew =
           err instanceof HearthApiError &&
           err.status === 404 &&
           (opts.current.isNew || draft?.blobOid === 'new')
+        if (startNew && draft?.waiting && draft.blobOid === 'new') {
+          openWaiting(draft, true)
+          return
+        }
         if (startNew) {
           const template = opts.current.newDocText ?? ''
           isNew.current = true
@@ -382,6 +454,15 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
       cancelled = true
     }
   }, [space, path, loadConflicts])
+
+  // Back online: send what waited on this device (A4.2).
+  useEffect(
+    () =>
+      onBackOnline(() => {
+        if (dirty.current && !conflictOpen.current) void commitRef.current()
+      }),
+    [],
+  )
 
   // Socket events for this file.
   useEffect(() => {
@@ -420,6 +501,8 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirty.current) return
       writeDraftNow()
+      // Offline it's kept on this device and sent later: nothing to warn about.
+      if (!isOnline()) return
       if (text.current.toString().length < KEEPALIVE_LIMIT_CHARS) {
         void commitRef.current({ keepalive: true })
       }

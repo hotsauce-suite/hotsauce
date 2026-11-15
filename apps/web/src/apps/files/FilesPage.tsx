@@ -5,8 +5,10 @@ import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon, type IconName } from '../../components/Icon'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
+import { needsConnection } from '../../components/Offline'
 import { useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
+import { useOnline } from '../../lib/connection'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { filesBus } from './bus'
@@ -48,6 +50,7 @@ type Dialogs =
 
 /** `/files`: one folder of Team files or My files, Recent, and a file open on top. */
 export default function FilesPage() {
+  const online = useOnline()
   const kind = useKind()
   const params = useParams()
   const navigate = useNavigate()
@@ -224,6 +227,7 @@ export default function FilesPage() {
           type="button"
           className={`${primaryButton} h-9`}
           onClick={() => input.current?.click()}
+          {...needsConnection(online)}
           data-testid="files-upload"
         >
           <Icon name="upload" />
