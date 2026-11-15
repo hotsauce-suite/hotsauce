@@ -139,7 +139,8 @@ export default function SettingsRoute() {
             work in {product()} as you: search, read, write, move and restore Docs; read Meetings
             and ask about them; manage Tasks and Notes; read Clips and your calendar. It sees
             exactly what you see, and everything it writes is saved under your name, marked with the
-            tool that made it. Treat a token like a password, and revoke it when you stop using it.
+            tool that made it. Make one token for each tool. Treat a token like a password, and
+            revoke it when you stop using it.
           </p>
           <p className="mt-2 text-ink-soft">
             Once connected, your AI tool reads your{' '}

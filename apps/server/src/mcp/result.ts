@@ -26,9 +26,14 @@ export function mcpVia(
 ): string {
   const parts = [
     ...(client ? [`client "${client}"`] : []),
-    ...(principal.via?.kind === 'token' ? [`token "${principal.via.tokenName}"`] : []),
+    ...(principal.via?.kind === 'token' ? [`token "${unquoted(principal.via.tokenName)}"`] : []),
   ]
   return parts.length > 0 ? `mcp (${parts.join(', ')})` : 'mcp'
+}
+
+/** A token name inside the trailer's quotes: no quotes or backslashes to break out of them. */
+function unquoted(name: string): string {
+  return name.replace(/["\\]/g, '')
 }
 
 export const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const

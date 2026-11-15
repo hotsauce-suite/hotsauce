@@ -90,7 +90,9 @@ export function cursorConfig(origin: string, token: string): string {
 
 /** The environment variable Codex reads the token from ("HOTSAUCE_TOKEN"). */
 export function codexTokenVar(): string {
-  return `${connectorName().toUpperCase().replace(/-/g, '_')}_TOKEN`
+  const name = connectorName().toUpperCase().replace(/-/g, '_')
+  // A shell variable can't start with a digit ("3M_TOKEN").
+  return /^[0-9]/.test(name) ? `_${name}_TOKEN` : `${name}_TOKEN`
 }
 
 /**

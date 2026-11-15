@@ -2,15 +2,17 @@
  * Which AI tool is talking to the MCP server. Clients name themselves in the `initialize`
  * handshake (`clientInfo.name`); the names below are the ones seen from real clients.
  */
-const KNOWN: Record<string, string> = {
-  'claude-code': 'Claude Code',
-  'claude-ai': 'Claude',
-  'openai-mcp': 'ChatGPT',
-  chatgpt: 'ChatGPT',
-  cursor: 'Cursor',
-  'cursor-vscode': 'Cursor',
-  'codex-mcp-client': 'Codex',
-}
+const KNOWN = new Map<string, string>(
+  Object.entries({
+    'claude-code': 'Claude Code',
+    'claude-ai': 'Claude',
+    'openai-mcp': 'ChatGPT',
+    chatgpt: 'ChatGPT',
+    cursor: 'Cursor',
+    'cursor-vscode': 'Cursor',
+    'codex-mcp-client': 'Codex',
+  }),
+)
 
 const MAX_LENGTH = 60
 // mcp-remote (the bridge Claude desktop uses) forwards the app's own name with this suffix.
@@ -22,7 +24,7 @@ export function clientLabel(raw: string | undefined): string | undefined {
   const bridged = MCP_REMOTE.test(raw)
   const name = raw.replace(MCP_REMOTE, '').trim()
   if (bridged && name.toLowerCase() === 'claude-ai') return 'Claude desktop'
-  const known = KNOWN[name.toLowerCase()]
+  const known = KNOWN.get(name.toLowerCase())
   if (known) return known
   const clean = name.replace(/["\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, MAX_LENGTH).trim()
   return clean || undefined

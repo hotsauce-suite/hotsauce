@@ -28,6 +28,9 @@ working at once.
 
 A token is a password for your Hotsauce account. Don't paste it into a repo or a chat.
 
+Make one token for each tool. History names the tool that last connected with a token, so two
+tools sharing one token can be mislabelled.
+
 ## 2a. Claude Code
 
 One command, run once in a terminal (replace `hth_…` with your token):

@@ -24,6 +24,12 @@ describe('clientLabel', () => {
     expect(clientLabel('x'.repeat(100))).toHaveLength(60)
   })
 
+  it('never mistakes a built-in object property for a known client', () => {
+    expect(clientLabel('constructor')).toBe('constructor')
+    expect(clientLabel('__proto__')).toBe('__proto__')
+    expect(clientLabel('toString')).toBe('toString')
+  })
+
   it('has nothing for a missing or blank name', () => {
     expect(clientLabel(undefined)).toBeUndefined()
     expect(clientLabel('  "" ')).toBeUndefined()
@@ -36,6 +42,13 @@ describe('mcpVia', () => {
   it('names the client and the token', () => {
     expect(mcpVia(token, 'Cursor')).toBe('mcp (client "Cursor", token "My laptop")')
     expect(mcpVia({}, 'Cursor')).toBe('mcp (client "Cursor")')
+  })
+
+  it('keeps quotes in a token name from faking a client', () => {
+    const odd = {
+      via: { kind: 'token' as const, tokenId: 't2', tokenName: 'x", client "Claude Code' },
+    }
+    expect(mcpVia(odd)).toBe('mcp (token "x, client Claude Code")')
   })
 
   it('falls back to the token alone when the client is unknown', () => {

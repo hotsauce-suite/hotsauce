@@ -7,7 +7,12 @@ This plan makes the setup, the history and the wording tool-neutral.
 
 ## Status
 
-- In progress on `feat/any-ai-tool` (Nov 14 2026).
+- Built on `feat/any-ai-tool`, PR #92 (Nov 14 2026). R1–R6 done; each maps to the tests named
+  below. The client name is remembered in memory, so it resets on a server restart (see
+  `docs/learnings/mcp.md`).
+- Not updated: `docs/screenshots/*-docs-*.webp` and the Docs loop video still show the small
+  "from Claude" label beside Pages in the sidebar (now "from AI tools"). No script records them;
+  refresh them with the next Docs re-record.
 - Out of scope: OAuth "managed sign-in" (its own thread). ChatGPT and Grok show "Needs sign-in,
   coming soon" until it lands.
 
@@ -37,7 +42,8 @@ the `initialize` handshake. The server is stateless (one per request), so it rem
 per token (or per member without a token) from the last `initialize`, in memory. Writes carry
 `Hearth-Via: mcp (client "Cursor", token "My laptop")`. Known raw names map to friendly ones
 (claude-code → Claude Code, claude-ai → Claude, openai-mcp / ChatGPT → ChatGPT, cursor → Cursor,
-codex-mcp-client → Codex, mcp-remote → Claude desktop is not verifiable, so it stays "mcp-remote");
+codex-mcp-client → Codex, `claude-ai (via mcp-remote …)` → Claude desktop, since mcp-remote
+forwards the app's own name with that suffix);
 an unknown name is kept, without quotes or newlines, at most 60 characters; no name falls back to
 today's `mcp (token "…")`.
 *Test:* unit tests for the mapping and the trailer; integration test at the MCP boundary with a

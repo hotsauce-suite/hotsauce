@@ -90,6 +90,10 @@ describe('viaLabel', () => {
     expect(viaLabel('docs: edit "Q4"\n\nHearth-Via: mcp')).toBe('an AI tool')
   })
 
+  it('reads the client only where the server writes it, first in the parentheses', () => {
+    expect(viaLabel('docs: edit\n\nHearth-Via: api (token "x", client "Claude Code")')).toBe('x')
+  })
+
   it('has none without an agent trailer', () => {
     expect(viaLabel('docs: edit "Q4"')).toBeUndefined()
     expect(viaLabel('Hearth-Via: mcp')).toBeUndefined()

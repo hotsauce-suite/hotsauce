@@ -64,9 +64,10 @@ export function viaLabel(message: string): string | undefined {
   const via = line.slice(VIA_TRAILER.length + 1).trim()
   const channel = /^(mcp|api)\b/.exec(via)?.[1]
   if (channel === undefined) return undefined
-  const client = /\bclient "([^"]*)"/.exec(via)?.[1]
+  // The client, when there is one, comes first: `mcp (client "Cursor", token "…")`.
+  const client = /^mcp \(client "([^"]*)"/.exec(via)?.[1]
   if (client) return client
-  const token = /\btoken "([^"]*)"/.exec(via)?.[1]
+  const token = /^(?:mcp|api) \((?:client "[^"]*", )?token "([^"]*)"/.exec(via)?.[1]
   if (token) return token
   return channel === 'mcp' ? 'an AI tool' : undefined
 }
