@@ -212,6 +212,8 @@ final class OnboardingModel: ObservableObject {
         workspaceFound = nil
         filledFromLink = false
         step = .workspace
+        // The address step 1 shows is the saved one, never a half-typed change from earlier.
+        workspaceText = workspace().map(Workspace.displayAddress) ?? ""
         if workspace() == nil { beginWorkspace() }
     }
 
@@ -245,6 +247,8 @@ final class OnboardingModel: ObservableObject {
             self.checkingWorkspace = false
             // The field changed while it was checking (a setup link arrived): that address waits for Continue.
             guard Workspace.origin(fromInput: self.workspaceText) == origin else { return }
+            // A replay started while it was checking dropped the edit: don't save it (R3).
+            guard self.editingWorkspace || self.workspace() == nil else { return }
             guard case let .found(info) = result else {
                 self.workspaceError = result.message(for: origin)
                 return
