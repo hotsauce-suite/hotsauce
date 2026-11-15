@@ -247,10 +247,11 @@ private final class EdgeGlowView: NSView {
         for wash in washes {
             wash.colors = [cg(amber, 0.30), cg(amber, 0)]
         }
-        backFlame.colors = [cg(EdgeGlowLook.flameMiddle, 0.8), cg(EdgeGlowLook.flameTip, 0.4), cg(EdgeGlowLook.flameTip, 0)]
-        backFlame.locations = [0, 0.45, 0.95]
-        frontFlame.colors = [cg(EdgeGlowLook.flameBase, 0.95), cg(EdgeGlowLook.flameMiddle, 0.65), cg(EdgeGlowLook.flameMiddle, 0)]
-        frontFlame.locations = [0, 0.4, 0.95]
+        // See-through, like a haze: the window's text stays readable under the flames.
+        backFlame.colors = [cg(EdgeGlowLook.flameMiddle, 0.55), cg(EdgeGlowLook.flameTip, 0.22), cg(EdgeGlowLook.flameTip, 0)]
+        backFlame.locations = [0, 0.4, 0.9]
+        frontFlame.colors = [cg(EdgeGlowLook.flameBase, 0.85), cg(EdgeGlowLook.flameMiddle, 0.35), cg(EdgeGlowLook.flameMiddle, 0)]
+        frontFlame.locations = [0, 0.3, 0.85]
         for flame in [backFlame, frontFlame] {
             // Gradient points are in the layer's unit square, y up: bottom to top.
             flame.startPoint = CGPoint(x: 0.5, y: 0)

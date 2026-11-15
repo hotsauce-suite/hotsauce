@@ -11,12 +11,13 @@ public enum EdgeGlowLook {
         public let red, green, blue: CGFloat
     }
 
-    /// The thin bright line on every edge: amber, from the Hotsauce rust leaning toward gold.
-    public static let line = RGB(red: 1.0, green: 0.71, blue: 0.36)
-    /// The flames, from the hot base to the tips.
-    public static let flameBase = RGB(red: 1.0, green: 0.80, blue: 0.46)
-    public static let flameMiddle = RGB(red: 1.0, green: 0.50, blue: 0.19)
-    public static let flameTip = RGB(red: 0.86, green: 0.29, blue: 0.11)
+    /// The thin bright line on every edge: gold-amber, as in the reference video, warmed toward
+    /// the Hotsauce rust.
+    public static let line = RGB(red: 1.0, green: 0.74, blue: 0.28)
+    /// The flames, from the hot base to the tips: gold at the bottom, amber, then a rust edge.
+    public static let flameBase = RGB(red: 1.0, green: 0.76, blue: 0.30)
+    public static let flameMiddle = RGB(red: 0.96, green: 0.56, blue: 0.16)
+    public static let flameTip = RGB(red: 0.66, green: 0.31, blue: 0.15)
 
     /// Points. The line's width, how far its soft glow spreads, and the inner wash on each edge.
     public static let lineWidth: CGFloat = 2
@@ -28,7 +29,7 @@ public enum EdgeGlowLook {
 
     /// Flame band height in points: resting, and how much the loudest voice adds.
     public static let flameRest: CGFloat = 14
-    public static let flameRise: CGFloat = 90
+    public static let flameRise: CGFloat = 80
     /// Flames never take more than this share of the window's height.
     public static let flameMaxShare: CGFloat = 1.0 / 3.0
 
