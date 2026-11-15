@@ -2,7 +2,7 @@
 // for docs that aren't open: an open doc sends its own (hooks/useDocument). Each goes up with the
 // version it was edited from, so the server merges it forward, or keeps it on a conflict branch.
 
-import { api, HearthApiError } from '../api/client'
+import { api, HotsauceApiError } from '../api/client'
 import { clearDrafts, saveDraft, waitingDrafts } from './drafts'
 import { inOfflineSession } from './offlineStart'
 import { isOpenDoc } from './openDoc'
@@ -43,7 +43,7 @@ async function send(owner: string): Promise<SendResult> {
       else result.sent += 1
     } catch (err) {
       // Offline again, signed out, or the server is having trouble: they all wait for next time.
-      const status = err instanceof HearthApiError ? err.status : 0
+      const status = err instanceof HotsauceApiError ? err.status : 0
       if (status === 0 || status === 401 || status >= 500) break
       // Anything else (the doc was deleted, a name taken): trying again won't help. It stays
       // on this device as an ordinary draft, offered when the doc opens.

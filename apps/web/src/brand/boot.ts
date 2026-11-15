@@ -1,4 +1,4 @@
-import { api, HearthApiError } from '../api/client'
+import { api, HotsauceApiError } from '../api/client'
 import type { Health, PublicBrand } from '../api/types'
 import { reportUnreachable } from '../lib/connection'
 import { rememberedStart, rememberStart } from '../lib/offlineStart'
@@ -24,7 +24,8 @@ export async function loadBoot(): Promise<Health> {
     // Offline (docs/PLAN-offline.md, A2): start from what the last start kept on this device.
     // Only when nothing answered: a server that answers with an error (a proxy's 502 while it
     // restarts) gets the retry page and its backoff, as before.
-    const kept = err instanceof HearthApiError && err.code === 'network' ? rememberedStart() : null
+    const kept =
+      err instanceof HotsauceApiError && err.code === 'network' ? rememberedStart() : null
     if (!kept) throw new ServerUnreachable(err instanceof Error ? err.message : String(err))
     reportUnreachable()
     return start({ ...kept.health, offlineStart: true }, kept.brand)

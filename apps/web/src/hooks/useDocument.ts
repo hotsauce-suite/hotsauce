@@ -294,7 +294,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
           return handleResult(result, sent, seq)
         } catch (err) {
           // Offline: it waits on this device and goes up when the connection is back.
-          const offline = err instanceof HearthApiError && err.code === 'network'
+          const offline = err instanceof HotsauceApiError && err.code === 'network'
           if (offline) waiting.current = true
           // The draft is safe in localStorage; try again shortly.
           writeDraftNow()
@@ -429,7 +429,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
         if (cancelled) return
         const draft = findDraft(space, path)
         // Offline with this doc's latest text on the device: open that.
-        if (err instanceof HearthApiError && err.code === 'network' && draft) {
+        if (err instanceof HotsauceApiError && err.code === 'network' && draft) {
           openWaiting(draft, draft.blobOid === 'new')
           return
         }

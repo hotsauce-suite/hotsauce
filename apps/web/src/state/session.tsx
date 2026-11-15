@@ -8,9 +8,9 @@ import {
   useRef,
   useState,
 } from 'react'
-import { api, HearthApiError } from '../api/client'
+import { api, HotsauceApiError } from '../api/client'
 import type { Me, RecentItem, Space, StarItem } from '../api/types'
-import { hearthSocket } from '../api/ws'
+import { hotsauceSocket } from '../api/ws'
 import { org } from '../brand/product'
 import { isOnline, onBackOnline } from '../lib/connection'
 import { offlineMe, rememberedMember, rememberMember } from '../lib/offlineStart'
@@ -98,7 +98,7 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
       (err: unknown) => {
         // Offline: who this device last saw signed in, so the shell still says who you are.
         // Not for an error answer: that member would show without their spaces or admin items.
-        if (!(err instanceof HearthApiError && err.code === 'network')) return
+        if (!(err instanceof HotsauceApiError && err.code === 'network')) return
         const member = rememberedMember()
         if (member) setMe((current) => current ?? offlineMe(member))
       },

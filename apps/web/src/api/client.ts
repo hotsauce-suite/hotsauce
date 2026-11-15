@@ -129,7 +129,7 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   } catch (err) {
     // The sign-in service couldn't give a token (it can't be reached): as good as offline.
     reportUnreachable()
-    throw new HearthApiError('network', `Could not reach the ${product()} server`, 0, err)
+    throw new HotsauceApiError('network', `Could not reach the ${product()} server`, 0, err)
   }
   const headers: Record<string, string> = { ...signed, ...opts.headers }
   const init: RequestInit = { method: opts.method ?? 'GET', headers }
@@ -149,7 +149,7 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   } catch (err) {
     // No answer at all: the app is offline until the server answers again (lib/connection).
     reportUnreachable()
-    throw new HearthApiError('network', `Could not reach the ${product()} server`, 0, err)
+    throw new HotsauceApiError('network', `Could not reach the ${product()} server`, 0, err)
   }
   // A gateway error without our own error body: the server itself didn't answer.
   if (GATEWAY_STATUSES.has(res.status) && !isJson(res)) reportUnreachable()
