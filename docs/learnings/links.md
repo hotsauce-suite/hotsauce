@@ -46,5 +46,5 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   really identifies the thing (the link id) and read the address from a ref.
 - **A save sent as a page closes can lose the race to the next page's load.** The list keeps the
   places this tab sent lately and lays them over the server's when they're newer.
-- **A push can land without starting CI.** A second push to a pull request once started no run;
-  check the head commit has one before waiting on it.
+- **A pull request with a merge conflict runs no CI.** Pushes looked ignored; the PR was "dirty"
+  because another release bumped `HOTSAUCE_VERSION`. Check `mergeable_state` before waiting on CI.
