@@ -147,37 +147,38 @@ test('every app can be pinned: the rail scrolls to the last one and the page nev
   await page.goto('/docs')
   const list = page.getByTestId('rail-apps')
   await expect(list.getByTestId('app-switch-tasks')).toBeVisible()
-  const before = await list.locator('a').count()
-  await page.getByTestId('launcher-button').click()
-  const launcher = page.getByTestId('launcher')
-  await launcher.getByTestId('launcher-edit').click()
-  const unpinned = launcher.locator('[data-testid^="launcher-toggle-"][aria-pressed="false"]')
-  const ids: string[] = []
-  while ((await unpinned.count()) > 0) {
-    const first = unpinned.first()
-    ids.push(((await first.getAttribute('data-testid')) ?? '').replace('launcher-toggle-', ''))
-    await first.click()
+  const defaults = (await (await page.request.get('/api/pins')).json()) as { pins: string[] | null }
+  try {
+    await page.getByTestId('launcher-button').click()
+    const launcher = page.getByTestId('launcher')
+    await launcher.getByTestId('launcher-edit').click()
+    const unpinned = launcher.locator('[data-testid^="launcher-toggle-"][aria-pressed="false"]')
+    const ids: string[] = []
+    while ((await unpinned.count()) > 0) {
+      const first = unpinned.first()
+      ids.push(((await first.getAttribute('data-testid')) ?? '').replace('launcher-toggle-', ''))
+      await first.click()
+    }
+    expect(ids.length).toBeGreaterThan(2)
+    await page.keyboard.press('Escape')
+
+    const last = list.locator('a').last()
+    await expect(last).toHaveAttribute('data-testid', `app-switch-${ids.at(-1)}`)
+    // More pins than fit: the rail's list scrolls, the window doesn't.
+    await expect(list).toHaveAttribute('data-more', 'true')
+    await last.scrollIntoViewIfNeeded()
+    await expect(last).toBeInViewport()
+    await expect(list).not.toHaveAttribute('data-more')
+    const pageScrolls = await page.evaluate(
+      () => document.documentElement.scrollHeight > window.innerHeight,
+    )
+    expect(pageScrolls).toBe(false)
+    // Settings and the account button stay put below the list.
+    await expect(page.getByTestId('settings-link')).toBeInViewport()
+  } finally {
+    // Put this member's pins back, pass or fail, for the other tests that share them.
+    await page.request.put('/api/pins', {
+      data: { pins: defaults.pins ?? ['today', 'docs', 'tasks', 'meetings', 'chat'] },
+    })
   }
-  expect(ids.length).toBeGreaterThan(2)
-  await page.keyboard.press('Escape')
-
-  const last = list.locator('a').last()
-  await expect(last).toHaveAttribute('data-testid', `app-switch-${ids.at(-1)}`)
-  // More pins than fit: the rail's list scrolls, the window doesn't.
-  await expect(list).toHaveAttribute('data-more', 'true')
-  await last.scrollIntoViewIfNeeded()
-  await expect(last).toBeInViewport()
-  await expect(list).not.toHaveAttribute('data-more')
-  const pageScrolls = await page.evaluate(
-    () => document.documentElement.scrollHeight > window.innerHeight,
-  )
-  expect(pageScrolls).toBe(false)
-  // Settings and the account button stay put below the list.
-  await expect(page.getByTestId('settings-link')).toBeInViewport()
-
-  // Put the defaults back for the other tests that share this member.
-  await page.getByTestId('launcher-button').click()
-  await launcher.getByTestId('launcher-edit').click()
-  for (const id of ids) await launcher.getByTestId(`launcher-unpin-${id}`).click()
-  await expect(list.locator('a')).toHaveCount(before)
 })

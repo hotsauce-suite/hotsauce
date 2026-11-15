@@ -239,7 +239,7 @@ function RailApps({ children }: { children: ReactNode }) {
       ref={ref}
       data-testid="rail-apps"
       data-more={more ? 'true' : undefined}
-      className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain [scrollbar-width:none] data-[more]:[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]"
+      className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 scroll-pb-10 overflow-y-auto overscroll-contain [scrollbar-width:none] data-[more]:[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]"
     >
       {children}
     </div>

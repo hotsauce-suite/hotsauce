@@ -180,6 +180,11 @@ describe('the app rail', () => {
     expect(railIds.length).toBeGreaterThan(6)
     // Files goes back off, so it opens from the "All apps" list below.
     await userEvent.click(within(launcher).getByTestId('launcher-unpin-files'))
+    await waitFor(async () => expect((await api.pins()).pins).not.toContain('files'))
+    expect(within(launcher).getByTestId('launcher-toggle-files')).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
 
     // Done, then an app opens from the launcher, which closes.
     await userEvent.click(within(launcher).getByTestId('launcher-edit'))
