@@ -96,6 +96,7 @@ import {
   WebPushSender,
 } from './meetings/reminders/index.js'
 import { Notes } from './notes/index.js'
+import { ClientMetadataResolver, OAuthStore } from './oauth/index.js'
 import { BrandStore } from './org/brand.js'
 import { OrgStore } from './org/store.js'
 import {
@@ -198,6 +199,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   const indexer = new Indexer(git, index)
   // Personal access tokens in front of Clerk (or dev) auth, everywhere a request is authenticated.
   const tokens = new TokenStore(config.DATA_DIR)
+  // Apps connected through sign-in (claude.ai, ChatGPT): their tokens work on /mcp only.
+  const oauth = new OAuthStore(config.DATA_DIR)
+  const clientMetadata = new ClientMetadataResolver()
   // The organization's settings, keys and brand kit (ARCHITECTURE §11).
   const org =
     overrides.org ??
@@ -206,7 +210,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ...(config.HOTSAUCE_MASTER_KEY ? { masterKey: config.HOTSAUCE_MASTER_KEY } : {}),
     })
   const brand = new BrandStore(org.dir)
-  const auth = new TokenAuth(createAuthenticator(config), tokens)
+  const auth = new TokenAuth(createAuthenticator(config), tokens, oauth)
   const spaces = new SpaceService({
     git,
     host,
@@ -444,6 +448,8 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     indexer,
     auth,
     tokens,
+    oauth,
+    clientMetadata,
     spaces,
     broadcaster,
     syncer,

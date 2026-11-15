@@ -17,6 +17,7 @@ import type { Index } from '../index/index.js'
 import type { Links } from '../links/index.js'
 import type { MeetingServices } from '../meetings/index.js'
 import type { Notes } from '../notes/index.js'
+import type { ClientMetadataResolver, OAuthStore } from '../oauth/index.js'
 import type { BrandStore } from '../org/brand.js'
 import type { OrgStore } from '../org/store.js'
 import type { Pages } from '../pages/index.js'
@@ -38,6 +39,8 @@ export interface AppDeps {
   index: Index
   auth: Authenticator
   tokens: TokenStore
+  oauth: OAuthStore
+  clientMetadata: ClientMetadataResolver
   spaces: SpaceService
   syncer: Syncer
   meetings: MeetingServices
