@@ -40,6 +40,12 @@ if CommandLine.arguments.contains("--call-probe") {
     print("needs macOS 14.2")
     exit(1)
 }
+if let index = CommandLine.arguments.firstIndex(of: "--render-edge-glow"), index + 1 < CommandLine.arguments.count {
+    exit(MainActor.assumeIsolated { EdgeGlowPreview.render(to: CommandLine.arguments[index + 1]) })
+}
+if CommandLine.arguments.contains("--edge-glow-demo") {
+    exit(MainActor.assumeIsolated { EdgeGlowDemo.run(arguments: CommandLine.arguments) })
+}
 if CommandLine.arguments.contains("--transcribe-file") {
     exit(CLI.run(arguments: Array(CommandLine.arguments.dropFirst())))
 }

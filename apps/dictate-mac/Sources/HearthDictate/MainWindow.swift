@@ -50,6 +50,7 @@ final class MainModel: ObservableObject {
     @Published var mode: DictationMode = .clean
     @Published var launchAtLogin = false
     @Published var showInMenuBar = true
+    @Published var edgeGlow = true
     @Published var menuBarIconShown = true
     @Published var retentionDays = 30
     @Published var microphone = false
@@ -79,6 +80,7 @@ final class MainModel: ObservableObject {
     var setMode: (DictationMode) -> Void = { _ in }
     var setLaunchAtLogin: (Bool) -> Void = { _ in }
     var setShowInMenuBar: (Bool) -> Void = { _ in }
+    var setEdgeGlow: (Bool) -> Void = { _ in }
     var setRetention: (Int) -> Void = { _ in }
     var clearHistory: () -> Void = {}
     var disconnect: () -> Void = {}
@@ -614,6 +616,11 @@ private struct SettingsPage: View {
                 Picker("Mode", selection: Binding(get: { model.mode }, set: model.setMode)) {
                     Text("Clean up (removes ums, applies corrections)").tag(DictationMode.clean)
                     Text("Literal (exactly as spoken)").tag(DictationMode.literal)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Edge glow while dictating", isOn: Binding(get: { model.edgeGlow }, set: model.setEdgeGlow))
+                    Text("A warm glow around the window you’re talking into, with flames that follow your voice. Still, with no flames, when Reduce motion is on.")
+                        .font(.system(size: 11)).foregroundStyle(Hearth.inkFaint)
                 }
                 Toggle("Show in menu bar", isOn: Binding(get: { model.showInMenuBar }, set: model.setShowInMenuBar))
                 if model.showInMenuBar && !model.menuBarIconShown {
