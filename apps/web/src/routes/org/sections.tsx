@@ -176,8 +176,41 @@ function typedSecrets(values: Partial<Record<SecretName, string>>): SettingsPatc
 
 // ── Organization ─────────────────────────────────────────────────────────────────────────────
 
-export function OrgSection(props: SectionProps) {
-  const { state } = props
+/** The parts of "Your organization" that Settings shows on separate pages. */
+export type OrgPart = 'names' | 'people' | 'chat'
+
+const ORG_PARTS: Record<OrgPart | 'all', { testId: string; title: string; intro: string }> = {
+  all: {
+    testId: 'org-section',
+    title: 'Your organization',
+    intro: 'Who this workspace is for, and who can sign in.',
+  },
+  names: {
+    testId: 'org-names-section',
+    title: 'Names',
+    intro: 'What your organization and this workspace are called.',
+  },
+  people: {
+    testId: 'org-people-section',
+    title: 'Who can sign in',
+    intro: 'Everyone at your email domains, the people you invite, and who the admins are.',
+  },
+  chat: {
+    testId: 'org-chat-section',
+    title: 'Team chat',
+    intro: 'A Chat button in the sidebar that opens your team chat.',
+  },
+}
+
+/**
+ * The organization's names, who can sign in, and the team chat link. The setup wizard shows them
+ * as one step; Settings passes `part` to show (and save) one group per page
+ * (docs/PLAN-settings-pages.md, O1, O3, O6).
+ */
+export function OrgSection(props: SectionProps & { part?: OrgPart }) {
+  const { state, part } = props
+  const show = (p: OrgPart) => !part || part === p
+  const copy = ORG_PARTS[part ?? 'all']
   const s = state.settings
   const locked = state.lockedByEnv
   const [orgName, setOrgName] = useState(s.orgName || state.effective.orgName)
@@ -196,126 +229,142 @@ export function OrgSection(props: SectionProps) {
 
   return (
     <SectionForm
-      testId="org-section"
-      title="Your organization"
-      intro="Who this workspace is for, and who can sign in."
+      testId={copy.testId}
+      title={copy.title}
+      intro={copy.intro}
       busy={busy}
       error={error}
       submitLabel={props.submitLabel}
       actions={props.actions}
       onSubmit={() =>
         run(() =>
+          // Only the fields on show, so a page never saves another page's stale copy.
           props.editor.saveSettings({
-            orgName,
-            productName,
-            allowedDomains: domains,
-            allowedEmails: invited,
-            adminEmails: admins,
-            chatUrl,
+            ...(show('names') ? { orgName, productName } : {}),
+            ...(show('people')
+              ? { allowedDomains: domains, allowedEmails: invited, adminEmails: admins }
+              : {}),
+            ...(show('chat') ? { chatUrl } : {}),
           }),
         )
       }
     >
-      <Field label="Organization name" locked={locked.orgName}>
-        {(id) => (
-          <input
-            id={id}
-            data-testid="org-name"
-            className={inputClass}
-            value={orgName}
-            disabled={locked.orgName}
-            maxLength={80}
-            placeholder="Acme Labs"
-            onChange={(e) => setOrgName(e.target.value)}
-          />
-        )}
-      </Field>
-      <Field
-        label="Workspace name"
-        locked={locked.productName}
-        hint="What your team sees in the app and browser tab, like “Acme Docs” and “Acme Meetings”. Leave it empty to keep Hotsauce."
-      >
-        {(id) => (
-          <input
-            id={id}
-            data-testid="product-name"
-            className={inputClass}
-            value={productName}
-            disabled={locked.productName}
-            maxLength={40}
-            placeholder="Hotsauce"
-            onChange={(e) => setProductName(e.target.value)}
-          />
-        )}
-      </Field>
-      <Field
-        label="Email domains that can sign in"
-        locked={locked.allowedDomains}
-        hint="Anyone with a Google account at one of these domains can sign in. Separate several with commas."
-      >
-        {(id) => (
-          <input
-            id={id}
-            data-testid="allowed-domains"
-            className={inputClass}
-            value={domains}
-            disabled={locked.allowedDomains}
-            placeholder="acme.com"
-            onChange={(e) => setDomains(e.target.value)}
-          />
-        )}
-      </Field>
-      <Field
-        label="Invited people (optional)"
-        locked={locked.allowedEmails}
-        hint="Exact email addresses outside those domains who can also sign in, with a code sent to their email. They see and can edit everything the team can. Adding or removing someone takes effect when you apply the settings. Separate several with commas."
-      >
-        {(id) => (
-          <input
-            id={id}
-            data-testid="allowed-emails"
-            className={inputClass}
-            value={invited}
-            disabled={locked.allowedEmails}
-            placeholder="jo@partner.org"
-            onChange={(e) => setInvited(e.target.value)}
-          />
-        )}
-      </Field>
-      <Field
-        label="Admins"
-        locked={locked.adminEmails}
-        hint="Admins can change these settings later in Settings → Organization. Use your own email here."
-      >
-        {(id) => (
-          <input
-            id={id}
-            data-testid="admin-emails"
-            className={inputClass}
-            value={admins}
-            disabled={locked.adminEmails}
-            placeholder="you@acme.com"
-            onChange={(e) => setAdmins(e.target.value)}
-          />
-        )}
-      </Field>
-      <Field
-        label="Team chat link (optional)"
-        locked={locked.chatUrl}
-        hint="Adds a Chat button to the app’s sidebar that opens your team chat, like a Slack or Ember link."
-      >
-        {(id) => (
-          <input
-            id={id}
-            data-testid="chat-url"
-            className={inputClass}
-            value={chatUrl}
-            disabled={locked.chatUrl}
-            placeholder="https://acme.slack.com"
-            onChange={(e) => setChatUrl(e.target.value)}
-          />
-        )}
-      </Field>
+      {show('names') ? (
+        <Field label="Organization name" locked={locked.orgName}>
+          {(id) => (
+            <input
+              id={id}
+              data-testid="org-name"
+              className={inputClass}
+              value={orgName}
+              disabled={locked.orgName}
+              maxLength={80}
+              placeholder="Acme Labs"
+              onChange={(e) => setOrgName(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
+      {show('names') ? (
+        <Field
+          label="Workspace name"
+          locked={locked.productName}
+          hint="What your team sees in the app and browser tab, like “Acme Docs” and “Acme Meetings”. Leave it empty to keep Hotsauce."
+        >
+          {(id) => (
+            <input
+              id={id}
+              data-testid="product-name"
+              className={inputClass}
+              value={productName}
+              disabled={locked.productName}
+              maxLength={40}
+              placeholder="Hotsauce"
+              onChange={(e) => setProductName(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
+      {show('people') ? (
+        <Field
+          label="Email domains that can sign in"
+          locked={locked.allowedDomains}
+          hint="Anyone with a Google account at one of these domains can sign in. Separate several with commas."
+        >
+          {(id) => (
+            <input
+              id={id}
+              data-testid="allowed-domains"
+              className={inputClass}
+              value={domains}
+              disabled={locked.allowedDomains}
+              placeholder="acme.com"
+              onChange={(e) => setDomains(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
+      {show('people') ? (
+        <Field
+          label="Invited people (optional)"
+          locked={locked.allowedEmails}
+          hint="Exact email addresses outside those domains who can also sign in, with a code sent to their email. They see and can edit everything the team can. Adding or removing someone takes effect when you apply the settings. Separate several with commas."
+        >
+          {(id) => (
+            <input
+              id={id}
+              data-testid="allowed-emails"
+              className={inputClass}
+              value={invited}
+              disabled={locked.allowedEmails}
+              placeholder="jo@partner.org"
+              onChange={(e) => setInvited(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
+      {show('people') ? (
+        <Field
+          label="Admins"
+          locked={locked.adminEmails}
+          hint={
+            part
+              ? 'Admins see the Organization pages in Settings and can change everything on them.'
+              : 'Admins can change these settings later in Settings → Organization. Use your own email here.'
+          }
+        >
+          {(id) => (
+            <input
+              id={id}
+              data-testid="admin-emails"
+              className={inputClass}
+              value={admins}
+              disabled={locked.adminEmails}
+              placeholder="you@acme.com"
+              onChange={(e) => setAdmins(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
+      {show('chat') ? (
+        <Field
+          label="Team chat link (optional)"
+          locked={locked.chatUrl}
+          hint="Adds a Chat button to the app’s sidebar that opens your team chat, like a Slack or Ember link."
+        >
+          {(id) => (
+            <input
+              id={id}
+              data-testid="chat-url"
+              className={inputClass}
+              value={chatUrl}
+              disabled={locked.chatUrl}
+              placeholder="https://acme.slack.com"
+              onChange={(e) => setChatUrl(e.target.value)}
+            />
+          )}
+        </Field>
+      ) : null}
     </SectionForm>
   )
 }

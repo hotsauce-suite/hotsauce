@@ -68,7 +68,7 @@ describe('Today: the Mac app card', () => {
     const card = await screen.findByTestId('today-mac-app')
     expect(within(card).getByTestId('today-mac-app-link')).toHaveAttribute(
       'href',
-      '/settings#mac-app',
+      '/settings/apps#mac-app',
     )
     await user.click(within(card).getByTestId('today-mac-app-dismiss'))
     expect(screen.queryByTestId('today-mac-app')).toBeNull()

@@ -157,7 +157,7 @@ export function OrgWeatherSection() {
     <section data-testid="org-weather" className="flex flex-col gap-4">
       <div>
         <h2 className="font-display text-[1.6rem] leading-tight font-semibold tracking-tight text-ink">
-          Weather
+          Default weather city
         </h2>
         <p className="mt-2 text-ink-soft">
           Today shows the weather for this city to everyone who hasn’t shared their location or

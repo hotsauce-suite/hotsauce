@@ -729,8 +729,8 @@ function Settings({
         {rooms.length === 0 && !draft.room ? (
           <p className="mt-2 text-sm text-ink-faint" data-testid="form-no-rooms">
             No chat rooms yet. An admin adds them in{' '}
-            <Link to="/settings/organization" className="text-ember-strong underline">
-              Settings → Organization
+            <Link to="/settings/organization#chat-rooms" className="text-ember-strong underline">
+              Settings → Workspace
             </Link>
             .
           </p>

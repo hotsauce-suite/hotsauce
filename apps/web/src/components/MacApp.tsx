@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
+import { hasMacNotifications } from '../lib/macNotifications'
 import { Icon } from './Icon'
 
 // The Mac app's download: offered in Settings, linked from Today.
@@ -14,7 +15,7 @@ export const MAC_APP_ZIP = '/downloads/Hotsauce.zip'
 export const MAC_APP_SOURCE =
   'https://github.com/hotsauce-suite/hotsauce/blob/main/apps/dictate-mac/README.md'
 /** Where the download lives. */
-export const MAC_APP_SETTINGS = '/settings#mac-app'
+export const MAC_APP_SETTINGS = '/settings/apps#mac-app'
 const PRIVACY_SETTINGS = 'x-apple.systempreferences:com.apple.preference.security'
 
 /**
@@ -50,11 +51,39 @@ export function useMacAppBuild(enabled = true): boolean | null {
 }
 
 /**
- * Settings' Install section, the Mac app's card: the download, or the source for a server without
- * a build. `#mac-app` (MAC_APP_SETTINGS) scrolls to it.
+ * Settings → Apps, the Mac app's card: the download, or the source for a server without a build.
+ * `#mac-app` (MAC_APP_SETTINGS) scrolls to it. The first-install steps stay folded until asked
+ * for, and inside the Mac app the card just says so (docs/PLAN-settings-pages.md, T1, T2).
  */
 export function MacAppCard() {
-  const hasBuild = useMacAppBuild()
+  // A Mac app new enough to answer its bridge; an older one still sees the download.
+  const inMacApp = hasMacNotifications()
+  const hasBuild = useMacAppBuild(!inMacApp)
+  if (inMacApp) {
+    return (
+      <section
+        id="mac-app"
+        aria-labelledby="mac-app-title"
+        data-testid="mac-app"
+        className="flex scroll-mt-6 flex-wrap items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4"
+      >
+        <Icon name="laptop" className="size-5 shrink-0 text-ember" />
+        <span className="min-w-0 flex-1 basis-56">
+          <h3 id="mac-app-title" className="font-medium text-ink">
+            Mac app
+          </h3>
+          <span className="block text-sm text-ink-soft">You’re using it on this Mac.</span>
+        </span>
+        <span
+          data-testid="mac-app-in-use"
+          className="flex shrink-0 items-center gap-1 text-sm font-medium text-moss"
+        >
+          <Icon name="check" className="size-4" />
+          Installed
+        </span>
+      </section>
+    )
+  }
   return (
     <section
       id="mac-app"
@@ -107,9 +136,11 @@ export function MacAppCard() {
       </div>
 
       {hasBuild ? (
-        <>
-          <h4 className="mt-6 text-sm font-semibold text-ink-soft">Installing it the first time</h4>
-          <p className="mt-1 text-sm text-ink-soft">
+        <details data-testid="mac-app-first-install" className="mt-4">
+          <summary className="cursor-pointer text-sm font-medium text-ink-soft hover:text-ink">
+            How to install it the first time
+          </summary>
+          <p className="mt-2 text-sm text-ink-soft">
             It isn’t from the App Store, so macOS asks you to confirm it once.
           </p>
           <ol
@@ -159,7 +190,7 @@ export function MacAppCard() {
               Open Privacy &amp; Security
             </a>
           </div>
-        </>
+        </details>
       ) : null}
       <p className="mt-3 text-xs text-ink-faint">
         Already installed? It’s {product()} in your Dock and Applications. Audio you dictate is sent

@@ -52,7 +52,7 @@ export function BackupsSection() {
       {state === null && !error ? <p className="text-sm text-ink-faint">Loading…</p> : null}
       {state && !state.enabled ? (
         <p className="text-sm text-ink-soft" data-testid="backups-off">
-          Off: backups need a storage bucket. Add one under Files and audio below.
+          Off: backups need a storage bucket. Add one under “Where your files live”, above.
         </p>
       ) : null}
       {state?.enabled ? (

@@ -41,7 +41,7 @@ export function MeetingsCard({ meetings, now }: { meetings: TodayView['meetings'
       {meetings.error ? (
         <p className="text-sm text-ink-soft" data-testid="today-calendar-error">
           {meetings.error}{' '}
-          <Link to="/settings" className="text-ember-strong underline">
+          <Link to="/settings/connections#calendars" className="text-ember-strong underline">
             Settings
           </Link>
         </p>

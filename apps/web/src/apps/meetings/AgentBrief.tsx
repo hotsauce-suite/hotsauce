@@ -231,7 +231,7 @@ export default function AgentBrief() {
             <h3 className="text-sm font-semibold text-ink-soft">Use it with your AI tool</h3>
             <p className="mt-1 text-sm text-ink-soft">
               Connect your AI tool (Claude, Cursor, Codex and others) to {product()} once from{' '}
-              <Link to="/settings" className="text-ember-strong underline">
+              <Link to="/settings/connections#ai-tools" className="text-ember-strong underline">
                 Settings
               </Link>
               . It then reads your brief before it starts. Try asking:
