@@ -14,6 +14,7 @@ import { product } from '../brand/product'
 import { NewToken } from '../components/AiToolSetup'
 import { feedbackLink, initials, useFeedbackEnabled, useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
+import { ConnectedApps } from '../components/ConnectedApps'
 import { Icon } from '../components/Icon'
 import { InstallButton, InstallSheet } from '../components/InstallBar'
 import { MacAppCard } from '../components/MacApp'
@@ -135,12 +136,10 @@ export default function SettingsRoute() {
             Connect an AI tool to {product()}
           </h2>
           <p className="mt-2 text-ink-soft">
-            An access token lets an AI tool such as ChatGPT, Claude, Grok or Cursor, or a script,
-            work in {product()} as you: search, read, write, move and restore Docs; read Meetings
-            and ask about them; manage Tasks and Notes; read Clips and your calendar. It sees
-            exactly what you see, and everything it writes is saved under your name, marked with the
-            tool that made it. Make one token for each tool. Treat a token like a password, and
-            revoke it when you stop using it.
+            An AI tool such as Claude, ChatGPT, Grok or Cursor, or a script, can work in {product()}{' '}
+            as you: search, read, write, move and restore Docs; read Meetings and ask about them;
+            manage Tasks and Notes; read Clips and your calendar. It sees exactly what you see, and
+            everything it writes is saved under your name, marked with the tool that made it.
           </p>
           <p className="mt-2 text-ink-soft">
             Once connected, your AI tool reads your{' '}
@@ -148,6 +147,15 @@ export default function SettingsRoute() {
               agent brief
             </Link>{' '}
             first, so it already knows your priorities, projects and people.
+          </p>
+
+          <ConnectedApps origin={origin} />
+
+          <h3 className="mt-10 text-lg font-semibold text-ink">Connect with a token</h3>
+          <p className="mt-2 text-sm text-ink-soft">
+            For Claude Code, Codex, Cursor, scripts and other tools that take a header. Make one
+            token for each tool. Treat a token like a password, and revoke it when you stop using
+            it.
           </p>
 
           <form onSubmit={(e) => void create(e)} className="mt-6 flex flex-wrap items-end gap-2">

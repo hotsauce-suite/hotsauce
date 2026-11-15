@@ -1,4 +1,5 @@
 import { type AnyHandler, delay, HttpResponse, http, ws } from 'msw'
+import type { Connection } from '../api/oauth'
 import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
 import { assistantHandlers } from './assistantHandlers'
 import { boardHandlers, FakeBoards, seedBoards } from './boardHandlers'
@@ -153,6 +154,15 @@ function createHandlers(
 
   // Access tokens live as long as this mock API (one test, or one page load).
   const mockTokens: MockToken[] = []
+  const mockConnections: Connection[] = [
+    {
+      id: 'conn_demo',
+      clientName: 'Claude',
+      redirectHost: 'claude.ai',
+      createdAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+      lastUsedAt: new Date(Date.now() - 3_600_000).toISOString(),
+    },
+  ]
 
   const handlers: AnyHandler[] = [
     socketHandler,
@@ -245,6 +255,21 @@ function createHandlers(
       const i = mockTokens.findIndex((t) => t.id === params.id && t.email === user.email)
       if (i === -1) return error(404, 'not_found', 'No such token')
       mockTokens.splice(i, 1)
+      return new HttpResponse(null, { status: 204 })
+    }),
+
+    // Apps connected by signing in (ARCHITECTURE §8.4): the demo shows one, kept in memory.
+    http.get('/api/oauth/connections', ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      return HttpResponse.json(mockConnections)
+    }),
+    http.delete('/api/oauth/connections/:id', ({ request, params }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const i = mockConnections.findIndex((c) => c.id === params.id)
+      if (i === -1) return error(404, 'not_found', 'No such connection')
+      mockConnections.splice(i, 1)
       return new HttpResponse(null, { status: 204 })
     }),
 

@@ -13,7 +13,7 @@ describe('Settings: access tokens', () => {
     expect(
       await screen.findByRole('heading', { name: 'Connect an AI tool to Hotsauce' }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/such as ChatGPT, Claude, Grok or Cursor/)).toBeInTheDocument()
+    expect(screen.getByText(/such as Claude, ChatGPT, Grok or Cursor/)).toBeInTheDocument()
     expect(screen.getByTestId('token-name')).toHaveValue('')
     expect(screen.getByTestId('token-name')).toHaveAttribute('placeholder', 'My AI tool')
     expect(screen.getByTestId('token-create')).toBeDisabled()
@@ -63,9 +63,7 @@ describe('Settings: access tokens', () => {
 
     for (const tool of ['chatgpt', 'grok']) {
       await user.click(screen.getByTestId(`ai-tool-${tool}`))
-      expect(screen.getByTestId('ai-tool-coming-soon')).toHaveTextContent(
-        'Needs sign-in, coming soon',
-      )
+      expect(screen.getByTestId('ai-tool-sign-in')).toHaveTextContent('doesn’t need a token')
       expect(screen.getByTestId('ai-tool-steps').textContent).not.toContain(secret)
     }
 
@@ -344,5 +342,21 @@ describe('Settings: layout, account, install, help and about', () => {
     )
     expect(screen.getByTestId('settings-version')).toHaveTextContent('version 0.8.0')
     expect(screen.getByTestId('settings-reload')).toBeEnabled()
+  })
+})
+
+describe('Settings: apps connected by signing in', () => {
+  it('shows the server address and the connected apps, and disconnects one', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings')
+    expect(await screen.findByTestId('connect-url')).toHaveTextContent(
+      `${window.location.origin}/mcp`,
+    )
+    const item = await screen.findByTestId('connection-item')
+    expect(within(item).getByText('Claude')).toBeInTheDocument()
+    expect(within(item).getByText('claude.ai')).toBeInTheDocument()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await user.click(within(item).getByTestId('connection-disconnect'))
+    expect(await screen.findByText(/Nothing connected yet/)).toBeInTheDocument()
   })
 })
