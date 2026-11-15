@@ -34,6 +34,13 @@ public enum ServerAddress {
         return host == "localhost" || host == "127.0.0.1"
     }
 
+    /// Whether two saved addresses are different servers. Settings names Dictate's server only
+    /// then; an empty or unreadable address never counts as different.
+    public static func differs(_ a: String, _ b: String) -> Bool {
+        guard let first = ConnectLink.normalizedServer(a), let second = ConnectLink.normalizedServer(b) else { return false }
+        return first != second
+    }
+
     /// The `/api/health` URL of a server.
     public static func healthURL(server: URL) -> URL? {
         guard var components = URLComponents(url: server, resolvingAgainstBaseURL: false) else { return nil }

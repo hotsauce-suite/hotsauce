@@ -12,6 +12,15 @@ import Testing
         #expect(ServerAddress.windowServer(setting: nil, connection: connection) == connection)
     }
 
+    // Settings IA R3: Settings names Dictate's server only when it isn't the workspace's.
+    @Test func dictateServerIsOnlyCalledOutWhenItDiffers() {
+        #expect(!ServerAddress.differs("https://team.example.com", "https://team.example.com/"))
+        #expect(!ServerAddress.differs("https://Team.example.com", "https://team.example.com"))
+        #expect(ServerAddress.differs("https://team.example.com", "https://old.example.com"))
+        #expect(!ServerAddress.differs("", "https://team.example.com"))
+        #expect(!ServerAddress.differs("https://team.example.com", ""))
+    }
+
     // R1: no built-in address. A fresh Mac has no workspace until it's asked for one.
     @Test func noWorkspaceWithoutASettingOrAConnection() {
         #expect(ServerAddress.windowServer(setting: nil, connection: nil) == nil)
