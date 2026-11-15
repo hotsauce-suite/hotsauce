@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   DeepgramClipTranscriber,
   deepgramClipUrl,
@@ -9,14 +9,14 @@ import {
 
 describe('deepgramClipUrl', () => {
   it('asks for nova-3 with paragraphs, utterances and each keyterm', () => {
-    const url = new URL(deepgramClipUrl('https://api.deepgram.com/v1/listen', ['Acme', 'Hearth']))
+    const url = new URL(deepgramClipUrl('https://api.deepgram.com/v1/listen', ['Acme', 'Hotsauce']))
     expect(url.searchParams.get('model')).toBe('nova-3')
     expect(url.searchParams.get('smart_format')).toBe('true')
     expect(url.searchParams.get('punctuate')).toBe('true')
     expect(url.searchParams.get('paragraphs')).toBe('true')
     expect(url.searchParams.get('utterances')).toBe('true')
     expect(url.searchParams.get('diarize')).toBe('true')
-    expect(url.searchParams.getAll('keyterm')).toEqual(['Acme', 'Hearth'])
+    expect(url.searchParams.getAll('keyterm')).toEqual(['Acme', 'Hotsauce'])
   })
 })
 
@@ -64,7 +64,7 @@ describe('mapDeepgramClip', () => {
   })
 
   it('is an asr_error for a body that isn’t a Deepgram response', () => {
-    expect(() => mapDeepgramClip({ nope: true })).toThrow(HearthError)
+    expect(() => mapDeepgramClip({ nope: true })).toThrow(HotsauceError)
   })
 })
 

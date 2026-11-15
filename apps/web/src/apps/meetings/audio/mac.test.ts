@@ -119,10 +119,10 @@ describe('captureMac', () => {
 
   it("the app's refusal is a CaptureError with its reason and message", async () => {
     const err = await captureMac(
-      fakeBridge({ ok: false, reason: 'denied', message: 'Allow the microphone for Hearth.' }),
+      fakeBridge({ ok: false, reason: 'denied', message: 'Allow the microphone for Hotsauce.' }),
     ).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(CaptureError)
-    expect(err).toMatchObject({ reason: 'denied', message: 'Allow the microphone for Hearth.' })
+    expect(err).toMatchObject({ reason: 'denied', message: 'Allow the microphone for Hotsauce.' })
 
     const odd = await captureMac(fakeBridge({ ok: false, reason: 'weird' })).catch((e) => e)
     expect(odd).toMatchObject({ reason: 'unsupported' })

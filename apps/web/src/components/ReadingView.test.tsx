@@ -63,7 +63,7 @@ describe('ReadingView', () => {
   it('shows repo images through the document’s resolver, and says when one is missing', async () => {
     const resolveImage = vi.fn(async (src: string) => {
       if (src.includes('gone')) throw new Error('not found')
-      return 'blob:hearth/chart'
+      return 'blob:hotsauce/chart'
     })
     renderMarkdown(
       '![Chart](../../assets/2026/10/chart.png)\n\n![Old](../../assets/gone.png)\n',
@@ -72,7 +72,7 @@ describe('ReadingView', () => {
     )
     expect(await screen.findByRole('img', { name: 'Chart' })).toHaveAttribute(
       'src',
-      'blob:hearth/chart',
+      'blob:hotsauce/chart',
     )
     expect(await screen.findByText(/Image not found: \.\.\/\.\.\/assets\/gone\.png/)).toBeVisible()
     expect(resolveImage).toHaveBeenCalledWith('../../assets/2026/10/chart.png')

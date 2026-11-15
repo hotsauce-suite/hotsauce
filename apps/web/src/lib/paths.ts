@@ -54,7 +54,7 @@ const OPENABLE = /^(https?:|mailto:)/i
 
 /**
  * Opens an external link in a new tab when its scheme is safe, and says whether it did. A
- * `javascript:` link opened this way would run in a blank page that shares Hearth's origin.
+ * `javascript:` link opened this way would run in a blank page that shares Hotsauce's origin.
  */
 export function openExternal(href: string): boolean {
   const target = href.trim()
@@ -93,7 +93,7 @@ export function noteUrl(space: string, path: string): string {
   return `/notes/item/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
 }
 
-/** A Hearth Files pointer, `files/<id>.md` (ARCHITECTURE §18.1). */
+/** A Hotsauce Files pointer, `files/<id>.md` (ARCHITECTURE §18.1). */
 /** A form opens in Forms, an answer on its form's Answers tab (ARCHITECTURE §21); else null. */
 export function formFileUrl(space: string, path: string): string | null {
   const m = /^forms\/([0-9A-Z]{26})(?:\/([0-9A-Z]{26}))?\.md$/.exec(path)
@@ -118,13 +118,13 @@ export function isDriveFile(path: string): boolean {
   return /^files\/[0-9A-Z]{26}\.md$/.test(path)
 }
 
-/** Where Hearth Files opens the file a pointer stands for. */
+/** Where Hotsauce Files opens the file a pointer stands for. */
 export function driveFileUrl(space: string, path: string): string {
   const id = basename(path).replace(/\.md$/i, '')
   return `/files/${encodeURIComponent(space)}/${encodeURIComponent(id)}`
 }
 
-/** The app URL for a meeting note (or any file opened from Hearth Meetings). */
+/** The app URL for a meeting note (or any file opened from Hotsauce Meetings). */
 export function meetingUrl(space: string, path: string): string {
   return `/meetings/${encodeURIComponent(space)}/${encodePath(path)}`
 }

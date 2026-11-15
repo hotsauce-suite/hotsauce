@@ -30,7 +30,7 @@ test('retitling a doc offers to rename its file, and the doc follows the rename'
   // The edit was committed before the move, and history follows the file across it.
   const commits = await api.history(user.team, renamed)
   expect(commits.map((c) => c.message)).toEqual([
-    `hearth: move "${file}" to "${renamed}"`,
+    `hotsauce: move "${file}" to "${renamed}"`,
     `docs: edit "Kiln log ${id}"`,
     `docs: create "Retitle ${id}"`,
   ])

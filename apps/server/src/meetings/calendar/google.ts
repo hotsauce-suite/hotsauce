@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { Principal } from '../../auth/index.js'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import type { CalendarEvent } from './types.js'
 
 const API = 'https://www.googleapis.com/calendar/v3'
@@ -53,7 +53,7 @@ export function clerkGoogleGrant(
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(
-        () => reject(new HearthError('host_error', "Clerk didn't answer for the Google token")),
+        () => reject(new HotsauceError('host_error', "Clerk didn't answer for the Google token")),
         GOOGLE_TIMEOUT_MS,
       )
     })
@@ -72,18 +72,18 @@ export function clerkGoogleGrant(
       }
       return first ? { token: first.token, scopes: first.scopes ? [...first.scopes] : null } : null
     } catch (err) {
-      if (err instanceof HearthError) throw err
+      if (err instanceof HotsauceError) throw err
       // Clerk's errors carry a fresh trace id each time; a stable message is logged once.
       const detail = (err as { errors?: Array<{ code?: string; longMessage?: string }> })
         .errors?.[0]
       const code = detail?.code
       if (code === 'oauth_token_retrieval_error') {
-        throw new HearthError(
+        throw new HotsauceError(
           'forbidden',
           `Couldn't get a Google token for your account (Clerk: ${detail?.longMessage ?? code}). Sign out, then sign in with Google again and allow calendar access.`,
         )
       }
-      throw new HearthError(
+      throw new HotsauceError(
         'host_error',
         `Clerk couldn't provide the Google token (${code ?? 'error'})`,
       )
@@ -214,8 +214,8 @@ export class SyncTokenExpired extends Error {
 }
 
 /** The member's Google token was missing or refused. */
-export function notConnected(refused: boolean): HearthError {
-  return new HearthError(
+export function notConnected(refused: boolean): HotsauceError {
+  return new HotsauceError(
     'forbidden',
     refused
       ? 'Google Calendar refused access. Sign in with Google again and allow calendar access.'
@@ -296,7 +296,7 @@ export class GoogleCalendarHttp implements GoogleCalendarApi {
         signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
       })
     } catch (err) {
-      throw new HearthError('host_error', `Couldn't reach Google Calendar (${err})`)
+      throw new HotsauceError('host_error', `Couldn't reach Google Calendar (${err})`)
     }
     if (res.status === 410) {
       await res.body?.cancel()
@@ -308,9 +308,9 @@ export class GoogleCalendarHttp implements GoogleCalendarApi {
       throw refusal(res.status, text)
     }
     if (res.status === 404)
-      throw new HearthError('not_found', 'Google Calendar has no such calendar')
+      throw new HotsauceError('not_found', 'Google Calendar has no such calendar')
     if (!res.ok) {
-      throw new HearthError(
+      throw new HotsauceError(
         'host_error',
         `Google Calendar request failed (${res.status}) ${text.slice(0, 300)}`,
       )
@@ -341,7 +341,7 @@ const GoogleError = z.looseObject({
  * Google's 401 or 403 as the member should read it, with Google's reason in it, so the log and
  * Meetings home say which of three different fixes is needed (§7.8).
  */
-export function refusal(status: number, body: string): HearthError {
+export function refusal(status: number, body: string): HotsauceError {
   let parsed: z.infer<typeof GoogleError>['error']
   try {
     parsed = GoogleError.parse(JSON.parse(body)).error
@@ -359,18 +359,18 @@ export function refusal(status: number, body: string): HearthError {
     /project (\d+)/.exec(parsed?.message ?? '')?.[1]
   const why = `Google ${status}${reasons.length ? `: ${[...new Set(reasons)].join(', ')}` : ''}`
   if (has('accessNotConfigured', 'SERVICE_DISABLED')) {
-    return new HearthError(
+    return new HotsauceError(
       'forbidden',
       `The Google Calendar API is turned off in the Google Cloud project behind sign-in${project ? ` (${project})` : ''}. Turn it on in Google Cloud console under APIs & Services. (${why})`,
     )
   }
   if (has('insufficientPermissions', 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')) {
-    return new HearthError(
+    return new HotsauceError(
       'forbidden',
       `Your Google sign-in doesn't include calendar access. Sign out, then sign in with Google again and allow calendar access. (${why})`,
     )
   }
-  return new HearthError(
+  return new HotsauceError(
     'forbidden',
     `Google Calendar refused access. Sign in with Google again and allow calendar access. (${why})`,
   )

@@ -1,4 +1,4 @@
-// The apps of the Hearth suite. Each app is a manifest in `src/apps/<id>/manifest.ts` plus
+// The apps of the Hotsauce suite. Each app is a manifest in `src/apps/<id>/manifest.ts` plus
 // routes under its `route`; the shell, the app rail, Cmd-K and the document view read these.
 // The rail draws whatever is listed here: a new app appears there by its manifest alone.
 
@@ -64,7 +64,7 @@ export interface AppManifest {
   preload: () => Promise<unknown>
 }
 
-/** A rail entry that leaves Hearth: opens `href` in a new tab. Never routed, never in `APPS`. */
+/** A rail entry that leaves Hotsauce: opens `href` in a new tab. Never routed, never in `APPS`. */
 export interface RailLink {
   id: string
   name: string

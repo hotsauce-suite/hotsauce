@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { FakeLLM } from '../llm/fake.js'
 import type { TranscriptSegment } from '../transcriber/types.js'
 import { type CleanupJob, TranscriptCleanup } from './cleanup.js'
@@ -23,7 +23,7 @@ class OneFileGit {
   version = 1
   commits: Array<{ content: string; message: string }> = []
   async readFile(_space: string, _path: string) {
-    if (this.content === null) throw new HearthError('not_found', 'gone')
+    if (this.content === null) throw new HotsauceError('not_found', 'gone')
     return { content: this.content, blobOid: String(this.version).padStart(40, '0') }
   }
   async commit(
@@ -35,7 +35,7 @@ class OneFileGit {
     },
   ) {
     if (args.unchanged && args.unchanged.blobOid !== String(this.version).padStart(40, '0')) {
-      throw new HearthError('conflict', 'changed')
+      throw new HotsauceError('conflict', 'changed')
     }
     this.content = args.changes[0]?.content ?? ''
     this.version++
@@ -49,7 +49,7 @@ let git: OneFileGit
 let logs: string[]
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'hearth-cleanup-'))
+  dir = await mkdtemp(join(tmpdir(), 'hotsauce-cleanup-'))
   await writeFile(join(dir, 'me.pcm'), new Uint8Array(64_000))
   await writeFile(join(dir, 'them.pcm'), new Uint8Array(64_000))
   git = new OneFileGit()

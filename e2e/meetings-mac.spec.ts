@@ -8,7 +8,7 @@ import {
 } from './meetings-fixtures'
 
 // docs/PLAN-record-any-call.md requirement 6: "Any app on this Mac" end to end, with a stand-in
-// for the Hearth Mac app's bridge. It answers start like the app and sends 100 ms frames of a
+// for the Hotsauce Mac app's bridge. It answers start like the app and sends 100 ms frames of a
 // tone on both tracks, as the app does from the mic and the Mac's audio.
 
 test.beforeEach(async ({ page }) => {

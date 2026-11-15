@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type CheckinInput, type CheckinItem, checkinsApi } from '../../api/checkins'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
@@ -40,7 +40,7 @@ export default function CheckinsPage() {
   useEffect(() => {
     document.title = `Check-ins · ${product()}`
     load()
-    const off = hearthSocket.onChanged(load)
+    const off = hotsauceSocket.onChanged(load)
     return off
   }, [load])
 

@@ -1,5 +1,5 @@
 // MSW routes for `/api/notes` (ARCHITECTURE §14.3), in memory, shaped like the server's NoteView
-// (§14.2). Checklist parsing and the Keep mapping are the real ones from @hearth/format.
+// (§14.2). Checklist parsing and the Keep mapping are the real ones from @hotsauce/format.
 
 import {
   cleanLabels,
@@ -10,7 +10,7 @@ import {
   newId,
   noteTextOf,
   noteTitle,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import { type AnyHandler, delay, HttpResponse, http } from 'msw'
 import type { NoteInput, NoteView } from '../api/notes'
 import type { ServerEvent } from '../api/types'

@@ -15,7 +15,7 @@ test('a file pushed from outside appears in the tree', async ({ page, api, user,
 
   const checkout = await remote.clone('team')
   await checkout.write(pushed, '# From outside\n\nWritten in another editor.\n')
-  await checkout.commitAndPush('Add a doc from outside Hearth')
+  await checkout.commitAndPush('Add a doc from outside Hotsauce')
 
   await expect(treeItem(page, pushed)).toBeVisible({ timeout: 3_000 })
 })
@@ -40,7 +40,7 @@ test('an open doc with no local edits refreshes after an outside push', async ({
   await checkout.edit(file, (text) =>
     text.replace('The original sentence.', `Rewritten outside ${id}.`),
   )
-  await checkout.commitAndPush('Edit from outside Hearth')
+  await checkout.commitAndPush('Edit from outside Hotsauce')
 
   await expect(editor).toContainText(`Rewritten outside ${id}.`, { timeout: 3_000 })
   await expect(editor).not.toContainText('The original sentence.')

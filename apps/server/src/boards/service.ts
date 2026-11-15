@@ -16,9 +16,9 @@ import {
   patchFrontmatter,
   SPACE_LAYOUT,
   tidyScene,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import { type Space, type SpaceService, TEAM_SPACE } from '../spaces/index.js'
@@ -109,7 +109,7 @@ function checkFiles(scene: BoardScene): void {
       !p.startsWith(`${SPACE_LAYOUT.assets}/`) ||
       p.split('/').some((s) => s === '..' || s === '')
     ) {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         `A board's images must be files under ${SPACE_LAYOUT.assets}/`,
       )
@@ -118,7 +118,7 @@ function checkFiles(scene: BoardScene): void {
 }
 
 /**
- * Hearth Whiteboard on the server (ARCHITECTURE §15.2): one Markdown file per board, listed from
+ * Hotsauce Whiteboard on the server (ARCHITECTURE §15.2): one Markdown file per board, listed from
  * the index. A save sends the whole scene with the version it started from; if the board changed
  * meanwhile, the two are merged element by element, so two people never lose each other's shapes.
  */
@@ -245,7 +245,10 @@ export class Boards {
         })
         return { ...this.#view(space, cur.path, blobOf(result, cur.path), fm, scene), merged }
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
         // Someone saved in between: the next attempt merges with their version.
@@ -273,7 +276,10 @@ export class Boards {
         })
         return
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }
@@ -299,7 +305,7 @@ export class Boards {
 
   #assertAccess(principal: Principal, space: string): void {
     if (!this.#spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
@@ -340,21 +346,21 @@ export class Boards {
     fm: BoardFrontmatter
     scene: BoardScene
   }> {
-    if (!BOARD_ID.test(id)) throw new HearthError('not_found', `No board ${id} in ${space}`)
+    if (!BOARD_ID.test(id)) throw new HotsauceError('not_found', `No board ${id} in ${space}`)
     const path = boardPath(id)
     let file: { content: string; blobOid: string }
     try {
       file = await this.#git.readFile(space, path)
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') {
-        throw new HearthError('not_found', `No board ${id} in ${space}`)
+      if (err instanceof HotsauceError && err.code === 'not_found') {
+        throw new HotsauceError('not_found', `No board ${id} in ${space}`)
       }
       throw err
     }
     try {
       const parsed = parseFrontmatter(file.content)
       const fm = parseBoardFm(parsed.data)
-      if (!fm) throw new HearthError('bad_request', `${path} in ${space} isn’t a board`)
+      if (!fm) throw new HotsauceError('bad_request', `${path} in ${space} isn’t a board`)
       return {
         path,
         content: file.content,
@@ -364,7 +370,7 @@ export class Boards {
       }
     } catch (err) {
       if (err instanceof FrontmatterError || err instanceof BoardFormatError) {
-        throw new HearthError('bad_request', `${path} in ${space}: ${err.message}`)
+        throw new HotsauceError('bad_request', `${path} in ${space}: ${err.message}`)
       }
       throw err
     }
@@ -398,6 +404,6 @@ export class Boards {
 
 function blobOf(result: CommitResult, path: string): string {
   if (result.status === 'conflict')
-    throw new HearthError('internal', `Unexpected conflict on ${path}`)
+    throw new HotsauceError('internal', `Unexpected conflict on ${path}`)
   return result.blobOid
 }

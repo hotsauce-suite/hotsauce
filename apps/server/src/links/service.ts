@@ -14,9 +14,9 @@ import {
   parseFrontmatter,
   patchFrontmatter,
   SPACE_LAYOUT,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import type { LLM } from '../meetings/llm/types.js'
@@ -241,7 +241,7 @@ export class Links {
   ): Promise<LinkView & { existing: boolean }> {
     const url = input.url.trim()
     const problem = linkUrlProblem(url)
-    if (problem) throw new HearthError('bad_request', problem)
+    if (problem) throw new HotsauceError('bad_request', problem)
     const visible = await this.#d.spaces.visibleSpaces(principal)
     const space = input.space ?? personalOf(visible)?.name ?? TEAM_SPACE
     this.#assertAccess(principal, space)
@@ -283,7 +283,7 @@ export class Links {
       title: linkName(fm),
       via,
     })
-    if (result.status === 'conflict') throw new HearthError('internal', 'Unexpected conflict')
+    if (result.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
     this.#schedule(principal, space, file.id, via, input.page?.html)
     return {
       ...this.#view({ space, path: file.path, id: file.id, blobOid: result.blobOid, fm }),
@@ -340,7 +340,7 @@ export class Links {
       return this.#placed(principal, this.#view((await this.#read(space, id)).record))
     }
     if (await this.#exists(toSpace, path)) {
-      throw new HearthError('conflict', `A link with id ${id} is already in ${toSpace}`)
+      throw new HotsauceError('conflict', `A link with id ${id} is already in ${toSpace}`)
     }
     for (let attempt = 1; ; attempt++) {
       const file = await this.#read(space, id)
@@ -349,7 +349,7 @@ export class Links {
         toSpace !== TEAM_SPACE &&
         file.record.fm.saved_by.toLowerCase() !== principal.email.toLowerCase()
       ) {
-        throw new HearthError(
+        throw new HotsauceError(
           'forbidden',
           'Only the person who saved a team link can make it private',
         )
@@ -370,12 +370,15 @@ export class Links {
           unchanged: { path, blobOid: file.record.blobOid },
         })
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
         continue
       }
-      if (added.status === 'conflict') throw new HearthError('internal', 'Unexpected conflict')
+      if (added.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
       // Moved before its page was read: the read in the old space finds nothing, so read it here.
       if (!file.record.fm.fetched && !file.record.fm.fetch_error) {
         this.#schedule(principal, toSpace, id, via)
@@ -411,7 +414,10 @@ export class Links {
         this.#d.reading.forget(id)
         return
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }
@@ -552,7 +558,7 @@ export class Links {
       return text === cur.content ? null : text
     }).catch((err) => {
       // Deleted or moved while it was being read: nothing to write.
-      if (err instanceof HearthError && err.code === 'not_found') return
+      if (err instanceof HotsauceError && err.code === 'not_found') return
       throw err
     })
   }
@@ -638,7 +644,7 @@ export class Links {
 
   #assertAccess(principal: Principal, space: string): void {
     if (!this.#d.spaces.canAccess(principal, space)) {
-      throw new HearthError('forbidden', `You don't have access to the space "${space}"`)
+      throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
 
@@ -667,14 +673,14 @@ export class Links {
     space: string,
     id: string,
   ): Promise<{ content: string; record: LinkRecord; body: string }> {
-    if (!LINK_ID.test(id)) throw new HearthError('not_found', `No link ${id} in ${space}`)
+    if (!LINK_ID.test(id)) throw new HotsauceError('not_found', `No link ${id} in ${space}`)
     const path = linkPath(id)
     let file: { content: string; blobOid: string }
     try {
       file = await this.#d.git.readFile(space, path)
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') {
-        throw new HearthError('not_found', `No link ${id} in ${space}`)
+      if (err instanceof HotsauceError && err.code === 'not_found') {
+        throw new HotsauceError('not_found', `No link ${id} in ${space}`)
       }
       throw err
     }
@@ -682,11 +688,11 @@ export class Links {
     try {
       parsed = parseFrontmatter(file.content)
     } catch (err) {
-      if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+      if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
       throw err
     }
     const fm = parseLink(parsed.data)
-    if (!fm) throw new HearthError('bad_request', `${path} in ${space} isn’t a saved link`)
+    if (!fm) throw new HotsauceError('bad_request', `${path} in ${space} isn’t a saved link`)
     return {
       content: file.content,
       record: { space, path, id, blobOid: file.blobOid, fm },
@@ -699,7 +705,7 @@ export class Links {
       await this.#d.git.readFile(space, path)
       return true
     } catch (err) {
-      if (err instanceof HearthError && err.code === 'not_found') return false
+      if (err instanceof HotsauceError && err.code === 'not_found') return false
       throw err
     }
   }
@@ -719,12 +725,13 @@ export class Links {
       try {
         text = edit({ content: file.content, fm: file.record.fm })
       } catch (err) {
-        if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+        if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
         throw err
       }
       if (text === null) return this.#view(file.record)
       const fm = parseLink(parseFrontmatter(text).data)
-      if (!fm) throw new HearthError('internal', 'A saved link stopped being one while editing it')
+      if (!fm)
+        throw new HotsauceError('internal', 'A saved link stopped being one while editing it')
       try {
         const result = await this.#commit(principal, space, {
           changes: [{ path: file.record.path, content: text }],
@@ -733,10 +740,13 @@ export class Links {
           via,
           unchanged: { path: file.record.path, blobOid: file.record.blobOid },
         })
-        if (result.status === 'conflict') throw new HearthError('conflict', 'Changed meanwhile')
+        if (result.status === 'conflict') throw new HotsauceError('conflict', 'Changed meanwhile')
         return this.#view({ ...file.record, blobOid: result.blobOid, fm })
       } catch (err) {
-        if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= WRITE_ATTEMPTS) {
+        if (
+          !(err instanceof HotsauceError && err.code === 'conflict') ||
+          attempt >= WRITE_ATTEMPTS
+        ) {
           throw err
         }
       }

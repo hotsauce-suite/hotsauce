@@ -1,5 +1,5 @@
 import type { Authenticator, Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { DictationStore } from './store.js'
 
 /**
@@ -14,18 +14,18 @@ export async function authenticateDevice(
 ): Promise<{ principal: Principal; deviceId: string }> {
   const device = store.useToken(token)
   if (!device)
-    throw new HearthError('unauthorized', 'This device was disconnected; connect it again')
+    throw new HotsauceError('unauthorized', 'This device was disconnected; connect it again')
   let principal: Principal | null
   try {
     principal = await auth.principalForUser(device.userId)
   } catch (err) {
-    if (err instanceof HearthError && err.code === 'domain_not_allowed')
+    if (err instanceof HotsauceError && err.code === 'domain_not_allowed')
       store.revokeAllForUser(device.userId)
     throw err
   }
   if (!principal) {
     store.revokeAllForUser(device.userId)
-    throw new HearthError('unauthorized', 'This device was disconnected; connect it again')
+    throw new HotsauceError('unauthorized', 'This device was disconnected; connect it again')
   }
   return { principal, deviceId: device.id }
 }

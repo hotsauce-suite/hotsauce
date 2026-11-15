@@ -1,7 +1,7 @@
 // Pure helpers for the grid (ARCHITECTURE §22.8): sorting and filtering the rows on screen,
 // reading what a cell holds by its column type, and turning clipboard text into cells.
 
-import type { ColumnType } from '@hearth/format'
+import type { ColumnType } from '@hotsauce/format'
 
 export interface Sort {
   column: number

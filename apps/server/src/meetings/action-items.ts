@@ -1,5 +1,5 @@
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore } from '../git/index.js'
 import type { Index } from '../index/index.js'
 import { listMeetings, matchesPerson } from './list.js'
@@ -103,7 +103,7 @@ export async function completeActionItem(
     const still = openActionItems(file.content).some(
       (item) => item.line === args.line && item.text === args.text.trim(),
     )
-    if (current === undefined || !still) throw new HearthError('conflict', CHANGED)
+    if (current === undefined || !still) throw new HotsauceError('conflict', CHANGED)
     lines[args.line - 1] = current.replace('[ ]', '[x]')
     try {
       const result = await deps.git.commit(space, {
@@ -121,7 +121,7 @@ export async function completeActionItem(
       await deps.afterCommit(space, path, result)
       return
     } catch (err) {
-      if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= TICK_ATTEMPTS) {
+      if (!(err instanceof HotsauceError && err.code === 'conflict') || attempt >= TICK_ATTEMPTS) {
         throw err
       }
     }
@@ -144,7 +144,8 @@ export async function reopenActionItem(
     const file = await deps.git.readFile(space, path)
     const lines = file.content.split('\n')
     const match = DONE_TASK.exec((lines[args.line - 1] ?? '').replace(/\r$/, ''))
-    if (!match || match[3]?.trim() !== args.text.trim()) throw new HearthError('conflict', CHANGED)
+    if (!match || match[3]?.trim() !== args.text.trim())
+      throw new HotsauceError('conflict', CHANGED)
     lines[args.line - 1] = (lines[args.line - 1] ?? '').replace(/\[[xX]\]/, '[ ]')
     try {
       const result = await deps.git.commit(space, {
@@ -156,7 +157,7 @@ export async function reopenActionItem(
       await deps.afterCommit(space, path, result)
       return
     } catch (err) {
-      if (!(err instanceof HearthError && err.code === 'conflict') || attempt >= TICK_ATTEMPTS) {
+      if (!(err instanceof HotsauceError && err.code === 'conflict') || attempt >= TICK_ATTEMPTS) {
         throw err
       }
     }

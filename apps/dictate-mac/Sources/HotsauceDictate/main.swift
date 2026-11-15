@@ -1,7 +1,7 @@
 import AppKit
 import DictateCore
 
-// `HearthDictate --transcribe-file <path> [--literal]` runs one upload and prints the result,
+// `HotsauceDictate --transcribe-file <path> [--literal]` runs one upload and prints the result,
 // for automated end-to-end tests. Anything else starts the app.
 if let index = CommandLine.arguments.firstIndex(of: "--render-previews"), index + 1 < CommandLine.arguments.count {
     let folder = CommandLine.arguments[index + 1]

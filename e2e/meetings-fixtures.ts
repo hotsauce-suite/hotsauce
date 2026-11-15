@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test'
-import { test as base, expect, HearthApi, signIn, uid } from './fixtures'
+import { test as base, expect, HotsauceApi, signIn, uid } from './fixtures'
 
 export { expect }
 
@@ -12,8 +12,8 @@ export interface Member {
   name: string
   personal: string
   team: string
-  api: HearthApi
-  /** Authenticated as the member via the dev-auth header, for routes HearthApi doesn't wrap. */
+  api: HotsauceApi
+  /** Authenticated as the member via the dev-auth header, for routes HotsauceApi doesn't wrap. */
   request: APIRequestContext
 }
 
@@ -37,7 +37,7 @@ export const test = base.extend<MeetingsFixtures>({
         extraHTTPHeaders: { 'x-hearth-dev-user': email },
       })
       contexts.push(request)
-      const api = new HearthApi(request, email)
+      const api = new HotsauceApi(request, email)
       // The first authenticated request also provisions the personal space.
       const { principal, spaces } = await api.me()
       const team = spaces.find((s) => s.kind === 'team')
@@ -145,7 +145,7 @@ export function splitNote(content: string): { frontmatter: string; body: string 
   return { frontmatter: match[1], body: content.slice(match[0].length) }
 }
 
-/** `ai_ranges` as Hearth writes it, a flow sequence of 1-based `[first, last]` body lines. */
+/** `ai_ranges` as Hotsauce writes it, a flow sequence of 1-based `[first, last]` body lines. */
 export function aiRangesOf(frontmatter: string): Array<[number, number]> {
   const value = frontmatter.match(/^ai_ranges: (\[.*\])$/m)?.[1]
   if (!value) throw new Error(`no flow-style ai_ranges in:\n${frontmatter}`)

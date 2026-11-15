@@ -2,7 +2,7 @@
 // `Takeout/Keep/*.json` files inside the .zip. Only those entries are read (Blob.slice), so a
 // multi-gigabyte export with photos costs no more than its notes. Zip64 is handled.
 
-import { KeepNote } from '@hearth/format'
+import { KeepNote } from '@hotsauce/format'
 
 export interface KeepFile {
   /** The file's name inside the Keep folder, e.g. `Groceries.json`: the note's import ref. */

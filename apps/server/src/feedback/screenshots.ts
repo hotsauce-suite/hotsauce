@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 /** docs/PLAN-feedback-screenshots.md S4: at most three pictures per item, 5 MB each. */
 export const MAX_SCREENSHOTS = 3
@@ -33,16 +33,16 @@ export function checkScreenshots(
   now: Date,
 ): { bytes: Uint8Array; path: string }[] {
   if (screenshots.length > MAX_SCREENSHOTS) {
-    throw new HearthError('bad_request', `Attach at most ${MAX_SCREENSHOTS} screenshots`)
+    throw new HotsauceError('bad_request', `Attach at most ${MAX_SCREENSHOTS} screenshots`)
   }
   const month = now.toISOString().slice(0, 7)
   return screenshots.map((bytes) => {
     if (bytes.length > MAX_SCREENSHOT_BYTES) {
-      throw new HearthError('bad_request', 'Each screenshot must be 5 MB or smaller')
+      throw new HotsauceError('bad_request', 'Each screenshot must be 5 MB or smaller')
     }
     const kind = sniffImage(bytes)
     if (!kind) {
-      throw new HearthError('bad_request', 'Screenshots must be PNG, JPEG, WebP or GIF images')
+      throw new HotsauceError('bad_request', 'Screenshots must be PNG, JPEG, WebP or GIF images')
     }
     return {
       bytes,

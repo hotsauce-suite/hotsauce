@@ -23,7 +23,7 @@ let app: ReturnType<typeof createApp>
 let prompts: LLMRequest[]
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-calendar-')
+  root = await makeTempDir('hotsauce-calendar-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',

@@ -1,4 +1,4 @@
-import type { Column } from '@hearth/format'
+import type { Column } from '@hotsauce/format'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { tablesApi } from '../../api/tables'

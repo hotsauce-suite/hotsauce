@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router'
 import { type BoardView, boardsApi } from '../../api/boards'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { MeetingsPageHeader } from '../meetings/components/common'
@@ -44,9 +44,9 @@ export default function BoardRoute() {
       (err: unknown) => {
         if (cancelled) return
         setLoadError(
-          err instanceof HearthApiError && err.status === 404
+          err instanceof HotsauceApiError && err.status === 404
             ? 'This board doesn’t exist, or it was deleted.'
-            : err instanceof HearthApiError && err.status === 403
+            : err instanceof HotsauceApiError && err.status === 403
               ? 'This board is in someone else’s private space.'
               : 'Couldn’t open the board. Check your connection and try again.',
         )

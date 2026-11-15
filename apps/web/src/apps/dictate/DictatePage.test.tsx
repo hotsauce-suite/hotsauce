@@ -11,7 +11,7 @@ afterEach(() => {
   opened.links = []
 })
 
-describe('Hearth Dictate page', () => {
+describe('Hotsauce Dictate page', () => {
   it('connects this Mac and the word lists, and sends the download to Settings', async () => {
     renderApp('/dictate')
     expect(await screen.findByTestId('dictate-connect')).toHaveTextContent('Connect this Mac')

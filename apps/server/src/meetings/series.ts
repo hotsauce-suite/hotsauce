@@ -1,4 +1,4 @@
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
 import type { GitStore } from '../git/index.js'
 import type { Index } from '../index/index.js'

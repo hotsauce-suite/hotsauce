@@ -1,6 +1,6 @@
 // Client for `/api/tasks` (ARCHITECTURE §12.3). The shapes are the server's: TaskView is §12.2.
 
-import type { ParsedTask, TaskSource } from '@hearth/format'
+import type { ParsedTask, TaskSource } from '@hotsauce/format'
 import { request } from './client'
 import type { MeetingActionItems } from './types'
 

@@ -7,7 +7,7 @@
   // Wrangler runs this from wherever it was started, so it finds the repo root itself, and
   // stops the deploy if it isn't run inside the repository.
   "build": {
-    "command": "root=$(git rev-parse --show-toplevel) && cd \"$root\" && pnpm install --frozen-lockfile && pnpm build:format && pnpm --filter @hearth/web build:demo"
+    "command": "root=$(git rev-parse --show-toplevel) && cd \"$root\" && pnpm install --frozen-lockfile && pnpm build:format && pnpm --filter @hotsauce/web build:demo"
   },
   "assets": {
     "binding": "ASSETS",

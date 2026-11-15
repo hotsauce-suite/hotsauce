@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   roundPlace,
   summarize,
@@ -70,7 +70,7 @@ describe('Weather', () => {
     )
     const weather = new Weather({ fetch, now: () => now })
     await expect(new Weather({ fetch: fakeFetch({}, 500) }).forecast(1, 2)).rejects.toThrow(
-      HearthError,
+      HotsauceError,
     )
     await weather.forecast(1, 2)
     down = true
@@ -82,11 +82,11 @@ describe('Weather', () => {
     let now = NOW
     const fetch = fakeFetch({}, 500)
     const weather = new Weather({ fetch, now: () => now })
-    await expect(weather.forecast(1, 2)).rejects.toThrow(HearthError)
-    await expect(weather.forecast(1, 2)).rejects.toThrow(HearthError)
+    await expect(weather.forecast(1, 2)).rejects.toThrow(HotsauceError)
+    await expect(weather.forecast(1, 2)).rejects.toThrow(HotsauceError)
     expect(fetch).toHaveBeenCalledTimes(1)
     now += WEATHER_FAILURE_TTL_MS + 1
-    await expect(weather.forecast(1, 2)).rejects.toThrow(HearthError)
+    await expect(weather.forecast(1, 2)).rejects.toThrow(HotsauceError)
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 

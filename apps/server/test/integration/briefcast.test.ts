@@ -41,7 +41,7 @@ const calendar: CalendarSource = {
 }
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-briefcast-')
+  root = await makeTempDir('hotsauce-briefcast-')
   // A Thursday, 10:00 UTC.
   now = new Date('2026-11-12T10:00:00Z')
   events = []

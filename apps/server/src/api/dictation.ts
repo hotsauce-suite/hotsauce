@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { DICTATION_MIME_TYPES, MAX_WORD_LENGTH, MAX_WORDS_PER_LIST } from '../dictation/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'
 
@@ -25,7 +25,7 @@ const TranscribeQuery = z.object({
 })
 
 /**
- * Hearth Dictate (ARCHITECTURE §9.2). `transcribe`, `GET` and `PUT words` and `DELETE devices/self`
+ * Hotsauce Dictate (ARCHITECTURE §9.2). `transcribe`, `GET` and `PUT words` and `DELETE devices/self`
  * also take a device token (the middleware allows it there only); the other device routes need a session.
  */
 export function dictationRoutes(deps: AppDeps) {
@@ -38,7 +38,7 @@ export function dictationRoutes(deps: AppDeps) {
       const mimeType =
         (c.req.header('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
       if (!(DICTATION_MIME_TYPES as readonly string[]).includes(mimeType)) {
-        throw new HearthError(
+        throw new HotsauceError(
           'bad_request',
           'Send the audio as audio/wav, audio/mp4 or audio/webm',
           {
@@ -60,7 +60,7 @@ export function dictationRoutes(deps: AppDeps) {
     })
     .get('/words', (c) => {
       const { userId, email } = c.get('principal')
-      // `account` lets a Mac show whose Hearth it is connecting to.
+      // `account` lets a Mac show whose Hotsauce it is connecting to.
       return c.json({ mine: store.words(userId), team: store.words('team'), account: email })
     })
     .put(
@@ -111,7 +111,7 @@ export function dictationRoutes(deps: AppDeps) {
     .delete('/devices/:id', (c) => {
       // `self` is the calling device, for a Mac that disconnects or reconnects itself.
       const id = c.req.param('id') === 'self' ? c.get('deviceId') : c.req.param('id')
-      if (!id) throw new HearthError('bad_request', 'Only a connected Mac can disconnect itself')
+      if (!id) throw new HotsauceError('bad_request', 'Only a connected Mac can disconnect itself')
       store.revokeDevice(c.get('principal').userId, id)
       return c.body(null, 204)
     })

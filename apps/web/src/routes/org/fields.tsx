@@ -1,5 +1,5 @@
 import { type ReactNode, useId, useState } from 'react'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { Icon } from '../../components/Icon'
 
 /** Small building blocks shared by the setup wizard and Settings → Organization. */
@@ -186,5 +186,5 @@ export function Callout({
 }
 
 export function messageOf(err: unknown): string {
-  return err instanceof HearthApiError || err instanceof Error ? err.message : String(err)
+  return err instanceof HotsauceApiError || err instanceof Error ? err.message : String(err)
 }

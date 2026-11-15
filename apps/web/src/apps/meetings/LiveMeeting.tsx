@@ -11,7 +11,7 @@ import {
 } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { calendarApi } from '../../api/calendar'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import type { CalendarEvent, MeetingSession, TranscriptSegment } from '../../api/types'
 import { product } from '../../brand/product'
@@ -34,7 +34,7 @@ import { beginLive, currentLive, type LiveMeeting as Meeting, stopSession } from
 import { type LiveSnapshot, patchLive, useLive } from './live/liveState'
 import { meetCallCode } from './meetEvent'
 
-/** /meetings/live/:id — the notepad while Hearth listens. */
+/** /meetings/live/:id — the notepad while Hotsauce listens. */
 export default function LiveMeeting() {
   const { id = '' } = useParams()
   return <LivePage key={id} id={id} />
@@ -81,7 +81,7 @@ function LivePage({ id }: { id: string }) {
       },
       (err: unknown) => {
         if (cancelled) return
-        const status = err instanceof HearthApiError ? err.status : 0
+        const status = err instanceof HotsauceApiError ? err.status : 0
         setProblem(
           status === 404
             ? 'There’s no meeting here. It may have ended on another device.'

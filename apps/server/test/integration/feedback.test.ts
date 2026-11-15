@@ -16,7 +16,7 @@ let tracker: MemoryTracker
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-feedback-')
+  root = await makeTempDir('hotsauce-feedback-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -82,7 +82,7 @@ describe('Send feedback API', () => {
         answers,
         title: second.title,
         summary: second.summary,
-        context: { page: '/docs', app: 'Hearth', browser: 'test' },
+        context: { page: '/docs', app: 'Hotsauce', browser: 'test' },
       },
     })
     expect(filed.status).toBe(201)

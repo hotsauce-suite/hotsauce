@@ -1,7 +1,7 @@
 // MSW routes for booking links (ARCHITECTURE §19): links in memory, slots from the real
 // `openSlots` against an empty calendar, and bookings that take their slot.
 
-import { BookingFrontmatter, openSlots, rulesOf } from '@hearth/format'
+import { BookingFrontmatter, openSlots, rulesOf } from '@hotsauce/format'
 import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { BookingInput, BookingLink } from '../api/booking'
 

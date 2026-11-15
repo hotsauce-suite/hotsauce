@@ -84,6 +84,14 @@
         color: var(--ink);
         font: inherit;
       }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
       .error {
         margin: 8px 0 0;
         color: var(--ember-strong);
@@ -115,15 +123,15 @@
       <p class="hint">Shortcut: Alt+Shift+H, then Enter.</p>
     </section>
     <section id="save" hidden>
-      <h1>Save this page</h1>
+      <h1 id="save-status">Saving to <span class="product">Hotsauce</span>…</h1>
+      <p id="save-said" class="visually-hidden" role="status"></p>
       <p id="page-title" class="title"></p>
-      <button id="save-page" type="button">Save to <span class="product">Hotsauce</span></button>
       <p class="hint"><span class="product">Hotsauce</span> keeps a readable copy. <a id="open-links" href="about:blank" target="_blank" rel="noreferrer">Your saved links</a></p>
     </section>
     <section id="elsewhere" hidden>
       <h1><span class="product">Hotsauce</span> Meetings</h1>
       <p>Join a Google Meet call, then click this icon to take notes on it.</p>
-      <a id="open-hearth" href="about:blank" target="_blank" rel="noreferrer">Open <span class="product">Hotsauce</span> Meetings</a>
+      <a id="open-hotsauce" href="about:blank" target="_blank" rel="noreferrer">Open <span class="product">Hotsauce</span> Meetings</a>
     </section>
     <section id="setup" hidden>
       <h1 id="setup-title">Connect to your server</h1>

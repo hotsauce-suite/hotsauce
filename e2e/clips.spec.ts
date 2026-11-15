@@ -9,7 +9,7 @@ const run = promisify(execFile)
 
 /** Where the e2e server keeps a clip's files (AUDIO_STORE=local). */
 function clipFile(id: string, name: string): string {
-  return path.join(process.env.HEARTH_E2E_DATA_DIR ?? '', 'kept-audio', 'clips', id, name)
+  return path.join(process.env.HOTSAUCE_E2E_DATA_DIR ?? '', 'kept-audio', 'clips', id, name)
 }
 
 /** One pixel's RGB from `file` at `seconds` (a 2×2 crop on even coordinates, for yuv420). */
@@ -53,7 +53,7 @@ async function videoHeight(file: string): Promise<number> {
   return Number(stdout.trim())
 }
 
-// ARCHITECTURE §10.5: Hearth Clips against the built server, with Chromium's fake camera,
+// ARCHITECTURE §10.5: Hotsauce Clips against the built server, with Chromium's fake camera,
 // microphone and screen (the share picker answers itself), FakeClipTranscriber and FakeLLM.
 
 const video = (page: Page) => page.getByTestId('clip-video')
@@ -177,7 +177,7 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
     const ringY = h - margin - size - Math.floor(ring / 2)
     const inComposite = await pixel(composite, 2, cx, ringY)
     const onScreen = await pixel(screen, 2, cx, (ringY * (await videoHeight(screen))) / h)
-    // The ring is Hearth's paper colour; the screen there isn't.
+    // The ring is Hotsauce's paper colour; the screen there isn't.
     expect(inComposite[0]).toBeGreaterThan(200)
     expect(inComposite[1]).toBeGreaterThan(195)
     expect(inComposite[2]).toBeGreaterThan(185)

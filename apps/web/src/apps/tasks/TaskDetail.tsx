@@ -1,4 +1,4 @@
-import { normalizeRecurrence } from '@hearth/format'
+import { normalizeRecurrence } from '@hotsauce/format'
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'

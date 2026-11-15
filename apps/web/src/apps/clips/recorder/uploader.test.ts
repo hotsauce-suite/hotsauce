@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import { ChunkUploader, isRetryable } from './uploader'
 
 const blob = (s: string) => new Blob([s])
@@ -29,7 +29,7 @@ describe('ChunkUploader', () => {
     const up = new ChunkUploader(
       async (seq) => {
         if (seq === 1 && failures-- > 0) {
-          throw new HearthApiError('network', 'Could not reach the Hearth server', 0)
+          throw new HotsauceApiError('network', 'Could not reach the Hotsauce server', 0)
         }
         sent.push(seq)
       },
@@ -49,7 +49,7 @@ describe('ChunkUploader', () => {
 
   it('stops for good when the server refuses, and drain says why', async () => {
     const up = new ChunkUploader(async () => {
-      throw new HearthApiError('conflict', 'This recording has already been finished', 409)
+      throw new HotsauceApiError('conflict', 'This recording has already been finished', 409)
     })
     up.add(blob('a'))
     await expect(up.drain()).rejects.toThrow('already been finished')
@@ -72,9 +72,9 @@ describe('ChunkUploader', () => {
 
   it('retries what is worth retrying', () => {
     expect(isRetryable(new TypeError('fetch failed'))).toBe(true)
-    expect(isRetryable(new HearthApiError('server_error', 'x', 502))).toBe(true)
-    expect(isRetryable(new HearthApiError('rate_limited', 'x', 429))).toBe(true)
-    expect(isRetryable(new HearthApiError('forbidden', 'x', 403))).toBe(false)
-    expect(isRetryable(new HearthApiError('too_large', 'x', 413))).toBe(false)
+    expect(isRetryable(new HotsauceApiError('server_error', 'x', 502))).toBe(true)
+    expect(isRetryable(new HotsauceApiError('rate_limited', 'x', 429))).toBe(true)
+    expect(isRetryable(new HotsauceApiError('forbidden', 'x', 403))).toBe(false)
+    expect(isRetryable(new HotsauceApiError('too_large', 'x', 413))).toBe(false)
   })
 })

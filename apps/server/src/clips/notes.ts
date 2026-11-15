@@ -4,7 +4,7 @@ import {
   meetingPaths,
   newId,
   patchFrontmatter,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { ClipSpeaker } from './service.js'
 import type { ClipRecord } from './store.js'
 
@@ -39,7 +39,7 @@ function stamp(seconds: number): string {
 }
 
 /**
- * A note about a clip, for the member's space: a Hearth Doc (`docs/clips/<slug>.md`) or a
+ * A note about a clip, for the member's space: a Hotsauce Doc (`docs/clips/<slug>.md`) or a
  * Meetings note (`meetings/YYYY/MM/<date>-<slug>.md`, `type: meeting`, so its unticked action
  * items show on Meetings home). Title, link to the clip, summary, action items, and the transcript
  * when asked for: in the doc, or as the meeting's own `.transcript.md`, which Meetings shows in

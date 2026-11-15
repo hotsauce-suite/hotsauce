@@ -1,5 +1,5 @@
-import type { PreviewKind } from '@hearth/format'
-import { MAX_FILE_TEXT_CHARS } from '@hearth/format'
+import type { PreviewKind } from '@hotsauce/format'
+import { MAX_FILE_TEXT_CHARS } from '@hotsauce/format'
 import { useEffect, useState } from 'react'
 import { filesApi } from '../../api/files'
 

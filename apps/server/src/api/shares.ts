@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
 import { PathParam, valid } from './validate.js'
@@ -18,7 +18,7 @@ export function shareRoutes(deps: Pick<AppDeps, 'shares' | 'org'>) {
   // before the token, so a guess from outside learns nothing about which tokens exist.
   const viewer = (principal: Principal | undefined) => {
     if (!principal && !org.settings().publicShareLinks) {
-      throw new HearthError('unauthorized', 'Sign in to open this link')
+      throw new HotsauceError('unauthorized', 'Sign in to open this link')
     }
   }
   return (
@@ -29,7 +29,7 @@ export function shareRoutes(deps: Pick<AppDeps, 'shares' | 'org'>) {
       .put('/sharing', valid('json', z.object({ publicShareLinks: z.boolean() })), (c) => {
         const p = c.get('principal')
         if (!p.isAdmin || p.via) {
-          throw new HearthError('forbidden', 'Only an admin can change who can open links')
+          throw new HotsauceError('forbidden', 'Only an admin can change who can open links')
         }
         const { publicShareLinks } = org.saveSettings(c.req.valid('json'))
         return c.json({ publicShareLinks })

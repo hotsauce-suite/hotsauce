@@ -1,8 +1,13 @@
-import { findLinkUrl, LINK_SOURCES, MAX_LINK_URL } from '@hearth/format'
+import { findLinkUrl, LINK_SOURCES, MAX_LINK_URL } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
+<<<<<<< HEAD
 import { HearthError } from '../errors.js'
 import { MAX_ANCHOR, MAX_LINK_LIST } from '../links/index.js'
+=======
+import { HotsauceError } from '../errors.js'
+import { MAX_LINK_LIST } from '../links/index.js'
+>>>>>>> origin/main
 import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'
@@ -51,7 +56,7 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
         (body.url?.trim() ? (findLinkUrl(body.url) ?? body.url.trim()) : null) ??
         findLinkUrl(body.text ?? '') ??
         findLinkUrl(body.title ?? '')
-      if (!url) throw new HearthError('bad_request', 'There’s no web link in what was shared')
+      if (!url) throw new HotsauceError('bad_request', 'There’s no web link in what was shared')
       const saved = await service.save(
         principal,
         {

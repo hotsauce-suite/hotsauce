@@ -79,7 +79,7 @@ describe('Dictation', () => {
     'Ship it Tuesday, or rather Wednesday.',
     'Never mind, Wednesday.',
     'Ship the, the report on Wednesday.',
-    'Email dana at hearth dot com about it.',
+    'Email dana at hotsauce dot com about it.',
     Array.from({ length: 41 }, (_, i) => `word${i}`).join(' '),
     '我们应该在星期三发布哈文的报告并且在周五之前把试点协议发送给普里亚然后起草招聘计划并在团队频道里分享以便大家提前审阅和补充意见谢谢大家的配合和支持我们下周一再碰头讨论细节',
   ])('still cleans %s', async (text) => {

@@ -2,7 +2,7 @@
 // gets saved, so `007` stays `007`); IronCalc (MIT OR Apache-2.0) mirrors them to work out
 // formulas, and rewrites formulas when rows or columns are added or removed.
 
-import { plainText } from '@hearth/format'
+import { plainText } from '@hotsauce/format'
 import init, { Model } from '@ironcalc/wasm'
 
 let ready: Promise<unknown> | null = null

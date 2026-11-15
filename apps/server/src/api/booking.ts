@@ -1,8 +1,8 @@
-import { BOOKING_LENGTHS, MAX_BOOKING_QUESTIONS } from '@hearth/format'
+import { BOOKING_LENGTHS, MAX_BOOKING_QUESTIONS } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'
 
@@ -63,7 +63,7 @@ const PublicLink = z.object({
 const limitBookingBody = bodyLimit({
   maxSize: 16 * 1024,
   onError: () => {
-    throw new HearthError('bad_request', 'Request body is too large', { status: 413 })
+    throw new HotsauceError('bad_request', 'Request body is too large', { status: 413 })
   },
 })
 

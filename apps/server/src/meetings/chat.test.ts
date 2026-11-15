@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type Chunk, chunkFile, MeetingChat, resolveCitations } from './chat.js'
 import { folderPrefix } from './list.js'
 import { FakeLLM } from './llm/fake.js'
@@ -57,7 +57,7 @@ describe('MeetingChat.ask', () => {
   ].join('\n')
   type Deps = ConstructorParameters<typeof MeetingChat>
   const index = {
-    // The note's frontmatter names its transcript, as every note Hearth writes does.
+    // The note's frontmatter names its transcript, as every note Hotsauce writes does.
     getFile: () => ({ frontmatter: { transcript: 'acme-sync.transcript.md' } }),
     rankPassages: () => [],
     search: () => [],
@@ -66,7 +66,7 @@ describe('MeetingChat.ask', () => {
   const git = {
     readFile: async (_space: string, path: string) => {
       if (path.endsWith('.transcript.md')) return { content: transcript, blobOid: 'blob' }
-      throw new HearthError('not_found', path)
+      throw new HotsauceError('not_found', path)
     },
   }
   const spaces = { visibleSpaces: async () => [], canAccess: () => true }

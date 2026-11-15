@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { parseRange } from './clips.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
@@ -50,7 +50,7 @@ export function briefcastRoutes(deps: Pick<AppDeps, 'briefcasts'>) {
       .get('/feed/:file', async (c) => {
         const match = /^(.+)\.xml$/.exec(c.req.param('file'))
         const token = Token.safeParse(match?.[1])
-        if (!token.success) throw new HearthError('not_found', 'No such feed')
+        if (!token.success) throw new HotsauceError('not_found', 'No such feed')
         const body = await briefcasts.feed(token.data)
         return c.body(body, 200, {
           'Content-Type': 'application/rss+xml; charset=utf-8',
@@ -61,7 +61,7 @@ export function briefcastRoutes(deps: Pick<AppDeps, 'briefcasts'>) {
       .get('/feed/:token/:file', async (c) => {
         const token = Token.safeParse(c.req.param('token'))
         const match = /^(\d{4}-\d{2}-\d{2})\.mp3$/.exec(c.req.param('file'))
-        if (!token.success || !match?.[1]) throw new HearthError('not_found', 'No such episode')
+        if (!token.success || !match?.[1]) throw new HotsauceError('not_found', 'No such episode')
         const bytes = await briefcasts.feedAudio(token.data, match[1])
         return mp3(c.req.header('range'), bytes, 'private, max-age=86400')
       })

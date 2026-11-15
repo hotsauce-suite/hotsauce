@@ -1,7 +1,7 @@
-import { newId, parseFrontmatter, SPACE_LAYOUT, transcriptPathFor } from '@hearth/format'
+import { newId, parseFrontmatter, SPACE_LAYOUT, transcriptPathFor } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { Change, GitStore } from '../git/index.js'
 import { isIndexable } from '../index/index.js'
 import { TEAM_SPACE } from '../spaces/index.js'
@@ -64,7 +64,7 @@ export function fileRoutes(deps: AppDeps) {
       const space = c.req.param('space')
       const path = writablePath(c.req.valid('json').path)
       if (isAtOrUnder(path, SPACE_LAYOUT.trash)) {
-        throw new HearthError('bad_request', `${path} is already in the trash`)
+        throw new HotsauceError('bad_request', `${path} is already in the trash`)
       }
       const oid = await moveToTrash(git, space, path, authorOf(c.get('principal')))
       await syncer.afterHeadChanged(space)
@@ -95,7 +95,7 @@ export function fileRoutes(deps: AppDeps) {
         const space = c.req.param('space')
         // canAccess already limits a personal space to its owner.
         if (space === TEAM_SPACE) {
-          throw new HearthError('bad_request', 'Only docs in your personal space can be shared')
+          throw new HotsauceError('bad_request', 'Only docs in your personal space can be shared')
         }
         const body = c.req.valid('json')
         const path = writablePath(body.path)
@@ -121,7 +121,7 @@ export function fileRoutes(deps: AppDeps) {
         message: `docs: create folder "${folder}"`,
       })
       await afterCommit(deps, space, path, result)
-      if (result.status === 'conflict') throw new HearthError('internal', 'Unexpected conflict')
+      if (result.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
       return c.json({ oid: result.oid })
     })
 }
@@ -154,7 +154,7 @@ export async function moveToTrash(
   try {
     return await moveTo(target)
   } catch (err) {
-    if (!(err instanceof HearthError && err.code === 'conflict')) throw err
+    if (!(err instanceof HotsauceError && err.code === 'conflict')) throw err
     return await moveTo(`${SPACE_LAYOUT.trash}/${day}-${newId().slice(-8)}/${path}`)
   }
 }
@@ -208,7 +208,7 @@ export async function transcriptFollows(
   const transcript = await readOrNull(git, space, oldPath, headOid)
   if (transcript === null) return []
   if ((await readOrNull(git, space, newPath, headOid)) !== null) {
-    throw new HearthError('conflict', `${newPath} already exists in ${space}`)
+    throw new HotsauceError('conflict', `${newPath} already exists in ${space}`)
   }
   return [
     { path: newPath, content: transcript },
@@ -225,7 +225,7 @@ async function readOrNull(
   try {
     return (await git.readFile(space, path, ref)).content
   } catch (err) {
-    if (err instanceof HearthError && err.code === 'not_found') return null
+    if (err instanceof HotsauceError && err.code === 'not_found') return null
     throw err
   }
 }

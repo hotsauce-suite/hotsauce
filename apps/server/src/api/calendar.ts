@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { coverage, matchMeetEvent, type NoteRef } from '../meetings/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'
@@ -105,14 +105,14 @@ export function calendarRoutes(deps: AppDeps) {
       valid('json', z.object({ ids: z.array(z.string().min(1).max(500)).max(50) })),
       async (c) => {
         const principal = c.get('principal')
-        if (!calendarSync) throw new HearthError('bad_request', 'This calendar has no choices')
+        if (!calendarSync) throw new HotsauceError('bad_request', 'This calendar has no choices')
         const listed = await calendarSync.google.listCalendars(principal)
         const others = new Set(listed.filter((l) => !l.primary).map((l) => l.id))
         const primary = new Set(listed.filter((l) => l.primary).map((l) => l.id))
         const ids = c.req.valid('json').ids.filter((id) => id !== 'primary' && !primary.has(id))
         const unknown = ids.filter((id) => !others.has(id))
         if (unknown.length > 0) {
-          throw new HearthError('bad_request', `Not one of your calendars: ${unknown.join(', ')}`)
+          throw new HotsauceError('bad_request', `Not one of your calendars: ${unknown.join(', ')}`)
         }
         calendarSync.cache.register(principal)
         calendarSync.cache.setCalendars(principal.userId, ids)

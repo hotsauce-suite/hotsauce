@@ -1,10 +1,10 @@
-import { FORM_ACCESS, MAX_ANSWER_FILE_BYTES, MAX_ANSWER_FILES } from '@hearth/format'
+import { FORM_ACCESS, MAX_ANSWER_FILE_BYTES, MAX_ANSWER_FILES } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
 import { z } from 'zod'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import type { UploadedFile } from '../forms/index.js'
 import { clientIp } from './booking.js'
 import type { AppDeps, AppEnv } from './env.js'
@@ -29,7 +29,8 @@ const FormInput = z.object({
 })
 
 const adminOnly = (p: Principal) => {
-  if (!p.isAdmin || p.via) throw new HearthError('forbidden', 'Only an admin can change chat rooms')
+  if (!p.isAdmin || p.via)
+    throw new HotsauceError('forbidden', 'Only an admin can change chat rooms')
 }
 
 /** Building forms and reading their answers (ARCHITECTURE §21.4); spaces are checked in the service. */
@@ -124,7 +125,7 @@ export function formRoutes(deps: Pick<AppDeps, 'forms' | 'chatRooms'>) {
 const limitAnswerBody = bodyLimit({
   maxSize: MAX_ANSWER_FILES * MAX_ANSWER_FILE_BYTES + 512 * 1024,
   onError: () => {
-    throw new HearthError(
+    throw new HotsauceError(
       'bad_request',
       'That’s too much to send at once (files are 10 MB at most)',
       {
@@ -138,7 +139,7 @@ const limitAnswerBody = bodyLimit({
 const limitTextAnswerBody = bodyLimit({
   maxSize: 512 * 1024,
   onError: () => {
-    throw new HearthError('bad_request', 'That’s too much to send at once', { status: 413 })
+    throw new HotsauceError('bad_request', 'That’s too much to send at once', { status: 413 })
   },
 })
 
@@ -188,10 +189,10 @@ export function formFillRoutes(deps: Pick<AppDeps, 'forms'>) {
           for (const f of Array.isArray(value) ? value : [value]) {
             if (typeof f === 'string') continue
             if (files.length >= MAX_ANSWER_FILES) {
-              throw new HearthError('bad_request', `At most ${MAX_ANSWER_FILES} files`)
+              throw new HotsauceError('bad_request', `At most ${MAX_ANSWER_FILES} files`)
             }
             if (f.size > MAX_ANSWER_FILE_BYTES) {
-              throw new HearthError('bad_request', 'Each file is at most 10 MB', { status: 413 })
+              throw new HotsauceError('bad_request', 'Each file is at most 10 MB', { status: 413 })
             }
             files.push({
               question: key.slice('file:'.length),
@@ -205,7 +206,7 @@ export function formFillRoutes(deps: Pick<AppDeps, 'forms'>) {
         payloadRaw = await c.req.json().catch(() => null)
       }
       const payload = Payload.safeParse(payloadRaw)
-      if (!payload.success) throw new HearthError('bad_request', 'The answers couldn’t be read')
+      if (!payload.success) throw new HotsauceError('bad_request', 'The answers couldn’t be read')
       return c.json(
         await forms.submit(c.req.valid('param').link, principal, {
           answers: payload.data.answers,

@@ -9,7 +9,7 @@ import { DEV_TURNSTILE_TOKEN } from '../../src/scheduling/turnstile.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
-// Hearth Forms (docs/plans/2026-11-12-forms.md R1, R5–R13; ARCHITECTURE §21) through the API
+// Hotsauce Forms (docs/plans/2026-11-12-forms.md R1, R5–R13; ARCHITECTURE §21) through the API
 // with dev auth, the dev robot check, the fake LLM and a fake chat webhook.
 
 const ALICE = 'alice@example.test'
@@ -23,7 +23,7 @@ let posts: Array<{ url: string; body: { text: string } }>
 let llm: FakeLLM
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-forms-')
+  root = await makeTempDir('hotsauce-forms-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -294,7 +294,7 @@ describe('answering (R6–R10)', () => {
     expect(answers[0]).toMatchObject({ id, submittedBy: null })
     const commit = await lastCommit('team')
     expect(commit).toContain('Forms <forms@hearth.example.test>')
-    expect(commit).toContain('Hearth-Via: forms (public link)')
+    expect(commit).toContain('Hotsauce-Via: forms (public link)')
 
     for (let i = 1; i < ANSWERS_PER_IP_PER_HOUR; i++) {
       await api('POST', `/api/form/${form.link}`, {
@@ -371,7 +371,7 @@ describe('answering (R6–R10)', () => {
     }
   })
 
-  it('stores uploaded files in Hearth Files and ignores file references in the JSON (R10)', async () => {
+  it('stores uploaded files in Hotsauce Files and ignores file references in the JSON (R10)', async () => {
     const form = await makeForm({ access: 'public' })
     const forged = { cv: [{ id: '01JD0000000000000000000000', name: 'secret.pdf', size: 1 }] }
     const { id } = await api('POST', `/api/form/${form.link}`, {

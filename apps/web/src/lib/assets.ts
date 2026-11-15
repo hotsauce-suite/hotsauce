@@ -1,4 +1,4 @@
-import { resolveRelative } from '@hearth/format'
+import { resolveRelative } from '@hotsauce/format'
 import { api } from '../api/client'
 import { isBoardFile, isExternalHref } from './paths'
 
@@ -54,7 +54,7 @@ export class ImageUrls {
   }
 }
 
-// A blob URL is a document in Hearth's own origin when opened in a tab ("Open image in new tab"),
+// A blob URL is a document in Hotsauce's own origin when opened in a tab ("Open image in new tab"),
 // and the repo's `/raw` sandbox header doesn't come with it. So only raster images become blob
 // URLs; an SVG (which can carry script) becomes a data: URL, which browsers refuse to open as a
 // top-level page and give an opaque origin anywhere else; anything else can't render as a page.

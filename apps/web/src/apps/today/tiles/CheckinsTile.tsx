@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { checkinsApi, type DueCheckin } from '../../../api/checkins'
-import { hearthSocket } from '../../../api/ws'
+import { hotsauceSocket } from '../../../api/ws'
 import { Card } from './Card'
 
 const REFRESH_EVERY_MS = 60_000
@@ -23,7 +23,7 @@ export function CheckinsTile({ editing }: { editing: boolean }) {
         () => undefined,
       )
     void load()
-    const off = hearthSocket.onChanged(() => void load())
+    const off = hotsauceSocket.onChanged(() => void load())
     const every = setInterval(() => void load(), REFRESH_EVERY_MS)
     return () => {
       cancelled = true

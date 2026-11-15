@@ -2,7 +2,7 @@ import AppKit
 import DictateCore
 import os
 
-/// One dictation at a time: the hotkey starts and stops the recorder, the audio goes to Hearth,
+/// One dictation at a time: the hotkey starts and stops the recorder, the audio goes to Hotsauce,
 /// the text goes where the cursor was. Main thread only.
 @MainActor
 final class DictationController {

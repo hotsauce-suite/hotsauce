@@ -16,7 +16,7 @@ test('a clip page fits a phone: video, speed and transcript', async ({
   playwright,
   baseURL,
 }) => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'hearth-clip-'))
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'hotsauce-clip-'))
   const file = path.join(dir, 'clip.webm')
   await run('ffmpeg', [
     '-y',

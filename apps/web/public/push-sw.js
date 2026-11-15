@@ -1,5 +1,5 @@
 // Meeting reminders (PRD §6.1), imported into the service worker vite-plugin-pwa generates.
-// The server sends { title, body, url, tag }; a click opens Start for that event. A Hearth tab
+// The server sends { title, body, url, tag }; a click opens Start for that event. A Hotsauce tab
 // that's already open moves there in-app (src/lib/swNavigate.ts), never by a page load, which
 // would end a meeting being recorded in it.
 

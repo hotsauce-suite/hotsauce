@@ -90,7 +90,7 @@ public struct CallWatch: Sendable {
 public enum MicApps {
     /// Apps people take calls in. A list, not "any app with the mic": on a real Mac the mic is
     /// also held by Siri, dictation tools and AI apps' voice modes, which aren't calls. Browsers are
-    /// left out because the Hearth extension already offers notes for a Meet call.
+    /// left out because the Hotsauce extension already offers notes for a Meet call.
     static let callApps: Set<String> = [
         "us.zoom.xos", "com.microsoft.teams2", "com.microsoft.teams", "com.tinyspeck.slackmacgap",
         "com.apple.facetime", "com.cisco.webexmeetingsapp", "cisco-systems.spark", "com.webex.meetingmanager",

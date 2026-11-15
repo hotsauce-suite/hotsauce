@@ -70,7 +70,7 @@ describe('captureAudio', () => {
     expect(capture.streams.me).toBeDefined()
   })
 
-  it('Meet tab mode takes the tab from the Hearth extension and skips the picker', async () => {
+  it('Meet tab mode takes the tab from the Hotsauce extension and skips the picker', async () => {
     const tabAudio = new FakeTrack('audio')
     const media = fakeMedia({})
     const fromExtension = asStream(new FakeStream([tabAudio]))

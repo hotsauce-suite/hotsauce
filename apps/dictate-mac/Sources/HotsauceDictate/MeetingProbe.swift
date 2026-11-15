@@ -1,7 +1,7 @@
 import DictateCore
 import Foundation
 
-/// `HearthDictate --meeting-audio-probe [seconds]`: records "Any app on this Mac" for a few
+/// `HotsauceDictate --meeting-audio-probe [seconds]`: records "Any app on this Mac" for a few
 /// seconds and prints, per track, how many 100 ms frames arrived and their loudest sample, as
 /// JSON. For checking the mic and the process tap on a real Mac (play a sound meanwhile).
 /// `--dictation-mic` instead runs Dictate's own recorder, to tell a mic problem from ours.

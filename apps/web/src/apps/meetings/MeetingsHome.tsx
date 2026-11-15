@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { calendarApi } from '../../api/calendar'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import type {
   CalendarEvent,
@@ -57,7 +57,7 @@ function useUpcoming(): {
         (err: unknown) => {
           if (cancelled) return
           setFailed(
-            err instanceof HearthApiError && err.status === 403
+            err instanceof HotsauceApiError && err.status === 403
               ? err.message
               : 'Your calendar didn’t load.',
           )

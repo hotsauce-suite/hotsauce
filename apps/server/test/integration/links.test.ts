@@ -29,7 +29,7 @@ let hold: Promise<void> | null = null
 let fail = false
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-links-')
+  root = await makeTempDir('hotsauce-links-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -595,7 +595,7 @@ describe('MCP tools', () => {
     })
     await services.links.idle()
     const log2 = await runGit(bare('alice'), ['log', '-2', '--format=%B', 'main'])
-    expect(log2).toContain('Hearth-Via: mcp')
+    expect(log2).toContain('Hotsauce-Via: mcp')
     const listed = await tool(client, 'list_links')
     expect(listed.value).toEqual([
       expect.objectContaining({ title: 'Biosecurity primer', tags: ['reading'] }),

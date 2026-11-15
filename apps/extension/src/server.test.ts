@@ -36,10 +36,10 @@ describe('origins', () => {
 
 describe('the server open in the tab', () => {
   it('is offered when the tab is a Hotsauce page that answered its health check', () => {
-    const health = { ok: true, productName: 'Hearth', setupRequired: false }
+    const health = { ok: true, productName: 'Hotsauce', setupRequired: false }
     expect(serverInTab('https://hotsauce.acme.com/links?x=1', health)).toEqual({
       url: 'https://hotsauce.acme.com',
-      name: 'Hearth',
+      name: 'Hotsauce',
     })
     expect(serverInTab('http://localhost:3000/today', { ok: true })).toEqual({
       url: 'http://localhost:3000',

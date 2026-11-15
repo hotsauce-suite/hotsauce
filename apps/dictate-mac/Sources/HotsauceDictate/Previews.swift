@@ -3,7 +3,7 @@ import DictateCore
 import SwiftUI
 import WebKit
 
-/// `HearthDictate --render-previews <folder> [--dark]`: draws each page of the main window, with
+/// `HotsauceDictate --render-previews <folder> [--dark]`: draws each page of the main window, with
 /// made-up history held only in memory, to PNGs, for checking the design without screen access.
 @MainActor
 enum Previews {
@@ -12,9 +12,12 @@ enum Previews {
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         let model = sampleModel()
-        for page in MainModel.Page.allCases {
+        // Each page at the window's usual size, and Settings again tall enough to show all of it.
+        let shots = MainModel.Page.allCases.map { (page: $0, height: CGFloat(700), name: $0.rawValue.lowercased()) }
+            + [(page: MainModel.Page.settings, height: CGFloat(1500), name: "settings-full")]
+        for (page, height, name) in shots {
             model.page = page
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: 700), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: height), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             window.titlebarAppearsTransparent = true
             window.appearance = app.appearance
             let view = NSHostingView(rootView: MainView(model: model))
@@ -23,7 +26,7 @@ enum Previews {
             RunLoop.main.run(until: Date().addingTimeInterval(0.6))
             guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return 1 }
             view.cacheDisplay(in: view.bounds, to: rep)
-            let url = URL(fileURLWithPath: folder).appendingPathComponent("\(page.rawValue.lowercased())\(dark ? "-dark" : "").png")
+            let url = URL(fileURLWithPath: folder).appendingPathComponent("\(name)\(dark ? "-dark" : "").png")
             try? rep.representation(using: .png, properties: [:])?.write(to: url)
             window.close()
         }
@@ -147,7 +150,7 @@ enum Previews {
             ("Notes", "com.apple.Notes", "- Call the lab about sample intake\n- Draft the Q1 hiring plan\n- Review Granola notes from Monday", 3.2, 9_800),
             ("Messages", "com.apple.MobileSMS", "Running ten minutes late, start without me", 5.5, 2_600),
             ("Mail", "com.apple.mail", "Following up on the Acme biosafety audit: the report is attached and the open items are on page four.", 8.0, 8_900),
-            ("Slack", "com.tinyspeck.slackmacgap", "Morning all, standup notes are in Hearth under meetings", 12.0, 4_400),
+            ("Slack", "com.tinyspeck.slackmacgap", "Morning all, standup notes are in Hotsauce under meetings", 12.0, 4_400),
             ("Ghostty", "com.mitchellh.ghostty", "git log --oneline -20", 15.0, 2_000),
             ("Slack", "com.tinyspeck.slackmacgap", "Love it. Let’s do that", 21.0, 1_900),
         ]
@@ -155,13 +158,15 @@ enum Previews {
             DictationRecord(date: now.addingTimeInterval(-days * 86_400), text: text, cleaned: app != "Ghostty", appName: app, appBundle: bundle, audioMs: ms)
         }
         model.mine = ["Priya", "Kestrel", "Fly.io"]
-        model.team = ["Acme", "Hearth", "Ember", "Granola", "Clerk", "Deepgram", "Anthropic", "Claude"]
+        model.team = ["Acme", "Hotsauce", "Ember", "Granola", "Clerk", "Deepgram", "Anthropic", "Claude"]
         model.wordsState = nil
         model.microphone = true
         model.accessibility = true
         model.listening = true
         model.account = "ada@example.com"
         model.server = "https://office.example.com"
+        model.suiteServer = "https://office.example.com"
+        model.suiteServerDraft = model.suiteServer
         return model
     }
 }

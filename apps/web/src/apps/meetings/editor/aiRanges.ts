@@ -10,7 +10,7 @@ import {
   StateField,
 } from '@codemirror/state'
 import { Decoration, EditorView } from '@codemirror/view'
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 
 const FRONTMATTER_SCAN_CHARS = 20_000
 

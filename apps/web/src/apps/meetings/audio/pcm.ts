@@ -8,7 +8,7 @@ export const FRAME_BYTES = FRAME_SAMPLES * 2
 /** Bytes of PCM per second of audio on one track. */
 export const BYTES_PER_SECOND = TARGET_RATE * 2
 /** The name worklet.ts registers its processor under. */
-export const PCM_PROCESSOR = 'hearth-pcm-frames'
+export const PCM_PROCESSOR = 'hotsauce-pcm-frames'
 
 /** One sample in [-1, 1] → a signed 16-bit integer, clamped and rounded. */
 export function toInt16(sample: number): number {

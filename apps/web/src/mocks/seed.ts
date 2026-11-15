@@ -50,7 +50,7 @@ Every doc here is a **plain markdown file** in Git. Edit it here, in *Obsidian*,
 > [!note] Saving
 > Hotsauce commits after a short pause, when you leave a doc, or when you choose **Save version**.
 
-![Sketch](../assets/2026/10/hearth-sketch-01JA2Z.svg)
+![Sketch](../assets/2026/10/hotsauce-sketch-01JA2Z.svg)
 
 | Shortcut | Does |
 | --- | --- |
@@ -165,7 +165,7 @@ function seedTeam(repo: FakeRepo): void {
     'docs: seed team space',
     { date: daysAgo(9) },
   )
-  team.binaries.set('assets/2026/10/hearth-sketch-01JA2Z.svg', {
+  team.binaries.set('assets/2026/10/hotsauce-sketch-01JA2Z.svg', {
     bytes: SKETCH_SVG,
     type: 'image/svg+xml',
   })
@@ -175,7 +175,7 @@ function seedTeam(repo: FakeRepo): void {
   team.commit(
     new Map([['docs/plans/hiring.md', HIRING]]),
     SAM,
-    'docs: create "Hiring plan"\n\nHearth-Via: mcp (client "Cursor", token "Sam\'s laptop")',
+    'docs: create "Hiring plan"\n\nHotsauce-Via: mcp (client "Cursor", token "Sam\'s laptop")',
     { date: daysAgo(3), via: 'Cursor' },
   )
   team.commit(new Map([[q4, Q4_V3]]), ADA, 'docs: edit "Q4 plan"', {

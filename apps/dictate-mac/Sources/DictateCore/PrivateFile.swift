@@ -3,7 +3,7 @@ import Foundation
 /// A small file only this user can read: 0600, in a 0700 folder, written through a private temp
 /// file so it is never half-written or briefly readable by anyone else.
 public enum PrivateFile {
-    /// Nil for a missing file, and for a symlink: Hearth only ever writes a regular file here.
+    /// Nil for a missing file, and for a symlink: Hotsauce only ever writes a regular file here.
     public static func read(_ url: URL) -> Data? {
         let type = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.type] as? FileAttributeType
         guard type == .typeRegular else { return nil }

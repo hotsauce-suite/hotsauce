@@ -1,6 +1,6 @@
-// Hearth Tables (ARCHITECTURE §22): a table is `tables/<id>.md` in a space. Its frontmatter holds
+// Hotsauce Tables (ARCHITECTURE §22): a table is `tables/<id>.md` in a space. Its frontmatter holds
 // the title and each column's type; its body is the cells as one fenced `csv` block, row 1 the
-// header row, each cell as typed (a formula stays `=C2*D2`). Written fresh for Hearth.
+// header row, each cell as typed (a formula stays `=C2*D2`). Written fresh for Hotsauce.
 
 import { stringify as toYaml } from 'yaml'
 import { z } from 'zod'

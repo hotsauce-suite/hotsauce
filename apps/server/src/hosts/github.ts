@@ -112,7 +112,7 @@ export class GitHubHost implements HostAdapter {
         Authorization: `Bearer ${await this.credential()}`,
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'hearth',
+        'User-Agent': 'hotsauce',
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),

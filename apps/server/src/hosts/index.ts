@@ -1,5 +1,5 @@
 import type { Config } from '../config.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { ForgejoHost } from './forgejo.js'
 import { GitHubHost } from './github.js'
 import { LocalHost } from './local.js'
@@ -19,12 +19,12 @@ export function createHostAdapter(config: Config): HostAdapter {
     case 'forgejo': {
       const { FORGEJO_URL: url, FORGEJO_TOKEN: token, FORGEJO_ORG: org } = config
       if (!(url && token && org))
-        throw new HearthError('internal', 'Forgejo host is not configured')
+        throw new HotsauceError('internal', 'Forgejo host is not configured')
       return new ForgejoHost({ url, token, org })
     }
     case 'github': {
       const { GITHUB_TOKEN: token, GITHUB_ORG: org } = config
-      if (!(token && org)) throw new HearthError('internal', 'GitHub host is not configured')
+      if (!(token && org)) throw new HotsauceError('internal', 'GitHub host is not configured')
       return new GitHubHost({ org, credential: async () => token })
     }
   }

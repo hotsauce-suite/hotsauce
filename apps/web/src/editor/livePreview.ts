@@ -21,7 +21,7 @@ import {
   type ViewUpdate,
   WidgetType,
 } from '@codemirror/view'
-import { parseFrontmatter } from '@hearth/format'
+import { parseFrontmatter } from '@hotsauce/format'
 import { isExternalHref } from '../lib/paths'
 
 export interface LivePreviewOptions {

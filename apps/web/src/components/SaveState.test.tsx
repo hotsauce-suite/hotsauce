@@ -18,7 +18,7 @@ describe('SaveState', () => {
     expect(chip).toHaveAttribute('data-state', 'committed')
     expect(chip).toHaveTextContent('Committed · 2 min ago')
 
-    rerender(<SaveState {...base} state="saved" error="Could not reach the Hearth server" />)
+    rerender(<SaveState {...base} state="saved" error="Could not reach the Hotsauce server" />)
     expect(chip).toHaveTextContent('Saved on this device')
     expect(chip.getAttribute('title')).toContain('Could not reach')
   })

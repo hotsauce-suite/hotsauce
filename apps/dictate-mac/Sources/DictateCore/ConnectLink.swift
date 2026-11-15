@@ -31,7 +31,7 @@ public struct ConnectLink: Equatable, Sendable {
         token.range(of: #"^hdt_[A-Za-z0-9_-]{20,128}$"#, options: .regularExpression) != nil
     }
 
-    /// The server's origin (scheme, host, port), or nil if it isn't one Hearth Dictate will talk to.
+    /// The server's origin (scheme, host, port), or nil if it isn't one Hotsauce Dictate will talk to.
     public static func normalizedServer(_ text: String) -> URL? {
         guard let url = URL(string: text.trimmingCharacters(in: .whitespaces)),
               let scheme = url.scheme?.lowercased(),

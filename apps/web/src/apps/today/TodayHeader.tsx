@@ -2,7 +2,7 @@
 // and under it a greeting with what's next. Weather is for this device's place or the team's.
 
 import { useEffect, useRef, useState } from 'react'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import { type TodayView, type TodayWeather, todayApi, type WeatherPlace } from '../../api/today'
 import { Dialog } from '../../components/Dialog'
 import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
@@ -182,7 +182,7 @@ function useWeather() {
                 ? s
                 : {
                     kind: 'error',
-                    message: err instanceof HearthApiError ? err.message : 'No weather right now',
+                    message: err instanceof HotsauceApiError ? err.message : 'No weather right now',
                   },
             )
         },

@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { AnthropicLLM, type MessagesClient } from './anthropic.js'
 
 function message(fields: Partial<Anthropic.Message>): Anthropic.Message {
@@ -72,7 +72,7 @@ describe('AnthropicLLM', () => {
       const log = vi.fn()
       const { client: c } = client(error)
       const failure = await new AnthropicLLM(c, { log }).complete(REQUEST).catch((e) => e)
-      expect(failure).toBeInstanceOf(HearthError)
+      expect(failure).toBeInstanceOf(HotsauceError)
       expect(failure).toMatchObject({ code: 'llm_error', status: 502 })
       expect(failure.message).toMatch(message)
       expect(failure.message).not.toContain('sk-ant')

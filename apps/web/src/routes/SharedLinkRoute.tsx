@@ -3,7 +3,7 @@ import Markdown, { type Components } from 'react-markdown'
 import { Link, useLocation, useParams } from 'react-router'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
-import { HearthApiError } from '../api/client'
+import { HotsauceApiError } from '../api/client'
 import { type SharedItem, sharesApi } from '../api/shares'
 import { useAuthState } from '../auth/AuthContext'
 import { org, product } from '../brand/product'
@@ -28,7 +28,7 @@ const KIND_LABEL: Record<SharedItem['kind'], string> = {
 
 /**
  * `/s/:token`: a read-only link (ARCHITECTURE §20), outside the app shell so it opens without
- * Hearth's sidebar, and signed out when the organization allows "anyone with the link".
+ * Hotsauce's sidebar, and signed out when the organization allows "anyone with the link".
  */
 export default function SharedLinkRoute() {
   const { token = '' } = useParams()
@@ -48,8 +48,9 @@ export default function SharedLinkRoute() {
       },
       (err: unknown) => {
         if (!live) return
-        if (err instanceof HearthApiError && err.status === 401) setLoad({ status: 'sign-in' })
-        else if (err instanceof HearthApiError && err.status === 404) setLoad({ status: 'missing' })
+        if (err instanceof HotsauceApiError && err.status === 401) setLoad({ status: 'sign-in' })
+        else if (err instanceof HotsauceApiError && err.status === 404)
+          setLoad({ status: 'missing' })
         else setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Failed' })
       },
     )
@@ -166,7 +167,7 @@ function SharedMarkdown({ token, markdown }: { token: string; markdown: string }
     [token],
   )
   return (
-    <article className="prose-hearth" data-testid="shared-markdown">
+    <article className="prose-hotsauce" data-testid="shared-markdown">
       <Markdown
         remarkPlugins={[remarkGfm, remarkCallouts]}
         rehypePlugins={[rehypeHighlight]}

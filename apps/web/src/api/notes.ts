@@ -1,6 +1,6 @@
 // Client for `/api/notes` (ARCHITECTURE §14.3). NoteView is the server's (§14.2).
 
-import type { KeepNote, NoteColor, NoteSource } from '@hearth/format'
+import type { KeepNote, NoteColor, NoteSource } from '@hotsauce/format'
 import { request } from './client'
 
 export type { NoteColor, NoteSource }

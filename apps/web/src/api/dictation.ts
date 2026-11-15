@@ -1,4 +1,4 @@
-// Client for `/api/dictation` (ARCHITECTURE §9.2): Hearth Dictate's devices and word lists.
+// Client for `/api/dictation` (ARCHITECTURE §9.2): Hotsauce Dictate's devices and word lists.
 
 import { request } from './client'
 

@@ -1,13 +1,13 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
-/** A tool's result as JSON text; a Hearth error is a tool error the model can read and act on. */
+/** A tool's result as JSON text; a Hotsauce error is a tool error the model can read and act on. */
 export async function runTool(fn: () => Promise<unknown>): Promise<CallToolResult> {
   try {
     const value = await fn()
     return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] }
   } catch (err) {
-    if (err instanceof HearthError) {
+    if (err instanceof HotsauceError) {
       return { isError: true, content: [{ type: 'text', text: `${err.code}: ${err.message}` }] }
     }
     console.error('mcp: tool failed:', err)
@@ -16,7 +16,7 @@ export async function runTool(fn: () => Promise<unknown>): Promise<CallToolResul
 }
 
 /**
- * The `Hearth-Via` trailer for a write made through MCP by this principal, naming the AI tool
+ * The `Hotsauce-Via` trailer for a write made through MCP by this principal, naming the AI tool
  * (its friendly name from `clientLabel`) when the server knows it:
  * `mcp (client "Cursor", token "My laptop")`.
  */

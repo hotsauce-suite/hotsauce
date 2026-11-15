@@ -123,6 +123,6 @@ export interface MeetingServices {
   /** The VAPID public key browsers subscribe with; null when reminders are off. */
   vapidPublicKey: string | null
   reminders: MeetingReminders | null
-  /** What reminders are pushed with; null when they are off. Hearth Tasks reminds through it too. */
+  /** What reminders are pushed with; null when they are off. Hotsauce Tasks reminds through it too. */
   pushSender: PushSender | null
 }

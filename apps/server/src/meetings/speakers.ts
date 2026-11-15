@@ -7,9 +7,9 @@ import {
   patchFrontmatter,
   renameSpeakers,
   transcriptPathFor,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore } from '../git/index.js'
 import { blobOidOf } from './enhance/note.js'
 
@@ -24,7 +24,7 @@ export interface NameSpeakersDeps {
  * `POST /api/meetings/speakers`: gives speaker labels names ("Speaker 1" → "Priya Shah") in the
  * meeting's transcript and on the note's AI lines, in one commit as the member. The member's own
  * lines are never touched, "Me" can't be renamed, and a label not in the transcript is refused.
- * Each renamed label leaves `speaker_guesses`. A note Hearth last wrote stays "unedited" for the
+ * Each renamed label leaves `speaker_guesses`. A note Hotsauce last wrote stays "unedited" for the
  * next Enhance (its `models.enhanced_blob` follows the new body).
  */
 export async function nameSpeakers(
@@ -43,39 +43,39 @@ export async function nameSpeakers(
   const note = await git.readFile(space, path)
   const parsed = parseFrontmatter(note.content)
   const meeting = MeetingFrontmatter.safeParse(parsed.data)
-  if (!meeting.success) throw new HearthError('bad_request', `${path} is not a meeting note`)
+  if (!meeting.success) throw new HotsauceError('bad_request', `${path} is not a meeting note`)
   const fm = meeting.data
   const transcriptPath = transcriptPathFor(path, fm)
-  // Like delete: only a transcript beside the note, never a Hearth file.
+  // Like delete: only a transcript beside the note, never a Hotsauce file.
   if (
     !transcriptPath?.endsWith('.transcript.md') ||
     transcriptPath.split('/').includes('.hearth')
   ) {
-    throw new HearthError('bad_request', 'This meeting has no transcript')
+    throw new HotsauceError('bad_request', 'This meeting has no transcript')
   }
   if (deps.transcriptBusy?.(fm.id)) {
-    throw new HearthError('conflict', 'The transcript is being cleaned up; try again in a moment')
+    throw new HotsauceError('conflict', 'The transcript is being cleaned up; try again in a moment')
   }
   const transcript = await git.readFile(space, transcriptPath)
   if (args.transcriptBlobOid !== undefined && args.transcriptBlobOid !== transcript.blobOid) {
-    throw new HearthError('conflict', 'The transcript changed since you looked; try again')
+    throw new HotsauceError('conflict', 'The transcript changed since you looked; try again')
   }
   const labels = new Set(parseTranscript(transcript.content).map((l) => l.speaker))
 
   const renamed: Record<string, string> = Object.create(null)
   for (const [from, raw] of Object.entries(args.names)) {
-    if (from === 'Me') throw new HearthError('bad_request', '“Me” is always the note-taker')
+    if (from === 'Me') throw new HotsauceError('bad_request', '“Me” is always the note-taker')
     if (!labels.has(from)) {
-      throw new HearthError('bad_request', `No one is called “${from}” in this transcript`)
+      throw new HotsauceError('bad_request', `No one is called “${from}” in this transcript`)
     }
     const to = cleanSpeakerName(raw)
-    if (to === null) throw new HearthError('bad_request', `“${raw}” can’t be a speaker’s name`)
+    if (to === null) throw new HotsauceError('bad_request', `“${raw}” can’t be a speaker’s name`)
     if (to !== from) renamed[from] = to
   }
   if (Object.keys(renamed).length === 0) return { transcriptPath, renamed: { ...renamed } }
 
   // `ai_ranges` drift once the member edits the note, so Claude's lines are only known in a note
-  // as Hearth last wrote it; an edited note keeps its text and only the transcript is renamed.
+  // as Hotsauce last wrote it; an edited note keeps its text and only the transcript is renamed.
   const wasUnedited = fm.models?.enhanced_blob === blobOidOf(parsed.body)
   const body = wasUnedited ? renameInAiLines(parsed.body, fm.ai_ranges ?? [], renamed) : parsed.body
   const guesses = Object.fromEntries(
@@ -91,7 +91,7 @@ export async function nameSpeakers(
         : {}),
     })
   } catch (err) {
-    if (err instanceof FrontmatterError) throw new HearthError('bad_request', err.message)
+    if (err instanceof FrontmatterError) throw new HotsauceError('bad_request', err.message)
     throw err
   }
 
@@ -102,7 +102,7 @@ export async function nameSpeakers(
     git.readFile(space, transcriptPath),
   ])
   if (noteNow.blobOid !== note.blobOid || transcriptNow.blobOid !== transcript.blobOid) {
-    throw new HearthError('conflict', 'The meeting changed meanwhile; try again')
+    throw new HotsauceError('conflict', 'The meeting changed meanwhile; try again')
   }
   const result = await git.commit(space, {
     changes: [
@@ -115,7 +115,7 @@ export async function nameSpeakers(
   })
   await deps.afterCommit(space, path, result)
   if (result.status === 'conflict') {
-    throw new HearthError('conflict', 'The note changed meanwhile; try again')
+    throw new HotsauceError('conflict', 'The note changed meanwhile; try again')
   }
   return { transcriptPath, renamed: { ...renamed } }
 }

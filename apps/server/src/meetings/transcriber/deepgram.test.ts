@@ -3,7 +3,7 @@ import type { IncomingMessage } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type WebSocket, WebSocketServer } from 'ws'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { DeepgramTranscriber, listenUrl, segmentsFromMessage } from './deepgram.js'
 import type { TranscriptSegment } from './types.js'
 
@@ -164,7 +164,7 @@ describe('listenUrl', () => {
       listenUrl('wss://api.deepgram.com/v1/listen', {
         model: 'nova-3',
         language: 'en',
-        vocabulary: ['Hearth', 'Acme'],
+        vocabulary: ['Hotsauce', 'Acme'],
       }),
     )
     expect(url.origin + url.pathname).toBe('wss://api.deepgram.com/v1/listen')
@@ -177,7 +177,7 @@ describe('listenUrl', () => {
       model: 'nova-3',
       language: 'en',
     })
-    expect(url.searchParams.getAll('keyterm')).toEqual(['Hearth', 'Acme'])
+    expect(url.searchParams.getAll('keyterm')).toEqual(['Hotsauce', 'Acme'])
     expect(url.searchParams.has('diarize')).toBe(false)
   })
 
@@ -380,8 +380,8 @@ describe('DeepgramTranscriber against a fake server', () => {
 
     session.sendAudio('me', FRAME)
     await vi.waitFor(() => expect(errors).toHaveLength(1))
-    expect(errors[0]).toBeInstanceOf(HearthError)
-    expect((errors[0] as HearthError).code).toBe('asr_error')
+    expect(errors[0]).toBeInstanceOf(HotsauceError)
+    expect((errors[0] as HotsauceError).code).toBe('asr_error')
     expect(log.mock.calls[0]?.[0]).toMatch(/^deepgram s4\/me: Unexpected server response: 401/)
     await session.finish()
   })

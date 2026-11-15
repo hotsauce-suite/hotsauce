@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { type BoardSummary, boardsApi } from '../../api/boards'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { useShortcut } from '../../keyboard/shortcuts'
@@ -33,7 +33,7 @@ export default function BoardsPage() {
   // Another member's new board shows up without a reload.
   useEffect(
     () =>
-      hearthSocket.onChanged((e) => {
+      hotsauceSocket.onChanged((e) => {
         if (e.paths.some((p) => p.startsWith('boards/'))) setTick((n) => n + 1)
       }),
     [],

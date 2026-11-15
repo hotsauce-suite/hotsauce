@@ -3,10 +3,10 @@ import { lookup } from 'node:dns/promises'
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 /**
- * Chat rooms that Hearth Forms posts new answers to (ARCHITECTURE §21.5). Each room is a
+ * Chat rooms that Hotsauce Forms posts new answers to (ARCHITECTURE §21.5). Each room is a
  * Slack-compatible incoming webhook: a chat app such as Slack gives every bot one per room, and Slack
  * itself works too. The webhook URL is a credential, so it lives on the volume, never in Git or an
  * API response; members see a room's name, admins also its last four characters.
@@ -59,35 +59,35 @@ export class ChatRooms {
    */
   async add(name: string, url: string): Promise<ChatRoom> {
     const clean = name.replace(/\s+/g, ' ').trim().slice(0, 80)
-    if (!clean) throw new HearthError('bad_request', 'Give the room a name')
+    if (!clean) throw new HotsauceError('bad_request', 'Give the room a name')
     let parsed: URL
     try {
       parsed = new URL(url.trim())
     } catch {
-      throw new HearthError('bad_request', 'That isn’t a web address')
+      throw new HotsauceError('bad_request', 'That isn’t a web address')
     }
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
-      throw new HearthError('bad_request', 'The webhook link must start with https://')
+      throw new HotsauceError('bad_request', 'The webhook link must start with https://')
     }
     // Only public chat services: never this server or anything on its private network.
     const host = parsed.hostname.replace(/\.+$/, '')
     const addresses = await this.#resolve(host.replace(/^\[|\]$/g, '')).catch(() => [] as string[])
     if (addresses.length === 0)
-      throw new HearthError('bad_request', 'Couldn’t find that link’s server')
+      throw new HotsauceError('bad_request', 'Couldn’t find that link’s server')
     if (isPrivateHost(host) || addresses.some(isPrivateHost)) {
-      throw new HearthError('bad_request', 'That link points at a private address')
+      throw new HotsauceError('bad_request', 'That link points at a private address')
     }
     // Some chat apps' bots pages also offer a plain "message command" address, which takes text,
     // not a Slack message. Their Slack-compatible one ends in /slack.
     if (/\/rooms\/[^/]+\/[^/]+\/messages\/?$/.test(parsed.pathname)) {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         'That’s the bot’s message address. Use “Copy Slack-compatible webhook URL” instead (it ends in /slack).',
       )
     }
     const rooms = this.#read()
     if (rooms.length >= MAX_ROOMS) {
-      throw new HearthError('bad_request', `At most ${MAX_ROOMS} rooms`)
+      throw new HotsauceError('bad_request', `At most ${MAX_ROOMS} rooms`)
     }
     let answer = ''
     let status = 0
@@ -104,10 +104,10 @@ export class ChatRooms {
       status = res.status
       answer = (await res.text()).slice(0, 200).trim()
     } catch {
-      throw new HearthError('bad_request', 'Couldn’t reach that link. Check it and try again.')
+      throw new HotsauceError('bad_request', 'Couldn’t reach that link. Check it and try again.')
     }
     if (status < 200 || status >= 300 || answer.toLowerCase() !== 'ok') {
-      throw new HearthError(
+      throw new HotsauceError(
         'bad_request',
         `That link didn’t take a test message (it answered ${status}). Copy the bot’s Slack-compatible webhook URL and try again.`,
       )
@@ -119,7 +119,7 @@ export class ChatRooms {
 
   remove(id: string): void {
     const rooms = this.#read()
-    if (!rooms.some((r) => r.id === id)) throw new HearthError('not_found', 'No such room')
+    if (!rooms.some((r) => r.id === id)) throw new HotsauceError('not_found', 'No such room')
     this.#write(rooms.filter((r) => r.id !== id))
   }
 

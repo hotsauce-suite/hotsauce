@@ -1,9 +1,9 @@
-// Client for Hearth Tables (ARCHITECTURE §22): `/api/tables` and a form's answers as a table.
+// Client for Hotsauce Tables (ARCHITECTURE §22): `/api/tables` and a form's answers as a table.
 
-import type { Column } from '@hearth/format'
+import type { Column } from '@hotsauce/format'
 import { request, requestBlob } from './client'
 
-export type { Column, ColumnType } from '@hearth/format'
+export type { Column, ColumnType } from '@hotsauce/format'
 
 export interface TableSummary {
   space: string

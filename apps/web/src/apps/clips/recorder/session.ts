@@ -1,7 +1,7 @@
 // One recording, from the Start click to the clip page (ARCHITECTURE §10.3). React-free so it can
 // be tested with fakes; the page and the camera bubble's window both read it through `subscribe`.
 
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import type { Clip, ClipContainer, ClipMode, FinishBody } from '../../../api/clips'
 import {
   AUDIO_BITS,
@@ -499,6 +499,6 @@ export class RecordingSession {
 class Unrecoverable extends Error {}
 
 function messageOf(err: unknown): string {
-  if (err instanceof HearthApiError || err instanceof Error) return err.message
+  if (err instanceof HotsauceApiError || err instanceof Error) return err.message
   return 'Something went wrong'
 }

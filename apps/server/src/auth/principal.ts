@@ -1,4 +1,4 @@
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 
 export interface Principal {
   userId: string
@@ -83,9 +83,9 @@ export function signInAllowance(
 }
 
 /** The domain-lock refusal. Its message is shown on the sign-in page, so it says what is allowed. */
-export function domainNotAllowed(email: string, allowedDomains: readonly string[]): HearthError {
+export function domainNotAllowed(email: string, allowedDomains: readonly string[]): HotsauceError {
   const domains = allowedDomains.join(' or ')
-  return new HearthError(
+  return new HotsauceError(
     'domain_not_allowed',
     `${email} is not allowed. Sign in with your ${domains} account.`,
   )

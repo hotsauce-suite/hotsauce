@@ -1,4 +1,4 @@
-import { BoardScene } from '@hearth/format'
+import { BoardScene } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { MAX_BOARD_LIST } from '../boards/index.js'
@@ -15,7 +15,7 @@ const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_BOARD_LIST).optional(),
 })
 
-/** Hearth Whiteboard (ARCHITECTURE §15.3). Space access is checked by the service (403). */
+/** Hotsauce Whiteboard (ARCHITECTURE §15.3). Space access is checked by the service (403). */
 export function boardRoutes(deps: Pick<AppDeps, 'boards'>) {
   const service = deps.boards
   return new Hono<AppEnv>()

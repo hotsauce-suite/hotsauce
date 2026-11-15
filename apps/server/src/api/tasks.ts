@@ -1,8 +1,8 @@
-import { TaskSource } from '@hearth/format'
+import { TaskSource } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { DICTATION_MIME_TYPES } from '../dictation/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import { MAX_TASK_LIST } from '../tasks/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { sessionOnly, viaFor } from './tokens.js'
@@ -48,7 +48,7 @@ const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_TASK_LIST).optional(),
 })
 
-/** Hearth Tasks (ARCHITECTURE §12.3). Space access is checked by the service (403). */
+/** Hotsauce Tasks (ARCHITECTURE §12.3). Space access is checked by the service (403). */
 export function taskRoutes(deps: Pick<AppDeps, 'tasks'>) {
   const { service, ramble, todoist } = deps.tasks
   return new Hono<AppEnv>()
@@ -113,7 +113,7 @@ export function taskRoutes(deps: Pick<AppDeps, 'tasks'>) {
       const mimeType =
         (c.req.header('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
       if (!(DICTATION_MIME_TYPES as readonly string[]).includes(mimeType)) {
-        throw new HearthError(
+        throw new HotsauceError(
           'bad_request',
           'Send the audio as audio/webm, audio/mp4 or audio/wav',
           {

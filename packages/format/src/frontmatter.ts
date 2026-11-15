@@ -19,7 +19,7 @@ export interface Parsed {
   body: string
 }
 
-/** The file has frontmatter, but it can't be patched without rewriting text Hearth didn't write. */
+/** The file has frontmatter, but it can't be patched without rewriting text Hotsauce didn't write. */
 export class FrontmatterError extends Error {
   constructor(message: string) {
     super(message)

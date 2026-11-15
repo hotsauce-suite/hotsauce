@@ -44,7 +44,7 @@ export {
   type TodoistImportInput,
 } from './todoist.js'
 
-/** Hearth Tasks (ARCHITECTURE §12), as the API and MCP reach it. */
+/** Hotsauce Tasks (ARCHITECTURE §12), as the API and MCP reach it. */
 export interface TaskServices {
   service: Tasks
   ramble: Ramble

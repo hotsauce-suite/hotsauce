@@ -7,8 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build:format": "pnpm --filter @hearth/format build",
-    "dev": "pnpm build:format && pnpm -r --parallel --filter @hearth/format --filter @hearth/server --filter @hearth/web dev",
+    "build:format": "pnpm --filter @hotsauce/format build",
+    "dev": "pnpm build:format && pnpm -r --parallel --filter @hotsauce/format --filter @hotsauce/server --filter @hotsauce/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "node scripts/check-filename-case.mjs && biome check .",

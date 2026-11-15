@@ -9,7 +9,7 @@ import {
   slugify,
   type Weekday,
 } from '../../../api/booking'
-import { HearthApiError } from '../../../api/client'
+import { HotsauceApiError } from '../../../api/client'
 import { useAuthState } from '../../../auth/AuthContext'
 import { product } from '../../../brand/product'
 import { Icon } from '../../../components/Icon'
@@ -71,7 +71,7 @@ function zones(current: string): string[] {
 }
 
 function errorText(err: unknown): string {
-  return err instanceof HearthApiError || err instanceof Error
+  return err instanceof HotsauceApiError || err instanceof Error
     ? err.message
     : 'Something went wrong.'
 }

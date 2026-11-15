@@ -1,5 +1,5 @@
 {
-  "name": "@hearth/web",
+  "name": "@hotsauce/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -22,7 +22,7 @@
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.14",
     "@excalidraw/excalidraw": "0.18.1",
-    "@hearth/format": "workspace:*",
+    "@hotsauce/format": "workspace:*",
     "@ironcalc/wasm": "0.9.1",
     "@joplin/turndown-plugin-gfm": "^1.0.71",
     "@lezer/common": "^1.5.3",

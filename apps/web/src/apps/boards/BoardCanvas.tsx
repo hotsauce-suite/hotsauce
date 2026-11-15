@@ -14,11 +14,11 @@ import type {
   ExcalidrawImperativeAPI,
   SocketId,
 } from '@excalidraw/excalidraw/types'
-import type { BoardElement, BoardFile } from '@hearth/format'
+import type { BoardElement, BoardFile } from '@hotsauce/format'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { type BoardView, boardsApi } from '../../api/boards'
 import { api, getAuthHeaders } from '../../api/client'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 import {
   BoardCollab,
   boardSocketUrl,
@@ -34,7 +34,7 @@ const UI_OPTIONS = { canvasActions: { loadScene: false, saveToActiveFile: false 
 
 type Elements = NonNullable<Parameters<ExcalidrawImperativeAPI['updateScene']>[0]['elements']>
 
-/** Follows Hearth's light/dark choice (data-theme on <html>, else the system setting). */
+/** Follows Hotsauce's light/dark choice (data-theme on <html>, else the system setting). */
 function isDark(): boolean {
   const set = document.documentElement.getAttribute('data-theme')
   if (set === 'dark') return true
@@ -339,10 +339,10 @@ export function BoardCanvas({
         wrap.current.dataset.shapes = String(elements.filter((e) => !e.isDeleted).length)
     })
     // Someone else saved this board: bring their strokes in.
-    const offSocket = hearthSocket.onChanged((e) => {
+    const offSocket = hotsauceSocket.onChanged((e) => {
       if (e.space === space && e.paths.includes(path)) void session.refresh().catch(() => {})
     })
-    const offReconnect = hearthSocket.onReconnect(() => void session.refresh().catch(() => {}))
+    const offReconnect = hotsauceSocket.onReconnect(() => void session.refresh().catch(() => {}))
     const onHide = () => {
       if (document.visibilityState === 'hidden') void session.flush().catch(() => {})
     }

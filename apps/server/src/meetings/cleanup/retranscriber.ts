@@ -1,7 +1,7 @@
 import { stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { z } from 'zod'
-import { HearthError } from '../../errors.js'
+import { HotsauceError } from '../../errors.js'
 import { pcmSeconds, WAV_HEADER_BYTES, wavStream } from '../audio/wav.js'
 import { diarizedSpeaker } from '../transcriber/deepgram.js'
 import { speakerFor, type Track, type TranscriptSegment } from '../transcriber/types.js'
@@ -45,7 +45,7 @@ export class FakeRetranscriber implements MeetingRetranscriber {
     // Like the real one, it reads the PCM: a file deleted under it fails the same way.
     if ((await stat(input.file)).size < input.bytes) throw new Error('PCM shorter than said')
     if (this.#fail)
-      throw new HearthError('asr_error', 'The transcription service refused this audio')
+      throw new HotsauceError('asr_error', 'The transcription service refused this audio')
     const seconds = Math.max(1, pcmSeconds(input.bytes))
     const out: TranscriptSegment[] = []
     for (let s = 0, n = 1; s < seconds; s += this.#secondsPerLine, n++) {
@@ -109,7 +109,7 @@ export function segmentsFromUtterances(
 ): TranscriptSegment[] {
   const parsed = DeepgramResponse.safeParse(body)
   if (!parsed.success) {
-    throw new HearthError('asr_error', 'The transcription service answered oddly')
+    throw new HotsauceError('asr_error', 'The transcription service answered oddly')
   }
   return (parsed.data.results.utterances ?? [])
     .map((u) => ({
@@ -168,12 +168,12 @@ export class DeepgramRetranscriber implements MeetingRetranscriber {
       } as RequestInit & { duplex: 'half' })
     } catch (err) {
       log(`deepgram retranscribe request failed: ${err instanceof Error ? err.name : 'error'}`)
-      throw new HearthError('asr_error', 'Couldn’t reach the transcription service')
+      throw new HotsauceError('asr_error', 'Couldn’t reach the transcription service')
     }
     if (!res.ok) {
       // Deepgram's error body names the problem, never the audio's content.
       log(`deepgram retranscribe ${res.status}: ${(await res.text()).slice(0, 300)}`)
-      throw new HearthError('asr_error', 'The transcription service refused this audio')
+      throw new HotsauceError('asr_error', 'The transcription service refused this audio')
     }
     let body: unknown
     try {
@@ -181,7 +181,7 @@ export class DeepgramRetranscriber implements MeetingRetranscriber {
     } catch {
       // A JSON error quotes the body, which is the transcript: log nothing of it.
       log('deepgram retranscribe: the answer was not JSON')
-      throw new HearthError('asr_error', 'The transcription service answered oddly')
+      throw new HotsauceError('asr_error', 'The transcription service answered oddly')
     }
     return segmentsFromUtterances(body, input.track, diarize)
   }

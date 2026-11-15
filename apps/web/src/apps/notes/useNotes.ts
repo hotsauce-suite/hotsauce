@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { HearthApiError } from '../../api/client'
+import { HotsauceApiError } from '../../api/client'
 import {
   type NoteLabel,
   type NoteListView,
@@ -7,7 +7,7 @@ import {
   noteKey,
   notesApi,
 } from '../../api/notes'
-import { hearthSocket } from '../../api/ws'
+import { hotsauceSocket } from '../../api/ws'
 
 export const REFETCH_DEBOUNCE_MS = 300
 
@@ -36,7 +36,7 @@ export function useNotesChanged(fn: () => void, delayMs = REFETCH_DEBOUNCE_MS): 
       clearTimeout(timer)
       timer = setTimeout(() => ref.current(), delayMs)
     }
-    const offSocket = hearthSocket.onChanged((event) => {
+    const offSocket = hotsauceSocket.onChanged((event) => {
       if (event.paths.some((p) => p.startsWith('notes/'))) later()
     })
     const offBus = notesBus.on((event) => {
@@ -51,7 +51,7 @@ export function useNotesChanged(fn: () => void, delayMs = REFETCH_DEBOUNCE_MS): 
 }
 
 export function errorMessage(err: unknown): string {
-  if (err instanceof HearthApiError && err.code !== 'network' && err.status < 500) {
+  if (err instanceof HotsauceApiError && err.code !== 'network' && err.status < 500) {
     return err.message
   }
   return 'That didn’t save. Check your connection and try again.'

@@ -10,7 +10,7 @@ import {
   MAX_TABLE_COLUMNS,
   MAX_TABLE_ROWS,
   shiftFormula,
-} from '@hearth/format'
+} from '@hotsauce/format'
 import {
   type ClipboardEvent,
   type KeyboardEvent,

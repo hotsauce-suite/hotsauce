@@ -27,7 +27,7 @@ export function attachWebSocket(
   wss.options.maxPayload =
     meetings || dictation || boards ? MAX_MEETING_FRAME_BYTES : MAX_AUTH_FRAME_BYTES
   if (dictation) {
-    // Hearth Dictate's audio stream (ARCHITECTURE §9.2); a device token in the first message.
+    // Hotsauce Dictate's audio stream (ARCHITECTURE §9.2); a device token in the first message.
     app.get(
       '/ws/dictation',
       upgradeWebSocket(() => {

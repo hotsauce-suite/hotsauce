@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { taskPath } from '@hearth/format'
+import { taskPath } from '@hotsauce/format'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -43,7 +43,7 @@ let todoist: {
 }
 
 beforeEach(async () => {
-  root = await makeTempDir('hearth-tasks-')
+  root = await makeTempDir('hotsauce-tasks-')
   const config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
@@ -181,7 +181,7 @@ describe('writes', () => {
       notes: 'Second draft',
     })
     expect(await lastCommit('alice')).toBe(`Alice <${ALICE}>|tasks: edit "Write the real plan"`)
-    // Only the keys that changed were touched; the rest of the file is as Hearth wrote it.
+    // Only the keys that changed were touched; the rest of the file is as Hotsauce wrote it.
     const after = await readRemote('alice', created.path)
     expect(after).toContain('priority: 2\n')
     expect(after.endsWith('\nSecond draft\n')).toBe(true)
@@ -615,7 +615,7 @@ describe('MCP tools', () => {
     })
     const log = await runGit(bare('alice'), ['log', '-1', '--format=%an <%ae>|%B', 'main'])
     expect(log).toContain(`Alice <${ALICE}>|tasks: create "Send deck"`)
-    expect(log).toContain('Hearth-Via: mcp')
+    expect(log).toContain('Hotsauce-Via: mcp')
 
     const listed = await tool(client, 'list_tasks')
     expect(listed.value.map((t: TaskView) => t.title)).toEqual(['Send deck'])

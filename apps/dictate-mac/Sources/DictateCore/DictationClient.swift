@@ -68,7 +68,7 @@ public struct DictationRequest: Sendable {
     }
 }
 
-/// Talks to Hearth with a device token. Never logs the audio or the text.
+/// Talks to Hotsauce with a device token. Never logs the audio or the text.
 public struct DictationClient: Sendable {
     public let server: URL
     public let token: String
@@ -120,7 +120,7 @@ public struct DictationClient: Sendable {
         return try Self.decode(status: status, body: body)
     }
 
-    /// Whose Hearth this token belongs to (`GET /api/dictation/words` names the account).
+    /// Whose Hotsauce this token belongs to (`GET /api/dictation/words` names the account).
     public func account(session: URLSession = .shared) async throws -> String {
         var request = URLRequest(url: server.appendingPathComponent("api/dictation/words"), timeoutInterval: 20)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

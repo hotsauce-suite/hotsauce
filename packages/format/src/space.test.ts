@@ -41,7 +41,7 @@ describe('initialSpaceFiles', () => {
     expect(files[0]?.content.startsWith('# Ops: lab #2\n')).toBe(true)
   })
 
-  it('writes text files the way Hearth generates them: LF and a trailing newline', () => {
+  it('writes text files the way Hotsauce generates them: LF and a trailing newline', () => {
     for (const { path, content } of initialSpaceFiles('team', TEAM)) {
       if (path.endsWith('.gitkeep')) {
         expect(content).toBe('')

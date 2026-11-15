@@ -1,7 +1,7 @@
-import { MeetingFrontmatter, parseFrontmatter, transcriptPathFor } from '@hearth/format'
+import { MeetingFrontmatter, parseFrontmatter, transcriptPathFor } from '@hotsauce/format'
 import { parse as parseYaml } from 'yaml'
 import type { Principal } from '../auth/index.js'
-import { HearthError } from '../errors.js'
+import { HotsauceError } from '../errors.js'
 import {
   type Change,
   type CommitResult,
@@ -19,17 +19,17 @@ export interface DeleteMeetingDeps {
   audioStore: AudioStore | null
   /** Serializes the delete with a kept-audio upload still under way for the same meeting. */
   sessions: Pick<MeetingSessions, 'deleting'>
-  /** Refuses a path Hearth must never change (`.hearth/space.yaml`); returns it normalized. */
+  /** Refuses a path Hotsauce must never change (`.hearth/space.yaml`); returns it normalized. */
   writablePath: (path: string) => string
   afterCommit: (space: string, path: string, result: CommitResult) => Promise<void>
   log?: (message: string) => void
 }
 
-/** Meeting ids are ULIDs; anything else didn't come from Hearth and names no files of ours. */
+/** Meeting ids are ULIDs; anything else didn't come from Hotsauce and names no files of ours. */
 const MEETING_ID = /^[0-9A-Z]{26}$/
 
 /**
- * `POST /api/meetings/delete`: removes a meeting note and everything Hearth saved with it (the
+ * `POST /api/meetings/delete`: removes a meeting note and everything Hotsauce saved with it (the
  * transcript, the raw notes, the kept-audio pointer) in one commit, `meetings: delete "<title>"`,
  * then the kept audio itself. Git history still has the files; the audio is gone for good.
  * `blobOid`, when given, is the note as the member saw it: a note changed since is refused.
@@ -45,15 +45,18 @@ export async function deleteMeeting(
   const note = await git.readFile(space, path)
   const meeting = MeetingFrontmatter.safeParse(parseFrontmatter(note.content).data)
   if (!meeting.success || !MEETING_ID.test(meeting.data.id)) {
-    throw new HearthError('bad_request', `${path} is not a meeting note`)
+    throw new HotsauceError('bad_request', `${path} is not a meeting note`)
   }
   const fm = meeting.data
   if (args.blobOid && args.blobOid !== note.blobOid) {
-    throw new HearthError('conflict', 'This note changed since you opened it; reload and try again')
+    throw new HotsauceError(
+      'conflict',
+      'This note changed since you opened it; reload and try again',
+    )
   }
 
   // The transcript is named in the note's frontmatter, which anyone can edit: only a transcript
-  // file beside it is ever deleted, never another note or Hearth's own files.
+  // file beside it is ever deleted, never another note or Hotsauce's own files.
   const named = transcriptPathFor(path, fm)
   const transcript = named?.endsWith('.transcript.md') ? deps.writablePath(named) : null
   const rawPath = rawNotesPath(fm.id)
@@ -71,7 +74,7 @@ export async function deleteMeeting(
       changes.push({ path: transcript, content: null })
     }
     if (rawText !== null) changes.push({ path: rawPath, content: null })
-    // Only audio a pointer Hearth wrote for this very meeting names is deleted; a pointer to
+    // Only audio a pointer Hotsauce wrote for this very meeting names is deleted; a pointer to
     // audio this server can't reach stays, so the audio isn't left with no trace.
     const audioKeys: string[] = []
     if (pointerText !== null) {
@@ -97,7 +100,7 @@ export async function deleteMeeting(
     })
     await deps.afterCommit(space, path, result)
     if (result.status === 'conflict') {
-      throw new HearthError('conflict', 'The note changed while it was being deleted; try again')
+      throw new HotsauceError('conflict', 'The note changed while it was being deleted; try again')
     }
 
     const store = deps.audioStore
@@ -137,7 +140,7 @@ async function readOrNull(
   try {
     return (await git.readFile(space, path)).content
   } catch (err) {
-    if (err instanceof HearthError && err.code === 'not_found') return null
+    if (err instanceof HotsauceError && err.code === 'not_found') return null
     throw err
   }
 }

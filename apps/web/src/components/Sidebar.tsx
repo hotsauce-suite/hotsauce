@@ -7,7 +7,7 @@ import { FileTree } from './FileTree'
 import { Icon } from './Icon'
 import { SpaceSwitcher } from './SpaceSwitcher'
 
-/** What every app's sidebar shares: the hearth glow and the app's name. Apps, Settings and the account live in the rail. */
+/** What every app's sidebar shares: the hotsauce glow and the app's name. Apps, Settings and the account live in the rail. */
 export function SidebarFrame({ app, children }: { app: AppManifest; children: ReactNode }) {
   return (
     <aside
@@ -17,7 +17,7 @@ export function SidebarFrame({ app, children }: { app: AppManifest; children: Re
       {/* The hearth: warmth gathered at the foot of the sidebar. */}
       <div
         aria-hidden="true"
-        className="hearth-glow pointer-events-none absolute -bottom-24 -left-16 -z-10 size-80 rounded-full opacity-80 blur-2xl"
+        className="hotsauce-glow pointer-events-none absolute -bottom-24 -left-16 -z-10 size-80 rounded-full opacity-80 blur-2xl"
         style={{
           background:
             'radial-gradient(circle, color-mix(in oklab, var(--glow) 34%, transparent), color-mix(in oklab, var(--ember) 10%, transparent) 45%, transparent 70%)',
@@ -42,7 +42,7 @@ interface SidebarProps {
   onOpenSearch: () => void
 }
 
-/** Hearth Docs' sidebar, inside the shell's SidebarFrame. */
+/** Hotsauce Docs' sidebar, inside the shell's SidebarFrame. */
 export function Sidebar({ activeSpace, activePath, onOpenSearch }: SidebarProps) {
   const session = useSession()
   const recents = session.recents.slice(0, 6)
