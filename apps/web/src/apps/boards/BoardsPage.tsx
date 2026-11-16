@@ -162,7 +162,7 @@ export default function BoardsPage() {
             </EmptyState>
           ) : null}
 
-          {!failed && shown && shown.length > 0 ? (
+          {shown && shown.length > 0 ? (
             <ul className="boards-grid mt-6">
               {shown.map((b) => (
                 <li key={`${b.space}/${b.id}`}>

@@ -1,5 +1,5 @@
 // The one "couldn't load" block (docs/PLAN-consistency.md, requirement 1). Every app's list
-// shows this in place of the list when its request fails: the app's own noun, what to do, and a
+// shows this when its request fails (above whatever had loaded before, if anything): the app's own noun, what to do, and a
 // way to do it. The server's sentence is never shown; nothing in it helps the person reading.
 
 interface LoadErrorProps {

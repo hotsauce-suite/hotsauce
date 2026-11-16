@@ -3,7 +3,7 @@
 Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadError.tsx`,
 `EmptyState.tsx`, `apps/web/src/hooks/useLoad.ts`. Test: `e2e/consistency.spec.ts`.
 
-- **Build a new list with the shared pieces from the start.** Fourteen apps each wrote their own
+- **Build a new list with the shared pieces from the start.** Fifteen screens each wrote their own
   "couldn't load" line and empty message, and no two matched. A new app's list uses `useLoad`,
   `LoadError` and `EmptyState`, and gets a row in the `APPS` table of `e2e/consistency.spec.ts`.
 - **Keep "the list failed" apart from "an action failed".** Most pages had one `error` string for

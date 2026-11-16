@@ -127,7 +127,13 @@ for (const app of APPS) {
     page.on('load', () => {
       reloaded = true
     })
+    const answered = page.waitForResponse((response) => {
+      const path = new URL(response.url()).pathname
+      const hit = typeof app.api === 'string' ? path === app.api : app.api.test(path)
+      return hit && response.request().method() === 'GET' && response.ok()
+    })
     await block.getByRole('button', { name: 'Try again' }).click()
+    await answered
     await expect(page.getByTestId('load-error')).toHaveCount(0)
     expect(reloaded).toBe(false)
   })

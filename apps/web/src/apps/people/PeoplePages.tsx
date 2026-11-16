@@ -221,10 +221,13 @@ export function PeopleList() {
         />
       </label>
       {error ? (
-        <LoadError things="people" whose="the" onRetry={() => void reload()} />
-      ) : people === null ? (
-        <p className="text-sm text-ink-faint">Loading people…</p>
-      ) : people.length === 0 ? (
+        <LoadError things="people" whose="the" onRetry={() => void reload()} className="mb-4" />
+      ) : null}
+      {people === null ? (
+        error ? null : (
+          <p className="text-sm text-ink-faint">Loading people…</p>
+        )
+      ) : people.length === 0 && error ? null : people.length === 0 ? (
         <EmptyState icon="people" title={query ? 'No one matches' : 'No people yet'}>
           {query
             ? 'Search looks at names, email addresses and companies.'

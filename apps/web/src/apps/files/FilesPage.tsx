@@ -104,6 +104,7 @@ export default function FilesPage() {
         (r) => {
           if (cancelled) return
           setRecent(r)
+          setError(null)
           setLoadFailed(false)
         },
         () => !cancelled && setLoadFailed(true),
@@ -119,6 +120,7 @@ export default function FilesPage() {
           (l) => {
             if (cancelled) return
             setListing(l)
+            setError(null)
             setLoadFailed(false)
           },
           () => !cancelled && setLoadFailed(true),

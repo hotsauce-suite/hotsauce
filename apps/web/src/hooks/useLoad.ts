@@ -8,7 +8,6 @@ export function useLoad<T>(load: () => Promise<T>): {
   data: T | null
   failed: boolean
   reload: () => void
-  setData: (next: T) => void
 } {
   const [data, setData] = useState<T | null>(null)
   const [failed, setFailed] = useState(false)
@@ -34,5 +33,5 @@ export function useLoad<T>(load: () => Promise<T>): {
   }, [attempt])
 
   const reload = useCallback(() => setAttempt((n) => n + 1), [])
-  return { data, failed, reload, setData }
+  return { data, failed, reload }
 }

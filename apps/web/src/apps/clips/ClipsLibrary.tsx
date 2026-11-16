@@ -125,7 +125,7 @@ export default function ClipsLibrary() {
             <Empty searching={query.trim() !== ''} scope={scope} />
           ) : null}
 
-          {!failed && clips && clips.length > 0 ? (
+          {clips && clips.length > 0 ? (
             <ul className="clips-grid mt-6">
               {clips.map((clip) => (
                 <li key={clip.id}>

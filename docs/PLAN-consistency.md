@@ -2,8 +2,7 @@
 
 **Status:** round 1, requirements 1 to 5, built and in PR #117 (Nov 16, 2026); requirements 6
 and 7 (words, titles) follow in their own PR. Links is not converted yet (waits for its open
-work). Rounds 2 and 3 not started. Report with screenshots:
-`/consistency/consistency-report.html` in the project files. Morgan accepted all seven patterns
+work). Rounds 2 and 3 not started. The report with screenshots went to the owner. Morgan accepted all seven patterns
 on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
@@ -64,5 +63,6 @@ It ships in rounds; round 1 moves no control.
 ## Shared files this touches
 
 Round 1: new `apps/web/src/components/LoadError.tsx` and `EmptyState.tsx`; a few lines in each
-app's list page; `components/FileTree.tsx`, `SaveState.tsx` (after offline step A).
+app's list page; `components/FileTree.tsx`, `state/treeStore.ts`. `SaveState.tsx` waits for requirement 6 (after
+offline step A).
 Round 2: `components/AppShell.tsx`, `TopBar.tsx`, `Sidebar.tsx`, every app's page header.
