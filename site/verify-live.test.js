@@ -83,6 +83,25 @@ describe('checkLive', () => {
     expect(problems.join('\n')).toMatch(/demo.hotsauce.work/)
   })
 
+  it('counts a network error as a problem and tries again', async () => {
+    let calls = 0
+    const flaky = async (url) => {
+      calls++
+      if (calls === 1) throw new Error('ECONNRESET')
+      return site(live)(url)
+    }
+    const problems = await checkLive({ ...opts, changed: [], fetch: flaky, tries: 2 })
+    expect(problems).toEqual([])
+  })
+
+  it('reports the network error when it never clears', async () => {
+    const down = async () => {
+      throw new Error('ECONNRESET')
+    }
+    const problems = await checkLive({ ...opts, changed: [], fetch: down })
+    expect(problems.join('\n')).toMatch(/ECONNRESET/)
+  })
+
   it('keeps trying until the new version shows up', async () => {
     let calls = 0
     const slow = async (url) => {

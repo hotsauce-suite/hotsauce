@@ -13,7 +13,7 @@ and its safety check refused retries. GitHub now publishes them on merge.
 
 ## Requirements
 
-- **R1** A push to `main` that changes `site/**`, `apps/web/**`, `packages/format/**` or the
+- **R1** A push to `main` that changes `site/**`, `apps/web/**`, `packages/format/**`, the root build files or the
   lockfile deploys the site and the demo. "Run workflow" on the Actions page deploys `main` by hand.
   (`.github/workflows/deploy-site.yml`)
 - **R2** The deploy runs the site tests first and stops if they fail. One deploy runs at a time.
@@ -21,7 +21,7 @@ and its safety check refused retries. GitHub now publishes them on merge.
   (`site/worker.test.js`, "which version is live")
 - **R4** After deploying, the run fails unless both hosts answer with this commit, and the live
   demo page matches the demo just built. (`site/verify-live.test.js`)
-- **R5** Each page changed by the push (HTML, Markdown, text and the install script under
+- **R5** Each page changed since the commit that was live before this deploy (or, failing that, since the previous push) (HTML, Markdown, text and the install script under
   `site/public/`) must match its built file live. (`site/verify-live.test.js`)
 - **R6** The run fails with a plain message naming the secrets when they are missing.
 

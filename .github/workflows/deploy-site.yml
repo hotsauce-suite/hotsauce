@@ -13,6 +13,10 @@ on:
       - apps/web/**
       - packages/format/**
       - pnpm-lock.yaml
+      - package.json
+      - pnpm-workspace.yaml
+      - tsconfig*.json
+      - .node-version
       - .github/workflows/deploy-site.yml
   workflow_dispatch:
 
@@ -45,24 +49,32 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Compare against what is live now, not the previous push: a merge whose own deploy was
+      # replaced by a newer one in the queue still gets its pages checked.
+      - name: What's live before this deploy
+        id: base
+        run: |
+          live=$(curl -fsSI https://hotsauce.work/ | tr -d '\r' | awk -F': ' 'tolower($1)=="x-site-version"{print $2}' || true)
+          echo "sha=$live" >> "$GITHUB_OUTPUT"
       - name: Site tests
         run: pnpm exec vitest run --project site
       # wrangler.jsonc's build step builds the demo into site/public/demo/ first.
       - name: Deploy
         run: npx --yes wrangler@4.161.0 deploy --config site/wrangler.jsonc --var "SITE_VERSION:$GITHUB_SHA"
       - name: Changed pages
-        id: changed
         env:
+          LIVE: ${{ steps.base.outputs.sha }}
           BEFORE: ${{ github.event.before }}
         run: |
-          files=""
-          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] &&
-             git fetch --quiet --depth=1 origin "$BEFORE"; then
-            files=$(git diff --name-only --diff-filter=AMR "$BEFORE" "$GITHUB_SHA" -- site/public | tr '\n' ' ')
-          fi
-          echo "files=$files" >> "$GITHUB_OUTPUT"
+          : > "$RUNNER_TEMP/changed.txt"
+          for base in "$LIVE" "$BEFORE"; do
+            if [ -n "$base" ] && [ "$base" != "0000000000000000000000000000000000000000" ] &&
+               git fetch --quiet --depth=1 origin "$base"; then
+              git -c core.quotePath=off diff --name-only --diff-filter=AMR "$base" "$GITHUB_SHA" -- site/public > "$RUNNER_TEMP/changed.txt"
+              echo "Changed since $base:"; cat "$RUNNER_TEMP/changed.txt"
+              exit 0
+            fi
+          done
+          echo "::warning::No earlier deploy to compare with; checking the version and the demo only."
       - name: Check the live site shows this commit
-        env:
-          FILES: ${{ steps.changed.outputs.files }}
-        # FILES is split into one argument per file on purpose.
-        run: node site/verify-live.mjs "$GITHUB_SHA" $FILES
+        run: node site/verify-live.mjs "$GITHUB_SHA" "$RUNNER_TEMP/changed.txt"

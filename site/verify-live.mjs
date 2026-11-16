@@ -1,9 +1,10 @@
 // After GitHub deploys hotsauce.work (docs/PLAN-site-deploy.md), checks the live site really
 // changed: both hosts answer with this commit, every changed page matches what was built, and
 // the demo's page matches the demo that was built. Run by .github/workflows/deploy-site.yml:
-//   node site/verify-live.mjs <commit> <changed file>...
+//   node site/verify-live.mjs <commit> <file listing the changed files, one per line>
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const SITE = 'https://hotsauce.work'
 const DEMO = 'https://demo.hotsauce.work'
@@ -49,15 +50,20 @@ async function problemsOnce({ sha, changed, publicDir, fetch }) {
 export async function checkLive({ tries = 12, wait = 10_000, ...opts }) {
   let problems = []
   for (let i = 0; i < tries; i++) {
-    problems = await problemsOnce(opts)
+    try {
+      problems = await problemsOnce(opts)
+    } catch (err) {
+      problems = [`couldn't reach the site: ${err.message}`]
+    }
     if (problems.length === 0) return problems
     if (i < tries - 1) await new Promise((r) => setTimeout(r, wait))
   }
   return problems
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const [sha, ...changed] = process.argv.slice(2)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const [sha, list] = process.argv.slice(2)
+  const changed = list ? readFileSync(list, 'utf8').split('\n').filter(Boolean) : []
   const publicDir = join(import.meta.dirname, 'public')
   const problems = await checkLive({ sha, changed, publicDir, fetch })
   for (const p of problems) console.log(`::error::${p}`)
