@@ -116,6 +116,9 @@ for (const app of APPS) {
         }),
       }),
     )
+    // No live updates: a change another test makes at the same moment would load the list again
+    // by itself (Check-ins listens for them) and take the block away before Try again is pressed.
+    await page.routeWebSocket(/\/ws(\?|$)/, () => {})
     await page.goto(app.url)
     const block = page.getByTestId('load-error').first()
     await expect(block).toContainText(`Couldn’t load ${app.says}.`)
