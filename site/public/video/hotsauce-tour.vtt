@@ -1,133 +1,133 @@
 WEBVTT
 
-00:00:03.350 --> 00:00:09.250
+00:00:03.350 --> 00:00:08.230
 This is Hotsauce, a free, open source office suite for small teams,
 
-00:00:09.250 --> 00:00:11.250
+00:00:08.230 --> 00:00:10.830
 running on your own server.
 
-00:00:11.250 --> 00:00:13.330
+00:00:10.830 --> 00:00:13.050
 Here's a quick look at each app.
 
-00:00:13.330 --> 00:00:17.510
+00:00:13.050 --> 00:00:17.510
 The day starts on Today: your meetings, your tasks,
 
-00:00:17.510 --> 00:00:21.330
+00:00:17.510 --> 00:00:21.310
 and what changed since yesterday, on one page.
 
-00:00:23.683 --> 00:00:28.343
+00:00:22.767 --> 00:00:27.907
 Docs are plain Markdown files, kept in Git.
 
-00:00:28.343 --> 00:00:30.423
+00:00:27.907 --> 00:00:30.387
 Link docs with two square brackets,
 
-00:00:30.423 --> 00:00:35.483
+00:00:30.387 --> 00:00:35.087
 and step back through every version to see who changed what.
 
-00:00:37.161 --> 00:00:43.321
+00:00:36.232 --> 00:00:40.952
 Meetings takes the notes for you, and no bot joins your call.
 
-00:00:43.321 --> 00:00:46.761
+00:00:40.952 --> 00:00:44.132
 Your rough notes and the transcript become clean notes,
 
-00:00:46.761 --> 00:00:49.701
+00:00:44.132 --> 00:00:46.972
 with decisions and action items.
 
-00:00:50.328 --> 00:00:53.968
+00:00:47.599 --> 00:00:50.739
 Ask a question across every meeting and doc,
 
-00:00:53.968 --> 00:00:57.828
+00:00:50.739 --> 00:00:54.859
 and the answer points back to its sources.
 
-00:00:57.828 --> 00:01:00.168
+00:00:54.859 --> 00:00:56.979
 Hotsauce also writes a brief,
 
-00:01:00.168 --> 00:01:04.228
+00:00:56.979 --> 00:01:01.139
 so your AI agents already know what you're working on.
 
-00:01:06.528 --> 00:01:09.788
+00:01:03.432 --> 00:01:06.892
 Action items land in Tasks.
 
-00:01:09.788 --> 00:01:14.508
+00:01:06.892 --> 00:01:11.072
 Type one in plain words, or just ramble for a few seconds,
 
-00:01:14.508 --> 00:01:17.268
+00:01:11.072 --> 00:01:14.172
 and Hotsauce sorts it into a clean list.
 
-00:01:20.761 --> 00:01:23.601
+00:01:17.666 --> 00:01:20.366
 Notes hold the small stuff.
 
-00:01:23.601 --> 00:01:28.001
+00:01:20.366 --> 00:01:24.106
 Color them, pin them, or turn them into checklists.
 
-00:01:31.480 --> 00:01:34.360
+00:01:27.222 --> 00:01:29.962
 Check-ins ask the team a question on a schedule,
 
-00:01:34.360 --> 00:01:37.880
+00:01:29.962 --> 00:01:33.182
 like what will you get done this week,
 
-00:01:37.880 --> 00:01:41.440
+00:01:33.182 --> 00:01:36.602
 and gather everyone's answers in one place.
 
-00:01:44.932 --> 00:01:48.332
+00:01:39.849 --> 00:01:43.809
 Clips replaces the meeting you didn't need.
 
-00:01:48.332 --> 00:01:50.612
+00:01:43.809 --> 00:01:46.669
 Record your screen and talk it through.
 
-00:01:50.612 --> 00:01:53.692
+00:01:46.669 --> 00:01:50.389
 Whoever watches gets a transcript and a summary.
 
-00:01:55.465 --> 00:01:59.345
+00:01:52.166 --> 00:01:55.746
 Dictate turns talking into clean text.
 
-00:01:59.345 --> 00:02:02.345
+00:01:55.746 --> 00:01:58.686
 Hold a key on your Mac and speak into any app,
 
-00:02:02.345 --> 00:02:05.205
+00:01:58.686 --> 00:02:01.526
 or leave a voice note from your phone.
 
-00:02:05.699 --> 00:02:10.059
+00:02:02.069 --> 00:02:06.369
 The Mac app sets itself up one step at a time.
 
-00:02:10.059 --> 00:02:13.339
+00:02:06.369 --> 00:02:09.209
 Enter your team's workspace, and sign in with Google,
 
-00:02:13.339 --> 00:02:15.939
+00:02:09.209 --> 00:02:11.849
 which connects Dictate too.
 
-00:02:15.939 --> 00:02:19.559
+00:02:11.849 --> 00:02:15.229
 Try it in the practice box, then see each permission it needs,
 
-00:02:19.559 --> 00:02:22.919
+00:02:15.229 --> 00:02:18.269
 with a plain reason for every one.
 
-00:02:22.919 --> 00:02:25.479
+00:02:18.269 --> 00:02:20.669
 Skip one, and it asks again later.
 
-00:02:27.371 --> 00:02:30.371
+00:02:21.169 --> 00:02:24.989
 Found a bug, or have an idea?
 
-00:02:30.371 --> 00:02:32.931
+00:02:24.989 --> 00:02:27.729
 Send feedback from any page.
 
-00:02:32.931 --> 00:02:36.331
+00:02:27.729 --> 00:02:30.989
 Attach a picture of the page you were on with one click,
 
-00:02:36.331 --> 00:02:38.711
+00:02:30.989 --> 00:02:33.449
 then follow what happens to it.
 
-00:02:44.830 --> 00:02:49.650
+00:02:34.540 --> 00:02:39.720
 And there's more: whiteboards for sketching ideas together,
 
-00:02:49.650 --> 00:02:54.930
+00:02:39.720 --> 00:02:44.980
 a people directory, shared files, forms, and Briefcast,
 
-00:02:54.930 --> 00:02:58.210
+00:02:44.980 --> 00:02:48.240
 a morning briefing you can play like a podcast.
 
-00:02:58.786 --> 00:03:04.926
+00:02:48.835 --> 00:02:55.055
 Hotsauce is free and open source, and it deploys to Cloudflare in minutes.
 
-00:03:04.926 --> 00:03:06.986
+00:02:55.055 --> 00:02:57.415
 Get it at hotsauce.work.
