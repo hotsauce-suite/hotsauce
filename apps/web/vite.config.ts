@@ -153,7 +153,15 @@ export default defineConfig(({ mode }) => ({
             // Meeting reminders: push and notificationclick handlers (public/push-sw.js).
             importScripts: ['/push-sw.js'],
             navigateFallback: '/index.html',
-            navigateFallbackDenylist: [/^\/api\//, /^\/ws/, /^\/downloads\//],
+            // The server's own addresses, never the app shell: the same list main.ts keeps out
+            // of the web app (the MCP endpoint and its sign-in discovery, docs/mcp.md).
+            navigateFallbackDenylist: [
+              /^\/api\//,
+              /^\/ws/,
+              /^\/downloads\//,
+              /^\/mcp(\/|$)/,
+              /^\/\.well-known\//,
+            ],
             // Precache every screen (appScreens above), in the background once the page has
             // loaded. Library chunks loaded on demand (dozens of CodeMirror modes, diagrams) are
             // cached the first time they load; their names are content-hashed, so cache-first is safe.

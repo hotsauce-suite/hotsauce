@@ -119,3 +119,14 @@ test('another member on the same browser never sees what the last one typed offl
   await page.goto('/docs/kept')
   await expect(page.getByTestId('kept-empty')).toBeVisible()
 })
+
+test('the MCP sign-in addresses still reach the server once the app works offline', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await offlineReady(page)
+  // A browser opening the discovery address gets the server's JSON, not the app's page.
+  const res = await page.goto('/.well-known/oauth-authorization-server')
+  expect(res?.headers()['content-type']).toContain('application/json')
+  expect(res?.fromServiceWorker()).toBe(false)
+})
