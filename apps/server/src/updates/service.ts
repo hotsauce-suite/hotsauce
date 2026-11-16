@@ -1,5 +1,5 @@
 import { type FlyApi, HELPER_ROLE } from './fly.js'
-import type { Release } from './releases.js'
+import { assertImageDigest, type Release } from './releases.js'
 import type { UpdateState, UpdateStore } from './store.js'
 import { isNewer } from './version.js'
 
@@ -40,6 +40,11 @@ export interface UpdaterOptions {
   store: UpdateStore
   /** The newest release, null when there is none; throws when it can't be found out. */
   latestRelease: () => Promise<Release | null>
+  /**
+   * The exact image digest a release recorded (`sha256:…`); throws when it has none. Only that
+   * image is ever installed, never whatever the version's tag points at.
+   */
+  imageDigest: (version: string) => Promise<string>
   /** Set on Fly with FLY_API_TOKEN; null elsewhere. */
   fly: FlyApi | null
   /** Fly's own variables when running there: FLY_APP_NAME, FLY_REGION, FLY_IMAGE_REF. */
@@ -215,6 +220,9 @@ export class Updater {
     if (!latest || !isNewer(latest.version, this.#o.current)) {
       throw new Error('Already on the newest release')
     }
+    // Before anything is saved: a release with no recorded image is never installed, and isn't
+    // a failed update either, so a fixed release can still go in.
+    const digest = assertImageDigest(await this.#o.imageDigest(latest.version), latest.version)
     const pending = { from: this.#o.current, to: latest.version, at: this.#now.toISOString() }
     this.#o.store.set({ pending })
     try {
@@ -229,7 +237,7 @@ export class Updater {
           metadata: { role: HELPER_ROLE },
           init: { cmd: ['node', 'apps/server/dist/updates/helper-main.js'] },
           env: {
-            HOTSAUCE_UPDATE_TARGET: `${this.#o.image}:${latest.version}`,
+            HOTSAUCE_UPDATE_TARGET: `${this.#o.image}@${digest}`,
             HOTSAUCE_UPDATE_VERSION: latest.version,
             HOTSAUCE_UPDATE_PREVIOUS: imageRef,
             PUBLIC_URL: this.#o.publicUrl,

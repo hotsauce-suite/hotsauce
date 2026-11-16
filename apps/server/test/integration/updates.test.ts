@@ -10,6 +10,7 @@ import { makeTempDir, removeDir } from '../helpers/git.js'
 const ADMIN = 'ada@acme.example'
 const MEMBER = 'grace@acme.example'
 const OLD = 'registry.fly.io/acme:deployment-1'
+const DIGEST = `sha256:${'c3'.repeat(32)}`
 
 let root: string | undefined
 let running: Services[] = []
@@ -41,6 +42,7 @@ async function instance(overrides: ServiceOverrides) {
       url: 'https://github.com/hotsauce-suite/hotsauce/releases/tag/v0.3.0',
       publishedAt: '2026-11-12T00:00:00Z',
     }),
+    imageDigest: async () => DIGEST,
     ...overrides,
   })
   running.push(services)
@@ -100,6 +102,24 @@ describe('updates', () => {
       updating: { from: '0.2.0', to: '0.3.0' },
     })
     expect(fly.created).toHaveLength(1)
+    const env = (fly.created[0]?.config as { env: Record<string, string> }).env
+    expect(env.HOTSAUCE_UPDATE_TARGET).toBe(`ghcr.io/hotsauce-suite/hotsauce@${DIGEST}`)
     expect((await call('POST', '/api/admin/org/updates/start', ADMIN)).status).toBe(409)
+  })
+
+  it('on Fly, Update installs nothing from a release that recorded no image', async () => {
+    const fly = new FakeFly()
+    fly.add('app1', OLD)
+    const call = await instance({
+      fly,
+      flyEnv: { app: 'acme', region: 'iad', imageRef: OLD },
+      imageDigest: async () => {
+        throw new Error('Hotsauce 0.3.0 recorded no image (answered 404)')
+      },
+    })
+    const res = await call('POST', '/api/admin/org/updates/start', ADMIN)
+    expect(res.status).toBe(409)
+    expect(JSON.stringify(await res.json())).toMatch(/recorded no image/)
+    expect(fly.created).toHaveLength(0)
   })
 })

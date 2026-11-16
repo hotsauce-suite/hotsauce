@@ -34,6 +34,8 @@ R11. A failed ask is logged with its reason, keeps the release already known, an
 R12. When the GitHub API refuses (its unauthenticated limit is 60 asks an hour per address, and
      cloud hosts share addresses), the version is read from where
      `github.com/hotsauce-suite/hotsauce/releases/latest` redirects, without notes.
+R13. The helper installs the image digest the release recorded, never the version's tag
+     (`docs/PLAN-pinned-images.md`).
 
 ## Slices
 

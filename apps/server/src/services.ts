@@ -122,6 +122,7 @@ import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from '
 import { TokenAuth, TokenStore } from './tokens/index.js'
 import {
   type FlyApi,
+  fetchImageDigest,
   fetchLatestRelease,
   flyApi,
   RELEASE_IMAGE,
@@ -175,6 +176,7 @@ export interface ServiceOverrides {
   diskFreeBytes?: () => Promise<number>
   /** The updater's view of the newest release and of Fly (docs/PLAN-releases-and-updates.md). */
   latestRelease?: () => Promise<Release | null>
+  imageDigest?: (version: string) => Promise<string>
   fly?: FlyApi | null
   flyEnv?: { app?: string; region?: string; imageRef?: string }
   version?: string
@@ -425,6 +427,13 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     latestRelease:
       overrides.latestRelease ??
       (config.NODE_ENV === 'test' ? async () => null : () => fetchLatestRelease()),
+    imageDigest:
+      overrides.imageDigest ??
+      (config.NODE_ENV === 'test'
+        ? async () => {
+            throw new Error('No releases in tests')
+          }
+        : (version) => fetchImageDigest(version)),
     fly:
       overrides.fly !== undefined
         ? overrides.fly
