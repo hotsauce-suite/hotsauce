@@ -9,7 +9,9 @@
   hotsauce.havenbiosec.com: registered, installed, controlling; with the server stopped, the
   window opened the cached app with the Offline bar, not the retry page). No Mac app change
   needed.
-- Step A2 (Dictate on the Mac with no connection): built and tested (PR #143); on-device speech waits on the Speech Recognition permission on this Mac and the owner’s own check with Wi-Fi off.
+- Step A2 (Dictate on the Mac with no connection): built and tested (PR #143). On-device speech
+  checked on the owner's Mac on 2026-11-16 (a recorded sentence, en-US, right text in 153 ms).
+  The owner's own check with Wi-Fi off follows the Mac app release.
 - Step B (read recently used things offline): not started.
 - Step C (edit offline, sync when back): not started.
 - Approved by the owner on 2026-11-15 from the scope page (three steps, A then B then C; skip a
