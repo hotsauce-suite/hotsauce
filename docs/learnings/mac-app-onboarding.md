@@ -91,4 +91,4 @@ Learnings from removing the built-in server address (`docs/PLAN-mac-onboarding.m
 - **Squash merges keep the commit count low.** `build-app.sh` takes its build number from
   `git rev-list --count HEAD`, and on main after #103 that was 107, lower than the published
   build (108). macOS and the updater treat a lower CFBundleVersion as older, so pass
-  `BUILD_NUMBER=` above the published one (read it from the zip on the `mac-app` release).
+  `BUILD_NUMBER=` above the published one (read it from `mac-app.json` on the newest `mac-app-<build>` release).
