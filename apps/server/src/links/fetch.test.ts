@@ -111,7 +111,22 @@ describe('fetchPage', () => {
         res.end()
       } else if (url === '/pdf') {
         res.writeHead(200, { 'content-type': 'application/pdf' })
-        res.end('%PDF')
+        res.end('%PDF-1.4 tiny')
+      } else if (url === '/fake.pdf') {
+        res.writeHead(200, { 'content-type': 'application/pdf' })
+        res.end('<html>not a pdf</html>')
+      } else if (url === '/vague.pdf') {
+        res.writeHead(200, { 'content-type': 'application/octet-stream' })
+        res.end('%PDF-1.7 vague')
+      } else if (url === '/huge.pdf') {
+        res.writeHead(200, { 'content-type': 'application/pdf', 'content-length': '999999999' })
+        res.write('%PDF-')
+      } else if (url === '/zip') {
+        res.writeHead(200, { 'content-type': 'application/zip' })
+        res.end('PK')
+      } else if (url === '/json') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end('{"a":1}')
       } else if (url === '/big') {
         res.writeHead(200, { 'content-type': 'text/html' })
         res.end('x'.repeat(2000))
@@ -165,8 +180,27 @@ describe('fetchPage', () => {
     await expect(fetchPage(`${base}/loop`, opts)).rejects.toThrow(/redirects too many/)
   })
 
+  it('downloads a PDF as bytes, checking it is one (docs/PLAN-links-pdfs.md R3)', async () => {
+    const pdf = await fetchPage(`${base}/pdf`, opts)
+    expect(pdf.contentType).toBe('application/pdf')
+    expect(Buffer.from(pdf.bytes ?? []).toString()).toBe('%PDF-1.4 tiny')
+    expect((await fetchPage(`${base}/vague.pdf`, opts)).bytes).toBeTruthy()
+    await expect(fetchPage(`${base}/fake.pdf`, opts)).rejects.toThrow(/isn’t a web page/)
+    // Too big by its own say-so: refused before downloading it.
+    await expect(fetchPage(`${base}/huge.pdf`, opts)).rejects.toThrow(/over 50 MB/)
+    await expect(fetchPage(`${base}/pdf`, { ...opts, maxPdfBytes: 5 })).rejects.toThrow(
+      /over 50 MB/,
+    )
+  })
+
+  it('takes JSON and XML only when asked for data, and never a page’s other files', async () => {
+    expect((await fetchPage(`${base}/json`, opts, 'data')).text).toBe('{"a":1}')
+    await expect(fetchPage(`${base}/json`, opts)).rejects.toThrow(/isn’t a web page/)
+    await expect(fetchPage(`${base}/pdf`, opts, 'data')).rejects.toThrow(/details/)
+  })
+
   it('refuses files, big pages, slow sites, odd ports and errors', async () => {
-    await expect(fetchPage(`${base}/pdf`, opts)).rejects.toThrow(/PDF/)
+    await expect(fetchPage(`${base}/zip`, opts)).rejects.toThrow(/isn’t a web page/)
     await expect(fetchPage(`${base}/big`, { ...opts, maxBytes: 1000 })).rejects.toThrow(/too big/)
     await expect(fetchPage(`${base}/slow`, { ...opts, timeoutMs: 200 })).rejects.toThrow(/too long/)
     await expect(fetchPage(`${base}/gone`, opts)).rejects.toThrow(/isn’t there/)

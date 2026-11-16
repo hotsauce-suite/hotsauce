@@ -25,10 +25,35 @@ export interface FetchedPage {
   /** Where the page ended up, after redirects. */
   url: string
   contentType: string
+  /** The page as text; '' for a PDF. */
   text: string
+  /** A PDF's bytes (`contentType` is then `application/pdf`; docs/PLAN-links-pdfs.md R3). */
+  bytes?: Uint8Array
 }
 
-export type PageFetcher = (url: string) => Promise<FetchedPage>
+/**
+ * `page` (the default): a web page or a PDF. `data`: an API's JSON or XML (a paper's details or
+ * its full text), up to 8 MB.
+ */
+export type FetchKind = 'page' | 'data'
+
+export type PageFetcher = (url: string, kind?: FetchKind) => Promise<FetchedPage>
+
+/** A PDF downloaded for a saved link; the same limit Files reads text up to. */
+export const MAX_PDF_FETCH_BYTES = 50 * 1024 * 1024
+/** An API answer: a paper's details or its full text as XML. */
+export const MAX_DATA_BYTES = 8 * 1024 * 1024
+const DATA_TYPES = [
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'application/atom+xml',
+  'application/jats+xml',
+  'text/plain',
+]
+const PDF_TYPES = ['application/pdf', 'application/x-pdf']
+/** Types a server sends a PDF as when it doesn't say; read as a PDF if the path ends in .pdf. */
+const VAGUE_TYPES = ['application/octet-stream', 'binary/octet-stream', 'application/download', '']
 
 const BLOCKED = new net.BlockList()
 for (const [net4, bits] of [
@@ -117,6 +142,7 @@ interface RawResponse {
   status: number
   headers: http.IncomingHttpHeaders
   body: Buffer
+  pdf: boolean
 }
 
 export interface FetchOptions {
@@ -126,6 +152,10 @@ export interface FetchOptions {
   userAgent?: string
   /** Which addresses may be connected to; public ones only, unless a test says otherwise. */
   allowed?: (ip: string) => boolean
+  /** A PDF's limit; 50 MB unless a test says otherwise. */
+  maxPdfBytes?: number
+  /** An API answer's limit; 8 MB unless a test says otherwise. */
+  maxDataBytes?: number
   /** Which ports may be connected to; the usual web ones unless a test says otherwise. */
   ports?: ReadonlySet<string>
 }
@@ -133,12 +163,17 @@ export interface FetchOptions {
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 (compatible; saved-links)'
 
-/** Fetches a page the safe way (see the top of this file). Throws `LinkFetchError`. */
-export async function fetchPage(raw: string, opts: FetchOptions = {}): Promise<FetchedPage> {
-  const deadline = Date.now() + (opts.timeoutMs ?? FETCH_TIMEOUT_MS)
+/** Fetches a page (or a PDF, or with `data` an API answer) the safe way. Throws `LinkFetchError`. */
+export async function fetchPage(
+  raw: string,
+  opts: FetchOptions = {},
+  kind: FetchKind = 'page',
+): Promise<FetchedPage> {
+  const deadline = Date.now() + (opts.timeoutMs ?? (kind === 'page' ? FETCH_TIMEOUT_MS : 30_000))
   let url = parseWebUrl(raw, opts.ports)
   for (let hop = 0; ; hop++) {
-    const res = await requestOnce(url, deadline, opts)
+    const target = url
+    const res = await requestOnce(url, deadline, opts, (mime) => accept(kind, mime, target, opts))
     if (res.status >= 300 && res.status < 400 && res.headers.location) {
       if (hop >= MAX_REDIRECTS) throw new LinkFetchError('The page redirects too many times')
       url = parseWebUrl(new URL(res.headers.location, url).toString(), opts.ports)
@@ -154,19 +189,50 @@ export async function fetchPage(raw: string, opts: FetchOptions = {}): Promise<F
     }
     const contentType = String(res.headers['content-type'] ?? '').toLowerCase()
     const mime = contentType.split(';')[0]?.trim() ?? ''
-    if (mime && !TYPES.includes(mime)) {
-      throw new LinkFetchError(
-        mime === 'application/pdf'
-          ? 'It’s a PDF, not a web page, so there’s no readable copy; the link is kept'
-          : 'It isn’t a web page, so there’s no readable copy; the link is kept',
-      )
+    if (res.pdf) {
+      if (!Buffer.from(res.body.subarray(0, 1024)).toString('latin1').includes('%PDF-')) {
+        throw new LinkFetchError(
+          'It isn’t a web page, so there’s no readable copy; the link is kept',
+        )
+      }
+      return {
+        url: url.toString(),
+        contentType: 'application/pdf',
+        text: '',
+        bytes: new Uint8Array(res.body),
+      }
     }
     return {
       url: url.toString(),
-      contentType: mime || 'text/html',
+      contentType: mime || (kind === 'data' ? 'text/plain' : 'text/html'),
       text: decode(res.body, contentType),
     }
   }
+}
+
+/** How much of an answer of this type to take (and whether it's a PDF); throws when none. */
+function accept(
+  kind: FetchKind,
+  mime: string,
+  url: URL,
+  opts: FetchOptions,
+): { maxBytes: number; pdf: boolean } {
+  if (kind === 'data') {
+    if (DATA_TYPES.includes(mime))
+      return { maxBytes: opts.maxDataBytes ?? MAX_DATA_BYTES, pdf: false }
+    throw new LinkFetchError('The site didn’t answer with the paper’s details')
+  }
+  if (!mime || TYPES.includes(mime)) {
+    // A server that names no type but serves a .pdf address is sending a PDF.
+    if (!mime && /\.pdf$/i.test(url.pathname)) {
+      return { maxBytes: opts.maxPdfBytes ?? MAX_PDF_FETCH_BYTES, pdf: true }
+    }
+    return { maxBytes: opts.maxBytes ?? MAX_PAGE_BYTES, pdf: false }
+  }
+  if (PDF_TYPES.includes(mime) || (VAGUE_TYPES.includes(mime) && /\.pdf$/i.test(url.pathname))) {
+    return { maxBytes: opts.maxPdfBytes ?? MAX_PDF_FETCH_BYTES, pdf: true }
+  }
+  throw new LinkFetchError('It isn’t a web page, so there’s no readable copy; the link is kept')
 }
 
 function parseWebUrl(raw: string, ports: ReadonlySet<string> = PORTS): URL {
@@ -185,11 +251,15 @@ function parseWebUrl(raw: string, ports: ReadonlySet<string> = PORTS): URL {
   return url
 }
 
-async function requestOnce(url: URL, deadline: number, opts: FetchOptions): Promise<RawResponse> {
+async function requestOnce(
+  url: URL,
+  deadline: number,
+  opts: FetchOptions,
+  limitFor: (mime: string) => { maxBytes: number; pdf: boolean },
+): Promise<RawResponse> {
   const target = await publicAddressOf(url.hostname, opts.resolve, opts.allowed)
   const left = deadline - Date.now()
   if (left <= 0) throw new LinkFetchError('The site took too long to answer')
-  const maxBytes = opts.maxBytes ?? MAX_PAGE_BYTES
   const lib = url.protocol === 'https:' ? https : http
   return new Promise<RawResponse>((resolve, reject) => {
     const req = lib.request(
@@ -198,7 +268,8 @@ async function requestOnce(url: URL, deadline: number, opts: FetchOptions): Prom
         method: 'GET',
         headers: {
           'user-agent': opts.userAgent ?? USER_AGENT,
-          accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1',
+          accept:
+            'text/html,application/xhtml+xml,application/pdf,text/plain;q=0.9,application/json;q=0.8,*/*;q=0.1',
           'accept-encoding': 'gzip, deflate, br',
           'accept-language': 'en;q=0.9,*;q=0.5',
         },
@@ -217,9 +288,35 @@ async function requestOnce(url: URL, deadline: number, opts: FetchOptions): Prom
         const status = res.statusCode ?? 0
         if (status >= 300 && status < 400) {
           res.resume()
-          resolve({ status, headers: res.headers, body: Buffer.alloc(0) })
+          resolve({ status, headers: res.headers, body: Buffer.alloc(0), pdf: false })
           return
         }
+        let limit: { maxBytes: number; pdf: boolean } = { maxBytes: 0, pdf: false }
+        if (status >= 200 && status < 300) {
+          try {
+            const type = String(res.headers['content-type'] ?? '').toLowerCase()
+            limit = limitFor(type.split(';')[0]?.trim() ?? '')
+          } catch (err) {
+            // Not a type kept: stop before downloading it.
+            res.destroy()
+            req.destroy()
+            reject(err)
+            return
+          }
+          const declared = Number(res.headers['content-length'] ?? Number.NaN)
+          if (Number.isFinite(declared) && declared > limit.maxBytes) {
+            res.destroy()
+            req.destroy()
+            reject(new LinkFetchError(tooBig(limit.pdf)))
+            return
+          }
+        } else {
+          // An error page: its status is all that's needed.
+          res.resume()
+          resolve({ status, headers: res.headers, body: Buffer.alloc(0), pdf: false })
+          return
+        }
+        const maxBytes = limit.maxBytes
         let stream: NodeJS.ReadableStream = res
         const encoding = String(res.headers['content-encoding'] ?? '').toLowerCase()
         if (encoding === 'gzip' || encoding === 'x-gzip') stream = res.pipe(zlib.createGunzip())
@@ -237,13 +334,13 @@ async function requestOnce(url: URL, deadline: number, opts: FetchOptions): Prom
             if (stream !== res) (stream as unknown as { destroy(): void }).destroy()
             res.destroy()
             req.destroy()
-            reject(new LinkFetchError('The page is too big to keep a readable copy of'))
+            reject(new LinkFetchError(tooBig(limit.pdf)))
             return
           }
           chunks.push(chunk)
         })
         stream.on('end', () =>
-          resolve({ status, headers: res.headers, body: Buffer.concat(chunks) }),
+          resolve({ status, headers: res.headers, body: Buffer.concat(chunks), pdf: limit.pdf }),
         )
         stream.on('error', () => reject(new LinkFetchError('The page came back garbled')))
       },
@@ -259,6 +356,12 @@ async function requestOnce(url: URL, deadline: number, opts: FetchOptions): Prom
     req.on('close', () => clearTimeout(timer))
     req.end()
   })
+}
+
+function tooBig(pdf: boolean): string {
+  return pdf
+    ? 'The PDF is too big to keep (over 50 MB)'
+    : 'The page is too big to keep a readable copy of'
 }
 
 /** The body as text in the charset the header or a `<meta charset>` names; UTF-8 otherwise. */

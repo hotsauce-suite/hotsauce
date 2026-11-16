@@ -1,5 +1,11 @@
-export { fakePageFetcher } from './fake.js'
-export { fetchPage, isPublicAddress, LinkFetchError, type PageFetcher } from './fetch.js'
+export { fakePageFetcher, fakePaperPdf } from './fake.js'
+export {
+  type FetchKind,
+  fetchPage,
+  isPublicAddress,
+  LinkFetchError,
+  type PageFetcher,
+} from './fetch.js'
 export { readPage } from './read.js'
 export { MAX_ANCHOR, type ReadingPlace, ReadingStore } from './reading.js'
 export {
