@@ -104,3 +104,9 @@ Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadEr
   in `data-k`; a help page edit is not found by search until that line changes too.
 - **Don't load the machine while recording.** A CPU-heavy job running beside `run.sh` made one
   loop fail without a clear error; it recorded fine alone.
+- **Re-cutting the tour takes about half an hour of machine time** and no Mac: the five extra
+  shots (`ask clipsRecorder clipsPlayer macSetup feedback`), then voice, captions, overlays and
+  the cut. `DEMO_CLIP` has to be rebuilt each time (nothing keeps it): a generated face still
+  with a slow zoom as the camera, `docs.mp4` as the screen, joined by the server's own
+  `composite()`. Re-encode the cut at `-crf 27` for the site. YouTube cannot swap a video in
+  place, so a new cut means a new upload and a new link in `site/public/index.html`.
