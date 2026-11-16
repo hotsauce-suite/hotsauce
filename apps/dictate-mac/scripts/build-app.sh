@@ -147,7 +147,7 @@ if (( NOTARIZE )); then
   spctl -a -t open --context context:primary-signature -v "$DMG"
 fi
 
-# What this build is, published beside it on the mac-app release so servers and installed apps
+# What this build is, published beside it on its mac-app-<build> release so servers and installed apps
 # can tell whether they're behind (docs/PLAN-mac-version-and-whats-new.md, M1). From this build
 # on, the app reports its version, so an app that doesn't is older.
 printf '{"version":"%s","build":"%s","reportsVersion":true}\n' "$VERSION" "$BUILD_NUMBER" > release/mac-app.json

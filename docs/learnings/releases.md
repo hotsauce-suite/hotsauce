@@ -109,3 +109,8 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   fetched again, or Settings would offer an update and hand out the old app.
 - **Swift tests on the owner's Mac use Swift Testing, not XCTest**: it has only the Command Line
   Tools, which don't ship XCTest.
+- **Immutable releases mean one release per Mac build.** With GitHub's immutable releases on, a
+  release's files can't be replaced or added to, so the single `mac-app` release that servers
+  read could never take a new build. Each build is now its own prerelease, `mac-app-<build>`, and
+  the server asks GitHub's API for the highest build (once per refresh, so the app, the zip and
+  `mac-app.json` all come from the same one), falling back to the old `mac-app` release.
