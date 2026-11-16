@@ -933,6 +933,65 @@ test.describe('the page of one thing', () => {
     await expect(page.getByRole('menuitem', { name: 'Delete link' })).toBeVisible()
   })
 
+  test('a clip’s long transcript scrolls inside the side panel, not the panel itself', async ({
+    page,
+  }) => {
+    const now = new Date().toISOString()
+    const clip = {
+      id: 'long-transcript',
+      title: 'A long talk',
+      summary: null,
+      mode: 'screen',
+      status: 'ready',
+      error: null,
+      durationMs: 600_000,
+      sizeBytes: 1,
+      width: 1280,
+      height: 720,
+      mimeType: 'video/mp4',
+      owner: { name: 'Someone', email: 'someone@example.test' },
+      isOwner: false,
+      createdAt: now,
+      updatedAt: now,
+      transcriptStatus: 'ready',
+      transcriptError: null,
+      compositeStatus: 'none',
+      screenSurface: null,
+      screenLabel: null,
+      speakers: [],
+      aiSummary: null,
+      aiActions: null,
+      editStatus: 'none',
+      edited: false,
+      cuts: [],
+      sourceUrl: null,
+      sourceDurationMs: null,
+      videoUrl: null,
+      thumbUrl: null,
+      downloadUrl: null,
+    }
+    const transcript = Array.from({ length: 120 }, (_, i) => ({
+      start: i * 5,
+      end: i * 5 + 5,
+      text: `Line ${i + 1} of a long talk`,
+    }))
+    await page.route('**/api/clips/long-transcript', (route) =>
+      route.fulfill({ json: { clip, transcript } }),
+    )
+    await page.goto('/clips/long-transcript')
+    const panel = page.getByTestId('clip-transcript-panel')
+    await expect(panel.getByTestId('transcript-line')).toHaveCount(120)
+    const scroll = await panel.evaluate((aside) => {
+      const list = aside.querySelector('[data-testid="clip-transcript"]') as HTMLElement
+      const body = list.closest('.clip-side')?.parentElement as HTMLElement
+      return {
+        list: list.scrollHeight > list.clientHeight + 10,
+        body: body.scrollHeight <= body.clientHeight + 1,
+      }
+    })
+    expect(scroll).toEqual({ list: true, body: true })
+  })
+
   test('a form and a saved link read at a doc’s width', async ({ page, user }) => {
     const measure = await page.evaluate(() => {
       const probe = document.createElement('div')

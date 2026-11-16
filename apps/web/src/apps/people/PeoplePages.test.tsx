@@ -71,7 +71,9 @@ describe('People', () => {
     await userEvent.click(within(page).getByTestId('person-company'))
     const company = await screen.findByTestId('company-page')
     expect(within(company).getByText('Dana Lee')).toBeInTheDocument()
-    expect(company.className).not.toMatch(/grid/)
+    // Its cards stack too: one above the other, not side by side.
+    expect(company.className).toMatch(/\bflex-col\b/)
+    expect(company.className).not.toMatch(/grid|columns-/)
   })
 
   it('a save started before someone else’s is refused, even after the page reloads theirs', async () => {

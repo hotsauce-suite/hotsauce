@@ -620,8 +620,12 @@ export default function ClipPage() {
               time={time}
               onSeek={(s) => {
                 seek(s, true)
-                // On a phone the transcript covers the video: close it to watch from there.
-                if (compact) setTranscriptOpen(false)
+                // Narrower than a computer the transcript covers the video (a sheet on a phone, a
+                // floating panel on a tablet): close it to watch from there, focus on the video.
+                if (!roomy) {
+                  setTranscriptOpen(false)
+                  video.current?.focus()
+                }
               }}
               onRetry={() => void retryTranscript()}
             />

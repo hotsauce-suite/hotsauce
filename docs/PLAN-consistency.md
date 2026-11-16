@@ -191,7 +191,8 @@ https://claude.ai/artifact/A9oePJA9Wedzbhb6gokgDM
     (open on arrival on a computer), a task. *(e2e clips, clips-mobile)*
 25. **Three widths.** Reading column (the doc's measure): doc, meeting note, saved link, form,
     check-in, person, company. Video and panel: a clip. Full width: board, table, page. A
-    person's and a company's cards stack in one column (`components/ItemColumn.ts`).
+    person's and a company's cards stack in one column (`components/ItemColumn.ts`). A form's
+    Answers tab stays wider: it is a table.
     *(e2e consistency; unit PeoplePages)*
 26. **Quick things stay quick.** A task keeps its side panel, a note and a file their pop-ups;
     each has its name at the top, × at the top right, Delete in More. A note has no second

@@ -78,9 +78,18 @@ test('a clip page fits a phone: video, speed and transcript', async ({
   await expect(page.getByTestId('transcript-line').first()).toContainText('clip segment 1', {
     timeout: 15_000,
   })
+  // The sheet fits the screen too.
+  const sheetOverflow = await page.evaluate(() => {
+    const width = document.documentElement.clientWidth
+    return [...document.querySelectorAll('[data-testid="clip-transcript-panel"] *')]
+      .filter((el) => el.getBoundingClientRect().right > width + 1)
+      .map((el) => el.tagName)
+  })
+  expect(sheetOverflow).toEqual([])
   // Choosing a line plays from there and closes the sheet, so the video is in view.
   await page.getByTestId('transcript-line').nth(1).click()
   await expect(page.getByTestId('clip-transcript-panel')).toHaveCount(0)
+  await expect(page.getByTestId('clip-video')).toBeFocused()
   await expect
     .poll(() => page.getByTestId('clip-video').evaluate((v: HTMLVideoElement) => v.currentTime))
     .toBeGreaterThanOrEqual(2)
