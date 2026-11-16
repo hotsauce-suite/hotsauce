@@ -1,5 +1,5 @@
-import { expect, test, uid } from './fixtures'
 import { makeTestPdf } from '../apps/server/src/links/test-pdf'
+import { expect, test, uid } from './fixtures'
 
 // Saved links (ARCHITECTURE §23): a member pastes a link,
 // sees the readable copy arrive, tags it, shares it with the team, marks it done; then the save
