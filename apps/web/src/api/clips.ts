@@ -31,10 +31,26 @@ export interface Clip {
   aiSummary: string | null
   /** A `- [ ] …` checklist; empty when none were found; null until asked for. */
   aiActions: string | null
+  /** The owner's trim. Once it's made, `durationMs`, the URLs and the transcript are the
+   *  trimmed video's; until then the previous version plays. */
+  editStatus: 'none' | 'pending' | 'processing' | 'ready' | 'failed'
+  /** The video that plays is a trimmed one. */
+  edited: boolean
+  /** The parts of the whole recording left out, in ms (the owner's; empty for others). */
+  cuts: ClipCut[]
+  /** The whole recording, for the trim editor (owner only). */
+  sourceUrl: string | null
+  sourceDurationMs: number | null
   /** Signed, short-lived; null until the clip is ready. */
   videoUrl: string | null
   thumbUrl: string | null
   downloadUrl: string | null
+}
+
+/** A part of the whole recording left out of the trimmed video, in ms. */
+export interface ClipCut {
+  startMs: number
+  endMs: number
 }
 
 /** One transcript line; seconds from the start of the video. */
@@ -94,4 +110,7 @@ export const clipsApi = {
   retryTranscript: (id: string) =>
     request<Clip>(`${clip(id)}/transcript/retry`, { method: 'POST' }),
   retryCamera: (id: string) => request<Clip>(`${clip(id)}/camera/retry`, { method: 'POST' }),
+  setCuts: (id: string, cuts: ClipCut[]) =>
+    request<Clip>(`${clip(id)}/edit`, { method: 'PUT', json: { cuts } }),
+  revertEdit: (id: string) => request<Clip>(`${clip(id)}/edit`, { method: 'DELETE' }),
 }

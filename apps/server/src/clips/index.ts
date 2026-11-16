@@ -1,4 +1,12 @@
-export { bubbleGeometry, composite, type FfmpegPaths, probe } from './media.js'
+export {
+  type Cut,
+  cutTranscript,
+  editedTime,
+  keptRanges,
+  MAX_CUTS,
+  normalizeCuts,
+} from './cuts.js'
+export { bubbleGeometry, composite, cutVideo, type FfmpegPaths, probe } from './media.js'
 export { checklistOnly, clipNote, freePath, type NoteKind, stripImages } from './notes.js'
 export {
   type ClipSpeaker,
@@ -7,6 +15,7 @@ export {
   cameraKey,
   chunkName,
   compositeKey,
+  editedKey,
   type FinishRequest,
   MAX_CHUNKS,
   MAX_CLIP_BYTES,
@@ -23,6 +32,7 @@ export {
   type ClipRecord,
   ClipStore,
   type CompositeStatus,
+  type EditStatus,
   type TranscriptSegment,
 } from './store.js'
 export {
