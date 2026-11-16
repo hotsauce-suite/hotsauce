@@ -138,11 +138,9 @@ export default function BoardRoute() {
   return (
     <>
       <MeetingsPageHeader
+        back={{ to: '/boards', label: 'Boards' }}
         title={
           <span className="flex min-w-0 items-center gap-2">
-            <Link to="/boards" aria-label="All boards" className="text-ink-faint hover:text-ink">
-              <Icon name="back" className="size-4" />
-            </Link>
             <input
               aria-label="Board title"
               className="board-title-input"

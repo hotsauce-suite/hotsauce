@@ -55,8 +55,12 @@ It ships in rounds; round 1 moves no control.
    none. Forms and Tables make an untitled item with the cursor in its name.
    *(e2e consistency: "the main button", one case per app at both widths; PageHeader.test;
    e2e forms and tables)*
-9. A full-page item shows "‹ App name" at the left of the top bar; every pop-up and side panel
-   has an × at its top right (Tables, Clips and the Files preview have neither today).
+9. **Back and close.** The page of one thing (a board, a clip, a form, a table, a saved link,
+   a check-in, a person, a shared page, Record a clip, New meeting, an import) shows "‹ App
+   name" at the left of the top bar, in the menu's place on a phone, and it leads to the list.
+   Every pop-up has an × at its top right, as side panels do. Docs and meeting notes keep their
+   breadcrumb beside the sidebar.
+   *(PageHeader.test; Dialog.test; e2e boards, clips, forms, tables, links, check-ins, people)*
 10. One "Share" button with "Copy link" inside it.
 11. Phone top bar: menu, title, the one main button with its words; the rest behind "More". The
     assistant button never covers a control. A doc's title is its name, not its file name.

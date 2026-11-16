@@ -188,17 +188,7 @@ export default function FormEditor() {
 
   return (
     <>
-      <MeetingsPageHeader
-        title={
-          <span className="flex items-center gap-2">
-            <Link to="/forms" className="text-ink-faint hover:text-ink" aria-label="All forms">
-              <Icon name="back" />
-            </Link>
-            <span className="truncate">{form.title}</span>
-          </span>
-        }
-        menu={false}
-      >
+      <MeetingsPageHeader back={{ to: '/forms', label: 'Forms' }} title={form.title} menu={false}>
         <button
           type="button"
           className={`${secondaryButton} h-8 px-3`}

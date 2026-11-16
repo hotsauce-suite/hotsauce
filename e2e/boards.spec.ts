@@ -109,7 +109,7 @@ test('W9: new board → draw a box and a text → it saves itself → reload →
   })
 
   await test.step('the boards page finds it by the word written on it', async () => {
-    await page.getByRole('link', { name: 'All boards' }).click()
+    await page.getByTestId('page-back').click()
     await expect(page).toHaveURL(/\/boards$/)
     await page.getByTestId('boards-search').fill(word)
     await expect(page.getByTestId('board-card-title')).toHaveText(['Q4 flow'])

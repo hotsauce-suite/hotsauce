@@ -30,7 +30,10 @@ export default function SharedFilePage() {
 
   return (
     <>
-      <MeetingsPageHeader title={file?.name ?? 'Shared file'}>
+      <MeetingsPageHeader
+        title={file?.name ?? 'Shared file'}
+        back={{ to: '/files', label: 'Files' }}
+      >
         {file ? (
           <a
             href={file.downloadUrl}

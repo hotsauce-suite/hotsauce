@@ -204,7 +204,7 @@ export function NoteEditor({
     >
       <button
         type="button"
-        aria-label="Close note"
+        aria-hidden="true"
         tabIndex={-1}
         className="fixed inset-0 cursor-default bg-paper-sunk/60 backdrop-blur-[2px]"
         onClick={() => void close()}
@@ -262,6 +262,12 @@ export function NoteEditor({
             active={note.pinned}
             testId="note-editor-pin"
             onClick={() => void write({ pinned: !note.pinned }).catch(() => {})}
+          />
+          <ToolButton
+            icon="close"
+            label="Close note"
+            testId="note-editor-x"
+            onClick={() => void close()}
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">

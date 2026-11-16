@@ -406,6 +406,7 @@ export async function newForm(page: Page, title: string): Promise<void> {
   const name = page.getByTestId('form-title')
   await expect(name).toHaveValue('Untitled form')
   await expect(name).toBeFocused()
+  await expect(page.getByTestId('page-back')).toHaveText('Forms')
   await page.keyboard.type(title)
   await expect(name).toHaveValue(title)
   await page.getByTestId('form-save').click()

@@ -76,10 +76,23 @@ function useLive<T>(fetcher: () => Promise<T>, key: string) {
   return { data, error, setData, reload: load, bump: () => latest.current++ }
 }
 
-function Page({ title, children }: { title: ReactNode; children: ReactNode }) {
+function Page({
+  title,
+  children,
+  item = false,
+}: {
+  title: ReactNode
+  children: ReactNode
+  /** The page of one person or company, with the way back to everyone. */
+  item?: boolean
+}) {
   return (
     <>
-      <MeetingsPageHeader title={title} menu={false} />
+      <MeetingsPageHeader
+        title={title}
+        menu={false}
+        {...(item ? { back: { to: '/people', label: 'People' } } : {})}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-24 md:px-8">{children}</div>
       </div>
@@ -279,10 +292,7 @@ export function PersonPage() {
   }, [person, email])
 
   return (
-    <Page title={person ? displayName(person) : 'Person'}>
-      <Link to="/people" className="mb-4 inline-flex items-center gap-1 text-sm text-ink-soft">
-        <Icon name="back" className="size-3.5" /> People
-      </Link>
+    <Page title={person ? displayName(person) : 'Person'} item>
       <Problem error={error} />
       {person === null ? (
         error ? null : (
@@ -483,10 +493,7 @@ export function CompanyPage() {
   const company: CompanyView | null = data
 
   return (
-    <Page title={domain}>
-      <Link to="/people" className="mb-4 inline-flex items-center gap-1 text-sm text-ink-soft">
-        <Icon name="back" className="size-3.5" /> People
-      </Link>
+    <Page title={domain} item>
       {error ? (
         <p role="alert" className="mb-4 text-sm text-ember-strong">
           {error.status === 404
