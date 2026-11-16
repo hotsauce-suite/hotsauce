@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type TableSummary, tablesApi } from '../../api/tables'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
-import { NewInSpaceButton, PageHeader } from '../../components/PageHeader'
+import { MenuItem } from '../../components/Menu'
+import { MoreMenu, NewInSpaceButton, PageHeader } from '../../components/PageHeader'
 import { useLoad } from '../../hooks/useLoad'
 import { useSession } from '../../state/session'
 import { day } from '../forms/FormsPage'
@@ -14,6 +16,7 @@ import { day } from '../forms/FormsPage'
 export default function TablesPage() {
   const { me, spaces, spaceLabel } = useSession()
   const navigate = useNavigate()
+  const { compact } = useShell()
   const list = useLoad(() => tablesApi.list().then((r) => r.tables))
   const tables: TableSummary[] | null = list.data
   const [error, setError] = useState<string | null>(null)
@@ -46,18 +49,39 @@ export default function TablesPage() {
   return (
     <>
       <PageHeader title="Tables" menu={false}>
-        <NewInSpaceButton
-          secondary
-          spaces={spaces}
-          busy={busy || !me}
-          testId="import-table-button"
-          onCreate={(space) => {
-            importInto.current = space
-            file.current?.click()
-          }}
-        >
-          Import
-        </NewInSpaceButton>
+        {compact && !me ? null : compact ? (
+          <MoreMenu>
+            {(close) =>
+              spaces.map((space) => (
+                <MenuItem
+                  key={space.name}
+                  icon="upload"
+                  testId={`import-table-button-in-${space.name}`}
+                  onSelect={() => {
+                    close()
+                    importInto.current = space.name
+                    file.current?.click()
+                  }}
+                >
+                  {spaces.length === 1 ? 'Import a file' : `Import into ${spaceLabel(space.name)}`}
+                </MenuItem>
+              ))
+            }
+          </MoreMenu>
+        ) : (
+          <NewInSpaceButton
+            secondary
+            spaces={spaces}
+            busy={busy || !me}
+            testId="import-table-button"
+            onCreate={(space) => {
+              importInto.current = space
+              file.current?.click()
+            }}
+          >
+            Import
+          </NewInSpaceButton>
+        )}
         <input
           ref={file}
           type="file"

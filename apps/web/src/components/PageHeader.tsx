@@ -47,7 +47,10 @@ export function PageHeader({
       {title === undefined ? (
         <span className="flex-1" />
       ) : (
-        <h1 className="min-w-0 flex-1 truncate font-display text-lg font-semibold tracking-tight text-ink">
+        // With nothing before it, a phone's title starts where the page's words do.
+        <h1
+          className={`min-w-0 flex-1 truncate font-display text-lg font-semibold tracking-tight text-ink ${back || menu ? '' : 'pl-2 md:pl-0'}`}
+        >
           {title}
         </h1>
       )}
@@ -240,9 +243,12 @@ export function useNameWhenFresh(
 export function MoreMenu({
   children,
   testId = 'page-more',
+  onOpen,
 }: {
   children: (close: () => void) => ReactNode
   testId?: string
+  /** Called as the menu opens, to load what it shows. */
+  onOpen?: () => void
 }) {
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const close = () => setAnchor(null)
@@ -255,7 +261,10 @@ export function MoreMenu({
         aria-haspopup="menu"
         aria-expanded={anchor !== null}
         data-testid={testId}
-        onClick={(event) => setAnchor(anchor ? null : below(event.currentTarget))}
+        onClick={(event) => {
+          if (!anchor) onOpen?.()
+          setAnchor(anchor ? null : below(event.currentTarget))
+        }}
         className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-paper-sunk hover:text-ink"
       >
         <Icon name="more" className="size-4" />

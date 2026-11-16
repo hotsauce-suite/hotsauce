@@ -11,10 +11,11 @@ import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router
 import { HotsauceApiError } from '../../api/client'
 import { type ChatRoom, type FormInput, type FormView, formsApi } from '../../api/forms'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
-import { MenuItem } from '../../components/Menu'
-import { useNameWhenFresh } from '../../components/PageHeader'
+import { MenuItem, menuItemClass } from '../../components/Menu'
+import { MoreMenu, useNameWhenFresh } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
@@ -55,6 +56,7 @@ export default function FormEditor() {
   const location = useLocation()
   const navigate = useNavigate()
   const { spaceLabel, notify } = useSession()
+  const { compact } = useShell()
   const tab: Tab = location.pathname.endsWith('/answers')
     ? 'answers'
     : location.pathname.endsWith('/settings')
@@ -192,33 +194,58 @@ export default function FormEditor() {
     )
   }
 
+  const shareItems = (close: () => void) => (
+    <MenuItem
+      icon="link"
+      testId="form-copy-link"
+      onSelect={() => {
+        close()
+        copy()
+      }}
+    >
+      Copy link
+    </MenuItem>
+  )
+
   return (
     <>
       <MeetingsPageHeader back={{ to: '/forms', label: 'Forms' }} title={form.title} menu={false}>
-        <ShareButton testId="form-share">
-          {(close) => (
-            <MenuItem
-              icon="link"
-              testId="form-copy-link"
-              onSelect={() => {
-                close()
-                copy()
-              }}
+        {compact ? null : (
+          <>
+            <ShareButton testId="form-share">{shareItems}</ShareButton>
+            <a
+              href={form.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${secondaryButton} h-8 px-3`}
+              data-testid="form-open-link"
             >
-              Copy link
-            </MenuItem>
-          )}
-        </ShareButton>
-        <a
-          href={form.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${secondaryButton} h-8 px-3`}
-          data-testid="form-open-link"
-        >
-          <Icon name="external" />
-          <span className="hidden sm:inline">Open</span>
-        </a>
+              <Icon name="external" />
+              Open
+            </a>
+          </>
+        )}
+        {compact ? (
+          <MoreMenu>
+            {(close) => (
+              <>
+                {shareItems(close)}
+                <a
+                  role="menuitem"
+                  href={form.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="form-open-link"
+                  onClick={close}
+                  className={menuItemClass}
+                >
+                  <Icon name="external" className="size-4 text-ink-faint" />
+                  Open the form
+                </a>
+              </>
+            )}
+          </MoreMenu>
+        ) : null}
         {tab === 'answers' ? null : (
           <button
             type="button"
@@ -226,6 +253,7 @@ export default function FormEditor() {
             disabled={!dirty || saving}
             onClick={() => void save()}
             data-testid="form-save"
+            data-main-button=""
           >
             {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
           </button>

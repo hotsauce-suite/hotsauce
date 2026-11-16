@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMatches, useNavigate, useParams, useSearchParams } from 'react-router'
 import { type DriveFile, type FolderListing, filesApi, formatBytes } from '../../api/files'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon, type IconName } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { needsConnection } from '../../components/Offline'
-import { MainButton } from '../../components/PageHeader'
+import { MainButton, MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
 import { useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
@@ -60,6 +61,7 @@ export default function FilesPage() {
   const navigate = useNavigate()
   const [search] = useSearchParams()
   const session = useSession()
+  const { compact } = useShell()
   const personal = session.spaces.find((s) => s.kind === 'personal')?.name ?? null
   // An open file shows on top of the folder it's in.
   const openSpace = kind === 'item' ? (params.space ?? 'team') : null
@@ -219,7 +221,7 @@ export default function FilesPage() {
           data-testid="files-search"
           className="hidden h-9 w-56 rounded-lg border border-ash bg-paper px-3 text-sm sm:block"
         />
-        {kind !== 'recent' ? (
+        {kind === 'recent' || compact ? null : (
           <button
             type="button"
             className={`${secondaryButton} h-9`}
@@ -227,8 +229,24 @@ export default function FilesPage() {
             data-testid="files-new-folder"
           >
             <Icon name="folderPlus" />
-            <span className="hidden sm:inline">New folder</span>
+            New folder
           </button>
+        )}
+        {compact && kind !== 'recent' ? (
+          <MoreMenu>
+            {(close) => (
+              <MenuItem
+                icon="folderPlus"
+                testId="files-new-folder"
+                onSelect={() => {
+                  close()
+                  setDialog({ kind: 'new-folder' })
+                }}
+              >
+                New folder
+              </MenuItem>
+            )}
+          </MoreMenu>
         ) : null}
         <MainButton
           icon="upload"
