@@ -7,6 +7,7 @@ import { bookingHandlers } from './bookingHandlers'
 import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
 import { briefHandlers, FakeBriefs } from './briefHandlers'
 import { checkinHandlers } from './checkinHandlers'
+import { commentHandlers } from './commentHandlers'
 import { dictationHandlers } from './dictationHandlers'
 import { FakeMeetings } from './fakeMeetings'
 import { FakeRepo, type FakeUser } from './fakeRepo'
@@ -527,6 +528,18 @@ function createHandlers(
   handlers.push(...formHandlers({ forms: work.forms, files: work.files, latencyMs, principal }))
   handlers.push(...todayHandlers())
   handlers.push(...checkinHandlers({ principal }))
+  handlers.push(
+    ...commentHandlers({
+      repo,
+      latencyMs,
+      seeded,
+      principal,
+      broadcast,
+      taskTitle: (path) =>
+        tasks.tasks.get(tasks.key('team', path.slice('tasks/'.length, -'.md'.length)))?.title ??
+        null,
+    }),
+  )
   handlers.push(...assistantHandlers({ repo, principal, latencyMs }))
   handlers.push(...peopleHandlers())
   handlers.push(...bookingHandlers())

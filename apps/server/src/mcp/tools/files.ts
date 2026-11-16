@@ -10,7 +10,7 @@ import { HotsauceError } from '../../errors.js'
 import { TEAM_SPACE } from '../../spaces/index.js'
 import { mcpVia, READ_ONLY, runTool } from '../result.js'
 
-export type FileToolDeps = Pick<AppDeps, 'git' | 'spaces' | 'syncer'>
+export type FileToolDeps = Pick<AppDeps, 'git' | 'spaces' | 'syncer' | 'index'>
 
 const Space = z.string().min(1).describe('A space name from list_spaces, e.g. "team"')
 const Path = z.string().min(1).describe('A file path inside the space, e.g. "docs/plan.md"')
@@ -152,7 +152,7 @@ export function registerFileTools(
         if (isAtOrUnder(path, SPACE_LAYOUT.trash)) {
           throw new HotsauceError('bad_request', `${path} is already in the trash`)
         }
-        const oid = await moveToTrash(git, space, path, author, via)
+        const oid = await moveToTrash(git, space, path, author, { via, index: deps.index })
         await syncer.afterHeadChanged(space)
         return { space, path, oid, trashed: true }
       }),

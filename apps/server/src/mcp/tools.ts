@@ -1,4 +1,4 @@
-import { NOTE_COLORS, parseFrontmatter, transcriptPathFor } from '@hotsauce/format'
+import { isCommentPath, NOTE_COLORS, parseFrontmatter, transcriptPathFor } from '@hotsauce/format'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
@@ -195,8 +195,9 @@ export function registerTools(
         const trimmed = dir?.replace(/^\/+|\/+$/g, '') ?? ''
         const folder = trimmed === '' ? '' : normalizeRepoPath(trimmed)
         if (!recursive) return git.listTree(space, folder || undefined)
-        const files = (await git.listAll(space)).filter(
-          (e) => folder === '' || e.path.startsWith(`${folder}/`),
+        // Comment files (one each, §27.1) would crowd the docs out of a whole-space listing.
+        const files = (await git.listAll(space)).filter((e) =>
+          folder === '' ? !isCommentPath(e.path) : e.path.startsWith(`${folder}/`),
         )
         return {
           files: files.slice(0, MAX_LISTED_FILES),

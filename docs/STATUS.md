@@ -14,7 +14,7 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 ## The apps (the rail, in order)
 
 ### Today
-The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings.
+The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
 ### Docs
@@ -76,6 +76,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 ## Built into every app
 
 - **Ask** (⌘J): the assistant on every page, with the same tools as the MCP server, as the member. Needs the AI key; admins set the model and a monthly limit.
+- **Comments and @mentions**: a conversation under every team doc, meeting note and task; `@` and a name sends that teammate one notification that opens on the comment. Needs nothing extra; notifications must be on for the push. Not yet: a "For you" list, replies and comments from AI tools (the next steps in `docs/PLAN-comments.md`), and sending a comment written offline.
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.

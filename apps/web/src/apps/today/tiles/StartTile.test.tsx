@@ -4,15 +4,17 @@ import {
   type TodayLayout,
   updateTile,
 } from '@hotsauce/format'
-import { screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dictationApi } from '../../../api/dictation'
 import { TOUCH_QUERY } from '../../../hooks/useMediaQuery'
 import { IPHONE, pretend } from '../../../test/devices'
 import { server } from '../../../test/mockServer'
 import { renderApp } from '../../../test/renderApp'
+import { OrgStartHereSection } from '../StartHereSettings'
 
 // The Getting started tile (docs/PLAN-getting-started.md, T1–T6).
 
@@ -61,7 +63,7 @@ describe('Getting started on Today', () => {
     expect(step('calendar')?.dataset.done).toBe('true')
     expect(step('docs')?.dataset.done).toBe('false')
     expect(screen.getByTestId('today-start-count')).toHaveTextContent('1 of 3')
-    expect(within(tile).getByTestId('today-start-mac')).toHaveAttribute(
+    expect(await within(tile).findByTestId('today-start-mac')).toHaveAttribute(
       'href',
       '/settings/apps#mac-app',
     )
@@ -263,6 +265,96 @@ describe('Getting started on Today', () => {
   })
 })
 
+describe('Getting started: the team’s start-here doc (H2, H3)', () => {
+  it('H2: with a doc picked, the last step names it and opens it', async () => {
+    server.use(
+      http.get('/api/today/start-here', () =>
+        HttpResponse.json({ doc: { path: 'guides/Start here.md', title: 'Welcome to the team' } }),
+      ),
+    )
+    const saves = watchSaves()
+    const { router } = renderApp('/today')
+    await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('docs')).toHaveTextContent('Start with “Welcome to the team”.'))
+    const open = screen.getByTestId('today-start-docs')
+    expect(open).toHaveTextContent('Open it')
+    await userEvent.click(open)
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/docs/team/guides/Start%20here.md'),
+    )
+    await waitFor(() => expect(saves).toHaveLength(1))
+    expect(saves[0]?.columns[0][0]).toEqual({ id: 'start', kind: 'start', openedDocs: true })
+  })
+
+  it('H2: until it is known which doc, the step offers no button', async () => {
+    let answer: (() => void) | undefined
+    const asked = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    server.use(
+      http.get('/api/today/start-here', async () => {
+        await asked
+        return HttpResponse.json({ doc: { path: 'guides/Start here.md', title: 'Welcome' } })
+      }),
+    )
+    renderApp('/today')
+    await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('mac')?.dataset.done).toBe('false'))
+    expect(screen.queryByTestId('today-start-docs')).toBeNull()
+    expect(step('docs')?.dataset.done).toBe('false')
+    answer?.()
+    expect(await screen.findByTestId('today-start-docs')).toHaveTextContent('Open it')
+  })
+
+  it('H2: with none picked, the step opens Docs', async () => {
+    renderApp('/today')
+    expect(await screen.findByTestId('today-start-docs')).toHaveTextContent('Open Docs')
+  })
+
+  it('H2: when asking fails, the step opens Docs', async () => {
+    server.use(http.get('/api/today/start-here', () => new HttpResponse(null, { status: 500 })))
+    renderApp('/today')
+    expect(await screen.findByTestId('today-start-docs')).toHaveTextContent('Open Docs')
+    expect(step('docs')).toHaveTextContent('Shared docs, grouped by space.')
+  })
+
+  it('H3: an admin picks the doc on Settings → Workspace by pasting its address, and removes it', async () => {
+    render(
+      <MemoryRouter>
+        <OrgStartHereSection />
+      </MemoryRouter>,
+    )
+    const section = await screen.findByTestId('org-start-here')
+    await waitFor(() =>
+      expect(screen.getByTestId('org-start-here-now')).toHaveTextContent('No doc picked'),
+    )
+    const field = within(section).getByTestId('org-start-here-link')
+    // Not a doc: the server's sentence shows and nothing is picked.
+    await userEvent.click(field)
+    await userEvent.paste('https://example.test/tasks')
+    await userEvent.click(screen.getByTestId('org-start-here-save'))
+    expect(await within(section).findByRole('alert')).toHaveTextContent(
+      'That isn’t a doc in the Team space',
+    )
+    await userEvent.clear(field)
+    await userEvent.paste('https://example.test/docs/team/guides/Start%20here.md')
+    await userEvent.click(screen.getByTestId('org-start-here-save'))
+    await waitFor(() =>
+      expect(screen.getByTestId('org-start-here-now')).toHaveTextContent(
+        'New teammates start with Start here.',
+      ),
+    )
+    expect(within(section).getByRole('link', { name: 'Start here' })).toHaveAttribute(
+      'href',
+      '/docs/team/guides/Start%20here.md',
+    )
+    await userEvent.click(screen.getByTestId('org-start-here-clear'))
+    await waitFor(() =>
+      expect(screen.getByTestId('org-start-here-now')).toHaveTextContent('No doc picked'),
+    )
+  })
+})
+
 describe('Getting started: replay from Settings (R1, R2)', () => {
   it('R1: the help strip under the Settings menu links to it', async () => {
     renderApp('/settings')
@@ -288,6 +380,39 @@ describe('Getting started: replay from Settings (R1, R2)', () => {
     await waitFor(() => expect(saves).toHaveLength(1))
     expect(saves[0]?.columns[0][0]).toEqual({ id: 'start', kind: 'start' })
     await waitFor(() => expect(router.state.location.search).toBe(''))
+  })
+
+  it('R2: a change made while the replay is still saving isn’t undone when that save answers', async () => {
+    let release: (() => void) | undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let puts = 0
+    server.use(
+      http.get('/api/today/layout', () =>
+        HttpResponse.json({
+          layout: { ...defaultTodayLayout(), gettingStarted: 'dismissed' },
+          saved: true,
+        }),
+      ),
+      http.put('/api/today/layout', async ({ request }) => {
+        const { layout } = (await request.json()) as { layout: TodayLayout }
+        // The replay's save is slow to answer.
+        if (++puts === 1) await held
+        return HttpResponse.json({ layout, saved: true })
+      }),
+    )
+    const saves = watchSaves()
+    renderApp('/today?start=1')
+    await userEvent.click(await screen.findByTestId('today-start-hide'))
+    expect(screen.queryByTestId('today-start')).toBeNull()
+    release?.()
+    // Both saves go out, in order, and the tile stays hidden.
+    await waitFor(() => expect(saves).toHaveLength(2))
+    expect(kinds(saves[0] as TodayLayout)).toContain('start')
+    expect(kinds(saves[1] as TodayLayout)).not.toContain('start')
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByTestId('today-start')).toBeNull()
   })
 
   it('R2: with the tile already showing, replay changes nothing', async () => {

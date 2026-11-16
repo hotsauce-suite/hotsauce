@@ -268,3 +268,65 @@ describe('Today weather places (W5–W7)', () => {
     expect(await (await call('GET', '/api/today/weather', BOB)).json()).toBeNull()
   })
 })
+
+// The doc Getting started opens for its last step (docs/PLAN-getting-started.md H1).
+describe('the team’s start-here doc', () => {
+  const put = (as: string, link: string | null) =>
+    call('PUT', '/api/today/start-here', as, { link })
+  const get = async (as = BOB) =>
+    (await (await call('GET', '/api/today/start-here', as)).json()).doc
+  const write = (path: string, content: string | null) =>
+    services.git.commit('team', {
+      changes: [{ path, content }],
+      author: { name: 'Alice', email: ALICE },
+      message: 'test',
+    })
+
+  it('H1: is nothing until an admin picks one; only an admin can', async () => {
+    await write('guides/Start here.md', '# Welcome to the team\n\nRead this first.\n')
+    expect(await get()).toBeNull()
+    expect((await put(BOB, '/docs/team/guides/Start%20here.md')).status).toBe(403)
+    expect(await get()).toBeNull()
+  })
+
+  it('H1: takes a pasted link or address, and members get the doc with its title', async () => {
+    await write('guides/Start here.md', '# Welcome to the team\n\nRead this first.\n')
+    const saved = await put(ALICE, 'https://hotsauce.example.test/docs/team/guides/Start%20here.md')
+    expect(saved.status).toBe(200)
+    const doc = { path: 'guides/Start here.md', title: 'Welcome to the team' }
+    expect(await saved.json()).toEqual({ doc })
+    expect(await get()).toEqual(doc)
+    // The bare address works too.
+    expect((await put(ALICE, '/docs/team/guides/Start%20here.md')).status).toBe(200)
+    // Cleared.
+    expect(await (await put(ALICE, null)).json()).toEqual({ doc: null })
+    expect(await get()).toBeNull()
+  })
+
+  it('H1: refuses what isn’t a doc in the Team space, and keeps what was picked', async () => {
+    await write('guides/Start here.md', '# Welcome\n')
+    await put(ALICE, '/docs/team/guides/Start%20here.md')
+    for (const link of [
+      '/docs/team/guides/Missing.md',
+      '/docs/alice/notes.md',
+      '/tasks/team',
+      '/docs/team/../team/guides/Start%20here.md/..',
+      '/docs/team/guides/picture.png',
+      'not a link',
+      '/docs/team/guides%2F..%2F..%2Fx.md',
+      '/docs/team/%E0%A4%A.md',
+      `/docs/team/${'a'.repeat(600)}.md`,
+    ]) {
+      const res = await put(ALICE, link)
+      expect(res.status, link).toBe(400)
+    }
+    expect((await get())?.path).toBe('guides/Start here.md')
+  })
+
+  it('H1: a picked doc that has since been deleted reads as none', async () => {
+    await write('guides/Start here.md', '# Welcome\n')
+    await put(ALICE, '/docs/team/guides/Start%20here.md')
+    await write('guides/Start here.md', null)
+    expect(await get()).toBeNull()
+  })
+})
