@@ -9,7 +9,7 @@ import { renderApp } from '../test/renderApp'
 
 describe('Settings: access tokens', () => {
   it('names no single AI tool, and starts with an empty token name', async () => {
-    renderApp('/settings')
+    renderApp('/settings/connections')
     expect(
       await screen.findByRole('heading', { name: 'Connect an AI tool to Hotsauce' }),
     ).toBeInTheDocument()
@@ -21,7 +21,7 @@ describe('Settings: access tokens', () => {
 
   it('creates a token, shows it once with one AI tool’s steps at a time, and revokes it', async () => {
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/connections')
     expect(await screen.findByText('No tokens yet.')).toBeInTheDocument()
 
     const name = screen.getByTestId('token-name')
@@ -107,7 +107,7 @@ describe('Settings: calendars', () => {
       }),
     )
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/connections')
     await waitFor(() => expect(screen.getAllByTestId('calendar-choice')).toHaveLength(3))
     expect(screen.getAllByTestId('calendar-choice').map((el) => el.dataset.calendarId)).toEqual([
       TEST_USER,
@@ -153,7 +153,7 @@ describe('Settings: calendars', () => {
       ),
     )
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/connections')
     await waitFor(() => expect(screen.getAllByTestId('calendar-choice')).toHaveLength(3))
     await user.click(box('holidays@fake'))
     await waitFor(() => expect(screen.getAllByTestId('calendar-choice')).toHaveLength(2))
@@ -175,7 +175,7 @@ describe('Settings: calendars', () => {
         ),
       ),
     )
-    renderApp('/settings')
+    renderApp('/settings/connections')
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Google Calendar refused access. Sign in with Google again.',
     )
@@ -192,7 +192,7 @@ describe('Settings: calendars', () => {
       ),
     )
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/connections')
     await waitFor(() => expect(screen.getAllByTestId('calendar-choice')).toHaveLength(3))
     await user.click(box('team@fake'))
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -204,9 +204,11 @@ describe('Settings: calendars', () => {
 
 describe('Settings: Mac app', () => {
   it('offers the download, the zip and the first-install steps', async () => {
-    renderApp('/settings#mac-app')
+    renderApp('/settings/apps#mac-app')
     const section = await screen.findByTestId('mac-app')
     expect(within(section).getByRole('heading', { name: 'Mac app' })).toBeInTheDocument()
+    // Sent here to install it, so the steps are open.
+    expect(await within(section).findByTestId('mac-app-first-install')).toHaveAttribute('open')
     expect(await within(section).findByTestId('mac-app-download')).toHaveAttribute(
       'href',
       '/downloads/Hotsauce.dmg',
@@ -236,7 +238,7 @@ describe('Settings: Mac app', () => {
 
   it('points to the source when this server has no Mac app build', async () => {
     server.use(http.head('/downloads/Hotsauce.dmg', () => new HttpResponse(null, { status: 404 })))
-    renderApp('/settings')
+    renderApp('/settings/apps')
     expect(await screen.findByTestId('mac-app-build-from-source')).toHaveAttribute(
       'href',
       expect.stringContaining('apps/dictate-mac/README.md'),
@@ -247,22 +249,19 @@ describe('Settings: Mac app', () => {
   })
 })
 
-// docs/PLAN-install-and-settings.md, S1–S5.
-describe('Settings: layout, account, install, help and about', () => {
-  it('shows its sections in order', async () => {
+// docs/PLAN-install-and-settings.md, S1–S5, regrouped by docs/PLAN-settings-pages.md.
+describe('Settings: General, Apps, and the help strip', () => {
+  // G1: the account, then what this device remembers, in one order.
+  it('shows General’s sections in order, under one “On this device” label', async () => {
     renderApp('/settings')
-    await screen.findByTestId('settings-about')
+    await screen.findByTestId('settings-weather')
     const order = [
       'settings-account',
-      'settings-install',
-      'mac-app',
-      'web-app',
-      'settings-extension',
-      'settings-notifications',
+      'settings-device-label',
       'theme-picker',
-      'token-name',
-      'settings-help',
-      'settings-about',
+      'settings-notifications',
+      'single-keys',
+      'settings-weather',
     ].map((id) => screen.getByTestId(id))
     for (let i = 1; i < order.length; i++) {
       const before = order[i - 1] as HTMLElement
@@ -271,21 +270,92 @@ describe('Settings: layout, account, install, help and about', () => {
         `${before.dataset.testid} before ${order[i]?.dataset.testid}`,
       ).toBeTruthy()
     }
+    expect(screen.getByTestId('settings-device-label')).toHaveTextContent('On this device')
+    // What moved to other pages isn't here any more.
+    for (const gone of ['settings-install', 'token-name', 'calendar-choice', 'mac-app'])
+      expect(screen.queryByTestId(gone)).toBeNull()
   })
 
-  // One Install section near the top: the Mac app, the web app and the Chrome extension.
-  it('puts the Mac app, the web app and the Chrome extension in one Install section', async () => {
-    renderApp('/settings')
+  // G2: calendars first, then AI tools.
+  it('puts Calendars and AI tools on Connections', async () => {
+    renderApp('/settings/connections')
+    const page = await screen.findByTestId('settings-connections')
+    await waitFor(() => expect(within(page).getAllByTestId('calendar-choice')).toHaveLength(3))
+    const calendars = within(page).getByRole('heading', { name: 'Calendars' })
+    const tools = within(page).getByTestId('settings-ai-tools')
+    expect(tools).toHaveAttribute('id', 'ai-tools')
+    expect(calendars.closest('section')).toHaveAttribute('id', 'calendars')
+    expect(calendars.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByTestId('settings-account')).toBeNull()
+  })
+
+  // T3: two sentences up front; what a token can do is folded away.
+  it('keeps the AI tools intro short, with the detail folded', async () => {
+    renderApp('/settings/connections')
+    const tools = await screen.findByTestId('settings-ai-tools')
+    const about = within(tools).getByTestId('ai-tools-about')
+    expect(about.tagName).toBe('DETAILS')
+    expect(about).not.toHaveAttribute('open')
+    expect(within(about).getByText('What can a connected tool do?')).toBeInTheDocument()
+    expect(about).toHaveTextContent('marked with the tool that made it')
+    expect(within(about).getByRole('link', { name: 'agent brief' })).toHaveAttribute(
+      'href',
+      '/meetings/brief',
+    )
+    // Outside the fold: one short paragraph.
+    const intro = [...tools.querySelectorAll(':scope > p')].map((p) => p.textContent ?? '')
+    expect(intro).toHaveLength(1)
+    expect(intro[0]?.length).toBeLessThan(260)
+  })
+
+  // G3: the Mac app, the web app and the Chrome extension.
+  it('puts the Mac app, the web app and the Chrome extension on Apps', async () => {
+    renderApp('/settings/apps')
     const install = await screen.findByTestId('settings-install')
-    expect(within(install).getByRole('heading', { level: 2 })).toHaveTextContent('Install')
+    expect(within(install).getByRole('heading', { level: 2 })).toHaveTextContent('Apps')
     expect(within(install).getByTestId('mac-app')).toHaveAttribute('id', 'mac-app')
     expect(within(install).getByTestId('web-app')).toBeInTheDocument()
-    expect(within(install).getByTestId('settings-extension')).toBeInTheDocument()
+    expect(within(install).getByTestId('settings-extension')).toHaveAttribute(
+      'href',
+      '/meetings/extension',
+    )
     expect(await within(install).findByTestId('mac-app-download')).toBeInTheDocument()
     expect(within(install).getByTestId('settings-install-button')).toBeInTheDocument()
     expect(
       screen.queryAllByRole('heading', { level: 2, name: /Mac app|Install app/ }),
     ).toHaveLength(0)
+  })
+
+  // T1: the steps are there, folded until asked for.
+  it('folds the Mac app’s first-install steps', async () => {
+    renderApp('/settings/apps')
+    const fold = await screen.findByTestId('mac-app-first-install')
+    expect(fold.tagName).toBe('DETAILS')
+    expect(fold).not.toHaveAttribute('open')
+    expect(within(fold).getByText('How to install it the first time')).toBeInTheDocument()
+    expect(within(fold).getByTestId('mac-app-install-steps')).toBeInTheDocument()
+    expect(within(fold).getByTestId('mac-app-setup-link')).toBeInTheDocument()
+  })
+
+  // T2: inside the Mac app there's no install guide, only the newest build.
+  it('says you’re using the Mac app inside it, with no download', async () => {
+    const postMessage = vi.fn().mockResolvedValue('on')
+    Object.assign(window, { webkit: { messageHandlers: { hearthNotifications: { postMessage } } } })
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      expect(within(card).getByTestId('mac-app-in-use')).toHaveTextContent('Installed')
+      expect(card).toHaveTextContent('You’re using it on this Mac.')
+      // The app doesn't update itself, so the newest build is still one click away.
+      expect(await within(card).findByTestId('mac-app-download-newest')).toHaveAttribute(
+        'href',
+        '/downloads/Hotsauce.dmg',
+      )
+      expect(screen.queryByTestId('mac-app-download')).toBeNull()
+      expect(screen.queryByTestId('mac-app-first-install')).toBeNull()
+    } finally {
+      Reflect.deleteProperty(window, 'webkit')
+    }
   })
 
   it('shows who is signed in, and signs out from the Account card', async () => {
@@ -318,31 +388,32 @@ describe('Settings: layout, account, install, help and about', () => {
     vi.restoreAllMocks()
 
     function render() {
-      renderApp('/settings')
+      renderApp('/settings/apps')
       return { unmount: cleanup }
     }
   })
 
-  it('links the Chrome extension, help docs and feedback, and shows the version', async () => {
-    server.use(http.get('/api/feedback/status', () => HttpResponse.json({ enabled: true })))
-    renderApp('/settings')
-    expect(await screen.findByTestId('settings-extension')).toHaveAttribute(
-      'href',
-      '/meetings/extension',
-    )
-    expect(screen.getByTestId('settings-help-docs')).toHaveAttribute(
-      'href',
-      'https://hotsauce.work/help',
-    )
-    expect(screen.getByTestId('settings-help-faq')).toHaveAttribute(
-      'href',
-      'https://hotsauce.work/faq',
-    )
-    expect(await screen.findByTestId('settings-feedback')).toHaveAttribute(
-      'href',
-      expect.stringMatching(/^\/feedback/),
-    )
-    expect(screen.getByTestId('settings-version')).toHaveTextContent('version 0.8.0')
-    expect(screen.getByTestId('settings-reload')).toBeEnabled()
-  })
+  // L3: the same strip on every page.
+  it.each(['/settings', '/settings/connections', '/settings/apps'])(
+    'links help, the FAQ and feedback, and shows the version, on %s',
+    async (path) => {
+      server.use(http.get('/api/feedback/status', () => HttpResponse.json({ enabled: true })))
+      renderApp(path)
+      const strip = await screen.findByTestId('settings-help')
+      expect(within(strip).getByTestId('settings-help-docs')).toHaveAttribute(
+        'href',
+        'https://hotsauce.work/help',
+      )
+      expect(within(strip).getByTestId('settings-help-faq')).toHaveAttribute(
+        'href',
+        'https://hotsauce.work/faq',
+      )
+      expect(await within(strip).findByTestId('settings-feedback')).toHaveAttribute(
+        'href',
+        expect.stringMatching(/^\/feedback/),
+      )
+      expect(within(strip).getByTestId('settings-version')).toHaveTextContent('version 0.8.0')
+      expect(within(strip).getByTestId('settings-reload')).toBeEnabled()
+    },
+  )
 })

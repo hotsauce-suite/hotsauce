@@ -130,7 +130,7 @@ export function InstallSheet({
         { icon: <ShareGlyph />, text: 'In Safari on a Mac, choose File, then Add to Dock.' },
         {
           icon: <MenuGlyph />,
-          text: 'Firefox can’t install web apps. Use Chrome, Edge or Safari, or the Mac app below.',
+          text: 'Firefox can’t install web apps. Use Chrome, Edge or Safari, or the Mac app.',
         },
       ]
     : isIOS

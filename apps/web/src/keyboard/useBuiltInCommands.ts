@@ -155,7 +155,7 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       group: 'go',
       icon: 'sparkle',
       keywords: ['mcp', 'token', 'ai', 'claude', 'chatgpt', 'cursor', 'codex', 'code', 'desktop'],
-      run: () => navigate('/settings'),
+      run: () => navigate('/settings/connections#ai-tools'),
     },
     {
       id: 'go-mac-app',
@@ -163,7 +163,7 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       group: 'go',
       icon: 'laptop',
       keywords: ['download', 'desktop', 'dictation'],
-      run: () => navigate('/settings#mac-app'),
+      run: () => navigate('/settings/apps#mac-app'),
     },
     {
       id: 'go-feedback',

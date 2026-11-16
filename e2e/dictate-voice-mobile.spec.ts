@@ -23,7 +23,7 @@ test('a phone records a voice note: named, summarised, sent to Tasks, deleted', 
   await expect(page.getByTestId('voice-none')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Get the Mac app' })).toHaveAttribute(
     'href',
-    '/settings#mac-app',
+    '/settings/apps#mac-app',
   )
   await expectNoSidewaysScroll(page)
 
