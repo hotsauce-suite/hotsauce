@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { type PageSummary, type PageView, pagesApi } from '../../api/shares'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { below, Menu, type MenuAnchor } from '../../components/Menu'
 import { PageFrame } from '../../components/PageFrame'
 import { ReadOnlyLinkItems, useReadOnlyLink } from '../../components/ReadOnlyLink'
+import { useLoad } from '../../hooks/useLoad'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader } from '../meetings/components/common'
 
@@ -21,14 +24,10 @@ const day = (iso: string | null) =>
 /** `/pages`: HTML pages AI tools published (ARCHITECTURE §20.2), newest first. */
 export function PagesList() {
   const { spaceLabel } = useSession()
-  const [pages, setPages] = useState<PageSummary[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const list = useLoad(() => pagesApi.list().then((r) => r.pages))
+  const pages: PageSummary[] | null = list.data
   useEffect(() => {
     document.title = `Pages · ${product()}`
-    pagesApi.list().then(
-      (r) => setPages(r.pages),
-      (e: unknown) => setError(e instanceof Error ? e.message : 'Couldn’t load pages'),
-    )
   }, [])
   return (
     <>
@@ -39,15 +38,11 @@ export function PagesList() {
             Plans and reports your AI tools published for the team. Ask yours to “publish this as a
             page” and it appears here, with every version kept.
           </p>
-          {error ? (
-            <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
-              {error}
-            </p>
-          ) : null}
-          {pages && pages.length === 0 ? (
-            <p className="text-sm text-ink-faint" data-testid="pages-empty">
-              No pages yet.
-            </p>
+          {list.failed ? <LoadError things="pages" whose="the" onRetry={list.reload} /> : null}
+          {!list.failed && pages && pages.length === 0 ? (
+            <EmptyState icon="tab" title="No pages yet" testId="pages-empty">
+              Ask your AI tool to “publish this as a page” and it appears here.
+            </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="pages-list">
             {(pages ?? []).map((p) => (

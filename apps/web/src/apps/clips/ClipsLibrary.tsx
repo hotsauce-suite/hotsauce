@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { type Clip, clipsApi } from '../../api/clips'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
 import { formatDuration, formatWhen } from './format'
 
@@ -14,7 +16,7 @@ export default function ClipsLibrary() {
   const scope: Scope = params.get('scope') === 'team' ? 'team' : 'mine'
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [clips, setClips] = useState<Clip[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
@@ -30,10 +32,10 @@ export default function ClipsLibrary() {
           (res) => {
             if (cancelled) return
             setClips(res.clips)
-            setError(null)
+            setFailed(false)
           },
-          (err: unknown) => {
-            if (!cancelled) setError(err instanceof Error ? err.message : 'Couldn’t load clips')
+          () => {
+            if (!cancelled) setFailed(true)
           },
         )
       },
@@ -104,13 +106,11 @@ export default function ClipsLibrary() {
             </label>
           </div>
 
-          {error ? (
-            <p role="alert" className="mt-6 text-sm text-ember">
-              {error}
-            </p>
+          {failed ? (
+            <LoadError things="clips" onRetry={() => setTick((n) => n + 1)} className="mt-6" />
           ) : null}
 
-          {clips === null && !error ? (
+          {clips === null && !failed ? (
             <div className="clips-grid mt-6" aria-hidden="true">
               {[0, 1, 2].map((n) => (
                 <div key={n} className="clip-card clip-card--loading">
@@ -121,9 +121,9 @@ export default function ClipsLibrary() {
             </div>
           ) : null}
 
-          {clips?.length === 0 ? <Empty searching={query.trim() !== ''} scope={scope} /> : null}
+          {!failed && clips?.length === 0 ? <Empty searching={query.trim() !== ''} scope={scope} /> : null}
 
-          {clips && clips.length > 0 ? (
+          {!failed && clips && clips.length > 0 ? (
             <ul className="clips-grid mt-6">
               {clips.map((clip) => (
                 <li key={clip.id}>
@@ -177,25 +177,26 @@ function ClipCard({ clip, showOwner }: { clip: Clip; showOwner: boolean }) {
 
 function Empty({ searching, scope }: { searching: boolean; scope: Scope }) {
   if (searching) {
-    return <p className="mt-16 text-center text-sm text-ink-faint">No clips match that search.</p>
+    return (
+      <EmptyState icon="video" title="No clips match that" className="mt-4">
+        Search looks at clip titles and what was said in them.
+      </EmptyState>
+    )
   }
   return (
-    <div className="clips-empty mt-12">
-      <div className="clips-empty__art" aria-hidden="true">
-        <div className="clips-empty__screen" />
-        <div className="clips-empty__bubble" />
-      </div>
-      <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-        {scope === 'mine' ? 'Show it instead of typing it' : 'No team clips yet'}
-      </h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-ink-soft">
-        Record your screen with your face in the corner, send the link, and whoever watches gets a
-        transcript and can play it at double speed.
-      </p>
-      <Link to="/clips/new" className={`${primaryButton} mt-6`}>
-        <span className="size-2 rounded-full bg-paper-raised" aria-hidden="true" />
-        Record a clip
-      </Link>
-    </div>
+    <EmptyState
+      icon="video"
+      className="mt-4"
+      title={scope === 'mine' ? 'No clips yet' : 'No team clips yet'}
+      action={
+        <Link to="/clips/new" className={primaryButton}>
+          <span className="size-2 rounded-full bg-paper-raised" aria-hidden="true" />
+          Record a clip
+        </Link>
+      }
+    >
+      Record your screen with your face in the corner, send the link, and whoever watches gets a
+      transcript and can play it at double speed.
+    </EmptyState>
   )
 }

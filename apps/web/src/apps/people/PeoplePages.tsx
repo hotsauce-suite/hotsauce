@@ -17,7 +17,9 @@ import {
 } from '../../api/people'
 import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon, type IconName } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { useListKeys } from '../../keyboard/listKeys'
 import { meetingUrl, taskUrl } from '../../lib/paths'
 import { MeetingsPageHeader } from '../meetings/components/common'
@@ -71,7 +73,7 @@ function useLive<T>(fetcher: () => Promise<T>, key: string) {
     }
   }, [load, key])
 
-  return { data, error, setData, bump: () => latest.current++ }
+  return { data, error, setData, reload: load, bump: () => latest.current++ }
 }
 
 function Page({ title, children }: { title: ReactNode; children: ReactNode }) {
@@ -201,7 +203,7 @@ export function PeopleList() {
   useEffect(() => {
     document.title = `${product()} People`
   }, [])
-  const { data, error } = useLive(() => peopleApi.list(query), query)
+  const { data, error, reload } = useLive(() => peopleApi.list(query), query)
   const people = data?.people ?? null
 
   return (
@@ -218,17 +220,16 @@ export function PeopleList() {
           data-testid="people-search"
         />
       </label>
-      <Problem error={error} />
-      {people === null ? (
-        error ? null : (
-          <p className="text-sm text-ink-faint">Loading people…</p>
-        )
+      {error ? (
+        <LoadError things="people" whose="the" onRetry={() => void reload()} />
+      ) : people === null ? (
+        <p className="text-sm text-ink-faint">Loading people…</p>
       ) : people.length === 0 ? (
-        <Empty>
+        <EmptyState icon="people" title={query ? 'No one matches' : 'No people yet'}>
           {query
-            ? 'No one matches.'
+            ? 'Search looks at names, email addresses and companies.'
             : 'People show up here once they’re in a meeting note, on your calendar or assigned a task.'}
-        </Empty>
+        </EmptyState>
       ) : (
         <ul className="divide-y divide-ash/60" data-testid="people-list">
           {people.map((p) => (

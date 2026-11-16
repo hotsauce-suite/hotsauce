@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type TableSummary, tablesApi } from '../../api/tables'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
+import { useLoad } from '../../hooks/useLoad'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { day } from '../forms/FormsPage'
@@ -12,7 +15,8 @@ import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/
 export default function TablesPage() {
   const { spaces, spaceLabel } = useSession()
   const navigate = useNavigate()
-  const [tables, setTables] = useState<TableSummary[] | null>(null)
+  const list = useLoad(() => tablesApi.list().then((r) => r.tables))
+  const tables: TableSummary[] | null = list.data
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [space, setSpace] = useState('team')
@@ -21,10 +25,6 @@ export default function TablesPage() {
 
   useEffect(() => {
     document.title = `Tables · ${product()}`
-    tablesApi.list().then(
-      (r) => setTables(r.tables),
-      (e: unknown) => setError(e instanceof Error ? e.message : 'Couldn’t load tables'),
-    )
   }, [])
 
   const open = (t: { space: string; id: string }) =>
@@ -118,11 +118,12 @@ export default function TablesPage() {
               {error}
             </p>
           ) : null}
-          {tables && tables.length === 0 ? (
-            <p className="text-sm text-ink-faint" data-testid="tables-empty">
-              No tables yet. A form’s answers can open as a table too: Forms → a form → Answers →
-              Open as a table.
-            </p>
+          {list.failed ? <LoadError things="tables" onRetry={list.reload} className="mb-4" /> : null}
+          {!list.failed && tables && tables.length === 0 ? (
+            <EmptyState icon="table" title="No tables yet" testId="tables-empty">
+              Name one above, or import a file. A form’s answers can open as a table too: Forms →
+              a form → Answers → Open as a table.
+            </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="tables-list">
             {(tables ?? []).map((t) => (
