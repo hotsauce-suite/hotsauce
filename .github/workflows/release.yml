@@ -124,6 +124,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - if: steps.version.outputs.release == 'true'
+        id: image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -142,8 +143,19 @@ jobs:
       # always pull it. If the build fails, main already says the new number but no tag exists;
       # the next run picks the same number again and finishes the job.
       - if: steps.version.outputs.release == 'true'
-        run: gh release create "v$VERSION" --target "$SHA" --title "Hotsauce $VERSION" --generate-notes
+        # image-digest.txt names the exact image just pushed. Instances install that digest, never
+        # the tag, which can be moved later (docs/PLAN-pinned-images.md). It goes up with the
+        # release itself, so no release is ever visible without it.
+        run: |
+          set -euo pipefail
+          if ! echo "$DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+            echo "::error::The image build didn't report a digest ('$DIGEST'), so the release wasn't published." >&2
+            exit 1
+          fi
+          echo "$DIGEST" > image-digest.txt
+          gh release create "v$VERSION" image-digest.txt --target "$SHA" --title "Hotsauce $VERSION" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
           SHA: ${{ steps.version.outputs.sha }}
+          DIGEST: ${{ steps.image.outputs.digest }}

@@ -1,7 +1,7 @@
 # Plan: the updater installs only the image each release recorded
 
-Status (2026-11-16): built on branch `claude/project-thread-143lel`; release workflow change waits
-for the auto-numbering release workflow (PR #112) to land. Decided by Morgan on 2026-11-16 (audit
+Status (2026-11-16): both slices built in PR #120, on top of the auto-numbering release workflow
+(PR #112). Decided by Morgan on 2026-11-16 (audit
 follow-up, `docs/PLAN-audit-2.md` "Not fixed here"): install by digest, with no waiting period, so
 releases still reach instances the same day.
 
@@ -34,9 +34,9 @@ R4. No waiting period: an instance installs a release as soon as it sees it, as 
 ## Slices
 
 1. Updater reads and installs the recorded digest (R2, R3, R4).
-2. Release workflow records it (R1), on top of PR #112.
+2. Release workflow records it (R1).
 
 ## Rollout
 
-Instances on 0.16.x and earlier install the first release with this change by tag, as before;
+Instances on 0.17.1 and earlier install the first release with this change by tag, as before;
 from then on every update goes by digest. Every release from that one on carries the file.
