@@ -146,7 +146,7 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | --- | --- |
 | `list_files` | A folder of a space, one level or recursively |
 | `read_file` | A text file, now or at an old commit (`ref`), with the `blobOid` to pass back when editing |
-| `write_file` | Create or replace a file, committed as you; with `base_blob_oid` a concurrent edit is merged, or kept on a conflict branch if it overlaps |
+| `write_file` | Create or replace a file, committed as you. Replacing a file needs `base_blob_oid` (the `blobOid` from `read_file`): a concurrent edit is then merged, or kept on a conflict branch if it overlaps. A file too long to read whole can't be replaced |
 | `move_file` | Move or rename a file or folder (links to it are rewritten), or share a file from your personal space to the team; a meeting note's transcript moves with it |
 | `delete_file` | Move a file or folder to the space's trash; nothing is lost |
 | `file_history` | Who changed a file, when, and why (follows renames); or the whole space |

@@ -137,12 +137,11 @@ export function migrate(db: Database.Database, migrations: readonly string[] = M
     const row = db.prepare<[], { version: number }>('SELECT version FROM schema_version').get()
     if (!row) db.prepare('INSERT INTO schema_version (version) VALUES (0)').run()
     const current = row?.version ?? 0
-    if (current > migrations.length) {
-      throw new Error(
-        `Index schema v${current} is newer than this build (v${migrations.length}). ` +
-          'Delete the index file and run `node apps/server/dist/cli/reindex.js`.',
-      )
-    }
+    // A newer release migrated this file and the updater then put this one back. Run on it as it
+    // is, and leave the version alone so that release doesn't migrate twice when it returns.
+    // Stars, pins and recents live only here, so the file is never thrown away. This is why a
+    // migration may only add (CONTRIBUTING, rule 7).
+    if (current >= migrations.length) return
     for (const sql of migrations.slice(current)) db.exec(sql)
     db.prepare('UPDATE schema_version SET version = ?').run(migrations.length)
   }).immediate()
