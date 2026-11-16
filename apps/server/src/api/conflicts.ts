@@ -3,7 +3,14 @@ import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
 import type { ConflictInfo, GitStore } from '../git/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
-import { afterCommit, isMarkdown, readIfExists, withStableId, writablePath } from './save.js'
+import {
+  afterCommit,
+  isMarkdown,
+  readIfExists,
+  withOwnShare,
+  withStableId,
+  writablePath,
+} from './save.js'
 import { valid } from './validate.js'
 
 const Ref = z.string().min(1)
@@ -34,7 +41,7 @@ export function conflictRoutes(deps: AppDeps) {
         writablePath(path)
         const current = await readIfExists(git, space, path)
         const content = isMarkdown(path)
-          ? withStableId(body.content, current?.content)
+          ? withStableId(withOwnShare(body.content, current?.content), current?.content)
           : body.content
         const result = await git.resolveConflict(
           space,

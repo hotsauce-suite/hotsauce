@@ -1,8 +1,9 @@
 # Plan: Settings as a few small pages
 
-Status (2026-11-15): building on `settings-pages` in a draft PR. Decisions settled with the owner
-the same day (map: https://claude.ai/artifact/YGW6SgLkTG2833vEcUaqwz). No setting is added or
-removed; this is grouping, names, order and two trims.
+Status (2026-11-16): shipped in release 0.16.0 (#106) and live. Decisions settled with the owner
+on 2026-11-15 (map: https://claude.ai/artifact/YGW6SgLkTG2833vEcUaqwz). No setting is added or
+removed; this is grouping, names, order and two trims. Left for later: an organization page shows
+nothing if the account lookup fails, and there is no end-to-end test for an old address.
 
 Why: both Settings screens were single long scrolls (11 sections for a member, 12 more for an
 admin), with two oversized blocks (the Mac app's install guide, the AI tools intro), three kinds of
@@ -53,6 +54,8 @@ O4. `/settings/organization/ai` is AI: the Anthropic and Deepgram keys, then the
     [settingsPages.test, e2e/assistant.spec.ts]
 O5. `/settings/organization/data` is Data and updates: where files live, backups, updates.
     [settingsPages.test]
+O5a. `/settings/organization/usage` is Usage: which apps get used (docs/PLAN-app-usage.md).
+    [settingsPages.test, e2e/org-settings.spec.ts]
 O6. Saving names, people or the chat link sends only that page's fields, and the "saved, apply to
     restart" banner follows the admin across organization pages until applied. [settingsPages.test]
 O7. The setup wizard keeps its steps and its one "Your organization" form. [e2e/setup.spec.ts]
