@@ -1,14 +1,14 @@
 # Plan: highlights and notes in saved links
 
 Status (2026-11-16): built; every requirement has a test (format unit, server integration, web, and the e2e journey "highlight a passage with a note…"). Step 3 of the Links roadmap Morgan accepted on 2026-11-15 (ideas
-drawn from Omnivore, AGPL, so ideas only: no code from it). Built on the recommendations in the
-thread (Q1 to Q8) while Morgan answers; change here if he picks otherwise.
+drawn from Omnivore, AGPL, so ideas only: no code from it). Released in 0.25.0 and live on Haven
+(2026-11-16). Morgan accepted all the recommendations (Q1 to Q8) on 2026-11-16.
 
 Select text in a saved page to highlight it, optionally with a note. The highlights live in the
 link's own file, so they are kept in its history, private while the link is private, and read by
 search, Ask, Briefcast and connected AI tools. "Copy highlights to a Doc" turns a read into notes.
 
-Recommended in the thread: everyone on a team link sees everyone's highlights, marked with who
+Decided (Morgan accepted every recommendation): everyone on a team link sees everyone's highlights, marked with who
 made them, with "Show only mine" (Q1); Share with team takes your highlights along and says so
 (Q2); one colour (Q3); a Highlights tab beside Unread and Archive, and "3 highlights" on list rows
 (Q4); Copy highlights makes a new private doc each time (Q5); Briefcast reads your highlights on
