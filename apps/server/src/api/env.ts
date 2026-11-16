@@ -27,6 +27,7 @@ import type { Pages } from '../pages/index.js'
 import type { People } from '../people/index.js'
 import type { Bookings } from '../scheduling/index.js'
 import type { Shares } from '../shares/index.js'
+import type { Sign } from '../sign/index.js'
 import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import type { Tables } from '../tables/index.js'
@@ -64,6 +65,8 @@ export interface AppDeps {
   shares: Shares
   pages: Pages
   forms: Forms
+  /** Sign: envelopes in Git, the PDFs in Files (docs/PLAN-sign.md). */
+  sign: Sign
   chatRooms: ChatRooms
   tables: Tables
   links: Links

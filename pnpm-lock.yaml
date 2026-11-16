@@ -84,6 +84,9 @@ importers:
       '@hotsauce/format':
         specifier: workspace:*
         version: link:../../packages/format
+      '@hotsauce/sign':
+        specifier: workspace:*
+        version: link:../../packages/sign
       '@ironcalc/wasm':
         specifier: 0.9.1
         version: 0.9.1
