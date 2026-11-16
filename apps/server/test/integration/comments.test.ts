@@ -175,7 +175,10 @@ describe('a conversation under a team item (R1, R2, R3, R11)', () => {
   })
 
   it('refuses an empty comment, one that is too long, and an item that isn’t saved', async () => {
-    await api('POST', '/api/comments', { json: { space: 'team', path: DOC, text: '  ' }, status: 400 })
+    await api('POST', '/api/comments', {
+      json: { space: 'team', path: DOC, text: '  ' },
+      status: 400,
+    })
     await api('POST', '/api/comments', {
       json: { space: 'team', path: DOC, text: 'x'.repeat(10_001) },
       status: 400,
@@ -214,9 +217,9 @@ describe('a conversation under a team item (R1, R2, R3, R11)', () => {
     await comment(DOC, 'The zebrafish shipment is late')
     const hits = await api('GET', '/api/search?q=zebrafish')
     expect(JSON.stringify(hits)).not.toContain('.hearth/comments')
-    expect(services.index.search('zebrafish', { spaces: ['team'], kinds: ['comment'] })).toHaveLength(
-      1,
-    )
+    expect(
+      services.index.search('zebrafish', { spaces: ['team'], kinds: ['comment'] }),
+    ).toHaveLength(1)
   })
 
   it('an item with 200 comments lists from the index, quickly', async () => {
@@ -317,10 +320,11 @@ describe('@mentions and the push (R4, R5, R7)', () => {
     expect(edited).toMatchObject({ id: made.id, text: 'First draft', created: made.created })
     expect(Date.parse(edited.edited)).not.toBeNaN()
     const seen = await listOf(DOC, BOB)
-    expect(seen.comments).toMatchObject([
-      { text: 'First draft', canEdit: false, canDelete: false },
-    ])
-    expect((await listOf(DOC, ADMIN)).comments[0]).toMatchObject({ canEdit: false, canDelete: true })
+    expect(seen.comments).toMatchObject([{ text: 'First draft', canEdit: false, canDelete: false }])
+    expect((await listOf(DOC, ADMIN)).comments[0]).toMatchObject({
+      canEdit: false,
+      canDelete: true,
+    })
 
     await api('DELETE', at, { status: 204 })
     expect((await listOf(DOC)).comments).toEqual([])
@@ -329,7 +333,9 @@ describe('@mentions and the push (R4, R5, R7)', () => {
     const other = await comment(DOC, 'Off topic', BOB)
     await api('DELETE', `/api/comments/${other.item}/${other.id}`, { as: ADMIN, status: 204 })
     expect((await listOf(DOC)).comments).toEqual([])
-    expect(await teamLog()).toContain('Admin <admin@example.test>|comments: delete from "Pilot plan"')
+    expect(await teamLog()).toContain(
+      'Admin <admin@example.test>|comments: delete from "Pilot plan"',
+    )
   })
 
   it('an edit that adds a mention pushes only the newly named member', async () => {
@@ -413,7 +419,8 @@ describe('the conversation follows its item (R8, R9)', () => {
 
   it('a doc with no id gets one on its first comment, and the rest of the file is unchanged', async () => {
     // Written outside Hotsauce: no frontmatter id, odd spacing, CRLF, no trailing newline.
-    const original = '---\r\ntitle:   Field notes\r\ntags: [a,  b]\r\n---\r\n# Field notes\r\n\r\nSome  text'
+    const original =
+      '---\r\ntitle:   Field notes\r\ntags: [a,  b]\r\n---\r\n# Field notes\r\n\r\nSome  text'
     await services.git.commit('team', {
       changes: [{ path: 'docs/field-notes.md', content: original }],
       author: { name: 'Outside', email: 'outside@example.test' },

@@ -1250,3 +1250,55 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
     }
   }
 }
+
+/* ---------------------------------------------------------------- comments */
+
+/* The conversation's slot under the last line of a doc. It is not text to edit. */
+.hotsauce-editor .cm-comments-slot {
+  cursor: auto;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  line-height: 1.5;
+}
+
+.hotsauce-editor .cm-comment-tooltip {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.hotsauce-editor .cm-comment-tooltip button {
+  height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ash);
+  border-radius: 0.5rem;
+  background: var(--paper-raised);
+  color: var(--ember-strong);
+  font-family: var(--type-ui);
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-float);
+  cursor: pointer;
+}
+
+.hotsauce-editor .cm-comment-tooltip button:hover {
+  border-color: var(--ember);
+}
+
+/* In the reading view the conversation follows the text, in its column. */
+.prose-hotsauce:has(+ .reading-comments) {
+  padding-bottom: 2.5rem;
+}
+
+.reading-comments {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 1.5rem 30vh;
+}
+
+@media (max-width: 767px) {
+  .reading-comments {
+    padding: 0 1rem 30vh;
+  }
+}

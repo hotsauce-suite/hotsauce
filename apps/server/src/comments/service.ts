@@ -381,7 +381,9 @@ export class Comments {
       for (const email of to) {
         const subs = subscribers.filter((s) => sameMember(s.principal.email, email))
         if (subs.length === 0) continue
-        if (!(await push.store.markSent(`mention ${email} ${comment.fm.id}`, this.#now().getTime())))
+        if (
+          !(await push.store.markSent(`mention ${email} ${comment.fm.id}`, this.#now().getTime()))
+        )
           continue
         for (const sub of subs) {
           try {

@@ -28,7 +28,6 @@ import {
   UnconfiguredSpeaker,
 } from './briefcast/index.js'
 import { CheckinMembers, CheckinScheduler, Checkins } from './checkins/index.js'
-import { Comments } from './comments/index.js'
 import {
   ClipStore,
   Clips,
@@ -36,6 +35,7 @@ import {
   DeepgramClipTranscriber,
   FakeClipTranscriber,
 } from './clips/index.js'
+import { Comments } from './comments/index.js'
 import type { Config } from './config.js'
 import {
   DeepgramDictationTranscriber,
