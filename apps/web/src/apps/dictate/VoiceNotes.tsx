@@ -9,11 +9,12 @@ import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
+import { MainButton, PageHeader } from '../../components/PageHeader'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { meetingUrl } from '../../lib/paths'
 import { CaptureError, captureAudio } from '../meetings/audio/capture'
 import type { MeetingSocket } from '../meetings/audio/socket'
-import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { primaryButton, secondaryButton } from '../meetings/components/common'
 import { LiveTranscript } from '../meetings/components/LiveTranscript'
 import { useNow } from '../meetings/components/RecordingIndicator'
 import { dayLabel, formatClock, timeLabel } from '../meetings/format'
@@ -124,7 +125,18 @@ export default function VoiceNotes() {
 
   return (
     <>
-      <MeetingsPageHeader title="Voice notes" />
+      <PageHeader title="Voice notes">
+        {recordingHere ? null : (
+          <MainButton
+            icon="mic"
+            testId="voice-record-main"
+            onClick={() => void start()}
+            disabled={phase.name === 'starting' || otherMeeting !== null}
+          >
+            Record a voice note
+          </MainButton>
+        )}
+      </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-xl px-4 pt-6 pb-28 md:px-8 md:pt-10">
           {recordingHere && meeting ? (

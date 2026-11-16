@@ -108,7 +108,7 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       keywords: ['survey', 'signup', 'request'],
       run: () => {
         navigate('/forms')
-        focusWhenReady(`input[aria-label="New form's title"]`)
+        focusWhenReady('[data-testid="new-form"]')
       },
     },
     {
@@ -119,7 +119,7 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       keywords: ['spreadsheet', 'sheet', 'grid'],
       run: () => {
         navigate('/tables')
-        focusWhenReady(`input[aria-label="New table's name"]`)
+        focusWhenReady('[data-testid="new-table"]')
       },
     },
     {

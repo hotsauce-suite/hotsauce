@@ -8,6 +8,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { needsConnection } from '../../components/Offline'
+import { MainButton } from '../../components/PageHeader'
 import { useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useOnline } from '../../lib/connection'
@@ -228,16 +229,14 @@ export default function FilesPage() {
             <span className="hidden sm:inline">New folder</span>
           </button>
         ) : null}
-        <button
-          type="button"
-          className={`${primaryButton} h-9`}
+        <MainButton
+          icon="upload"
           onClick={() => input.current?.click()}
           {...needsConnection(online)}
-          data-testid="files-upload"
+          testId="files-upload"
         >
-          <Icon name="upload" />
-          <span className="hidden sm:inline">Upload</span>
-        </button>
+          Upload
+        </MainButton>
         <input
           ref={input}
           type="file"

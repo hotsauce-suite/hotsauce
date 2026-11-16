@@ -1,5 +1,5 @@
 import type { Page, Route } from '@playwright/test'
-import { expect, test } from './fixtures'
+import { expect, signIn, test } from './fixtures'
 
 // docs/PLAN-consistency.md, requirements 1–5: every app's list says the same thing when it
 // can't load ("Couldn't load … Try again", which loads it without reloading the page) and shows
@@ -151,5 +151,57 @@ for (const app of APPS) {
     await expect(screen).toBeVisible()
     await expect(screen.locator('svg').first()).toBeVisible()
     await expect(page.getByTestId('load-error')).toHaveCount(0)
+  })
+}
+
+// Requirement 8: the app's one red button is the last control at the top right of its page, on a
+// computer and on a phone, and it always shows its words.
+
+const MAIN_BUTTONS: { name: string; url: string; says: string; admin?: boolean }[] = [
+  { name: 'Docs', url: '/docs', says: 'New doc' },
+  { name: 'Meetings', url: '/meetings', says: 'New meeting' },
+  { name: 'Voice notes', url: '/dictate/voice', says: 'Record a voice note' },
+  { name: 'Clips', url: '/clips', says: 'Record a clip' },
+  { name: 'Tasks', url: '/tasks/all', says: 'New task' },
+  { name: 'Notes', url: '/notes', says: 'New note' },
+  { name: 'Boards', url: '/boards', says: 'New board' },
+  { name: 'Files', url: '/files', says: 'Upload' },
+  { name: 'Links', url: '/links', says: 'Save a link' },
+  { name: 'Forms', url: '/forms', says: 'New form' },
+  // Only an admin sets up check-ins.
+  { name: 'Check-ins', url: '/checkins', says: 'New check-in', admin: true },
+  { name: 'Tables', url: '/tables', says: 'New table' },
+  { name: 'Briefcast', url: '/briefcast', says: 'Make today’s briefing' },
+]
+
+for (const width of [
+  { label: 'computer', viewport: { width: 1280, height: 800 } },
+  { label: 'phone', viewport: { width: 390, height: 844 } },
+]) {
+  test.describe(`the main button, on a ${width.label}`, () => {
+    test.use({ viewport: width.viewport, signedIn: false })
+    for (const app of MAIN_BUTTONS) {
+      test(`${app.name}: "${app.says}" is at the top right`, async ({ page, user }) => {
+        await signIn(page, app.admin ? 'e2e-admin@example.test' : user.email)
+        await page.goto(app.url)
+        const header = page.getByTestId('page-header')
+        const button = header.locator('[data-main-button]')
+        await expect(button).toHaveCount(1)
+        await expect(button).toBeVisible()
+        await expect(button).toHaveText(app.says)
+        const bar = await header.boundingBox()
+        const box = await button.boundingBox()
+        if (!bar || !box) throw new Error('no top bar')
+        // Nothing sits to its right, and nothing pushes it off the screen.
+        const gap = bar.x + bar.width - (box.x + box.width)
+        expect(gap).toBeGreaterThanOrEqual(0)
+        expect(gap).toBeLessThanOrEqual(24)
+        // The title beside it is still there to read.
+        const title = await header.getByRole('heading').boundingBox()
+        expect(title?.width ?? 0).toBeGreaterThanOrEqual(40)
+        // Its words fit on one line.
+        expect(box.height).toBeLessThanOrEqual(40)
+      })
+    }
   })
 }

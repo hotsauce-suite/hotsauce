@@ -1,4 +1,4 @@
-import { expect, test, uid } from './fixtures'
+import { expect, newForm, test, uid } from './fixtures'
 
 // Hotsauce Tables (ARCHITECTURE §22): a member makes a table, types
 // numbers and a formula, sees the total, sorts, reloads and finds it saved; then opens a form's
@@ -8,9 +8,18 @@ test('make a table with a formula, sort it, and find it saved after a reload', a
   const id = uid()
   const title = `Supplies ${id}`
   await page.goto('/tables')
-  await page.getByTestId('new-table-title').fill(title)
   await page.getByTestId('new-table').click()
+  await page.getByTestId('new-table-in-team').click()
+  // A new table is untitled, with the cursor in its name.
+  await expect(page.getByTestId('table-title')).toHaveValue('Untitled table')
+  await expect(page.getByTestId('table-title')).toBeFocused()
+  await page.keyboard.type(title)
   await expect(page.getByTestId('table-title')).toHaveValue(title)
+  // Named now: coming back to it never selects the name again.
+  await expect(page.getByTestId('save-status')).toHaveText('Saved', { timeout: 10_000 })
+  await page.reload()
+  await expect(page.getByTestId('table-title')).toHaveValue(title)
+  await expect(page.getByTestId('table-title')).not.toBeFocused()
   const grid = page.getByTestId('table-grid')
   const cell = (address: string) => page.locator(`[data-cell="${address}"]`)
 
@@ -67,9 +76,7 @@ test("open a form's answers as a table and copy them into a new one", async ({ p
   const id = uid()
   const title = `Sign-up ${id}`
   await page.goto('/forms')
-  await page.getByTestId('new-form-title').fill(title)
-  await page.getByTestId('new-form').click()
-  await expect(page.getByTestId('form-title')).toHaveValue(title)
+  await newForm(page, title)
   const formUrl = new URL(page.url()).pathname
   const link = await page.getByTestId('form-open-link').getAttribute('href')
   await page.goto(new URL(link ?? '').pathname)
@@ -83,4 +90,22 @@ test("open a form's answers as a table and copy them into a new one", async ({ p
   await page.getByTestId('copy-to-table').click()
   await expect(page.getByTestId('table-title')).toHaveValue(`${title} answers`)
   await expect(page.getByTestId('table-grid')).toContainText(`Ada ${id}`)
+})
+
+test('Import asks whose the table is, and a file becomes a table there', async ({ page, user }) => {
+  const id = uid()
+  await page.goto('/tables')
+  await page.getByTestId('import-table-button').click()
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByTestId(`import-table-button-in-${user.personal}`).click()
+  await (await chooser).setFiles({
+    name: `Vendors ${id}.csv`,
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Name,City\nAcme,Burlington\n'),
+  })
+  await page.waitForURL((url) => url.pathname.startsWith(`/tables/${user.personal}/`))
+  await expect(page.getByTestId('table-title')).toHaveValue(`Vendors ${id}`)
+  await expect(page.locator('[data-cell="A2"]')).toHaveText('Acme')
+  // An imported table has its name already; the cursor stays out of it.
+  await expect(page.getByTestId('table-title')).not.toBeFocused()
 })

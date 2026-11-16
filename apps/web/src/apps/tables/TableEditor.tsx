@@ -1,11 +1,12 @@
 import { type Column, fitColumns, normalizeCells } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { HotsauceApiError } from '../../api/client'
 import { peopleApi } from '../../api/people'
 import { type TableView, tablesApi } from '../../api/tables'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
+import { useNameWhenFresh } from '../../components/PageHeader'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { type Change, Grid, type Structure } from './Grid'
@@ -45,7 +46,14 @@ function TableEditor() {
   const navigate = useNavigate()
   const { spaceLabel } = useSession()
   const [table, setTable] = useState<TableView | null>(null)
+  const location = useLocation()
   const [sheet, setSheet] = useState<Sheet | null>(null)
+  useNameWhenFresh(
+    (location.state as { fresh?: boolean } | null)?.fresh === true,
+    sheet !== null,
+    '[data-testid="table-title"]',
+    'Untitled table',
+  )
   const [columns, setColumns] = useState<Column[]>([])
   const [title, setTitle] = useState('')
   const [version, setVersion] = useState(0)

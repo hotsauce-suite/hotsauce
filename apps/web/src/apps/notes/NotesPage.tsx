@@ -9,10 +9,11 @@ import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
+import { MainButton, PageHeader } from '../../components/PageHeader'
 import { focusedRow, followRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
-import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { primaryButton, secondaryButton } from '../meetings/components/common'
 import { Composer } from './Composer'
 import { columnsFor, dealColumns, itemUrl, splitPinned } from './logic'
 import type { CardActions } from './NoteCard'
@@ -258,7 +259,7 @@ export default function NotesPage() {
 
   return (
     <>
-      <MeetingsPageHeader title="Notes">
+      <PageHeader title="Notes">
         <label className="relative flex min-w-0 items-center">
           <span className="sr-only">Search notes</span>
           <Icon
@@ -271,10 +272,22 @@ export default function NotesPage() {
             placeholder="Search"
             data-testid="notes-search"
             onChange={(e) => setQ(e.target.value)}
-            className="h-9 w-36 rounded-lg border border-ash bg-paper-raised pr-2 pl-8 text-sm text-ink outline-none focus:border-ember sm:w-56"
+            className="h-9 w-28 min-w-0 rounded-lg border border-ash bg-paper-raised pr-2 pl-8 text-sm text-ink outline-none focus:border-ember sm:w-56"
           />
         </label>
-      </MeetingsPageHeader>
+        <MainButton
+          icon="plus"
+          testId="notes-new"
+          onClick={() => {
+            // The box to type in lives on the board; from Archive or Trash, go there.
+            setQ('')
+            if (listView !== 'board') navigate('/notes', { state: { newNote: true } })
+            setComposerOpen(true)
+          }}
+        >
+          New note
+        </MainButton>
+      </PageHeader>
       <div data-testid="notes-page" data-view={listView} className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-6xl px-3 pt-5 pb-28 md:px-8 md:pt-8">
           <div className="mb-4 flex items-baseline gap-3 px-1">

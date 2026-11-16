@@ -5,6 +5,7 @@ import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
+import { MainButton } from '../../components/PageHeader'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
 import { formatDuration, formatWhen } from './format'
 
@@ -66,10 +67,13 @@ export default function ClipsLibrary() {
   return (
     <>
       <MeetingsPageHeader title="Clips">
-        <Link to="/clips/new" className={`${primaryButton} h-9`} data-testid="record-clip">
-          <span className="size-2 rounded-full bg-paper-raised" aria-hidden="true" />
+        <MainButton
+          to="/clips/new"
+          testId="record-clip"
+          lead={<span className="size-2 rounded-full bg-paper-raised" aria-hidden="true" />}
+        >
           Record a clip
-        </Link>
+        </MainButton>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="clips-library">
         <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">
