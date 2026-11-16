@@ -60,3 +60,17 @@ and Docs keep saves on the device.
 - **After reconnecting, wait for the server, not the chip.** The page can reload on reconnect,
   and a fresh page starts on its default state before it sends the waiting text; poll the server
   for the text.
+- **Decide offline at the key press, from the network path, not a request.** `NWPathMonitor`
+  answers at once when Wi-Fi is off; a request to a dead server takes its whole timeout. A server
+  that's up on the network but not answering is caught by the first failed dictation, and the
+  next minute goes straight to the device.
+- **A WebSocket that never said "ready" is talking to nobody.** The Mac app's stream waited 25 s
+  after key-up before giving up; keying the timeout on "ready" (3 s without it) makes a dead
+  server cost seconds, not half a minute.
+- **The Speech Recognition prompt belongs to whoever launched the binary.** Running the app's
+  executable from a shell attributes the permission to the shell; `open -n -a Hotsauce.app --args`
+  makes it the app's own, so a probe tests the real thing (and its prompt waits for a person).
+- **`say -o … --data-format=LEI16@16000` makes a test recording without a sound**, already in
+  the 16 kHz mono format the app records in.
+- **An optional field is the cheap way to add to a Codable record** that's already saved on
+  people's Macs: a new `Bool?` decodes old files as nil; a non-optional with a default doesn't.

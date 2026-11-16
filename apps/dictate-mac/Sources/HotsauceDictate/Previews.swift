@@ -32,7 +32,20 @@ enum Previews {
         }
         renderSetup(to: folder, dark: dark)
         renderPages(to: folder, dark: dark)
+        renderOverlay(to: folder, dark: dark)
         return 0
+    }
+
+    /// The dictation pill while recording: online, and offline on the device (docs/PLAN-offline.md, A2.4).
+    private static func renderOverlay(to folder: String, dark: Bool) {
+        for (name, onDevice) in [("overlay-recording", false), ("overlay-on-device", true)] {
+            let model = OverlayModel()
+            model.levels = (0..<18).map { Float(0.2 + 0.6 * abs(sin(Double($0) / 2.5))) }
+            model.onDevice = onDevice
+            let view = NSHostingView(rootView: OverlayView(model: model))
+            let url = URL(fileURLWithPath: folder).appendingPathComponent("\(name)\(dark ? "-dark" : "").png")
+            snapshot(view, size: NSSize(width: 300, height: 44), to: url, dark: dark)
+        }
     }
 
     /// The setup window's Workspace step: empty, an address that isn't a workspace, and one found.

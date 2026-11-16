@@ -30,12 +30,17 @@ final class DictationController {
 
     private(set) var status: Status = .idle { didSet { onChange() } }
     /// The last dictation that failed in a way a retry could fix, with where it was going.
-    private(set) var failed: (request: DictationRequest, target: NSRunningApplication?)?
+    private(set) var failed: (request: DictationRequest, target: NSRunningApplication?, samples: [Int16])?
+    /// Where this dictation is written up (docs/PLAN-offline.md, step A2).
+    private var route: SpeechRoute = .server
+    /// When the server last couldn't be reached; the device is used for a minute after.
+    private var serverFailedAt: Date?
     var onChange: () -> Void = {}
 
     init(settings: Settings, history: HistoryStore) {
         self.settings = settings
         self.history = history
+        _ = NetworkWatch.shared // starts watching now, so the first key press has an answer
         recorder.onLevel = { [weak self] level in
             self?.overlay.model.push(level: level)
             self?.glow.push(level: level)
@@ -97,8 +102,10 @@ final class DictationController {
             return
         }
         target = NSWorkspace.shared.frontmostApplication
+        route = SpeechRouting.choose(networkUp: NetworkWatch.shared.isUp, serverFailedAt: serverFailedAt, now: Date())
         // Stream while the member speaks; the recording is kept too, for the upload fallback.
-        if let connection = ConnectionStore.connection() {
+        // Offline, nothing is sent anywhere (A2.6).
+        if route == .server, let connection = ConnectionStore.connection() {
             stream = DictationStream(
                 server: connection.server,
                 token: connection.token,
@@ -120,10 +127,10 @@ final class DictationController {
             return
         }
         status = .recording
-        overlay.showRecording()
+        overlay.showRecording(onDevice: route == .onDevice)
         // After the microphone has started, so the glow never delays the recording.
         if settings.edgeGlow { glow.listen(pid: target?.processIdentifier) }
-        prewarm()
+        if route == .server { prewarm() }
         maxTimer?.invalidate()
         // Timers fire on the main run loop.
         maxTimer = Timer.scheduledTimer(withTimeInterval: Self.maxSeconds, repeats: false) { [weak self] _ in
@@ -167,7 +174,7 @@ final class DictationController {
             appName: target?.localizedName,
             appBundle: target?.bundleIdentifier
         )
-        send(request, to: target, stream: stream)
+        send(request, to: target, samples: samples, stream: stream, route: route)
     }
 
     // MARK: Sending
@@ -176,10 +183,26 @@ final class DictationController {
         guard let failed, inFlight == nil else { return }
         // A retry uploads the kept recording; the stream that carried it is gone.
         keyUpAt = nil // a retry's timings aren't measured from the original key-up
-        send(failed.request, to: failed.target)
+        // Retry is for the server: the member pressed it because they're back online.
+        send(failed.request, to: failed.target, samples: failed.samples, route: .server)
     }
 
-    private func send(_ request: DictationRequest, to target: NSRunningApplication?, stream: DictationStream? = nil) {
+    private func send(
+        _ request: DictationRequest,
+        to target: NSRunningApplication?,
+        samples: [Int16],
+        stream: DictationStream? = nil,
+        route: SpeechRoute
+    ) {
+        if route == .onDevice {
+            status = .processing
+            overlay.showProcessing()
+            glow.think()
+            inFlight = Task { @MainActor [weak self] in
+                await self?.writeUpOnDevice(samples, request: request, to: target)
+            }
+            return
+        }
         guard let connection = ConnectionStore.connection() else {
             glow.finish()
             status = .error("Not connected")
@@ -204,8 +227,35 @@ final class DictationController {
                 timings["streamed"] = streamed == nil ? 0 : 1
                 self?.deliver(result, request: request, timings: timings, to: target)
             } catch {
-                self?.fail(error, request: request, target: target)
+                let dictationError = error as? DictationError ?? .network(error.localizedDescription)
+                guard SpeechRouting.fallsBackOnDevice(after: dictationError) else {
+                    self?.fail(dictationError, request: request, target: target, samples: samples)
+                    return
+                }
+                // Couldn't reach the server: write it up on this Mac rather than wait (A2.2).
+                self?.serverFailedAt = Date()
+                await self?.writeUpOnDevice(samples, request: request, to: target)
             }
+        }
+    }
+
+    /// The Mac's own speech recognition (A2.6 to A2.9). If it can't write it up either, the
+    /// recording is kept for Retry, which sends it to the server once the connection is back.
+    private func writeUpOnDevice(_ samples: [Int16], request: DictationRequest, to target: NSRunningApplication?) async {
+        let started = Date()
+        do {
+            let text = try await OnDeviceSpeech.transcribe(samples)
+            let ms = { (from: Date?) in from.map { Int(Date().timeIntervalSince($0) * 1000) } ?? -1 }
+            let timings = ["audioMs": samples.count / 16, "onDeviceMs": ms(started), "keyUpToTextMs": ms(keyUpAt)]
+            let result = DictationResult(text: text, raw: text, cleaned: false, durationMs: samples.count / 16, ms: .init(asr: 0, llm: 0))
+            deliver(result, request: request, timings: timings, to: target, onDevice: true)
+        } catch {
+            inFlight = nil
+            glow.finish()
+            failed = (request, target, samples)
+            status = .error("Couldn’t write up the last dictation")
+            let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            overlay.showMessage(message, seconds: 4.5)
         }
     }
 
@@ -245,7 +295,7 @@ final class DictationController {
         return timings
     }
 
-    private func deliver(_ result: DictationResult, request: DictationRequest, timings: [String: Int], to target: NSRunningApplication?) {
+    private func deliver(_ result: DictationResult, request: DictationRequest, timings: [String: Int], to target: NSRunningApplication?, onDevice: Bool = false) {
         inFlight = nil
         failed = nil
         status = .idle
@@ -268,17 +318,17 @@ final class DictationController {
             appName: request.appName,
             appBundle: request.appBundle,
             audioMs: result.durationMs,
-            timings: timings
+            timings: timings,
+            onDevice: onDevice ? true : nil
         ))
         onHistoryChange()
     }
 
-    private func fail(_ error: Error, request: DictationRequest, target: NSRunningApplication?) {
+    private func fail(_ dictationError: DictationError, request: DictationRequest, target: NSRunningApplication?, samples: [Int16]) {
         inFlight = nil
         glow.finish()
-        let dictationError = error as? DictationError ?? .network(error.localizedDescription)
         if dictationError.isRetryable {
-            failed = (request, target)
+            failed = (request, target, samples)
             status = .error("Couldn’t send the last dictation")
             overlay.showMessage("Couldn’t reach \(Brand.name) — Retry is in the menu", seconds: 3.5)
         } else if dictationError == .notConnected {

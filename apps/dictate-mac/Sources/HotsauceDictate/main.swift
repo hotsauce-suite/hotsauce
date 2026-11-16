@@ -46,6 +46,9 @@ if let index = CommandLine.arguments.firstIndex(of: "--render-edge-glow"), index
 if CommandLine.arguments.contains("--edge-glow-demo") {
     exit(MainActor.assumeIsolated { EdgeGlowDemo.run(arguments: CommandLine.arguments) })
 }
+if CommandLine.arguments.contains("--on-device-file") {
+    exit(OnDeviceProbe.run(arguments: CommandLine.arguments))
+}
 if CommandLine.arguments.contains("--transcribe-file") {
     exit(CLI.run(arguments: Array(CommandLine.arguments.dropFirst())))
 }

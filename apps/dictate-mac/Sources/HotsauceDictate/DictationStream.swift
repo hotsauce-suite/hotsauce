@@ -8,6 +8,8 @@ final class DictationStream {
     private let task: URLSessionWebSocketTask
     private let queue = DispatchQueue(label: "dev.hotsauce.dictate.stream")
     private var failed = false
+    /// The server said "ready": something is listening (on `queue`).
+    private var ready = false
     private var result: DictationResult?
     private var waiter: CheckedContinuation<DictationResult?, Never>?
 
@@ -34,8 +36,9 @@ final class DictationStream {
         }
     }
 
-    /// The server's result, or nil to fall back to the upload. Waits at most `timeout`.
-    func finish(timeout: TimeInterval = 25) async -> DictationResult? {
+    /// The server's result, or nil to fall back to the upload. Waits at most `timeout`; by
+    /// default 25 seconds, or 3 when the server never said "ready" (docs/PLAN-offline.md, A2.3).
+    func finish(timeout: TimeInterval? = nil) async -> DictationResult? {
         await withCheckedContinuation { continuation in
             queue.async { [weak self] in
                 guard let self else { return continuation.resume(returning: nil) }
@@ -47,7 +50,8 @@ final class DictationStream {
                 self.task.send(.string(StreamProtocol.finish)) { [weak self] error in
                     if error != nil { self?.fail() }
                 }
-                self.queue.asyncAfter(deadline: .now() + timeout) { [weak self] in self?.fail() }
+                let wait = timeout ?? SpeechRouting.finishTimeout(streamReady: self.ready)
+                self.queue.asyncAfter(deadline: .now() + wait) { [weak self] in self?.fail() }
             }
         }
     }
@@ -77,7 +81,9 @@ final class DictationStream {
                 case .error:
                     self.fail()
                     return
-                case .ready, .unknown:
+                case .ready:
+                    self.queue.async { self.ready = true }
+                case .unknown:
                     break
                 }
                 self.receive()
