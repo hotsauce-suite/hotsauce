@@ -1,55 +1,130 @@
 name: Release
 
-# A merge that raises HOTSAUCE_VERSION on main is a release (docs/PLAN-releases-and-updates.md):
-# this tags v<version>, publishes the release with notes, and pushes the image every instance
-# runs, ghcr.io/hotsauce-suite/hotsauce:<version> and :latest. A version already tagged does
-# nothing, so ordinary merges pass straight through.
+# Releases number themselves (docs/PLAN-auto-releases.md). No pull request changes
+# HOTSAUCE_VERSION. After every merge to main this picks the next number from the newest v* tag
+# (scripts/next-release.mjs): a patch, or a minor when a pull request in the batch has the
+# "feature" label. Merges that only touch docs, the site, CI or the Mac app's sources release
+# nothing. It then writes the number to main as a "Release X.Y.Z" commit, builds and pushes the
+# image ghcr.io/hotsauce-suite/hotsauce:<version> and :latest, and tags v<version> last.
+#
+# Writing to main: the "Protect main" ruleset lets deploy keys bypass it, and the release robot's
+# deploy key (write access) is the secret RELEASE_DEPLOY_KEY. GitHub doesn't let its own Actions
+# token bypass a ruleset. The version commit does start CI and this workflow again; the second run
+# finds only HOTSAUCE_VERSION changed and releases nothing.
 on:
   push:
     branches: [main]
-    paths: [HOTSAUCE_VERSION]
   workflow_dispatch:
+    inputs:
+      feature:
+        description: Make this a feature release (minor number)
+        type: boolean
+        default: false
+      force:
+        description: Release even if only docs changed
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   packages: write
+  pull-requests: read
 
+# One release at a time. A run waiting here is replaced by a newer one, which is fine: every
+# run releases main as it is when it starts, so the newer run carries the older one's changes.
+# A waiting hand-run's "feature" or "force" can be dropped that way; run it again.
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
   release:
+    # Copies of Hotsauce update from its releases (update-hotsauce.yml) and don't release.
+    if: github.repository == 'hotsauce-suite/hotsauce'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Is this version new?
-        id: version
+      - name: Check the release robot's key is set
+        env:
+          KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
         run: |
-          version="$(tr -d '[:space:]' < HOTSAUCE_VERSION)"
-          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "HOTSAUCE_VERSION must look like 1.2.3, not '$version'" >&2
+          if [ -z "$KEY" ]; then
+            echo "::error::The RELEASE_DEPLOY_KEY secret is missing, so the version can't be written to main. See docs/PLAN-auto-releases.md, Setup."
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
-            echo "new=false" >> "$GITHUB_OUTPUT"
-            echo "v$version is already released."
-          else
-            echo "new=true" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.version.outputs.new == 'true'
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pick the number and write it to main
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          FORCE_FEATURE: ${{ inputs.feature && 'true' || 'false' }}
+          FORCE: ${{ inputs.force && 'true' || 'false' }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            git fetch -q --tags origin main
+            git reset -q --hard origin/main
+            flags=()
+            [ "$FORCE" = true ] && flags+=(--force)
+            first="$(node scripts/next-release.mjs "${flags[@]}")"
+            echo "$first"
+            if [ "$(echo "$first" | jq -r .release)" != true ]; then
+              echo "release=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            last="$(echo "$first" | jq -r .last)"
+            feature="$FORCE_FEATURE"
+            if [ "$feature" != true ]; then
+              for sha in $(git log --format=%H "v$last..HEAD"); do
+                # A failed lookup fails the run (rerun it) rather than quietly making a patch.
+                labels="$(gh api "repos/$REPO/commits/$sha/pulls" --jq '[.[].labels[].name] | join(",")')"
+                case ",$labels," in *,feature,*) feature=true; echo "$sha is a feature"; break ;; esac
+              done
+            fi
+            [ "$feature" = true ] && flags+=(--feature)
+            result="$(node scripts/next-release.mjs "${flags[@]}")"
+            echo "$result"
+            version="$(echo "$result" | jq -r .version)"
+            if [ "$(tr -d '[:space:]' < HOTSAUCE_VERSION)" != "$version" ]; then
+              echo "$version" > HOTSAUCE_VERSION
+              git commit -q -m "Release $version" -- HOTSAUCE_VERSION
+              if ! git push -q origin HEAD:main; then
+                echo "main moved while releasing; trying again."
+                sleep $((attempt * 5))
+                continue
+              fi
+            fi
+            {
+              echo "release=true"
+              echo "version=$version"
+              echo "sha=$(git rev-parse HEAD)"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          done
+          echo "Couldn't write the version to main after 5 tries." >&2
+          exit 1
+      - if: steps.version.outputs.release == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - if: steps.version.outputs.new == 'true'
+      - if: steps.version.outputs.release == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - if: steps.version.outputs.new == 'true'
+      - if: steps.version.outputs.release == 'true'
+        id: image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -60,13 +135,27 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.sha }}
             org.opencontainers.image.licenses=AGPL-3.0-only
           cache-from: type=gha
           cache-to: type=gha,mode=max
       # Tag and publish only once the image exists, so an instance that sees the release can
-      # always pull it.
-      - if: steps.version.outputs.new == 'true'
-        run: gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Hotsauce $VERSION" --generate-notes
+      # always pull it. If the build fails, main already says the new number but no tag exists;
+      # the next run picks the same number again and finishes the job.
+      - if: steps.version.outputs.release == 'true'
+        # image-digest.txt names the exact image just pushed. Instances install that digest, never
+        # the tag, which can be moved later (docs/PLAN-pinned-images.md). It goes up with the
+        # release itself, so no release is ever visible without it.
+        run: |
+          set -euo pipefail
+          if ! echo "$DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+            echo "::error::The image build didn't report a digest ('$DIGEST'), so the release wasn't published." >&2
+            exit 1
+          fi
+          echo "$DIGEST" > image-digest.txt
+          gh release create "v$VERSION" image-digest.txt --target "$SHA" --title "Hotsauce $VERSION" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
+          SHA: ${{ steps.version.outputs.sha }}
+          DIGEST: ${{ steps.image.outputs.digest }}

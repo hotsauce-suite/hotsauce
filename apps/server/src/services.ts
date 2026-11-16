@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hotsauce/format'
 import dotenv from 'dotenv'
+import { AccountStore, accountPath } from './account/index.js'
 import {
   AnthropicAssistantModel,
   Assistant,
@@ -35,6 +36,7 @@ import {
   DeepgramClipTranscriber,
   FakeClipTranscriber,
 } from './clips/index.js'
+import { Comments } from './comments/index.js'
 import type { Config } from './config.js'
 import {
   DeepgramDictationTranscriber,
@@ -57,7 +59,7 @@ import { ChatRooms, Forms } from './forms/index.js'
 import { GitStore } from './git/index.js'
 import { createHostAdapter } from './hosts/index.js'
 import { Index, Indexer, indexPath } from './index/index.js'
-import { fakePageFetcher, fetchPage, Links, type PageFetcher } from './links/index.js'
+import { fakePageFetcher, fetchPage, Links, type PageFetcher, ReadingStore } from './links/index.js'
 import {
   DeepgramRetranscriber,
   type MeetingRetranscriber,
@@ -96,6 +98,7 @@ import {
   WebPushSender,
 } from './meetings/reminders/index.js'
 import { Notes } from './notes/index.js'
+import { ClientMetadataResolver, OAuthStore } from './oauth/index.js'
 import { BrandStore } from './org/brand.js'
 import { OrgStore } from './org/store.js'
 import {
@@ -113,7 +116,7 @@ import {
   type RobotCheck,
   Turnstile,
 } from './scheduling/index.js'
-import { Shares } from './shares/index.js'
+import { assertOwnShare, Shares } from './shares/index.js'
 import { SpaceService } from './spaces/index.js'
 import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
@@ -122,6 +125,7 @@ import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from '
 import { TokenAuth, TokenStore } from './tokens/index.js'
 import {
   type FlyApi,
+  fetchImageDigest,
   fetchLatestRelease,
   flyApi,
   RELEASE_IMAGE,
@@ -130,6 +134,7 @@ import {
   Updater,
   UpdateStore,
 } from './updates/index.js'
+import { Usage } from './usage/index.js'
 
 // Same depth from src/ and dist/: apps/server/{src,dist}/services.{ts,js} → the repo root.
 const ENV_FILE = fileURLToPath(new URL('../../../.env.local', import.meta.url))
@@ -174,6 +179,7 @@ export interface ServiceOverrides {
   diskFreeBytes?: () => Promise<number>
   /** The updater's view of the newest release and of Fly (docs/PLAN-releases-and-updates.md). */
   latestRelease?: () => Promise<Release | null>
+  imageDigest?: (version: string) => Promise<string>
   fly?: FlyApi | null
   flyEnv?: { app?: string; region?: string; imageRef?: string }
   version?: string
@@ -192,12 +198,20 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     dataDir: config.DATA_DIR,
     committer,
     rewriteLinks: rewriteLinksForMove,
+    guardMarkdown: assertOwnShare,
   })
   const host = createHostAdapter(config)
   const index = new Index(indexPath(config.DATA_DIR))
+  // Recents, stars and rail pins: their own backed-up file, brought over from
+  // the index's old tables on first start, and again after a rollback changed them.
+  const account = new AccountStore(accountPath(config.DATA_DIR))
+  account.syncFromIndex(() => index.legacyMemberLists())
   const indexer = new Indexer(git, index)
   // Personal access tokens in front of Clerk (or dev) auth, everywhere a request is authenticated.
   const tokens = new TokenStore(config.DATA_DIR)
+  // Apps connected through sign-in (claude.ai, ChatGPT): their tokens work on /mcp only.
+  const oauth = new OAuthStore(config.DATA_DIR)
+  const clientMetadata = new ClientMetadataResolver()
   // The organization's settings, keys and brand kit (ARCHITECTURE §11).
   const org =
     overrides.org ??
@@ -206,7 +220,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ...(config.HOTSAUCE_MASTER_KEY ? { masterKey: config.HOTSAUCE_MASTER_KEY } : {}),
     })
   const brand = new BrandStore(org.dir)
-  const auth = new TokenAuth(createAuthenticator(config), tokens)
+  const auth = new TokenAuth(createAuthenticator(config), tokens, oauth)
   const spaces = new SpaceService({
     git,
     host,
@@ -304,17 +318,30 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
       : {}),
   })
+  // Members' names and zones as their browsers last said them.
+  const checkinMembers = new CheckinMembers(config.DATA_DIR)
   // Check-ins (§24): scheduled team questions in the team space; summaries go to a chat room.
   const checkins = new Checkins({
     git,
     index,
     syncer,
     rooms: chatRooms,
-    members: new CheckinMembers(config.DATA_DIR),
+    members: checkinMembers,
     llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
     model: config.ENHANCE_MODEL,
     publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
     ...(overrides.checkinsNow ? { now: overrides.checkinsNow } : {}),
+  })
+  // Comments (§27): a conversation under a team doc, meeting note or task; a mention pushes.
+  const comments = new Comments({
+    git,
+    index,
+    syncer,
+    people: (p) => taskService.people(p),
+    names: () => checkinMembers.all(),
+    push: meetings.pushSender
+      ? { store: meetings.reminderStore, sender: meetings.pushSender }
+      : null,
   })
   const checkinScheduler = new CheckinScheduler({
     checkins,
@@ -361,8 +388,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     fetchPage:
       overrides.linkFetch ??
       (config.LINK_FETCH === 'live' ? (url) => fetchPage(url) : fakePageFetcher),
+    reading: new ReadingStore(path.join(config.DATA_DIR, 'links-reading.sqlite')),
     llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
     model: config.LINKS_MODEL,
+    publicUrl: config.PUBLIC_URL,
+    memberName: (email) =>
+      meetings.calendarSync?.cache
+        .members()
+        .find((m) => m.email.toLowerCase() === email.toLowerCase())?.name ?? null,
   })
   const briefcasts = new Briefcasts({
     git,
@@ -424,6 +457,13 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     latestRelease:
       overrides.latestRelease ??
       (config.NODE_ENV === 'test' ? async () => null : () => fetchLatestRelease()),
+    imageDigest:
+      overrides.imageDigest ??
+      (config.NODE_ENV === 'test'
+        ? async () => {
+            throw new Error('No releases in tests')
+          }
+        : (version) => fetchImageDigest(version)),
     fly:
       overrides.fly !== undefined
         ? overrides.fly
@@ -442,8 +482,11 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     host,
     index,
     indexer,
+    account,
     auth,
     tokens,
+    oauth,
+    clientMetadata,
     spaces,
     broadcaster,
     syncer,
@@ -493,11 +536,20 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     links,
     checkins,
     checkinScheduler,
+    comments,
     org,
     brand,
     backups: createBackups(config, overrides.backupStore, (space, fn) =>
       git.withSpaceLocked(space, fn),
     ),
+    // Which apps get used, counted from history already kept (docs/PLAN-app-usage.md).
+    usage: new Usage({
+      listSpaces: () => git.listClones(),
+      activity: (space, since) => git.activity(space, since),
+      clipsSince: (from) => clips.store.createdSince(from),
+      dictateDevices: () => dictation.store.deviceLastUses(),
+      committerEmail: committer.email,
+    }),
   }
   // The built-in assistant (docs/PLAN-assistant.md): the member's own MCP tools, in-process.
   const assistant = new Assistant({

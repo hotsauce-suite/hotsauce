@@ -33,6 +33,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // A token's last-use write can still be running; let it finish before the folder goes.
+  await services.tokens.idle()
   services.index.close()
   await removeDir(root)
 })
@@ -247,6 +249,7 @@ describe('the /mcp endpoint', () => {
       'list_drive_files',
       'list_events',
       'list_files',
+      'list_highlights',
       'list_links',
       'list_meetings',
       'list_notes',
@@ -416,6 +419,58 @@ describe('MCP tools', () => {
     })
     expect(result.isError).toBe(true)
     expect(result.text).toMatch(/^conflict: .*refs\/heads\/conflicts\//)
+  })
+
+  it('write_file refuses to replace an existing file it has not read', async () => {
+    await put(ALICE, 'team', 'docs/kept.md', '# Kept\n\nwritten by a person\n')
+    const result = await tool(alice, 'write_file', {
+      space: 'team',
+      path: 'docs/kept.md',
+      content: '# Kept\n\nreplaced by a tool\n',
+    })
+    expect(result.isError).toBe(true)
+    expect(result.text).toMatch(/^conflict: .*base_blob_oid/)
+    const after = await tool(alice, 'read_file', { space: 'team', path: 'docs/kept.md' })
+    expect(after.value.content).toContain('written by a person')
+  })
+
+  it('a file too long to read whole cannot be cut short by writing it back', async () => {
+    const long = `# Long\n\n${'a line of a long transcript\n'.repeat(20_000)}the last line\n`
+    await put(ALICE, 'team', 'docs/long.md', long)
+    const read = await tool(alice, 'read_file', { space: 'team', path: 'docs/long.md' })
+    expect(read.value.truncated).toBe(true)
+    expect(read.value).not.toHaveProperty('blobOid')
+    const result = await tool(alice, 'write_file', {
+      space: 'team',
+      path: 'docs/long.md',
+      content: read.value.content,
+    })
+    expect(result.isError).toBe(true)
+    // Nor with the version taken from a listing instead of a read.
+    const listed = await tool(alice, 'list_files', { space: 'team', dir: 'docs' })
+    const oid = JSON.stringify(listed.value).match(
+      /"oid":"([0-9a-f]{40})"[^}]*long\.md|long\.md[^}]*"oid":"([0-9a-f]{40})"/,
+    )
+    const blind = await tool(alice, 'write_file', {
+      space: 'team',
+      path: 'docs/long.md',
+      content: read.value.content,
+      base_blob_oid: oid?.[1] ?? oid?.[2] ?? 'missing',
+    })
+    expect(blind.isError).toBe(true)
+    expect(blind.text).toMatch(/too long/)
+    const res = await call('GET', '/api/spaces/team/file?path=docs/long.md', { as: ALICE })
+    expect(((await res.json()) as { content: string }).content).toContain('the last line')
+  })
+
+  it('write_file cannot publish a doc by writing a read-only link into it', async () => {
+    const planted = 'AAAAAAAAAAAAAAAAAAAAAAAA'
+    await tool(alice, 'write_file', {
+      space: 'alice',
+      path: 'docs/leak.md',
+      content: `---\nshare: ${planted}\n---\n# Leak\n\nPrivate text.\n`,
+    })
+    expect((await call('GET', `/api/shared/${planted}`, { as: BOB })).status).toBe(404)
   })
 
   it('write_file refuses the space ownership record', async () => {

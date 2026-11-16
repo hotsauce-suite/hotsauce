@@ -113,16 +113,34 @@ test('the Mac app: Today links to its download in Settings', async ({ page }) =>
   // Settings points to the source instead of a download that isn't there.
   await page.goto('/dictate')
   await page.getByTestId('dictate-get-app-link').click()
-  await expect(page).toHaveURL(/\/settings#mac-app$/)
+  await expect(page).toHaveURL(/\/settings\/apps#mac-app$/)
   await expect(page.getByRole('heading', { name: 'Mac app' })).toBeInViewport()
-  // The Mac app's card is in Settings' one Install section, with the web app and the extension.
+  // The Mac app's card is on Settings' Apps page, with the web app and the extension.
   await expect(page.getByTestId('settings-install').getByTestId('mac-app')).toBeVisible()
   await expect(page.getByTestId('settings-install').getByTestId('settings-extension')).toBeVisible()
   await expect(page.getByTestId('mac-app-build-from-source')).toBeVisible()
   await expect(page.getByTestId('mac-app-download')).toHaveCount(0)
 })
 
-test('the Mac app: with a build, Today offers it until closed', async ({ page }) => {
+test('the Mac app: with a build, Today offers it until closed', async ({ page, user }) => {
+  // For a member who has hidden Getting started, which offers the Mac app itself while it shows
+  // (docs/PLAN-getting-started.md T5).
+  const hidden = await page.request.put('/api/today/layout', {
+    headers: { 'x-hearth-dev-user': user.email },
+    data: {
+      layout: {
+        schema: 1,
+        columns: [
+          [
+            { id: 'meetings', kind: 'meetings' },
+            { id: 'tasks', kind: 'tasks' },
+          ],
+          [{ id: 'docs', kind: 'docs' }],
+        ],
+      },
+    },
+  })
+  expect(hidden.status(), await hidden.text()).toBe(200)
   // Stands in for the Docker image's copy of the app.
   await page.route('**/downloads/Hotsauce.dmg', (route) =>
     route.fulfill({ status: 200, contentType: 'application/x-apple-diskimage', body: '' }),
@@ -131,11 +149,12 @@ test('the Mac app: with a build, Today offers it until closed', async ({ page })
   const card = page.getByTestId('today-mac-app')
   await expect(card).toBeVisible()
   await card.getByTestId('today-mac-app-link').click()
-  await expect(page).toHaveURL(/\/settings#mac-app$/)
+  await expect(page).toHaveURL(/\/settings\/apps#mac-app$/)
   await expect(page.getByTestId('mac-app-download')).toHaveAttribute(
     'href',
     '/downloads/Hotsauce.dmg',
   )
+  await expect(page.getByTestId('mac-app-install-steps')).toBeVisible()
   await expect(page.getByTestId('mac-app-install-steps')).toContainText('Open Anyway')
 
   await page.goto('/today')

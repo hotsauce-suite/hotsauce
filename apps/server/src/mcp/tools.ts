@@ -1,4 +1,4 @@
-import { NOTE_COLORS, parseFrontmatter, transcriptPathFor } from '@hotsauce/format'
+import { isCommentPath, NOTE_COLORS, parseFrontmatter, transcriptPathFor } from '@hotsauce/format'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
@@ -195,8 +195,9 @@ export function registerTools(
         const trimmed = dir?.replace(/^\/+|\/+$/g, '') ?? ''
         const folder = trimmed === '' ? '' : normalizeRepoPath(trimmed)
         if (!recursive) return git.listTree(space, folder || undefined)
-        const files = (await git.listAll(space)).filter(
-          (e) => folder === '' || e.path.startsWith(`${folder}/`),
+        // Comment files (one each, §27.1) would crowd the docs out of a whole-space listing.
+        const files = (await git.listAll(space)).filter((e) =>
+          folder === '' ? !isCommentPath(e.path) : e.path.startsWith(`${folder}/`),
         )
         return {
           files: files.slice(0, MAX_LISTED_FILES),
@@ -210,7 +211,7 @@ export function registerTools(
     {
       title: 'Read a file',
       description:
-        'Reads a text file from a space. Pass the returned blobOid as base_blob_oid to write_file when you edit it, so a concurrent edit is merged instead of overwritten.',
+        'Reads a text file from a space. Pass the returned blobOid as base_blob_oid to write_file when you edit it, so a concurrent edit is merged instead of overwritten. A very long file comes back cut off (truncated: true) with no blobOid, and can’t be replaced with write_file.',
       inputSchema: {
         space: Space,
         path: Path,
@@ -230,13 +231,11 @@ export function registerTools(
           )
         }
         const truncated = text.length > MAX_READ_CHARS
-        return {
-          space,
-          path,
-          blobOid: blob.blobOid,
-          content: truncated ? text.slice(0, MAX_READ_CHARS) : text,
-          ...(truncated ? { truncated: true } : {}),
+        // No blobOid with a cut-off read: writing that text back would drop the rest of the file.
+        if (truncated) {
+          return { space, path, content: text.slice(0, MAX_READ_CHARS), truncated: true }
         }
+        return { space, path, blobOid: blob.blobOid, content: text }
       }),
   )
 
@@ -245,7 +244,7 @@ export function registerTools(
     {
       title: 'Write a file',
       description:
-        'Creates or replaces a file in a space and commits it, authored by you. Markdown docs go under docs/ and get a stable id in their frontmatter. When editing, pass the blobOid from read_file as base_blob_oid: a concurrent change is then merged, or, if it overlaps, kept on a conflict branch for you to resolve in the web app.',
+        'Creates or replaces a file in a space and commits it, authored by you. Markdown docs go under docs/ and get a stable id in their frontmatter. To edit a file that exists you must pass the blobOid from read_file as base_blob_oid: a concurrent change is then merged, or, if it overlaps, kept on a conflict branch for you to resolve in the web app.',
       inputSchema: {
         space: Space,
         path: Path,
@@ -272,6 +271,8 @@ export function registerTools(
           author: authorOf(principal),
           message,
           baseBlobOid: base_blob_oid,
+          replaceNeedsBase: true,
+          replaceUpToChars: MAX_READ_CHARS,
           via,
         })
         if (result.status === 'conflict') {

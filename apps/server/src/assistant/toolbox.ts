@@ -23,8 +23,8 @@ export const CONFIRM_TOOLS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Tools the assistant never gets. save_link fetches any URL from the server, which would be web
- * access (decision 9) and a way for text in a file to send workspace content out.
+ * Tools the assistant never gets. save_link used to fetch any URL from the server (web access,
+ * decision 9); it now waits for the member, but stays out so the assistant never plants links.
  */
 export const LEFT_OUT_TOOLS: ReadonlySet<string> = new Set(['save_link'])
 

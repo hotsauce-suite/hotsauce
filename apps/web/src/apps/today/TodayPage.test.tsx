@@ -1,9 +1,10 @@
+import { defaultTodayLayout } from '@hotsauce/format'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { dictationApi } from '../../api/dictation'
-import { localDay } from '../../api/today'
+import { localDay, todayApi } from '../../api/today'
 import { TOUCH_QUERY } from '../../hooks/useMediaQuery'
 import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
@@ -33,18 +34,23 @@ describe('Today', () => {
     await waitFor(() => expect(within(card).queryByText('Water the plants')).toBeNull())
   })
 
-  it('T6: without the calendar it says why, and the rest still loads', async () => {
+  it('T6: when the calendar fails to load it says why, and the rest still loads', async () => {
+    // No calendar connected at all is a first step, not an error: tiles/StartTile.test.tsx.
     server.use(
       http.get('/api/calendar/upcoming', () =>
         HttpResponse.json(
-          { error: { code: 'forbidden', message: 'Connect your Google Calendar first.' } },
-          { status: 403 },
+          { error: { code: 'upstream', message: 'Your calendar didn’t load right now.' } },
+          { status: 502 },
         ),
       ),
     )
     renderApp('/today')
-    expect(await screen.findByTestId('today-calendar-error')).toHaveTextContent(
-      'Connect your Google Calendar first.',
+    const calendarError = await screen.findByTestId('today-calendar-error')
+    expect(calendarError).toHaveTextContent('Your calendar didn’t load right now.')
+    // Straight to Calendars, not the top of Settings (docs/PLAN-settings-pages.md, G5).
+    expect(within(calendarError).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings/connections#calendars',
     )
     expect(screen.getByTestId('today-tasks')).toBeInTheDocument()
     expect(screen.getByTestId('today-docs')).toBeInTheDocument()
@@ -58,6 +64,12 @@ describe('Today', () => {
 })
 
 describe('Today: the Mac app card', () => {
+  // The card is for a member who has hidden Getting started, which offers the Mac app itself
+  // (docs/PLAN-getting-started.md T5).
+  beforeEach(async () => {
+    await todayApi.saveLayout(defaultTodayLayout())
+  })
+
   afterEach(() => {
     delete (window as { webkit?: unknown }).webkit
   })
@@ -68,7 +80,7 @@ describe('Today: the Mac app card', () => {
     const card = await screen.findByTestId('today-mac-app')
     expect(within(card).getByTestId('today-mac-app-link')).toHaveAttribute(
       'href',
-      '/settings#mac-app',
+      '/settings/apps#mac-app',
     )
     await user.click(within(card).getByTestId('today-mac-app-dismiss'))
     expect(screen.queryByTestId('today-mac-app')).toBeNull()

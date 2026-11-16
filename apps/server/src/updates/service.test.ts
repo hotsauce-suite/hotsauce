@@ -8,6 +8,7 @@ import { Updater, type UpdaterOptions } from './service.js'
 import { UpdateStore } from './store.js'
 
 const OLD = 'registry.fly.io/acme:deployment-1'
+const DIGEST = `sha256:${'b2'.repeat(32)}`
 const release = (version: string): Release => ({
   version,
   notes: `What's new in ${version}`,
@@ -31,6 +32,7 @@ function setup({
       current,
       store,
       latestRelease: async () => (latest ? release(latest) : null),
+      imageDigest: async () => DIGEST,
       fly,
       flyEnv: { app: 'acme', region: 'iad', imageRef: OLD },
       image: 'ghcr.io/hotsauce-suite/hotsauce',
@@ -85,12 +87,55 @@ describe('Updater', () => {
     }
     expect(helper.image).toBe(OLD)
     expect(helper.auto_destroy).toBe(true)
-    expect(helper.env.HOTSAUCE_UPDATE_TARGET).toBe('ghcr.io/hotsauce-suite/hotsauce:0.3.0')
+    // The exact image the release recorded, never whatever its tag points at now.
+    expect(helper.env.HOTSAUCE_UPDATE_TARGET).toBe(`ghcr.io/hotsauce-suite/hotsauce@${DIGEST}`)
+    expect(helper.env.HOTSAUCE_UPDATE_VERSION).toBe('0.3.0')
     expect(helper.env.HOTSAUCE_UPDATE_PREVIOUS).toBe(OLD)
     // The token comes from the app's Fly secrets, never through the machine's config.
     expect(JSON.stringify(helper)).not.toContain('FLY_API_TOKEN')
     expect(store.get().pending).toMatchObject({ from: '0.2.0', to: '0.3.0' })
     await expect(make('0.2.0').start()).rejects.toThrow(/Already updating/)
+  })
+
+  it('installs nothing when the release recorded no image, and says so', async () => {
+    const asked: string[] = []
+    const { make, fly, store } = setup({
+      imageDigest: async (version) => {
+        asked.push(version)
+        throw new Error('Hotsauce 0.3.0 recorded no image (answered 404)')
+      },
+    })
+    await expect(make('0.2.0').start()).rejects.toThrow(/0\.3\.0 recorded no image/)
+    expect(asked).toEqual(['0.3.0'])
+    expect(fly.created).toHaveLength(0)
+    // Not a failed update: nothing started, so a fixed release can still be installed.
+    expect(store.get()).toMatchObject({ pending: null, failed: null, skip: [] })
+  })
+
+  it('the timer doesn’t re-ask GitHub every ten minutes for a release it can’t install', async () => {
+    let asks = 0
+    const { make, fly, advance } = setup({
+      latestRelease: async () => {
+        asks++
+        return release('0.3.0')
+      },
+      imageDigest: async () => {
+        throw new Error('Hotsauce 0.3.0 recorded no image (answered 404)')
+      },
+    })
+    const u = make('0.2.0')
+    for (let i = 0; i < 6; i++) {
+      await u.tick()
+      advance(10 * 60_000)
+    }
+    expect(asks).toBe(1)
+    expect(fly.created).toHaveLength(0)
+  })
+
+  it('refuses a recorded digest that isn’t one', async () => {
+    const { make, fly } = setup({ imageDigest: async () => 'latest' })
+    await expect(make('0.2.0').start()).rejects.toThrow(/isn’t an image digest/)
+    expect(fly.created).toHaveLength(0)
   })
 
   it('clears the update once the new version has outlasted the helper’s checks', async () => {

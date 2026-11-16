@@ -3,7 +3,9 @@ import { useMatches, useNavigate, useParams, useSearchParams } from 'react-route
 import { type DriveFile, type FolderListing, filesApi, formatBytes } from '../../api/files'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon, type IconName } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { needsConnection } from '../../components/Offline'
 import { useListKeys } from '../../keyboard/listKeys'
@@ -48,7 +50,7 @@ type Dialogs =
   | { kind: 'delete-folder'; folder: string }
   | null
 
-/** `/files`: one folder of Team files or My files, Recent, and a file open on top. */
+/** `/files`: one folder of Team files or Personal files, Recent, and a file open on top. */
 export default function FilesPage() {
   const online = useOnline()
   const kind = useKind()
@@ -69,6 +71,7 @@ export default function FilesPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [dialog, setDialog] = useState<Dialogs>(null)
   const [menu, setMenu] = useState<{
     anchor: MenuAnchor
@@ -77,7 +80,7 @@ export default function FilesPage() {
   } | null>(null)
   const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
-  const spaceLabel = space === personal ? 'My files' : space === 'team' ? 'Team files' : space
+  const spaceLabel = space === personal ? 'Personal files' : space === 'team' ? 'Team files' : space
 
   useEffect(() => {
     document.title = `${product()} Files`
@@ -105,8 +108,9 @@ export default function FilesPage() {
           if (cancelled) return
           setRecent(r)
           setError(null)
+          setLoadFailed(false)
         },
-        (e: unknown) => !cancelled && setError(message(e)),
+        () => !cancelled && setLoadFailed(true),
       )
       return () => {
         cancelled = true
@@ -120,8 +124,9 @@ export default function FilesPage() {
             if (cancelled) return
             setListing(l)
             setError(null)
+            setLoadFailed(false)
           },
-          (e: unknown) => !cancelled && setError(message(e)),
+          () => !cancelled && setLoadFailed(true),
         ),
       q ? 200 : 0,
     )
@@ -202,7 +207,7 @@ export default function FilesPage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Files`}>
+      <MeetingsPageHeader title="Files">
         <input
           type="search"
           value={q}
@@ -308,15 +313,33 @@ export default function FilesPage() {
               {error}
             </p>
           ) : null}
-          {loading && !error ? <p className="text-sm text-ink-faint">Loading…</p> : null}
-          {!loading && files.length === 0 && folders.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-ash-strong p-10 text-center text-sm text-ink-soft">
+          {loadFailed ? (
+            <LoadError
+              things={
+                kind === 'recent' ? 'recent files' : space === 'team' ? 'team files' : 'files'
+              }
+              whose={space === 'team' && kind !== 'recent' ? 'the' : 'your'}
+              onRetry={() => setTick((n) => n + 1)}
+              className="mb-4"
+            />
+          ) : null}
+          {loading && !error && !loadFailed ? (
+            <p className="text-sm text-ink-faint">Loading…</p>
+          ) : null}
+          {!loadFailed && !loading && files.length === 0 && folders.length === 0 ? (
+            <EmptyState
+              icon="drive"
+              title={
+                q ? 'No files match' : kind === 'recent' ? 'No recent files' : 'No files here yet'
+              }
+              className="rounded-xl border border-dashed border-ash-strong"
+            >
               {q
-                ? 'No files match.'
+                ? 'Search looks at file names and the text inside PDFs and documents.'
                 : kind === 'recent'
                   ? 'Files you and your team upload appear here.'
                   : 'Drag files here, or choose Upload. PDFs, images, video and audio open right in the browser.'}
-            </div>
+            </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="files-list">
             {folders.map((f) => (
@@ -362,7 +385,7 @@ export default function FilesPage() {
                     <span className="block truncate text-sm text-ink">{f.name}</span>
                     <span className="block truncate text-xs text-ink-faint">
                       {kind === 'recent' || q
-                        ? `${f.space === personal ? 'My files' : 'Team files'}${f.folder ? ` / ${f.folder}` : ''} · `
+                        ? `${f.space === personal ? 'Personal files' : 'Team files'}${f.folder ? ` / ${f.folder}` : ''} · `
                         : ''}
                       {f.createdBy.split('@')[0]} · {DATE.format(new Date(f.updatedAt))}
                       {f.shareToken ? ' · Shared' : ''}
@@ -400,7 +423,7 @@ export default function FilesPage() {
             onMoveSpace={(file, to) =>
               act(
                 () => filesApi.move(file.space, file.id, to),
-                `Moved to ${to === personal ? 'My files' : 'Team files'}`,
+                `Moved to ${to === personal ? 'Personal files' : 'Team files'}`,
               )
             }
           />
@@ -611,7 +634,7 @@ function FileMenuItems({
       </MenuItem>
       {other ? (
         <MenuItem icon="share" onSelect={run(() => onMoveSpace(file, other))}>
-          {other === 'team' ? 'Move to Team files' : 'Move to My files'}
+          {other === 'team' ? 'Move to Team files' : 'Move to Personal files'}
         </MenuItem>
       ) : null}
       <MenuItem icon="trash" danger testId="files-delete" onSelect={run(() => onDelete(file))}>
@@ -648,7 +671,7 @@ function FileDialog({
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-ink-soft">
             <dt className="text-ink-faint">Where</dt>
             <dd className="truncate">
-              {file.space === personal ? 'My files' : 'Team files'}
+              {file.space === personal ? 'Personal files' : 'Team files'}
               {file.folder ? ` / ${file.folder}` : ''}
             </dd>
             <dt className="text-ink-faint">Size</dt>

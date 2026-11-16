@@ -1,6 +1,7 @@
 import type { Extension, Text } from '@codemirror/state'
 import {
   extractTitle,
+  MAX_COMMENT_QUOTE,
   newDoc,
   parseFrontmatter,
   relativeLink,
@@ -16,12 +17,14 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { Link, useBlocker, useLocation, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { docsApp } from '../apps/docs/manifest'
 import type { AppManifest } from '../apps/registry'
 import { product } from '../brand/product'
+import { commentsSlot } from '../editor/commentsSlot'
 import type { LinkTarget } from '../editor/wikiLink'
 import { type DocumentHandle, GONE_WHILE_EDITING, useDocument } from '../hooks/useDocument'
 import { useCommands } from '../keyboard/commands'
@@ -42,6 +45,9 @@ import { freeDocPath } from '../state/treeStore'
 import { useShell } from './AppShell'
 import { ConflictBanner, DraftBanner } from './Banners'
 import { ConflictResolver } from './ConflictResolver'
+import { Conversation, commentIdFromHash } from './comments/Conversation'
+import { QuoteButton } from './comments/QuoteButton'
+import { useComments } from './comments/useComments'
 import { FilePicker } from './FilePicker'
 import { type EditorBridge, type EditorSelectionJSON, MarkdownEditor } from './MarkdownEditor'
 import { OfflineEmpty } from './Offline'
@@ -220,6 +226,38 @@ export function DocumentView({
     }),
     [space, path, app, images, navigate, notify, tree, personalSpace],
   )
+
+  // The conversation under a team doc or meeting note (docs/PLAN-comments.md). It loads after
+  // the text, in its own request; in the editor it sits in a slot after the last line.
+  const teamSpace = session.spaces.find((s) => s.kind === 'team')?.name
+  const conversation = useComments(space, path, opened && space === teamSpace)
+  const conversationRef = useRef(conversation)
+  conversationRef.current = conversation
+  const [commentsHost] = useState(() => {
+    const host = document.createElement('div')
+    host.className = 'cm-comments-slot'
+    return host
+  })
+  const [focusBox, setFocusBox] = useState(0)
+  const quoteIntoComment = useCallback((text: string) => {
+    const current = conversationRef.current
+    current.setDraft({ text: current.draft.text, quote: text.slice(0, MAX_COMMENT_QUOTE) })
+    setFocusBox((n) => n + 1)
+  }, [])
+  // Read once when the editor mounts, so it reads what is current through the refs.
+  const editorExtensions = useMemo(
+    () => [
+      ...(extensions ?? []),
+      commentsSlot({
+        host: commentsHost,
+        canQuote: () => conversationRef.current.canComment,
+        onQuote: quoteIntoComment,
+      }),
+    ],
+    [extensions, commentsHost, quoteIntoComment],
+  )
+  const focusComment = commentIdFromHash(location.hash)
+  const readingPane = useRef<HTMLDivElement | null>(null)
 
   const togglePanel = (next: string) => setPanel((current) => (current === next ? null : next))
   const extraPanel = panels?.find((p) => p.id === panel)
@@ -475,6 +513,18 @@ export function DocumentView({
           setTimeout(() => URL.revokeObjectURL(a.href), 1000)
         },
       },
+      ...(conversation.canComment
+        ? [
+            {
+              id: 'doc-comment',
+              title: 'Add a comment',
+              group: 'page' as const,
+              icon: 'chat' as const,
+              keywords: ['comments', 'mention', 'reply', 'discuss'],
+              run: () => setFocusBox((n) => n + 1),
+            },
+          ]
+        : []),
       ...(panels ?? []).map((toggle) => ({
         id: `doc-panel-${toggle.id}`,
         title: toggle.label,
@@ -483,7 +533,7 @@ export function DocumentView({
         run: () => setPanel(toggle.id),
       })),
     ],
-    `${space}:${path}:${starred}:${reading}:${editable}`,
+    `${space}:${path}:${starred}:${reading}:${editable}:${conversation.canComment}`,
   )
 
   return (
@@ -508,6 +558,14 @@ export function DocumentView({
         getText={() => doc.getText()}
         onOpenDrawer={shell.openDrawer}
         {...(editable && !reading ? { onAttachFile: () => setPicking(true) } : {})}
+        {...(conversation.canComment
+          ? {
+              comments: {
+                count: conversation.comments.length,
+                onOpen: () => setFocusBox((n) => n + 1),
+              },
+            }
+          : {})}
         rename={
           !untitled && renameTo && renameTo !== keptName && !conflict && !renaming
             ? {
@@ -584,7 +642,7 @@ export function DocumentView({
                   readOnly={conflict !== null || renaming || readOnly}
                   autoFocus={isNew}
                   {...(carriedSelection ? { initialSelection: carriedSelection } : {})}
-                  {...(extensions ? { extensions } : {})}
+                  extensions={editorExtensions}
                   onChange={onChange}
                   onReady={onReady}
                   {...services}
@@ -592,7 +650,7 @@ export function DocumentView({
               </div>
             ) : null}
             {state.status === 'ready' && reading ? (
-              <div className="h-full overflow-y-auto">
+              <div ref={readingPane} className="h-full overflow-y-auto">
                 <Suspense fallback={null}>
                   <ReadingView
                     markdown={doc.getText()}
@@ -602,8 +660,45 @@ export function DocumentView({
                     resolveImage={services.resolveImage}
                   />
                 </Suspense>
+                {conversation.canComment ? (
+                  <>
+                    <div className="reading-comments">
+                      <Conversation
+                        conversation={conversation}
+                        focusId={focusComment}
+                        focusBox={focusBox}
+                      />
+                    </div>
+                    <QuoteButton container={readingPane} onQuote={quoteIntoComment} />
+                  </>
+                ) : null}
               </div>
             ) : null}
+            {state.status === 'ready' && !reading
+              ? createPortal(
+                  conversation.canComment || conversation.status === 'error' ? (
+                    // The gap above the conversation still belongs to the doc: a click there
+                    // goes on writing at the end of the text.
+                    // biome-ignore lint/a11y/noStaticElementInteractions: the editor's own margin
+                    <div
+                      className="pt-10"
+                      onMouseDown={(e) => {
+                        if (e.target !== e.currentTarget) return
+                        e.preventDefault()
+                        editor.current?.focusEnd?.()
+                      }}
+                    >
+                      <Conversation
+                        conversation={conversation}
+                        focusId={focusComment}
+                        focusBox={focusBox}
+                        onReveal={() => editor.current?.revealEnd?.()}
+                      />
+                    </div>
+                  ) : null,
+                  commentsHost,
+                )
+              : null}
           </div>
           {state.status === 'ready' ? footer?.(doc) : null}
         </div>

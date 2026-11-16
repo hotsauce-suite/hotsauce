@@ -354,6 +354,35 @@ describe('briefcast', () => {
     expect(lastPrompt()).not.toContain('Mirror life')
   })
 
+  it('reads the listener’s own highlights on a link, not teammates’ (Links highlights R9)', async () => {
+    now = new Date('2026-11-17T10:00:00Z')
+    const saved = new Date(now.getTime() - 2 * 3_600_000).toISOString()
+    const id = '01JC0000000000000000000009'
+    const text = [
+      '---',
+      `id: ${id}`,
+      'type: link',
+      `url: https://x.test/${id}`,
+      'title: Marked up',
+      'site: x.test',
+      `saved: ${saved}`,
+      `saved_by: ${ALICE}`,
+      `fetched: ${saved}`,
+      'highlights:',
+      `  - { id: H1, by: ${ALICE}, at: "${saved}", quote: "the part I cared about", note: "use this" }`,
+      `  - { id: H2, by: ${BOB}, at: "${saved}", quote: "bobs part" }`,
+      '---',
+      '',
+      'Text',
+      '',
+    ].join('\n')
+    await writeDoc('team', `links/${id}.md`, text, ALICE)
+    await api('POST', '/api/briefcast/refresh', { json: { tz: 'UTC' } })
+    const prompt = lastPrompt()
+    expect(prompt).toContain('<highlight note="use this">the part I cared about</highlight>')
+    expect(prompt).not.toContain('bobs part')
+  })
+
   it('R7: a private podcast feed that needs its token and can be rotated', async () => {
     await writeMeeting('alice', 'Northwind pricing', hoursAgo(2), [`Alice <${ALICE}>`], 'Decided')
     await api('POST', '/api/briefcast/refresh', { json: { tz: 'UTC' } })

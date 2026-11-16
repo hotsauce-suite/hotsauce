@@ -29,7 +29,7 @@ export function SidebarFrame({ app, children }: { app: AppManifest; children: Re
         data-testid="sidebar-app-name"
         className="shrink-0 px-4 pt-4 pb-2.5 font-display text-[1.06rem] leading-tight font-semibold tracking-tight text-ink"
       >
-        {app.name}
+        {app.label}
       </h2>
 
       {children}

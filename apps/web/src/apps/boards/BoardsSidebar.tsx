@@ -9,7 +9,7 @@ export function BoardsSidebar() {
   const onList = pathname === '/boards'
   const { create, busy } = useNewBoard()
   return (
-    <nav aria-label="Whiteboard" className="mt-1 flex flex-col gap-0.5 px-2">
+    <nav aria-label="Boards" className="mt-1 flex flex-col gap-0.5 px-2">
       <button
         type="button"
         onClick={() => void create(scope === 'team' && onList)}
@@ -20,7 +20,7 @@ export function BoardsSidebar() {
         <Icon name="plus" className="size-4" />
         New board
       </button>
-      <Item to="/boards" icon="board" label="My boards" active={onList && scope === 'mine'} />
+      <Item to="/boards" icon="board" label="Personal boards" active={onList && scope === 'mine'} />
       <Item
         to="/boards?scope=team"
         icon="share"

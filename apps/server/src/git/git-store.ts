@@ -7,7 +7,15 @@ import { type ErrorCode, HotsauceError } from '../errors.js'
 import { parseCommitMessage, withVia } from './message.js'
 import { KeyedMutex } from './mutex.js'
 import { GitError, runGit, runGitBuffer } from './run-git.js'
-import type { Author, Change, Commit, CommitResult, ConflictInfo, Entry } from './types.js'
+import type {
+  ActivityCommit,
+  Author,
+  Change,
+  Commit,
+  CommitResult,
+  ConflictInfo,
+  Entry,
+} from './types.js'
 import {
   assertConflictRef,
   assertRepoPath,
@@ -27,7 +35,15 @@ export interface GitStoreOptions {
   rewriteLinks?: RewriteLinks
   /** Test seam: runs right before every push of main, so a test can land a concurrent push. */
   beforePush?: (space: string) => Promise<void>
+  /**
+   * Checks the final text of every markdown file a commit or move is about to write (after any
+   * merge) against what the path holds now, and throws to refuse it. Wired to the read-only link
+   * rule (ARCHITECTURE §20.1). `trusted` commits skip it.
+   */
+  guardMarkdown?: MarkdownGuard
 }
+
+export type MarkdownGuard = (path: string, text: string, previous: string | null) => void
 
 export type RewriteLinks = (
   markdown: string,
@@ -53,6 +69,7 @@ export class GitStore {
   private readonly committer: Author
   private readonly rewriteLinks: RewriteLinks
   private readonly beforePush: ((space: string) => Promise<void>) | undefined
+  private readonly guardMarkdown: MarkdownGuard | undefined
   private readonly locks = new KeyedMutex()
 
   constructor(opts: GitStoreOptions) {
@@ -60,6 +77,7 @@ export class GitStore {
     this.committer = opts.committer
     this.rewriteLinks = opts.rewriteLinks ?? ((markdown) => markdown)
     this.beforePush = opts.beforePush
+    this.guardMarkdown = opts.guardMarkdown
   }
 
   // ── setup ────────────────────────────────────────────────────────────────
@@ -222,6 +240,64 @@ export class GitStore {
     return commits
   }
 
+  /**
+   * Commits on main whose author date is at or after `since` (ISO 8601), with the files each one
+   * added or changed, for the usage report. Reads history only; never names more than paths.
+   */
+  async activity(space: string, since: string): Promise<ActivityCommit[]> {
+    if (Number.isNaN(Date.parse(since)))
+      throw new HotsauceError('bad_request', `Invalid date: ${since}`)
+    const dir = this.requireClone(space)
+    if ((await this.revParse(dir, 'HEAD')) === null) return []
+    // No --since: it stops walking at the first run of commits with older committer dates, and
+    // commits pushed from outside (or imported) can carry any date. The author date decides below.
+    // Merge commits list no files here; their side's commits are walked and counted on their own.
+    const out = await this.git(dir, [
+      'log',
+      '--find-renames',
+      '--name-status',
+      '-z',
+      '--format=%x1e%ae%x1f%aI%x1f%s',
+      'HEAD',
+    ])
+    const from = Date.parse(since)
+    const commits: ActivityCommit[] = []
+    for (const record of out.split('\x1e')) {
+      if (record === '') continue
+      const headerEnd = record.indexOf('\0')
+      const header = headerEnd === -1 ? record : record.slice(0, headerEnd)
+      const [email = '', date = '', ...subject] = header.split('\x1f')
+      if (!(Date.parse(date) >= from)) continue
+      const tokens =
+        headerEnd === -1
+          ? []
+          : record
+              .slice(headerEnd + 1)
+              .replace(/^\n/, '')
+              .split('\0')
+      const files: ActivityCommit['files'] = []
+      for (let i = 0; i < tokens.length; ) {
+        const status = tokens[i] ?? ''
+        if (status === '') {
+          i++
+          continue
+        }
+        if (status.startsWith('R') || status.startsWith('C')) {
+          const to = tokens[i + 2]
+          if (to) files.push({ path: to, change: status.startsWith('R') ? 'changed' : 'added' })
+          i += 3
+          continue
+        }
+        const path = tokens[i + 1]
+        if (path && status === 'A') files.push({ path, change: 'added' })
+        else if (path && status !== 'D') files.push({ path, change: 'changed' })
+        i += 2
+      }
+      commits.push({ email: email.toLowerCase(), date, subject: subject.join('\x1f'), files })
+    }
+    return commits
+  }
+
   async show(space: string, oid: string, path: string): Promise<string> {
     assertRev(oid)
     return (await this.readFile(space, path, oid)).content
@@ -292,6 +368,8 @@ export class GitStore {
        * blob means the file must not exist yet (create only), checked under the space lock.
        */
       unchanged?: { path: string; blobOid: string | null }
+      /** Skip `guardMarkdown`: the one writer allowed to make what it refuses (Share). */
+      trusted?: boolean
     },
   ): Promise<CommitResult> {
     assertSpace(space)
@@ -301,6 +379,7 @@ export class GitStore {
       content: c.content,
     }))
     const { author, message } = args
+    const trusted = args.trusted === true
     if (args.base === undefined) {
       // "Must not exist": no blob can equal '', and a missing file is fine.
       const unchanged = args.unchanged && {
@@ -313,6 +392,7 @@ export class GitStore {
           changes,
           author,
           message,
+          trusted,
           ...(unchanged ? { unchanged } : {}),
         }),
       )
@@ -322,7 +402,7 @@ export class GitStore {
     }
     const base = { path: normalizeRepoPath(args.base.path), blobOid: args.base.blobOid }
     return this.write(space, (dir) =>
-      this.commitUnlocked(space, dir, { changes, author, message, base }),
+      this.commitUnlocked(space, dir, { changes, author, message, base, trusted }),
     )
   }
 
@@ -386,6 +466,10 @@ export class GitStore {
         changes: [{ path: to.path, content: source.content }],
         author,
         message: withVia(`hotsauce: add "${to.path}" from ${from.space}`, opts.via),
+        // A markdown file moves with what it had; anything else arrives as a new file.
+        copiedFrom: new Map([
+          [to.path, isMarkdownPath(from.path) ? source.content.toString('utf8') : null],
+        ]),
       })
     })
 
@@ -499,6 +583,9 @@ export class GitStore {
       unchanged?: { path: string; blobOid: string; missingOk?: boolean }
       /** Write `base.path` even if HEAD no longer has it (resolving a conflict). */
       allowRecreate?: boolean
+      trusted?: boolean
+      /** The text each path was copied from (a move from another space), for `guardMarkdown`. */
+      copiedFrom?: Map<string, string | null>
     },
   ): Promise<CommitResult> {
     const primaryPath = args.base?.path ?? args.changes[0]?.path ?? ''
@@ -563,6 +650,7 @@ export class GitStore {
       }
 
       // 3. Commit (an empty diff commits nothing).
+      if (!args.trusted) await this.guard(dir, changes, args.copiedFrom)
       await this.writeChanges(dir, changes)
       if (await this.hasStagedChanges(dir)) {
         await this.git(dir, ['commit', '--quiet', '--no-verify', '-m', args.message], {
@@ -627,6 +715,17 @@ export class GitStore {
       const normalized = extra.map((c) => ({ path: normalizeRepoPath(c.path), content: c.content }))
       if (normalized.some((c) => moving(c.path))) {
         throw new HotsauceError('bad_request', `Extra changes can't touch ${from} or ${to}`)
+      }
+
+      // A file renamed into markdown is checked as a new one; a markdown file keeps what it had.
+      // Before anything moves, so a refusal leaves the clone as it was.
+      if (this.guardMarkdown) {
+        for (const file of files) {
+          const newPath = to + file.path.slice(from.length)
+          if (isMarkdownPath(newPath) && !isMarkdownPath(file.path)) {
+            this.guardMarkdown(newPath, await this.blobContent(dir, file.oid), null)
+          }
+        }
       }
 
       await mkdir(dirname(join(dir, to)), { recursive: true })
@@ -979,6 +1078,26 @@ export class GitStore {
     }
   }
 
+  /** Runs `guardMarkdown` on each markdown file about to be written, against the path at HEAD. */
+  private async guard(
+    dir: string,
+    changes: Change[],
+    copiedFrom?: Map<string, string | null>,
+  ): Promise<void> {
+    if (!this.guardMarkdown) return
+    for (const change of changes) {
+      if (change.content === null || !isMarkdownPath(change.path)) continue
+      const text =
+        typeof change.content === 'string'
+          ? change.content
+          : Buffer.from(change.content).toString('utf8')
+      const previous = copiedFrom?.has(change.path)
+        ? (copiedFrom.get(change.path) ?? null)
+        : ((await this.blobAt(dir, 'HEAD', change.path))?.content ?? null)
+      this.guardMarkdown(change.path, text, previous)
+    }
+  }
+
   private async hasStagedChanges(dir: string): Promise<boolean> {
     try {
       await this.git(dir, ['diff', '--cached', '--quiet'])
@@ -1157,3 +1276,5 @@ async function removeStaleLocks(gitDir: string): Promise<void> {
       .map((r) => rm(join(gitDir, 'refs', r), { force: true })),
   )
 }
+
+const isMarkdownPath = (path: string) => path.toLowerCase().endsWith('.md')

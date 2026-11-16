@@ -1,19 +1,28 @@
 import {
+  addHighlight,
   cleanTags,
+  docPath,
   FrontmatterError,
+  HighlightError,
+  highlightsDoc,
+  highlightsOf,
   LinkFrontmatter,
+  type LinkHighlight,
   type LinkSource,
   linkBodyText,
   linkIdOf,
   linkPath,
   linkTextOf,
   linkUrlProblem,
+  newDoc,
   newLinkFile,
   normalizeLinkUrl,
   oneLine,
   parseFrontmatter,
   patchFrontmatter,
+  removeHighlight,
   SPACE_LAYOUT,
+  setHighlightNote,
 } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
@@ -24,6 +33,7 @@ import { type Space, type SpaceService, TEAM_SPACE } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import { LinkFetchError, MAX_PAGE_BYTES, type PageFetcher } from './fetch.js'
 import { type ReadablePage, readPage } from './read.js'
+import type { ReadingPlace, ReadingStore } from './reading.js'
 
 export const MAX_LINK_LIST = 1000
 const WRITE_ATTEMPTS = 3
@@ -43,7 +53,8 @@ export const MAX_HELD_COPY_BYTES = 40 * 1024 * 1024
 /** The page text Claude sees to summarize and tag it. */
 const TAG_CHARS = 6000
 
-export type LinkStatus = 'fetching' | 'ready' | 'failed'
+/** `waiting`: an AI tool saved it, and the page isn't fetched until a member asks (R1). */
+export type LinkStatus = 'waiting' | 'fetching' | 'ready' | 'failed'
 export type LinkListView = 'unread' | 'archive' | 'all'
 
 export interface LinkView {
@@ -65,12 +76,36 @@ export interface LinkView {
   words: number | null
   source: LinkSource | null
   status: LinkStatus
+  /** The calling member's place in the copy; null before they open it. Never anyone else's. */
+  reading: ReadingPlace | null
+  /** How many highlights the link has, everyone's (docs/PLAN-links-highlights.md). */
+  highlightCount: number
 }
 
 export interface LinkWithBody extends LinkView {
   /** The readable copy, in Markdown. */
   body: string
+  /** Every highlight in the file, oldest first. */
+  highlights: NamedHighlight[]
 }
+
+/** A highlight with its maker's name (not stored: names change). */
+export type NamedHighlight = LinkHighlight & { name: string }
+
+/** One highlight with the link it is in, for the Highlights list (R6). */
+export interface HighlightView extends NamedHighlight {
+  link: { space: string; id: string; title: string; site: string; url: string }
+}
+
+export interface HighlightInput {
+  quote: string
+  prefix?: string | undefined
+  suffix?: string | undefined
+  block?: number | undefined
+  note?: string | undefined
+}
+
+export const MAX_HIGHLIGHT_LIST = 500
 
 export interface LinkFilter {
   view?: LinkListView | undefined
@@ -119,9 +154,15 @@ export interface LinksDeps {
   spaces: Pick<SpaceService, 'visibleSpaces' | 'canAccess'>
   syncer: Pick<Syncer, 'afterHeadChanged'>
   fetchPage: PageFetcher
+  /** Members' places in links (docs/PLAN-links-reading-position.md). */
+  reading: Pick<ReadingStore, 'get' | 'set' | 'allFor' | 'forget'>
   /** Summaries and tags; null leaves links untagged. */
   llm: LLM | null
   model: string
+  /** A member's name from their email, for "Copy highlights to a Doc"; null when unknown. */
+  memberName?: (email: string) => string | null
+  /** The app's address, for the saved copy's link in a highlights doc. */
+  publicUrl?: string
   now?: () => Date
   log?: (message: string) => void
 }
@@ -139,6 +180,14 @@ function parseLink(data: unknown): LinkFrontmatter | null {
 export function linkName(fm: Pick<LinkFrontmatter, 'title' | 'url'>): string {
   const name = oneLine(fm.title || fm.url).replace(/"/g, "'")
   return name.length > 60 ? `${name.slice(0, 59)}…` : name || 'Untitled link'
+}
+
+/**
+ * A link an AI tool saved through the connector, never read: its page waits for a member to ask
+ * for it, so a tricked tool can't send text out in the address (docs/PLAN-links-ai-saves.md).
+ */
+function waitsForMember(fm: LinkFrontmatter): boolean {
+  return fm.source === 'mcp' && !fm.fetched && !fm.fetch_error
 }
 
 /**
@@ -180,13 +229,14 @@ export class Links {
     const matching = filter.q?.trim() ? this.#searchPaths(filter.q, scope) : null
     const tag = filter.tag?.trim().toLowerCase()
     const by = filter.savedBy?.toLowerCase()
+    const places = this.#d.reading.allFor(principal.userId)
     return this.#records(scope)
       .filter((r) => matching === null || matching.has(`${r.space}\n${r.path}`))
       .filter((r) => view === 'all' || (r.fm.archived === true) === (view === 'archive'))
       .filter((r) => !tag || (r.fm.tags ?? []).some((t) => t.toLowerCase() === tag))
       .filter((r) => !by || r.fm.saved_by.toLowerCase() === by)
       .filter((r) => !filter.savedSince || r.fm.saved >= filter.savedSince)
-      .map((r) => this.#view(r))
+      .map((r) => ({ ...this.#view(r), reading: places.get(r.id) ?? null }))
       .sort((a, b) => b.saved.localeCompare(a.saved) || b.id.localeCompare(a.id))
       .slice(0, limit)
   }
@@ -194,7 +244,173 @@ export class Links {
   async get(principal: Principal, space: string, id: string): Promise<LinkWithBody> {
     this.#assertAccess(principal, space)
     const file = await this.#read(space, id)
-    return { ...this.#view(file.record), body: file.body }
+    return {
+      ...this.#placed(principal, this.#view(file.record)),
+      body: file.body,
+      highlights: highlightsOf(file.record.fm).map((h) => this.#named(h)),
+    }
+  }
+
+  #named(h: LinkHighlight): NamedHighlight {
+    return { ...h, name: this.#d.memberName?.(h.by) || nameFromEmail(h.by) }
+  }
+
+  /** Highlights across every link the member can see, newest first (R6). */
+  async highlights(
+    principal: Principal,
+    filter: { q?: string | undefined; limit?: number | undefined } = {},
+  ): Promise<HighlightView[]> {
+    const visible = await this.#d.spaces.visibleSpaces(principal)
+    const limit = Math.min(
+      Math.max(Math.trunc(filter.limit ?? MAX_HIGHLIGHT_LIST), 1),
+      MAX_HIGHLIGHT_LIST,
+    )
+    const words = (filter.q ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+    const out: HighlightView[] = []
+    for (const r of this.#records(visible)) {
+      const link = {
+        space: r.space,
+        id: r.id,
+        title: r.fm.title ?? '',
+        site: r.fm.site ?? '',
+        url: r.fm.url,
+      }
+      for (const h of highlightsOf(r.fm)) {
+        if (words.length > 0) {
+          const hay = `${h.quote}\n${h.note ?? ''}\n${link.title}`.toLowerCase()
+          if (!words.every((w) => hay.includes(w))) continue
+        }
+        out.push({ ...this.#named(h), link })
+      }
+    }
+    return out.sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id)).slice(0, limit)
+  }
+
+  /** Adds a highlight as the member (R2). */
+  async addHighlight(
+    principal: Principal,
+    space: string,
+    id: string,
+    input: HighlightInput,
+    via?: string,
+  ): Promise<NamedHighlight> {
+    this.#assertAccess(principal, space)
+    let made: LinkHighlight | null = null
+    await this.#edit(principal, space, id, 'highlight', via, (cur) => {
+      const { highlights, highlight } = highlightFailure(() =>
+        addHighlight(cur.fm, { ...input, by: principal.email, at: isoNow(this.#now()) }),
+      )
+      made = highlight
+      return patchFrontmatter(cur.content, { highlights })
+    })
+    if (!made) throw new HotsauceError('internal', 'The highlight wasn’t saved')
+    return this.#named(made)
+  }
+
+  /** Changes the note on the member's own highlight; an empty note removes it (R3). */
+  async noteHighlight(
+    principal: Principal,
+    space: string,
+    id: string,
+    highlightId: string,
+    note: string,
+    via?: string,
+  ): Promise<NamedHighlight> {
+    this.#assertAccess(principal, space)
+    let made: LinkHighlight | null = null
+    await this.#edit(principal, space, id, 'note', via, (cur) => {
+      const before = cur.fm.highlights
+      const { highlights, highlight } = highlightFailure(() =>
+        setHighlightNote(cur.fm, highlightId, principal.email, note, isoNow(this.#now())),
+      )
+      made = highlight
+      if (JSON.stringify(before) === JSON.stringify(highlights)) return null
+      return patchFrontmatter(cur.content, { highlights })
+    })
+    if (!made) throw new HotsauceError('internal', 'The note wasn’t saved')
+    return this.#named(made)
+  }
+
+  /** Removes the member's own highlight (R3). */
+  async removeHighlight(
+    principal: Principal,
+    space: string,
+    id: string,
+    highlightId: string,
+    via?: string,
+  ): Promise<void> {
+    this.#assertAccess(principal, space)
+    await this.#edit(principal, space, id, 'unhighlight', via, (cur) =>
+      patchFrontmatter(cur.content, {
+        highlights: highlightFailure(() => removeHighlight(cur.fm, highlightId, principal.email)),
+      }),
+    )
+  }
+
+  /**
+   * "Copy highlights to a Doc": a new doc in the member's personal space with the link's
+   * highlights in page order (R10).
+   */
+  async copyHighlightsToDoc(
+    principal: Principal,
+    space: string,
+    id: string,
+    via?: string,
+  ): Promise<{ space: string; path: string; title: string }> {
+    this.#assertAccess(principal, space)
+    const file = await this.#read(space, id)
+    const highlights = highlightsOf(file.record.fm)
+    if (highlights.length === 0) {
+      throw new HotsauceError('conflict', 'This link has no highlights to copy')
+    }
+    const visible = await this.#d.spaces.visibleSpaces(principal)
+    const personal = personalOf(visible)?.name
+    if (!personal)
+      throw new HotsauceError('conflict', 'You need a private space to copy highlights into')
+    const base = (this.#d.publicUrl ?? '').replace(/\/+$/, '')
+    const doc = highlightsDoc({
+      title: file.record.fm.title || file.record.fm.site || file.record.fm.url,
+      url: file.record.fm.url,
+      appUrl: `${base}/links/${encodeURIComponent(space)}/${encodeURIComponent(id)}`,
+      highlights,
+      me: principal.email,
+      nameOf: (email) => this.#named({ by: email } as LinkHighlight).name,
+    })
+    const fresh = newDoc(doc.title)
+    // newDoc writes "# title" as the body; the highlights doc brings its own heading.
+    const text = fresh.text.replace(/\n# [^\n]*\n\n$/, () => `\n${doc.markdown}`)
+    for (let n = 1; n <= 50; n++) {
+      const stem = docPath('', doc.title).replace(/\.md$/, '')
+      const path = n === 1 ? `${stem}.md` : `${stem}-${n}.md`
+      if (await this.#exists(personal, path)) continue
+      try {
+        await this.#commit(principal, personal, {
+          changes: [{ path, content: text }],
+          verb: 'copy',
+          title: linkName(file.record.fm),
+          via,
+          // Never over a doc made meanwhile with the same name.
+          unchanged: { path, blobOid: null },
+        })
+      } catch (err) {
+        if (err instanceof HotsauceError && err.code === 'conflict') continue
+        throw err
+      }
+      return { space: personal, path, title: doc.title }
+    }
+    throw new HotsauceError('conflict', 'Couldn’t find a free name for the doc')
+  }
+
+  /** Saves the member's place in a link they can see (R1). */
+  async setReading(
+    principal: Principal,
+    space: string,
+    id: string,
+    place: { anchor: number; percent: number },
+  ): Promise<ReadingPlace> {
+    this.#assertAccess(principal, space)
+    await this.#read(space, id)
+    return this.#d.reading.set(principal.userId, id, place, this.#now())
   }
 
   /** Every tag on the member's links, with how many links carry it. */
@@ -231,19 +447,33 @@ export class Links {
     const key = normalizeLinkUrl(url)
     const same = this.#records(visible).find((r) => normalizeLinkUrl(r.fm.url) === key)
     if (same) {
-      const view = same.fm.archived
+      let view = same.fm.archived
         ? await this.update(principal, same.space, same.id, { archived: false }, via)
         : this.#view(same)
+      // An AI tool's address can differ in what normalizing drops (utm_*, the #hash) and carry
+      // text in it: the member's own save asks for the address they gave, so keep that one (R3).
+      if (input.source !== 'mcp' && view.status === 'waiting' && url !== same.fm.url) {
+        view = await this.#edit(principal, same.space, same.id, 'edit', via, (cur) =>
+          patchFrontmatter(cur.content, { url }),
+        )
+      }
       // A member's own page never goes into a team link: it may show their account.
       const html = same.space === TEAM_SPACE ? undefined : input.page?.html
+      // An AI tool never makes the server visit an address (it could carry text out in it).
+      if (input.source === 'mcp') return { ...view, existing: true }
       const thin = view.status === 'ready' && (view.words ?? 0) < SHORT_COPY_WORDS
-      if (view.status === 'failed' || (html && thin)) {
+      // A member saving it themselves is asking for the page of a link an AI tool saved.
+      if (view.status === 'failed' || view.status === 'waiting' || (html && thin)) {
         // A save from the page itself replaces a copy that failed or came out short.
         this.#schedule(principal, view.space, view.id, via, html)
         const running = this.#running.has(`${view.space}\n${view.id}`)
-        return { ...view, existing: true, ...(running ? { status: 'fetching' as const } : {}) }
+        return {
+          ...this.#placed(principal, view),
+          existing: true,
+          ...(running ? { status: 'fetching' as const } : {}),
+        }
       }
-      return { ...view, existing: true }
+      return { ...this.#placed(principal, view), existing: true }
     }
 
     const file = newLinkFile({
@@ -262,7 +492,7 @@ export class Links {
       via,
     })
     if (result.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
-    this.#schedule(principal, space, file.id, via, input.page?.html)
+    if (!waitsForMember(fm)) this.#schedule(principal, space, file.id, via, input.page?.html)
     return {
       ...this.#view({ space, path: file.path, id: file.id, blobOid: result.blobOid, fm }),
       existing: false,
@@ -277,7 +507,7 @@ export class Links {
     via?: string,
   ): Promise<LinkView> {
     this.#assertAccess(principal, space)
-    return this.#edit(principal, space, id, verbFor(patch), via, (cur) => {
+    const view = await this.#edit(principal, space, id, verbFor(patch), via, (cur) => {
       const fields: Record<string, unknown> = {}
       if (patch.title !== undefined) {
         const title = oneLine(patch.title).slice(0, 300)
@@ -292,6 +522,7 @@ export class Links {
       const text = patchFrontmatter(cur.content, fields)
       return text === cur.content ? null : text
     })
+    return this.#placed(principal, view)
   }
 
   /** Fetches the page again, in the background. */
@@ -299,7 +530,7 @@ export class Links {
     this.#assertAccess(principal, space)
     const file = await this.#read(space, id)
     this.#schedule(principal, space, id, via)
-    return { ...this.#view(file.record), status: 'fetching' }
+    return { ...this.#placed(principal, this.#view(file.record)), status: 'fetching' }
   }
 
   /** "Share with team" and back: one commit per space, the copy first. */
@@ -313,7 +544,9 @@ export class Links {
     this.#assertAccess(principal, space)
     this.#assertAccess(principal, toSpace)
     const path = linkPath(id)
-    if (toSpace === space) return this.#view((await this.#read(space, id)).record)
+    if (toSpace === space) {
+      return this.#placed(principal, this.#view((await this.#read(space, id)).record))
+    }
     if (await this.#exists(toSpace, path)) {
       throw new HotsauceError('conflict', `A link with id ${id} is already in ${toSpace}`)
     }
@@ -355,10 +588,17 @@ export class Links {
       }
       if (added.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
       // Moved before its page was read: the read in the old space finds nothing, so read it here.
-      if (!file.record.fm.fetched && !file.record.fm.fetch_error) {
+      if (
+        !file.record.fm.fetched &&
+        !file.record.fm.fetch_error &&
+        !waitsForMember(file.record.fm)
+      ) {
         this.#schedule(principal, toSpace, id, via)
       }
-      return this.#view({ ...file.record, space: toSpace, blobOid: added.blobOid })
+      return this.#placed(
+        principal,
+        this.#view({ ...file.record, space: toSpace, blobOid: added.blobOid }),
+      )
     }
   }
 
@@ -383,6 +623,7 @@ export class Links {
           via,
           unchanged: { path: file.record.path, blobOid: file.record.blobOid },
         })
+        this.#d.reading.forget(id)
         return
       } catch (err) {
         if (
@@ -578,7 +819,9 @@ export class Links {
       fetchError = TOO_MANY
     } else if (!fm.fetched && !fm.fetch_error) {
       const lost = this.#now().getTime() - Date.parse(fm.saved) > LOST_AFTER_MS
-      if (this.#running.has(`${rec.space}\n${rec.id}`) || !lost) status = 'fetching'
+      if (this.#running.has(`${rec.space}\n${rec.id}`)) status = 'fetching'
+      else if (waitsForMember(fm)) status = 'waiting'
+      else if (!lost) status = 'fetching'
       else {
         status = 'failed'
         fetchError = 'The page wasn’t read; try again'
@@ -604,7 +847,14 @@ export class Links {
       words: fm.words ?? null,
       source: fm.source ?? null,
       status,
+      reading: null,
+      highlightCount: highlightsOf(fm).length,
     }
+  }
+
+  /** The view with the member's own place in it. */
+  #placed<T extends LinkView>(principal: Principal, view: T): T {
+    return { ...view, reading: this.#d.reading.get(principal.userId, view.id) }
   }
 
   #assertAccess(principal: Principal, space: string): void {
@@ -726,7 +976,7 @@ export class Links {
       verb: string
       title: string
       via: string | undefined
-      unchanged?: { path: string; blobOid: string }
+      unchanged?: { path: string; blobOid: string | null }
     },
   ): Promise<CommitResult> {
     const result = await this.#d.git.commit(space, {
@@ -741,6 +991,33 @@ export class Links {
     await this.#d.syncer.afterHeadChanged(space)
     return result
   }
+}
+
+/** A highlight's own failure as the error the API answers with. */
+function highlightFailure<T>(work: () => T): T {
+  try {
+    return work()
+  } catch (err) {
+    if (!(err instanceof HighlightError)) throw err
+    const code =
+      err.code === 'empty'
+        ? 'bad_request'
+        : err.code === 'full'
+          ? 'conflict'
+          : err.code === 'not_found'
+            ? 'not_found'
+            : 'forbidden'
+    throw new HotsauceError(code, err.message)
+  }
+}
+
+/** "bob.smith@x" → "Bob Smith", when a member's name isn't known. */
+function nameFromEmail(email: string): string {
+  return (email.split('@')[0] ?? email)
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((w) => w[0]?.toUpperCase() + w.slice(1))
+    .join(' ')
 }
 
 function personalOf(spaces: Space[]): Space | undefined {

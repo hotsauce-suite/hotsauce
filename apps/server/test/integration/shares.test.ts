@@ -233,4 +233,113 @@ describe('read-only links', () => {
     await api('POST', '/api/spaces/team/restore', { json: { oid: first, path: 'docs/r.md' } })
     expect((await api('GET', `/api/shared/${again.token}`, { as: BOB })).markdown).toContain('v1')
   })
+
+  // A link is only ever made by "Share": text that arrives with one written in (typed, pasted,
+  // or sent by an AI tool told to by something it read) must not publish the file.
+  it('a save cannot make a link by writing one into the file', async () => {
+    const planted = 'AAAAAAAAAAAAAAAAAAAAAAAA'
+    await writeDoc(
+      'alice',
+      'docs/private.md',
+      `---\nshare: ${planted}\n---\n# Private\n\nBoard notes.\n`,
+    )
+    await api('GET', `/api/shared/${planted}`, { as: BOB, status: 404 })
+    expect((await api('GET', '/api/shares?space=alice&path=docs/private.md')).token).toBeNull()
+
+    // Nor swap a real link for a chosen one; the real link keeps working.
+    await writeDoc('team', 'docs/open.md', '# Open\n\nv1\n')
+    const { token } = await share('team', 'docs/open.md', true)
+    const file = await api('GET', '/api/spaces/team/file?path=docs/open.md')
+    await writeDoc('team', 'docs/open.md', file.content.replace(token, planted).replace('v1', 'v2'))
+    await api('GET', `/api/shared/${planted}`, { as: BOB, status: 404 })
+    expect((await api('GET', `/api/shared/${token}`, { as: BOB })).markdown).toContain('v2')
+  })
+
+  it('resolving a conflict cannot make a link either', async () => {
+    const planted = 'BBBBBBBBBBBBBBBBBBBBBBBB'
+    await writeDoc('team', 'docs/c.md', '# C\n\nsame line\n')
+    const base = await api('GET', '/api/spaces/team/file?path=docs/c.md')
+    await writeDoc('team', 'docs/c.md', base.content.replace('same line', 'Alice line'))
+    const parked = await api('PUT', '/api/spaces/team/file', {
+      as: BOB,
+      json: {
+        path: 'docs/c.md',
+        content: base.content.replace('same line', 'Bob line'),
+        baseBlobOid: base.blobOid,
+      },
+      status: 409,
+    })
+    await api('POST', '/api/spaces/team/conflict/resolve', {
+      as: BOB,
+      json: {
+        ref: parked.conflictRef,
+        content: `---\nshare: ${planted}\n---\n# C\n\nBob line\n`,
+      },
+    })
+    await api('GET', `/api/shared/${planted}`, { as: ALICE, status: 404 })
+  })
+
+  it('refuses a link written in ways the quiet repair cannot patch', async () => {
+    const planted = 'CCCCCCCCCCCCCCCCCCCCCCCC'
+    const id = '01HZZZZZZZZZZZZZZZZZZZZZZZ'
+    // The whole header on one line.
+    await api('PUT', '/api/spaces/alice/file', {
+      json: { path: 'docs/flow.md', content: `---\n{id: ${id}, share: ${planted}}\n---\n# Leak\n` },
+      status: 400,
+    })
+    // The key spelled through a YAML alias.
+    await api('PUT', '/api/spaces/alice/file', {
+      json: {
+        path: 'docs/alias.md',
+        content: `---\nid: ${id}\nk: &k share\n*k : ${planted}\n---\n# Leak\n`,
+      },
+      status: 400,
+    })
+    await api('GET', `/api/shared/${planted}`, { as: BOB, status: 404 })
+  })
+
+  it('a file renamed into a doc, or uploaded as one, cannot bring a link with it', async () => {
+    const planted = 'DDDDDDDDDDDDDDDDDDDDDDDD'
+    const text = `---\nshare: ${planted}\n---\n# Leak\n\nPrivate.\n`
+    await writeDoc('alice', 'docs/leak.txt', text)
+    await api('POST', '/api/spaces/alice/move', {
+      json: { from: 'docs/leak.txt', to: 'docs/leak.md' },
+      status: 400,
+    })
+    // Still there under its old name, and the space still takes writes.
+    expect((await api('GET', '/api/spaces/alice/file?path=docs/leak.txt')).content).toBe(text)
+    await writeDoc('alice', 'docs/after.md', '# After\n')
+
+    const form = new FormData()
+    form.set('file', new File([text], 'leak.md', { type: 'text/markdown' }))
+    const upload = await app.request('/api/spaces/alice/assets', {
+      method: 'POST',
+      headers: { 'x-hearth-dev-user': ALICE },
+      body: form,
+    })
+    expect(upload.status).toBe(400)
+    await api('GET', `/api/shared/${planted}`, { as: BOB, status: 404 })
+  })
+
+  it('two saves cannot merge into a link neither of them carries', async () => {
+    const planted = 'EEEEEEEEEEEEEEEEEEEEEEEE'
+    const filler = Array.from({ length: 6 }, (_, i) => `k${i}: v`).join('\n')
+    const base = await writeDoc(
+      'team',
+      'docs/merge.md',
+      `---\nid: 01HZZZZZZZZZZZZZZZZZZZZZZY\n---\n${filler}\n---\nshare: ${planted}\n---\n# Body\n`,
+    )
+    const file = await api('GET', '/api/spaces/team/file?path=docs/merge.md')
+    const first = file.content.replace('\n---\nk0', '\nk0')
+    const second = file.content.replace(`\n---\nshare: ${planted}`, `\nshare: ${planted}`)
+    await api('PUT', '/api/spaces/team/file', {
+      json: { path: 'docs/merge.md', content: first, baseBlobOid: base.blobOid },
+    })
+    const res = await call('PUT', '/api/spaces/team/file', {
+      as: BOB,
+      json: { path: 'docs/merge.md', content: second, baseBlobOid: base.blobOid },
+    })
+    expect([400, 409]).toContain(res.status)
+    await api('GET', `/api/shared/${planted}`, { as: BOB, status: 404 })
+  })
 })

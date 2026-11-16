@@ -18,6 +18,7 @@ import { AuthRoot, BootError } from './auth/AuthRoot'
 import { loadBoot } from './brand/boot'
 import AppShell from './components/AppShell'
 import { Launch } from './routes/Launch'
+import { settingsRoute } from './routes/settings/routes'
 
 // Route-level code splitting: the shell ships in the entry chunk so the sidebar paints at
 // once; the editor (CodeMirror), sign-in and Clerk load on demand.
@@ -46,6 +47,11 @@ export const createAppRouter = () =>
           // The Mac app's sign-in through the browser (ARCHITECTURE §9.4.1).
           path: '/desktop/connect',
           lazy: async () => ({ Component: (await import('./routes/DesktopConnectRoute')).default }),
+        },
+        {
+          // The Allow page AI tools open to connect by signing in (ARCHITECTURE §8.4).
+          path: '/oauth/authorize',
+          lazy: async () => ({ Component: (await import('./routes/OAuthAuthorizeRoute')).default }),
         },
         {
           path: '/desktop/finish',
@@ -97,16 +103,7 @@ export const createAppRouter = () =>
               ],
             },
             { path: '/meetings', children: meetingsRoutes },
-            {
-              path: '/settings',
-              lazy: async () => ({ Component: (await import('./routes/SettingsRoute')).default }),
-            },
-            {
-              path: '/settings/organization',
-              lazy: async () => ({
-                Component: (await import('./routes/OrgSettingsRoute')).default,
-              }),
-            },
+            settingsRoute,
             {
               path: '/feedback',
               lazy: async () => ({ Component: (await import('./routes/FeedbackRoute')).default }),

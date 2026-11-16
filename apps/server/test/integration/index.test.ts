@@ -119,12 +119,21 @@ describe('Index database', () => {
     expect(index.getSyncState('team')).toBeNull()
   })
 
-  it('refuses a database written by a newer build', () => {
+  // It used to refuse, which left the site down after the updater rolled a release back, with
+  // advice to delete the file that holds everyone's stars and pins (docs/PLAN-audit-2.md).
+  it('makes a database written by a newer build again for this one', () => {
     index.close()
     const raw = new Database(file)
+    const { version } = raw.prepare('SELECT version FROM schema_version').get() as {
+      version: number
+    }
     raw.prepare('UPDATE schema_version SET version = 99').run()
     raw.close()
-    expect(() => new Index(file)).toThrow(/newer than this build/)
+    index = new Index(file)
+    index.close()
+    const check = new Database(file)
+    expect(check.prepare('SELECT version FROM schema_version').get()).toEqual({ version })
+    check.close()
     index = new Index(':memory:') // keep afterEach's close() valid
   })
 })
@@ -477,46 +486,12 @@ describe('sync state, conflicts, recents and stars', () => {
     expect(index.listConflicts('ada')).toHaveLength(1)
   })
 
-  it('lists recents newest first with titles when indexed', async () => {
+  // Recents, stars and pins live in account.sqlite (src/account/store.test.ts); their titles here.
+  it('gives the title a file is indexed under, or null', async () => {
     await indexer.full('team')
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-10-07T10:00:00Z'))
-    index.touchRecent('u1', 'team', 'docs/roadmap.md')
-    vi.setSystemTime(new Date('2026-10-07T11:00:00Z'))
-    index.touchRecent('u1', 'team', 'docs/gone.md')
-    index.touchRecent('u2', 'team', 'docs/hiring/plan.md')
-    vi.setSystemTime(new Date('2026-10-07T12:00:00Z'))
-    index.touchRecent('u1', 'team', 'docs/roadmap.md')
-
-    expect(index.listRecents('u1')).toEqual([
-      {
-        space: 'team',
-        path: 'docs/roadmap.md',
-        title: 'Roadmap',
-        openedAt: '2026-10-07T12:00:00.000Z',
-      },
-      { space: 'team', path: 'docs/gone.md', title: null, openedAt: '2026-10-07T11:00:00.000Z' },
-    ])
-    expect(index.listRecents('u1', 1)).toHaveLength(1)
-  })
-
-  it('stars and unstars per user', async () => {
-    await indexer.full('team')
-    index.setStarred('u1', 'team', 'docs/roadmap.md', true)
-    index.setStarred('u1', 'team', 'docs/roadmap.md', true)
-    index.setStarred('u1', 'team', 'docs/hiring/plan.md', true)
-    index.setStarred('u2', 'team', 'README.md', true)
-    index.setStarred('u1', 'team', 'docs/hiring/plan.md', false)
-    expect(index.listStars('u1')).toEqual([
-      { space: 'team', path: 'docs/roadmap.md', title: 'Roadmap' },
-    ])
-  })
-
-  it('keeps recents and stars across a reindex', async () => {
-    await indexer.full('team')
-    index.setStarred('u1', 'team', 'docs/roadmap.md', true)
-    await indexer.full('team')
-    expect(index.listStars('u1')).toHaveLength(1)
+    expect(index.titleOf('team', 'docs/roadmap.md')).toBe('Roadmap')
+    expect(index.titleOf('team', 'docs/gone.md')).toBeNull()
+    expect(index.titleOf('other', 'docs/roadmap.md')).toBeNull()
   })
 })
 

@@ -16,7 +16,12 @@ export function ClipsSidebar() {
         <span className="size-2.5 rounded-full bg-paper-raised" aria-hidden="true" />
         Record a clip
       </NavLink>
-      <Item to="/clips" icon="video" label="My clips" active={onLibrary && scope === 'mine'} />
+      <Item
+        to="/clips"
+        icon="video"
+        label="Personal clips"
+        active={onLibrary && scope === 'mine'}
+      />
       <Item
         to="/clips?scope=team"
         icon="share"

@@ -157,13 +157,9 @@ function ToolSteps({ tool, origin, token }: { tool: AiTool; origin: string; toke
     case 'grok':
       return (
         <Step title={tool === 'chatgpt' ? 'ChatGPT' : 'Grok'}>
-          <p data-testid="ai-tool-coming-soon">
-            <span className="mr-1.5 rounded-full bg-ember-wash px-2 py-0.5 text-xs font-medium text-ember-strong">
-              Needs sign-in, coming soon
-            </span>
-            {tool === 'chatgpt' ? 'ChatGPT' : 'Grok'} connects to apps through a browser sign-in
-            rather than a token. {product()} is adding that sign-in; until then, a token can’t
-            connect it.
+          <p data-testid="ai-tool-sign-in">
+            {tool === 'chatgpt' ? 'ChatGPT' : 'Grok'} doesn’t need a token: it connects by signing
+            in. You can revoke this token. See “Connect by signing in” below for its steps.
           </p>
         </Step>
       )
@@ -183,7 +179,7 @@ function Code({ children }: { children: ReactNode }) {
   return <code className="font-mono text-xs">{children}</code>
 }
 
-function CopyBlock({ text, testId }: { text: string; testId: string }) {
+export function CopyBlock({ text, testId }: { text: string; testId: string }) {
   const [copied, setCopied] = useState(false)
   const copy = () =>
     void navigator.clipboard?.writeText(text).then(

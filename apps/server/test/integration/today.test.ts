@@ -228,6 +228,7 @@ describe('GET /api/today', () => {
 
     const view = await today()
     expect(view.meetings.error).toBeNull()
+    expect(view.meetings.connected).toBe(true)
     expect(
       view.meetings.events.map((e) => [e.title, e.prep?.title ?? null, e.prep?.line ?? null]),
     ).toEqual([
@@ -287,8 +288,19 @@ describe('GET /api/today', () => {
     expect(view.meetings).toEqual({
       events: [],
       error: 'Connect your Google Calendar in Settings.',
+      connected: false,
     })
     expect(view.tasks.map((t) => t.title)).toEqual(['Still here'])
+  })
+
+  it('F5: a calendar that fails for another reason still counts as connected', async () => {
+    calendar.fail = new Error('Google is down')
+    const view = await today()
+    expect(view.meetings).toEqual({
+      events: [],
+      error: 'Your calendar didn’t load right now.',
+      connected: true,
+    })
   })
 
   it('refuses a range that is not one day', async () => {

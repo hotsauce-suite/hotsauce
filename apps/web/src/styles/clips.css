@@ -95,40 +95,6 @@
   font-size: 0.72rem;
 }
 
-.clips-empty {
-  text-align: center;
-}
-.clips-empty__art {
-  position: relative;
-  width: 13rem;
-  height: 8.5rem;
-  margin: 0 auto 1.75rem;
-}
-.clips-empty__screen {
-  position: absolute;
-  inset: 0 0 0.75rem;
-  border-radius: 0.8rem;
-  background:
-    linear-gradient(var(--paper-raised), var(--paper-raised)) 1rem 1.1rem / 55% 0.5rem no-repeat,
-    linear-gradient(var(--ash), var(--ash)) 1rem 2.1rem / 70% 0.4rem no-repeat,
-    linear-gradient(var(--ash), var(--ash)) 1rem 2.9rem / 45% 0.4rem no-repeat,
-    var(--paper-sunk);
-  box-shadow: inset 0 0 0 1px var(--ash);
-}
-.clips-empty__bubble {
-  position: absolute;
-  left: -0.75rem;
-  bottom: 0;
-  width: 3.75rem;
-  height: 3.75rem;
-  border-radius: 999px;
-  background: radial-gradient(circle at 40% 35%, var(--glow), var(--ember) 70%);
-  box-shadow:
-    0 0 0 4px var(--paper),
-    var(--shadow-float);
-  animation: clip-bob 3.2s ease-in-out infinite;
-}
-
 /* ------------------------------------------------------------ recorder */
 
 .clip-preview__screen {
@@ -605,17 +571,11 @@
     transform: rotate(360deg);
   }
 }
-@keyframes clip-bob {
-  50% {
-    transform: translateY(-4px);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .clip-card,
   .clip-stage,
   .clip-countdown,
   .clip-bubble__count,
-  .clips-empty__bubble,
   .clip-rec-dot {
     animation: none;
   }
@@ -800,4 +760,124 @@
 }
 .clip-transcript li:first-child .clip-transcript__speaker {
   margin-top: 0.15rem;
+}
+
+/* ------------------------------------------------------------ trim editor */
+
+.clip-trim__bar,
+.clip-trim__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  margin-top: 0.75rem;
+}
+.clip-trim__track {
+  position: relative;
+  height: 3.5rem;
+  margin: 0.9rem 0.6rem 0;
+  border-radius: 0.5rem;
+  background: var(--paper-sunk);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+.clip-trim__thumbs {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.clip-trim__thumbs canvas {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+}
+.clip-trim__cut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--ink) 55%, transparent) 0 6px,
+    color-mix(in oklab, var(--ink) 70%, transparent) 6px 12px
+  );
+}
+.clip-trim__restore {
+  position: absolute;
+  top: 0.25rem;
+  left: 50%;
+  display: flex;
+  width: 1.4rem;
+  height: 1.4rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+.clip-trim__restore:hover {
+  color: var(--ember);
+}
+.clip-trim__selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: 2px solid var(--ember);
+  background: color-mix(in oklab, var(--ember) 22%, transparent);
+  pointer-events: none;
+}
+.clip-trim__playhead {
+  position: absolute;
+  top: -0.3rem;
+  bottom: -0.3rem;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  pointer-events: none;
+}
+.clip-trim__handle {
+  position: absolute;
+  top: -0.2rem;
+  bottom: -0.2rem;
+  width: 0.9rem;
+  border-radius: 0.3rem;
+  background: var(--ember);
+  box-shadow: var(--shadow-float);
+  cursor: ew-resize;
+  touch-action: none;
+}
+.clip-trim__handle::after {
+  content: "";
+  position: absolute;
+  top: 35%;
+  bottom: 35%;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--paper-raised);
+}
+.clip-trim__handle--start {
+  transform: translateX(-100%);
+}
+.clip-trim__handle:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.clip-trim__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--ash);
 }

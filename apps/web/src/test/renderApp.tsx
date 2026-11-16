@@ -14,6 +14,7 @@ import { AuthContext, type AuthState } from '../auth/AuthContext'
 import { loadBoot } from '../brand/boot'
 import AppShell from '../components/AppShell'
 import { Launch } from '../routes/Launch'
+import { settingsRoute } from '../routes/settings/routes'
 
 // Routes load lazily; the first visit to an editor page imports CodeMirror, which can take
 // more than the default second on a busy machine with a cold transform cache.
@@ -59,10 +60,7 @@ export function renderApp(
             ],
           },
           { path: '/meetings', children: meetingsRoutes },
-          {
-            path: '/settings',
-            lazy: async () => ({ Component: (await import('../routes/SettingsRoute')).default }),
-          },
+          settingsRoute,
           {
             path: '/feedback',
             lazy: async () => ({ Component: (await import('../routes/FeedbackRoute')).default }),

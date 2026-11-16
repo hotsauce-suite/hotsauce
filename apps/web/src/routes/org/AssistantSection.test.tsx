@@ -42,7 +42,7 @@ const bob: MemberUsage = {
   costUsd: 1.234,
 }
 
-describe('Settings → Organization → Assistant', () => {
+describe('Settings → AI → Assistant', () => {
   it('saves the model and the monthly limit', async () => {
     const saves = serve({}, [])
     render(<AssistantSection />)

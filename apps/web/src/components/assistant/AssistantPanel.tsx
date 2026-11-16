@@ -476,7 +476,7 @@ function Empty({ name, configured }: { name: string; configured: boolean }) {
     return (
       <div className="pt-8 text-center text-sm text-ink-soft" data-testid="assistant-unconfigured">
         <p className="font-medium text-ink">{name} needs an Anthropic API key.</p>
-        <p className="mt-1">An admin can add one in Settings, under Organization.</p>
+        <p className="mt-1">An admin can add one in Settings → AI.</p>
       </div>
     )
   }

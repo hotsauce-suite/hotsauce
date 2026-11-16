@@ -42,6 +42,8 @@ test('a token made in Settings connects an MCP client that searches, reads and w
   await page.goto('/docs')
   await page.getByTestId('settings-link').click()
   await expect(page).toHaveURL(/\/settings$/)
+  await page.getByTestId('settings-nav-connections').click()
+  await expect(page).toHaveURL(/\/settings\/connections$/)
   await page.getByTestId('token-name').fill(`e2e ${id}`)
   await page.getByTestId('token-create').click()
   const token = (await page.getByTestId('token-secret').textContent()) ?? ''
@@ -107,7 +109,7 @@ test('a token made in Settings connects an MCP client that searches, reads and w
   await client.close()
 
   // Revoked in Settings, the token stops working at once.
-  await page.goto('/settings')
+  await page.goto('/settings/connections')
   page.once('dialog', (dialog) => void dialog.accept())
   await page
     .getByTestId('token-item')
@@ -164,7 +166,7 @@ test('list_clips and get_clip read a recorded clip, with its transcript', async 
     true,
   )
 
-  await page.goto('/settings')
+  await page.goto('/settings/connections')
   await page.getByTestId('token-name').fill(`clips ${clip.id}`)
   await page.getByTestId('token-create').click()
   const token = (await page.getByTestId('token-secret').textContent()) ?? ''
@@ -186,15 +188,20 @@ test('list_clips and get_clip read a recorded clip, with its transcript', async 
   await owner.dispose()
 })
 
-test('/mcp refuses calls without a token, and there is no OAuth to discover', async ({
+test('/mcp refuses calls without a token and says where to sign in', async ({
   request,
+  baseURL,
 }) => {
   const res = await request.post('/mcp', {
     headers: { accept: 'application/json, text/event-stream' },
     data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
   })
   expect(res.status()).toBe(401)
-  // A client that then looks for OAuth gets a 404, not the web app's index.html.
+  expect(res.headers()['www-authenticate']).toContain('resource_metadata=')
+  // A client that then looks for OAuth gets JSON, not the web app's index.html.
   const discovery = await request.get('/.well-known/oauth-protected-resource')
-  expect(discovery.status()).toBe(404)
+  expect(discovery.status()).toBe(200)
+  expect((await discovery.json()).resource).toBe(`${baseURL}/mcp`)
+  // Other well-known paths still 404 rather than serving the app.
+  expect((await request.get('/.well-known/openid-configuration')).status()).toBe(404)
 })

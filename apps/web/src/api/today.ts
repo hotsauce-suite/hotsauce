@@ -18,7 +18,8 @@ export interface TodayMeeting {
 
 export interface TodayView {
   date: string
-  meetings: { events: TodayMeeting[]; error: string | null }
+  /** `connected: false`: no calendar grant yet (an older server leaves it out). */
+  meetings: { events: TodayMeeting[]; error: string | null; connected?: boolean }
   tasks: TaskView[]
   actionItems: MeetingActionItems[]
   notes: Array<{
@@ -72,6 +73,12 @@ export interface WeatherPlace {
   lon: number
 }
 
+/** A doc in the Team space, with its title as it reads now. */
+export interface StartHereDoc {
+  path: string
+  title: string
+}
+
 export const todayApi = {
   get: (now = new Date()) => request<TodayView>('/api/today', { query: localDay(now) }),
   layout: () => request<TodayLayoutView>('/api/today/layout'),
@@ -84,6 +91,14 @@ export const todayApi = {
       place ? { query: { lat: String(place.lat), lon: String(place.lon) } } : {},
     ),
   places: (q: string) => request<{ places: WeatherPlace[] }>('/api/today/places', { query: { q } }),
+  /** The doc Getting started opens for its last step, or null (docs/PLAN-getting-started.md H1). */
+  startHere: () => request<{ doc: StartHereDoc | null }>('/api/today/start-here'),
+  /** `link` is a doc's link or address as pasted; null clears it. Admins only. */
+  setStartHere: (link: string | null) =>
+    request<{ doc: StartHereDoc | null }>('/api/today/start-here', {
+      method: 'PUT',
+      json: { link },
+    }),
   defaultPlace: () => request<{ place: WeatherPlace | null }>('/api/today/default-place'),
   setDefaultPlace: (place: WeatherPlace | null) =>
     request<{ place: WeatherPlace | null }>('/api/today/default-place', {

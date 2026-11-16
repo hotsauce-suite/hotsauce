@@ -1,15 +1,17 @@
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LinkView, LinkWithBody } from '../../api/links'
+import type { LinkHighlight, LinkView, LinkWithBody } from '../../api/links'
 import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
+import { forgetRecentPlaces } from './useReadingPlace'
 
 afterEach(cleanup)
 
 let store: LinkWithBody[]
 let posted: Array<Record<string, unknown>>
+let places: Array<{ id: string; space: string; json: unknown }>
 
 function link(over: Partial<LinkWithBody>): LinkWithBody {
   return {
@@ -31,6 +33,9 @@ function link(over: Partial<LinkWithBody>): LinkWithBody {
     words: 1200,
     source: 'web',
     status: 'ready',
+    reading: null,
+    highlightCount: 0,
+    highlights: [],
     body: '## Why it matters\n\nSee [the paper](https://journal.test/p). ![fig](https://journal.test/f.png)',
     ...over,
   }
@@ -53,6 +58,8 @@ beforeEach(() => {
     link({ id: '01JC0000000000000000000003', title: 'Old read', archived: true }),
   ]
   posted = []
+  places = []
+  forgetRecentPlaces()
   const strip = ({ body: _b, ...rest }: LinkWithBody): LinkView => rest
   server.use(
     http.get('/api/links', ({ request }) => {
@@ -96,6 +103,62 @@ beforeEach(() => {
         ? HttpResponse.json(l)
         : HttpResponse.json({ error: { code: 'not_found', message: 'No link' } }, { status: 404 })
     }),
+    http.put('/api/links/:space/:id/reading', async ({ params, request }) => {
+      places.push({
+        id: String(params.id),
+        space: String(params.space),
+        json: await request.json(),
+      })
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post('/api/links/:space/:id/move', async ({ params, request }) => {
+      const l = store.find((x) => x.id === params.id) as LinkWithBody
+      l.space = String(((await request.json()) as { toSpace: string }).toSpace)
+      return HttpResponse.json(strip(l))
+    }),
+    http.post('/api/links/:space/:id/highlights', async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>
+      posted.push({ highlight: body })
+      const made = {
+        id: `H${posted.length}`,
+        by: 'ada@example.test',
+        at: '2026-11-16T10:00:00Z',
+        name: 'Ada',
+        ...body,
+      } as LinkHighlight
+      const l = store.find((x) => x.id === params.id) as LinkWithBody
+      l.highlights = [...l.highlights, made]
+      return HttpResponse.json(made, { status: 201 })
+    }),
+    http.patch('/api/links/:space/:id/highlights/:hid', async ({ params, request }) => {
+      const { note } = (await request.json()) as { note: string }
+      posted.push({ note, hid: params.hid })
+      const l = store.find((x) => x.id === params.id) as LinkWithBody
+      const h = l.highlights.find((x) => x.id === params.hid) as LinkHighlight
+      Object.assign(h, { note })
+      return HttpResponse.json(h)
+    }),
+    http.delete('/api/links/:space/:id/highlights/:hid', ({ params }) => {
+      posted.push({ removed: params.hid })
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post('/api/links/:space/:id/highlights/doc', () => {
+      posted.push({ copied: true })
+      return HttpResponse.json(
+        { space: 'ada', path: 'docs/highlights-mirror-life.md', title: 'Highlights: Mirror life' },
+        { status: 201 },
+      )
+    }),
+    http.get('/api/links/highlights', () =>
+      HttpResponse.json({
+        highlights: store.flatMap((l) =>
+          l.highlights.map((h) => ({
+            ...h,
+            link: { space: l.space, id: l.id, title: l.title, site: l.site, url: l.url },
+          })),
+        ),
+      }),
+    ),
     http.patch('/api/links/:space/:id', async ({ params, request }) => {
       const l = store.find((x) => x.id === params.id) as LinkWithBody
       Object.assign(l, (await request.json()) as object)
@@ -199,6 +262,45 @@ describe('the reader', () => {
     expect(screen.queryByTestId('link-short')).toBeNull()
   })
 
+  it('R6: shows a link an AI tool saved with its address, and gets it only on a click', async () => {
+    const user = userEvent.setup()
+    const waiting = {
+      id: '01JC0000000000000000000001',
+      url: 'https://attacker.test/collect?q=plans',
+      source: 'mcp' as const,
+      status: 'waiting' as const,
+      fetched: null,
+      words: null,
+      summary: '',
+      body: '',
+    }
+    store[0] = link(waiting)
+    let refetched = 0
+    server.use(
+      http.post('/api/links/:space/:id/refetch', () => {
+        refetched++
+        const { body: _b, ...rest } = store[0] as LinkWithBody
+        return HttpResponse.json({ ...rest, status: 'fetching' })
+      }),
+    )
+    renderApp('/links')
+    await waitFor(() => expect(screen.getByTestId('link-waiting')).toBeInTheDocument())
+    expect(screen.getByTestId('link-waiting')).toHaveTextContent(
+      'https://attacker.test/collect?q=plans',
+    )
+    expect(refetched).toBe(0)
+    cleanup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-address')).toBeInTheDocument())
+    expect(screen.getByTestId('link-address')).toHaveTextContent(
+      'https://attacker.test/collect?q=plans',
+    )
+    expect(refetched).toBe(0)
+    await user.click(screen.getByRole('button', { name: 'Get the page' }))
+    await waitFor(() => expect(refetched).toBe(1))
+    await waitFor(() => expect(screen.getByTestId('link-fetching')).toBeInTheDocument())
+  })
+
   it('edits tags', async () => {
     const user = userEvent.setup()
     renderApp('/links/ada/01JC0000000000000000000001')
@@ -207,6 +309,262 @@ describe('the reader', () => {
     await user.clear(screen.getByTestId('link-tags-input'))
     await user.type(screen.getByTestId('link-tags-input'), 'policy, mirror life{Enter}')
     await waitFor(() => expect(store[0]?.tags).toEqual(['policy', 'mirror life']))
+  })
+})
+
+describe('reading position', () => {
+  const place = (furthest: number, anchor = 3) => ({
+    anchor,
+    percent: furthest,
+    furthest,
+    updated: '2026-11-13T10:00:00Z',
+  })
+
+  it('R7: shows how far you got on links you started, and Read at the end', async () => {
+    ;(store[0] as LinkWithBody).reading = place(42.7)
+    ;(store[1] as LinkWithBody).reading = place(97)
+    renderApp('/links')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(2))
+    expect(screen.getByText(/The Journal · 5 min read · 42% read · saved/)).toBeInTheDocument()
+    expect(screen.getByText(/b\.test · 5 min read · Read · saved/)).toBeInTheDocument()
+    const bars = screen.getAllByTestId('link-progress-bar')
+    expect(bars).toHaveLength(1)
+    expect(bars[0]).toHaveAttribute('aria-valuenow', '42')
+  })
+
+  it('R7: a link never opened looks as before', async () => {
+    renderApp('/links')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(2))
+    expect(screen.queryByTestId('link-progress-bar')).toBeNull()
+    expect(screen.queryByText(/% read/)).toBeNull()
+  })
+
+  it('R5: says it picked up where you left off, and Start from the top saves the top', async () => {
+    const user = userEvent.setup()
+    ;(store[0] as LinkWithBody).reading = place(60, 5)
+    renderApp('/links/ada/01JC0000000000000000000001')
+    expect(await screen.findByTestId('link-resumed')).toHaveTextContent(
+      'Picked up where you left off',
+    )
+    await user.click(screen.getByTestId('link-start-over'))
+    expect(screen.queryByTestId('link-resumed')).toBeNull()
+    await waitFor(() => expect(places.map((p) => p.id)).toEqual([store[0]?.id]))
+  })
+
+  it('R5 R6: a link opened for the first time starts at the top and saves the place when left', async () => {
+    const sent = vi.spyOn(globalThis, 'fetch')
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-body')
+    expect(screen.queryByTestId('link-resumed')).toBeNull()
+    window.dispatchEvent(new Event('pagehide'))
+    // jsdom lays nothing out, and MSW drops keepalive, so the call itself is checked.
+    const puts = () =>
+      sent.mock.calls.filter(
+        ([url, init]) => String(url).endsWith('/reading') && init?.method === 'PUT',
+      )
+    await waitFor(() => expect(puts().map(([, init]) => init?.keepalive)).toEqual([true]))
+    await waitFor(() => expect(places.map((p) => p.id)).toEqual([store[0]?.id]))
+    sent.mockRestore()
+  })
+
+  it('R6: saves nothing while the page is being fetched', async () => {
+    ;(store[0] as LinkWithBody).status = 'fetching'
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-fetching')
+    window.dispatchEvent(new Event('pagehide'))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(places).toEqual([])
+  })
+
+  it('R2: sharing mid-read keeps your place under the new address', async () => {
+    const user = userEvent.setup()
+    ;(store[0] as LinkWithBody).reading = place(60, 5)
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-resumed')
+    await user.click(screen.getByTestId('link-share-team'))
+    await waitFor(() => expect(store[0]?.space).toBe('team'))
+    window.dispatchEvent(new Event('pagehide'))
+    await waitFor(() => expect(places.length).toBeGreaterThan(0))
+    expect(places.every((p) => p.space === 'team')).toBe(true)
+  })
+
+  it('R8: a Done button waits at the end of the article', async () => {
+    const user = userEvent.setup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await user.click(await screen.findByTestId('link-end-done'))
+    await waitFor(() => expect(store[0]?.archived).toBe(true))
+  })
+})
+
+describe('highlights and notes (docs/PLAN-links-highlights.md)', () => {
+  const mine: LinkHighlight = {
+    id: 'H-mine',
+    by: 'ada@example.test',
+    at: '2026-11-15T10:00:00Z',
+    quote: 'Why it matters',
+    block: 0,
+    note: 'Start here',
+    name: 'Ada',
+  }
+  const theirs: LinkHighlight = {
+    id: 'H-bob',
+    by: 'bob@example.test',
+    at: '2026-11-15T11:00:00Z',
+    quote: 'the paper',
+    block: 1,
+    name: 'Bob Builder',
+  }
+
+  /** Selects `words` in the copy the way a member's drag would. */
+  function select(words: string) {
+    const body = screen.getByTestId('link-body')
+    const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT)
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const at = (n as Text).data.indexOf(words)
+      if (at < 0) continue
+      const range = document.createRange()
+      range.setStart(n, at)
+      range.setEnd(n, at + words.length)
+      const sel = document.getSelection() as Selection
+      sel.removeAllRanges()
+      sel.addRange(range)
+      document.dispatchEvent(new Event('selectionchange'))
+      return
+    }
+    throw new Error(`"${words}" isn't in the copy`)
+  }
+
+  it('R11: selecting words offers Highlight, and saves the passage with its context', async () => {
+    const user = userEvent.setup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-body')
+    expect(screen.queryByTestId('link-highlights')).toBeNull()
+    select('matters')
+    await user.click(await screen.findByTestId('link-highlight'))
+    await waitFor(() =>
+      expect(posted.at(-1)).toEqual({
+        highlight: {
+          quote: 'matters',
+          prefix: 'Why it ',
+          suffix: '\nSee the paper. Picture: fig',
+          block: 0,
+        },
+      }),
+    )
+    const section = await screen.findByTestId('link-highlights')
+    expect(section).toHaveTextContent('Highlights 1')
+    expect(screen.getAllByTestId('link-highlight-item')[0]).toHaveTextContent('matters')
+  })
+
+  it('R11: Add note asks for the note first and saves both at once', async () => {
+    const user = userEvent.setup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-body')
+    select('Why it')
+    await user.click(await screen.findByTestId('link-add-note'))
+    await user.type(screen.getByTestId('link-note-input'), 'Key point')
+    await user.click(screen.getByTestId('link-note-save'))
+    await waitFor(() =>
+      expect(posted.at(-1)).toMatchObject({ highlight: { quote: 'Why it', note: 'Key point' } }),
+    )
+    expect(await screen.findByText('Key point')).toBeInTheDocument()
+  })
+
+  it('R11 R1: lists everyone’s highlights, names teammates, and Show only mine hides theirs', async () => {
+    store[0] = {
+      ...(store[0] as LinkWithBody),
+      space: 'team',
+      highlights: [{ ...theirs }, { ...mine }],
+      highlightCount: 2,
+    }
+    const user = userEvent.setup()
+    renderApp('/links/team/01JC0000000000000000000001')
+    const items = await screen.findAllByTestId('link-highlight-item')
+    // In page order, not the order they were made.
+    expect(items.map((i) => i.textContent)).toEqual([
+      expect.stringContaining('Why it matters'),
+      expect.stringContaining('Bob Builder'),
+    ])
+    expect(items[0]).toHaveTextContent('Start here')
+    expect(items[0]).not.toHaveTextContent('Ada')
+    await user.click(screen.getByTestId('link-only-mine'))
+    expect(screen.getAllByTestId('link-highlight-item')).toHaveLength(1)
+  })
+
+  it('R3: edits the note on your own highlight and removes it; a teammate’s has neither', async () => {
+    store[0] = {
+      ...(store[0] as LinkWithBody),
+      space: 'team',
+      highlights: [{ ...mine }, { ...theirs }],
+      highlightCount: 2,
+    }
+    const user = userEvent.setup()
+    renderApp('/links/team/01JC0000000000000000000001')
+    const [own, other] = await screen.findAllByTestId('link-highlight-item')
+    await user.click(within(other as HTMLElement).getByRole('button'))
+    const popover = await screen.findByTestId('link-highlight-popover')
+    expect(popover).toHaveTextContent('Highlighted by Bob Builder')
+    expect(within(popover).queryByTestId('link-remove-highlight')).toBeNull()
+    await user.click(within(own as HTMLElement).getByRole('button'))
+    await user.click(await screen.findByTestId('link-edit-note'))
+    const input = screen.getByTestId('link-note-input')
+    await user.clear(input)
+    await user.type(input, 'Read twice')
+    await user.click(screen.getByTestId('link-note-save'))
+    await waitFor(() => expect(posted.at(-1)).toEqual({ note: 'Read twice', hid: 'H-mine' }))
+    await user.click(
+      within(screen.getAllByTestId('link-highlight-item')[0] as HTMLElement).getByRole('button'),
+    )
+    await user.click(await screen.findByTestId('link-remove-highlight'))
+    await waitFor(() => expect(posted.at(-1)).toEqual({ removed: 'H-mine' }))
+    await waitFor(() => expect(screen.getAllByTestId('link-highlight-item')).toHaveLength(1))
+  })
+
+  it('R4: a highlight whose words left the page still lists, marked', async () => {
+    store[0] = {
+      ...(store[0] as LinkWithBody),
+      highlights: [{ ...mine, quote: 'words that are gone' }],
+      highlightCount: 1,
+    }
+    renderApp('/links/ada/01JC0000000000000000000001')
+    expect(await screen.findByTestId('link-highlight-item')).toHaveTextContent(
+      'Not in the page any more',
+    )
+  })
+
+  it('R10: Copy to a Doc makes the doc and opens it', async () => {
+    store[0] = { ...(store[0] as LinkWithBody), highlights: [{ ...mine }], highlightCount: 1 }
+    const user = userEvent.setup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await user.click(await screen.findByTestId('link-copy-highlights'))
+    await waitFor(() => expect(posted.at(-1)).toEqual({ copied: true }))
+    expect(await screen.findByText('Copied to “Highlights: Mirror life”')).toBeInTheDocument()
+  })
+
+  it('R13: Share with team says your highlights go with it', async () => {
+    store[0] = { ...(store[0] as LinkWithBody), highlights: [{ ...mine }], highlightCount: 1 }
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() =>
+      expect(screen.getByTestId('link-share-team')).toHaveTextContent(
+        'Share with team (with your 1 highlight)',
+      ),
+    )
+  })
+
+  it('R12: the list counts highlights, and the Highlights tab lists them with their links', async () => {
+    store[0] = { ...(store[0] as LinkWithBody), highlights: [{ ...mine }], highlightCount: 1 }
+    const user = userEvent.setup()
+    renderApp('/links')
+    expect(await screen.findByText(/1 highlight/)).toBeInTheDocument()
+    await user.click(screen.getByTestId('links-view-highlights'))
+    const row = await screen.findByTestId('highlight-row')
+    expect(row).toHaveTextContent('Why it matters')
+    expect(row).toHaveTextContent('Start here')
+    expect(row).toHaveTextContent('Mirror life, explained')
+    expect(within(row).getByRole('link')).toHaveAttribute(
+      'href',
+      '/links/ada/01JC0000000000000000000001?highlight=H-mine',
+    )
   })
 })
 

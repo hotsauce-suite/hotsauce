@@ -137,13 +137,61 @@ export function migrate(db: Database.Database, migrations: readonly string[] = M
     const row = db.prepare<[], { version: number }>('SELECT version FROM schema_version').get()
     if (!row) db.prepare('INSERT INTO schema_version (version) VALUES (0)').run()
     const current = row?.version ?? 0
+    // A newer release migrated this file and the updater then put this one back.
     if (current > migrations.length) {
-      throw new Error(
-        `Index schema v${current} is newer than this build (v${migrations.length}). ` +
-          'Delete the index file and run `node apps/server/dist/cli/reindex.js`.',
-      )
+      rebuildForThisBuild(db, migrations)
+      return
     }
     for (const sql of migrations.slice(current)) db.exec(sql)
     db.prepare('UPDATE schema_version SET version = ?').run(migrations.length)
   }).immediate()
+}
+
+/**
+ * What the index holds that Git can't give back, or that nothing refills on its own. Stars, pins
+ * and recents moved to account.sqlite; the index keeps an older release's copy (AccountStore.syncFromIndex).
+ */
+const KEPT = ['spaces', 'recents', 'stars', 'pins', 'conflicts']
+
+/**
+ * The index as this build makes it, from one a newer release left behind: everything rebuildable
+ * is dropped and made again (an empty sync state has every space indexed afresh on start), and
+ * the rows of `KEPT` are carried over by the columns this build knows. So this release never runs
+ * on a shape it doesn't know, and the newer one migrates from here as usual when it returns.
+ */
+function rebuildForThisBuild(db: Database.Database, migrations: readonly string[]): void {
+  const columns = (schema: string, table: string) =>
+    db
+      .prepare<[], { name: string }>(`SELECT name FROM ${schema}.pragma_table_info('${table}')`)
+      .all()
+      .map((c) => c.name)
+  const kept = KEPT.filter((t) => columns('main', t).length > 0)
+  for (const t of kept) db.exec(`CREATE TEMP TABLE keep_${t} AS SELECT * FROM main.${t}`)
+
+  const objects = db
+    .prepare<[], { type: string; name: string; sql: string | null }>(
+      "SELECT type, name, sql FROM main.sqlite_master WHERE name NOT LIKE 'sqlite_%'",
+    )
+    .all()
+  const drop = (kind: string, name: string) => db.exec(`DROP ${kind} IF EXISTS main."${name}"`)
+  for (const o of objects) if (o.type === 'trigger') drop('TRIGGER', o.name)
+  for (const o of objects) if (o.type === 'view') drop('VIEW', o.name)
+  // Virtual tables first: dropping one drops the plain tables it keeps its data in.
+  const virtual = (o: { sql: string | null }) => /^CREATE VIRTUAL TABLE/i.test(o.sql ?? '')
+  for (const o of objects) if (o.type === 'table' && virtual(o)) drop('TABLE', o.name)
+  for (const o of objects) {
+    if (o.type === 'table' && !virtual(o) && o.name !== 'schema_version') drop('TABLE', o.name)
+  }
+
+  for (const sql of migrations) db.exec(sql)
+  for (const t of kept) {
+    const known = new Set(columns('main', t))
+    const shared = columns('temp', `keep_${t}`).filter((c) => known.has(c))
+    if (shared.length > 0) {
+      const list = shared.map((c) => `"${c}"`).join(', ')
+      db.exec(`INSERT OR IGNORE INTO main.${t} (${list}) SELECT ${list} FROM temp.keep_${t}`)
+    }
+    db.exec(`DROP TABLE temp.keep_${t}`)
+  }
+  db.prepare('UPDATE schema_version SET version = ?').run(migrations.length)
 }

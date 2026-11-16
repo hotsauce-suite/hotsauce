@@ -25,7 +25,8 @@ test('renaming a doc right after typing keeps the typing and leaves no old file'
 
   await page.goto(docUrl(user.team, file))
   await expect(docText(page)).toContainText(`Edit then move ${id}`)
-  await page.getByTestId('editor-content').click()
+  // Into the text itself: under a short team doc, the middle of the editor is its conversation.
+  await page.getByTestId('editor-content').getByText('First line.').click()
   const typed = `Typed just before the rename ${id}`
   await typeAtEnd(page, typed)
 
@@ -54,7 +55,7 @@ test('deleting a doc right after typing sends it to the trash and it stays there
 
   await page.goto(docUrl(user.team, file))
   await expect(docText(page)).toContainText(`Edit then delete ${id}`)
-  await page.getByTestId('editor-content').click()
+  await page.getByTestId('editor-content').getByText('First line.').click()
   await typeAtEnd(page, `Typed just before the delete ${id}`)
 
   await expandTreeTo(page, file)

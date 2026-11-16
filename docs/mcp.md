@@ -9,8 +9,9 @@ a `Hotsauce-Via` trailer naming the tool, for example
 `Hotsauce-Via: mcp (client "Cursor", token "My laptop")`. A document's history then reads
 "Morgan via Cursor".
 
-ChatGPT and Grok connect to apps only through a browser sign-in (OAuth), not a token. Hotsauce is
-adding that sign-in; until it lands they can't connect (section 2e).
+Claude (claude.ai on the web, the Claude desktop and phone apps), ChatGPT and Grok connect by
+signing in instead (OAuth): add a custom connector with the server address, press Connect, and
+press Allow on the Hotsauce page that opens. No token to copy (section 2e).
 
 The design is in `docs/ARCHITECTURE.md` §8.
 
@@ -20,8 +21,8 @@ for connecting an AI tool from outside.
 
 ## 1. Make a token
 
-Open Hotsauce, click **Settings** at the bottom of the sidebar, find **Connect an AI tool**, give
-the token a name (say "Cursor on my laptop") and press **Create token**. Hotsauce shows the token
+Open Hotsauce, open **Settings → Connections** (the gear at the bottom of the sidebar), find
+**Connect an AI tool**, give the token a name (say "Cursor on my laptop") and press **Create token**. Hotsauce shows the token
 once; pick your tool and it shows that tool's steps with the address and token already filled in.
 Copy it then; it can't be shown again. Revoke it on the same page when you stop using it; it stops
 working at once.
@@ -75,8 +76,9 @@ The header goes through `env` because Claude desktop mangles spaces inside `args
 config has a `"hearth"` entry, rename that key to `"hotsauce"` and restart Claude; the token inside
 it keeps working.
 
-A claude.ai custom connector (in the browser) signs in with OAuth, not a token, so it waits for
-the same sign-in as ChatGPT (2e).
+Simpler: add Hotsauce as a custom connector in Claude's Settings → Connectors instead (2e). It
+signs in with your browser, needs no Node and no token, and works in Claude on the web and phone
+too.
 
 ## 2c. Cursor
 
@@ -113,11 +115,26 @@ example `~/.zshrc`) and open a new terminal:
 export HOTSAUCE_TOKEN="hth_…"
 ```
 
-## 2e. ChatGPT and Grok: coming with sign-in
+## 2e. Claude, ChatGPT and Grok: connect by signing in
 
-ChatGPT's and Grok's connectors accept only a browser sign-in (OAuth) or no sign-in at all, never a
-pasted token. Hotsauce is adding that sign-in. Until then, Settings shows them as "Needs sign-in,
-coming soon".
+These tools add a remote MCP server as a "custom connector" and sign in through the browser
+(standard MCP authorization: OAuth 2.1 with PKCE). Settings → Connections → **Connect by signing in** shows the
+address to paste.
+
+- **Claude** (claude.ai, desktop and phone apps): Settings → Connectors → Add custom connector.
+  Name it "Hotsauce", paste `https://office.example.com/mcp`, press Add, then Connect. On a Team or
+  Enterprise plan an owner adds it once under the organization's connectors and each member
+  presses Connect.
+- **ChatGPT**: Settings → Apps & Connectors → Create (on plans where it's hidden, turn on Developer
+  mode under Advanced first). Paste the address and choose OAuth.
+- **Grok**: add a remote MCP connector with the address and sign in when it asks.
+
+The tool opens a Hotsauce page: "Let Claude use your Hotsauce?". Sign in if you aren't, check the
+name and the address it returns to, and press **Allow**. The connection has your access (the team
+space and your own), writes are marked with the tool's name, and it can't change settings or make
+tokens. It lasts until you press **Disconnect** under Settings → Connections, or you leave the
+organization. Nothing to set up on the server: it works on any Hotsauce reachable over HTTPS at its
+`PUBLIC_URL`.
 
 ## 2f. Any other tool or a script
 
@@ -146,7 +163,7 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | --- | --- |
 | `list_files` | A folder of a space, one level or recursively |
 | `read_file` | A text file, now or at an old commit (`ref`), with the `blobOid` to pass back when editing |
-| `write_file` | Create or replace a file, committed as you; with `base_blob_oid` a concurrent edit is merged, or kept on a conflict branch if it overlaps |
+| `write_file` | Create or replace a file, committed as you. Replacing a file needs `base_blob_oid` (the `blobOid` from `read_file`): a concurrent edit is then merged, or kept on a conflict branch if it overlaps. A file over 500,000 characters, which `read_file` cuts off, can't be replaced |
 | `move_file` | Move or rename a file or folder (links to it are rewritten), or share a file from your personal space to the team; a meeting note's transcript moves with it |
 | `delete_file` | Move a file or folder to the space's trash; nothing is lost |
 | `file_history` | Who changed a file, when, and why (follows renames); or the whole space |
@@ -194,6 +211,9 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | `get_clip` | A clip's summary, link and timestamped transcript (never the video itself) |
 | `list_drive_files` | Files uploaded to Hotsauce Files in a space, by folder or words (names, sizes, links) |
 | `get_drive_file` | One uploaded file's details, link and the text pulled out of it (PDF, Word, PowerPoint, Excel, text); never the file itself |
+| `list_links`, `get_link` | Your saved links and a link's readable copy, with its highlights and notes |
+| `list_highlights` | Passages you and teammates highlighted in saved links, with notes, newest first (read only: highlights are made in the app) |
+| `save_link` | Saves a link. Hotsauce doesn't visit the page until you press **Get the page** in Links, so a tool can't send your text out in an address. A link saved over the HTTP API with a token waits the same way |
 
 Every write is a commit authored by you with `Hotsauce-Via: mcp (client "<tool>", token "<name>")`. Commits from before the tool was recorded read `Hotsauce-Via: mcp (token "<name>")`, and commits from before 0.15 spell the trailer `Hearth-Via`.
 

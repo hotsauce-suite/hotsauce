@@ -2,7 +2,8 @@ import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import Database from 'better-sqlite3'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
 import { runGit } from '../../src/git/index.js'
@@ -479,6 +480,248 @@ describe('spaces', () => {
   })
 })
 
+describe('reading position', () => {
+  const place = (
+    space: string,
+    id: string,
+    json: unknown,
+    opts: Options & { status?: number } = {},
+  ) => api('PUT', `/api/links/${space}/${id}/reading`, { status: 204, json, ...opts })
+
+  it('R1 R3: saves the member’s place without a commit, and gives it back on the link and in the list', async () => {
+    const link = await save({ url: 'https://a.test/long-read' })
+    expect(link.reading).toBeNull()
+    const before = await log('alice')
+    await place('alice', link.id, { anchor: 7, percent: 42.26 })
+    expect(await log('alice')).toBe(before)
+    const got = await api<LinkView>('GET', `/api/links/alice/${link.id}`)
+    expect(got.reading).toMatchObject({ anchor: 7, percent: 42.3, furthest: 42.3 })
+    const listed = (await api('GET', '/api/links')).links as LinkView[]
+    expect(listed[0]?.reading).toMatchObject({ anchor: 7, percent: 42.3 })
+  })
+
+  it('R3: furthest never goes down when the member scrolls back up', async () => {
+    const link = await save({ url: 'https://a.test/scroll-back' })
+    await place('alice', link.id, { anchor: 30, percent: 80 })
+    await place('alice', link.id, { anchor: 2, percent: 10 })
+    const got = await api<LinkView>('GET', `/api/links/alice/${link.id}`)
+    expect(got.reading).toMatchObject({ anchor: 2, percent: 10, furthest: 80 })
+  })
+
+  it('R1: refuses spaces the member can’t see, missing links and bad places', async () => {
+    const link = await save({ url: 'https://a.test/private-place' })
+    await place('alice', link.id, { anchor: 1, percent: 5 }, { as: BOB, status: 403 })
+    await place('alice', '01JC00000000000000000000ZZ', { anchor: 1, percent: 5 }, { status: 404 })
+    await place('alice', link.id, { anchor: -1, percent: 5 }, { status: 400 })
+    await place('alice', link.id, { anchor: 1, percent: 101 }, { status: 400 })
+    await place('alice', link.id, { anchor: 1.5, percent: 5 }, { status: 400 })
+  })
+
+  it('R2: each member has their own place on a team link, and it survives sharing', async () => {
+    const link = await save({ url: 'https://a.test/team-place' })
+    await place('alice', link.id, { anchor: 5, percent: 30 })
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    const alice = await api<LinkView>('GET', `/api/links/team/${link.id}`)
+    expect(alice.reading).toMatchObject({ anchor: 5, percent: 30 })
+    const bob = await api<LinkView>('GET', `/api/links/team/${link.id}`, { as: BOB })
+    expect(bob.reading).toBeNull()
+    await place('team', link.id, { anchor: 40, percent: 90 }, { as: BOB })
+    expect((await api<LinkView>('GET', `/api/links/team/${link.id}`)).reading?.percent).toBe(30)
+    const bobList = (await api('GET', '/api/links', { as: BOB })).links as LinkView[]
+    expect(bobList[0]?.reading?.percent).toBe(90)
+  })
+
+  it('R4: deleting a link forgets the places in it', async () => {
+    const link = await save({ url: 'https://a.test/forget-place' })
+    await place('alice', link.id, { anchor: 3, percent: 20 })
+    const rows = () => {
+      const db = new Database(join(root, 'data', 'links-reading.sqlite'), { readonly: true })
+      try {
+        return db.prepare('SELECT COUNT(*) AS n FROM reading WHERE link_id = ?').get(link.id)
+      } finally {
+        db.close()
+      }
+    }
+    expect(rows()).toEqual({ n: 1 })
+    await api('DELETE', `/api/links/alice/${link.id}`, { status: 204 })
+    expect(rows()).toEqual({ n: 0 })
+  })
+
+  it('R9: MCP list_links and get_link carry the member’s own place', async () => {
+    const link = await save({ url: 'https://a.test/agent-place' })
+    await place('alice', link.id, { anchor: 4, percent: 55 })
+    const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {
+      requestInit: { headers: { 'x-hearth-dev-user': ALICE } },
+      fetch: async (input, init) => app.request(new Request(input, init)),
+    })
+    const client = new Client({ name: 'test', version: '1.0.0' })
+    await client.connect(transport)
+    const text = async (name: string, args: Record<string, unknown>) => {
+      const result = (await client.callTool({ name, arguments: args })) as CallToolResult
+      const first = result.content[0]
+      return JSON.parse(first?.type === 'text' ? first.text : 'null')
+    }
+    expect((await text('list_links', {}))[0].reading).toMatchObject({ percent: 55 })
+    expect((await text('get_link', { space: 'alice', id: link.id })).reading).toMatchObject({
+      anchor: 4,
+    })
+  })
+})
+
+describe('highlights and notes (docs/PLAN-links-highlights.md)', () => {
+  const quote = 'Highlight me is the subject of this page.'
+  const add = (space: string, id: string, json: Record<string, unknown>, opts: Options = {}) =>
+    api('POST', `/api/links/${space}/${id}/highlights`, { status: 201, json, ...opts })
+
+  it('R1 R2 R5: adds a highlight in the link file, with a commit, and returns it', async () => {
+    const link = await save({ url: 'https://a.test/highlight-me' })
+    const h = await add('alice', link.id, {
+      quote,
+      prefix: '',
+      suffix: ' Highlight',
+      block: 1,
+      note: 'Worth it',
+    })
+    expect(h).toMatchObject({ by: ALICE, quote, block: 1, note: 'Worth it' })
+    expect(await log('alice')).toBe(`Alice <${ALICE}>|links: highlight "Highlight me"`)
+    const file = await catFile(bare('alice'), 'main', `links/${link.id}.md`)
+    expect(file).toMatch(/highlights:\n\s+- id: \w+/)
+    expect(file).toContain('Worth it')
+    const got = await api('GET', `/api/links/alice/${link.id}`)
+    expect(got.highlights).toEqual([expect.objectContaining({ id: h.id, quote })])
+    expect(got.highlightCount).toBe(1)
+    const [listed] = (await api('GET', '/api/links')).links
+    expect(listed.highlightCount).toBe(1)
+  })
+
+  it('R2: refuses spaces the member can’t see, missing links and empty passages', async () => {
+    const link = await save({ url: 'https://a.test/guarded' })
+    await add('alice', link.id, { quote }, { as: BOB, status: 403 } as Options)
+    await api('POST', `/api/links/alice/01JC0000000000000000000000/highlights`, {
+      status: 404,
+      json: { quote },
+    })
+    await api('POST', `/api/links/alice/${link.id}/highlights`, {
+      status: 400,
+      json: { quote: '   ' },
+    })
+  })
+
+  it('R3: only the maker changes the note or deletes it', async () => {
+    const link = await save({ url: 'https://a.test/shared-marks' })
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    const h = await add('team', link.id, { quote })
+    const at = `/api/links/team/${link.id}/highlights/${h.id}`
+    await api('PATCH', at, { as: BOB, status: 403, json: { note: 'mine now' } })
+    await api('DELETE', at, { as: BOB, status: 403 })
+    const noted = await api('PATCH', at, { json: { note: 'A note' } })
+    expect(noted).toMatchObject({ note: 'A note', edited: expect.any(String) })
+    expect(await log('team')).toBe(`Alice <${ALICE}>|links: note "Shared marks"`)
+    await api('DELETE', at, { status: 204 })
+    expect(await log('team')).toBe(`Alice <${ALICE}>|links: unhighlight "Shared marks"`)
+    expect((await api('GET', `/api/links/team/${link.id}`)).highlights).toEqual([])
+    await api('DELETE', at, { status: 404 })
+  })
+
+  it('R4 R5: keeps highlights through a fresh read and Share with team', async () => {
+    const link = await save({ url: 'https://a.test/keep-marks' })
+    await add('alice', link.id, { quote: 'Keep marks is the subject' })
+    await api('POST', `/api/links/alice/${link.id}/refetch`)
+    await services.links.idle()
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    const got = await api('GET', `/api/links/team/${link.id}`, { as: BOB })
+    expect(got.highlights).toEqual([expect.objectContaining({ by: ALICE })])
+  })
+
+  it('R6 R7: lists highlights across links, and search finds a link by its notes', async () => {
+    const one = await save({ url: 'https://a.test/first-read' })
+    const two = await save({ url: 'https://a.test/second-read' })
+    await add('alice', one.id, { quote: 'First read is the subject', note: 'zebra crossing' })
+    await add('alice', two.id, { quote: 'Second read is the subject' })
+    const all = (await api('GET', '/api/links/highlights')).highlights
+    expect(all.map((h: { link: { id: string } }) => h.link.id)).toEqual([two.id, one.id])
+    expect(all[0].link).toMatchObject({ space: 'alice', title: 'Second read' })
+    const zebra = (await api('GET', '/api/links/highlights?q=zebra')).highlights
+    expect(zebra).toHaveLength(1)
+    const found = (await api('GET', '/api/links?view=all&q=zebra')).links
+    expect(found.map((l: LinkView) => l.id)).toEqual([one.id])
+    expect((await api('GET', '/api/links/highlights', { as: BOB })).highlights).toEqual([])
+  })
+
+  it('R10: copies highlights to a new private doc, in page order, with teammates named', async () => {
+    const link = await save({ url: 'https://a.test/copy-me' })
+    await api('POST', `/api/links/alice/${link.id}/highlights/doc`, { status: 409 })
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    await add('team', link.id, { quote: 'Later passage', block: 3 }, { as: BOB } as Options)
+    await add('team', link.id, { quote: 'Copy me is the subject', block: 1, note: 'My note' })
+    const doc = await api('POST', `/api/links/team/${link.id}/highlights/doc`, { status: 201 })
+    expect(doc).toEqual({
+      space: 'alice',
+      path: 'docs/highlights-copy-me.md',
+      title: 'Highlights: Copy me',
+    })
+    const text = await catFile(bare('alice'), 'main', 'docs/highlights-copy-me.md')
+    expect(text).toMatch(/^---\nid: \w+\ntitle: "?Highlights: Copy me"?\n/)
+    expect(text).toContain(`[the saved copy](<https://hearth.example.test/links/team/${link.id}>)`)
+    expect(text.indexOf('> Copy me is the subject')).toBeLessThan(text.indexOf('> Later passage'))
+    expect(text).toContain('My note')
+    expect(text).toContain('> — Bob')
+    const again = await api('POST', `/api/links/team/${link.id}/highlights/doc`, { status: 201 })
+    expect(again.path).toBe('docs/highlights-copy-me-2.md')
+  })
+
+  it('R3 R8: an access token can’t write highlights or copy them; $ survives the copy', async () => {
+    const link = await save({ url: 'https://a.test/token-marks' })
+    const h = await add('alice', link.id, {
+      quote: 'Token marks is the subject',
+      note: 'pay $$10 $& now',
+    })
+    const made = await call('POST', '/api/tokens', { as: ALICE, json: { name: 'script' } })
+    const { token } = (await made.json()) as { token: string }
+    const base = `/api/links/alice/${link.id}/highlights`
+    for (const [method, url, json] of [
+      ['POST', base, { quote: 'Token marks' }],
+      ['PATCH', `${base}/${h.id}`, { note: 'x' }],
+      ['DELETE', `${base}/${h.id}`, undefined],
+      ['POST', `${base}/doc`, undefined],
+    ] as const) {
+      const res = await call(method, url, { token, ...(json ? { json } : {}) })
+      expect(res.status, `${method} ${url}`).toBe(403)
+    }
+    await api('POST', base, { status: 400, json: { quote: 'x'.repeat(2500) } })
+    const doc = await api('POST', `${base}/doc`, { status: 201 })
+    const text = await catFile(bare('alice'), 'main', doc.path)
+    expect(text).toContain('pay $$10 $& now')
+  })
+
+  it('R8: MCP reads highlights and can’t make them', async () => {
+    const link = await save({ url: 'https://a.test/mcp-marks' })
+    await add('alice', link.id, { quote: 'Mcp marks is the subject', note: 'for Claude' })
+    const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {
+      requestInit: { headers: { 'x-hearth-dev-user': ALICE } },
+      fetch: async (input, init) => app.request(new Request(input, init)),
+    })
+    const client = new Client({ name: 'test', version: '1.0.0' })
+    await client.connect(transport)
+    const call = async (name: string, args: Record<string, unknown>) => {
+      const r = (await client.callTool({ name, arguments: args })) as CallToolResult
+      const first = r.content[0]
+      return JSON.parse(first?.type === 'text' ? first.text : 'null')
+    }
+    const got = await call('get_link', { space: 'alice', id: link.id })
+    expect(got.highlights).toEqual([expect.objectContaining({ note: 'for Claude' })])
+    const listed = await call('list_highlights', { q: 'claude' })
+    expect(listed).toEqual([
+      expect.objectContaining({
+        quote: 'Mcp marks is the subject',
+        appUrl: `https://hearth.example.test/links/alice/${link.id}`,
+      }),
+    ])
+    const names = (await client.listTools()).tools.map((t) => t.name)
+    expect(names.filter((n) => /highlight/.test(n))).toEqual(['list_highlights'])
+  })
+})
+
 describe('MCP tools', () => {
   async function connect(): Promise<Client> {
     const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {
@@ -504,6 +747,14 @@ describe('MCP tools', () => {
       source: 'mcp',
       appUrl: expect.stringMatching(/^https:\/\/hearth\.example\.test\/links\/alice\/\w+$/),
     })
+    expect(saved.value.status).toBe('waiting')
+    // R7: the tool is told the page waits for the member.
+    const tools = (await client.listTools()).tools
+    expect(tools.find((t) => t.name === 'save_link')?.description).toMatch(/waiting.*do not retry/)
+    await services.links.idle()
+    expect(fetched).toEqual([])
+    // A member asks for the page in the app (R2).
+    await api('POST', `/api/links/alice/${saved.value.id}/refetch`)
     await services.links.idle()
     const log2 = await runGit(bare('alice'), ['log', '-2', '--format=%B', 'main'])
     expect(log2).toContain('Hotsauce-Via: mcp')
@@ -515,6 +766,98 @@ describe('MCP tools', () => {
     expect(got.value.body).toContain('Biosecurity primer is the subject')
     const found = await tool(client, 'search', { query: 'biosecurity primer', kind: 'link' })
     expect(found.value).toEqual([expect.objectContaining({ space: 'alice' })])
+  })
+})
+
+describe('links an AI tool saves', () => {
+  /** Saves through the API as the connector would (source mcp), then waits for any read. */
+  const aiSave = (url: string) => save({ url, source: 'mcp' })
+
+  it('keeps the link but never visits the address until a member asks (R1, R2)', async () => {
+    const link = await aiSave('https://attacker.test/collect?q=secret-plans')
+    expect(link).toMatchObject({ status: 'waiting', fetchError: null, source: 'mcp' })
+    expect(fetched).toEqual([])
+    // Still waiting long after the 3 minutes that make an unread link "lost".
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.now() + 60 * 60_000)
+    try {
+      expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({
+        status: 'waiting',
+        fetchError: null,
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+    expect((await api('GET', '/api/links')).links).toEqual([
+      expect.objectContaining({ id: link.id, status: 'waiting' }),
+    ])
+    expect(fetched).toEqual([])
+
+    const asked = await api('POST', `/api/links/alice/${link.id}/refetch`)
+    expect(asked.status).toBe('fetching')
+    await services.links.idle()
+    expect(fetched).toEqual(['https://attacker.test/collect?q=secret-plans'])
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({ status: 'ready' })
+  })
+
+  it('reads a waiting link when the member saves the same address themselves (R3)', async () => {
+    const link = await aiSave('https://a.test/ai-found-it')
+    const mine = await api('POST', '/api/links', {
+      json: { url: 'https://a.test/ai-found-it', source: 'extension' },
+    })
+    await services.links.idle()
+    expect(mine).toMatchObject({ id: link.id, existing: true })
+    expect(fetched).toEqual(['https://a.test/ai-found-it'])
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({ status: 'ready' })
+  })
+
+  it('never fetches when the AI tool saves an address that is already saved (R4)', async () => {
+    fail = true
+    const link = await save({ url: 'https://down.fail.test/known' })
+    expect(fetched).toHaveLength(1)
+    fail = false
+    const resave = (url: string) => api('POST', '/api/links', { json: { url, source: 'mcp' } })
+    const again = await resave('https://down.fail.test/known')
+    await services.links.idle()
+    expect(again).toMatchObject({ id: link.id, existing: true, status: 'failed' })
+    const waiting = await aiSave('https://a.test/waits')
+    await resave('https://a.test/waits')
+    await services.links.idle()
+    expect(waiting.status).toBe('waiting')
+    expect(fetched).toHaveLength(1)
+  })
+
+  it('reads the address the member gave, not the AI tool’s, when they save it (R3)', async () => {
+    const link = await aiSave('https://blog.test/post?utm_content=secret-plans#x')
+    await api('POST', '/api/links', { json: { url: 'https://blog.test/post', source: 'share' } })
+    await services.links.idle()
+    expect(fetched).toEqual(['https://blog.test/post'])
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({
+      url: 'https://blog.test/post',
+      status: 'ready',
+    })
+  })
+
+  it('treats a save with an access token as an AI tool’s, and only a session can ask (R8)', async () => {
+    const res = await call('POST', '/api/tokens', { as: ALICE, json: { name: 'agent' } })
+    const { token } = (await res.json()) as { token: string }
+    const link = await save({ url: 'https://attacker.test/?q=plans', source: 'web' }, { token })
+    expect(link).toMatchObject({ status: 'waiting', source: 'mcp' })
+    const refused = await call('POST', `/api/links/alice/${link.id}/refetch`, { token })
+    expect(refused.status).toBe(403)
+    await services.links.idle()
+    expect(fetched).toEqual([])
+  })
+
+  it('stays waiting when shared with the team and back (R5)', async () => {
+    const link = await aiSave('https://a.test/shared-waiting')
+    const shared = await api('POST', `/api/links/alice/${link.id}/move`, {
+      json: { toSpace: 'team' },
+    })
+    expect(shared.status).toBe('waiting')
+    await services.links.idle()
+    expect(fetched).toEqual([])
+    expect(await api('GET', `/api/links/team/${link.id}`)).toMatchObject({ status: 'waiting' })
   })
 })
 

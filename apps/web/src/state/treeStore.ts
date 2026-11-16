@@ -12,6 +12,7 @@ const key = (space: string, dir: string) => `${space}\n${dir}`
 export class TreeStore {
   private readonly dirs = new Map<string, Entry[]>()
   private readonly pending = new Map<string, Promise<Entry[]>>()
+  private readonly failures = new Set<string>()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (listener: () => void): (() => void) => {
@@ -21,6 +22,11 @@ export class TreeStore {
 
   get(space: string, dir: string): Entry[] | undefined {
     return this.dirs.get(key(space, dir))
+  }
+
+  /** True when the last request for this folder failed and nothing is cached for it. */
+  failed(space: string, dir: string): boolean {
+    return this.failures.has(key(space, dir))
   }
 
   load(space: string, dir: string): Promise<Entry[]> {
@@ -73,12 +79,15 @@ export class TreeStore {
       .tree(space, dir)
       .then((entries) => {
         this.dirs.set(k, entries)
+        this.failures.delete(k)
         this.emit()
         return entries
       })
       .catch((err: unknown) => {
         // A folder that vanished (moved, deleted elsewhere) just drops out of the tree.
-        if (this.dirs.delete(k)) this.emit()
+        this.dirs.delete(k)
+        this.failures.add(k)
+        this.emit()
         throw err
       })
       .finally(() => this.pending.delete(k))
@@ -132,4 +141,9 @@ export function useDirectory(store: TreeStore, space: string, dir: string, enabl
     if (enabled) store.load(space, dir).catch(() => {})
   }, [store, space, dir, enabled])
   return entries
+}
+
+/** Whether a directory's listing failed to load (see `TreeStore.failed`). */
+export function useDirectoryFailed(store: TreeStore, space: string, dir: string): boolean {
+  return useSyncExternalStore(store.subscribe, () => store.failed(space, dir))
 }
