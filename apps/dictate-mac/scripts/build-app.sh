@@ -59,6 +59,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSAudioCaptureUsageDescription</key><string>${APP_NAME} records the other side of a call (Zoom, Slack, FaceTime or any app) when you take meeting notes with “Any app on this Mac”.</string>
   <key>NSLocationUsageDescription</key><string>${APP_NAME} shows the weather where you are on Today. Your position is rounded to about a kilometre and used only to look up the weather.</string>
   <key>NSLocationWhenInUseUsageDescription</key><string>${APP_NAME} shows the weather where you are on Today. Your position is rounded to about a kilometre and used only to look up the weather.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>With no connection to your workspace, ${APP_NAME} writes up what you dictate with this Mac’s own speech recognition. The audio stays on this Mac.</string>
   <key>NSCameraUsageDescription</key><string>${APP_NAME} uses the camera when you record a clip with your camera on.</string>
   <key>CFBundleURLTypes</key>
   <array>

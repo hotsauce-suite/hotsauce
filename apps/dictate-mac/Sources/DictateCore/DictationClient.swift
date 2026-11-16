@@ -17,6 +17,11 @@ public struct DictationResult: Codable, Equatable, Sendable {
     public struct Timing: Codable, Equatable, Sendable {
         public let asr: Int
         public let llm: Int
+
+        public init(asr: Int, llm: Int) {
+            self.asr = asr
+            self.llm = llm
+        }
     }
 
     public let text: String
@@ -24,6 +29,14 @@ public struct DictationResult: Codable, Equatable, Sendable {
     public let cleaned: Bool
     public let durationMs: Int
     public let ms: Timing
+
+    public init(text: String, raw: String, cleaned: Bool, durationMs: Int, ms: Timing) {
+        self.text = text
+        self.raw = raw
+        self.cleaned = cleaned
+        self.durationMs = durationMs
+        self.ms = ms
+    }
 }
 
 public enum DictationError: Error, Equatable, LocalizedError {

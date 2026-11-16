@@ -8,6 +8,12 @@ The menu bar app behind Dictate (ARCHITECTURE §9). Build it on a Mac with the X
 
 Without a Developer ID, macOS asks each person to confirm the app once (System Settings → Privacy & Security → Open Anyway). Settings → Apps explains this.
 
+## With no connection
+
+When the Mac has no network, or the server didn't answer in the last minute, the dictation key records as usual and the text is written up by the Mac's own speech recognition (`SFSpeechRecognizer` with `requiresOnDeviceRecognition`), with "Offline: on-device" in the pill. A dictation whose stream and upload both fail to reach the server is written up the same way from the kept recording. Nothing is sent anywhere offline. The choice is `SpeechRouting` in `Sources/DictateCore/SpeechRoute.swift` (tested); the recognizer is `Sources/HotsauceDictate/OnDeviceSpeech.swift`. Plan: `docs/PLAN-offline.md`, step A2.
+
+- `HotsauceDictate --on-device-file <16 kHz mono WAV> --out <result.json>` writes a file up the same way. Open it through Launch Services (`open -n -a build/Hotsauce.app --args …`) so the Speech Recognition permission is the app's own; `say -o x.wav --file-format=WAVE --data-format=LEI16@16000 "…"` makes a test file without playing anything.
+
 ## Edge glow
 
 While Dictate listens, a glow lines the edges of the focused window (found with the Accessibility API; the pointer's screen when there's no window or it's full screen), with flames along the bottom that follow the mic level. It pulses while the text is written up and fades after the paste. Settings → Dictation → "Edge glow while dictating" turns it off; Reduce motion makes it still. Colours, sizes and timings are constants in `EdgeGlowLook` (`Sources/DictateCore/EdgeGlow.swift`); the plan is `docs/PLAN-dictate-edge-glow.md`.

@@ -30,7 +30,7 @@ Notes for calls: live transcript with speaker names, your own notes, AI-written 
 Needs the speech and AI keys; the calendar needs Google sign-in through Clerk with `calendar.readonly`; booking links need Turnstile. Reminders work out of the box (the server makes its own push keys). Keeping a meeting's audio is a per-meeting choice (`KEEP_AUDIO=true` makes it the default); re-transcribing it after the call needs the speech key.
 
 ### Dictate
-Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app.
+Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app. With no connection, the Mac app writes up dictation with the Mac's own speech recognition (as spoken, the Mac's language, audio never leaves the Mac; `docs/PLAN-offline.md` step A2).
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
