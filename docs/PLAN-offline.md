@@ -2,7 +2,7 @@
 
 ## Status
 
-- **Step A (PR #102, `offline-step-a`): built and tested.** The app opens with no connection,
+- **Step A (PR #102, `offline-step-a`): built, reviewed and tested; merging 2026-11-16.** The app opens with no connection,
   starts as the last signed-in member, shows an Offline bar, greys out what needs the server, and
   Docs never lose a save. A5: the Mac app's window runs the service worker (checked on
   2026-11-15 with a WKWebView configured like the app's, against a local server and against
@@ -97,6 +97,17 @@ doesn't, record it here as a step B item and leave the Mac app as it is.
   followed to a moved doc's new place: there's no id lookup on the server yet (step C).
 - A2.6 Sign out pressed offline is owed on the device and done as soon as sign-in loads again,
   before anything opens as that member. Settings (where Sign out is) opens offline.
+
+**From the independent review before merge (2026-11-16).** Each has a test:
+- A4.10 Only a save left *waiting* opens a doc offline and is sent by itself; an old copy left
+  when a tab closed online is offered to restore once online, never sent on its own.
+- A4.11 Stranded text is removed only by Discard in Kept on this device, never by later typing
+  or saving at the same path.
+- A4.12 A save another open tab is still typing into is left for that tab to send (open tabs
+  write a heartbeat, `hotsauce.tab-alive:<tab>`); a closed tab's is sent by whichever tab is left.
+- A4.13 A comment's kept draft belongs to the member who typed it, like a doc draft; offline,
+  the comments under a doc say they need a connection.
+- A1.4 The service worker leaves `/mcp` and `/.well-known/` (MCP sign-in) to the server.
 
 Not in step A: an organization switch to turn offline off (step B, when real data is stored),
 reading docs never opened on this device, new docs made offline.

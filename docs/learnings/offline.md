@@ -48,3 +48,15 @@ and Docs keep saves on the device.
   both. An e2e that actually presses Sign out offline found the first one.
 - **In tests, wait until the app knows who's signed in** before cutting the network: the member
   is remembered after `/api/me` answers, and a test that goes offline sooner starts signed out.
+- **A short team doc's middle is its comment box.** Since comments sit under every team doc,
+  clicking the centre of `editor-content` on a two-line doc lands in the comment composer, and
+  the test types into the wrong box with no error. Click the doc's own text instead.
+- **A storage key that includes the member can change while the page is open** (the app learns
+  who's signed in after the first render). Carry what's typed over from the blank owner to the
+  real one, or the box empties mid-word.
+- **Every tab shares localStorage, but "the doc open here" is per tab.** Anything that sends what
+  another tab left waiting has to know whether that tab is still open; a heartbeat key per tab is
+  the boring answer that works in every browser.
+- **After reconnecting, wait for the server, not the chip.** The page can reload on reconnect,
+  and a fresh page starts on its default state before it sends the waiting text; poll the server
+  for the text.

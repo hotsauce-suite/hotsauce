@@ -148,6 +148,18 @@ describe('Comments', () => {
     expect(screen.getByTestId('comment-input')).toHaveValue('Written on the train')
   })
 
+  it('R10: opened with no connection, the conversation says it needs one', async () => {
+    server.use(http.get('/api/comments', () => HttpResponse.error()))
+    vi.stubGlobal('navigator', { ...navigator, onLine: false })
+    window.dispatchEvent(new Event('offline'))
+    renderApp(Q4)
+    expect(await screen.findByTestId('comments-offline')).toHaveTextContent(
+      'Comments need a connection',
+    )
+    expect(screen.queryByText(/Comments didn’t load/)).toBeNull()
+    window.dispatchEvent(new Event('online'))
+  })
+
   it('R10: a send that fails keeps the words, and they survive a reload', async () => {
     const first = await openDoc()
     server.use(http.post('/api/comments', () => HttpResponse.error()))
