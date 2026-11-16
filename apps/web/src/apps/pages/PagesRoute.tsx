@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { type PageSummary, type PageView, pagesApi } from '../../api/shares'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
 import { MenuItem } from '../../components/Menu'
 import { PageFrame } from '../../components/PageFrame'
+import { MoreMenu } from '../../components/PageHeader'
 import { ReadOnlyLinkItems, useReadOnlyLink } from '../../components/ReadOnlyLink'
 import { ShareButton } from '../../components/ShareButton'
 import { useLoad } from '../../hooks/useLoad'
@@ -77,6 +79,7 @@ export function PageRoute() {
   const [page, setPage] = useState<PageView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const link = useReadOnlyLink(space, `pages/${id}.md`)
+  const { compact } = useShell()
 
   useEffect(() => {
     let live = true
@@ -113,51 +116,78 @@ export function PageRoute() {
     }
   }
 
+  const versionPicker =
+    page && page.versions.length > 1 ? (
+      <select
+        aria-label="Version"
+        data-testid="page-version"
+        value={version ?? ''}
+        onChange={(e) => setVersion(e.target.value || undefined)}
+        className="h-8 rounded-lg border border-ash bg-paper px-2 text-sm text-ink"
+      >
+        {page.versions.map((v, i) => (
+          <option key={v.oid} value={i === 0 ? '' : v.oid}>
+            {i === 0 ? 'Latest' : `Version ${page.versions.length - i}`} · {day(v.date)}
+          </option>
+        ))}
+      </select>
+    ) : null
+  const shareItems = (close: () => void) => (
+    <>
+      <MenuItem
+        icon="link"
+        testId="page-copy-link"
+        onSelect={() => {
+          close()
+          void copyLink()
+        }}
+      >
+        Copy link
+      </MenuItem>
+      <ReadOnlyLinkItems link={link} close={close} />
+    </>
+  )
+
   return (
     <>
       <MeetingsPageHeader title={page?.title ?? 'Page'} back={{ to: '/pages', label: 'Pages' }}>
-        {page && page.versions.length > 1 ? (
-          <select
-            aria-label="Version"
-            data-testid="page-version"
-            value={version ?? ''}
-            onChange={(e) => setVersion(e.target.value || undefined)}
-            className="h-8 rounded-lg border border-ash bg-paper px-2 text-sm text-ink"
-          >
-            {page.versions.map((v, i) => (
-              <option key={v.oid} value={i === 0 ? '' : v.oid}>
-                {i === 0 ? 'Latest' : `Version ${page.versions.length - i}`} · {day(v.date)}
-              </option>
-            ))}
-          </select>
-        ) : null}
-        <ShareButton testId="page-share" onOpen={() => link.refresh()}>
-          {(close) => (
-            <>
-              <MenuItem
-                icon="link"
-                testId="page-copy-link"
-                onSelect={() => {
-                  close()
-                  void copyLink()
-                }}
-              >
-                Copy link
-              </MenuItem>
-              <ReadOnlyLinkItems link={link} close={close} />
-            </>
-          )}
-        </ShareButton>
-        <button
-          type="button"
-          data-testid="page-delete"
-          aria-label="Delete page"
-          title="Delete page"
-          onClick={() => void remove()}
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-ember-wash hover:text-ember-strong"
-        >
-          <Icon name="trash" />
-        </button>
+        {compact ? null : versionPicker}
+        {compact ? (
+          <MoreMenu onOpen={() => link.refresh()}>
+            {(close) => (
+              <>
+                {shareItems(close)}
+                <MenuItem
+                  icon="trash"
+                  danger
+                  testId="page-delete"
+                  onSelect={() => {
+                    close()
+                    void remove()
+                  }}
+                >
+                  Delete page
+                </MenuItem>
+              </>
+            )}
+          </MoreMenu>
+        ) : (
+          <>
+            <ShareButton testId="page-share" onOpen={() => link.refresh()}>
+              {shareItems}
+            </ShareButton>
+            <button
+              type="button"
+              data-testid="page-delete"
+              aria-label="Delete page"
+              title="Delete page"
+              onClick={() => void remove()}
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-ember-wash hover:text-ember-strong"
+            >
+              <Icon name="trash" />
+            </button>
+          </>
+        )}
       </MeetingsPageHeader>
       <div className="flex min-h-0 flex-1 flex-col">
         {error ? (
@@ -172,6 +202,7 @@ export function PageRoute() {
               {day(page.updated)}
               {page.versions.length > 1 ? ` · ${page.versions.length} versions` : ''}
             </p>
+            {compact && versionPicker ? <div className="px-4 pb-2">{versionPicker}</div> : null}
             <PageFrame html={page.html} title={page.title} />
           </>
         ) : null}

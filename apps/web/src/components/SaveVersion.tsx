@@ -7,11 +7,18 @@ import { Icon } from './Icon'
 export function SaveVersion({
   onSave,
   iconOnly = false,
+  asked,
+  onAsked,
 }: {
   onSave: (label: string) => Promise<CommitOutcome>
   iconOnly?: boolean
+  /** Given (with `onAsked`), the button is left out and something else opens the dialog. */
+  asked?: boolean
+  onAsked?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [own, setOwn] = useState(false)
+  const open = asked ?? own
+  const setOpen = onAsked ?? setOwn
   const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -25,16 +32,18 @@ export function SaveVersion({
 
   return (
     <>
-      <button
-        type="button"
-        data-testid="save-version"
-        onClick={() => setOpen(true)}
-        aria-label={iconOnly ? 'Save version' : undefined}
-        className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink"
-      >
-        <Icon name="flag" />
-        {iconOnly ? null : 'Save version'}
-      </button>
+      {asked === undefined ? (
+        <button
+          type="button"
+          data-testid="save-version"
+          onClick={() => setOpen(true)}
+          aria-label={iconOnly ? 'Save version' : undefined}
+          className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink"
+        >
+          <Icon name="flag" />
+          {iconOnly ? null : 'Save version'}
+        </button>
+      ) : null}
       {open ? (
         <Dialog title="Save version" onClose={() => setOpen(false)}>
           <form

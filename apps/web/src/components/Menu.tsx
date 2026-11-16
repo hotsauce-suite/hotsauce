@@ -81,6 +81,11 @@ export function Menu({
   )
 }
 
+/** How a menu's item looks, for an item that is a link instead of a button. */
+const menuItemBase =
+  'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-ember-wash focus-visible:bg-ember-wash'
+export const menuItemClass = `${menuItemBase} text-ink`
+
 export function MenuItem({
   icon,
   children,
@@ -100,7 +105,7 @@ export function MenuItem({
       role="menuitem"
       data-testid={testId}
       onClick={onSelect}
-      className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-ember-wash focus-visible:bg-ember-wash ${danger ? 'text-ember-strong' : 'text-ink'}`}
+      className={`${menuItemBase} ${danger ? 'text-ember-strong' : 'text-ink'}`}
     >
       {icon ? <Icon name={icon} className="size-4 text-ink-faint" /> : null}
       {children}

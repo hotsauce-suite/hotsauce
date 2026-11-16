@@ -39,9 +39,10 @@ export default function SharedFilePage() {
             href={file.downloadUrl}
             className={`${primaryButton} h-9`}
             data-testid="shared-download"
+            data-main-button=""
           >
             <Icon name="download" />
-            <span className="hidden sm:inline">Download</span>
+            Download
           </a>
         ) : null}
       </MeetingsPageHeader>

@@ -542,6 +542,7 @@ export function DocumentView({
         space={space}
         path={path}
         compact={shell.compact}
+        title={heading ?? openedHeading ?? title}
         save={{
           state: state.saveState,
           isNew: state.isNew,

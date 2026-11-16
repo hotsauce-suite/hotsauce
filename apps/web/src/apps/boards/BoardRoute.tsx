@@ -3,8 +3,10 @@ import { Link, useBlocker, useNavigate, useParams } from 'react-router'
 import { type BoardView, boardsApi } from '../../api/boards'
 import { HotsauceApiError } from '../../api/client'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { MenuItem } from '../../components/Menu'
+import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader } from '../meetings/components/common'
@@ -30,6 +32,7 @@ export default function BoardRoute() {
   })
   const [title, setTitle] = useState('')
   const { notify } = useSession()
+  const { compact } = useShell()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const canvas = useRef<BoardCanvasHandle | null>(null)
   const [peers, setPeers] = useState<Peer[]>([])
@@ -119,6 +122,31 @@ export default function BoardRoute() {
     }
   }
 
+  const shareItems = (close: () => void) => (
+    <>
+      <MenuItem
+        icon="link"
+        testId="board-copy-link"
+        onSelect={() => {
+          close()
+          void copyLink()
+        }}
+      >
+        Copy link
+      </MenuItem>
+      <MenuItem
+        icon="copy"
+        testId="board-copy-embed"
+        onSelect={() => {
+          close()
+          void copyEmbed()
+        }}
+      >
+        Copy to paste into a doc
+      </MenuItem>
+    </>
+  )
+
   const remove = async () => {
     if (!board) return
     try {
@@ -206,32 +234,27 @@ export default function BoardRoute() {
             >
               {STATUS_TEXT[status.s]}
             </span>
-            <ShareButton testId="board-share">
-              {(close) => (
-                <>
-                  <MenuItem
-                    icon="link"
-                    testId="board-copy-link"
-                    onSelect={() => {
-                      close()
-                      void copyLink()
-                    }}
-                  >
-                    Copy link
-                  </MenuItem>
-                  <MenuItem
-                    icon="copy"
-                    testId="board-copy-embed"
-                    onSelect={() => {
-                      close()
-                      void copyEmbed()
-                    }}
-                  >
-                    Copy to paste into a doc
-                  </MenuItem>
-                </>
-              )}
-            </ShareButton>
+            {compact && !confirmDelete ? (
+              <MoreMenu>
+                {(close) => (
+                  <>
+                    {shareItems(close)}
+                    <MenuItem
+                      icon="trash"
+                      danger
+                      testId="board-delete"
+                      onSelect={() => {
+                        close()
+                        setConfirmDelete(true)
+                      }}
+                    >
+                      Delete board
+                    </MenuItem>
+                  </>
+                )}
+              </MoreMenu>
+            ) : null}
+            {compact ? null : <ShareButton testId="board-share">{shareItems}</ShareButton>}
             {confirmDelete ? (
               <span className="flex items-center gap-1">
                 <button
@@ -250,7 +273,7 @@ export default function BoardRoute() {
                   Cancel
                 </button>
               </span>
-            ) : (
+            ) : compact ? null : (
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}

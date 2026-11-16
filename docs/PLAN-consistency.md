@@ -4,7 +4,7 @@
 Links and the words (PR #128), plain titles with "Boards" (PR #130), the re-recorded app videos
 (PR #133), and now "Saved" for "Committed" on a doc's save chip. Round 2 (the top bar) is being
 built in steps: the red main button (PR #145) and "‹ App name" with × on pop-ups (PR #148) are
-merged, one "Share" button is in its PR, and the phone top bar is next. The videos and screenshots
+merged, as is one "Share" button (PR #150), and the phone top bar is in its PR. The videos and screenshots
 are re-recorded once, after the last step. Round 3 not started.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
@@ -72,8 +72,14 @@ It ships in rounds; round 1 moves no control.
     row keeps its own "Copy link" button, because copying is all that row is for.
     *(ShareButton.test; e2e `expectShareWithCopyLink` in drive, links, boards, clips, forms;
     notes.spec)*
-11. Phone top bar: menu, title, the one main button with its words; the rest behind "More". The
-    assistant button never covers a control. A doc's title is its name, not its file name.
+11. **A phone's top bar.** The menu (or "‹ App name" on the page of one thing), the title, the
+    one main button with its words at the far right, and **More** (⋯, just before it) for
+    everything else: Share's items, Open, Trim, Download, Delete, New folder, Import. A doc shows
+    its name (its heading) instead of its file name, with Share and More. The Ask button covers
+    no control, and sits above a board's own tools. A title with nothing before it starts where
+    the page's words do. Exceptions: Notes keeps its search field in the bar until round 3, Ask about meetings keeps its
+    picker, and a meeting being recorded keeps Pause, Keep audio and Stop in reach.
+    *(e2e consistency: "a phone’s top bar")*
 
 ### Decisions taken in round 2
 
