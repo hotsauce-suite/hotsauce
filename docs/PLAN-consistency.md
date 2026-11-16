@@ -6,7 +6,8 @@ Links and the words (PR #128), plain titles with "Boards" (PR #130), the re-reco
 the red main button (PR #145), "‹ App name" with × on pop-ups (PR #148), one "Share" button
 (PR #150) and the phone top bar (PR #152), with the app videos and README screenshots re-recorded
 after the last step. Still old: the Clips player video and the narrated tour video (both wait for the end of round 3;
-Morgan, Nov 16). Round 3 (one row above every list) is being built: slice 1 of 3 is in review.
+Morgan, Nov 16). Round 3 (one row above every list): slice 1 is merged (PR #154, ten apps on the shared row);
+slice 2 (Tasks and Meetings) is in review; slice 3 (videos, screenshots, help) is next.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
@@ -118,8 +119,8 @@ https://claude.ai/artifact/RwNw6CiwRzJgynzKJHYSeq
     matches, the list says "No … match that".
 14. The tabs. Clips and Boards: Personal, Team. Notes, Forms, Tables and Pages: All, Personal,
     Team, with All first so nothing is hidden on arrival. Links: Unread, Archive, Highlights.
-    Tasks: Inbox, Today, Upcoming, All, Done. Meetings: Coming up, All meetings. Files (folders in
-    its side list), Check-ins and People (one team list each) have no tabs; Files shows the folder
+    Tasks: Inbox, Today, Upcoming, All, Done (each its own address). Files (folders in its side
+    list), Check-ins and People (one team list each) and Meetings (one page of sections) have no tabs; Files shows the folder
     path where the tabs would be. A Personal / Team tab is kept in the address (`?scope=team`).
 15. No title twice. The top bar names the app; the list does not repeat it, and a view's name is
     its selected tab, not a second big title. A view that is not a tab (a Notes label, Archive or
@@ -147,6 +148,13 @@ Voice notes and Briefcast keep their own layouts (Morgan, Q7 note).
 - Personal / Team is sorted in the browser from the list already loaded; no server change.
 - A person's or company's own page keeps its wider column; only the People list is a list.
 - Links keeps its "Paste a link to save" row, now under the row of tabs and search.
+- Meetings has no tabs. Its page is sections (Coming up, Recent meetings, Action items, Meetings),
+  not views, and putting the list of past meetings behind a tab would hide it on arrival. The
+  sections keep their names in the one list heading size. The row's search looks through
+  meetings by name and by who was there; while it has words in it the matches are all the page
+  shows. The "Search meetings and docs" button left Meetings' side list (Ctrl/Cmd K still opens it).
+- Tasks' search filters the list on screen by name; dragging to reorder is off while it has words.
+  The "3 open" count and today's date sit under the row in small type.
 
 ## Shared files this touches
 

@@ -306,7 +306,9 @@ test('All tasks lists every open task, including a teammate’s in Team', async 
   // The teammate's task is in none of the member's own lists...
   await expect(row(page, `For a teammate ${id}`)).toHaveCount(0)
   await nav(page, 'All tasks').click()
-  await expect(page.getByTestId('tasks-title')).toHaveText('All tasks')
+  // The list's name is its tab now, not a second title (PLAN-consistency, requirement 15).
+  await expect(page.getByTestId('tasks-tab-all')).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByTestId('tasks-title')).toHaveCount(0)
   // ...but All tasks shows all three.
   for (const title of [`Personal thing ${id}`, `Project thing ${id}`, `For a teammate ${id}`]) {
     await expect(row(page, title)).toBeVisible()

@@ -15,6 +15,13 @@ import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import {
+  ListBar,
+  ListColumn,
+  type ListTab,
+  listHeading,
+  matchesName,
+} from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { useCommands } from '../../keyboard/commands'
@@ -62,6 +69,15 @@ const TITLES: Record<Exclude<TaskViewSpec['id'], 'project'>, string> = {
   all: 'All tasks',
   done: 'Done',
 }
+
+/** The lists as tabs above the list: each is its own address, like the sidebar's links. */
+const TABS: ListTab<Exclude<TaskViewSpec['id'], 'project'>>[] = [
+  { id: 'inbox', label: 'Inbox', to: '/tasks', testId: 'tasks-tab-inbox' },
+  { id: 'today', label: 'Today', to: '/tasks/today', testId: 'tasks-tab-today' },
+  { id: 'upcoming', label: 'Upcoming', to: '/tasks/upcoming', testId: 'tasks-tab-upcoming' },
+  { id: 'all', label: 'All', to: '/tasks/all', testId: 'tasks-tab-all' },
+  { id: 'done', label: 'Done', to: '/tasks/done', testId: 'tasks-tab-done' },
+]
 
 /** A headline and one sentence for each empty list (docs/PLAN-consistency.md, requirement 5). */
 const EMPTY: Record<TaskViewSpec['id'], readonly [string, string]> = {
@@ -153,7 +169,12 @@ export default function TasksPage() {
   // For timers that fire after the view may have changed: write into the list shown then.
   const listRef = useRef(list)
   listRef.current = list
-  const tasks = list.tasks
+  const [q, setQ] = useState('')
+  // The row's search filters the list on screen by name (PLAN-consistency, requirement 13).
+  const tasks = useMemo(
+    () => (q.trim() ? (list.tasks?.filter((t) => matchesName(t.title, q)) ?? null) : list.tasks),
+    [list.tasks, q],
+  )
   const groups = useMemo(() => (tasks ? groupTasks(view, tasks, today) : []), [tasks, view, today])
   const flat = useMemo(() => groups.flatMap((g) => g.tasks), [groups])
 
@@ -463,8 +484,9 @@ export default function TasksPage() {
     [projects, detail?.space],
   )
   const defaultSpace = view.id === 'project' && view.space === spaces.team ? 'team' : 'personal'
-  const reorderable = isReorderable(view)
-  const open = tasks?.length ?? 0
+  // Dragging a filtered list would reorder around rows that aren't shown.
+  const reorderable = isReorderable(view) && !q.trim()
+  const open = list.tasks?.length ?? 0
 
   return (
     <>
@@ -479,22 +501,23 @@ export default function TasksPage() {
           data-view={view.id}
           className="min-h-0 flex-1 overflow-y-auto"
         >
-          <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-28 md:px-8 md:pt-10">
-            <div className="mb-4 flex items-baseline gap-3">
-              <h1
-                data-testid="tasks-title"
-                className="min-w-0 truncate font-display text-[1.9rem] leading-tight font-semibold tracking-tight text-ink"
-              >
-                {view.id === 'project' ? (
-                  <>
-                    <span className="mr-1 text-ink-faint">#</span>
-                    {title}
-                  </>
-                ) : (
-                  title
-                )}
-              </h1>
-              <span className="shrink-0 text-sm text-ink-faint">
+          <ListColumn width="reading" className="pb-28">
+            <ListBar
+              tabs={TABS}
+              tab={view.id === 'project' ? null : view.id}
+              tabsLabel="Task lists"
+              search={{ value: q, onChange: setQ, label: 'Search tasks', testId: 'tasks-search' }}
+              className="mb-4"
+            />
+            {/* A list's name is its tab; only a project, which has no tab, is named here. */}
+            <div className="mb-4 flex min-h-5 items-baseline gap-3 px-1">
+              {view.id === 'project' ? (
+                <h2 data-testid="tasks-title" className={`min-w-0 truncate ${listHeading}`}>
+                  <span className="mr-1 text-ink-faint">#</span>
+                  {title}
+                </h2>
+              ) : null}
+              <span data-testid="tasks-count" className="shrink-0 text-sm text-ink-faint">
                 {view.id === 'today'
                   ? dayDetail(today)
                   : view.id === 'project'
@@ -525,7 +548,7 @@ export default function TasksPage() {
               </div>
             ) : null}
 
-            {list.error && tasks?.length === 0 ? (
+            {list.error && list.tasks?.length === 0 ? (
               <LoadError things="tasks" onRetry={list.reload} />
             ) : tasks === null ? (
               <div aria-hidden="true" className="space-y-2" data-testid="tasks-loading">
@@ -540,6 +563,10 @@ export default function TasksPage() {
                   title="That task isn’t here any more"
                   testId="tasks-empty"
                 />
+              ) : q.trim() ? (
+                <EmptyState icon="tasks" title="No tasks match that" testId="tasks-no-match">
+                  Search looks at the names of the tasks in this list.
+                </EmptyState>
               ) : (
                 <EmptyState icon="tasks" title={EMPTY[view.id][0]} testId="tasks-empty">
                   {EMPTY[view.id][1]}
@@ -609,7 +636,7 @@ export default function TasksPage() {
               q add · j/k move · x complete · Enter open · e edit · 1–4 priority · t today · m
               tomorrow · Delete
             </p>
-          </div>
+          </ListColumn>
         </div>
 
         {detail ? (

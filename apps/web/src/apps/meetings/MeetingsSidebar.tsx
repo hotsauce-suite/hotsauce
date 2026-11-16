@@ -11,17 +11,14 @@ const RECENT_COUNT = 10
 export function MeetingsSidebar({
   activeSpace,
   activePath,
-  onOpenSearch,
 }: {
   activeSpace: string | null
   activePath: string | null
-  onOpenSearch: () => void
 }) {
   const location = useLocation()
   const session = useSession()
   const list = useMeetingList({})
   const recent = list.meetings.slice(0, RECENT_COUNT)
-  const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 
   return (
     <>
@@ -34,16 +31,6 @@ export function MeetingsSidebar({
           New meeting
         </Link>
       </div>
-
-      <button
-        type="button"
-        onClick={onOpenSearch}
-        className="mx-3 mt-3 flex h-9 w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-ash bg-paper/70 px-3 text-sm text-ink-faint hover:border-ash-strong hover:text-ink-soft"
-      >
-        <Icon name="search" className="size-4" />
-        <span className="flex-1 text-left">Search meetings and docs</span>
-        <kbd className="font-mono text-[0.7rem] text-ink-faint">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
-      </button>
 
       <nav aria-label="Meetings" className="mt-3 px-2">
         <NavItem
