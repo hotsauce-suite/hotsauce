@@ -1,4 +1,4 @@
-import { expect, test, uid } from './fixtures'
+import { expect, newForm, test, uid } from './fixtures'
 
 // Hotsauce Forms (docs/plans/2026-11-12-forms.md R5–R14): a member builds a public form with a
 // condition and a file question in the app; someone signed out answers it; the member reads the
@@ -11,9 +11,7 @@ test('build a public form, answer it signed out with a file, and read the answer
   const id = uid()
   const title = `Kit request ${id}`
   await page.goto('/forms')
-  await page.getByTestId('new-form-title').fill(title)
-  await page.getByTestId('new-form').click()
-  await expect(page.getByTestId('form-title')).toHaveValue(title)
+  await newForm(page, title)
 
   // The new form starts with "Your name"; add a choice, a question shown only for "Lab", a file.
   await page.getByTestId('add-question-type').selectOption('choice')
@@ -101,8 +99,7 @@ test('build a public form, answer it signed out with a file, and read the answer
 
 test('a team form asks people who are signed out to sign in', async ({ page, browser }) => {
   await page.goto('/forms')
-  await page.getByTestId('new-form-title').fill(`Team only ${uid()}`)
-  await page.getByTestId('new-form').click()
+  await newForm(page, `Team only ${uid()}`)
   const link = await page.getByTestId('form-open-link').getAttribute('href')
   const outside = await browser.newContext()
   const stranger = await outside.newPage()

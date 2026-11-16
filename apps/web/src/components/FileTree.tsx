@@ -328,9 +328,9 @@ export function FileTree({ space, activePath }: { space: string; activePath: str
           type="button"
           data-testid="new-doc"
           onClick={() => void newDoc(activePath ? dirname(activePath) : DOCS_ROOT)}
-          className="flex h-8 flex-1 items-center gap-2 rounded-md px-2 text-sm font-medium text-ink hover:bg-paper/70"
+          className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-ember text-sm font-medium text-paper-raised hover:bg-ember-strong"
         >
-          <Icon name="plus" className="size-4 text-ember" />
+          <Icon name="plus" />
           New doc
         </button>
         <button

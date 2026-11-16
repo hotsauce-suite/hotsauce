@@ -16,6 +16,7 @@ import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
+import { MainButton } from '../../components/PageHeader'
 import { useCommands } from '../../keyboard/commands'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
@@ -468,15 +469,9 @@ export default function TasksPage() {
   return (
     <>
       <MeetingsPageHeader title="Tasks">
-        <button
-          type="button"
-          data-testid="tasks-add"
-          onClick={() => setQuickOpen(true)}
-          className={`${primaryButton} h-9 px-3`}
-        >
-          <Icon name="plus" />
+        <MainButton icon="plus" testId="tasks-add" onClick={() => setQuickOpen(true)}>
           New task
-        </button>
+        </MainButton>
       </MeetingsPageHeader>
       <div className="flex min-h-0 flex-1">
         <div

@@ -48,13 +48,32 @@ It ships in rounds; round 1 moves no control.
 
 ## Round 2: the top bar (after offline step A and Links reading position merge)
 
-8. The one red button is at the top right of every app, on computer and phone. Forms and Tables
-   make an untitled item named on the next screen.
+8. **The one red button** is the last control at the top right of every app's page, on computer
+   and phone, and always shows its words: New doc, New meeting, Record a voice note, Record a
+   clip, New task, New note, New board, Upload, Save a link, New form, New check-in (admins),
+   New table, Make today's briefing. Today, People, Pages and Dictate make nothing, so they have
+   none. Forms and Tables make an untitled item with the cursor in its name.
+   *(e2e consistency: "the main button", one case per app at both widths; PageHeader.test;
+   e2e forms and tables)*
 9. A full-page item shows "‹ App name" at the left of the top bar; every pop-up and side panel
    has an × at its top right (Tables, Clips and the Files preview have neither today).
 10. One "Share" button with "Copy link" inside it.
 11. Phone top bar: menu, title, the one main button with its words; the rest behind "More". The
     assistant button never covers a control. A doc's title is its name, not its file name.
+
+### Decisions taken in round 2
+
+- The top bar is `components/PageHeader.tsx` (`PageHeader`, `MainButton`); the old name
+  `MeetingsPageHeader` still points at it so pages move over one at a time.
+- With more than one space, "New form", "New table" and "Import" first ask whose it is
+  (Personal or Team) in a small menu; with one space a press makes it. Until the member's spaces
+  have loaded the button waits, so it can't make a team item by mistake.
+- Where a page keeps a quick-add row (Tasks, Notes, Links), the top-right button opens or
+  focuses that row. Links' own "Save" beside the paste field is no longer red: one red button.
+- Docs' start page has the top bar on a computer too, and the sidebar's "New doc" is the same
+  red button as in the other sidebars.
+- The app videos and screenshots are re-recorded once, at the end of round 2, because each step
+  of the round changes the same top bars.
 
 ## Round 3
 
