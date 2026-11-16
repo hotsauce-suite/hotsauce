@@ -75,3 +75,33 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   the same state when nothing changed.
 - **Playwright here needs `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium`** in a cloud session:
   the repo pins a newer Playwright than the preinstalled browser.
+
+- **bioRxiv and medRxiv refuse servers; their API doesn't.** From a cloud machine the
+  `www.biorxiv.org` pages and PDFs answer with Cloudflare "error code: 1015" or a challenge, while
+  `api.biorxiv.org/details/<server>/<doi>` and the `jatsxml` address it returns answer normally.
+  Build on the API and JATS, and let the member add the PDF. Don't try a browser User-Agent to get
+  past the robot check: it is evasion, and the session refuses it.
+- **arXiv's API and web version answer servers fine.** `export.arxiv.org/api/query?id_list=` is
+  Atom; an unknown id comes back as an entry titled "Error", not a 404. The web version
+  (`arxiv.org/html/<id>vN`) is LaTeXML with MathML: flatten `<math>` to its `alttext` before
+  Readability or formulas turn into strings of single letters.
+- **linkedom's XML mode keeps the prefix in names.** `mml:math` and `arxiv:doi` don't match
+  `querySelector('math')`; compare `localName` with the prefix cut off.
+- **unpdf's document proxy has no `destroy()`** (call `cleanup()`), and pdf.js takes ownership of
+  the buffer it's given, so pass a copy if you'll use the bytes again (to store them).
+- **The API's 12 MB body limit rules out posting a 50 MB PDF.** Upload it through Files' chunked
+  upload, then link to it by file id: one upload path, and the PDF lands in Files anyway.
+- **Rebuilding a PDF's text needs positions, not just strings.** Paragraphs come from line gaps
+  bigger than the page's usual gap, headings from size or numbering; drop lines repeated at the
+  top or bottom of most pages, but never one that ends a sentence (a short repeated sentence is
+  real text). Generate test PDFs in code (`links/test-pdf.ts`) rather than checking in binaries.
+- **fast-check isn't a dependency here** (despite the plan template); a seeded loop over a few
+  hundred generated ids covers round-trip properties well enough.
+- **A fake that's more forgiving than the real thing hides wiring bugs.** The production fetcher
+  was wired as `(url) => fetchPage(url)`, dropping the new `kind` argument, so every paper API
+  call would have been refused as "not a web page" while every test (on the fake) passed. The fix
+  was a named `liveFetcher()` with its own test, and a fake that refuses an API answer unless it's
+  asked for as data, like the real one. When you widen a function's signature, grep its callers.
+- **A link that moves and deletes a file must own it.** Accept only a PDF the member put in the
+  Links folder themselves, and one no other link keeps; otherwise "move to personal" can carry a
+  teammate's file out of the team space.

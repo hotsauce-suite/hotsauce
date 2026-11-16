@@ -1,9 +1,10 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type DragEvent, type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import {
   type HighlightView,
   highlightLabel,
   type LinkView,
+  linkKindLabel,
   linksApi,
   READ_TO_END,
   readingTime,
@@ -18,7 +19,8 @@ import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
-import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
+import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { addPdf, pdfProblem } from './pdfUpload'
 import { errorMessage, savedDay, useLinksChanged, usePollWhile } from './useLinks'
 import { withRecentPlace } from './useReadingPlace'
 
@@ -27,7 +29,11 @@ const linkTo = (l: Pick<LinkView, 'space' | 'id'>) =>
 
 /** `/links`: the read-later list, Unread or Archive, by tag or words (ARCHITECTURE §23.6). */
 export default function LinksPage() {
-  const { notify } = useSession()
+  const { notify, spaces } = useSession()
+  const personal = spaces.find((s) => s.kind === 'personal')?.name ?? 'team'
+  const pdfInput = useRef<HTMLInputElement>(null)
+  const [adding, setAdding] = useState(0)
+  const [dragging, setDragging] = useState(false)
   const [params, setParams] = useSearchParams()
   const viewParam = params.get('view')
   const view = viewParam === 'archive' || viewParam === 'highlights' ? viewParam : 'unread'
@@ -96,6 +102,48 @@ export default function LinksPage() {
     }
   }
 
+  /** PDFs from the computer: each uploaded to Files and saved as a link (R6). */
+  const addPdfs = async (files: Iterable<File>) => {
+    setSaveError(null)
+    const list = [...files]
+    const problems = list.map(pdfProblem).filter((p): p is string => p !== null)
+    const good = list.filter((f) => pdfProblem(f) === null)
+    if (problems.length > 0) setSaveError(problems.join('. '))
+    if (good.length === 0) return
+    setAdding((n) => n + good.length)
+    await Promise.all(
+      good.map(async (file) => {
+        try {
+          const saved = await addPdf(file, personal)
+          if (saved.existing) notify('You saved that PDF already')
+        } catch (e) {
+          setSaveError(errorMessage(e, `${file.name} didn’t save. Check your connection.`))
+        } finally {
+          setAdding((n) => n - 1)
+        }
+      }),
+    )
+    if (view !== 'unread') set('view', '')
+    else load()
+  }
+
+  const dropProps = {
+    onDragOver: (e: DragEvent) => {
+      if (![...e.dataTransfer.types].includes('Files')) return
+      e.preventDefault()
+      setDragging(true)
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (e.currentTarget === e.target) setDragging(false)
+    },
+    onDrop: (e: DragEvent) => {
+      if (e.dataTransfer.files.length === 0) return
+      e.preventDefault()
+      setDragging(false)
+      void addPdfs(e.dataTransfer.files)
+    },
+  }
+
   const toggleDone = async (l: LinkView) => {
     setLinks((cur) => cur?.filter((x) => x.id !== l.id || x.space !== l.space) ?? null)
     try {
@@ -120,7 +168,7 @@ export default function LinksPage() {
   })
   useShortcut('links.original', () => {
     const l = focusedLink()
-    if (!l) return false
+    if (!l?.url) return false
     window.open(l.url, '_blank', 'noopener')
   })
 
@@ -136,11 +184,15 @@ export default function LinksPage() {
   return (
     <>
       <MeetingsPageHeader title="Links" menu={false} />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        className={`min-h-0 flex-1 overflow-y-auto ${dragging ? 'bg-ember/5 outline-2 -outline-offset-4 outline-ember outline-dashed' : ''}`}
+        data-testid="links-drop"
+        {...dropProps}
+      >
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
           <p className="mb-4 text-sm text-ink-soft">
-            Pages saved to read later. Each keeps a readable copy, so search, Ask and your AI tools
-            can find it.
+            Pages, PDFs and papers saved to read later. Each keeps a readable copy, so search, Ask
+            and your AI tools can find it.
           </p>
           <form onSubmit={save} className="mb-1 flex gap-2">
             <input
@@ -156,6 +208,31 @@ export default function LinksPage() {
             <button type="submit" className={primaryButton} disabled={saving || !url.trim()}>
               {saving ? 'Saving…' : 'Save'}
             </button>
+            <button
+              type="button"
+              data-testid="links-add-pdf"
+              className={secondaryButton}
+              disabled={adding > 0}
+              onClick={() => pdfInput.current?.click()}
+              title="Add a PDF from your computer (or drop it on this page)"
+            >
+              <Icon name="upload" />
+              <span className="hidden sm:inline">{adding > 0 ? 'Adding…' : 'Add a PDF'}</span>
+              <span className="sr-only sm:hidden">Add a PDF</span>
+            </button>
+            <input
+              ref={pdfInput}
+              type="file"
+              accept="application/pdf,.pdf"
+              multiple
+              hidden
+              data-testid="links-pdf-input"
+              onChange={(e) => {
+                const files = e.target.files ? [...e.target.files] : []
+                e.target.value = ''
+                void addPdfs(files)
+              }}
+            />
           </form>
           {saveError ? (
             <p role="alert" className="mb-2 text-sm text-ember-strong">
@@ -343,10 +420,11 @@ function LinkRow({
           data-list-item
           className="line-clamp-2 font-medium text-ink hover:text-ember-strong"
         >
-          {l.title || l.url}
+          {l.title || l.url || 'Untitled PDF'}
         </Link>
         <p className="mt-0.5 truncate text-xs text-ink-faint">
           {[
+            linkKindLabel(l),
             l.site,
             readingTime(l.words),
             progress,
@@ -409,16 +487,18 @@ function LinkRow({
         ) : null}
       </div>
       <div className="flex shrink-0 items-start gap-1">
-        <a
-          href={webUrl(l.url) ?? undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="grid size-9 place-items-center rounded-lg text-ink-soft hover:bg-ash/60 hover:text-ink"
-          aria-label="Open the original page"
-          title="Open the original page"
-        >
-          <Icon name="external" />
-        </a>
+        {l.url ? (
+          <a
+            href={webUrl(l.url) ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="grid size-9 place-items-center rounded-lg text-ink-soft hover:bg-ash/60 hover:text-ink"
+            aria-label="Open the original page"
+            title="Open the original page"
+          >
+            <Icon name="external" />
+          </a>
+        ) : null}
         <button
           type="button"
           data-testid="link-done"

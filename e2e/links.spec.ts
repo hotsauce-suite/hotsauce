@@ -1,3 +1,4 @@
+import { makeTestPdf } from '../apps/server/src/links/test-pdf'
 import { expect, test, uid } from './fixtures'
 
 // Saved links (ARCHITECTURE §23): a member pastes a link,
@@ -252,4 +253,83 @@ test('a highlight far down a long read opens from the Highlights tab and stays o
   await page.getByTestId('links-view-highlights').click()
   await page.getByTestId('highlight-row').first().getByRole('link').click()
   await expect(page.getByTestId('link-highlight-popover')).toBeVisible()
+})
+
+// PDFs and papers (docs/PLAN-links-pdfs.md).
+test('a PDF from the computer is kept in Files, read, and can be highlighted', async ({ page }) => {
+  const id = uid()
+  const para = Array.from(
+    { length: 6 },
+    (_, i) => `Sentence ${i + 1} of the field report ${id} says something worth reading.`,
+  )
+  const pdf = makeTestPdf(
+    [[{ text: `Field report ${id}`, size: 18 }, { text: 'Summary', gap: 14 }, ...para]],
+    `Field report ${id}`,
+  )
+  await page.goto('/links')
+  await page.getByTestId('links-pdf-input').setInputFiles({
+    name: `field-report-${id}.pdf`,
+    mimeType: 'application/pdf',
+    buffer: Buffer.from(pdf),
+  })
+  const row = page.getByTestId('link-row').filter({ hasText: `Field report ${id}` })
+  await expect(row).toBeVisible()
+  await expect(row).toContainText('PDF')
+  await row.getByTestId('link-title').click()
+  await expect(page.getByTestId('link-reader-title')).toHaveText(`Field report ${id}`)
+  const body = page.getByTestId('link-body')
+  await expect(body).toContainText(`Sentence 1 of the field report ${id}`)
+  await expect(page.getByTestId('link-open-pdf')).toHaveAttribute('href', /^\/files\/[^/]+\//)
+  await page.screenshot({ path: 'test-results/link-pdf.png' })
+
+  await body.evaluate((el) => {
+    const p = el.querySelector('p') as HTMLElement
+    const text = p.firstChild as Text
+    const range = document.createRange()
+    range.setStart(text, 0)
+    range.setEnd(text, text.data.indexOf('.') + 1)
+    const sel = document.getSelection() as Selection
+    sel.removeAllRanges()
+    sel.addRange(range)
+  })
+  await page.getByTestId('link-highlight').click()
+  await expect(page.getByTestId('link-highlight-item')).toContainText(
+    `Sentence 1 of the field report ${id}`,
+  )
+
+  // The PDF itself is in Files, folder Links.
+  await page.getByTestId('link-open-pdf').click()
+  await expect(page).toHaveURL(/\/files\//)
+  await expect(page.getByText(`field-report-${id}.pdf`).first()).toBeVisible()
+})
+
+test('an arXiv paper shows its authors, version and abstract, and one paper is one link', async ({
+  page,
+}) => {
+  const n = String(Date.now() % 100000).padStart(5, '0')
+  const paperId = `2401.${n.slice(0, 4)}1` // ends in 1: the stand-in has a web version
+  await page.goto('/links')
+  await page.getByTestId('links-paste').fill(`https://arxiv.org/abs/${paperId}`)
+  await page.getByRole('button', { name: 'Save' }).click()
+  const row = page.getByTestId('link-row').filter({ hasText: `A stand-in paper ${paperId}` })
+  await expect(row).toBeVisible()
+  await expect(row).toContainText('arXiv')
+  await expect(row).toContainText('We show that stand-in papers can be read.')
+
+  // The PDF address of the same paper finds the same link.
+  await page.getByTestId('links-paste').fill(`https://arxiv.org/pdf/${paperId}v1`)
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(
+    page.getByTestId('link-row').filter({ hasText: `A stand-in paper ${paperId}` }),
+  ).toHaveCount(1)
+
+  await row.getByTestId('link-title').click()
+  await expect(page.getByTestId('link-paper')).toContainText(
+    'Ada Lovelace, Alan Turing, Grace Hopper and 1 more',
+  )
+  await expect(page.getByTestId('link-paper')).toContainText('arXiv v2')
+  await expect(page.getByTestId('link-abstract')).toContainText('stand-in papers can be read')
+  await expect(page.getByTestId('link-body')).toContainText('The method of the web version')
+  await expect(page.getByTestId('link-open-pdf')).toBeVisible()
+  await page.screenshot({ path: 'test-results/link-arxiv.png' })
 })

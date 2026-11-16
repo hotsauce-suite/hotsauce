@@ -59,7 +59,13 @@ import { ChatRooms, Forms } from './forms/index.js'
 import { GitStore } from './git/index.js'
 import { createHostAdapter } from './hosts/index.js'
 import { Index, Indexer, indexPath } from './index/index.js'
-import { fakePageFetcher, fetchPage, Links, type PageFetcher, ReadingStore } from './links/index.js'
+import {
+  fakePageFetcher,
+  Links,
+  liveFetcher,
+  type PageFetcher,
+  ReadingStore,
+} from './links/index.js'
 import {
   DeepgramRetranscriber,
   type MeetingRetranscriber,
@@ -379,6 +385,15 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       : config.TTS_PROVIDER === 'none'
         ? new UnconfiguredSpeaker()
         : new FakeSpeaker())
+  const files = new Files({
+    git,
+    index,
+    spaces,
+    syncer,
+    store: meetings.audioStore,
+    dataDir: config.DATA_DIR,
+    ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
+  })
   // Saved links: one file per link, a readable copy fetched in the background (§23).
   const links = new Links({
     git,
@@ -386,9 +401,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     spaces,
     syncer,
     fetchPage:
-      overrides.linkFetch ??
-      (config.LINK_FETCH === 'live' ? (url) => fetchPage(url) : fakePageFetcher),
+      overrides.linkFetch ?? (config.LINK_FETCH === 'live' ? liveFetcher() : fakePageFetcher),
     reading: new ReadingStore(path.join(config.DATA_DIR, 'links-reading.sqlite')),
+    files,
     llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
     model: config.LINKS_MODEL,
     publicUrl: config.PUBLIC_URL,
@@ -422,15 +437,6 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     forcedGapMs: config.BRIEF_REFRESH_GAP_SECONDS * 1000,
     nightly: config.LLM_PROVIDER !== 'none',
     ...(overrides.briefcastNow ? { now: overrides.briefcastNow } : {}),
-  })
-  const files = new Files({
-    git,
-    index,
-    spaces,
-    syncer,
-    store: meetings.audioStore,
-    dataDir: config.DATA_DIR,
-    ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
   })
   const forms = new Forms({
     git,

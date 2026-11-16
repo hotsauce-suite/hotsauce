@@ -103,7 +103,14 @@ export function extractDoc(path: string, text: string): ExtractedDoc {
 }
 
 function withHighlights(body: string, data: Record<string, unknown> | null): string {
-  const text = highlightsSearchText(highlightsOf(data))
+  // A paper's authors and abstract are searched too (docs/PLAN-links-pdfs.md R12).
+  const authors = Array.isArray(data?.authors)
+    ? data.authors.filter((a): a is string => typeof a === 'string').join(', ')
+    : ''
+  const abstract = typeof data?.abstract === 'string' ? data.abstract : ''
+  const text = [authors, abstract, highlightsSearchText(highlightsOf(data))]
+    .filter(Boolean)
+    .join('\n\n')
   return text ? `${body.replace(/\s+$/, '')}\n\n${text}\n` : body
 }
 

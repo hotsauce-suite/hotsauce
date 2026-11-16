@@ -6,10 +6,15 @@ import { z } from 'zod'
 import { patchFrontmatter } from './frontmatter.js'
 import { isId, newId } from './ids.js'
 import { cleanLabels } from './notes.js'
+import { PAPER_SERVERS, paperKey, paperOf } from './papers.js'
 
 export const LINKS_FOLDER = 'links'
 /** The longest address Hotsauce keeps. */
 export const MAX_LINK_URL = 2000
+/** A paper's authors kept in the file; the rest are dropped. */
+export const MAX_AUTHORS = 50
+/** The longest abstract kept, in characters. */
+export const MAX_ABSTRACT = 5000
 /** The longest readable copy Hotsauce keeps, in characters. */
 export const MAX_LINK_BODY = 200_000
 
@@ -31,11 +36,19 @@ function optional<T extends z.ZodType>(schema: T) {
   return z.preprocess((v) => v ?? undefined, schema.optional())
 }
 
+const PAPER_KEY = new RegExp(`^(${PAPER_SERVERS.join('|')}):\\S+$`)
+
+/** A string key that reads as absent when it isn't what Hotsauce wrote, so the link still lists. */
+function lenient(ok: (v: unknown) => boolean) {
+  return z.preprocess((v) => (ok(v) ? v : undefined), z.string().optional())
+}
+
 /** Unknown keys pass through untouched; an unknown source reads as absent. */
 export const LinkFrontmatter = z.looseObject({
   id: z.string().min(1),
   type: z.literal('link'),
-  url: z.string().min(1),
+  /** The page's address; empty for a PDF added from the computer (then `file` is set). */
+  url: z.preprocess((v) => (v == null ? '' : v), z.string()),
   title: optional(z.string()),
   /** The site's name, e.g. "The Verge", else its host. */
   site: optional(z.string()),
@@ -59,11 +72,34 @@ export const LinkFrontmatter = z.looseObject({
       typeof v === 'string' && (LINK_SOURCES as readonly string[]).includes(v) ? v : undefined,
     z.enum(LINK_SOURCES).optional(),
   ),
+  /** The Files pointer id (same space) holding the link's PDF (docs/PLAN-links-pdfs.md R1). */
+  file: lenient((v) => typeof v === 'string' && /^[0-9A-Z]{26}$/.test(v)),
+  /** `arxiv:<id>`, `biorxiv:<doi>` or `medrxiv:<doi>`: every address of one paper is one link. */
+  paper: lenient((v) => typeof v === 'string' && PAPER_KEY.test(v)),
+  /** The paper version read. */
+  version: z.preprocess(
+    (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : undefined),
+    z.number().optional(),
+  ),
+  authors: z.preprocess(
+    (v) =>
+      Array.isArray(v)
+        ? v.filter((a): a is string => typeof a === 'string').slice(0, MAX_AUTHORS)
+        : undefined,
+    z.array(z.string()).optional(),
+  ),
+  /** YYYY-MM-DD. */
+  published: lenient((v) => typeof v === 'string'),
+  doi: lenient((v) => typeof v === 'string'),
+  abstract: lenient((v) => typeof v === 'string'),
 })
 export type LinkFrontmatter = z.infer<typeof LinkFrontmatter>
 
 export interface NewLink {
+  /** Empty for a PDF added from the computer. */
   url: string
+  /** The Files id of the link's PDF. */
+  file?: string | undefined
   title?: string | undefined
   tags?: string[] | undefined
   source?: LinkSource | undefined
@@ -78,12 +114,15 @@ export function newLinkFile(link: NewLink): { id: string; path: string; text: st
   const id = link.id ?? newId()
   const saved = link.saved ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')
   const tags = cleanTags(link.tags ?? [])
+  const paper = link.url ? paperOf(link.url) : null
   const fields: Record<string, unknown> = {
     id,
     type: 'link',
     url: link.url,
     title: oneLine(link.title ?? '') || undefined,
     site: siteOf(link.url) || undefined,
+    file: link.file,
+    paper: paper ? paperKey(paper) : undefined,
     tags: tags.length > 0 ? tags : undefined,
     tags_set: tags.length > 0 || undefined,
     saved,
@@ -171,6 +210,17 @@ export function normalizeLinkUrl(raw: string): string {
   const path = url.pathname.replace(/\/+$/, '')
   const query = url.searchParams.toString()
   return `${url.protocol}//${host}${port}${path}${query ? `?${query}` : ''}`
+}
+
+/**
+ * What two saves of the same thing share: the paper (`arxiv:…`) for any address of a paper, else
+ * the normalized address. Empty for a link with no address (a PDF from the computer).
+ */
+export function linkKey(fm: { url: string; paper?: string | undefined }): string {
+  if (fm.paper) return `paper:${fm.paper}`
+  if (!fm.url.trim()) return ''
+  const paper = paperOf(fm.url)
+  return paper ? `paper:${paperKey(paper)}` : normalizeLinkUrl(fm.url)
 }
 
 /** The readable copy from a file body: without the leading blank lines or trailing space. */
