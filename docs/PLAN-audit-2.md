@@ -1,7 +1,7 @@
 # Second audit: features added since Nov 9, 2026
 
-**Status:** fixes 1 to 3 are in pull request #115 (Nov 16, 2026) and reach instances with the
-first release after it merges. The findings left for later are listed under "Not fixed here".
+**Status:** shipped. Fixes 1 to 3 merged in pull request #115 and were released in 0.17.1
+(Nov 16, 2026). The findings left for later are listed under "Not fixed here".
 
 Two independent read-only reviewers, one for lost data and one for security, went through the
 self-updater and rollback, saved page copies, the AI tool connector, public forms and booking
