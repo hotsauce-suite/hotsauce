@@ -17,6 +17,10 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
+### For you
+One list of every comment where someone @mentioned you on a doc, meeting note or task, newest first, with a count on the rail (on the phone, on the Today button) and a Today tile. Opening one marks it read; Done takes it off until you're mentioned there again; Later hides it until 9 AM tomorrow or next Monday. Replies, assigned tasks and the Mac dock count come next.
+Needs nothing extra; Done and Later are kept in your personal space.
+
 ### Docs
 Markdown documents with a source-first editor, live co-editing, history from Git, links that survive renames, search, and imports (Markdown, Word, HTML).
 Needs nothing extra.

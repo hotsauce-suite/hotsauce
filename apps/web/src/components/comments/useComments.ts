@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { HotsauceApiError } from '../../api/client'
 import { type Comment, type CommentMember, commentsApi } from '../../api/comments'
 import { hotsauceSocket } from '../../api/ws'
+import { openedForYouItem } from '../../apps/for-you/store'
 
 const DRAFT_PREFIX = 'hotsauce.comment-draft:'
 
@@ -120,6 +121,8 @@ export function useComments(space: string, path: string, enabled = true): Conver
       setCanComment(view.canComment)
       setComments(view.comments)
       setStatus('ready')
+      // Opening an item that waits in For you marks it seen there.
+      openedForYouItem(view.comments[0]?.item)
       if (view.canComment) void loadMembers().then((m) => turn === latest.current && setMembers(m))
     } catch {
       // A reload that fails keeps what is already on screen.

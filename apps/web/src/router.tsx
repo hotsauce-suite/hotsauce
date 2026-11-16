@@ -5,6 +5,7 @@ import { checkinsRoutes } from './apps/checkins/routes'
 import { clipsRoutes } from './apps/clips/routes'
 import { dictateRoutes } from './apps/dictate/routes'
 import { filesRoutes } from './apps/files/routes'
+import { forYouRoutes } from './apps/for-you/routes'
 import { formsRoutes } from './apps/forms/routes'
 import { linksRoutes } from './apps/links/routes'
 import { meetingsRoutes } from './apps/meetings/routes'
@@ -113,6 +114,7 @@ export const createAppRouter = () =>
             { path: '/files', children: filesRoutes },
             { path: '/forms', children: formsRoutes },
             { path: '/checkins', children: checkinsRoutes },
+            { path: '/for-you', children: forYouRoutes },
             { path: '/tables', children: tablesRoutes },
             { path: '/links', children: linksRoutes },
             { path: '/briefcast', children: briefcastRoutes },

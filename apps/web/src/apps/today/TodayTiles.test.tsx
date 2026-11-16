@@ -119,7 +119,8 @@ describe('Today tiles: editing (E1–E3)', () => {
 
     await userEvent.click(screen.getByTestId('today-edit'))
     await userEvent.click(screen.getByTestId('today-reset'))
-    expect(tileIds(0)).toEqual(['checkins', 'meetings', 'tasks', 'action-items'])
+    // The default, with For you offered on top (comments plan R13).
+    expect(tileIds(0)).toEqual(['for-you', 'checkins', 'meetings', 'tasks', 'action-items'])
   })
 
   it('E3: a failed save says so and stays in edit mode', async () => {

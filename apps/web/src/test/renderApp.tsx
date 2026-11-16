@@ -4,6 +4,7 @@ import { briefcastRoutes } from '../apps/briefcast/routes'
 import { checkinsRoutes } from '../apps/checkins/routes'
 import { dictateRoutes } from '../apps/dictate/routes'
 import { filesRoutes } from '../apps/files/routes'
+import { forYouRoutes } from '../apps/for-you/routes'
 import { linksRoutes } from '../apps/links/routes'
 import { meetingsRoutes } from '../apps/meetings/routes'
 import { notesRoutes } from '../apps/notes/routes'
@@ -67,6 +68,7 @@ export function renderApp(
           { path: '/files', children: filesRoutes },
           { path: '/links', children: linksRoutes },
           { path: '/checkins', children: checkinsRoutes },
+          { path: '/for-you', children: forYouRoutes },
           { path: '/people', children: peopleRoutes },
           { path: '/briefcast', children: briefcastRoutes },
         ],

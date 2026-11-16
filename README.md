@@ -100,7 +100,9 @@ commit with a readable history, links survive renames, and search covers every s
 Import Markdown, Word and HTML files, and drop live task lists into a page.
 
 Every team doc, meeting note and task has a conversation under it: comment where the work is, quote
-a passage, and @mention a teammate to send them a notification that opens on your comment.
+a passage, and @mention a teammate to send them a notification that opens on your comment. Every
+mention also waits in the teammate's For you list (on the rail and on Today) until they mark it Done
+or put it off until tomorrow or next Monday.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/default-docs-dark.webp">

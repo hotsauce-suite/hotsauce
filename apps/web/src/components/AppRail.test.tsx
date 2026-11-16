@@ -30,12 +30,14 @@ describe('the app rail', () => {
     renderApp('/docs')
     const rail = await screen.findByTestId('app-rail')
     const list = within(rail).getByTestId('rail-apps')
-    const ids = [...list.querySelectorAll('[data-testid]')].map((el) =>
+    const ids = [...list.querySelectorAll('[data-testid^="app-"]')].map((el) =>
       el.getAttribute('data-testid'),
     )
-    expect(DEFAULT_PINS).toEqual(['today', 'docs', 'tasks', 'meetings', 'chat'])
+    // For you sits right under Today (comments plan R13).
+    expect(DEFAULT_PINS).toEqual(['today', 'for-you', 'docs', 'tasks', 'meetings', 'chat'])
     expect(ids).toEqual([
       'app-switch-today',
+      'app-switch-for-you',
       'app-switch-docs',
       'app-switch-tasks',
       'app-switch-meetings',
@@ -155,14 +157,28 @@ describe('the app rail', () => {
     )
     expect(within(rail).queryByTestId('app-switch-tasks')).toBeNull()
     await waitFor(async () =>
-      expect((await api.pins()).pins).toEqual(['today', 'docs', 'meetings', 'chat', 'briefcast']),
+      expect((await api.pins()).pins).toEqual([
+        'today',
+        'for-you',
+        'docs',
+        'meetings',
+        'chat',
+        'briefcast',
+      ]),
     )
 
     // Alt+arrow moves a pinned app earlier.
     within(launcher).getByTestId('launcher-unpin-briefcast').focus()
     await userEvent.keyboard('{Alt>}{ArrowLeft}{/Alt}')
     await waitFor(async () =>
-      expect((await api.pins()).pins).toEqual(['today', 'docs', 'meetings', 'briefcast', 'chat']),
+      expect((await api.pins()).pins).toEqual([
+        'today',
+        'for-you',
+        'docs',
+        'meetings',
+        'briefcast',
+        'chat',
+      ]),
     )
 
     // No cap: every app and link can be pinned, and the rail shows them all in pin order.
@@ -216,7 +232,14 @@ describe('the app rail', () => {
     fireEvent.pointerMove(today, { pointerId: 1, clientX: 120, clientY: 10 })
     fireEvent.pointerUp(today, { pointerId: 1, clientX: 120, clientY: 10 })
     await waitFor(async () =>
-      expect((await api.pins()).pins).toEqual(['docs', 'tasks', 'today', 'meetings', 'chat']),
+      expect((await api.pins()).pins).toEqual([
+        'for-you',
+        'docs',
+        'tasks',
+        'today',
+        'meetings',
+        'chat',
+      ]),
     )
     Reflect.deleteProperty(document, 'elementFromPoint')
 
@@ -354,7 +377,7 @@ describe('the app rail', () => {
     }
     // The pinned apps come first, in rail order.
     const first = [...palette.querySelectorAll('[data-testid^="cmdk-app-"]')]
-      .slice(0, 5)
+      .slice(0, DEFAULT_PINS.length)
       .map((el) => el.getAttribute('data-testid'))
     expect(first).toEqual(DEFAULT_PINS.map((id) => `cmdk-app-${id}`))
 

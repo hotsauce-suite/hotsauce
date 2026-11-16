@@ -1,9 +1,21 @@
 // MSW routes for `/api/comments` (ARCHITECTURE §27.3): conversations under team docs, meeting
 // notes and tasks, kept in memory, with a few sample comments so the demo shows a lived-in one.
 
-import { COMMENTS_FOLDER, MAX_COMMENT, MAX_COMMENT_QUOTE, mentionedEmails } from '@hotsauce/format'
+import {
+  COMMENTS_FOLDER,
+  emptyForYouState,
+  extractTitle,
+  type ForYouState,
+  forYouStanding,
+  laterUntil,
+  MAX_COMMENT,
+  MAX_COMMENT_QUOTE,
+  markForYou,
+  mentionedEmails,
+} from '@hotsauce/format'
 import { type AnyHandler, delay, HttpResponse, http } from 'msw'
 import type { Comment, CommentMember } from '../api/comments'
+import type { ForYouItem, ForYouView } from '../api/forYou'
 import type { ServerEvent } from '../api/types'
 import type { FakeRepo, FakeUser } from './fakeRepo'
 import { ADA, PRIYA, SAM } from './seed'
@@ -61,6 +73,8 @@ export interface CommentHandlerDeps {
   broadcast: (event: ServerEvent) => void
   /** The title of the team task at `path`, or null when there is none. */
   taskTitle: (path: string) => string | null
+  /** Every team task's path, so For you can find the sample conversations before they're opened. */
+  teamTaskPaths?: (user: FakeUser) => string[]
 }
 
 export function commentHandlers(deps: CommentHandlerDeps): AnyHandler[] {
@@ -135,6 +149,58 @@ export function commentHandlers(deps: CommentHandlerDeps): AnyHandler[] {
       paths: [`${COMMENTS_FOLDER}/${c.item}/${c.id}.md`],
     })
 
+  // For you (ARCHITECTURE §27.5), worked out from these conversations; marks per member in memory.
+  const marks = new Map<string, ForYouState>()
+  const pathOf = (item: string) => [...items].find(([, id]) => id === item)?.[0] ?? null
+  const titleOf = (path: string) =>
+    isTask(path)
+      ? (deps.taskTitle(path) ?? 'A task')
+      : extractTitle(deps.repo.space('team').files.get(path) ?? '') ||
+        (path.split('/').pop() ?? path).replace(/\.md$/, '')
+  const forYou = (user: FakeUser): ForYouView => {
+    // The samples exist from the start, as they would on a server.
+    if (deps.seeded) {
+      for (const path of Object.keys(DOC_SAMPLES)) if (exists(path)) threadOf(path)
+      for (const path of deps.teamTaskPaths?.(user) ?? []) threadOf(path)
+    }
+    const state = marks.get(user.email) ?? emptyForYouState()
+    const now = new Date()
+    const out: ForYouItem[] = []
+    for (const [item, list] of threads) {
+      const path = pathOf(item)
+      if (!path || !exists(path)) continue
+      const named = list.filter((c) => c.mentions.includes(user.email) && c.author !== user.email)
+      const latest = named.at(-1)
+      if (!latest) continue
+      const standing = forYouStanding(state.items[item], latest.created, now)
+      if (!standing.shown) continue
+      out.push({
+        item,
+        space: 'team',
+        path,
+        title: titleOf(path),
+        kind: isTask(path) ? 'task' : path.startsWith('meetings/') ? 'meeting' : 'docs',
+        url: `${
+          isTask(path)
+            ? `/tasks/item/team/${path.slice('tasks/'.length, -'.md'.length)}`
+            : `/${path.startsWith('meetings/') ? 'meetings' : 'docs'}/team/${path}`
+        }#comment-${latest.id}`,
+        comment: {
+          id: latest.id,
+          author: latest.author,
+          name: latest.name,
+          text: latest.text.replace(/\s+/g, ' ').slice(0, 200),
+          created: latest.created,
+        },
+        mentions: named.length,
+        at: standing.at,
+        unseen: standing.unseen,
+      })
+    }
+    out.sort((a, b) => b.at.localeCompare(a.at))
+    return { items: out, unseen: out.filter((i) => i.unseen).length, canMark: true }
+  }
+
   const find = (item: string, id: string) => threads.get(item)?.find((c) => c.id === id)
 
   const authed =
@@ -154,6 +220,43 @@ export function commentHandlers(deps: CommentHandlerDeps): AnyHandler[] {
     }
 
   return [
+    http.get(
+      '/api/for-you',
+      authed(({ user }) => HttpResponse.json(forYou(user))),
+    ),
+    http.post(
+      '/api/for-you/:item',
+      authed(async ({ request, user, params }) => {
+        const body = (await request.json()) as {
+          action?: string
+          when?: 'tomorrow' | 'monday'
+          zone?: string
+        }
+        const item = String(params.item)
+        const now = new Date()
+        const before = marks.get(user.email) ?? emptyForYouState()
+        let next: ForYouState
+        if (body.action === 'later') {
+          let until: Date
+          try {
+            until = laterUntil(
+              body.when === 'monday' ? 'monday' : 'tomorrow',
+              now,
+              body.zone ?? 'UTC',
+            )
+          } catch {
+            return error(400, 'bad_request', `Unknown time zone: ${body.zone}`)
+          }
+          next = markForYou(before, item, { action: 'later', until: until.toISOString() }, now)
+        } else if (body.action === 'seen' || body.action === 'done' || body.action === 'undone') {
+          next = markForYou(before, item, { action: body.action }, now)
+        } else {
+          return error(400, 'bad_request', 'Unknown action')
+        }
+        marks.set(user.email, next)
+        return HttpResponse.json(forYou(user))
+      }),
+    ),
     http.get(
       '/api/comments/members',
       authed(({ user }) => HttpResponse.json({ members: members(user) })),

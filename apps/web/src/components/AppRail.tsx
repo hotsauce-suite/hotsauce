@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { feedbackEnabled } from '../api/feedback'
+import { forgetForYou, useForYou } from '../apps/for-you/store'
 import { useLive } from '../apps/meetings/live/liveState'
 import { forgetRemindersHere } from '../apps/meetings/reminders'
 import { entryId, forgetPins, pinnedEntries, type RailEntry, usePins } from '../apps/pins'
@@ -71,10 +72,14 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   const recording = live !== null && (live.state === 'recording' || live.state === 'paused')
   const vertical = orientation === 'vertical'
   const pins = usePins()
+  const waiting = useForYou().view.unseen
 
   const appItem = (app: AppManifest) => {
     const current = app.id === active
     const isRecording = app.id === 'meetings' && recording
+    // For you's count: on its own entry on the rail; on the phone bar, which has no room for it,
+    // on Today, whose tile lists them.
+    const count = app.id === (vertical ? 'for-you' : 'today') ? waiting : 0
     return (
       <RailItem
         key={app.id}
@@ -82,12 +87,19 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         to={current ? app.route : appHref(app)}
         icon={app.icon}
         label={app.label}
-        name={isRecording ? `${app.name} (recording)` : app.name}
+        name={
+          isRecording
+            ? `${app.name} (recording)`
+            : count > 0
+              ? `${app.name}, ${count} new`
+              : app.name
+        }
         current={current}
         testId={`app-switch-${app.id}`}
         goKey={GO_KEYS[app.id]}
         onWarm={() => void app.preload().catch(() => {})}
         dot={isRecording}
+        count={count}
       />
     )
   }
@@ -282,6 +294,7 @@ function RailItem({
   onWarm,
   onClick,
   dot = false,
+  count = 0,
   external = false,
   hideLabel = false,
   goKey,
@@ -297,6 +310,8 @@ function RailItem({
   onWarm?: () => void
   onClick?: ((event: MouseEvent<HTMLAnchorElement>) => void) | undefined
   dot?: boolean
+  /** A number on the icon (For you's waiting items); none at zero. */
+  count?: number
   external?: boolean
   hideLabel?: boolean
   /** Its `g` shortcut's letter, shown in the tooltip. */
@@ -314,6 +329,15 @@ function RailItem({
             aria-hidden="true"
             className="absolute -top-0.5 -right-1 size-2 rounded-full bg-ember ring-2 ring-paper"
           />
+        ) : null}
+        {count > 0 ? (
+          <span
+            data-testid="rail-count"
+            aria-hidden="true"
+            className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-ember px-1 text-center text-[0.625rem] leading-4 font-semibold text-paper ring-2 ring-paper"
+          >
+            {count > 99 ? '99+' : count}
+          </span>
         ) : null}
       </span>
       {hideLabel ? null : (
@@ -359,6 +383,7 @@ export function useSignOut(): () => void {
   return () => {
     forgetAppLocations()
     forgetPins()
+    forgetForYou()
     // Tasks keeps the last lists, people and projects in memory; they're this member's.
     forgetTaskLists()
     forgetTaskMeta()

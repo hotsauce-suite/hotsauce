@@ -1,7 +1,7 @@
 import {
   defaultTodayLayout,
-  offerForYou,
   layoutTiles,
+  offerForYou,
   removeTile,
   showGettingStarted,
   type TodayLayout,

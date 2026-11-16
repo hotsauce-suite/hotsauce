@@ -16,6 +16,7 @@ public enum Brand {
     /// lists in step.
     public static let railShortcuts: [(title: String, path: String)] = [
         ("Today", "/today"),
+        ("For you", "/for-you"),
         ("Docs", "/docs"),
         ("Meetings", "/meetings"),
         ("Dictate", "/dictate"),
