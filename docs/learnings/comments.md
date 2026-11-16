@@ -49,3 +49,7 @@
   entry.
 - **Sample tasks seed lazily per user in the mocks.** A mock that lists things across items has to
   seed them first (`seedTasksOnce`), or the demo shows half the list.
+- **A new app-wide request can turn another test flaky.** For you fetches its list as soon as the
+  rail draws. The offline tests cut the network while that answer was still on its way; it landed
+  after, and "the server answered" put the app back online. Those tests now wait until nothing is in
+  flight (`request:end` and `request:unhandled` from MSW) before cutting it.
