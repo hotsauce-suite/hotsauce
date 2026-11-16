@@ -1,8 +1,8 @@
 /**
  * `reindex [space]`: rebuilds the index from the working clones. The spaces table comes
  * back from each clone's .hearth/space.yaml, and the files of every space (or just `space`) are
- * indexed from scratch. index.sqlite itself is kept, so recents, stars, rail pins, conflicts and sync state
- * survive. Safe to run while the server is up.
+ * indexed from scratch. index.sqlite itself is kept, so conflicts and sync state survive; members'
+ * recents, stars and rail pins are in account.sqlite and never touched. Safe to run while the server is up.
  *
  *   pnpm --filter @hotsauce/server reindex [space]      (development)
  *   node apps/server/dist/cli/reindex.js [space]       (production image)
@@ -13,7 +13,7 @@ import { rebuildRegistryFromClones } from '../spaces/index.js'
 
 async function reindex(only: string | undefined): Promise<void> {
   loadEnvFile()
-  const { git, index, indexer } = createServices(loadConfig())
+  const { git, index, indexer, account } = createServices(loadConfig())
   try {
     const clones = await git.listClones()
     if (only !== undefined && !clones.includes(only)) {
@@ -27,6 +27,7 @@ async function reindex(only: string | undefined): Promise<void> {
     }
   } finally {
     index.close()
+    account.close()
   }
 }
 

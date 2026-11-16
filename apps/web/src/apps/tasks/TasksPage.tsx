@@ -13,7 +13,9 @@ import {
 import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { useCommands } from '../../keyboard/commands'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
@@ -60,13 +62,14 @@ const TITLES: Record<Exclude<TaskViewSpec['id'], 'project'>, string> = {
   done: 'Done',
 }
 
-const EMPTY: Record<TaskViewSpec['id'], string> = {
-  inbox: 'Your inbox is clear. Add a task, or press q.',
-  today: 'Nothing due today.',
-  upcoming: 'Nothing scheduled for the next two weeks.',
-  all: 'No open tasks anywhere.',
-  done: 'Nothing done in the last 30 days yet.',
-  project: 'No open tasks in this project.',
+/** A headline and one sentence for each empty list (docs/PLAN-consistency.md, requirement 5). */
+const EMPTY: Record<TaskViewSpec['id'], readonly [string, string]> = {
+  inbox: ['Your inbox is clear', 'Add a task, or press q.'],
+  today: ['Nothing due today', 'Tasks with today’s date, and anything overdue, show here.'],
+  upcoming: ['Nothing scheduled', 'Tasks due in the next two weeks show here.'],
+  all: ['No open tasks', 'Every open task, in every project, shows here.'],
+  done: ['Nothing done yet', 'Tasks you finish stay here for 30 days.'],
+  project: ['No open tasks in this project', 'Add one above, or give a task this project.'],
 }
 
 function useRouteKind(): TasksRouteKind {
@@ -529,21 +532,25 @@ export default function TasksPage() {
             ) : null}
 
             {list.error && tasks?.length === 0 ? (
-              <p role="alert" className="mb-4 text-sm text-ember-strong">
-                {list.error}
-              </p>
-            ) : null}
-
-            {tasks === null ? (
+              <LoadError things="tasks" onRetry={list.reload} />
+            ) : tasks === null ? (
               <div aria-hidden="true" className="space-y-2" data-testid="tasks-loading">
                 {[0, 1, 2].map((n) => (
                   <div key={n} className="h-12 rounded-xl bg-paper-sunk/60" />
                 ))}
               </div>
             ) : tasks.length === 0 ? (
-              <p data-testid="tasks-empty" className="px-1 py-6 text-[0.95rem] text-ink-soft">
-                {missing ? 'That task isn’t here any more.' : EMPTY[view.id]}
-              </p>
+              missing ? (
+                <EmptyState
+                  icon="tasks"
+                  title="That task isn’t here any more"
+                  testId="tasks-empty"
+                />
+              ) : (
+                <EmptyState icon="tasks" title={EMPTY[view.id][0]} testId="tasks-empty">
+                  {EMPTY[view.id][1]}
+                </EmptyState>
+              )
             ) : (
               <div className="space-y-6">
                 {groups.map((group) =>

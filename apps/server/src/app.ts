@@ -47,6 +47,13 @@ import {
 } from './api/index.js'
 import { HotsauceError } from './errors.js'
 import { mcpRoutes } from './mcp/index.js'
+import {
+  mcpChallenge,
+  oauthApiRoutes,
+  oauthBodyLimit,
+  oauthServerRoutes,
+  oauthWellKnownRoutes,
+} from './oauth/index.js'
 
 /**
  * The HTTP API (ARCHITECTURE §3.8), built from injected services. main.ts adds /ws and the web
@@ -95,10 +102,21 @@ export function createApp(deps: AppDeps) {
     .route('/api', checkinRoutes(deps))
     .route('/api', commentRoutes(deps))
     .route('/api', assistantRoutes(deps))
+    .route('/api', oauthApiRoutes(deps))
   // e2e hooks (ARCHITECTURE §7.8); never mounted outside NODE_ENV=test.
   if (deps.config.NODE_ENV === 'test') app.route('/api', testRoutes(deps))
   // The MCP endpoint for agents (ARCHITECTURE §8.2): same authentication and body limit as /api.
-  app.use('/mcp', authenticate(deps)).use('/mcp', limitBody()).route('/mcp', mcpRoutes(deps))
+  // A 401 there says where to sign in (§8.4).
+  app
+    .use('/mcp', mcpChallenge(deps))
+    .use('/mcp', authenticate(deps))
+    .use('/mcp', limitBody())
+    .route('/mcp', mcpRoutes(deps))
+  // Signing an app in to /mcp (§8.4): discovery, client registration and the token endpoint.
+  app
+    .route('/.well-known', oauthWellKnownRoutes(deps))
+    .use('/oauth/*', oauthBodyLimit())
+    .route('/oauth', oauthServerRoutes(deps))
   // Unknown API paths get a JSON 404, never the web app's index.html.
   app.all('/api/*', () => {
     throw new HotsauceError('not_found', 'No such API route')

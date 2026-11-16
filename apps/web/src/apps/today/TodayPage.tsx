@@ -8,6 +8,7 @@ import { type TodayView, todayApi } from '../../api/today'
 import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { MAC_APP_SETTINGS, useMacAppBuild } from '../../components/MacApp'
 import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { desktopSignInBridge } from '../../lib/desktop'
@@ -29,7 +30,7 @@ const toolButton =
 export default function TodayPage() {
   const session = useSession()
   const [view, setView] = useState<TodayView | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   const clock = useMinuteClock()
   const [loadedAt, setLoadedAt] = useState(() => new Date())
   // Whichever is newer: the minute clock or the last load.
@@ -44,10 +45,10 @@ export default function TodayPage() {
       const next = await todayApi.get()
       if (ask !== latest.current) return
       setView(next)
-      setError(null)
-    } catch (err) {
+      setFailed(false)
+    } catch {
       if (ask !== latest.current) return
-      setError(err instanceof HotsauceApiError ? err.message : 'Today didn’t load.')
+      setFailed(true)
     } finally {
       setLoadedAt(new Date())
     }
@@ -100,11 +101,7 @@ export default function TodayPage() {
           <div className="mb-5 flex flex-wrap items-start gap-3">
             <TodayGreeting view={view} name={session.me?.principal.name} now={now} />
           </div>
-          {error ? (
-            <p role="alert" className="mb-4 text-sm text-ember-strong">
-              {error}
-            </p>
-          ) : null}
+          {failed ? <LoadError things="day" onRetry={() => void load()} className="mb-4" /> : null}
           {layouts.error ? (
             <p
               role="alert"
@@ -115,7 +112,7 @@ export default function TodayPage() {
             </p>
           ) : null}
           {view === null || layouts.shown === null ? (
-            error ? null : (
+            failed ? null : (
               <p className="text-sm text-ink-faint" data-testid="today-loading">
                 Loading your day…
               </p>

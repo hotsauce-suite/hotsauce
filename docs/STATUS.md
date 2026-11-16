@@ -30,7 +30,7 @@ Hold a key on the Mac, talk, and clean text lands at the cursor, with team word 
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
-Screen and camera recordings with a transcript, Summarize and Action items, speed control and a shared library.
+Screen and camera recordings with a transcript, trimming, Summarize and Action items, speed control and a shared library.
 Needs the speech and AI keys and `ffmpeg` on the server; video lives on the volume or in R2/S3.
 
 ### Tasks

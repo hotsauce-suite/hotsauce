@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { AccountStore } from '../account/index.js'
+import { Index } from '../index/index.js'
 import { MemoryObjectStore } from '../storage/s3.js'
 import { restoreBackup } from './restore.js'
 import { backupsToDelete, dateOfKey, stampOf } from './retention.js'
@@ -81,6 +83,7 @@ describe('what goes in a backup (R3)', () => {
       'remotes/team.git/HEAD',
       'repos/team/plan.md',
       'clips.sqlite',
+      'account.sqlite',
       'kept-audio/m/me.wav',
       'sessions/a/meta.json',
     ])
@@ -135,6 +138,31 @@ describe('what goes in a backup (R3)', () => {
       expect(snap.files).toBe(got.length - 1)
     } finally {
       db.close()
+    }
+  })
+})
+
+describe('member lists (docs/PLAN-member-lists.md R2)', () => {
+  it('a backup carries every member’s stars, rail pins and recents', async () => {
+    const index = new Index(path.join(dataDir, 'index.sqlite'))
+    const account = new AccountStore(path.join(dataDir, 'account.sqlite'))
+    try {
+      account.setStarred('a@acme.example', 'team', 'plan.md', true)
+      account.setPins('a@acme.example', ['tasks', 'docs'])
+      account.touchRecent('a@acme.example', 'team', 'plan.md')
+      const snap = await createSnapshot(dataDir, { name: 't' })
+      const out = path.join(root, 'out')
+      await mkdir(out)
+      execFileSync('tar', ['-xzf', snap.archive, '-C', out])
+      expect(await files(out)).not.toContain('index.sqlite')
+      const copy = new AccountStore(path.join(out, 'account.sqlite'))
+      expect(copy.listStars('a@acme.example')).toEqual([{ space: 'team', path: 'plan.md' }])
+      expect(copy.getPins('a@acme.example')).toEqual(['tasks', 'docs'])
+      expect(copy.listRecents('a@acme.example', 20)).toHaveLength(1)
+      copy.close()
+    } finally {
+      account.close()
+      index.close()
     }
   })
 })

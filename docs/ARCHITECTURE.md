@@ -119,7 +119,7 @@ src/
 ```
 PORT=3000
 PUBLIC_URL=http://localhost:3000
-DATA_DIR=./.data                 # repos/, index.sqlite, uploads tmp
+DATA_DIR=./.data                 # repos/, index.sqlite, account.sqlite, uploads tmp
 AUTH_MODE=clerk|dev                          # default clerk (fail closed); dev is only accepted when NODE_ENV is development or test
 CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY      # when AUTH_MODE=clerk
 ALLOWED_EMAIL_DOMAINS=acme.example        # comma list; enforced server-side in both modes
@@ -223,13 +223,13 @@ files_fts USING fts5(title, body, content='files', tokenize='porter unicode61') 
 sync_state(space PRIMARY KEY, head_oid, synced_at)
 conflicts(space, ref, path, created_at, PRIMARY KEY(space, ref))
 spaces(name PRIMARY KEY, kind CHECK(kind IN ('team','personal')), owner_email NULL, created_at)   -- personal spaces are bound to the owner's email, never to the derived handle alone
-recents(user, space, path, opened_at, PRIMARY KEY(user,space,path))
-stars(user, space, path, PRIMARY KEY(user,space,path))
 ```
+
+Each member's recents, stars and rail pins are **not** in the index: they live in `DATA_DIR/account.sqlite` (`AccountStore`, `account/`), which is backed up and mirrored; their titles are looked up in the index per row. Releases before it kept them in the index's `recents`, `stars` and `pins` tables; the first start with the store copies them over, and those tables stay, so a rollback still finds them. Each start compares a fingerprint of them with the one saved in the store's `meta` table: changed (an older release ran after a rollback and members used it) means the older release's lists replace the store's; empty (a rebuilt index) is ignored (docs/PLAN-member-lists.md).
 
 Only `.md` files are indexed, and nothing under hidden folders (`.hearth/`, `.trash/`). `search()` returns `score` as negated bm25 (higher is better; title weighted 4x) and `snippet` with matches wrapped in `SNIPPET_OPEN` (`\u0002`) / `SNIPPET_CLOSE` (`\u0003`), which the web client splits on; snippets never carry HTML. Timestamps are ISO strings.
 
-**The `spaces` table is a cache too.** Ownership is recorded in Git in each repo's `.hearth/space.yaml` (`kind`, `owner`); on startup and on `hotsauce reindex`, the table is rebuilt from the clones' `space.yaml` files, so deleting `index.sqlite` loses nothing. `hotsauce reindex` rebuilds `files` and `spaces`; it leaves `recents`, `stars`, `pins`, `conflicts` and `sync_state` alone.
+**The `spaces` table is a cache too.** Ownership is recorded in Git in each repo's `.hearth/space.yaml` (`kind`, `owner`); on startup and on `hotsauce reindex`, the table is rebuilt from the clones' `space.yaml` files, so deleting `index.sqlite` loses nothing. `hotsauce reindex` rebuilds `files` and `spaces`; it leaves `conflicts` and `sync_state` alone.
 
 ```ts
 export class Index {
@@ -239,7 +239,7 @@ export class Index {
   removeFiles(space: string, paths: string[]): void
   search(q: string, opts: { spaces: string[]; limit?: number }): Array<{ space: string; path: string; title: string; snippet: string; score: number }>
   getSpace(name) / upsertSpace(...) / listSpaces()          // SpaceRegistry
-  // recents/stars/sync_state/conflicts accessors; getFile; close
+  // sync_state/conflicts accessors; getFile; titleOf; legacyMemberLists (the one-time copy); close
 }
 export class Indexer { constructor(git: GitReader, index: Index); full(space): Promise<void>; incremental(space, paths): Promise<void> }
 // full() on a repo with no commits yet indexes the space as empty.
@@ -328,7 +328,7 @@ WS   /ws                                      (see §3.7)
 - `SaveResult` is `CommitResult`, except that `committed` also carries `content` when Hotsauce changed what the client sent; the client adopts it as it adopts `merged` content.
 - Saves of `.md` files run `ensureId` (every doc Hotsauce saves has an `id`); if the sent text has no `id` but the file at HEAD has one, that id is kept instead of minting a new one. Frontmatter that can't be patched in place is 400 `bad_request`. The commit message is `docs: create "<title>"` or `docs: edit "<title>"` (title from `extractTitle`, else the file name), or the client's `message`; `label` adds the `Hearth-Label:` trailer to either.
 - `raw` sends `ETag: "<blobOid>"`, `Cache-Control: private, no-cache` (the URL names a path, whose bytes can change, so the browser revalidates each time; an unchanged file is a cheap 304), `nosniff`, and a sandboxing CSP, and answers `If-None-Match` with 304. Images, PDF and text are served inline by extension; anything else as `application/octet-stream` with `Content-Disposition: attachment`. In dev mode an `<img>` can't send the dev header, so the client fetches with it and uses a blob URL; with Clerk the session cookie authenticates it.
-- Recents and stars are keyed by the member's email and filtered to spaces they can still access.
+- Recents and stars are keyed by the member's email (in `account.sqlite`, §3.4) and filtered to spaces they can still access.
 
 Authorization: every `/api/spaces/:space/*` route checks `spaces.canAccess` (403 `forbidden`). Personal spaces are visible only to their owner; there is no admin override for reading personal spaces. Search silently drops spaces the member can't access.
 
@@ -613,7 +613,7 @@ Capture mode `mac`, offered only when the page runs in the Hotsauce Mac app on m
 
 ## 8. Agent access: MCP server and access tokens (platform PRD P1)
 
-Agents (Claude Code, Claude desktop, scripts) reach Hotsauce as the member who connected them. Nothing here bypasses `spaces.canAccess`: an agent sees exactly what its member sees in the web app, and every write is a commit authored by that member.
+Agents reach Hotsauce as the member who connected them: with a personal access token (Claude Code, Codex, Cursor, scripts; §8.1) or by signing in through the browser (claude.ai, ChatGPT, Grok; §8.4). Nothing here bypasses `spaces.canAccess`: an agent sees exactly what its member sees in the web app, and every write is a commit authored by that member.
 
 ### 8.1 Personal access tokens (`apps/server/src/tokens/`)
 
@@ -675,6 +675,19 @@ An organization's chat app is not exposed yet (follow-up).
 - Unit: token minting, hashing and lookup, the per-member cap, revoke, `TokenAuth` (token header never reaches the wrapped auth; unknown/revoked → null; a member gone from Clerk → null), the trailer.
 - Integration (`test/integration/mcp.test.ts`, `app.request` with an SDK `Client` over a fetch-backed transport): token routes (create, list without the secret, revoke, a token can't manage tokens, another member's token id is 404), `/api` with a token, `/mcp` 401 without one, 405 on GET; each tool; scoping refusals (Bob's personal space is `forbidden` in every tool that takes a space and absent from Alice's search and lists); `write_file` commits authored by the member with the `Hearth-Via` trailer.
 - E2E (`e2e/mcp.spec.ts`): against the built server, create a token from Settings in the browser, then a real SDK client over Streamable HTTP lists spaces, writes, searches and reads the doc back; the revoked token is refused.
+
+### 8.4 Signing in from an AI tool: OAuth (`apps/server/src/oauth/`)
+
+claude.ai, ChatGPT and Grok add a remote MCP server as a custom connector and sign in with the standard MCP authorization flow; they can't send a pasted header. Hotsauce is its own small authorization server for `/mcp` only. Plan and requirements: `docs/PLAN-mcp-oauth.md`.
+
+- **Discovery.** `GET /.well-known/oauth-protected-resource` (and `…/mcp`) is RFC 9728 metadata: resource `<PUBLIC_URL>/mcp`, authorization server `<PUBLIC_URL>`. `GET /.well-known/oauth-authorization-server` is RFC 8414 metadata (authorize, token, register, revoke endpoints; `code` only; S256 only; public clients, `none`; `client_id_metadata_document_supported`; `authorization_response_iss_parameter_supported`). Both are open to any origin. A 401 from `/mcp` carries `WWW-Authenticate: Bearer [error="invalid_token", ]resource_metadata="…"` (`mcpChallenge`). Registered before the SPA, so other `/.well-known` paths still 404.
+- **Clients.** Dynamic registration, `POST /oauth/register` (RFC 7591), 30 an hour per address (429 after): 1–10 redirect URIs of at most 2,000 characters, `https` or loopback `http`, no fragment; a requested client secret method is answered with `none`; name cut to 80 characters on one line; at most 500: past that, never the one just registered, clients with no live connection first, then the one connected (or registered) longest ago. Every `/oauth/*` body is capped at 16 KB (413). Or a client ID metadata document: a `client_id` that is an `https` URL is fetched by `ClientMetadataResolver` over `node:https` (no redirects, 5 s, 16 KB, a host name) whose socket lookup refuses any non-public answer (`guardedLookup`, IANA special-purpose ranges in a `BlockList`, IPv4-mapped forms unwrapped), so the address checked is the one connected to, must name itself as that `client_id`, and is cached for an hour.
+- **Allow.** `GET /oauth/authorize` is the web app's Allow page (`OAuthAuthorizeRoute`, outside the shell; signed out goes to sign-in and back). It calls `GET /api/oauth/authorize?<the same query>` to check the request: client known, `redirect_uri` one it registered (defaulted when it has exactly one), `response_type=code`, a 43-character S256 `code_challenge`, `resource` (when sent) `<PUBLIC_URL>/mcp` or `<PUBLIC_URL>`. Any problem is shown on the page, never redirected. The check answers `verified: true` and the tool's own name only when the return host is one we know (`claude.ai`, `claude.com`, `chatgpt.com`, `chat.openai.com`, `grok.com`); otherwise the page leads with the return host and says the name is the app's own claim. Allow is `POST /api/oauth/authorize` with the same parameters as JSON, returning `{ redirect }` with `code`, `state` and `iss` (RFC 9207); Cancel goes to the redirect with `error=access_denied`. Both need a browser session: `sessionOnly`, so a token or a connection can never approve a connection. The Allow POST must be `application/json` (415) from the server's own origin with no foreign `Sec-Fetch-Site` (403).
+- **Tokens.** `POST /oauth/token` (form-encoded or JSON). `authorization_code`: `htc_` codes live 5 minutes in memory and are single-use; client, redirect URI and PKCE verifier must match; a failed check uses the code up; a reused code revokes the connection it made. Answers `{ access_token: "hto_…", token_type: "Bearer", expires_in: 3600, refresh_token: "htr_…", scope: "mcp" }` with `Cache-Control: no-store`. `refresh_token`: same client; rotates both; presenting a replaced refresh token again revokes the whole connection, except the one just replaced within 30 s (a retry or two refreshes at once), which is refused but keeps the connection. Errors are RFC 6749 (`invalid_grant`, `invalid_request`, `invalid_client`, `unsupported_grant_type`, `invalid_target`). `POST /oauth/revoke` (RFC 7009) drops a connection by either token; unknown tokens are still 200.
+- **Using it.** `TokenAuth` sends `Bearer hto_…` to `OAuthStore.verifyAccess`, and only on `/mcp`: anywhere else it is no credential (401). The member is re-checked with `principalForUser` on every use, as for tokens, so someone who leaves loses their connections. The principal's `via` is `{ kind: 'token', tokenId: <connection id>, tokenName: <client name> }`, so everything a token can't do, a connection can't either, and writes carry `Hotsauce-Via: mcp (client "…", token "<client name>")`.
+- **Connected apps.** `GET /api/oauth/connections` → `[{ id, clientName, redirectHost, createdAt, lastUsedAt }]`, `DELETE /api/oauth/connections/:id` → 204 (404 unless the caller's), both session only. At most 20 per member; a 21st drops the one used longest ago. Settings → Connections shows "Connect by signing in" (the address and each tool's steps) and the list with Disconnect (`ConnectedApps`).
+- **Storage.** Clients and connections in `DATA_DIR/oauth/oauth.json` (atomic write), hashes of tokens only; codes in memory (a restart mid-sign-in means pressing Connect again). An unreadable file refuses every connection rather than being replaced. Not in Git, not in the index.
+- **Tests.** `test/integration/oauth.test.ts` (discovery, registration, the Allow checks, PKCE, code reuse, rotation and replay, `/api` refusing `hto_`, connections, revoke, and the MCP SDK's own OAuth client end to end); `routes/OAuthAuthorizeRoute.test.tsx`; `e2e/mcp-oauth.spec.ts` (Allow in a real browser, refresh, an SDK client on `/mcp`, Disconnect in Settings stops it).
 
 ## 9. Hotsauce Dictate
 
@@ -819,6 +832,8 @@ DELETE /api/clips/:id                       → 204                             
 PUT    /api/clips/:id/chunks/:seq           raw bytes → 204                             (owner, while recording; 12 MB body limit)
 POST   /api/clips/:id/finish                { chunks } → ClipView (status processing)   (owner)
 POST   /api/clips/:id/transcript/retry      → ClipView                                  (owner, after a failed transcript)
+PUT    /api/clips/:id/edit                  { cuts: [{ startMs, endMs }] } → ClipView     (owner; §10.6)
+DELETE /api/clips/:id/edit                  → ClipView                                  (owner; restore the original)
 GET    /api/clips/media/:id/video|thumb?exp=&sig=[&download=]   local store only: no session; HMAC-signed (per-process key), Range → 206
 ```
 
@@ -846,6 +861,17 @@ Why: in v1 the camera reached the video only if the screen share captured the fl
 - **Speakers.** Deepgram `diarize=true`; each segment carries `speaker` (0, 1, …). `ClipView.speakers` is `[{ id, name, named }]`: the owner's name for a speaker, else the recorder's name when only one person speaks, else "Speaker n". `PATCH /api/clips/:id { speakers: { "1": "Bob" } }` (owner; an empty name resets). The prompts read `[m:ss] Name: text`.
 - **Notes.** `POST /api/clips/:id/ai { kind: summary | actions }` (any member who can watch; needs a transcript) asks `CLIPS_MODEL` and keeps `aiSummary` (Markdown, images stripped) or `aiActions` (only `- [ ] …` lines; empty when none). `POST /api/clips/:id/send { to: doc | meeting, transcript }` writes into the member's personal space (else the team's), authored by them: a doc at `docs/clips/<slug>.md`, or a Meetings note at `meetings/YYYY/MM/<date>-<slug>.md` with `type: meeting` (its unticked items show on Meetings home) and, with the transcript, a sibling `.transcript.md` in Meetings' own format in the same commit. Title, link to the clip, summary, action items; `clip:` in the frontmatter links back. An existing path gets `-2`, `-3`.
 - **Tests.** Server integration: the camera track composited (a blue camera's pixels inside the bubble, the screen's outside, none before the camera's late start), a broken camera leaving the screen video, missing camera chunks, recovery mid-composite, speakers (defaults, rename, reset, refusals, prompt names), summary and action items (and stripping), send to a doc and to a meeting note with its transcript file and Meetings home action items. Web: session with two tracks (pause together, no camera track without a format or in screen mode, a refused camera upload, muted screen), `describeShare`, `deviceName`. E2E: the floating window's status and moving mic meter, the composite's bubble ring found by pixel in the output video, speaker rename, Summarize, Action items, Send to a new doc.
+
+### 10.6 Trimming (2026-11-16)
+
+Non-destructive: the original recording (and composite) is never changed. UX ideas from Cap (AGPL; no code taken).
+
+- **Model.** `clips` (migration 3) keeps `cuts` (what the owner asked for), `edit_status` (`none|pending|processing|ready|failed`), `edit_version`, and `applied_cuts` / `applied_version` / `edited_duration_ms` for the edit that plays. Cuts are `{ startMs, endMs }` in original time; `normalizeCuts` (`clips/cuts.ts`) sorts, clamps, merges, stretches a cut within 100 ms of either end to that end and drops slivers under 100 ms. At most 50 cuts; at least 1 s must be kept.
+- **API.** `PUT /api/clips/:id/edit { cuts }` (owner; ready clip; refused while a composite is pending or processing) raises `edit_version` and queues the render; the same cuts again are a no-op, no cuts means revert. `DELETE /api/clips/:id/edit` reverts: the original plays again and the edited files are removed. Only the owner's `ClipView` carries `cuts`, `sourceUrl` (the composite, else the screen video) and `sourceDurationMs`; everyone gets `edited` and `editStatus`.
+- **Render.** On the composites queue (one at a time, nice 19, one thread): `cutVideo()` (`clips/media.ts`) runs `trim`/`atrim` per kept range into `concat`, scaled to at most 1080 p (height rounded down to even), libx264 `veryfast` CRF 24 + AAC, `+faststart`, to `clips/<id>/edited-<v>.mp4` and `thumb-edited-<v>.jpg`. Each render checks `edit_version` before and after; a superseded or deleted clip's output is thrown away. Then `applied_*` move to the new version and the previous version's files are removed. A failure (including a missing thumbnail) keeps whatever played before and removes that version's files. A composite that finishes after the clip was trimmed queues the edit again so the camera bubble is in it. Restarts resume pending edits (`editsInterrupted`) and sweep edit temp files.
+- **Reading.** The transcript stays in original time on disk; `toRecord` shifts it through `cutTranscript` (lines whose middle falls in a cut are dropped, the rest moved earlier) once an edit is applied, so the page, Summarize, Action items, Send to, Ask and MCP all see the trimmed clip; `transcript_text` (search) is rewritten from it whenever the applied edit changes. Applying or reverting an edit clears `aiSummary` and `aiActions` (they may quote what was cut) and writes the short summary again, keeping the title. Media links handed out before a trim stay valid until they expire (up to about 3 hours). `durationMs`, the video and the thumbnail follow the applied edit; the local media URL carries `v=<version>` so caches see a new file.
+- **Web.** `TrimEditor` (`apps/web/src/apps/clips/`): the source video, a timeline of frames drawn into canvases (no CORS needed), drag handles (sliders, arrow keys nudge), drag-to-select then Cut for middle parts, × on a cut and Undo, Start here / End here, and Preview that skips cut ranges. `ClipPage` swaps the player when the video's identity (path plus `v`) changes, unless the viewer has started watching.
+- **Tests.** `cuts.test.ts` (server and web); integration: cut start and middle with the transcript shifted, replace and revert, refusals, last save wins, restart recovery and delete, re-render with the camera after a composite. E2E `clips-trim.spec.ts`: drag the handles, cut a middle part, Undo, Preview skipping the cut, save, the edited video's length, a viewer's 403, restore the original.
 
 ## 11. Organizations: setup, brand kit, bring-your-own keys (Hotsauce)
 

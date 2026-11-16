@@ -49,6 +49,11 @@ export const createAppRouter = () =>
           lazy: async () => ({ Component: (await import('./routes/DesktopConnectRoute')).default }),
         },
         {
+          // The Allow page AI tools open to connect by signing in (ARCHITECTURE §8.4).
+          path: '/oauth/authorize',
+          lazy: async () => ({ Component: (await import('./routes/OAuthAuthorizeRoute')).default }),
+        },
+        {
           path: '/desktop/finish',
           lazy: async () => ({ Component: (await import('./routes/DesktopFinishRoute')).default }),
         },
