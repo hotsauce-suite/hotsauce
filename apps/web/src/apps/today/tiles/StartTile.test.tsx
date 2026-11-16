@@ -382,6 +382,39 @@ describe('Getting started: replay from Settings (R1, R2)', () => {
     await waitFor(() => expect(router.state.location.search).toBe(''))
   })
 
+  it('R2: a change made while the replay is still saving isn’t undone when that save answers', async () => {
+    let release: (() => void) | undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let puts = 0
+    server.use(
+      http.get('/api/today/layout', () =>
+        HttpResponse.json({
+          layout: { ...defaultTodayLayout(), gettingStarted: 'dismissed' },
+          saved: true,
+        }),
+      ),
+      http.put('/api/today/layout', async ({ request }) => {
+        const { layout } = (await request.json()) as { layout: TodayLayout }
+        // The replay's save is slow to answer.
+        if (++puts === 1) await held
+        return HttpResponse.json({ layout, saved: true })
+      }),
+    )
+    const saves = watchSaves()
+    renderApp('/today?start=1')
+    await userEvent.click(await screen.findByTestId('today-start-hide'))
+    expect(screen.queryByTestId('today-start')).toBeNull()
+    release?.()
+    // Both saves go out, in order, and the tile stays hidden.
+    await waitFor(() => expect(saves).toHaveLength(2))
+    expect(kinds(saves[0] as TodayLayout)).toContain('start')
+    expect(kinds(saves[1] as TodayLayout)).not.toContain('start')
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByTestId('today-start')).toBeNull()
+  })
+
   it('R2: with the tile already showing, replay changes nothing', async () => {
     const saves = watchSaves()
     const { router } = renderApp('/today?start=1')
