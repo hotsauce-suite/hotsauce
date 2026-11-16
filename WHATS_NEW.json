@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.29.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "For you: one list of every comment that mentions you, with a count on the rail and a Today tile. Opening an item marks it read; Done takes it off (with Undo); Later brings it back at 9 AM tomorrow or next Monday."
+        },
+        {
+          "text": "For you in the Go menu.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.28.0",
       "date": "2026-11-16",
       "notes": [
