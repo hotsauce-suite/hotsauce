@@ -1,6 +1,6 @@
 import path from 'node:path'
 import type { Page } from '@playwright/test'
-import { docUrl, signIn, uid } from './fixtures'
+import { docUrl, expectShareWithCopyLink, signIn, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
 // Hotsauce Files (ARCHITECTURE §18), against the built server with the local store. The team
@@ -102,8 +102,10 @@ test('upload, preview, organize, search and share files', async ({ page, member,
 
   // A share link opens this personal file for a teammate, and only while it's on.
   await row(page, `nda-${id}.pdf`).getByTestId('files-open').click()
+  await expectShareWithCopyLink(page, 'file-share-menu')
+  await page.getByTestId('file-share-menu').click()
   await page.getByTestId('file-share').click()
-  await expect(page.getByTestId('file-unshare')).toBeVisible()
+  await expect(page.getByTestId('file-shared-note')).toBeVisible()
   const listed = await member.request.get('/api/files', {
     params: { space: member.personal, folder: `Legal ${id}` },
   })
@@ -118,8 +120,9 @@ test('upload, preview, organize, search and share files', async ({ page, member,
   await expect(otherPage.getByTestId('file-preview-pdf')).toBeVisible()
   await expect(otherPage.getByTestId('shared-download')).toBeVisible()
 
+  await page.getByTestId('file-share-menu').click()
   await page.getByTestId('file-unshare').click()
-  await expect(page.getByTestId('file-unshare')).toHaveCount(0)
+  await expect(page.getByTestId('file-shared-note')).toHaveCount(0)
   await otherPage.reload()
   await expect(otherPage.getByRole('alert')).toContainText('turned off')
   await other.close()

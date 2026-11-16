@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test'
-import { openApp, signIn, uid } from './fixtures'
+import { expectShareWithCopyLink, openApp, signIn, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
 // Hotsauce Whiteboard (ARCHITECTURE §15), against the built server: draw, autosave, reload,
@@ -109,6 +109,7 @@ test('W9: new board → draw a box and a text → it saves itself → reload →
   })
 
   await test.step('the boards page finds it by the word written on it', async () => {
+    await expectShareWithCopyLink(page, 'board-share')
     await page.getByTestId('page-back').click()
     await expect(page).toHaveURL(/\/boards$/)
     await page.getByTestId('boards-search').fill(word)

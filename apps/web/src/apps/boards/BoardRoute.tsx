@@ -4,6 +4,9 @@ import { type BoardView, boardsApi } from '../../api/boards'
 import { HotsauceApiError } from '../../api/client'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { MenuItem } from '../../components/Menu'
+import { ShareButton } from '../../components/ShareButton'
+import { useSession } from '../../state/session'
 import { MeetingsPageHeader } from '../meetings/components/common'
 import { BoardCanvas, type BoardCanvasHandle } from './BoardCanvas'
 import { type Peer, peerColor } from './collab'
@@ -26,7 +29,7 @@ export default function BoardRoute() {
     s: 'saved',
   })
   const [title, setTitle] = useState('')
-  const [copied, setCopied] = useState(false)
+  const { notify } = useSession()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const canvas = useRef<BoardCanvasHandle | null>(null)
   const [peers, setPeers] = useState<Peer[]>([])
@@ -101,10 +104,18 @@ export default function BoardRoute() {
     const text = `[![${name}](/${board.path})](/${board.path})`
     try {
       await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
+      notify('Copied. Paste it into a doc to show this board there.')
     } catch {
       setStatus({ s: 'error', error: `Copy this into a doc: ${text}` })
+    }
+  }
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      notify('Link copied. Anyone who can see this board can open it.')
+    } catch {
+      notify('Couldn’t copy the link. Copy it from the address bar instead.')
     }
   }
 
@@ -195,16 +206,32 @@ export default function BoardRoute() {
             >
               {STATUS_TEXT[status.s]}
             </span>
-            <button
-              type="button"
-              onClick={() => void copyEmbed()}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink"
-              data-testid="board-copy-embed"
-              title="Copy a link that shows this board inside a doc"
-            >
-              <Icon name="link" className="size-4" />
-              <span className="hidden md:inline">{copied ? 'Copied' : 'Embed in a doc'}</span>
-            </button>
+            <ShareButton testId="board-share">
+              {(close) => (
+                <>
+                  <MenuItem
+                    icon="link"
+                    testId="board-copy-link"
+                    onSelect={() => {
+                      close()
+                      void copyLink()
+                    }}
+                  >
+                    Copy link
+                  </MenuItem>
+                  <MenuItem
+                    icon="copy"
+                    testId="board-copy-embed"
+                    onSelect={() => {
+                      close()
+                      void copyEmbed()
+                    }}
+                  >
+                    Copy to paste into a doc
+                  </MenuItem>
+                </>
+              )}
+            </ShareButton>
             {confirmDelete ? (
               <span className="flex items-center gap-1">
                 <button

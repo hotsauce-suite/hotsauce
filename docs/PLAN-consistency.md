@@ -3,8 +3,9 @@
 **Status:** (Nov 16, 2026) Round 1 is shipped in full: requirements 1 to 5 (0.18.0, PR #117),
 Links and the words (PR #128), plain titles with "Boards" (PR #130), the re-recorded app videos
 (PR #133), and now "Saved" for "Committed" on a doc's save chip. Round 2 (the top bar) is being
-built: its first step is a map of every app's top bar as it is. "Shown once" (the page's top bar
-naming where you are instead of repeating the app's name) ships with it. Round 3 not started.
+built in steps: the red main button (PR #145) and "‹ App name" with × on pop-ups (PR #148) are
+merged, one "Share" button is in its PR, and the phone top bar is next. The videos and screenshots
+are re-recorded once, after the last step. Round 3 not started.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
@@ -61,12 +62,22 @@ It ships in rounds; round 1 moves no control.
    Every pop-up has an × at its top right, as side panels do. Docs and meeting notes keep their
    breadcrumb beside the sidebar.
    *(PageHeader.test; Dialog.test; e2e boards, clips, forms, tables, links, check-ins, people)*
-10. One "Share" button with "Copy link" inside it.
+10. **One "Share" button.** Wherever a thing can be sent to someone, the button says **Share**
+    and opens a menu; **Copy link** is the first item, and the app's other ways of sharing (read-only
+    link, Share with team, Make private, Move to Team, the copy to paste into a doc) are inside
+    it. Docs, Meetings, Clips, Forms, Files, Links, Boards; Notes has the share icon named Share
+    in its row of tools; Pages keeps its read-only link there. Escape closes the menu only, not
+    the pop-up it sits in.
+    *(ShareButton.test; e2e `expectShareWithCopyLink` in drive, links, boards, clips, forms;
+    notes.spec)*
 11. Phone top bar: menu, title, the one main button with its words; the rest behind "More". The
     assistant button never covers a control. A doc's title is its name, not its file name.
 
 ### Decisions taken in round 2
 
+- Share is `components/ShareButton.tsx`; a copied link is confirmed by the toast at the bottom
+  (`notify`), not by the button changing its word. In Links, "Copy link" copies the address of
+  the saved copy here (like everywhere else) and "Copy the page’s web address" copies the original.
 - The top bar is `components/PageHeader.tsx` (`PageHeader`, `MainButton`); the old name
   `MeetingsPageHeader` still points at it so pages move over one at a time.
 - With more than one space, "New form", "New table" and "Import" first ask whose it is

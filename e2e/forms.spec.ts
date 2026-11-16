@@ -1,4 +1,4 @@
-import { expect, newForm, test, uid } from './fixtures'
+import { expect, expectShareWithCopyLink, newForm, test, uid } from './fixtures'
 
 // Hotsauce Forms (docs/plans/2026-11-12-forms.md R5–R14): a member builds a public form with a
 // condition and a file question in the app; someone signed out answers it; the member reads the
@@ -12,6 +12,7 @@ test('build a public form, answer it signed out with a file, and read the answer
   const title = `Kit request ${id}`
   await page.goto('/forms')
   await newForm(page, title)
+  await expectShareWithCopyLink(page, 'form-share')
 
   // The new form starts with "Your name"; add a choice, a question shown only for "Lab", a file.
   await page.getByTestId('add-question-type').selectOption('choice')
