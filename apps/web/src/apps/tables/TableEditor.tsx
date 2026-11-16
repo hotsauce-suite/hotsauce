@@ -5,8 +5,8 @@ import { HotsauceApiError } from '../../api/client'
 import { peopleApi } from '../../api/people'
 import { type TableView, tablesApi } from '../../api/tables'
 import { product } from '../../brand/product'
-import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
+import { ItemStatus } from '../../components/ItemStatus'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu, useNameWhenFresh } from '../../components/PageHeader'
 import { useSession } from '../../state/session'
@@ -49,7 +49,6 @@ function TableEditor() {
   const { spaceLabel } = useSession()
   const [table, setTable] = useState<TableView | null>(null)
   const location = useLocation()
-  const { compact } = useShell()
   const [sheet, setSheet] = useState<Sheet | null>(null)
   useNameWhenFresh(
     (location.state as { fresh?: boolean } | null)?.fresh === true,
@@ -258,14 +257,6 @@ function TableEditor() {
     )
   }
 
-  const statusText: Record<Status, string> = {
-    saved: 'Saved',
-    unsaved: 'Unsaved changes',
-    saving: 'Saving…',
-    error: 'Not saved',
-    conflict: 'Not saved',
-  }
-
   const downloadCsv = async () =>
     download(await tablesApi.csv(space, id), `${fileTitle(title)}.csv`)
   const downloadXlsx = async () =>
@@ -291,75 +282,46 @@ function TableEditor() {
           />
         }
       >
-        <span className="hidden text-xs text-ink-faint sm:inline">{spaceLabel(space)}</span>
-        <span
-          className={`text-xs ${status === 'error' || status === 'conflict' ? 'text-ember-strong' : 'text-ink-faint'}`}
-          data-testid="save-status"
-        >
-          {statusText[status]}
-        </span>
-        {compact ? (
-          <MoreMenu>
-            {(close) => (
-              <>
-                <MenuItem
-                  icon="download"
-                  onSelect={() => {
-                    close()
-                    void downloadCsv()
-                  }}
-                >
-                  Download CSV
-                </MenuItem>
-                <MenuItem
-                  icon="download"
-                  testId="download-xlsx"
-                  onSelect={() => {
-                    close()
-                    void downloadXlsx()
-                  }}
-                >
-                  Download Excel
-                </MenuItem>
-                <MenuItem
-                  icon="trash"
-                  danger
-                  onSelect={() => {
-                    close()
-                    setConfirmDelete(true)
-                  }}
-                >
-                  Delete
-                </MenuItem>
-              </>
-            )}
-          </MoreMenu>
-        ) : (
-          <>
-            <button
-              type="button"
-              className={`${secondaryButton} h-8 px-3`}
-              onClick={() => void downloadCsv()}
-            >
-              CSV
-            </button>
-            <button
-              type="button"
-              className={`${secondaryButton} h-8 px-3`}
-              data-testid="download-xlsx"
-              onClick={() => void downloadXlsx()}
-            >
-              Excel
-            </button>
-            <button
-              type="button"
-              className={`${secondaryButton} h-8 px-3`}
-              onClick={() => setConfirmDelete(true)}
-            >
-              Delete
-            </button>
-          </>
-        )}
+        <ItemStatus
+          whose={spaceLabel(space)}
+          save={status === 'conflict' ? 'error' : status}
+          testId="save-status"
+        />
+        <MoreMenu>
+          {(close) => (
+            <>
+              <MenuItem
+                icon="download"
+                onSelect={() => {
+                  close()
+                  void downloadCsv()
+                }}
+              >
+                Download CSV
+              </MenuItem>
+              <MenuItem
+                icon="download"
+                testId="download-xlsx"
+                onSelect={() => {
+                  close()
+                  void downloadXlsx()
+                }}
+              >
+                Download Excel
+              </MenuItem>
+              <MenuItem
+                icon="trash"
+                danger
+                onSelect={() => {
+                  close()
+                  setConfirmDelete(true)
+                }}
+              >
+                Delete table
+              </MenuItem>
+            </>
+          )}
+        </MoreMenu>
       </MeetingsPageHeader>
       {status === 'conflict' ? (
         <div

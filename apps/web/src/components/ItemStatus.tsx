@@ -34,14 +34,14 @@ export function ItemStatus({
   testId,
 }: {
   /** "Personal" or "Team". Hidden on a phone, where the top bar has no room for it. */
-  whose?: string
+  whose?: string | undefined
   /** Left out for a thing that has nothing to save as you type (a clip, a page). */
-  save?: ItemSave
+  save?: ItemSave | undefined
   /** The chip's words when they differ from the state's own ("Unsaved changes"). */
-  words?: string
+  words?: string | undefined
   /** What went wrong, shown on hover. */
-  error?: string
-  testId?: string
+  error?: string | undefined
+  testId?: string | undefined
 }) {
   return (
     <span data-testid="item-status" className="flex shrink-0 items-center gap-2">

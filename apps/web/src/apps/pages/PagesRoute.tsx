@@ -5,6 +5,7 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { ItemStatus } from '../../components/ItemStatus'
 import {
   inScope,
   ListBar,
@@ -112,7 +113,7 @@ export function PagesList() {
 export function PageRoute() {
   const { space = '', id = '' } = useParams()
   const navigate = useNavigate()
-  const { notify } = useSession()
+  const { notify, spaceLabel } = useSession()
   const [version, setVersion] = useState<string | undefined>(undefined)
   const [page, setPage] = useState<PageView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -189,43 +190,31 @@ export function PageRoute() {
   return (
     <>
       <MeetingsPageHeader title={page?.title ?? 'Page'} back={{ to: '/pages', label: 'Pages' }}>
+        {page ? <ItemStatus whose={spaceLabel(page.space)} /> : null}
         {compact ? null : versionPicker}
-        {compact ? (
-          <MoreMenu onOpen={() => link.refresh()}>
-            {(close) => (
-              <>
-                {shareItems(close)}
-                <MenuItem
-                  icon="trash"
-                  danger
-                  testId="page-delete"
-                  onSelect={() => {
-                    close()
-                    void remove()
-                  }}
-                >
-                  Delete page
-                </MenuItem>
-              </>
-            )}
-          </MoreMenu>
-        ) : (
-          <>
-            <ShareButton testId="page-share" onOpen={() => link.refresh()}>
-              {shareItems}
-            </ShareButton>
-            <button
-              type="button"
-              data-testid="page-delete"
-              aria-label="Delete page"
-              title="Delete page"
-              onClick={() => void remove()}
-              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-ember-wash hover:text-ember-strong"
-            >
-              <Icon name="trash" />
-            </button>
-          </>
+        {compact ? null : (
+          <ShareButton testId="page-share" onOpen={() => link.refresh()}>
+            {shareItems}
+          </ShareButton>
         )}
+        <MoreMenu onOpen={() => link.refresh()}>
+          {(close) => (
+            <>
+              {compact ? shareItems(close) : null}
+              <MenuItem
+                icon="trash"
+                danger
+                testId="page-delete"
+                onSelect={() => {
+                  close()
+                  void remove()
+                }}
+              >
+                Delete page
+              </MenuItem>
+            </>
+          )}
+        </MoreMenu>
       </MeetingsPageHeader>
       <div className="flex min-h-0 flex-1 flex-col">
         {error ? (

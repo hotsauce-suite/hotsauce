@@ -38,10 +38,13 @@ test('build a public form, answer it signed out with a file, and read the answer
   await page.getByTestId('add-question').click()
   await page.getByTestId('question-card').nth(4).getByTestId('question-label').fill('Start date')
 
-  await page.getByTestId('form-tab-settings').click()
+  // Settings is a pop-up from the top bar; Done saves what was changed in it and the questions.
+  await page.getByTestId('form-settings').click()
+  await expect(page.getByTestId('form-settings-dialog')).toBeVisible()
   await page.getByTestId('form-access-public').check()
-  await page.getByTestId('form-save').click()
-  await expect(page.getByTestId('form-save')).toHaveText('Saved')
+  await page.getByTestId('form-settings-done').click()
+  await expect(page.getByTestId('form-settings-dialog')).toHaveCount(0)
+  await expect(page.getByTestId('form-status')).toHaveText('Saved')
   const link = await page.getByTestId('form-open-link').getAttribute('href')
   expect(link).toMatch(/\/f\/[A-Za-z0-9_-]{24}$/)
 

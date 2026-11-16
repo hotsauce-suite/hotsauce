@@ -28,6 +28,14 @@ test.describe('as an admin', () => {
     await dialog.getByTestId('checkin-save').click()
     await expect(page.getByTestId('checkin-title')).toHaveText(question)
     await expect(page.getByTestId('page-back')).toHaveText('Check-ins')
+    // The question is the top bar's title, Settings sits beside it, and Delete is in More
+    // (docs/PLAN-consistency.md, requirements 20, 21 and 23).
+    const bar = page.getByTestId('page-header')
+    await expect(bar.getByTestId('checkin-title')).toHaveText(question)
+    await expect(bar.getByTestId('checkin-settings')).toBeVisible()
+    await bar.getByTestId('page-more').click()
+    await expect(page.getByRole('menuitem', { name: 'Delete check-in' })).toBeVisible()
+    await page.keyboard.press('Escape')
     const at = page.url()
 
     // When the minute comes, Today asks.

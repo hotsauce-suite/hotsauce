@@ -325,6 +325,7 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
 
   await test.step('the owner deletes it', async () => {
     await page.goto(`/clips/${clipId}`)
+    await page.getByTestId('page-more').click()
     await page.getByTestId('clip-delete').click()
     await page.getByTestId('clip-delete-confirm').click()
     await expect(page).toHaveURL(/\/clips$/)

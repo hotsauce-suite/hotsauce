@@ -4,7 +4,7 @@ import { type BoardView, boardsApi } from '../../api/boards'
 import { HotsauceApiError } from '../../api/client'
 import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
-import { Icon } from '../../components/Icon'
+import { ItemStatus } from '../../components/ItemStatus'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
@@ -13,13 +13,6 @@ import { MeetingsPageHeader } from '../meetings/components/common'
 import { BoardCanvas, type BoardCanvasHandle } from './BoardCanvas'
 import { type Peer, peerColor } from './collab'
 import type { SaveStatus } from './session'
-
-const STATUS_TEXT: Record<SaveStatus, string> = {
-  saved: 'Saved',
-  saving: 'Saving…',
-  unsaved: 'Editing',
-  error: 'Not saved',
-}
 
 /** `/boards/:space/:id`: one board, drawn in Excalidraw, saved as you go. */
 export default function BoardRoute() {
@@ -223,37 +216,12 @@ export default function BoardRoute() {
                 ) : null}
               </span>
             ) : null}
-            <span className="hidden text-xs text-ink-faint sm:inline">
-              {board.space === 'team' ? 'Team' : 'Private'}
-            </span>
-            <span
-              className={`text-xs ${status.s === 'error' ? 'text-ember' : 'text-ink-faint'}`}
-              data-testid="board-status"
-              role="status"
-              title={status.error}
-            >
-              {STATUS_TEXT[status.s]}
-            </span>
-            {compact && !confirmDelete ? (
-              <MoreMenu>
-                {(close) => (
-                  <>
-                    {shareItems(close)}
-                    <MenuItem
-                      icon="trash"
-                      danger
-                      testId="board-delete"
-                      onSelect={() => {
-                        close()
-                        setConfirmDelete(true)
-                      }}
-                    >
-                      Delete board
-                    </MenuItem>
-                  </>
-                )}
-              </MoreMenu>
-            ) : null}
+            <ItemStatus
+              whose={board.space === 'team' ? 'Team' : 'Personal'}
+              save={status.s}
+              error={status.error}
+              testId="board-status"
+            />
             {compact ? null : <ShareButton testId="board-share">{shareItems}</ShareButton>}
             {confirmDelete ? (
               <span className="flex items-center gap-1">
@@ -273,16 +241,25 @@ export default function BoardRoute() {
                   Cancel
                 </button>
               </span>
-            ) : compact ? null : (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                aria-label="Delete board"
-                className="inline-flex size-8 items-center justify-center rounded-md text-ink-soft hover:bg-paper-sunk hover:text-ember"
-                data-testid="board-delete"
-              >
-                <Icon name="trash" className="size-4" />
-              </button>
+            ) : (
+              <MoreMenu>
+                {(close) => (
+                  <>
+                    {compact ? shareItems(close) : null}
+                    <MenuItem
+                      icon="trash"
+                      danger
+                      testId="board-delete"
+                      onSelect={() => {
+                        close()
+                        setConfirmDelete(true)
+                      }}
+                    >
+                      Delete board
+                    </MenuItem>
+                  </>
+                )}
+              </MoreMenu>
             )}
           </>
         ) : null}

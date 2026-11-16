@@ -10,7 +10,6 @@ import { Icon } from '../../components/Icon'
 import { MenuItem, menuItemClass } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
-import { IconButton } from '../../components/TopBar'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { docUrl, meetingUrl } from '../../lib/paths'
 import { useSession } from '../../state/session'
@@ -347,54 +346,7 @@ export default function ClipPage() {
           )
         }
       >
-        {compact ? (
-          <MoreMenu>
-            {(close) => (
-              <>
-                {shareItems(close)}
-                {canTrim && !trimming ? (
-                  <MenuItem
-                    icon="scissors"
-                    testId="clip-trim"
-                    onSelect={() => {
-                      close()
-                      video.current?.pause()
-                      setTrimming(true)
-                    }}
-                  >
-                    Trim
-                  </MenuItem>
-                ) : null}
-                {clip.downloadUrl ? (
-                  <a
-                    role="menuitem"
-                    href={clip.downloadUrl}
-                    download
-                    data-testid="clip-download"
-                    onClick={close}
-                    className={menuItemClass}
-                  >
-                    <Icon name="download" className="size-4 text-ink-faint" />
-                    Download
-                  </a>
-                ) : null}
-                {clip.isOwner ? (
-                  <MenuItem
-                    icon="trash"
-                    danger
-                    testId="clip-delete"
-                    onSelect={() => {
-                      close()
-                      setConfirmDelete(true)
-                    }}
-                  >
-                    Delete clip
-                  </MenuItem>
-                ) : null}
-              </>
-            )}
-          </MoreMenu>
-        ) : (
+        {compact ? null : (
           <>
             <ShareButton testId="clip-share">{shareItems}</ShareButton>
             {canTrim && !trimming ? (
@@ -411,28 +363,58 @@ export default function ClipPage() {
                 Trim
               </button>
             ) : null}
-            {clip.downloadUrl ? (
-              <a
-                href={clip.downloadUrl}
-                download
-                aria-label="Download"
-                title="Download"
-                data-testid="clip-download"
-                className="flex size-8 items-center justify-center rounded-lg text-ink-soft hover:bg-paper-sunk hover:text-ink"
-              >
-                <Icon name="download" className="size-4" />
-              </a>
-            ) : null}
-            {clip.isOwner ? (
-              <IconButton
-                icon="trash"
-                label="Delete clip"
-                testId="clip-delete"
-                onClick={() => setConfirmDelete(true)}
-              />
-            ) : null}
           </>
         )}
+        <MoreMenu>
+          {(close) => (
+            <>
+              {compact ? (
+                <>
+                  {shareItems(close)}
+                  {canTrim && !trimming ? (
+                    <MenuItem
+                      icon="scissors"
+                      testId="clip-trim"
+                      onSelect={() => {
+                        close()
+                        video.current?.pause()
+                        setTrimming(true)
+                      }}
+                    >
+                      Trim
+                    </MenuItem>
+                  ) : null}
+                </>
+              ) : null}
+              {clip.downloadUrl ? (
+                <a
+                  role="menuitem"
+                  href={clip.downloadUrl}
+                  download
+                  data-testid="clip-download"
+                  onClick={close}
+                  className={menuItemClass}
+                >
+                  <Icon name="download" className="size-4 text-ink-faint" />
+                  Download
+                </a>
+              ) : null}
+              {clip.isOwner ? (
+                <MenuItem
+                  icon="trash"
+                  danger
+                  testId="clip-delete"
+                  onSelect={() => {
+                    close()
+                    setConfirmDelete(true)
+                  }}
+                >
+                  Delete clip
+                </MenuItem>
+              ) : null}
+            </>
+          )}
+        </MoreMenu>
       </MeetingsPageHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden" data-testid="clip-page">
