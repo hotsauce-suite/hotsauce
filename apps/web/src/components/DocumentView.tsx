@@ -228,7 +228,8 @@ export function DocumentView({
 
   // The conversation under a team doc or meeting note (docs/PLAN-comments.md). It loads after
   // the text, in its own request; in the editor it sits in a slot after the last line.
-  const conversation = useComments(space, path, opened)
+  const teamSpace = session.spaces.find((s) => s.kind === 'team')?.name
+  const conversation = useComments(space, path, opened && space === teamSpace)
   const conversationRef = useRef(conversation)
   conversationRef.current = conversation
   const [commentsHost] = useState(() => {

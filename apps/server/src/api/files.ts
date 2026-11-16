@@ -149,7 +149,7 @@ export async function moveToTrash(
   opts: {
     via?: string | undefined
     /** With the index, the conversations under what is deleted go in the same commit (§27.1). */
-    index?: Pick<Index, 'getFile' | 'listFiles'>
+    index?: Pick<Index, 'getFile' | 'listFiles' | 'filesById'>
   } = {},
 ): Promise<string> {
   const day = new Date().toISOString().slice(0, 10)

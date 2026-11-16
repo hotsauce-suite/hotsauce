@@ -59,20 +59,22 @@ export function Conversation({
   reveal.current = onReveal
 
   const focused = focusId !== null && c.comments.some((m) => m.id === focusId)
-  // Landing on a comment: once it has loaded, bring it into view. Once per comment.
-  const landed = useRef<string | null>(null)
+  // Landing on a comment: once it has loaded, bring it into view. Once per comment, however
+  // often this view is swapped for the other one (the editor and the reading view each mount it).
+  const { handled } = c
   useEffect(() => {
-    if (!focused || landed.current === focusId) return
-    landed.current = focusId
+    if (!focused || handled.current.comment === focusId) return
+    handled.current.comment = focusId
     reveal.current?.()
     return whenConnected(
       () => list.current?.querySelector<HTMLElement>(`[data-comment="${focusId}"]`) ?? null,
       (el) => el.scrollIntoView({ block: 'center' }),
     )
-  }, [focused, focusId])
+  }, [focused, focusId, handled])
 
   useEffect(() => {
-    if (focusBox === 0) return
+    if (focusBox === 0 || handled.current.box === focusBox) return
+    handled.current.box = focusBox
     reveal.current?.()
     return whenConnected(
       () => box.current,
@@ -81,7 +83,7 @@ export function Conversation({
         el.focus({ preventScroll: true })
       },
     )
-  }, [focusBox])
+  }, [focusBox, handled])
 
   if (!c.canComment) {
     return c.status === 'error' ? (
@@ -170,7 +172,7 @@ export function Conversation({
           onChange={(text) => c.setDraft({ text, quote: c.draft.quote })}
           onSubmit={() => void c.send()}
           members={c.members}
-          disabled={c.busy}
+          readOnly={c.busy}
           placeholder="Add a comment. Type @ to mention someone."
           label="Add a comment"
           testId="comment-input"
@@ -284,7 +286,7 @@ function CommentItem({
             onSubmit={() => void save()}
             onCancel={() => setMode('view')}
             members={c.members}
-            disabled={busy}
+            readOnly={busy}
             label="Edit your comment"
             testId="comment-edit-input"
             autoFocus

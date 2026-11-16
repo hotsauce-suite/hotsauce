@@ -44,7 +44,7 @@ const comment = (n: number, over: Partial<Comment> = {}): Comment => ({
 })
 
 describe('Comments', () => {
-  it('R1, R3: a team doc shows its conversation under the text, and a new comment joins it', async () => {
+  it('R1: a team doc shows its conversation under the text, and a new comment joins it', async () => {
     const { section } = await openDoc()
     const before = within(section).getAllByTestId('comment')
     expect(before).toHaveLength(2)
@@ -61,6 +61,16 @@ describe('Comments', () => {
     expect(within(mine).getByTestId('comment-author')).toHaveTextContent('Ada Lovelace')
     expect(screen.getByTestId('comment-input')).toHaveValue('')
     expect(screen.getByTestId('comments-toggle')).toHaveAccessibleName('Comments (3)')
+  })
+
+  it('going to the comment box once does not pull you back when the view changes', async () => {
+    await openDoc()
+    await userEvent.click(screen.getByTestId('comments-toggle'))
+    await waitFor(() => expect(screen.getByTestId('comment-input')).toHaveFocus())
+    await userEvent.click(screen.getByTestId('reading-toggle'))
+    await screen.findByTestId('reading-view')
+    await new Promise((r) => setTimeout(r, 200))
+    expect(screen.getByTestId('comment-input')).not.toHaveFocus()
   })
 
   it('R2: a personal doc has no comment box', async () => {
@@ -218,6 +228,16 @@ describe('comment helpers', () => {
     expect(mentionText(members[0] as (typeof members)[0], members)).toBe('@Ada Lovelace')
     expect(mentionText(members[1] as (typeof members)[0], members)).toBe('@sam')
     expect(mentionText(members[2] as (typeof members)[0], members)).toBe('@sam2')
+  })
+
+  it('never writes a name the server would read as nobody', () => {
+    // "Alex" is one member's name and the other's handle, so it names neither.
+    const team = [
+      { email: 'alex@example.test', name: 'Alex Kim', handle: 'alex' },
+      { email: 'alexander@example.test', name: 'Alex', handle: 'alexander' },
+    ]
+    expect(mentionText(team[1] as (typeof team)[0], team)).toBe('@alexander')
+    expect(mentionText(team[0] as (typeof team)[0], team)).toBe('@Alex Kim')
   })
 
   it('reads the comment a link points at', () => {

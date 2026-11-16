@@ -38,6 +38,8 @@ const MENTION_PUSH_TTL_SECONDS = 24 * 60 * 60
 export const COMMENTABLE_KINDS: readonly FileKind[] = ['docs', 'other', 'meeting', 'task']
 
 export function isCommentable(path: string): boolean {
+  // Never something hidden: the trash and `.hearth` hold files, not items people talk under.
+  if (path.split('/').some((part) => part.startsWith('.'))) return false
   return path.toLowerCase().endsWith('.md') && COMMENTABLE_KINDS.includes(kindOf(path))
 }
 
@@ -180,7 +182,7 @@ export class Comments {
       const title = titleOf(input.path, file.content)
       const changes: Change[] = [{ path, content: commentFile(fm, text) }]
       if (withId.added) changes.unshift({ path: input.path, content: withId.text })
-      const result = await this.#d.git.commit(TEAM_SPACE, {
+      const result = await this.#commit({
         changes,
         author: { name: principal.name, email: principal.email },
         message: withVia(
@@ -193,7 +195,7 @@ export class Comments {
           ? { path: input.path, blobOid: file.blobOid }
           : { path, blobOid: null },
       })
-      if (result.status === 'conflict') {
+      if (result === 'conflict') {
         if (attempt >= WRITE_ATTEMPTS) {
           throw new HotsauceError('conflict', 'This changed at the same time; try again')
         }
@@ -229,7 +231,7 @@ export class Comments {
         edited: this.#iso(),
         mentions: mentionedEmails(text, members),
       })
-      const result = await this.#d.git.commit(TEAM_SPACE, {
+      const result = await this.#commit({
         changes: [{ path: prior.path, content: commentFile(fm, text) }],
         author: { name: principal.name, email: principal.email },
         message: withVia(
@@ -238,7 +240,7 @@ export class Comments {
         ),
         unchanged: { path: prior.path, blobOid: prior.blobOid },
       })
-      if (result.status === 'conflict') {
+      if (result === 'conflict') {
         if (attempt >= WRITE_ATTEMPTS) {
           throw new HotsauceError('conflict', 'This changed at the same time; try again')
         }
@@ -272,7 +274,7 @@ export class Comments {
     if (!sameMember(prior.fm.author, principal.email) && !(principal.isAdmin && !principal.via)) {
       throw new HotsauceError('forbidden', 'Only its author or an admin can delete a comment')
     }
-    const result = await this.#d.git.commit(TEAM_SPACE, {
+    const result = await this.#commit({
       changes: [{ path: prior.path, content: null }],
       author: { name: principal.name, email: principal.email },
       message: withVia(
@@ -285,10 +287,25 @@ export class Comments {
       ),
       unchanged: { path: prior.path, blobOid: prior.blobOid },
     })
-    if (result.status === 'conflict') {
+    if (result === 'conflict') {
       throw new HotsauceError('conflict', 'This changed at the same time; try again')
     }
     await this.#d.syncer.afterHeadChanged(TEAM_SPACE)
+  }
+
+  /**
+   * One commit to the team space. A guard that no longer holds (someone saved the item, or the
+   * comment, since it was read) comes back as 'conflict' for the caller to read again and retry;
+   * the store reports it by throwing.
+   */
+  async #commit(input: Parameters<GitStore['commit']>[1]): Promise<'committed' | 'conflict'> {
+    try {
+      const result = await this.#d.git.commit(TEAM_SPACE, input)
+      return result.status === 'conflict' ? 'conflict' : 'committed'
+    } catch (err) {
+      if (err instanceof HotsauceError && err.code === 'conflict') return 'conflict'
+      throw err
+    }
   }
 
   // ── internals ─────────────────────────────────────────────────────────
@@ -417,12 +434,13 @@ export class Comments {
  * that is deleted takes its conversation with it, in the same commit (history keeps both).
  */
 export function commentRemovals(
-  index: Pick<Index, 'getFile' | 'listFiles'>,
+  index: Pick<Index, 'getFile' | 'listFiles' | 'filesById'>,
   space: string,
   paths: readonly string[],
 ): Array<{ path: string; content: null }> {
   if (space !== TEAM_SPACE) return []
   const items = new Set<string>()
+  const going = new Set<string>()
   for (const path of paths) {
     const rows = [
       ...[index.getFile(space, path)].filter((r): r is FileRow => r !== null),
@@ -431,10 +449,14 @@ export function commentRemovals(
     for (const row of rows) {
       const id = row.kind === 'comment' ? null : itemIdOf(row)
       if (id) items.add(id)
+      going.add(row.path)
     }
   }
   const out: Array<{ path: string; content: null }> = []
   for (const id of items) {
+    // A copy of the doc carries the same `id` and so the same conversation: it stays while any
+    // file with that id does.
+    if (index.filesById(space, id).some((row) => !going.has(row.path))) continue
     for (const row of index.listFiles({ space, kind: 'comment', prefix: commentFolder(id) })) {
       out.push({ path: row.path, content: null })
     }

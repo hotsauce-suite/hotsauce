@@ -1,4 +1,4 @@
-import { MAX_COMMENT } from '@hotsauce/format'
+import { findMentions, MAX_COMMENT } from '@hotsauce/format'
 import { type KeyboardEvent, type Ref, useId, useMemo, useRef, useState } from 'react'
 import type { CommentMember } from '../../api/comments'
 
@@ -14,13 +14,22 @@ export function mentionQuery(text: string, caret: number): { from: number; query
   return { from: at, query }
 }
 
-/** What to write for a member: their name, or their handle when someone shares the name. */
+/**
+ * What to write for a member: their name, else their handle, else the start of their email;
+ * the first that the server will read as them and nobody else (a name, a handle or an email
+ * start that two members share names neither).
+ */
 export function mentionText(member: CommentMember, members: readonly CommentMember[]): string {
-  const name = member.name.trim()
-  const shared = members.some(
-    (m) => m.email !== member.email && m.name.trim().toLowerCase() === name.toLowerCase(),
-  )
-  return `@${name && !shared ? name : member.handle || member.email.split('@')[0]}`
+  const options = [member.name.trim(), member.handle, member.email.split('@')[0] ?? '']
+  for (const option of options) {
+    if (!option) continue
+    const text = `@${option}`
+    const found = findMentions(text, members)
+    if (found.length === 1 && found[0]?.to === text.length && found[0].email === member.email) {
+      return text
+    }
+  }
+  return `@${member.name.trim() || member.handle}`
 }
 
 function matching(members: readonly CommentMember[], query: string): CommentMember[] {
@@ -52,7 +61,8 @@ export interface ComposerProps {
   onSubmit: () => void
   onCancel?: () => void
   members: readonly CommentMember[]
-  disabled?: boolean
+  /** Holds the text as it is (while it is being sent) without dropping the cursor. */
+  readOnly?: boolean
   placeholder?: string
   label: string
   testId: string
@@ -101,6 +111,8 @@ export function Composer(props: ComposerProps) {
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter while composing (Japanese, Chinese, Korean input) chooses a character, nothing else.
+    if (event.nativeEvent.isComposing) return
     if (options.length > 0) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
@@ -140,12 +152,13 @@ export function Composer(props: ComposerProps) {
         value={value}
         rows={props.rows ?? 2}
         maxLength={MAX_COMMENT}
-        disabled={props.disabled}
+        readOnly={props.readOnly}
         placeholder={props.placeholder}
         aria-label={props.label}
         aria-autocomplete="list"
         aria-controls={options.length > 0 ? listId : undefined}
         aria-expanded={options.length > 0}
+        aria-activedescendant={options.length > 0 ? `${listId}-${index}` : undefined}
         role="combobox"
         data-testid={props.testId}
         // biome-ignore lint/a11y/noAutofocus: the member just pressed Edit
@@ -157,7 +170,7 @@ export function Composer(props: ComposerProps) {
         }}
         onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
         onKeyDown={onKeyDown}
-        className="block w-full resize-y rounded-lg border border-ash-strong bg-paper-raised px-3 py-2 text-sm leading-relaxed text-ink placeholder:text-ink-faint focus:border-ember focus:outline-none disabled:opacity-60"
+        className="block w-full resize-y rounded-lg border border-ash-strong bg-paper-raised px-3 py-2 text-sm leading-relaxed text-ink placeholder:text-ink-faint focus:border-ember focus:outline-none read-only:opacity-70"
       />
       {options.length > 0 ? (
         <ul
@@ -166,11 +179,13 @@ export function Composer(props: ComposerProps) {
           role="listbox"
           aria-label="People to mention"
           data-testid="mention-picker"
-          className="absolute top-full left-0 z-30 mt-1 w-64 max-w-full overflow-hidden rounded-lg border border-ash bg-paper-raised py-1 shadow-float"
+          // Above the box: it sits at the foot of the page, where a phone's keyboard is.
+          className="absolute bottom-full left-0 z-30 mb-1 w-64 max-w-full overflow-hidden rounded-lg border border-ash bg-paper-raised py-1 shadow-float"
         >
           {options.map((member, i) => (
             <li
               key={member.email}
+              id={`${listId}-${i}`}
               // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: an option in it
               role="option"
               tabIndex={-1}

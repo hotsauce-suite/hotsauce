@@ -81,7 +81,11 @@ const listOf = (path: string, as = ALICE, space = 'team') =>
   api('GET', `/api/comments?space=${space}&path=${encodeURIComponent(path)}`, { as })
 
 const comment = (path: string, text: string, as = ALICE, extra: Record<string, unknown> = {}) =>
-  api('POST', '/api/comments', { as, json: { space: 'team', path, text, ...extra } })
+  api('POST', '/api/comments', {
+    as,
+    json: { space: 'team', path, text, ...extra },
+    status: 201,
+  })
 
 /** A browser that turned notifications on, as `email`. */
 async function subscribe(email: string): Promise<string> {
@@ -202,6 +206,38 @@ describe('a conversation under a team item (R1, R2, R3, R11)', () => {
     )
     const created = comments.map((c: { created: string }) => c.created)
     expect(created).toEqual([...created].sort())
+  })
+
+  it('first comments at the same moment on a doc with no id both succeed, under one id', async () => {
+    await services.git.commit('team', {
+      changes: [{ path: 'docs/outside.md', content: '# Outside\n\nNo id here.\n' }],
+      author: { name: 'Outside', email: 'outside@example.test' },
+      message: 'add a doc with no id',
+    })
+    await services.syncer.afterHeadChanged('team')
+    const made = await Promise.all([
+      comment('docs/outside.md', 'From Alice'),
+      comment('docs/outside.md', 'From Bob', BOB),
+      comment('docs/outside.md', 'From the admin', ADMIN),
+    ])
+    expect(new Set(made.map((c) => c.item)).size).toBe(1)
+    expect((await listOf('docs/outside.md')).comments).toHaveLength(3)
+    const text = (await services.git.readFile('team', 'docs/outside.md')).content
+    expect(text.match(/^id: /gm)).toHaveLength(1)
+  })
+
+  it('refuses a comment on something hidden or in the trash', async () => {
+    await comment(DOC, 'Before it goes')
+    await api('DELETE', '/api/spaces/team/file', { json: { path: DOC } })
+    const trashed = (await teamFiles()).find((f) => f.startsWith('.trash/') && f.endsWith('.md'))
+    expect(trashed).toBeDefined()
+    for (const path of [trashed as string, '.hearth/notes.md']) {
+      const res = await call('POST', '/api/comments', {
+        json: { space: 'team', path, text: 'Sneaky' },
+      })
+      expect(res.status, path).toBe(400)
+      expect((await listOf(path)).canComment).toBe(false)
+    }
   })
 
   it('only the Comments service writes comment files', async () => {
@@ -414,6 +450,39 @@ describe('the conversation follows its item (R8, R9)', () => {
     )
     await comment(note, 'on the note')
     await api('POST', '/api/meetings/delete', { json: { space: 'team', path: note } })
+    expect((await teamFiles()).filter((f) => f.startsWith('.hearth/comments/'))).toEqual([])
+  })
+
+  it('a team task moved to a personal space and back still has its conversation', async () => {
+    const task = await api('POST', '/api/tasks', {
+      json: { title: 'Order tips', space: 'team' },
+      status: 201,
+    })
+    await comment(task.path, 'Which size?')
+    const moved = await api('POST', `/api/tasks/team/${task.id}/move`, {
+      json: { toSpace: 'alice' },
+    })
+    expect((await listOf(moved.path, ALICE, 'alice')).canComment).toBe(false)
+    const back = await api('POST', `/api/tasks/alice/${task.id}/move`, {
+      json: { toSpace: 'team' },
+    })
+    const { comments } = await listOf(back.path)
+    expect(comments.map((c: { text: string }) => c.text)).toEqual(['Which size?'])
+  })
+
+  it('a copy of a doc shares its conversation, which stays until the last copy is deleted', async () => {
+    const made = await comment(DOC, 'Kept while a copy lives')
+    const original = (await services.git.readFile('team', DOC)).content
+    expect(original).toContain(`id: ${made.item}`)
+    await services.git.commit('team', {
+      changes: [{ path: 'docs/pilot-plan-copy.md', content: original }],
+      author: { name: 'Outside', email: 'outside@example.test' },
+      message: 'copy the plan',
+    })
+    await services.syncer.afterHeadChanged('team')
+    await api('DELETE', '/api/spaces/team/file', { json: { path: DOC } })
+    expect((await listOf('docs/pilot-plan-copy.md')).comments).toHaveLength(1)
+    await api('DELETE', '/api/spaces/team/file', { json: { path: 'docs/pilot-plan-copy.md' } })
     expect((await teamFiles()).filter((f) => f.startsWith('.hearth/comments/'))).toEqual([])
   })
 

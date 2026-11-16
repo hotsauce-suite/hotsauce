@@ -121,7 +121,7 @@ interface TaskRecord {
 type TasksGit = Pick<GitStore, 'readFile' | 'commit' | 'readBlobText'>
 type TasksIndex = Pick<
   Index,
-  'listFiles' | 'search' | 'listSpaces' | 'bodies' | 'bodyAt' | 'getFile'
+  'listFiles' | 'search' | 'listSpaces' | 'bodies' | 'bodyAt' | 'getFile' | 'filesById'
 >
 
 export interface TasksDeps {
@@ -929,9 +929,9 @@ export class Tasks {
           changes: [
             { path: trashPath, content: file.content },
             { path: file.record.path, content: null },
-            // Its conversation goes with it (ARCHITECTURE §27.1); a team task moved to a personal
-            // space leaves it behind too, since only team items have one.
-            ...commentRemovals(this.#index, space, [file.record.path]),
+            // A deleted task takes its conversation with it (ARCHITECTURE §27.1). One moved to a
+            // personal space keeps it in the team space, out of sight until it is moved back.
+            ...(verb === 'delete' ? commentRemovals(this.#index, space, [file.record.path]) : []),
           ],
           verb,
           title: file.record.fm.title,

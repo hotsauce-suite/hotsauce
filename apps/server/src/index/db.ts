@@ -138,8 +138,12 @@ export class Index {
 
   /** The file in `space` whose frontmatter `id` is this, comments aside; the first by path. */
   fileById(space: string, id: string): FileRow | null {
-    const row = this.#q.fileById.get(space, id)
-    return row ? toFileRow(row) : null
+    return this.filesById(space, id)[0] ?? null
+  }
+
+  /** Every file in `space` carrying this frontmatter `id` (a copied doc shares one), by path. */
+  filesById(space: string, id: string): FileRow[] {
+    return this.#q.fileById.all(space, id).map(toFileRow)
   }
 
   /**
@@ -341,7 +345,7 @@ function prepareStatements(db: Database.Database) {
     ),
     fileById: db.prepare<[string, string], RawFileRow>(
       `SELECT ${FILE_COLUMNS} FROM files
-       WHERE space = ? AND id = ? AND kind != 'comment' ORDER BY path LIMIT 1`,
+       WHERE space = ? AND id = ? AND kind != 'comment' ORDER BY path LIMIT 20`,
     ),
     byShareToken: db.prepare<[string], RawFileRow>(
       `SELECT ${FILE_COLUMNS} FROM files

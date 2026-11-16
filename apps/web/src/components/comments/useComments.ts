@@ -22,6 +22,11 @@ export interface Conversation {
   setDraft: (draft: CommentDraft) => void
   /** The browser has no connection: a comment can't be sent, and the draft is kept. */
   offline: boolean
+  /**
+   * What this conversation has already jumped to (the box, a linked comment). Kept here, not in
+   * the view, so switching between the editor and the reading view doesn't jump again.
+   */
+  handled: { current: { box: number; comment: string | null } }
   /** Why the last send, edit or delete failed, in words for the member. */
   error: string | null
   busy: boolean
@@ -90,16 +95,20 @@ export function useComments(space: string, path: string, enabled = true): Conver
   const latest = useRef(0)
   const draftRef = useRef(draft)
   draftRef.current = draft
+  const handled = useRef<{ box: number; comment: string | null }>({ box: 0, comment: null })
+  // The item on screen, for work that finishes after the panel moved on to another one.
+  const keyRef = useRef(key)
+  keyRef.current = key
 
   // A different item (the task panel moves from task to task): start clean, with its own draft.
-  const shownKey = useRef(key)
-  if (shownKey.current !== key) {
-    shownKey.current = key
-    latest.current++
+  const [shownKey, setShownKey] = useState(key)
+  if (shownKey !== key) {
+    setShownKey(key)
     setStatus('loading')
     setCanComment(false)
     setComments([])
     setError(null)
+    setBusy(false)
     setDraftState(readDraft(key))
   }
 
@@ -166,41 +175,49 @@ export function useComments(space: string, path: string, enabled = true): Conver
   const send = async (): Promise<boolean> => {
     const { text, quote } = draftRef.current
     if (busy || !text.trim()) return false
+    const sentFor = key
     setBusy(true)
     setError(null)
     try {
       const made = await commentsApi.add(space, path, text, quote)
+      // Sent, so its draft goes, even when the panel has moved to another item meanwhile.
+      writeDraft(sentFor, { text: '', quote: null })
+      if (keyRef.current !== sentFor) return true
       setComments((list) => (list.some((c) => c.id === made.id) ? list : [...list, made]))
-      setDraft({ text: '', quote: null })
+      setDraftState({ text: '', quote: null })
       return true
     } catch (err) {
-      fail(err, 'Sending a comment')
+      if (keyRef.current === sentFor) fail(err, 'Sending a comment')
       return false
     } finally {
-      setBusy(false)
+      if (keyRef.current === sentFor) setBusy(false)
     }
   }
 
   const edit = async (comment: Comment, text: string): Promise<boolean> => {
+    const editedFor = key
     setError(null)
     try {
       const saved = await commentsApi.edit(comment, text)
+      if (keyRef.current !== editedFor) return true
       setComments((list) => list.map((c) => (c.id === saved.id ? saved : c)))
       return true
     } catch (err) {
-      fail(err, 'Saving your edit')
+      if (keyRef.current === editedFor) fail(err, 'Saving your edit')
       return false
     }
   }
 
   const remove = async (comment: Comment): Promise<boolean> => {
+    const removedFor = key
     setError(null)
     try {
       await commentsApi.remove(comment)
+      if (keyRef.current !== removedFor) return true
       setComments((list) => list.filter((c) => c.id !== comment.id))
       return true
     } catch (err) {
-      fail(err, 'Deleting the comment')
+      if (keyRef.current === removedFor) fail(err, 'Deleting the comment')
       return false
     }
   }
@@ -213,6 +230,7 @@ export function useComments(space: string, path: string, enabled = true): Conver
     draft,
     setDraft,
     offline,
+    handled,
     error,
     busy,
     send,

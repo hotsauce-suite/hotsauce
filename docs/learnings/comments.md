@@ -11,3 +11,7 @@
 - **Run e2e locally with `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium`** when the pinned Playwright's browser isn't installed; `playwright.config.ts` reads it.
 - **Only `*mobile.spec.ts` runs on the phone project.** A new spec named otherwise is desktop-only; check the phone by hand or name the file to match.
 - **`pnpm exec vitest run` inside `site/` runs the whole workspace.** Use `pnpm test` from the root, or pass the site's test file path.
+- **`GitStore.commit` throws on a failed `unchanged` guard; it only returns `status: 'conflict'` when given a `base`.** A retry loop that checks the return value never runs. Catch `HotsauceError` with code `conflict` (as Tasks does). The independent review caught this; a race test on a doc with no `id` now covers it.
+- **Check the verb before deleting things in a shared helper.** `Tasks.#trash` serves both delete and move-to-another-space; the first version deleted a task's conversation on a move.
+- **State that says "already scrolled there" must live above anything that remounts.** The conversation mounts once in the editor and once in the reading view, so "which comment did I land on" and "which focus request did I handle" live in the `useComments` hook, not in the view.
+- **Act on `pointerdown` for a button that floats beside a selection.** A touch tap collapses the selection, and so removes the button, before `click` arrives.

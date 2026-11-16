@@ -33,7 +33,7 @@ export function commentRoutes(deps: Pick<AppDeps, 'comments'>) {
       valid('json', Item.extend({ text: Text, quote: z.string().max(20_000).optional() })),
       async (c) => {
         const p = c.get('principal')
-        return c.json(await comments.add(p, c.req.valid('json'), viaFor(p)))
+        return c.json(await comments.add(p, c.req.valid('json'), viaFor(p)), 201)
       },
     )
     .patch(

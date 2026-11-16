@@ -41,9 +41,10 @@ export function QuoteButton({
       type="button"
       data-testid="quote-comment"
       style={{ top: at.top, left: at.left }}
-      // Keep the selection while the button is pressed.
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => {
+      // On the press, not the click: a tap clears the selection (and this button) before a
+      // click would arrive.
+      onPointerDown={(e) => {
+        e.preventDefault()
         onQuote(at.text)
         document.getSelection()?.removeAllRanges()
         setAt(null)
