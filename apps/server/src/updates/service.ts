@@ -188,8 +188,12 @@ export class Updater {
     })
   }
 
-  /** Starts an update to the newest release (an admin's Update button, or the timer). */
-  async start(): Promise<UpdateStatus> {
+  /**
+   * Starts an update to the newest release (an admin's Update button, or the timer). The button
+   * asks GitHub afresh; the timer uses the hourly answer, so a release it can't install (no
+   * recorded image) doesn't turn into an ask every ten minutes.
+   */
+  async start(fresh = true): Promise<UpdateStatus> {
     const fly = this.#o.fly
     const { app, region, imageRef } = this.#o.flyEnv
     if (this.mode() !== 'fly' || !fly || !app || !imageRef) {
@@ -205,7 +209,7 @@ export class Updater {
     }
     this.#starting = true
     try {
-      return await this.#start(fly, { app, region, imageRef })
+      return await this.#start(fly, { app, region, imageRef }, fresh)
     } finally {
       this.#starting = false
     }
@@ -214,9 +218,10 @@ export class Updater {
   async #start(
     fly: FlyApi,
     env: { app: string; region: string | undefined; imageRef: string },
+    fresh: boolean,
   ): Promise<UpdateStatus> {
     const { app, region, imageRef } = env
-    const latest = await this.check(true)
+    const latest = await this.check(fresh)
     if (!latest || !isNewer(latest.version, this.#o.current)) {
       throw new Error('Already on the newest release')
     }
@@ -288,7 +293,7 @@ export class Updater {
       return
     }
     try {
-      await this.start()
+      await this.start(false)
     } catch (err) {
       this.#log(`automatic update failed to start: ${err instanceof Error ? err.message : err}`)
     }

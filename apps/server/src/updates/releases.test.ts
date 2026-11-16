@@ -120,8 +120,10 @@ describe('fetchImageDigest', () => {
     expect(url).toBe(
       'https://github.com/hotsauce-suite/hotsauce/releases/download/v0.17.0/image-digest.txt',
     )
-    const { fn } = fakeFetch({ [url]: new Response(`${DIGEST}\n`, { status: 200 }) })
+    const { fn, calls } = fakeFetch({ [url]: new Response(`${DIGEST}\n`, { status: 200 }) })
     expect(await fetchImageDigest('0.17.0', fn)).toBe(DIGEST)
+    // GitHub answers a download with a redirect to its file host, which must be followed.
+    expect(calls[0]?.init?.redirect ?? 'follow').toBe('follow')
   })
 
   it('fails when the release recorded none, so nothing is installed', async () => {

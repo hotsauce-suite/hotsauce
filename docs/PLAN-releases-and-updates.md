@@ -11,7 +11,8 @@ back on its own when the new version fails its health check.
 R1. A merge to `main` that changes the app picks the next version itself (since 2026-11-16, see
     `docs/PLAN-auto-releases.md`), tags `v<version>`, publishes a
     GitHub release with notes, and pushes `ghcr.io/hotsauce-suite/hotsauce:<version>` and
-    `:latest`. A version that is already tagged publishes nothing.
+    `:latest`, and records that image's digest with the release; instances install the digest,
+    not the tag (R13). A version that is already tagged publishes nothing.
 R2. The image holds nothing specific to one organization. Everything an instance needs is read
     when the server starts (env, or settings saved in the setup wizard).
 R3. The Chrome extension zip offered at `/downloads/` talks to the server that served it,

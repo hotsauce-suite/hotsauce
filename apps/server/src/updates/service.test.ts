@@ -112,6 +112,26 @@ describe('Updater', () => {
     expect(store.get()).toMatchObject({ pending: null, failed: null, skip: [] })
   })
 
+  it('the timer doesn’t re-ask GitHub every ten minutes for a release it can’t install', async () => {
+    let asks = 0
+    const { make, fly, advance } = setup({
+      latestRelease: async () => {
+        asks++
+        return release('0.3.0')
+      },
+      imageDigest: async () => {
+        throw new Error('Hotsauce 0.3.0 recorded no image (answered 404)')
+      },
+    })
+    const u = make('0.2.0')
+    for (let i = 0; i < 6; i++) {
+      await u.tick()
+      advance(10 * 60_000)
+    }
+    expect(asks).toBe(1)
+    expect(fly.created).toHaveLength(0)
+  })
+
   it('refuses a recorded digest that isn’t one', async () => {
     const { make, fly } = setup({ imageDigest: async () => 'latest' })
     await expect(make('0.2.0').start()).rejects.toThrow(/isn’t an image digest/)
