@@ -379,9 +379,9 @@ function EmptyList({ view, filtered }: { view: 'unread' | 'archive'; filtered: b
   }
   return (
     <EmptyState icon="bookmark" title="Nothing to read yet" testId="links-empty">
-      Pages, PDFs and papers saved to read later. Each keeps a readable copy, so search, Ask and
-      your AI tools can find it. Paste a link above, click the Chrome extension, or share a page to{' '}
-      {product()} from your phone.
+      Pages, PDFs and papers saved to read later, each with a readable copy that search and your AI
+      tools can find. Paste a link above, click the Chrome extension, or share a page from your
+      phone.
     </EmptyState>
   )
 }

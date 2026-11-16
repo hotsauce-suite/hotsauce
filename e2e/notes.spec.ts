@@ -245,3 +245,35 @@ async function keepZip(
   end.writeUInt32LE(offset, 16)
   return Buffer.concat([...locals, cd, end])
 }
+
+// docs/PLAN-consistency.md, requirement 14: All / Personal / Team above the board.
+test('the tabs sort Personal from Team and survive opening a note', async ({ page, member }) => {
+  const id = uid()
+  const res = await member.request.post('/api/notes', {
+    data: { title: `Mine ${id}`, body: 'x' },
+  })
+  expect(res.ok()).toBe(true)
+  await page.goto('/notes')
+  const mine = card(page, `Mine ${id}`)
+  await expect(mine).toHaveCount(1)
+  await page.getByTestId('notes-scope-team').click()
+  await expect(page).toHaveURL(/scope=team/)
+  await expect(mine).toHaveCount(0)
+
+  // A note made under Team is personal: the page goes to All instead of hiding it.
+  await page.getByTestId('notes-take-note').click()
+  await page.getByTestId('composer-title').fill(`Fresh ${id}`)
+  await page.getByTestId('composer-close').click()
+  await expect(page.getByTestId('note-card').filter({ hasText: `Fresh ${id}` })).toBeVisible()
+  await expect(page.getByTestId('notes-scope-all')).toHaveAttribute('aria-selected', 'true')
+
+  // Opening and closing a note keeps the tab.
+  await page.getByTestId('notes-scope-mine').click()
+  await mine.click()
+  await expect(page.getByTestId('note-editor-close')).toBeVisible()
+  await expect(page).toHaveURL(/scope=mine/)
+  await page.getByTestId('note-editor-close').click()
+  await expect(page).toHaveURL(/\/notes\?scope=mine$/)
+  await expect(page.getByTestId('notes-scope-mine')).toHaveAttribute('aria-selected', 'true')
+  await expect(mine).toHaveCount(1)
+})

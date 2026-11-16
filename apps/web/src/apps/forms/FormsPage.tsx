@@ -88,15 +88,23 @@ export default function FormsPage() {
               start; share it with the team, or with anyone who has the link.
             </EmptyState>
           ) : null}
-          {forms && forms.length > 0 && shown?.length === 0 ? (
+          {!list.failed && forms && forms.length > 0 && shown?.length === 0 ? (
             <EmptyState
               icon="form"
-              title={q.trim() ? 'No forms match that' : 'No forms here yet'}
+              title={
+                q.trim()
+                  ? 'No forms match that'
+                  : scope === 'team'
+                    ? 'No team forms yet'
+                    : 'No personal forms yet'
+              }
               testId="forms-no-match"
             >
               {q.trim()
                 ? 'Search looks at form names.'
-                : 'Forms in this space show under this tab.'}
+                : scope === 'team'
+                  ? 'Forms shared with the team show here.'
+                  : 'Forms only you can see show here.'}
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="forms-list">

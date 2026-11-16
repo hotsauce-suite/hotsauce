@@ -145,19 +145,26 @@ export default function TablesPage() {
           {!list.failed && tables && tables.length === 0 ? (
             <EmptyState icon="table" title="No tables yet" testId="tables-empty">
               Trackers and lists with spreadsheet formulas, kept in {product()} so search and your
-              AI tools can read them. Press New table, or import a .csv or Excel file. A form’s
-              answers can open as a table too: Forms → a form → Answers → Open as a table.
+              AI tools can read them. Press New table, or import a .csv or Excel file.
             </EmptyState>
           ) : null}
-          {tables && tables.length > 0 && shown?.length === 0 ? (
+          {!list.failed && tables && tables.length > 0 && shown?.length === 0 ? (
             <EmptyState
               icon="table"
-              title={q.trim() ? 'No tables match that' : 'No tables here yet'}
+              title={
+                q.trim()
+                  ? 'No tables match that'
+                  : scope === 'team'
+                    ? 'No team tables yet'
+                    : 'No personal tables yet'
+              }
               testId="tables-no-match"
             >
               {q.trim()
                 ? 'Search looks at table names.'
-                : 'Tables in this space show under this tab.'}
+                : scope === 'team'
+                  ? 'Tables shared with the team show here.'
+                  : 'Tables only you can see show here.'}
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="tables-list">

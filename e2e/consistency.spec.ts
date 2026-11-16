@@ -412,7 +412,6 @@ for (const width of [
   test.describe(`the row above a list, on a ${width.label}`, () => {
     test.use({ viewport: width.viewport })
     const phone = width.label === 'phone'
-    const columns: Record<string, number> = {}
 
     for (const app of LIST_ROWS) {
       test(`${app.name}: tabs on the left, search on the right`, async ({ page }) => {
@@ -461,19 +460,29 @@ for (const width of [
           }
         }
         if (phone) {
-          // Full width, and nothing makes the page scroll sideways.
+          // Full width, and nothing scrolls sideways: not the list's scrolling area, not the tabs.
           expect(searchBox.width).toBeGreaterThanOrEqual(rowBox.width - 2)
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth),
-          ).toBeLessThanOrEqual(390)
+          for (const area of [column.locator('..'), row.getByTestId('list-tabs')]) {
+            if ((await area.count()) === 0) continue
+            const wide = await area.evaluate((el) => el.scrollWidth - el.clientWidth)
+            expect(wide).toBeLessThanOrEqual(0)
+          }
         }
-        // Every list of one kind is the same width.
-        columns[app.width] ??= col.width
-        expect(col.width).toBe(columns[app.width])
       })
     }
   })
 }
+
+test.describe('the two list widths', () => {
+  test.use({ viewport: { width: 1600, height: 900 } })
+  test('rows of text share one column, grids of cards share a wider one', async ({ page }) => {
+    for (const app of LIST_ROWS) {
+      await page.goto(app.url)
+      const box = await page.locator(`[data-list-width="${app.width}"]`).boundingBox()
+      expect(box?.width, app.name).toBe(app.width === 'reading' ? 768 : 1152)
+    }
+  })
+})
 
 test.describe('the row above a list', () => {
   test('Forms: search filters by name, and the tabs sort Personal from Team', async ({ page }) => {
@@ -493,14 +502,14 @@ test.describe('the row above a list', () => {
     await expect(page.getByTestId('forms-no-match')).toContainText('No forms match that')
     await page.getByTestId('forms-search').fill('')
 
-    // The form is in one space, so it shows under exactly one of Personal and Team.
+    // newForm makes it in the team's space: it's under Team and not under Personal.
     const mine = rows.filter({ hasText: `Lunch order ${id}` })
     await page.getByTestId('forms-scope-mine').click()
     await expect(page).toHaveURL(/scope=mine/)
-    const underPersonal = await mine.count()
+    await expect(mine).toHaveCount(0)
     await page.getByTestId('forms-scope-team').click()
     await expect(page).toHaveURL(/scope=team/)
-    expect(underPersonal + (await mine.count())).toBe(1)
+    await expect(mine).toHaveCount(1)
     // The tab is in the address, so a reload keeps it.
     await page.reload()
     await expect(page.getByTestId('forms-scope-team')).toHaveAttribute('aria-selected', 'true')
@@ -545,6 +554,104 @@ test.describe('the row above a list', () => {
       await expect(page.locator('[data-empty-state]')).toContainText(app.intro)
     })
   }
+
+  const stamp = '2026-11-10T09:00:00.000Z'
+  for (const app of [
+    {
+      name: 'Tables',
+      url: '/tables',
+      api: '/api/tables',
+      key: 'tables',
+      intro: 'Trackers and lists',
+      items: ['Seed stock', 'Field sites'].map((title, n) => ({
+        space: 'team',
+        id: `t${n}`,
+        title,
+        updated: stamp,
+        updatedBy: null,
+      })),
+      scoped: true,
+    },
+    {
+      name: 'Pages',
+      url: '/pages',
+      api: '/api/pages',
+      key: 'pages',
+      intro: 'Plans and reports',
+      items: ['Seed stock', 'Field sites'].map((title, n) => ({
+        space: 'team',
+        id: `p${n}`,
+        title,
+        updated: stamp,
+        shared: false,
+      })),
+      scoped: true,
+    },
+    {
+      name: 'Check-ins',
+      url: '/checkins',
+      api: '/api/checkins',
+      key: 'checkins',
+      intro: 'A question the team answers',
+      items: ['Seed stock', 'Field sites'].map((title, n) => ({
+        id: `c${n}`,
+        title,
+        days: ['mon'],
+        time: '09:00',
+        tz: 'UTC',
+        schedule: 'Mondays at 9 AM',
+        paused: false,
+        room: null,
+        skip: [],
+        current: null,
+      })),
+      scoped: false,
+    },
+  ]) {
+    test(`${app.name}: search filters by name, and with items there is no intro`, async ({
+      page,
+    }) => {
+      await page.route(
+        (url) => url.pathname === app.api,
+        async (route) => {
+          const response = await route.fetch()
+          await route.fulfill({
+            response,
+            json: { ...(await response.json()), [app.key]: app.items },
+          })
+        },
+      )
+      await page.goto(app.url)
+      const rows = page.getByTestId(`${app.key}-list`).getByRole('listitem')
+      await expect(rows).toHaveCount(2)
+      await expect(page.getByText(app.intro)).toHaveCount(0)
+      await page.getByTestId(`${app.key}-search`).fill('STOCK seed')
+      await expect(rows).toHaveText([/Seed stock/])
+      await page.getByTestId(`${app.key}-search`).fill('zzz')
+      await expect(rows).toHaveCount(0)
+      await expect(page.getByTestId(`${app.key}-no-match`)).toContainText(
+        `No ${app.name.toLowerCase()} match that`,
+      )
+      await page.getByTestId(`${app.key}-search`).fill('')
+      await expect(rows).toHaveCount(2)
+      if (!app.scoped) return
+      // Both are the team's, so Personal is empty and says whose it is.
+      await page.getByTestId(`${app.key}-scope-mine`).click()
+      await expect(rows).toHaveCount(0)
+      await expect(page.getByTestId(`${app.key}-no-match`)).toContainText(
+        `No personal ${app.key} yet`,
+      )
+      await page.getByTestId(`${app.key}-scope-team`).click()
+      await expect(rows).toHaveCount(2)
+    })
+  }
+
+  test('Links: Enter in the row’s search searches', async ({ page }) => {
+    await page.goto('/links')
+    await page.getByTestId('links-search').fill('decisions')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/q=decisions/)
+  })
 
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 } })

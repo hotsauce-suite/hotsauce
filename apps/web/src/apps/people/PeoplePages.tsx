@@ -243,7 +243,7 @@ export function PeopleList() {
           <p className="text-sm text-ink-faint">Loading people…</p>
         )
       ) : people.length === 0 && error ? null : people.length === 0 ? (
-        <EmptyState icon="people" title={query ? 'No one matches' : 'No people yet'}>
+        <EmptyState icon="people" title={query ? 'No people match that' : 'No people yet'}>
           {query
             ? 'Search looks at names, email addresses and companies.'
             : 'People show up here once they’re in a meeting note, on your calendar or assigned a task.'}

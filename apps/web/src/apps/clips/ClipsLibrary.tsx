@@ -4,7 +4,7 @@ import { type Clip, clipsApi } from '../../api/clips'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
-import { ListBar, ListColumn, scopeTabs } from '../../components/ListBar'
+import { ListBar, ListColumn, scopeTabs, useScope } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
@@ -14,8 +14,8 @@ type Scope = 'mine' | 'team'
 
 /** `/clips`: the member's clips, or everyone's, newest first, searchable. */
 export default function ClipsLibrary() {
-  const [params, setParams] = useSearchParams()
-  const scope: Scope = params.get('scope') === 'team' ? 'team' : 'mine'
+  const [params] = useSearchParams()
+  const [scope, chooseScope] = useScope(['mine', 'team'])
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [clips, setClips] = useState<Clip[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -58,10 +58,7 @@ export default function ClipsLibrary() {
   }, [processing])
 
   const setScope = (next: Scope) => {
-    const p = new URLSearchParams(params)
-    if (next === 'team') p.set('scope', 'team')
-    else p.delete('scope')
-    setParams(p, { replace: true })
+    chooseScope(next)
     setClips(null)
   }
 

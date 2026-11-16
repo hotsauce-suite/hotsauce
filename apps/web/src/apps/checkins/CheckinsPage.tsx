@@ -111,15 +111,12 @@ export default function CheckinsPage() {
           ) : null}
           {!loadFailed && items && items.length === 0 ? (
             <EmptyState icon="checklist" title="No check-ins yet" testId="checkins-empty">
-              A question the team answers on a schedule, like “What will you get done this week?”.
-              Everyone gets a reminder, answers by typing or speaking, and one summary goes to the
-              team’s chat room.{' '}
-              {canManage
-                ? 'Start with one of the two above, or press New check-in.'
-                : 'An admin sets them up.'}
+              A question the team answers on a schedule, like “What will you get done this week?”,
+              with one summary sent to the team’s chat room.{' '}
+              {canManage ? 'Pick one above, or press New check-in.' : 'An admin sets them up.'}
             </EmptyState>
           ) : null}
-          {items && items.length > 0 && shown.length === 0 ? (
+          {!loadFailed && items && items.length > 0 && shown.length === 0 ? (
             <EmptyState icon="checklist" title="No check-ins match that" testId="checkins-no-match">
               Search looks at check-in names.
             </EmptyState>

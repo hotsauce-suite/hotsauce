@@ -50,6 +50,33 @@ describe('ListBar', () => {
     expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true')
   })
 
+  it('moves between tabs with the arrow keys', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/things']}>
+        <Scoped />
+      </MemoryRouter>,
+    )
+    screen.getByRole('tab', { name: 'All' }).focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: 'Personal' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Personal' })).toHaveFocus()
+    await user.keyboard('{ArrowLeft}{ArrowLeft}')
+    expect(screen.getByRole('tab', { name: 'Team' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('shows what a list has in place of tabs, and selects none when the view is not a tab', () => {
+    render(
+      <MemoryRouter>
+        <ListBar tabs={[{ id: 'today', label: 'Today', to: '/tasks/today' }]} tab={null}>
+          <nav aria-label="Folder">Team files</nav>
+        </ListBar>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('navigation', { name: 'Folder' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Today' })).toHaveAttribute('aria-selected', 'false')
+  })
+
   it('ignores a tab the list does not have', () => {
     render(
       <MemoryRouter initialEntries={['/things?scope=nope']}>

@@ -63,15 +63,23 @@ export function PagesList() {
               a page” and it appears here, with every version kept.
             </EmptyState>
           ) : null}
-          {pages && pages.length > 0 && shown?.length === 0 ? (
+          {!list.failed && pages && pages.length > 0 && shown?.length === 0 ? (
             <EmptyState
               icon="tab"
-              title={q.trim() ? 'No pages match that' : 'No pages here yet'}
+              title={
+                q.trim()
+                  ? 'No pages match that'
+                  : scope === 'team'
+                    ? 'No team pages yet'
+                    : 'No personal pages yet'
+              }
               testId="pages-no-match"
             >
               {q.trim()
                 ? 'Search looks at page names.'
-                : 'Pages in this space show under this tab.'}
+                : scope === 'team'
+                  ? 'Pages shared with the team show here.'
+                  : 'Pages only you can see show here.'}
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="pages-list">

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { type BoardSummary, boardsApi } from '../../api/boards'
 import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
-import { ListBar, ListColumn, scopeTabs } from '../../components/ListBar'
+import { ListBar, ListColumn, scopeTabs, useScope } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { useShortcut } from '../../keyboard/shortcuts'
@@ -14,12 +14,9 @@ import { formatWhen } from '../clips/format'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
 import { useNewBoard } from './useNewBoard'
 
-type Scope = 'mine' | 'team'
-
 /** `/boards`: the member's boards, or the team's, most recently changed first, searchable. */
 export default function BoardsPage() {
-  const [params, setParams] = useSearchParams()
-  const scope: Scope = params.get('scope') === 'team' ? 'team' : 'mine'
+  const [scope, setScope] = useScope(['mine', 'team'])
   const [query, setQuery] = useState('')
   const [boards, setBoards] = useState<BoardSummary[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -68,13 +65,6 @@ export default function BoardsPage() {
   }, [query, tick])
 
   const shown = boards?.filter((b) => (scope === 'team' ? b.space === 'team' : b.space !== 'team'))
-
-  const setScope = (next: Scope) => {
-    const p = new URLSearchParams(params)
-    if (next === 'team') p.set('scope', 'team')
-    else p.delete('scope')
-    setParams(p, { replace: true })
-  }
 
   return (
     <>

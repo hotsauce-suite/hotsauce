@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Icon } from './Icon'
 
@@ -39,6 +39,18 @@ interface ListBarProps<T extends string> {
   className?: string
 }
 
+/** Left and right arrows move between the tabs and choose the one they land on. */
+function arrowKeys(e: KeyboardEvent<HTMLDivElement>) {
+  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+  const tabs = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')]
+  const at = tabs.indexOf(document.activeElement as HTMLElement)
+  if (at < 0) return
+  e.preventDefault()
+  const next = tabs[(at + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]
+  next?.focus()
+  next?.click()
+}
+
 export function ListBar<T extends string>({
   tabs,
   tab,
@@ -56,6 +68,7 @@ export function ListBar<T extends string>({
           aria-label={tabsLabel}
           data-testid="list-tabs"
           className="clips-tabs max-w-full overflow-x-auto"
+          onKeyDown={arrowKeys}
         >
           {tabs.map((t) =>
             t.to ? (
@@ -64,6 +77,7 @@ export function ListBar<T extends string>({
                 to={t.to}
                 role="tab"
                 aria-selected={tab === t.id}
+                tabIndex={tab === t.id || (tab == null && t === tabs[0]) ? 0 : -1}
                 data-testid={t.testId}
               >
                 {t.label}
@@ -74,6 +88,7 @@ export function ListBar<T extends string>({
                 type="button"
                 role="tab"
                 aria-selected={tab === t.id}
+                tabIndex={tab === t.id || (tab == null && t === tabs[0]) ? 0 : -1}
                 data-testid={t.testId}
                 onClick={() => onTab?.(t.id)}
               >
