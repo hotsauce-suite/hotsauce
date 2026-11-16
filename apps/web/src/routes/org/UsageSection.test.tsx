@@ -41,7 +41,7 @@ const report: UsageReport = {
 
 describe('Settings → Organization → Usage', () => {
   it('lists used apps busiest first with a chart each, and the unused ones on one line', async () => {
-    server.use(http.get('*/api/admin/org/usage', () => HttpResponse.json(report)))
+    server.use(http.get('*/api/admin/usage', () => HttpResponse.json(report)))
     render(<UsageSection />)
     const list = await screen.findByTestId('usage-apps')
     const rows = within(list).getAllByRole('listitem')
@@ -53,7 +53,7 @@ describe('Settings → Organization → Usage', () => {
   })
 
   it('says why Dictate, Today and Chat have no chart (U12)', async () => {
-    server.use(http.get('*/api/admin/org/usage', () => HttpResponse.json(report)))
+    server.use(http.get('*/api/admin/usage', () => HttpResponse.json(report)))
     render(<UsageSection />)
     expect(await screen.findByTestId('usage-dictate')).toHaveTextContent(
       '2 Macs connected, 1 used in the last 7 days',
@@ -62,7 +62,7 @@ describe('Settings → Organization → Usage', () => {
   })
 
   it('has every number in a table too', async () => {
-    server.use(http.get('*/api/admin/org/usage', () => HttpResponse.json(report)))
+    server.use(http.get('*/api/admin/usage', () => HttpResponse.json(report)))
     render(<UsageSection />)
     const table = await screen.findByTestId('usage-table')
     expect(within(table).getAllByRole('row')).toHaveLength(5)
@@ -70,7 +70,7 @@ describe('Settings → Organization → Usage', () => {
 
   it('shows an error it can’t load', async () => {
     server.use(
-      http.get('*/api/admin/org/usage', () =>
+      http.get('*/api/admin/usage', () =>
         HttpResponse.json(
           { error: { code: 'forbidden', message: 'Only an admin can see usage' } },
           { status: 403 },

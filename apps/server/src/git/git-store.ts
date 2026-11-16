@@ -239,11 +239,11 @@ export class GitStore {
       throw new HotsauceError('bad_request', `Invalid date: ${since}`)
     const dir = this.requireClone(space)
     if ((await this.revParse(dir, 'HEAD')) === null) return []
-    // --since filters on the committer date, which is never earlier than the author date here
-    // (Hotsauce commits as it goes), so it keeps every commit the author-date filter below wants.
+    // No --since: it stops walking at the first run of commits with older committer dates, and
+    // commits pushed from outside (or imported) can carry any date. The author date decides below.
+    // Merge commits list no files here; their side's commits are walked and counted on their own.
     const out = await this.git(dir, [
       'log',
-      `--since=${since}`,
       '--find-renames',
       '--name-status',
       '-z',

@@ -35,6 +35,8 @@ test.describe('as an admin', () => {
     await page.getByTestId('org-settings-link').click()
     await expect(page).toHaveURL(/\/settings\/organization$/)
     await expect(page.getByTestId('org-summary')).toBeVisible()
+    // Usage (docs/PLAN-app-usage.md): the admin sees every app counted, from history.
+    await expect(page.getByTestId('usage-table')).toBeAttached()
     // Env-configured values show as locked.
     await expect(page.getByTestId('allowed-domains')).toBeDisabled()
     // Invited people outside the domains are set here, not by env, so the admin can edit them.

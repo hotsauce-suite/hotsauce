@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
@@ -46,23 +48,23 @@ function call(method: string, url: string, as: string, headers: Record<string, s
 }
 
 async function report(): Promise<UsageReport> {
-  const res = await call('GET', '/api/admin/org/usage', ADMIN)
+  const res = await call('GET', '/api/admin/usage', ADMIN)
   expect(res.status).toBe(200)
   return (await res.json()) as UsageReport
 }
 
 const author = (email: string) => ({ name: email.split('@')[0] ?? email, email })
 
-describe('GET /api/admin/org/usage', () => {
+describe('GET /api/admin/usage', () => {
   it('is for admins only, and never through an access token (U1)', async () => {
-    expect((await call('GET', '/api/admin/org/usage', BOB)).status).toBe(403)
+    expect((await call('GET', '/api/admin/usage', BOB)).status).toBe(403)
     const created = await app.request('/api/tokens', {
       method: 'POST',
       headers: { 'x-hearth-dev-user': ADMIN, 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'Claude' }),
     })
     const { token } = (await created.json()) as { token: string }
-    const viaToken = await app.request('/api/admin/org/usage', {
+    const viaToken = await app.request('/api/admin/usage', {
       headers: { authorization: `Bearer ${token}` },
     })
     expect(viaToken.status).toBe(403)
@@ -132,6 +134,35 @@ describe('GET /api/admin/org/usage', () => {
       people: 1,
     })
     expect(r.dictate).toEqual({ connectedMacs: 1, usedLast7Days: 0 })
+  })
+
+  it('still finds recent work under a commit with an old date on top', async () => {
+    await services.git.commit('team', {
+      changes: [{ path: 'tables/01D.md', content: 'recent' }],
+      author: author(BOB),
+      message: 'tables: add',
+    })
+    // An outside push or an import can put old-dated commits above recent ones.
+    const dir = join(services.config.DATA_DIR, 'repos', 'team')
+    const old = '2020-01-01T00:00:00Z'
+    for (let i = 0; i < 12; i++) {
+      await promisify(execFile)(
+        'git',
+        [
+          '-c',
+          'user.name=Old',
+          '-c',
+          'user.email=old@example.test',
+          'commit',
+          '--allow-empty',
+          '-qm',
+          `old ${i}`,
+        ],
+        { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: old, GIT_COMMITTER_DATE: old } },
+      )
+    }
+    const r = await report()
+    expect(r.apps.find((a) => a.id === 'tables')?.total.changed).toBe(1)
   })
 
   it('serves the same numbers from memory for 10 minutes (U10)', async () => {

@@ -163,7 +163,6 @@ export class DictationStore {
     return rows.map(toDevice)
   }
 
-  /** The live device a token belongs to, marking it used; null for an unknown or revoked token. */
   /** When each connected (not revoked) device was last used, for the usage report; nothing else. */
   deviceLastUses(): Array<{ lastUsedAt: string | null }> {
     return this.#db
@@ -171,6 +170,7 @@ export class DictationStore {
       .all() as Array<{ lastUsedAt: string | null }>
   }
 
+  /** The live device a token belongs to, marking it used; null for an unknown or revoked token. */
   useToken(token: string, now = new Date()): DictationDevice | null {
     const row = this.#db
       .prepare('SELECT * FROM dictation_devices WHERE token_hash = ? AND revoked_at IS NULL')

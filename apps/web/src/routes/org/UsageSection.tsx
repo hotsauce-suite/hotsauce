@@ -113,7 +113,7 @@ const BAR = 8
 const GAP = 2
 const HEIGHT = 32
 
-/** One bar a week of items made or changed; hover or focus a bar for its numbers. */
+/** One bar a week of items made or changed; hover a bar for its numbers. The table has them all. */
 function WeekBars({ app, max }: { app: AppUsage; max: number }) {
   const width = app.weeks.length * (BAR + GAP) - GAP
   const peak = app.weeks.reduce((m, w) => Math.max(m, w.changed), 0)
@@ -169,6 +169,12 @@ function UsageTable({ report }: { report: UsageReport }) {
               </th>
             ))}
             <th scope="col" className="pl-3 text-right font-medium">
+              New (12 wk)
+            </th>
+            <th scope="col" className="pl-3 text-right font-medium">
+              People (12 wk)
+            </th>
+            <th scope="col" className="pl-3 text-right font-medium">
               People (4 wk)
             </th>
           </tr>
@@ -184,6 +190,8 @@ function UsageTable({ report }: { report: UsageReport }) {
                   {w.changed}
                 </td>
               ))}
+              <td className="pl-3 text-right tabular-nums">{a.total.created}</td>
+              <td className="pl-3 text-right tabular-nums">{a.total.people}</td>
               <td className="pl-3 text-right tabular-nums">{a.peopleLast4Weeks}</td>
             </tr>
           ))}

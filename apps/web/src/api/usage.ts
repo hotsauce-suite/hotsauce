@@ -26,5 +26,5 @@ export interface UsageReport {
 }
 
 export const usageApi = {
-  get: () => request<UsageReport>('/api/admin/org/usage'),
+  get: () => request<UsageReport>('/api/admin/usage'),
 }
