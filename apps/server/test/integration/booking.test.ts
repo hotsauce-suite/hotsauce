@@ -79,8 +79,9 @@ const link = (o: Record<string, unknown> = {}) => ({
 })
 
 /**
- * Monday 00:00 UTC, one to two weeks out: clear of notice, inside the horizon and inside the
- * 15 days the calendar sync reads ahead (on a Monday, two full weeks out was past it).
+ * Monday 00:00 UTC, 7 to 13 days out: clear of notice, and a booking on its Tuesday stays inside
+ * the calendar sync's 15-day horizon (SYNC_AHEAD_MS) on every day of the week. Counting from the
+ * Monday after next put that Tuesday 15 days 14 hours out when the tests ran on a Monday.
  */
 function mondayAfterNext(): number {
   const d = new Date()
