@@ -9,7 +9,9 @@ import {
   webUrl,
 } from '../../api/links'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { inputClass } from '../../routes/org/fields'
@@ -30,7 +32,7 @@ export default function LinksPage() {
   const [q, setQ] = useState(params.get('q') ?? '')
   const [links, setLinks] = useState<LinkView[] | null>(null)
   const [tags, setTags] = useState<Array<{ name: string; count: number }>>([])
-  const [error, setError] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   const [url, setUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -40,9 +42,9 @@ export default function LinksPage() {
     linksApi.list({ view, ...(tag ? { tag } : {}), ...(query ? { q: query } : {}) }).then(
       (r) => {
         setLinks(r.links.map(withRecentPlace))
-        setError(null)
+        setFailed(false)
       },
-      (e: unknown) => setError(errorMessage(e, 'Couldn’t load your links')),
+      () => setFailed(true),
     )
     linksApi.tags().then(setTags, () => {})
   }, [view, tag, params])
@@ -201,13 +203,12 @@ export default function LinksPage() {
             </fieldset>
           ) : null}
 
-          {error ? (
-            <p role="alert" className="text-sm text-ember-strong">
-              {error}
-            </p>
-          ) : links === null ? (
-            <p className="text-sm text-ink-soft">Loading…</p>
-          ) : links.length === 0 ? (
+          {failed ? <LoadError things="links" onRetry={load} className="mb-4" /> : null}
+          {links === null ? (
+            failed ? null : (
+              <p className="text-sm text-ink-soft">Loading…</p>
+            )
+          ) : links.length === 0 && failed ? null : links.length === 0 ? (
             <EmptyList view={view} filtered={!!tag || !!params.get('q')} />
           ) : (
             <ul className="divide-y divide-ash/70" data-testid="links-list">
@@ -229,18 +230,19 @@ export default function LinksPage() {
 }
 
 function EmptyList({ view, filtered }: { view: 'unread' | 'archive'; filtered: boolean }) {
-  if (filtered) return <p className="text-sm text-ink-soft">No saved pages match.</p>
+  if (filtered) return <EmptyState icon="bookmark" title="No saved pages match" />
   if (view === 'archive') {
-    return <p className="text-sm text-ink-soft">Pages you mark done land here.</p>
+    return (
+      <EmptyState icon="bookmark" title="Nothing done yet">
+        Pages you mark done land here.
+      </EmptyState>
+    )
   }
   return (
-    <div className="rounded-xl border border-dashed border-ash-strong p-6 text-sm text-ink-soft">
-      <p className="mb-2 font-medium text-ink">Nothing to read yet.</p>
-      <p>
-        Paste a link above, click the Chrome extension, or share a page to {product()} from your
-        phone.
-      </p>
-    </div>
+    <EmptyState icon="bookmark" title="Nothing to read yet" testId="links-empty">
+      Paste a link above, click the Chrome extension, or share a page to {product()} from your
+      phone.
+    </EmptyState>
   )
 }
 

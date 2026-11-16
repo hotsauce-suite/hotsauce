@@ -43,7 +43,7 @@ export default function DocsIndex() {
               className="flex items-center gap-2 rounded-lg bg-ember px-4 py-2.5 text-sm font-medium text-paper-raised hover:bg-ember-strong"
             >
               <Icon name="plus" />
-              Start a doc
+              New doc
             </button>
             <button
               type="button"

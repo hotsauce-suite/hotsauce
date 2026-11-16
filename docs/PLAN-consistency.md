@@ -1,9 +1,10 @@
 # Plan: the apps look and act the same
 
-**Status:** round 1, requirements 1 to 5, built and in PR #117 (Nov 16, 2026); requirements 6
-and 7 (words, titles) follow in their own PR. Links is not converted yet (waits for its open
-work). Rounds 2 and 3 not started. The report with screenshots went to the owner. Morgan accepted all seven patterns
-on Nov 15 ("yes" to Q1 to Q7).
+**Status:** (Nov 16, 2026) Round 1 requirements 1 to 5 shipped in 0.18.0 (PR #117), Links
+included from the follow-up. Requirement 6 (words) shipped except "Saved" for "Committed", which
+waits for the offline work to merge (it rewrites `SaveState.tsx`), and Briefcast's short phone
+label, which needs the shorter title. Requirement 7 (plain titles) is next, in its own PR.
+Rounds 2 and 3 not started. Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
 reads differently from app to app. This plan gives them shared pieces and one set of words.
@@ -18,8 +19,7 @@ It ships in rounds; round 1 moves no control.
    button, as an alert. The server's own sentence is never shown.
    *(LoadError.test; e2e consistency: "a list that fails to load")*
 2. It is used by every list: Today, Docs (the file tree), Meetings, Voice notes, Clips, Tasks,
-   Notes, Boards, People, Files, Forms, Check-ins, Tables, Pages and Briefcast. Links follows
-   when its open work has merged. *(e2e consistency, one case per app)*
+   Notes, Boards, People, Files, Links, Forms, Check-ins, Tables, Pages and Briefcast. *(e2e consistency, one case per app)*
 3. Try again loads the list without reloading the page. *(e2e consistency)*
 4. While a list has failed, its empty message is not shown, and the page's own buttons stay
    where they were. (Check-ins is the exception: who may make a check-in comes with the list,

@@ -68,8 +68,7 @@ export default function ClipsLibrary() {
       <MeetingsPageHeader title={`${product()} Clips`}>
         <Link to="/clips/new" className={`${primaryButton} h-9`} data-testid="record-clip">
           <span className="size-2 rounded-full bg-paper-raised" aria-hidden="true" />
-          <span className="hidden sm:inline">Record a clip</span>
-          <span className="sm:hidden">Record</span>
+          Record a clip
         </Link>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="clips-library">
@@ -85,7 +84,7 @@ export default function ClipsLibrary() {
                   data-testid={`clips-scope-${s}`}
                   onClick={() => setScope(s)}
                 >
-                  {s === 'mine' ? 'My clips' : 'Team'}
+                  {s === 'mine' ? 'Personal' : 'Team'}
                 </button>
               ))}
             </div>

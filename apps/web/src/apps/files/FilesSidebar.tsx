@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { useSession } from '../../state/session'
 import { filesBus } from './bus'
 
-/** Hotsauce Files' sidebar: upload, then Team files, My files and Recent. */
+/** Hotsauce Files' sidebar: upload, then Team files, Personal files and Recent. */
 export function FilesSidebar() {
   const { pathname, search } = useLocation()
   const session = useSession()
@@ -26,7 +26,7 @@ export function FilesSidebar() {
         <Item
           to={`/files?space=${encodeURIComponent(personal)}`}
           icon="folder"
-          label="My files"
+          label="Personal files"
           active={browsing && space === personal}
         />
       ) : null}
