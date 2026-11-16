@@ -2,7 +2,8 @@ import { findLinkUrl, LINK_SOURCES, MAX_LINK_URL } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
-import { MAX_ANCHOR, MAX_LINK_LIST } from '../links/index.js'
+import { MAX_HIGHLIGHT_NOTE, MAX_HIGHLIGHT_QUOTE } from '@hotsauce/format'
+import { MAX_ANCHOR, MAX_HIGHLIGHT_LIST, MAX_LINK_LIST } from '../links/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { sessionOnly, viaFor } from './tokens.js'
 import { valid } from './validate.js'
@@ -11,6 +12,18 @@ import { valid } from './validate.js'
 const MAX_PAGE_CHARS = 4 * 1024 * 1024
 const Tag = z.string().trim().min(1).max(100)
 const Params = z.object({ space: z.string().min(1), id: z.string().min(1) })
+const HighlightParams = Params.extend({ hid: z.string().min(1).max(40) })
+const HighlightBody = z.object({
+  // A little over the kept length: white space in a selection collapses.
+  quote: z
+    .string()
+    .min(1)
+    .max(MAX_HIGHLIGHT_QUOTE * 2),
+  prefix: z.string().max(200).optional(),
+  suffix: z.string().max(200).optional(),
+  block: z.number().int().min(0).max(MAX_ANCHOR).optional(),
+  note: z.string().max(MAX_HIGHLIGHT_NOTE).optional(),
+})
 
 const ListQuery = z.object({
   view: z.enum(['unread', 'archive', 'all']).optional(),
@@ -44,6 +57,18 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       return c.json({ links: await service.list(c.get('principal'), c.req.valid('query')) })
     })
     .get('/tags', async (c) => c.json(await service.tags(c.get('principal'))))
+    .get(
+      '/highlights',
+      valid(
+        'query',
+        z.object({
+          q: z.string().max(500).optional(),
+          limit: z.coerce.number().int().min(1).max(MAX_HIGHLIGHT_LIST).optional(),
+        }),
+      ),
+      async (c) =>
+        c.json({ highlights: await service.highlights(c.get('principal'), c.req.valid('query')) }),
+    )
     .post('/', valid('json', SaveBody), async (c) => {
       const principal = c.get('principal')
       const body = c.req.valid('json')
@@ -124,6 +149,43 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
         return c.json(await service.move(principal, space, id, toSpace, viaFor(principal)))
       },
     )
+    .post(
+      '/:space/:id/highlights',
+      valid('param', Params),
+      valid('json', HighlightBody),
+      async (c) => {
+        const principal = c.get('principal')
+        const { space, id } = c.req.valid('param')
+        return c.json(
+          await service.addHighlight(principal, space, id, c.req.valid('json'), viaFor(principal)),
+          201,
+        )
+      },
+    )
+    .post('/:space/:id/highlights/doc', valid('param', Params), async (c) => {
+      const principal = c.get('principal')
+      const { space, id } = c.req.valid('param')
+      return c.json(await service.copyHighlightsToDoc(principal, space, id, viaFor(principal)), 201)
+    })
+    .patch(
+      '/:space/:id/highlights/:hid',
+      valid('param', HighlightParams),
+      valid('json', z.object({ note: z.string().max(MAX_HIGHLIGHT_NOTE) })),
+      async (c) => {
+        const principal = c.get('principal')
+        const { space, id, hid } = c.req.valid('param')
+        const { note } = c.req.valid('json')
+        return c.json(
+          await service.noteHighlight(principal, space, id, hid, note, viaFor(principal)),
+        )
+      },
+    )
+    .delete('/:space/:id/highlights/:hid', valid('param', HighlightParams), async (c) => {
+      const principal = c.get('principal')
+      const { space, id, hid } = c.req.valid('param')
+      await service.removeHighlight(principal, space, id, hid, viaFor(principal))
+      return c.body(null, 204)
+    })
     .delete('/:space/:id', valid('param', Params), async (c) => {
       const principal = c.get('principal')
       const { space, id } = c.req.valid('param')

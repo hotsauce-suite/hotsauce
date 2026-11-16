@@ -3,6 +3,8 @@ export { fetchPage, isPublicAddress, LinkFetchError, type PageFetcher } from './
 export { readPage } from './read.js'
 export { MAX_ANCHOR, type ReadingPlace, ReadingStore } from './reading.js'
 export {
+  type HighlightInput,
+  type HighlightView,
   type LinkFilter,
   type LinkListView,
   type LinkPatch,
@@ -12,6 +14,7 @@ export {
   type LinkView,
   type LinkWithBody,
   linkName,
+  MAX_HIGHLIGHT_LIST,
   MAX_LINK_LIST,
   parseTagAnswer,
   type SaveInput,

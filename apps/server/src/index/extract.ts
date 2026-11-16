@@ -1,4 +1,4 @@
-import { boardSearchText } from '@hotsauce/format'
+import { boardSearchText, highlightsOf, highlightsSearchText } from '@hotsauce/format'
 import { parse as parseYaml } from 'yaml'
 
 /**
@@ -78,10 +78,21 @@ export function extractDoc(path: string, text: string): ExtractedDoc {
       (kind === 'board' ? 'Untitled board' : (firstH1(body) ?? fileStem(path))),
     kind,
     // A board's drawing data isn't text anyone searches for; search sees the text on it.
-    body: kind === 'board' ? boardSearchText(body) : body,
+    // A saved link's highlights and notes are searched with its copy.
+    body:
+      kind === 'board'
+        ? boardSearchText(body)
+        : kind === 'link'
+          ? withHighlights(body, frontmatter)
+          : body,
     frontmatter,
     bodyLine,
   }
+}
+
+function withHighlights(body: string, data: Record<string, unknown> | null): string {
+  const text = highlightsSearchText(highlightsOf(data))
+  return text ? `${body.replace(/\s+$/, '')}\n\n${text}\n` : body
 }
 
 function splitFrontmatter(text: string): {
