@@ -69,6 +69,7 @@ export function useHighlights(opts: {
   const [onlyMine, setOnlyMine] = useState(false)
   const [busy, setBusy] = useState(false)
   const wentTo = useRef<string | null>(null)
+  const ownScrollUntil = useRef(0)
 
   // Find each passage in the copy whenever the copy or the highlights change. The copy's DOM is
   // new when its text changes, so the text is a dependency.
@@ -138,6 +139,8 @@ export function useHighlights(opts: {
     const s = scroller.current
     if (!s) return
     const close = () => {
+      // A scroll the reader made itself (going to a highlight) leaves it open.
+      if (Date.now() < ownScrollUntil.current) return
       setSelected(null)
       setOpen((cur) => (cur?.kind === 'highlight' && !cur.editing ? null : cur))
     }
@@ -161,6 +164,7 @@ export function useHighlights(opts: {
       if (!range || !s || typeof range.getBoundingClientRect !== 'function') return null
       const view = s.getBoundingClientRect()
       const box = range.getBoundingClientRect()
+      ownScrollUntil.current = Date.now() + 250
       s.scrollTop += box.top - view.top - view.height / 3
       const after = range.getBoundingClientRect()
       return { top: after.top, bottom: after.bottom, left: after.left, right: after.right }

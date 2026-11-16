@@ -159,7 +159,8 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       valid('param', Params),
       valid('json', HighlightBody),
       async (c) => {
-        const principal = c.get('principal')
+        // Highlights are made in the app: AI tools read them but can't write (R8).
+        const principal = sessionOnly(c.get('principal'))
         const { space, id } = c.req.valid('param')
         return c.json(
           await service.addHighlight(principal, space, id, c.req.valid('json'), viaFor(principal)),
@@ -168,7 +169,8 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       },
     )
     .post('/:space/:id/highlights/doc', valid('param', Params), async (c) => {
-      const principal = c.get('principal')
+      // Highlights are made in the app: AI tools read them but can't write (R8).
+      const principal = sessionOnly(c.get('principal'))
       const { space, id } = c.req.valid('param')
       return c.json(await service.copyHighlightsToDoc(principal, space, id, viaFor(principal)), 201)
     })
@@ -177,7 +179,8 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       valid('param', HighlightParams),
       valid('json', z.object({ note: z.string().max(MAX_HIGHLIGHT_NOTE) })),
       async (c) => {
-        const principal = c.get('principal')
+        // Highlights are made in the app: AI tools read them but can't write (R8).
+        const principal = sessionOnly(c.get('principal'))
         const { space, id, hid } = c.req.valid('param')
         const { note } = c.req.valid('json')
         return c.json(
@@ -186,7 +189,8 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       },
     )
     .delete('/:space/:id/highlights/:hid', valid('param', HighlightParams), async (c) => {
-      const principal = c.get('principal')
+      // Highlights are made in the app: AI tools read them but can't write (R8).
+      const principal = sessionOnly(c.get('principal'))
       const { space, id, hid } = c.req.valid('param')
       await service.removeHighlight(principal, space, id, hid, viaFor(principal))
       return c.body(null, 204)

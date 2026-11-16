@@ -221,3 +221,35 @@ test('highlight a passage with a note, find it in Highlights, and copy it to a D
   await expect(page.getByText('Marked read is the subject of this page.').first()).toBeVisible()
   await page.screenshot({ path: 'test-results/link-highlights-doc.png' })
 })
+
+test('a highlight far down a long read opens from the Highlights tab and stays open', async ({
+  page,
+}) => {
+  await page.goto(
+    `/links/save?url=${encodeURIComponent(`https://essay.long.test/${uid()}/far-read`)}`,
+  )
+  await page.getByTestId('link-save-confirm').click()
+  await page.getByRole('link', { name: 'Open it' }).click()
+  const body = page.getByTestId('link-body')
+  await expect(body).toContainText('Part 40')
+  await body.evaluate((el) => {
+    const p = [...el.querySelectorAll('p')][35] as HTMLElement
+    p.scrollIntoView({ block: 'center' })
+    const t = p.firstChild as Text
+    const r = document.createRange()
+    r.setStart(t, 0)
+    r.setEnd(t, 20)
+    const s = document.getSelection() as Selection
+    s.removeAllRanges()
+    s.addRange(r)
+  })
+  await page.getByTestId('link-highlight').click()
+  await expect(page.getByTestId('link-highlight-item')).toHaveCount(1)
+  await page.getByTestId('link-scroller').evaluate((el) => {
+    el.scrollTop = 0
+  })
+  await page.getByRole('link', { name: 'Links' }).first().click()
+  await page.getByTestId('links-view-highlights').click()
+  await page.getByTestId('highlight-row').first().getByRole('link').click()
+  await expect(page.getByTestId('link-highlight-popover')).toBeVisible()
+})

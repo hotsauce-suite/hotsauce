@@ -670,6 +670,30 @@ describe('highlights and notes (docs/PLAN-links-highlights.md)', () => {
     expect(again.path).toBe('docs/highlights-copy-me-2.md')
   })
 
+  it('R3 R8: an access token can’t write highlights or copy them; $ survives the copy', async () => {
+    const link = await save({ url: 'https://a.test/token-marks' })
+    const h = await add('alice', link.id, {
+      quote: 'Token marks is the subject',
+      note: 'pay $$10 $& now',
+    })
+    const made = await call('POST', '/api/tokens', { as: ALICE, json: { name: 'script' } })
+    const { token } = (await made.json()) as { token: string }
+    const base = `/api/links/alice/${link.id}/highlights`
+    for (const [method, url, json] of [
+      ['POST', base, { quote: 'Token marks' }],
+      ['PATCH', `${base}/${h.id}`, { note: 'x' }],
+      ['DELETE', `${base}/${h.id}`, undefined],
+      ['POST', `${base}/doc`, undefined],
+    ] as const) {
+      const res = await call(method, url, { token, ...(json ? { json } : {}) })
+      expect(res.status, `${method} ${url}`).toBe(403)
+    }
+    await api('POST', base, { status: 400, json: { quote: 'x'.repeat(2500) } })
+    const doc = await api('POST', `${base}/doc`, { status: 201 })
+    const text = await catFile(bare('alice'), 'main', doc.path)
+    expect(text).toContain('pay $$10 $& now')
+  })
+
   it('R8: MCP reads highlights and can’t make them', async () => {
     const link = await save({ url: 'https://a.test/mcp-marks' })
     await add('alice', link.id, { quote: 'Mcp marks is the subject', note: 'for Claude' })

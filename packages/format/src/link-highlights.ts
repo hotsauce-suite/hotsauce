@@ -95,8 +95,14 @@ export function addHighlight(
   data: Record<string, unknown>,
   input: NewHighlight,
 ): { highlights: unknown[]; highlight: LinkHighlight } {
-  const quote = clip(input.quote, MAX_HIGHLIGHT_QUOTE)
+  const quote = clip(input.quote, Number.MAX_SAFE_INTEGER)
   if (!quote) throw new HighlightError('empty', 'Select some words to highlight')
+  if (quote.length > MAX_HIGHLIGHT_QUOTE) {
+    throw new HighlightError(
+      'empty',
+      `Highlight up to ${MAX_HIGHLIGHT_QUOTE.toLocaleString('en')} characters at a time`,
+    )
+  }
   const list = rawList(data)
   if (list.length >= MAX_HIGHLIGHTS) {
     throw new HighlightError('full', `A link keeps at most ${MAX_HIGHLIGHTS} highlights`)
@@ -198,7 +204,7 @@ export interface HighlightsDocInput {
 export function highlightsDoc(input: HighlightsDocInput): { title: string; markdown: string } {
   const name = input.title.replace(/\s+/g, ' ').trim() || 'a saved page'
   const title = `Highlights: ${name}`
-  const safeUrl = /^https?:\/\//i.test(input.url) ? input.url : ''
+  const safeUrl = /^https?:\/\/[^\s<>]+$/i.test(input.url) ? input.url : ''
   const lines: string[] = [`# ${escapeHeading(title)}`, '']
   const from = [
     safeUrl ? `[the original page](<${safeUrl}>)` : '',
@@ -208,11 +214,16 @@ export function highlightsDoc(input: HighlightsDocInput): { title: string; markd
   const me = input.me.toLowerCase()
   for (const h of inPageOrder(input.highlights)) {
     lines.push(...quoteLines(h.quote))
-    if (h.by !== me) lines.push('>', `> — ${input.nameOf(h.by)}`)
+    if (h.by !== me) lines.push('>', `> — ${escapeQuote(input.nameOf(h.by))}`)
     lines.push('')
-    if (h.note) lines.push(h.note, '')
+    // A note is the member's own Markdown; a teammate's is quoted as plain text.
+    if (h.note) lines.push(...(h.by === me ? [h.note] : quoteNote(h.note)), '')
   }
   return { title, markdown: `${lines.join('\n').replace(/\n+$/, '')}\n` }
+}
+
+function quoteNote(note: string): string[] {
+  return note.split('\n').map((l) => escapeQuote(l).replace(/^(\s*)([-+=]|\d+\.)/, '$1\\$2'))
 }
 
 function quoteLines(quote: string): string[] {
@@ -239,7 +250,26 @@ export function findQuote(
   h: { quote: string; prefix?: string | undefined; suffix?: string | undefined },
   near?: number,
 ): { start: number; end: number } | null {
-  const { norm, map } = normalizeWithMap(text)
+  return findQuoteIn(prepareText(text), h, near)
+}
+
+/** A text made ready for many `findQuoteIn` calls: white space collapsed once. */
+export interface PreparedText {
+  norm: string
+  map: number[]
+}
+
+export function prepareText(text: string): PreparedText {
+  return normalizeWithMap(text)
+}
+
+/** `findQuote` on a text prepared once, for placing many highlights in one page. */
+export function findQuoteIn(
+  prepared: PreparedText,
+  h: { quote: string; prefix?: string | undefined; suffix?: string | undefined },
+  near?: number,
+): { start: number; end: number } | null {
+  const { norm, map } = prepared
   const quote = h.quote.replace(/\s+/g, ' ').trim()
   if (!quote) return null
   const prefix = (h.prefix ?? '').replace(/\s+/g, ' ')
@@ -264,18 +294,19 @@ export function findQuote(
 function normalizeWithMap(text: string): { norm: string; map: number[] } {
   let norm = ''
   const map: number[] = []
-  let space = false
+  let inSpace = false
+  const space = /\s/
   for (let i = 0; i < text.length; i++) {
     const ch = text[i] as string
-    if (/\s/.test(ch)) {
-      if (!space && norm.length > 0) {
+    if (space.test(ch)) {
+      if (!inSpace && norm.length > 0) {
         norm += ' '
         map.push(i)
       }
-      space = true
+      inSpace = true
       continue
     }
-    space = false
+    inSpace = false
     norm += ch
     map.push(i)
   }

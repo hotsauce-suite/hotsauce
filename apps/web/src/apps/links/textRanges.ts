@@ -1,7 +1,7 @@
 // Text offsets in the reader's copy (docs/PLAN-links-highlights.md): a highlight is found again
 // by its words in the copy's text, then drawn as a DOM Range. Nothing here changes the DOM.
 
-import { findQuote, HIGHLIGHT_CONTEXT } from '@hotsauce/format'
+import { findQuoteIn, HIGHLIGHT_CONTEXT, prepareText } from '@hotsauce/format'
 
 export interface TextIndex {
   /** Every text node's characters, in order: what `Range.toString()` would give. */
@@ -64,12 +64,6 @@ export function blockOf(root: HTMLElement, node: Node): number {
   return n ? Array.prototype.indexOf.call(root.children, n) : -1
 }
 
-/** Where a top-level block's text starts. */
-export function blockStart(root: HTMLElement, block: number): number | undefined {
-  const el = root.children[block]
-  return el ? offsetOf(root, el, 0) : undefined
-}
-
 export interface Selected {
   quote: string
   prefix: string
@@ -109,10 +103,19 @@ export function placeHighlights<
   H extends { id: string; quote: string; prefix?: string; suffix?: string; block?: number },
 >(root: HTMLElement, highlights: readonly H[]): Map<string, Range | null> {
   const idx = textIndex(root)
+  const prepared = prepareText(idx.text)
+  // Where each top-level block starts, in one pass over the text nodes.
+  const starts: number[] = []
+  let n = 0
+  for (let b = 0; b < root.children.length; b++) {
+    const el = root.children[b] as Element
+    while (n < idx.nodes.length && !el.contains(idx.nodes[n] as Node)) n++
+    starts.push(idx.starts[n] ?? idx.text.length)
+  }
   const out = new Map<string, Range | null>()
   for (const h of highlights) {
-    const near = h.block !== undefined ? blockStart(root, h.block) : undefined
-    const at = findQuote(idx.text, h, near)
+    const near = h.block !== undefined ? starts[h.block] : undefined
+    const at = findQuoteIn(prepared, h, near)
     out.set(h.id, at ? rangeFor(idx, at.start, at.end) : null)
   }
   return out

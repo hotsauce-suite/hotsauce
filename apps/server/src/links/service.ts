@@ -364,7 +364,9 @@ export class Links {
       throw new HotsauceError('conflict', 'This link has no highlights to copy')
     }
     const visible = await this.#d.spaces.visibleSpaces(principal)
-    const personal = personalOf(visible)?.name ?? space
+    const personal = personalOf(visible)?.name
+    if (!personal)
+      throw new HotsauceError('conflict', 'You need a private space to copy highlights into')
     const base = (this.#d.publicUrl ?? '').replace(/\/+$/, '')
     const doc = highlightsDoc({
       title: file.record.fm.title || file.record.fm.site || file.record.fm.url,
@@ -376,7 +378,7 @@ export class Links {
     })
     const fresh = newDoc(doc.title)
     // newDoc writes "# title" as the body; the highlights doc brings its own heading.
-    const text = fresh.text.replace(/\n# [^\n]*\n\n$/, `\n${doc.markdown}`)
+    const text = fresh.text.replace(/\n# [^\n]*\n\n$/, () => `\n${doc.markdown}`)
     for (let n = 1; n <= 50; n++) {
       const stem = docPath('', doc.title).replace(/\.md$/, '')
       const path = n === 1 ? `${stem}.md` : `${stem}-${n}.md`

@@ -130,6 +130,7 @@ export { isId, newId } from './ids.js'
 export {
   addHighlight,
   findQuote,
+  findQuoteIn,
   HIGHLIGHT_CONTEXT,
   HighlightError,
   type HighlightsDocInput,
@@ -142,6 +143,8 @@ export {
   MAX_HIGHLIGHT_QUOTE,
   MAX_HIGHLIGHTS,
   type NewHighlight,
+  type PreparedText,
+  prepareText,
   removeHighlight,
   setHighlightNote,
 } from './link-highlights.js'

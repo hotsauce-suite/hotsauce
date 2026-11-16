@@ -26,7 +26,8 @@ R2. `POST /api/links/:space/:id/highlights {quote, prefix?, suffix?, block?, not
     the calling member (201, the highlight). One commit `links: highlight "<title>"`. A space they
     can't see is 403, a link that isn't there 404, a bad body 400, the 501st 409.
 R3. `PATCH …/highlights/:hid {note}` changes the note (empty removes it; sets `edited`);
-    `DELETE …/highlights/:hid` removes it. Only the member who made it can change or delete it
+    `DELETE …/highlights/:hid` removes it. Every highlight write and the copy are for a signed-in
+    member only: an access token (AI tools, scripts) gets 403. Only the member who made it can change or delete it
     (403 otherwise). Commits `links: note|unhighlight "<title>"`.
 R4. A fresh read of the page ("Get the page again", a better browser copy) never drops
     highlights; ones whose words are no longer in the copy still list, marked "not in the page
@@ -52,7 +53,8 @@ R10. `POST /api/links/:space/:id/highlights/doc` makes a new doc in the member's
 R11. Reader: selecting words in the copy shows "Highlight" and "Add note". Highlights show in the
     text (yours bright, teammates' softer); clicking one opens its note, Edit and Delete (yours) or
     who made it (theirs). A "Highlights" section under the article lists them with "Copy to a Doc" and, on a team
-    link with others' highlights, "Show only mine". Works with a mouse, a finger and the keyboard.
+    link with others' highlights, "Show only mine". Works with a mouse and a finger; by keyboard, the Highlights list opens, edits and removes them
+    (selecting words by keyboard needs the browser's caret browsing).
 R12. Links list: a Highlights tab beside Unread and Archive (R6), each opening the link at that
     passage; rows show "N highlights".
 R13. Share with team on a link with your highlights says "Share with team (with your N

@@ -59,6 +59,10 @@ describe('highlights in a link file (R1)', () => {
     expect(highlights[0]).toEqual({ odd: true })
   })
 
+  it('refuses a passage that is too long rather than cutting it', () => {
+    expect(() => addHighlight({}, { quote: 'x'.repeat(2001), by: ME, at: AT })).toThrow(/up to/)
+  })
+
   it('refuses an empty passage and the one past the limit', () => {
     expect(() => addHighlight({}, { quote: '  ', by: ME, at: AT })).toThrow(HighlightError)
     const full = { highlights: Array.from({ length: MAX_HIGHLIGHTS }, (_, i) => ({ id: `${i}` })) }
@@ -132,6 +136,31 @@ describe('Copy highlights to a Doc (R10)', () => {
         '',
       ].join('\n'),
     )
+  })
+
+  it('quotes a teammate’s note as plain text, and keeps $ signs', () => {
+    const hs = highlightsOf({
+      highlights: [
+        {
+          id: 'b',
+          by: 'bob@example.com',
+          at: AT,
+          quote: 'q',
+          note: '# Not a heading\n- costs $$10 $&',
+        },
+      ],
+    })
+    const doc = highlightsDoc({
+      title: 't',
+      url: 'https://x.y/a b',
+      appUrl: 'https://app/l',
+      highlights: hs,
+      me: ME,
+      nameOf: () => 'Bob',
+    })
+    expect(doc.markdown).toContain('\\# Not a heading')
+    expect(doc.markdown).toContain('\\- costs $$10 $&')
+    expect(doc.markdown).not.toContain('original page')
   })
 
   it('never links an address that isn’t the web', () => {
