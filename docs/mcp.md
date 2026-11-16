@@ -21,8 +21,8 @@ for connecting an AI tool from outside.
 
 ## 1. Make a token
 
-Open Hotsauce, click **Settings** at the bottom of the sidebar, find **Connect an AI tool**, give
-the token a name (say "Cursor on my laptop") and press **Create token**. Hotsauce shows the token
+Open Hotsauce, open **Settings → Connections** (the gear at the bottom of the sidebar), find
+**Connect an AI tool**, give the token a name (say "Cursor on my laptop") and press **Create token**. Hotsauce shows the token
 once; pick your tool and it shows that tool's steps with the address and token already filled in.
 Copy it then; it can't be shown again. Revoke it on the same page when you stop using it; it stops
 working at once.
@@ -118,7 +118,7 @@ export HOTSAUCE_TOKEN="hth_…"
 ## 2e. Claude, ChatGPT and Grok: connect by signing in
 
 These tools add a remote MCP server as a "custom connector" and sign in through the browser
-(standard MCP authorization: OAuth 2.1 with PKCE). Settings → **Connect by signing in** shows the
+(standard MCP authorization: OAuth 2.1 with PKCE). Settings → Connections → **Connect by signing in** shows the
 address to paste.
 
 - **Claude** (claude.ai, desktop and phone apps): Settings → Connectors → Add custom connector.
@@ -132,7 +132,7 @@ address to paste.
 The tool opens a Hotsauce page: "Let Claude use your Hotsauce?". Sign in if you aren't, check the
 name and the address it returns to, and press **Allow**. The connection has your access (the team
 space and your own), writes are marked with the tool's name, and it can't change settings or make
-tokens. It lasts until you press **Disconnect** under Settings → Connected apps, or you leave the
+tokens. It lasts until you press **Disconnect** under Settings → Connections, or you leave the
 organization. Nothing to set up on the server: it works on any Hotsauce reachable over HTTPS at its
 `PUBLIC_URL`.
 

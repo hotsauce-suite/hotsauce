@@ -121,7 +121,7 @@ test('Start from a Meet tab matches the call, else the meeting on now', async ({
 })
 
 test('Settings adds a second calendar, whose meetings then show', async ({ page, member }) => {
-  await page.goto('/settings')
+  await page.goto('/settings/connections')
   const primary = page.locator(
     `[data-testid="calendar-choice"][data-calendar-id="${member.email}"]`,
   )

@@ -159,7 +159,7 @@ function ToolSteps({ tool, origin, token }: { tool: AiTool; origin: string; toke
         <Step title={tool === 'chatgpt' ? 'ChatGPT' : 'Grok'}>
           <p data-testid="ai-tool-sign-in">
             {tool === 'chatgpt' ? 'ChatGPT' : 'Grok'} doesn’t need a token: it connects by signing
-            in. You can revoke this token. See “Connect by signing in” above for its steps.
+            in. You can revoke this token. See “Connect by signing in” below for its steps.
           </p>
         </Step>
       )

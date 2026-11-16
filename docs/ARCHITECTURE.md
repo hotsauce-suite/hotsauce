@@ -883,6 +883,8 @@ One instance serves one organization. Everything an organization chooses lives u
 
 `/settings/organization`, admins only (`isAdmin`; access tokens refused), runs the same section components over `/api/admin/org/*`. Brand changes apply at once; settings and keys apply on `POST /api/admin/org/apply` (restart). Fields set by env show as locked. The first admin save on an env-configured instance marks it `setupComplete`.
 
+Since 2026-11-15 Settings is a menu of small pages (`routes/settings/`, plan `docs/PLAN-settings-pages.md`): `/settings` (General), `/settings/connections`, `/settings/apps`, and for admins `/settings/organization` (Workspace) plus `/brand`, `/people`, `/ai` and `/data` under it. One `OrgSettingsRoute` serves all five organization pages, so a save waiting on a restart follows the admin between them; `OrgSection` takes a `part` so each page shows and saves only its own fields, while the setup wizard still shows the whole form. Old `/settings#section` addresses are redirected by `movedSection` in `routes/settings/pages.ts`.
+
 **Testing keys.** `POST …/test/:provider` makes one read-only call each (`org/test-keys.ts`): Anthropic `GET /v1/models`, Deepgram `GET /v1/projects`, Clerk `GET /v1/users?limit=1` plus a check that both keys are from the same instance, GitHub `GET /orgs/{org}`. Ten-second timeout, plain-language answers.
 
 **Missing keys.** In production a provider without a key is `none`: `Unconfigured*` implementations throw `not_configured` (503) with a message pointing to Settings → Organization, and `/api/health` reports `features.ai` and `features.transcription`. Fakes stay refused in production.

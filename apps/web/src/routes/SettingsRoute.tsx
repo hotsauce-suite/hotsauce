@@ -1,34 +1,25 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate, useOutletContext, useRouteLoaderData } from 'react-router'
+import { Link, useOutletContext } from 'react-router'
 import { calendarApi } from '../api/calendar'
-import { api, HotsauceApiError } from '../api/client'
+import { HotsauceApiError } from '../api/client'
 import { type AccessToken, tokensApi } from '../api/tokens'
-import type { CalendarChoice, Health } from '../api/types'
-import {
-  MeetingsPageHeader,
-  primaryButton,
-  secondaryButton,
-} from '../apps/meetings/components/common'
+import type { CalendarChoice } from '../api/types'
+import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
 import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { NewToken } from '../components/AiToolSetup'
-import { feedbackLink, initials, useFeedbackEnabled, useSignOut } from '../components/AppRail'
+import { initials, useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
 import { ConnectedApps } from '../components/ConnectedApps'
 import { Icon } from '../components/Icon'
 import { InstallButton, InstallSheet } from '../components/InstallBar'
 import { MacAppCard } from '../components/MacApp'
 import { NotificationsSection } from '../components/NotificationsSection'
-import { onFeedbackClick } from '../feedback/pageShot'
 import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
 import { useInstallPrompt } from '../lib/install'
 import { chooseTheme, currentTheme, type ThemeChoice } from '../lib/theme'
 import { useSession } from '../state/session'
-
-/** The help center, and its frequently asked questions. */
-export const HELP_DOCS = 'https://hotsauce.work/help'
-export const HELP_FAQ = 'https://hotsauce.work/faq'
 
 const when = (iso: string | null) =>
   iso
@@ -39,39 +30,72 @@ const when = (iso: string | null) =>
       })
     : 'Never'
 
-/**
- * `/settings`, top to bottom (docs/PLAN-install-and-settings.md, docs/PLAN-settings-install.md):
- * the account, Install (the Mac app, the web app, the Chrome extension), notifications, appearance, access tokens
- * for connecting AI tools and scripts (ARCHITECTURE §8.1), which Google calendars Meetings reads
- * (§7.8), help, and the version.
- */
-export default function SettingsRoute() {
+// The three pages of Settings everyone has (docs/PLAN-settings-pages.md, G1–G3). The menu, Help and
+// the version are SettingsLayout's; the organization's pages are OrgSettingsRoute's.
+
+function usePageTitle(page: string) {
+  useEffect(() => {
+    document.title = `${page} · Settings · ${product()}`
+  }, [page])
+}
+
+/** `/settings`: the account, then what this device remembers. */
+export function GeneralSettings() {
+  usePageTitle('General')
+  return (
+    <div data-testid="settings-general">
+      <AccountSection />
+      <p
+        data-testid="settings-device-label"
+        className="mt-12 -mb-6 text-xs font-semibold tracking-wide text-ink-faint uppercase"
+      >
+        On this device
+      </p>
+      <div className="mt-12">
+        <AppearancePicker />
+      </div>
+      <NotificationsSection />
+      <KeyboardSettings />
+      <WeatherSettingsSection />
+    </div>
+  )
+}
+
+/** `/settings/connections`: what your account lets in and reads from (ARCHITECTURE §7.8, §8.1). */
+export function ConnectionsSettings() {
+  usePageTitle('Connections')
+  return (
+    <div data-testid="settings-connections">
+      <CalendarPicker />
+      <AiToolsSection />
+      <ConnectedApps origin={window.location.origin} />
+    </div>
+  )
+}
+
+/** `/settings/apps`: the Mac app, the web app in the browser, and the Chrome extension. */
+export function AppsSettings() {
+  usePageTitle('Apps')
+  return (
+    <div data-testid="settings-apps">
+      <InstallSection />
+    </div>
+  )
+}
+
+/** Access tokens for connecting AI tools and scripts: make one, see them, revoke one. */
+function AiToolsSection() {
   const [tokens, setTokens] = useState<AccessToken[] | null>(null)
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<(AccessToken & { token: string }) | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  // Today links to `#mac-app`; the router doesn't scroll to it.
-  const { hash } = useLocation()
-  useEffect(() => {
-    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
-  }, [hash])
-
-  useEffect(() => {
-    api.me().then(
-      (me) => setIsAdmin(me.principal.isAdmin),
-      () => {},
-    )
-  }, [])
 
   const load = useCallback(() => {
     tokensApi.list().then(setTokens, (err: unknown) => setError(messageOf(err)))
   }, [])
 
   useEffect(() => {
-    document.title = `Settings · ${product()}`
     load()
   }, [load])
 
@@ -104,131 +128,106 @@ export default function SettingsRoute() {
   const origin = window.location.origin
 
   return (
-    <>
-      <MeetingsPageHeader title="Settings" />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-2xl px-4 pt-6 pb-24 md:px-6 md:pt-10">
-          {isAdmin ? (
-            <Link
-              to="/settings/organization"
-              data-testid="org-settings-link"
-              className="mb-8 flex items-center gap-3 rounded-xl border border-ash bg-paper-raised/60 p-4 hover:border-ember"
+    <section
+      id="ai-tools"
+      aria-labelledby="ai-tools-title"
+      data-testid="settings-ai-tools"
+      className="mt-12 scroll-mt-6"
+    >
+      <h2 id="ai-tools-title" className={sectionTitle}>
+        Connect an AI tool to {product()}
+      </h2>
+      <p className="mt-2 text-ink-soft">
+        A token lets Claude Code, Codex, Cursor or a script work in {product()} as you. Make one per
+        tool and treat it like a password. Claude, ChatGPT and Grok{' '}
+        <a href="#connected-apps" className="text-ember-strong underline">
+          sign in instead
+        </a>
+        .
+      </p>
+      <details data-testid="ai-tools-about" className="mt-2 text-sm text-ink-soft">
+        <summary className="cursor-pointer text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink">
+          What can a connected tool do?
+        </summary>
+        <p className="mt-2">
+          Search, read, write, move and restore Docs; read Meetings and ask about them; manage Tasks
+          and Notes; read Clips and your calendar. It sees exactly what you see, and everything it
+          writes is saved under your name, marked with the tool that made it.
+        </p>
+        <p className="mt-2">
+          Once connected, your AI tool reads your{' '}
+          <Link to="/meetings/brief" className="text-ember-strong underline">
+            agent brief
+          </Link>{' '}
+          first, so it already knows your priorities, projects and people.
+        </p>
+      </details>
+
+      <form onSubmit={(e) => void create(e)} className="mt-6 flex flex-wrap items-end gap-2">
+        <label className="flex min-w-48 flex-1 flex-col gap-1 text-sm text-ink-soft">
+          Token name
+          <input
+            data-testid="token-name"
+            value={name}
+            placeholder="My AI tool"
+            maxLength={80}
+            onChange={(e) => setName(e.target.value)}
+            className="h-10 rounded-lg border border-ash-strong bg-paper-raised px-3 text-ink focus:border-ember focus:outline-none"
+          />
+        </label>
+        <button
+          type="submit"
+          data-testid="token-create"
+          disabled={busy || name.trim() === ''}
+          className={primaryButton}
+        >
+          <Icon name="plus" />
+          Create token
+        </button>
+      </form>
+
+      {error ? (
+        <p role="alert" className="mt-3 text-sm text-ember-strong">
+          {error}
+        </p>
+      ) : null}
+
+      {created ? (
+        <NewToken token={created} origin={origin} onDone={() => setCreated(null)} />
+      ) : null}
+
+      <h3 className="mt-10 text-sm font-semibold text-ink-soft">Your tokens</h3>
+      {tokens === null ? null : tokens.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-faint">No tokens yet.</p>
+      ) : (
+        <ul
+          data-testid="token-list"
+          className="mt-2 divide-y divide-ash/70 rounded-xl border border-ash"
+        >
+          {tokens.map((t) => (
+            <li
+              key={t.id}
+              data-testid="token-item"
+              data-id={t.id}
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
             >
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium text-ink">Organization</span>
-                <span className="block text-sm text-ink-soft">
-                  Name, brand, sign-in, AI keys and storage for everyone. Admins only.
-                </span>
-              </span>
-              <Icon name="chevron" className="size-4 text-ink-faint" />
-            </Link>
-          ) : null}
-          <AccountSection />
-          <InstallSection />
-          <NotificationsSection />
-          <div className="mt-12">
-            <AppearancePicker />
-          </div>
-          <WeatherSettingsSection />
-          <KeyboardSettings />
-
-          <h2 className="mt-12 font-display text-[1.6rem] font-semibold tracking-tight">
-            Connect an AI tool to {product()}
-          </h2>
-          <p className="mt-2 text-ink-soft">
-            An AI tool such as Claude, ChatGPT, Grok or Cursor, or a script, can work in {product()}{' '}
-            as you: search, read, write, move and restore Docs; read Meetings and ask about them;
-            manage Tasks and Notes; read Clips and your calendar. It sees exactly what you see, and
-            everything it writes is saved under your name, marked with the tool that made it.
-          </p>
-          <p className="mt-2 text-ink-soft">
-            Once connected, your AI tool reads your{' '}
-            <Link to="/meetings/brief" className="text-ember-strong underline">
-              agent brief
-            </Link>{' '}
-            first, so it already knows your priorities, projects and people.
-          </p>
-
-          <ConnectedApps origin={origin} />
-
-          <h3 className="mt-10 text-lg font-semibold text-ink">Connect with a token</h3>
-          <p className="mt-2 text-sm text-ink-soft">
-            For Claude Code, Codex, Cursor, scripts and other tools that take a header. Make one
-            token for each tool. Treat a token like a password, and revoke it when you stop using
-            it.
-          </p>
-
-          <form onSubmit={(e) => void create(e)} className="mt-6 flex flex-wrap items-end gap-2">
-            <label className="flex min-w-48 flex-1 flex-col gap-1 text-sm text-ink-soft">
-              Token name
-              <input
-                data-testid="token-name"
-                value={name}
-                placeholder="My AI tool"
-                maxLength={80}
-                onChange={(e) => setName(e.target.value)}
-                className="h-10 rounded-lg border border-ash-strong bg-paper-raised px-3 text-ink focus:border-ember focus:outline-none"
-              />
-            </label>
-            <button
-              type="submit"
-              data-testid="token-create"
-              disabled={busy || name.trim() === ''}
-              className={primaryButton}
-            >
-              <Icon name="plus" />
-              Create token
-            </button>
-          </form>
-
-          {error ? (
-            <p role="alert" className="mt-3 text-sm text-ember-strong">
-              {error}
-            </p>
-          ) : null}
-
-          {created ? (
-            <NewToken token={created} origin={origin} onDone={() => setCreated(null)} />
-          ) : null}
-
-          <h3 className="mt-10 text-sm font-semibold text-ink-soft">Your tokens</h3>
-          {tokens === null ? null : tokens.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-faint">No tokens yet.</p>
-          ) : (
-            <ul
-              data-testid="token-list"
-              className="mt-2 divide-y divide-ash/70 rounded-xl border border-ash"
-            >
-              {tokens.map((t) => (
-                <li
-                  key={t.id}
-                  data-testid="token-item"
-                  data-id={t.id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
-                >
-                  <span className="min-w-0 flex-1 truncate font-medium text-ink">{t.name}</span>
-                  <span className="font-mono text-xs text-ink-faint">hth_…{t.hint}</span>
-                  <span className="text-xs text-ink-faint">Created {when(t.createdAt)}</span>
-                  <span className="text-xs text-ink-faint">Last used {when(t.lastUsedAt)}</span>
-                  <button
-                    type="button"
-                    data-testid="token-revoke"
-                    onClick={() => void revoke(t)}
-                    className="text-xs text-ink-soft hover:text-ember-strong"
-                  >
-                    Revoke
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <CalendarPicker />
-          <HelpSection />
-          <AboutSection />
-        </div>
-      </div>
-    </>
+              <span className="min-w-0 flex-1 truncate font-medium text-ink">{t.name}</span>
+              <span className="font-mono text-xs text-ink-faint">hth_…{t.hint}</span>
+              <span className="text-xs text-ink-faint">Created {when(t.createdAt)}</span>
+              <span className="text-xs text-ink-faint">Last used {when(t.lastUsedAt)}</span>
+              <button
+                type="button"
+                data-testid="token-revoke"
+                onClick={() => void revoke(t)}
+                className="text-xs text-ink-soft hover:text-ember-strong"
+              >
+                Revoke
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -273,13 +272,14 @@ function AccountSection() {
   )
 }
 
-/** Every way to install it: the Mac app, the web app in the browser, and the Chrome extension. */
+/** Settings → Apps: the Mac app, the web app in the browser, and the Chrome extension. */
 function InstallSection() {
   return (
-    <section aria-labelledby="install-title" data-testid="settings-install" className="mt-12">
+    <section aria-labelledby="install-title" data-testid="settings-install">
       <h2 id="install-title" className={sectionTitle}>
-        Install
+        Apps
       </h2>
+      <p className="mt-2 text-ink-soft">Other ways to use {product()}.</p>
       <div className="mt-4 space-y-4">
         <MacAppCard />
         <WebAppCard />
@@ -354,98 +354,6 @@ function ExtensionCard() {
   )
 }
 
-function HelpSection() {
-  const feedbackOn = useFeedbackEnabled()
-  const { pathname } = useLocation()
-  const navigate = useNavigate()
-  return (
-    <section aria-labelledby="help-title" data-testid="settings-help" className="mt-12">
-      <h2 id="help-title" className={sectionTitle}>
-        Help
-      </h2>
-      <div className="mt-4 flex flex-wrap gap-3">
-        {feedbackOn ? (
-          <Link
-            to={feedbackLink(pathname)}
-            onClick={onFeedbackClick(navigate, pathname)}
-            data-testid="settings-feedback"
-            className={secondaryButton}
-          >
-            <Icon name="chat" />
-            Send feedback
-          </Link>
-        ) : null}
-        <a
-          href={HELP_DOCS}
-          target="_blank"
-          rel="noreferrer"
-          data-testid="settings-help-docs"
-          className={secondaryButton}
-        >
-          <Icon name="book" />
-          Help center
-          <Icon name="external" className="size-3 opacity-75" />
-        </a>
-        <a
-          href={HELP_FAQ}
-          target="_blank"
-          rel="noreferrer"
-          data-testid="settings-help-faq"
-          className={secondaryButton}
-        >
-          FAQ
-          <Icon name="external" className="size-3 opacity-75" />
-        </a>
-      </div>
-    </section>
-  )
-}
-
-/**
- * The version this server runs. Updates apply on their own (vite.config.ts: autoUpdate with
- * skipWaiting), so Reload just checks for a newer build and reloads the page.
- */
-function AboutSection() {
-  const health = useRouteLoaderData('root') as Health | undefined
-  const [reloading, setReloading] = useState(false)
-  const reload = async () => {
-    setReloading(true)
-    try {
-      const reg = await navigator.serviceWorker?.getRegistration()
-      await reg?.update()
-    } catch {
-      // Offline or no worker: reloading still picks up whatever is cached.
-    }
-    window.location.reload()
-  }
-  return (
-    <section aria-labelledby="about-title" data-testid="settings-about" className="mt-12">
-      <h2 id="about-title" className={sectionTitle}>
-        About
-      </h2>
-      <div className={card}>
-        <span className="min-w-0 flex-1 text-sm text-ink-soft">
-          {product()}{' '}
-          <span data-testid="settings-version" className="font-mono text-ink">
-            {health?.version ? `version ${health.version}` : ''}
-          </span>
-          <span className="block">New versions install themselves; reload to get one now.</span>
-        </span>
-        <button
-          type="button"
-          data-testid="settings-reload"
-          disabled={reloading}
-          onClick={() => void reload()}
-          className={`${secondaryButton} h-9 shrink-0`}
-        >
-          <Icon name="restart" />
-          Reload
-        </button>
-      </div>
-    </section>
-  )
-}
-
 /** Primary is always on; ticking another calendar saves the whole choice. */
 function CalendarPicker() {
   const [calendars, setCalendars] = useState<CalendarChoice[] | null>(null)
@@ -484,8 +392,8 @@ function CalendarPicker() {
   }
 
   return (
-    <section aria-labelledby="calendars" className="mt-12">
-      <h2 id="calendars" className="font-display text-[1.6rem] font-semibold tracking-tight">
+    <section id="calendars" aria-labelledby="calendars-title" className="scroll-mt-6">
+      <h2 id="calendars-title" className="font-display text-[1.6rem] font-semibold tracking-tight">
         Calendars
       </h2>
       <p className="mt-2 text-ink-soft">

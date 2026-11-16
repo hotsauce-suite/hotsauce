@@ -31,10 +31,18 @@ export function ConnectedApps({ origin }: { origin: string }) {
   }
 
   return (
-    <section aria-labelledby="sign-in-apps-title" data-testid="connected-apps" className="mt-8">
-      <h3 id="sign-in-apps-title" className="text-lg font-semibold text-ink">
+    <section
+      id="connected-apps"
+      aria-labelledby="connected-apps-title"
+      data-testid="connected-apps"
+      className="mt-12 scroll-mt-6"
+    >
+      <h2
+        id="connected-apps-title"
+        className="font-display text-[1.6rem] font-semibold tracking-tight"
+      >
         Connect by signing in
-      </h3>
+      </h2>
       <p className="mt-2 text-sm text-ink-soft">
         Claude (on the web, desktop and phone), ChatGPT and Grok need no token. In the tool, add a
         custom connector with this address, press Connect, and press Allow on the {product()} page

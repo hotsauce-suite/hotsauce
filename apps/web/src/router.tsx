@@ -18,6 +18,7 @@ import { AuthRoot, BootError } from './auth/AuthRoot'
 import { loadBoot } from './brand/boot'
 import AppShell from './components/AppShell'
 import { Launch } from './routes/Launch'
+import { settingsRoute } from './routes/settings/routes'
 
 // Route-level code splitting: the shell ships in the entry chunk so the sidebar paints at
 // once; the editor (CodeMirror), sign-in and Clerk load on demand.
@@ -97,16 +98,7 @@ export const createAppRouter = () =>
               ],
             },
             { path: '/meetings', children: meetingsRoutes },
-            {
-              path: '/settings',
-              lazy: async () => ({ Component: (await import('./routes/SettingsRoute')).default }),
-            },
-            {
-              path: '/settings/organization',
-              lazy: async () => ({
-                Component: (await import('./routes/OrgSettingsRoute')).default,
-              }),
-            },
+            settingsRoute,
             {
               path: '/feedback',
               lazy: async () => ({ Component: (await import('./routes/FeedbackRoute')).default }),

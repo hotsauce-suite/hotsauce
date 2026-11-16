@@ -198,7 +198,7 @@ Run these against `<url>`:
    **Docs** and finding it in search proves storage and the index work.
 
 Then tell the person: share `<url>` with the team (only the email domains chosen in step 1 can sign
-in), and admins change anything later under **Settings → Organization**. Then explain updates:
+in), and admins change anything later in **Settings**, under **Organization**. Then explain updates:
 
 - **Docker:** run the install command again.
 - **Fly.io or the wrangler path:** `git pull` in the clone and run the same deploy again.
@@ -217,5 +217,5 @@ in), and admins change anything later under **Settings → Organization**. Then 
   `docker compose -f /opt/hotsauce/compose.yml logs hotsauce | grep setup` for the newest one; on
   Fly `fly logs --app <name> --no-tail | grep setup`.
 - **Sign-in says the email isn't allowed**: add its domain, or the address, in
-  **Settings → Organization**.
+  **Settings → People and access**.
 - Anything else: https://github.com/hotsauce-suite/hotsauce/issues
