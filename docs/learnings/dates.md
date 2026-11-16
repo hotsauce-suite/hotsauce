@@ -27,3 +27,9 @@ From making every week start on Monday (`docs/PLAN-monday-weeks.md`, 2026-11-13)
   compare against the real next Monday rather than a fixed number of hours.
 - **The Mac app's Swift tests need full Xcode.** With only the Command Line Tools, `swift build`
   works but `swift test` can't load the Testing macros. Check logic in a small `swift` script.
+- **A test that picks "a day two weeks out" must fit every window it crosses, on every weekday.**
+  The booking integration test booked the Tuesday after "the Monday after next" and then read it
+  back through the calendar sync, which looks 15 days ahead. On a Monday that Tuesday was 15 days
+  and 14 hours away, so main went red for all of each Monday (UTC) while every pull request the day
+  before was green. When a test builds dates from today, work out the farthest one for each weekday
+  and compare it with the shortest window in the path.

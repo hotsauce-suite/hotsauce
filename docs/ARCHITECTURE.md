@@ -1600,3 +1600,12 @@ GET    /api/assistant/usage?month=             → { month, members }         (a
 GET    /api/assistant/settings                 → { model, monthlyLimitUsd, models, fromEnv }  (admin)
 PUT    /api/assistant/settings                 { model?, monthlyLimitUsd? }  (admin; env wins)
 ```
+
+## 26. Usage (admin)
+
+Plan `docs/PLAN-app-usage.md`. Settings → Usage (`/settings/organization/usage`, the last Organization page) answers "which apps get used" from history Hotsauce already keeps; nothing new is recorded.
+
+- `GitStore.activity(space, since)`: `git log --find-renames --name-status -z` on main, kept by author date (not `--since`, which stops early at commits with older committer dates) → `{ email, date, subject, files: [{ path, change: added|changed }] }` (deletions dropped; a rename is a change to the new path; a merge commit lists no files, its side's commits count instead).
+- `usage/report.ts` (pure): a file's app is its top folder, the same rule as the web's `appForFile` (any other visible file is Docs; `.hearth/briefcast/` is Briefcast; other hidden paths count for nothing). Per app and Monday-to-Sunday UTC week: distinct items created, distinct items created or changed, distinct authors. Hotsauce's committer address and each space's seed commit (`hotsauce: create space …`) are left out. Clips come from `ClipStore.createdSince`; Dictate gives only connected Macs and those used in 7 days (`DictationStore.deviceLastUses`), since its history stays on the Mac.
+- `Usage` (`usage/service.ts`) reads every clone, one space at a time, and keeps the report in memory for 10 minutes.
+- `GET /api/admin/usage` (admin, never via a token; outside `/admin/org/*`, whose middleware says "change the organization") → `{ generatedAt, weeks, apps: [{ id, weeks: [{ week, created, changed, people }], total, peopleLast4Weeks }], dictate }`. No paths, titles, spaces or addresses ever leave the server.

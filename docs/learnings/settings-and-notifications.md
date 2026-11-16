@@ -32,3 +32,19 @@
 - **Old hash addresses are an API.** The Mac app, Today, Dictate, emails and help pages all linked `/settings#mac-app`. `movedSection` redirects them; add a line there when a section changes page.
 - **Never `git checkout <file>` to undo a throwaway edit on uncommitted work.** Commit first, then experiment.
 
+## Usage page (2026-11-16)
+
+- **Git already answers "who used what, when".** `git log --name-status -z` per clone is
+  enough; no event tracking needed. Use `--find-renames` or every move looks like a new item.
+- **Every new space seeds a README authored by the member**, not by Hotsauce, so filtering on the
+  committer's address alone counts one Docs "creation" per person. Skip the
+  `hotsauce: create space` commit by its subject.
+- **Not every app writes to Git.** Clips live in SQLite (count `created_at`), Dictate's history
+  never leaves the Mac (only `last_used_at` per device exists), Today writes nothing. Say so on
+  the page instead of showing a zero that reads as "unused".
+- **fast-check isn't a dependency yet.** Adding it touches the lockfile, a shared file; the pure
+  report got example tests instead.
+- **Don't use `git log --since`.** It stops walking at the first run of commits with older
+  committer dates, so old-dated commits on top (an import, an outside push) hide recent work.
+  Walk the history and filter by author date.
+
