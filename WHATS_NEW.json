@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "version": "0.31.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Every item page names the thing once, in the top bar, with its buttons in one order: status, Share, its own buttons, then More."
+        },
+        {
+          "text": "One status chip: \"Personal\" or \"Team\", then \"Saved\". A board says \"Personal\" instead of \"Private\"; a form's Saved is no longer a red button."
+        },
+        {
+          "text": "Delete and downloads (CSV, Excel, clip download) live in More on every page."
+        },
+        {
+          "text": "A form's Questions and Answers use the list tabs; its Settings open as a pop-up from a Settings button."
+        },
+        {
+          "text": "A saved link's Done, Share and Delete move up into the top bar."
+        }
+      ]
+    },
+    {
       "version": "0.30.6",
       "date": "2026-11-16",
       "notes": [
