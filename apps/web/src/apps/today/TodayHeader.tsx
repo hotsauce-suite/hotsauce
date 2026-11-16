@@ -272,7 +272,7 @@ function WeatherChip({
     >
       <PlaceSearch onPick={pickCity} autoFocus testId="weather-city" />
       <p className="mt-3 text-xs text-ink-faint">
-        Kept on this device only. Change it any time in Settings → Weather.
+        Kept on this device only. Change it any time in Settings → General.
       </p>
     </Dialog>
   ) : null
