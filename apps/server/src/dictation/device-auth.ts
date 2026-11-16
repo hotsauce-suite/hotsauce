@@ -11,8 +11,9 @@ export async function authenticateDevice(
   auth: Pick<Authenticator, 'principalForUser'>,
   store: DictationStore,
   token: string,
+  appVersion: string | null = null,
 ): Promise<{ principal: Principal; deviceId: string }> {
-  const device = store.useToken(token)
+  const device = store.useToken(token, new Date(), appVersion)
   if (!device)
     throw new HotsauceError('unauthorized', 'This device was disconnected; connect it again')
   let principal: Principal | null

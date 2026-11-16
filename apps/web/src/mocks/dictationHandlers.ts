@@ -15,6 +15,9 @@ const TEAM_SEED = [
   'Claude',
 ]
 
+/** The newest Mac app, as a server publishes it at /downloads/mac-app.json. */
+export const MOCK_MAC_APP = { version: '0.26.0', build: '1300', reportsVersion: true }
+
 export function dictationHandlers(opts: {
   principal: (request: Request) => FakeUser | Response
 }): AnyHandler[] {
@@ -41,15 +44,18 @@ export function dictationHandlers(opts: {
   return [
     // The server's build includes the Mac app.
     http.head('/downloads/Hotsauce.dmg', () => new HttpResponse(null, { status: 200 })),
+    // What the newest Mac app is (docs/PLAN-mac-version-and-whats-new.md, M2).
+    http.get('/downloads/mac-app.json', () => HttpResponse.json(MOCK_MAC_APP)),
     http.get(
       '/api/dictation/devices',
       authed(({ user }) =>
         HttpResponse.json(
-          live(user.email).map(({ id, name, createdAt, lastUsedAt }) => ({
+          live(user.email).map(({ id, name, createdAt, lastUsedAt, appVersion }) => ({
             id,
             name,
             createdAt,
             lastUsedAt,
+            appVersion: appVersion ?? null,
           })),
         ),
       ),

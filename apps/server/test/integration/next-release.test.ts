@@ -99,6 +99,11 @@ describe('next-release', () => {
     expect(next().out).toMatchObject({ release: false, last: '0.15.1' })
   })
 
+  it('makes no release for the notes a release commit writes (N4)', async () => {
+    await commit({ 'WHATS_NEW.json': '{"releases":[]}\n' })
+    expect(next().out).toMatchObject({ release: false })
+  })
+
   it('picks the same number again when the last release wrote its number but never tagged', async () => {
     await commit({ 'apps/server/src/a.ts': 'two\n' })
     await commit({ HOTSAUCE_VERSION: '0.15.1\n' }, 'Release 0.15.1') // image build failed: no tag

@@ -43,3 +43,16 @@ Releases number themselves. Don't change `HOTSAUCE_VERSION` in a pull request (C
 - **Some merges release nothing**: changes only to `docs/`, top-level `*.md` files, `site/`, `.github/`, `e2e/`, test files, `scripts/tour-video/` and the scripts that aren't in the image, or the Mac app's sources (`apps/dictate-mac/`, except the built `release/`). The list is `NO_RELEASE` in `scripts/next-release.mjs`.
 - **By hand**: run the Release workflow from the Actions tab, with "feature" or "force" (release even if only docs changed) when needed. A hand-run that is still waiting can be replaced by a merge's run; run it again after.
 - **Check it ran**: after merging, the Release run should show a new tag within about ten minutes. If the image build fails, `main` already says the new number but nothing is tagged; the next run (or a hand-run) picks the same number and finishes.
+
+### Release notes
+
+Every pull request's description has a `## What's new` section, and a check (`.github/workflows/whats-new.yml`) fails it without one. Write one line per change people will notice, in plain words for someone who uses Hotsauce rather than builds it, each starting `- `. Start a line `- Mac app:` when the change is in the Mac app. Write `None` for changes nobody sees (docs, tests, CI, refactors).
+
+```
+## What's new
+
+- Settings → Apps shows which Mac app version you have, and whether a newer one is out.
+- Mac app: an Update available item in the menu bar menu when there's a newer version.
+```
+
+The Release workflow collects these lines into `WHATS_NEW.json` in its `Release X.Y.Z` commit (`scripts/release-notes.mjs`), puts them at the top of the GitHub release, and Settings → What's new and hotsauce.work/changes show them. A merge that releases nothing (a Mac-app-only change, say) has its lines in the next release. To fix a note after it's released, edit `WHATS_NEW.json` in a pull request.

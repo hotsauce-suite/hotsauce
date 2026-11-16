@@ -7,6 +7,8 @@ export interface DictationDevice {
   name: string
   createdAt: string
   lastUsedAt: string | null
+  /** The Mac app version the device last reported; null until it does (older apps never do). */
+  appVersion?: string | null
 }
 
 export interface DictationWords {

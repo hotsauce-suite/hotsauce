@@ -7,6 +7,7 @@ import {
   DictationStore,
   deviceTokenFrom,
   hashDeviceToken,
+  macAppVersionFrom,
   newDeviceToken,
   normalizeWords,
   TEAM_WORDS_SEED,
@@ -26,6 +27,15 @@ describe('device tokens', () => {
       '06daa48a9156d72da1ef0c4cc84c4e49f611308b684936f805356480b9cac28f',
     )
     expect(hashDeviceToken('hdt_x')).not.toBe(hashDeviceToken('hdt_y'))
+  })
+
+  it('read a Mac app version only from a plain mac/X.Y.Z header', () => {
+    expect(macAppVersionFrom('mac/0.26.0')).toBe('0.26.0')
+    expect(macAppVersionFrom(' mac/1.2.3 ')).toBe('1.2.3')
+    expect(macAppVersionFrom('mac/0.26')).toBeNull()
+    expect(macAppVersionFrom('mac/0.26.0<script>')).toBeNull()
+    expect(macAppVersionFrom('windows/0.26.0')).toBeNull()
+    expect(macAppVersionFrom(undefined)).toBeNull()
   })
 
   it('are recognised only as a Bearer hdt_ header', () => {
@@ -67,6 +77,37 @@ describe('DictationStore', () => {
     store.createDevice(ALICE, 'Mac')
     expect(store.listDevices(ALICE.userId)).toHaveLength(1)
     expect(store.listDevices(ALICE.email)).toHaveLength(0)
+  })
+
+  it('keeps the Mac app version a device reports, and the last one when it reports none', () => {
+    const store = new DictationStore(':memory:')
+    const { token } = store.createDevice(ALICE, 'Mac')
+    expect(store.listDevices(ALICE.userId)[0]?.appVersion).toBeNull()
+    expect(store.useToken(token, new Date(), '0.26.0')?.appVersion).toBe('0.26.0')
+    store.useToken(token)
+    expect(store.listDevices(ALICE.userId)[0]?.appVersion).toBe('0.26.0')
+    store.useToken(token, new Date(), '0.27.1')
+    expect(store.listDevices(ALICE.userId)[0]?.appVersion).toBe('0.27.1')
+  })
+
+  it('adds the version column to a file made before it, keeping its devices', () => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hs-dict-')), 'dictation.sqlite')
+    const old = new Database(file)
+    old.exec(`CREATE TABLE schema_version (version INTEGER NOT NULL);
+      INSERT INTO schema_version (version) VALUES (1);
+      CREATE TABLE dictation_devices (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, email TEXT NOT NULL,
+        name TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL,
+        last_used_at TEXT, revoked_at TEXT);
+      CREATE TABLE dictation_words (scope TEXT NOT NULL, word TEXT NOT NULL, position INTEGER NOT NULL,
+        PRIMARY KEY (scope, word));`)
+    old
+      .prepare('INSERT INTO dictation_devices VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)')
+      .run('d1', ALICE.userId, ALICE.email, 'Mac', hashDeviceToken('hdt_x'), '2026-11-01T00:00:00Z')
+    old.close()
+    const store = new DictationStore(file)
+    expect(store.listDevices(ALICE.userId)).toMatchObject([{ id: 'd1', appVersion: null }])
+    expect(store.useToken('hdt_x', new Date(), '0.26.0')?.appVersion).toBe('0.26.0')
+    store.close()
   })
 
   it('revokes every device of a user', () => {

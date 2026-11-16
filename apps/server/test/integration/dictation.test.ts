@@ -57,10 +57,11 @@ interface Options {
   json?: unknown
   body?: Uint8Array
   type?: string
+  headers?: Record<string, string>
 }
 
 async function call(method: string, url: string, opts: Options = {}): Promise<Response> {
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string> = { ...opts.headers }
   if (opts.as) headers['x-hearth-dev-user'] = opts.as
   if (opts.token) headers.authorization = `Bearer ${opts.token}`
   if (opts.json !== undefined) headers['content-type'] = 'application/json'
@@ -368,6 +369,22 @@ describe('device tokens', () => {
     expect(removed.words).toEqual(['Kestrel', 'Zorblax'])
   })
 
+  it('report the Mac app version they run, which the member sees on their devices', async () => {
+    const { token } = await connect()
+    const versions = async () =>
+      (
+        await json<Array<{ appVersion: string | null }>>(
+          await call('GET', '/api/dictation/devices', { as: ALICE }),
+        )
+      ).map((d) => d.appVersion)
+    await json(await call('GET', '/api/dictation/words', { token, headers: { 'hotsauce-app': 'mac/0.26.0' } }))
+    expect(await versions()).toEqual(['0.26.0'])
+    // A request without the header, or with a malformed one, keeps what was reported.
+    await json(await call('GET', '/api/dictation/words', { token }))
+    await json(await call('GET', '/api/dictation/words', { token, headers: { 'hotsauce-app': 'mac/<b>' } }))
+    expect(await versions()).toEqual(['0.26.0'])
+  })
+
   it('can disconnect themselves, and only themselves', async () => {
     const one = await connect()
     const two = await connect()
@@ -385,7 +402,7 @@ describe('device tokens', () => {
       await call('GET', '/api/dictation/devices', { as: ALICE }),
     )
     expect(list).toEqual([
-      { id, name: 'Test Mac', createdAt: expect.any(String), lastUsedAt: null },
+      { id, name: 'Test Mac', createdAt: expect.any(String), lastUsedAt: null, appVersion: null },
     ])
     expect(JSON.stringify(list)).not.toContain('hdt_')
     await json(await call('GET', '/api/dictation/words', { token }))

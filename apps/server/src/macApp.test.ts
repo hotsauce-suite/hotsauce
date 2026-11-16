@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { MacAppDownloads, releaseAsset } from './macApp.js'
+import { assetType, MacAppDownloads, releaseAsset } from './macApp.js'
 
 function setup(responses: Array<Response | Error>) {
   const calls: string[] = []
@@ -28,6 +28,14 @@ describe('releaseAsset', () => {
     expect(releaseAsset('HearthDictate.zip')).toBe('Hotsauce.zip')
     expect(releaseAsset('Hearth.dmg')).toBe('Hotsauce.dmg')
     expect(releaseAsset('../secret')).toBeNull()
+  })
+
+  it('also offers what the newest build is, as JSON', () => {
+    expect(releaseAsset('mac-app.json')).toBe('mac-app.json')
+    expect(releaseAsset('other.json')).toBeNull()
+    expect(assetType('mac-app.json')).toBe('application/json')
+    expect(assetType('Hotsauce.dmg')).toBe('application/x-apple-diskimage')
+    expect(assetType('Hotsauce.zip')).toBe('application/zip')
   })
 })
 

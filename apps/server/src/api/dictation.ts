@@ -96,7 +96,13 @@ export function dictationRoutes(deps: AppDeps) {
     .get('/devices', (c) => {
       const devices = store.listDevices(c.get('principal').userId)
       return c.json(
-        devices.map(({ id, name, createdAt, lastUsedAt }) => ({ id, name, createdAt, lastUsedAt })),
+        devices.map(({ id, name, createdAt, lastUsedAt, appVersion }) => ({
+          id,
+          name,
+          createdAt,
+          lastUsedAt,
+          appVersion,
+        })),
       )
     })
     .post('/devices', valid('json', z.object({ name: z.string().trim().min(1).max(80) })), (c) => {
@@ -104,7 +110,14 @@ export function dictationRoutes(deps: AppDeps) {
       const { device, token } = store.createDevice(principal, c.req.valid('json').name)
       c.header('Cache-Control', 'no-store')
       return c.json(
-        { id: device.id, name: device.name, createdAt: device.createdAt, lastUsedAt: null, token },
+        {
+          id: device.id,
+          name: device.name,
+          createdAt: device.createdAt,
+          lastUsedAt: null,
+          appVersion: null,
+          token,
+        },
         201,
       )
     })

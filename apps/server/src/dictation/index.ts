@@ -36,6 +36,7 @@ export {
   MAX_WORD_LENGTH,
   MAX_WORDS_PER_LIST,
   newDeviceToken,
+  macAppVersionFrom,
   normalizeWords,
   TEAM_WORDS_SEED,
 } from './store.js'

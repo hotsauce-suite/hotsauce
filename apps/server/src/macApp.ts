@@ -12,10 +12,24 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 export const MAC_APP_RELEASE =
   'https://github.com/hotsauce-suite/hotsauce/releases/download/mac-app'
 
+/**
+ * What the newest Mac app is, published beside it (apps/dictate-mac/scripts/build-app.sh):
+ * `{ "version", "build", "reportsVersion" }`. Settings and the app itself compare against it
+ * (docs/PLAN-mac-version-and-whats-new.md, M1, M2).
+ */
+export const MAC_APP_INFO = 'mac-app.json'
+
 /** The names the app is offered under, including old ones in links already shared. */
 export function releaseAsset(name: string): string | null {
+  if (name === MAC_APP_INFO) return MAC_APP_INFO
   const m = /^(Hotsauce|Hearth|HearthDictate)\.(dmg|zip)$/.exec(name)
   return m ? `Hotsauce.${m[2]}` : null
+}
+
+/** The Content-Type a release asset is served with. */
+export function assetType(asset: string): string {
+  if (asset.endsWith('.json')) return 'application/json'
+  return asset.endsWith('.dmg') ? 'application/x-apple-diskimage' : 'application/zip'
 }
 
 const MAX_BYTES = 400 * 1024 * 1024
@@ -42,7 +56,10 @@ export class MacAppDownloads {
     this.#maxAgeMs = opts.maxAgeMs ?? 6 * 60 * 60_000
   }
 
-  /** A local copy of `Hotsauce.dmg` or `.zip`, fetched when missing or older than six hours. */
+  /**
+   * A local copy of `Hotsauce.dmg`, `.zip` or `mac-app.json`, fetched when missing or older than
+   * six hours.
+   */
   async file(asset: string): Promise<string | null> {
     const local = path.join(this.#dir, asset)
     const fresh = existsSync(local) && this.#now() - statSync(local).mtimeMs < this.#maxAgeMs
