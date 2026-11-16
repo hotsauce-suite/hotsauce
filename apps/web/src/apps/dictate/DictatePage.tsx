@@ -75,7 +75,7 @@ export default function DictatePage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Dictate`} />
+      <MeetingsPageHeader title="Dictate" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-8 pb-24 md:px-8 md:pt-12">
           <section id="get-it" aria-labelledby="dictate-title" className="dictate-hero">

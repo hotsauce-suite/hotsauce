@@ -2,7 +2,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import Markdown from 'react-markdown'
 import { Link, useNavigate, useParams } from 'react-router'
 import remarkGfm from 'remark-gfm'
-import { type Clip, clipsApi, type TranscriptSegment } from '../../api/clips'
+import { type Clip, type ClipCut, clipsApi, type TranscriptSegment } from '../../api/clips'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
@@ -12,6 +12,7 @@ import { docUrl, meetingUrl } from '../../lib/paths'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { activeLine, formatDuration, formatTimestamp, formatWhen } from './format'
 import { loadSpeed, SPEEDS, saveSpeed, speedLabel, stepSpeed } from './speed'
+import { TrimEditor } from './TrimEditor'
 
 type Loaded = { clip: Clip; transcript: TranscriptSegment[] }
 
@@ -23,8 +24,29 @@ function working(clip: Clip): boolean {
       (clip.transcriptStatus === 'pending' ||
         clip.transcriptStatus === 'processing' ||
         clip.compositeStatus === 'pending' ||
-        clip.compositeStatus === 'processing'))
+        clip.compositeStatus === 'processing' ||
+        clip.editStatus === 'pending' ||
+        clip.editStatus === 'processing'))
   )
+}
+
+/** Whether `url` is a trimmed video (local `…/edited?…` or an `edited-<v>.mp4` object). */
+function isEdit(url: string): boolean {
+  return /\/edited(?:[-?/]|$)/.test(url)
+}
+
+/**
+ * Which video a URL plays: its path, and the edit's version for locally served media. Signatures
+ * change on every poll; this doesn't, so the player only switches when the video really changed.
+ */
+export function videoIdentity(url: string | null): string {
+  if (!url) return ''
+  try {
+    const u = new URL(url, 'http://local')
+    return `${u.pathname}#${u.searchParams.get('v') ?? ''}`
+  } catch {
+    return url
+  }
 }
 
 /** `/clips/:id`: the video with speed control, its transcript, and the owner's actions. */
@@ -38,6 +60,7 @@ export default function ClipPage() {
   const [speed, setSpeed] = useState(loadSpeed)
   const [time, setTime] = useState(0)
   const [editing, setEditing] = useState(false)
+  const [trimming, setTrimming] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [copied, setCopied] = useState(false)
   const video = useRef<HTMLVideoElement>(null)
@@ -51,12 +74,13 @@ export default function ClipPage() {
       if (url) {
         setVideoSrc((src) => {
           if (!src) return url
-          // The camera bubble just went in: switch to that video, unless it's already playing.
+          // The camera bubble went in: switch to that video, unless the old one is already
+          // playing (the page then offers to switch). A trim always switches, since the
+          // transcript and its times already follow the trimmed video.
+          if (videoIdentity(src) === videoIdentity(url)) return src
           const el = video.current
           const untouched = !el || (el.paused && el.currentTime === 0)
-          return next.clip.compositeStatus === 'ready' && !src.includes('composite') && untouched
-            ? url
-            : src
+          return untouched || isEdit(src) || isEdit(url) ? url : src
         })
       }
       return next
@@ -79,12 +103,39 @@ export default function ClipPage() {
   const onlyCompositing =
     clip?.status === 'ready' &&
     clip.transcriptStatus !== 'pending' &&
-    clip.transcriptStatus !== 'processing'
+    clip.transcriptStatus !== 'processing' &&
+    clip.editStatus !== 'pending' &&
+    clip.editStatus !== 'processing'
   useEffect(() => {
     if (!busy) return
     const timer = setInterval(() => void load(), onlyCompositing ? 15_000 : 2500)
     return () => clearInterval(timer)
   }, [busy, onlyCompositing, load])
+
+  const canTrim =
+    clip?.isOwner === true &&
+    clip.status === 'ready' &&
+    clip.sourceUrl !== null &&
+    clip.compositeStatus !== 'pending' &&
+    clip.compositeStatus !== 'processing'
+
+  const saveTrim = async (cuts: ClipCut[]) => {
+    if (!clip) return
+    const updated =
+      cuts.length > 0 ? await clipsApi.setCuts(clip.id, cuts) : await clipsApi.revertEdit(clip.id)
+    setData((d) => (d ? { ...d, clip: updated } : d))
+    setTrimming(false)
+    if (updated.editStatus === 'none')
+      await load().then((next) => setVideoSrc(next?.clip.videoUrl ?? null))
+  }
+
+  const revertTrim = async () => {
+    if (!clip) return
+    await clipsApi.revertEdit(clip.id)
+    setTrimming(false)
+    const next = await load()
+    setVideoSrc(next?.clip.videoUrl ?? null)
+  }
 
   useEffect(() => {
     document.title = clip ? `${clip.title} · ${product()} Clips` : `${product()} Clips`
@@ -229,7 +280,7 @@ export default function ClipPage() {
   if (!clip) {
     return (
       <>
-        <MeetingsPageHeader title={`${product()} Clips`} />
+        <MeetingsPageHeader title="Clips" />
         <div className="flex flex-1 items-center justify-center p-8 text-sm text-ink-faint">
           {error ? (
             <div className="text-center">
@@ -282,6 +333,20 @@ export default function ClipPage() {
           <Icon name={copied ? 'check' : 'link'} />
           <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy link'}</span>
         </button>
+        {canTrim && !trimming ? (
+          <button
+            type="button"
+            onClick={() => {
+              video.current?.pause()
+              setTrimming(true)
+            }}
+            data-testid="clip-trim"
+            className={`${secondaryButton} h-8 px-3`}
+          >
+            <Icon name="scissors" />
+            <span className="hidden sm:inline">Trim</span>
+          </button>
+        ) : null}
         {clip.downloadUrl ? (
           <a
             href={clip.downloadUrl}
@@ -307,7 +372,15 @@ export default function ClipPage() {
       <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden" data-testid="clip-page">
         <div className="clip-layout">
           <div className="clip-main">
-            <div className="clip-stage">
+            {trimming ? (
+              <TrimEditor
+                clip={clip}
+                onSave={saveTrim}
+                onRevert={revertTrim}
+                onClose={() => setTrimming(false)}
+              />
+            ) : null}
+            <div className="clip-stage" hidden={trimming}>
               {clip.status === 'ready' && videoSrc ? (
                 // biome-ignore lint/a11y/useMediaCaption: the transcript beside it is the text alternative.
                 <video
@@ -351,7 +424,7 @@ export default function ClipPage() {
               )}
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2" hidden={trimming}>
               <fieldset className="clip-speeds" aria-label="Playback speed">
                 {SPEEDS.map((s) => (
                   <button
@@ -392,9 +465,47 @@ export default function ClipPage() {
                 </button>
               </p>
             ) : null}
-            {videoSrc && clip.compositeStatus === 'ready' && !videoSrc.includes('composite') ? (
-              <p className="clip-note">
-                The version with your camera is ready.{' '}
+            {clip.editStatus === 'pending' || clip.editStatus === 'processing' ? (
+              <p className="clip-note" data-testid="trim-status">
+                <span className="clip-spinner clip-spinner--small" aria-hidden="true" />
+                Applying your trim. {clip.edited ? 'The previous version' : 'The full recording'}{' '}
+                plays until it’s ready.
+              </p>
+            ) : null}
+            {clip.editStatus === 'failed' && clip.isOwner ? (
+              <p className="clip-note" data-testid="trim-status">
+                Your trim couldn’t be applied, so the{' '}
+                {clip.edited ? 'previous version' : 'full recording'} still plays.{' '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() =>
+                    void saveTrim(clip.cuts).catch((err: unknown) =>
+                      setError(err instanceof Error ? err.message : 'Couldn’t save the trim'),
+                    )
+                  }
+                  data-testid="trim-retry"
+                >
+                  Try again
+                </button>
+              </p>
+            ) : null}
+            {clip.edited && clip.isOwner && !trimming && clip.editStatus === 'ready' ? (
+              <p className="clip-note" data-testid="trim-note">
+                <Icon name="scissors" className="size-3.5" />
+                Trimmed from {formatDuration(clip.sourceDurationMs)}.{' '}
+                <button type="button" className="underline" onClick={() => setTrimming(true)}>
+                  Change the trim
+                </button>
+              </p>
+            ) : null}
+            {videoSrc && videoIdentity(videoSrc) !== videoIdentity(clip.videoUrl) && !trimming ? (
+              <p className="clip-note" data-testid="clip-switch">
+                {clip.edited
+                  ? 'The trimmed version is ready.'
+                  : clip.compositeStatus === 'ready'
+                    ? 'The version with your camera is ready.'
+                    : 'A newer version of this video is ready.'}{' '}
                 <button
                   type="button"
                   className="underline decoration-ember/50 underline-offset-2 hover:text-ember"

@@ -5,12 +5,20 @@ import {
   addTile,
   defaultTodayLayout,
   moveTile,
+  offerGettingStarted,
   parseTodayLayout,
+  serializeTodayLayout,
   type TodayLayout,
 } from '@hotsauce/format'
 import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { TaskView } from '../api/tasks'
-import type { TodayMeeting, TodayView, TodayWeather, WeatherPlace } from '../api/today'
+import type {
+  StartHereDoc,
+  TodayMeeting,
+  TodayView,
+  TodayWeather,
+  WeatherPlace,
+} from '../api/today'
 import type { CalendarEvent, MeetingActionItems } from '../api/types'
 
 const DAY_MS = 86_400_000
@@ -44,21 +52,39 @@ const SAMPLE_PLACES: WeatherPlace[] = [
   { name: 'San Francisco', detail: 'California, United States', lat: 37.77, lon: -122.42 },
 ]
 
+/** Like the server: the Team-space path a pasted doc address names, or null. */
+function startHerePath(link: string): string | null {
+  try {
+    const m = /^\/docs\/team\/(.+\.md)$/i.exec(new URL(link, 'http://x').pathname)
+    const path = m?.[1]?.split('/').map(decodeURIComponent).join('/')
+    if (!path || path.split('/').some((part) => part === '' || part === '..')) return null
+    return path
+  } catch {
+    return null
+  }
+}
+
 export function todayHandlers(): AnyHandler[] {
   // One layout per member, for as long as the page is open.
   const layouts = new Map<string, TodayLayout>()
   // The team's default weather place (Settings → Workspace); none to start.
   let teamPlace: WeatherPlace | null = null
+  let startHere: StartHereDoc | null = null
   const who = (request: Request) => request.headers.get('x-hearth-dev-user') ?? 'me'
   return [
     http.get('/api/today/layout', ({ request }) => {
       const saved = layouts.get(who(request)) ?? startingLayout()
-      return HttpResponse.json({ layout: saved ?? defaultTodayLayout(), saved: saved !== null })
+      // As the server does: Getting started is offered until a layout is saved without it.
+      return HttpResponse.json({
+        layout: offerGettingStarted(saved ?? defaultTodayLayout()),
+        saved: saved !== null,
+      })
     }),
     http.put('/api/today/layout', async ({ request }) => {
       const body = (await request.json()) as { layout?: unknown }
       try {
-        const layout = parseTodayLayout(body.layout)
+        // Through the file's text, so the Getting started mark is set as the server sets it.
+        const layout = parseTodayLayout(serializeTodayLayout(parseTodayLayout(body.layout)))
         layouts.set(who(request), layout)
         return HttpResponse.json({ layout, saved: true })
       } catch (err) {
@@ -79,6 +105,27 @@ export function todayHandlers(): AnyHandler[] {
       const places =
         q.length < 2 ? [] : SAMPLE_PLACES.filter((p) => p.name.toLowerCase().startsWith(q))
       return HttpResponse.json({ places })
+    }),
+    http.get('/api/today/start-here', () => HttpResponse.json({ doc: startHere })),
+    http.put('/api/today/start-here', async ({ request }) => {
+      const { link } = (await request.json()) as { link: string | null }
+      if (!link) startHere = null
+      else {
+        const path = startHerePath(link)
+        if (!path)
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'bad_request',
+                message:
+                  'That isn’t a doc in the Team space. Open the doc, copy its address from the browser, and paste it here.',
+              },
+            },
+            { status: 400 },
+          )
+        startHere = { path, title: path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '') }
+      }
+      return HttpResponse.json({ doc: startHere })
     }),
     http.get('/api/today/default-place', () => HttpResponse.json({ place: teamPlace })),
     http.put('/api/today/default-place', async ({ request }) => {
@@ -114,6 +161,7 @@ export function todayHandlers(): AnyHandler[] {
         meetings: Array.isArray(calendar.body)
           ? {
               error: null,
+              connected: true,
               events: calendar.body.map(
                 (e): TodayMeeting => ({
                   id: e.id,
@@ -127,7 +175,11 @@ export function todayHandlers(): AnyHandler[] {
                 }),
               ),
             }
-          : { events: [], error: calendar.body.error.message },
+          : {
+              events: [],
+              error: calendar.body.error.message,
+              connected: calendar.status !== 403,
+            },
         tasks: Array.isArray(tasks.body) ? tasks.body : tasks.body.tasks,
         actionItems: actionItems.ok ? actionItems.body : [],
         notes: noteList

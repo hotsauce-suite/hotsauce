@@ -285,3 +285,93 @@ export async function composite(
     true,
   )
 }
+
+/**
+ * The parts of `input` in `keep` (seconds, in order), joined into one H.264/AAC faststart MP4 of
+ * at most 1080 p: the owner's trim. Every part is cut on its own timestamps, so cuts land on the
+ * exact frame, not the nearest keyframe. Re-encodes at the composite's low priority.
+ */
+export async function cutVideo(
+  paths: FfmpegPaths,
+  args: {
+    input: string
+    output: string
+    keep: Array<{ start: number; end: number }>
+    hasVideo: boolean
+    hasAudio: boolean
+    height: number | null
+    durationMs: number
+  },
+): Promise<void> {
+  if (args.keep.length === 0) throw new HotsauceError('bad_request', 'Nothing left to keep')
+  if (!args.hasVideo && !args.hasAudio) throw new HotsauceError('internal', 'No video or sound')
+  // libx264 needs an even height: round the source's own height down, never up past it.
+  const height = Math.max(
+    2,
+    Math.floor(Math.min(COMPOSITE_MAX_HEIGHT, args.height ?? COMPOSITE_MAX_HEIGHT) / 2) * 2,
+  )
+  const parts: string[] = []
+  const inputs: string[] = []
+  args.keep.forEach((r, i) => {
+    const range = `start=${r.start.toFixed(3)}:end=${r.end.toFixed(3)}`
+    if (args.hasVideo) {
+      parts.push(`[0:v]trim=${range},setpts=PTS-STARTPTS[v${i}]`)
+      inputs.push(`[v${i}]`)
+    }
+    if (args.hasAudio) {
+      parts.push(`[0:a]atrim=${range},asetpts=PTS-STARTPTS[a${i}]`)
+      inputs.push(`[a${i}]`)
+    }
+  })
+  const v = args.hasVideo ? 1 : 0
+  const a = args.hasAudio ? 1 : 0
+  const outs = `${v ? '[cv]' : ''}${a ? '[ca]' : ''}`
+  parts.push(`${inputs.join('')}concat=n=${args.keep.length}:v=${v}:a=${a}${outs}`)
+  if (v)
+    parts.push(
+      `[cv]scale=-2:'trunc(min(${height},ih)/2)*2':flags=bilinear,setsar=1,format=yuv420p[v]`,
+    )
+  const maps = [...(v ? ['-map', '[v]'] : []), ...(a ? ['-map', '[ca]'] : [])]
+  const video = v
+    ? [
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '24',
+        '-threads',
+        String(COMPOSITE_THREADS),
+        '-x264-params',
+        'rc-lookahead=10',
+        '-pix_fmt',
+        'yuv420p',
+        '-fps_mode',
+        'vfr',
+      ]
+    : []
+  const audio = a ? ['-c:a', 'aac', '-b:a', '128k'] : []
+  await ffmpeg(
+    paths,
+    [
+      '-filter_complex_threads',
+      '1',
+      '-threads',
+      String(COMPOSITE_THREADS),
+      '-i',
+      args.input,
+      '-filter_complex',
+      parts.join(';'),
+      ...maps,
+      ...video,
+      ...audio,
+      '-movflags',
+      '+faststart',
+      '-f',
+      'mp4',
+      args.output,
+    ],
+    Math.max(FFMPEG_TIMEOUT_MS, args.durationMs * 8),
+    true,
+  )
+}

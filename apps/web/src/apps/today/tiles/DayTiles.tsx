@@ -38,7 +38,29 @@ export function MeetingsCard({ meetings, now }: { meetings: TodayView['meetings'
         </span>
       }
     >
-      {meetings.error ? (
+      {meetings.connected === false ? (
+        // No calendar yet is a first step, not an error (docs/PLAN-getting-started.md T6).
+        <div className="flex flex-wrap items-center gap-3" data-testid="today-calendar-connect">
+          <div className="min-w-0 flex-1 basis-56">
+            <p className="text-sm text-ink-soft">
+              Connect your Google Calendar and your meetings show up here, each with a page for
+              notes.
+            </p>
+            {/* The server's own sentence says how: usually, sign in with Google again. */}
+            {meetings.error ? (
+              <p className="mt-1 text-xs text-ink-faint" data-testid="today-calendar-error">
+                {meetings.error}
+              </p>
+            ) : null}
+          </div>
+          <Link
+            to="/settings/connections#calendars"
+            className="inline-flex h-8 shrink-0 items-center rounded-lg bg-ember px-3 text-sm font-medium text-paper-raised hover:bg-ember-strong"
+          >
+            Connect calendar
+          </Link>
+        </div>
+      ) : meetings.error ? (
         <p className="text-sm text-ink-soft" data-testid="today-calendar-error">
           {meetings.error}{' '}
           <Link to="/settings/connections#calendars" className="text-ember-strong underline">

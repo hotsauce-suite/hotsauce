@@ -1102,6 +1102,282 @@ describe('speakers, summaries, action items and notes', () => {
   })
 })
 
+describe('trimming', () => {
+  interface Edited extends Clip {
+    editStatus: string
+    edited: boolean
+    cuts: Array<{ startMs: number; endMs: number }>
+    sourceUrl: string | null
+    sourceDurationMs: number | null
+  }
+  const editOf = (as: string, id: string) =>
+    get(as, id) as Promise<{
+      clip: Edited
+      transcript: Array<{ start: number; end: number; text: string }>
+    }>
+  const store = () => new LocalAudioStore(config.DATA_DIR)
+
+  it('cuts the start and a middle part, shifts the transcript, keeps the original', async () => {
+    const { id } = await record(ALICE, webm)
+    await json(await call('POST', `/api/clips/${id}/ai`, { as: ALICE, json: { kind: 'summary' } }))
+    const before = (await editOf(ALICE, id)).clip
+    expect(before).toMatchObject({ editStatus: 'none', edited: false, cuts: [] })
+    expect(before.aiSummary).toBeTruthy()
+    expect(before.sourceUrl).toContain('/video?')
+    expect(before.sourceDurationMs).toBe(before.durationMs)
+
+    const saved = await json<Edited>(
+      await call('PUT', `/api/clips/${id}/edit`, {
+        as: ALICE,
+        json: {
+          cuts: [
+            { startMs: 2500, endMs: 3500 },
+            { startMs: 0, endMs: 1000 },
+          ],
+        },
+      }),
+    )
+    // Saved sorted; the original plays until the edit is made.
+    expect(saved).toMatchObject({ editStatus: 'pending', edited: false })
+    expect(saved.cuts).toEqual([
+      { startMs: 0, endMs: 1000 },
+      { startMs: 2500, endMs: 3500 },
+    ])
+    await services.clips.idle()
+
+    const { clip, transcript } = await editOf(ALICE, id)
+    expect(clip).toMatchObject({ editStatus: 'ready', edited: true, mimeType: 'video/mp4' })
+    expect(clip.durationMs).toBeGreaterThan(2700)
+    expect(clip.durationMs).toBeLessThan(3300)
+    expect(clip.sourceDurationMs).toBe(before.durationMs)
+    expect(clip.videoUrl).toMatch(/\/edited\?.*v=1/)
+    expect(clip.thumbUrl).toContain('/edited-thumb?')
+    expect(clip.sourceUrl).toContain('/video?')
+    const file = store().pathOf(`clips/${id}/edited-1.mp4`)
+    expect((await probe(FFMPEG, file)).durationMs).toBe(clip.durationMs)
+    expect(existsSync(store().pathOf(`clips/${id}/video.webm`))).toBe(true)
+    const served = await call('GET', clip.videoUrl as string, { headers: { range: 'bytes=0-99' } })
+    expect(served.status).toBe(206)
+    expect(served.headers.get('content-type')).toBe('video/mp4')
+    // Fake lines are 0–2, 2–4 and 4–5 s: the middle one was said in the cut.
+    expect(transcript.map((s) => [s.start, s.text])).toEqual([
+      [0, 'clip segment 1'],
+      [2, 'clip segment 3'],
+    ])
+    expect(transcript[0]?.end).toBe(1)
+    // The summary and notes read what the edited video says.
+    const { transcriptText } = await import('../../src/clips/index.js')
+    const record_ = services.clips.store.get(id)
+    expect(transcriptText(record_ as never)).not.toContain('clip segment 2')
+    // Notes made from the whole recording go; search finds only what's left.
+    expect(clip.aiSummary).toBeNull()
+    const found = async (q: string) =>
+      (
+        await json<{ clips: Clip[] }>(
+          await call('GET', `/api/clips?scope=team&q=${encodeURIComponent(q)}`, { as: BOB }),
+        )
+      ).clips.some((c) => c.id === id)
+    expect(await found('clip segment 2')).toBe(false)
+    expect(await found('clip segment 3')).toBe(true)
+
+    // Someone else watches the edit, but doesn't get the cuts or the whole recording.
+    const bob = (await editOf(BOB, id)).clip
+    expect(bob).toMatchObject({ edited: true, cuts: [], sourceUrl: null, sourceDurationMs: null })
+    expect(bob.durationMs).toBe(clip.durationMs)
+    await json(
+      await call('PUT', `/api/clips/${id}/edit`, {
+        as: BOB,
+        json: { cuts: [{ startMs: 0, endMs: 1000 }] },
+      }),
+      403,
+    )
+    await json(await call('DELETE', `/api/clips/${id}/edit`, { as: BOB }), 403)
+  })
+
+  it('a new edit replaces the old one, and revert goes back to the whole recording', async () => {
+    const { id } = await record(ALICE, webm)
+    await json(
+      await call('PUT', `/api/clips/${id}/edit`, {
+        as: ALICE,
+        json: { cuts: [{ startMs: 4000, endMs: 6000 }] },
+      }),
+    )
+    await services.clips.idle()
+    const first = (await editOf(ALICE, id)).clip
+    expect(first.cuts).toEqual([{ startMs: 4000, endMs: first.sourceDurationMs }])
+    expect(first.durationMs).toBeGreaterThan(3700)
+    expect(first.durationMs).toBeLessThan(4300)
+
+    await json(
+      await call('PUT', `/api/clips/${id}/edit`, {
+        as: ALICE,
+        json: { cuts: [{ startMs: 0, endMs: 2000 }] },
+      }),
+    )
+    await services.clips.idle()
+    const second = (await editOf(ALICE, id)).clip
+    expect(second.videoUrl).toContain('v=2')
+    expect(existsSync(store().pathOf(`clips/${id}/edited-2.mp4`))).toBe(true)
+    expect(existsSync(store().pathOf(`clips/${id}/edited-1.mp4`))).toBe(false)
+
+    const reverted = await json<Edited>(
+      await call('DELETE', `/api/clips/${id}/edit`, { as: ALICE }),
+    )
+    expect(reverted).toMatchObject({ editStatus: 'none', edited: false, cuts: [] })
+    expect(reverted.videoUrl).toContain('/video?')
+    expect(reverted.durationMs).toBe(second.sourceDurationMs)
+    expect(existsSync(store().pathOf(`clips/${id}/edited-2.mp4`))).toBe(false)
+    expect((await editOf(ALICE, id)).transcript).toHaveLength(3)
+    const found = await json<{ clips: Clip[] }>(
+      await call('GET', `/api/clips?scope=mine&q=${encodeURIComponent('clip segment 1')}`, {
+        as: ALICE,
+      }),
+    )
+    expect(found.clips.some((c) => c.id === id)).toBe(true)
+
+    // Saving no cuts is a revert too.
+    const none = await json<Edited>(
+      await call('PUT', `/api/clips/${id}/edit`, { as: ALICE, json: { cuts: [] } }),
+    )
+    expect(none.editStatus).toBe('none')
+  })
+
+  it('trims a video whose height is odd', async () => {
+    // A window or tab shared on its own often has an odd height; libx264 needs an even one.
+    const file = join(fixtures, 'odd.webm')
+    await run('ffmpeg', [
+      '-y',
+      '-loglevel',
+      'error',
+      ...['-f', 'lavfi', '-i', 'testsrc2=size=320x241:rate=15:duration=3'],
+      ...['-f', 'lavfi', '-i', 'sine=frequency=440:duration=3'],
+      ...['-c:v', 'libvpx', '-b:v', '300k', '-c:a', 'libopus', '-f', 'webm', file],
+    ])
+    const { id } = await record(ALICE, await readFile(file))
+    await json(
+      await call('PUT', `/api/clips/${id}/edit`, {
+        as: ALICE,
+        json: { cuts: [{ startMs: 0, endMs: 1000 }] },
+      }),
+    )
+    await services.clips.idle()
+    const { clip } = await editOf(ALICE, id)
+    expect(clip).toMatchObject({ editStatus: 'ready', edited: true })
+    const info = await probe(FFMPEG, store().pathOf(`clips/${id}/edited-1.mp4`))
+    expect((info.height ?? 1) % 2).toBe(0)
+  })
+
+  it('refuses an edit that keeps less than a second, and one before the clip is ready', async () => {
+    const { id } = await record(ALICE, webm)
+    const res = await call('PUT', `/api/clips/${id}/edit`, {
+      as: ALICE,
+      json: { cuts: [{ startMs: 0, endMs: 4600 }] },
+    })
+    expect(res.status).toBe(400)
+    const open = await json<Clip>(
+      await call('POST', '/api/clips', { as: ALICE, json: { mode: 'screen', container: 'webm' } }),
+      201,
+    )
+    await json(
+      await call('PUT', `/api/clips/${open.id}/edit`, {
+        as: ALICE,
+        json: { cuts: [{ startMs: 0, endMs: 1000 }] },
+      }),
+      409,
+    )
+  })
+
+  it('a save made while another edit is being made wins', async () => {
+    const { id } = await record(ALICE, webm)
+    await call('PUT', `/api/clips/${id}/edit`, {
+      as: ALICE,
+      json: { cuts: [{ startMs: 0, endMs: 1000 }] },
+    })
+    await call('PUT', `/api/clips/${id}/edit`, {
+      as: ALICE,
+      json: { cuts: [{ startMs: 0, endMs: 3000 }] },
+    })
+    await services.clips.idle()
+    const { clip } = await editOf(ALICE, id)
+    expect(clip.cuts).toEqual([{ startMs: 0, endMs: 3000 }])
+    expect(clip.durationMs).toBeLessThan(2300)
+    expect(existsSync(store().pathOf(`clips/${id}/edited-1.mp4`))).toBe(false)
+  })
+
+  it('a restart picks up an edit that was being made, and deleting removes the edit', async () => {
+    const { id } = await record(ALICE, webm)
+    // As if the server stopped just after the save.
+    services.clips.store.update(
+      id,
+      { cuts: [{ startMs: 0, endMs: 1000 }], editStatus: 'processing', editVersion: 1 },
+      new Date().toISOString(),
+    )
+    expect(services.clips.recover()).toBeGreaterThanOrEqual(1)
+    await services.clips.idle()
+    expect((await editOf(ALICE, id)).clip.editStatus).toBe('ready')
+    const file = store().pathOf(`clips/${id}/edited-1.mp4`)
+    expect(existsSync(file)).toBe(true)
+    await json(await call('DELETE', `/api/clips/${id}`, { as: ALICE }), 204)
+    expect(existsSync(file)).toBe(false)
+    expect(existsSync(store().pathOf(`clips/${id}/thumb-edited-1.jpg`))).toBe(false)
+  })
+
+  it('an edit made before the camera went in is made again with the camera', async () => {
+    const clip = await json<Clip>(
+      await call('POST', '/api/clips', {
+        as: ALICE,
+        json: { mode: 'screen_camera', container: 'webm' },
+      }),
+      201,
+    )
+    for (const [seq, part] of slices(webm, 3).entries()) {
+      await call('PUT', `/api/clips/${clip.id}/chunks/${seq}`, { as: ALICE, body: part })
+    }
+    for (const [seq, part] of slices(cameraWebm, 2).entries()) {
+      await call('PUT', `/api/clips/${clip.id}/chunks/${seq}?track=camera`, {
+        as: ALICE,
+        body: part,
+      })
+    }
+    await json(
+      await call('POST', `/api/clips/${clip.id}/finish`, {
+        as: ALICE,
+        json: { chunks: 3, camera: { chunks: 2, container: 'webm', offsetMs: 0 } },
+      }),
+    )
+    await services.clips.idle()
+    // Trimming waits for the camera: refused while it's being added.
+    services.clips.store.update(clip.id, { compositeStatus: 'pending' }, new Date().toISOString())
+    await json(
+      await call('PUT', `/api/clips/${clip.id}/edit`, {
+        as: ALICE,
+        json: { cuts: [{ startMs: 0, endMs: 1000 }] },
+      }),
+      409,
+    )
+    // A failed camera: the edit is made from the screen, then again once the retry works.
+    services.clips.store.update(clip.id, { compositeStatus: 'failed' }, new Date().toISOString())
+    await json(
+      await call('PUT', `/api/clips/${clip.id}/edit`, {
+        as: ALICE,
+        json: { cuts: [{ startMs: 0, endMs: 1000 }] },
+      }),
+    )
+    await services.clips.idle()
+    expect((await editOf(ALICE, clip.id)).clip.videoUrl).toContain('v=1')
+    await json(await call('POST', `/api/clips/${clip.id}/camera/retry`, { as: ALICE }))
+    await services.clips.idle()
+    const after = (await editOf(ALICE, clip.id)).clip
+    expect(after).toMatchObject({ compositeStatus: 'ready', editStatus: 'ready', edited: true })
+    expect(after.videoUrl).toContain('v=2')
+    // The blue camera is in the edited video's bubble.
+    const { size, margin } = bubbleGeometry(240)
+    const edited = store().pathOf(`clips/${clip.id}/edited-2.mp4`)
+    const inBubble = await pixel(edited, 1.5, margin + size / 2, 240 - margin - size / 2)
+    expect(inBubble[2]).toBeGreaterThan(180)
+  })
+})
+
 describe('deleting and cancelling', () => {
   it('removes the stored video, thumbnail and row', async () => {
     const { id } = await record(ALICE, webm)

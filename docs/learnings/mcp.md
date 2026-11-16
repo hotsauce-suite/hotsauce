@@ -27,9 +27,29 @@
   `claude-ai (via mcp-remote 0.15.2)`, which is how Claude desktop is told apart from claude.ai.
   The name is client-chosen: strip quotes and newlines before it goes into a trailer.
 - ChatGPT's and Grok's consumer connectors accept only OAuth or no auth, never a pasted bearer
-  token (checked Nov 14 2026). Settings lists them as "Needs sign-in, coming soon" until the
+  token (checked Nov 14 2026). Settings listed them as "Needs sign-in, coming soon" until the
   OAuth work lands. Cursor takes `url` + `headers` in `~/.cursor/mcp.json`; Codex takes `url` +
   `bearer_token_env_var` in `~/.codex/config.toml` (`codex mcp add --url` has no token flag).
 - Changing the `Hearth-Via` format breaks every test asserting the old substring
   (`mcp (token "Claude Code")`, about ten files incl. e2e). The history API parses both the old
   and new shapes (`viaLabel`), so old commits still read "via <token name>".
+
+## Signing in from claude.ai, ChatGPT and Grok (OAuth, Nov 2026)
+
+- The MCP SDK's own client (`StreamableHTTPClientTransport` with an `authProvider`) is the best
+  interop test you can run offline: it does discovery, dynamic registration, PKCE and the token
+  exchange exactly as Claude's clients do. Drive it against `app.request` with a fetch shim.
+- A client's `client_name` is whatever the registrant typed, so anyone can register as "Claude".
+  Only the return address proves who a client is: lead the Allow page with the host and name the
+  tool only for hosts on a known list.
+- `/oauth/*` sits outside `/api`, so it missed the body limit every `/api` route gets. Anything
+  mounted beside `/api` needs its own limits; check what middleware a new mount actually runs.
+- Node's `BlockList` matches an IPv4 address against IPv4-mapped IPv6 rules too: adding
+  `::ffff:0:0/96` blocks every IPv4 address. Unwrap mapped addresses yourself instead.
+- Fetching a URL a stranger chose: check the address in the socket's own `lookup`, not in a
+  lookup before `fetch`, or DNS rebinding walks around the check. Global `fetch` can't take a
+  lookup without the `undici` package; `node:https` `request({ lookup })` can.
+- Eviction "oldest never-used first" can evict the item just added. Exclude it explicitly.
+- Rotating refresh tokens with replay revocation needs a short grace window: clients retry and
+  refresh in parallel, and without it a member is silently disconnected.
+

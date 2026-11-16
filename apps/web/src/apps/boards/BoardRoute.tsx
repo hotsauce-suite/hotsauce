@@ -58,7 +58,7 @@ export default function BoardRoute() {
   }, [space, id])
 
   useEffect(() => {
-    document.title = `${board?.title || 'Untitled board'} · ${product()} Whiteboard`
+    document.title = `${board?.title || 'Untitled board'} · ${product()} Boards`
   }, [board?.title])
 
   // Leaving with unsaved strokes saves them first.
@@ -122,7 +122,7 @@ export default function BoardRoute() {
   if (loadError) {
     return (
       <>
-        <MeetingsPageHeader title={`${product()} Whiteboard`} />
+        <MeetingsPageHeader title="Boards" />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
           <p className="text-ink" role="alert">
             {loadError}

@@ -1,6 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import {
+  type HighlightView,
+  highlightLabel,
   type LinkView,
   linksApi,
   READ_TO_END,
@@ -9,7 +11,9 @@ import {
   webUrl,
 } from '../../api/links'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { inputClass } from '../../routes/org/fields'
@@ -25,24 +29,37 @@ const linkTo = (l: Pick<LinkView, 'space' | 'id'>) =>
 export default function LinksPage() {
   const { notify } = useSession()
   const [params, setParams] = useSearchParams()
-  const view = params.get('view') === 'archive' ? 'archive' : 'unread'
+  const viewParam = params.get('view')
+  const view = viewParam === 'archive' || viewParam === 'highlights' ? viewParam : 'unread'
   const tag = params.get('tag') ?? ''
   const [q, setQ] = useState(params.get('q') ?? '')
   const [links, setLinks] = useState<LinkView[] | null>(null)
   const [tags, setTags] = useState<Array<{ name: string; count: number }>>([])
-  const [error, setError] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   const [url, setUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  const [marks, setMarks] = useState<HighlightView[] | null>(null)
+
   const load = useCallback(() => {
     const query = params.get('q') ?? ''
+    if (view === 'highlights') {
+      linksApi.highlights(query ? { q: query } : {}).then(
+        (r) => {
+          setMarks(r.highlights)
+          setFailed(false)
+        },
+        () => setFailed(true),
+      )
+      return
+    }
     linksApi.list({ view, ...(tag ? { tag } : {}), ...(query ? { q: query } : {}) }).then(
       (r) => {
         setLinks(r.links.map(withRecentPlace))
-        setError(null)
+        setFailed(false)
       },
-      (e: unknown) => setError(errorMessage(e, 'Couldn’t load your links')),
+      () => setFailed(true),
     )
     linksApi.tags().then(setTags, () => {})
   }, [view, tag, params])
@@ -148,7 +165,7 @@ export default function LinksPage() {
 
           <div className="mt-5 mb-3 flex flex-wrap items-center gap-2">
             <div className="flex rounded-lg border border-ash-strong p-0.5" role="tablist">
-              {(['unread', 'archive'] as const).map((v) => (
+              {(['unread', 'archive', 'highlights'] as const).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -158,7 +175,7 @@ export default function LinksPage() {
                   onClick={() => set('view', v === 'unread' ? '' : v)}
                   className={`h-8 rounded-md px-3 text-sm ${view === v ? 'bg-ash text-ink' : 'text-ink-soft hover:text-ink'}`}
                 >
-                  {v === 'unread' ? 'Unread' : 'Archive'}
+                  {v === 'unread' ? 'Unread' : v === 'archive' ? 'Archive' : 'Highlights'}
                 </button>
               ))}
             </div>
@@ -173,7 +190,9 @@ export default function LinksPage() {
                 data-testid="links-search"
                 className={`${inputClass} h-9`}
                 type="search"
-                placeholder="Search saved pages"
+                placeholder={
+                  view === 'highlights' ? 'Search highlights and notes' : 'Search saved pages'
+                }
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value)
@@ -183,7 +202,7 @@ export default function LinksPage() {
               />
             </form>
           </div>
-          {tags.length > 0 ? (
+          {tags.length > 0 && view !== 'highlights' ? (
             <fieldset className="mb-4 flex flex-wrap gap-1.5">
               <legend className="sr-only">Tags</legend>
               {tags.map((t) => (
@@ -201,13 +220,14 @@ export default function LinksPage() {
             </fieldset>
           ) : null}
 
-          {error ? (
-            <p role="alert" className="text-sm text-ember-strong">
-              {error}
-            </p>
+          {failed ? <LoadError things="links" onRetry={load} className="mb-4" /> : null}
+          {view === 'highlights' ? (
+            <HighlightList marks={marks} failed={failed} filtered={!!params.get('q')} />
           ) : links === null ? (
-            <p className="text-sm text-ink-soft">Loading…</p>
-          ) : links.length === 0 ? (
+            failed ? null : (
+              <p className="text-sm text-ink-soft">Loading…</p>
+            )
+          ) : links.length === 0 && failed ? null : links.length === 0 ? (
             <EmptyList view={view} filtered={!!tag || !!params.get('q')} />
           ) : (
             <ul className="divide-y divide-ash/70" data-testid="links-list">
@@ -228,19 +248,69 @@ export default function LinksPage() {
   )
 }
 
-function EmptyList({ view, filtered }: { view: 'unread' | 'archive'; filtered: boolean }) {
-  if (filtered) return <p className="text-sm text-ink-soft">No saved pages match.</p>
-  if (view === 'archive') {
-    return <p className="text-sm text-ink-soft">Pages you mark done land here.</p>
+function HighlightList({
+  marks,
+  failed,
+  filtered,
+}: {
+  marks: HighlightView[] | null
+  failed: boolean
+  filtered: boolean
+}) {
+  const { me } = useSession()
+  const mine = me?.principal.email.toLowerCase()
+  if (marks === null) return failed ? null : <p className="text-sm text-ink-soft">Loading…</p>
+  if (marks.length === 0) {
+    if (failed) return null
+    if (filtered) return <EmptyState icon="bookmark" title="No highlights match" />
+    return (
+      <EmptyState icon="bookmark" title="No highlights yet" testId="links-highlights-empty">
+        Open a saved page and select words to highlight them or add a note.
+      </EmptyState>
+    )
   }
   return (
-    <div className="rounded-xl border border-dashed border-ash-strong p-6 text-sm text-ink-soft">
-      <p className="mb-2 font-medium text-ink">Nothing to read yet.</p>
-      <p>
-        Paste a link above, click the Chrome extension, or share a page to {product()} from your
-        phone.
-      </p>
-    </div>
+    <ul className="divide-y divide-ash/70" data-testid="links-highlight-list">
+      {marks.map((h) => (
+        <li
+          key={`${h.link.space}/${h.link.id}/${h.id}`}
+          className="py-4"
+          data-testid="highlight-row"
+        >
+          <Link
+            to={`${linkTo(h.link)}?highlight=${encodeURIComponent(h.id)}`}
+            className={`block border-l-2 pl-3 text-sm text-ink hover:text-ember-strong ${h.by === mine ? 'border-ember' : 'border-ash-strong'}`}
+          >
+            <span className="line-clamp-4">{h.quote}</span>
+          </Link>
+          {h.note ? (
+            <p className="mt-1 pl-3.5 text-sm whitespace-pre-wrap text-ink-soft">{h.note}</p>
+          ) : null}
+          <p className="mt-1 truncate pl-3.5 text-xs text-ink-faint">
+            {[h.link.title || h.link.site, h.by === mine ? '' : h.name, `${savedDay(h.at)}`]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function EmptyList({ view, filtered }: { view: 'unread' | 'archive'; filtered: boolean }) {
+  if (filtered) return <EmptyState icon="bookmark" title="No saved pages match" />
+  if (view === 'archive') {
+    return (
+      <EmptyState icon="bookmark" title="Nothing done yet">
+        Pages you mark done land here.
+      </EmptyState>
+    )
+  }
+  return (
+    <EmptyState icon="bookmark" title="Nothing to read yet" testId="links-empty">
+      Paste a link above, click the Chrome extension, or share a page to {product()} from your
+      phone.
+    </EmptyState>
   )
 }
 
@@ -276,7 +346,13 @@ function LinkRow({
           {l.title || l.url}
         </Link>
         <p className="mt-0.5 truncate text-xs text-ink-faint">
-          {[l.site, readingTime(l.words), progress, `saved ${savedDay(l.saved)}`]
+          {[
+            l.site,
+            readingTime(l.words),
+            progress,
+            highlightLabel(l.highlightCount),
+            `saved ${savedDay(l.saved)}`,
+          ]
             .filter(Boolean)
             .join(' · ')}
           {l.space === 'team' ? ` · ${spaceLabel('team')}` : ''}
@@ -294,7 +370,16 @@ function LinkRow({
             <div className="h-full rounded-full bg-ember" style={{ width: `${furthest}%` }} />
           </div>
         ) : null}
-        {l.status === 'fetching' ? (
+        {l.status === 'waiting' ? (
+          <p className="mt-1 text-sm text-ink-soft" data-testid="link-waiting">
+            <span className="break-all">{l.url}</span>
+            <br />
+            Saved by an AI tool. Check the address, then{' '}
+            <button type="button" className="text-ember-strong underline" onClick={onRetry}>
+              Get the page
+            </button>
+          </p>
+        ) : l.status === 'fetching' ? (
           <p className="mt-1 text-sm text-ink-soft" data-testid="link-fetching">
             Getting the page…
           </p>

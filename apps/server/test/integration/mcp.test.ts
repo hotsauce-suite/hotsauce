@@ -33,6 +33,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // A token's last-use write can still be running; let it finish before the folder goes.
+  await services.tokens.idle()
   services.index.close()
   await removeDir(root)
 })
@@ -247,6 +249,7 @@ describe('the /mcp endpoint', () => {
       'list_drive_files',
       'list_events',
       'list_files',
+      'list_highlights',
       'list_links',
       'list_meetings',
       'list_notes',

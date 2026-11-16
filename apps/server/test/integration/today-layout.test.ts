@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { defaultTodayLayout, TODAY_LAYOUT_PATH } from '@hotsauce/format'
+import { defaultTodayLayout, offerGettingStarted, TODAY_LAYOUT_PATH } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
@@ -69,7 +69,7 @@ const mine = {
 describe('Today layout', () => {
   it('is the default until saved, then the saved one, per member', async () => {
     const before = await (await call('GET', '/api/today/layout')).json()
-    expect(before).toEqual({ layout: defaultTodayLayout(), saved: false })
+    expect(before).toEqual({ layout: offerGettingStarted(defaultTodayLayout()), saved: false })
 
     const put = await call('PUT', '/api/today/layout', ALICE, { layout: mine })
     expect(put.status).toBe(200)
@@ -100,6 +100,49 @@ describe('Today layout', () => {
     const head = await services.git.headOid(personal)
     await call('PUT', '/api/today/layout', ALICE, { layout: mine })
     expect(await services.git.headOid(personal)).toBe(head)
+  })
+
+  it('F4: Getting started is offered until a layout is saved without it', async () => {
+    const kinds = async (as = ALICE) =>
+      (await (await call('GET', '/api/today/layout', as)).json()).layout.columns[0].map(
+        (t: { kind: string }) => t.kind,
+      )
+    expect((await kinds())[0]).toBe('start')
+
+    // Saved with the tile (say, after moving another one): it stays.
+    const offered = (await (await call('GET', '/api/today/layout')).json()).layout
+    await call('PUT', '/api/today/layout', ALICE, { layout: offered })
+    expect((await kinds())[0]).toBe('start')
+
+    // Hidden: gone for good.
+    offered.columns[0].shift()
+    const put = await (await call('PUT', '/api/today/layout', ALICE, { layout: offered })).json()
+    expect(put.layout.gettingStarted).toBe('dismissed')
+    expect(await kinds()).not.toContain('start')
+  })
+
+  it('F4: a layout saved before Getting started existed is offered it once', async () => {
+    const spaces = await services.spaces.visibleSpaces({ email: BOB, name: 'Bob' } as never)
+    const personal = spaces.find((s) => s.kind === 'personal')?.name as string
+    await services.git.commit(personal, {
+      changes: [
+        {
+          path: TODAY_LAYOUT_PATH,
+          content: JSON.stringify({ schema: 1, columns: [[{ id: 'tasks', kind: 'tasks' }], []] }),
+        },
+      ],
+      author: { name: 'Bob', email: BOB },
+      message: 'An old layout',
+    })
+    const got = await (await call('GET', '/api/today/layout', BOB)).json()
+    expect(got.saved).toBe(true)
+    expect(got.layout.columns[0].map((t: { kind: string }) => t.kind)).toEqual(['start', 'tasks'])
+  })
+
+  it('is not offered to a member with nowhere to save it', async () => {
+    vi.spyOn(services.spaces, 'visibleSpaces').mockResolvedValue([])
+    const got = await (await call('GET', '/api/today/layout')).json()
+    expect(got).toEqual({ layout: defaultTodayLayout(), saved: false })
   })
 
   it('refuses something that is not a layout', async () => {
@@ -223,5 +266,67 @@ describe('Today weather places (W5–W7)', () => {
     const cleared = await call('PUT', '/api/today/default-place', ALICE, { place: null })
     expect(await cleared.json()).toEqual({ place: null })
     expect(await (await call('GET', '/api/today/weather', BOB)).json()).toBeNull()
+  })
+})
+
+// The doc Getting started opens for its last step (docs/PLAN-getting-started.md H1).
+describe('the team’s start-here doc', () => {
+  const put = (as: string, link: string | null) =>
+    call('PUT', '/api/today/start-here', as, { link })
+  const get = async (as = BOB) =>
+    (await (await call('GET', '/api/today/start-here', as)).json()).doc
+  const write = (path: string, content: string | null) =>
+    services.git.commit('team', {
+      changes: [{ path, content }],
+      author: { name: 'Alice', email: ALICE },
+      message: 'test',
+    })
+
+  it('H1: is nothing until an admin picks one; only an admin can', async () => {
+    await write('guides/Start here.md', '# Welcome to the team\n\nRead this first.\n')
+    expect(await get()).toBeNull()
+    expect((await put(BOB, '/docs/team/guides/Start%20here.md')).status).toBe(403)
+    expect(await get()).toBeNull()
+  })
+
+  it('H1: takes a pasted link or address, and members get the doc with its title', async () => {
+    await write('guides/Start here.md', '# Welcome to the team\n\nRead this first.\n')
+    const saved = await put(ALICE, 'https://hotsauce.example.test/docs/team/guides/Start%20here.md')
+    expect(saved.status).toBe(200)
+    const doc = { path: 'guides/Start here.md', title: 'Welcome to the team' }
+    expect(await saved.json()).toEqual({ doc })
+    expect(await get()).toEqual(doc)
+    // The bare address works too.
+    expect((await put(ALICE, '/docs/team/guides/Start%20here.md')).status).toBe(200)
+    // Cleared.
+    expect(await (await put(ALICE, null)).json()).toEqual({ doc: null })
+    expect(await get()).toBeNull()
+  })
+
+  it('H1: refuses what isn’t a doc in the Team space, and keeps what was picked', async () => {
+    await write('guides/Start here.md', '# Welcome\n')
+    await put(ALICE, '/docs/team/guides/Start%20here.md')
+    for (const link of [
+      '/docs/team/guides/Missing.md',
+      '/docs/alice/notes.md',
+      '/tasks/team',
+      '/docs/team/../team/guides/Start%20here.md/..',
+      '/docs/team/guides/picture.png',
+      'not a link',
+      '/docs/team/guides%2F..%2F..%2Fx.md',
+      '/docs/team/%E0%A4%A.md',
+      `/docs/team/${'a'.repeat(600)}.md`,
+    ]) {
+      const res = await put(ALICE, link)
+      expect(res.status, link).toBe(400)
+    }
+    expect((await get())?.path).toBe('guides/Start here.md')
+  })
+
+  it('H1: a picked doc that has since been deleted reads as none', async () => {
+    await write('guides/Start here.md', '# Welcome\n')
+    await put(ALICE, '/docs/team/guides/Start%20here.md')
+    await write('guides/Start here.md', null)
+    expect(await get()).toBeNull()
   })
 })

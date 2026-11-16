@@ -1,3 +1,4 @@
+import type { AccountStore } from '../account/index.js'
 import type { Assistant } from '../assistant/index.js'
 import type { Authenticator, Principal } from '../auth/index.js'
 import type { BackupService } from '../backup/index.js'
@@ -6,6 +7,7 @@ import type { AgentBriefs } from '../brief/index.js'
 import type { Briefcasts } from '../briefcast/index.js'
 import type { CheckinScheduler, Checkins } from '../checkins/index.js'
 import type { Clips } from '../clips/index.js'
+import type { Comments } from '../comments/index.js'
 import type { Config } from '../config.js'
 import type { Dictation } from '../dictation/index.js'
 import type { Feedback } from '../feedback/index.js'
@@ -17,6 +19,7 @@ import type { Index } from '../index/index.js'
 import type { Links } from '../links/index.js'
 import type { MeetingServices } from '../meetings/index.js'
 import type { Notes } from '../notes/index.js'
+import type { ClientMetadataResolver, OAuthStore } from '../oauth/index.js'
 import type { BrandStore } from '../org/brand.js'
 import type { OrgStore } from '../org/store.js'
 import type { Pages } from '../pages/index.js'
@@ -37,8 +40,11 @@ export interface AppDeps {
   git: GitStore
   host: HostAdapter
   index: Index
+  account: AccountStore
   auth: Authenticator
   tokens: TokenStore
+  oauth: OAuthStore
+  clientMetadata: ClientMetadataResolver
   spaces: SpaceService
   syncer: Syncer
   meetings: MeetingServices
@@ -62,6 +68,8 @@ export interface AppDeps {
   links: Links
   checkins: Checkins
   checkinScheduler: CheckinScheduler
+  /** The conversation under a team item (ARCHITECTURE §27). */
+  comments: Comments
   org: OrgStore
   brand: BrandStore
   updates: Updater

@@ -6,7 +6,9 @@ import { memberTimeZone, tasksApi } from '../../api/tasks'
 import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { focusedRow, followRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
@@ -21,10 +23,11 @@ import { errorMessage, type NotesQuery, notesBus, useNoteLabels, useNoteList } f
 
 const changed = () => notesBus.emit({ type: 'changed' })
 
-const EMPTY: Record<NotesQuery['view'], string> = {
-  board: 'Notes you add appear here.',
-  archive: 'Archived notes appear here.',
-  trash: 'No notes in the trash. Deleted notes stay here for 30 days.',
+/** A headline and one sentence for each empty list (docs/PLAN-consistency.md, requirement 5). */
+const EMPTY: Record<NotesQuery['view'], readonly [string, string]> = {
+  board: ['No notes yet', 'Type in the box above, or press New note.'],
+  archive: ['No archived notes', 'Notes you archive leave the board and wait here.'],
+  trash: ['The trash is empty', 'Deleted notes stay here for 30 days.'],
 }
 
 function useKind(): NotesRouteKind {
@@ -255,7 +258,7 @@ export default function NotesPage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Notes`}>
+      <MeetingsPageHeader title="Notes">
         <label className="relative flex min-w-0 items-center">
           <span className="sr-only">Search notes</span>
           <Icon
@@ -299,12 +302,8 @@ export default function NotesPage() {
           ) : null}
 
           {list.error && notes?.length === 0 ? (
-            <p role="alert" className="mb-4 text-sm text-ember-strong">
-              {list.error}
-            </p>
-          ) : null}
-
-          {notes === null ? (
+            <LoadError things="notes" onRetry={list.reload} />
+          ) : notes === null ? (
             <div aria-hidden="true" data-testid="notes-loading" className="notes-board">
               {[0, 1, 2].map((n) => (
                 <div key={n} className="notes-col">
@@ -313,12 +312,15 @@ export default function NotesPage() {
               ))}
             </div>
           ) : notes.length === 0 ? (
-            <p
-              data-testid="notes-empty"
-              className="px-1 py-10 text-center text-[0.95rem] text-ink-soft"
-            >
-              {q ? 'No notes match that search.' : EMPTY[listView]}
-            </p>
+            q ? (
+              <EmptyState icon="notes" title="No notes match that" testId="notes-empty">
+                Search looks at titles, text and list items.
+              </EmptyState>
+            ) : (
+              <EmptyState icon="notes" title={EMPTY[listView][0]} testId="notes-empty">
+                {EMPTY[listView][1]}
+              </EmptyState>
+            )
           ) : (
             <div className="space-y-6">
               {pinned.length > 0 && listView !== 'trash' ? (

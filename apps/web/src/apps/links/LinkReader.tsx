@@ -1,13 +1,14 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import remarkGfm from 'remark-gfm'
-import { type LinkWithBody, linksApi, readingTime, webUrl } from '../../api/links'
+import { highlightLabel, type LinkWithBody, linksApi, readingTime, webUrl } from '../../api/links'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { useHighlights } from './useHighlights'
 import { errorMessage, savedDay, useLinksChanged, usePollWhile } from './useLinks'
 import { useReadingPlace } from './useReadingPlace'
 
@@ -38,6 +39,8 @@ const components: Components = {
 export default function LinkReader() {
   const { space = '', id = '' } = useParams()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const goTo = params.get('highlight')
   const { me, spaces, spaceLabel, notify } = useSession()
   const [link, setLink] = useState<LinkWithBody | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -105,14 +108,28 @@ export default function LinkReader() {
     [link?.body],
   )
 
+  const ready = !!link && link.status === 'ready' && !!link.body
   const { resumed, startOver } = useReadingPlace({
     space,
     id,
-    saved: link?.reading ?? null,
-    ready: !!link && link.status === 'ready' && !!link.body,
+    // Opened at a highlight: go there, not back to the last place.
+    saved: goTo ? null : (link?.reading ?? null),
+    ready,
     scroller,
     body: bodyRef,
   })
+  const myEmail = me?.principal.email.toLowerCase() ?? ''
+  const highlights = useHighlights({
+    link,
+    setLink: (update) => setLink((cur) => (cur ? update(cur) : cur)),
+    me: myEmail,
+    body: bodyRef,
+    scroller,
+    ready,
+    goTo,
+    notify,
+  })
+  const myHighlights = link?.highlights.filter((h) => h.by === myEmail).length ?? 0
 
   if (error) {
     return (
@@ -209,6 +226,23 @@ export default function LinkReader() {
             {[readingTime(link.words), `saved ${savedDay(link.saved)}`, spaceLabel(link.space)]
               .filter(Boolean)
               .join(' · ')}
+            {link.highlights.length > 0 ? (
+              <>
+                {' · '}
+                <button
+                  type="button"
+                  className="underline hover:text-ink"
+                  data-testid="link-jump-highlights"
+                  onClick={() =>
+                    document
+                      .querySelector('[data-testid="link-highlights"]')
+                      ?.scrollIntoView({ block: 'start' })
+                  }
+                >
+                  {highlightLabel(link.highlights.length)}
+                </button>
+              </>
+            ) : null}
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -230,7 +264,9 @@ export default function LinkReader() {
                 }
               >
                 <Icon name="share" />
-                Share with team
+                {myHighlights > 0
+                  ? `Share with team (with your ${highlightLabel(myHighlights)})`
+                  : 'Share with team'}
               </button>
             ) : mine && personal ? (
               <button
@@ -319,7 +355,33 @@ export default function LinkReader() {
           ) : null}
 
           <div className="mt-6">
-            {link.status === 'fetching' ? (
+            {link.status === 'waiting' ? (
+              <div
+                className="rounded-xl border border-ash-strong p-4 text-sm text-ink-soft"
+                data-testid="link-waiting"
+              >
+                <p className="font-medium text-ink">An AI tool saved this link.</p>
+                <p className="mt-1">
+                  {product()} hasn’t visited it yet, so a tool can’t use the address to send your
+                  text somewhere. Check the address first:
+                </p>
+                <p className="mt-2 font-mono text-xs break-all text-ink" data-testid="link-address">
+                  {link.url}
+                </p>
+                <button
+                  type="button"
+                  className="mt-3 rounded-lg bg-ember px-3.5 py-2 text-sm font-medium text-paper-raised hover:bg-ember-strong"
+                  onClick={() =>
+                    act(async () => {
+                      const next = await linksApi.refetch(link.space, link.id)
+                      setLink({ ...link, ...next })
+                    })
+                  }
+                >
+                  Get the page
+                </button>
+              </div>
+            ) : link.status === 'fetching' ? (
               <p className="text-sm text-ink-soft" data-testid="link-fetching">
                 Getting the page…
               </p>
@@ -341,7 +403,13 @@ export default function LinkReader() {
               </p>
             ) : body ? (
               <>
-                {body}
+                {/* biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: a click on a highlighted passage opens it; the Highlights list above does the same by keyboard */}
+                <div onClick={highlights.onBodyClick}>{body}</div>
+                {ready && link.highlights.length === 0 ? (
+                  <p className="sr-only">
+                    Select words in the page to highlight them or add a note.
+                  </p>
+                ) : null}
                 {link.words != null && link.words < SHORT_COPY_WORDS ? (
                   <p className="mt-6 text-sm text-ink-soft" data-testid="link-short">
                     Only part of the page may have come through.{' '}
@@ -359,6 +427,7 @@ export default function LinkReader() {
                     </button>
                   </p>
                 ) : null}
+                {highlights.section}
                 <div className="mt-10 flex justify-center border-t border-ash/70 pt-6">
                   {doneButton('link-end-done')}
                 </div>
@@ -380,6 +449,7 @@ export default function LinkReader() {
           </div>
         </article>
       </div>
+      {highlights.overlay}
     </>
   )
 }

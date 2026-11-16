@@ -11,7 +11,8 @@ back on its own when the new version fails its health check.
 R1. A merge to `main` that changes the app picks the next version itself (since 2026-11-16, see
     `docs/PLAN-auto-releases.md`), tags `v<version>`, publishes a
     GitHub release with notes, and pushes `ghcr.io/hotsauce-suite/hotsauce:<version>` and
-    `:latest`. A version that is already tagged publishes nothing.
+    `:latest`, and records that image's digest with the release; instances install the digest,
+    not the tag (R13). A version that is already tagged publishes nothing.
 R2. The image holds nothing specific to one organization. Everything an instance needs is read
     when the server starts (env, or settings saved in the setup wizard).
 R3. The Chrome extension zip offered at `/downloads/` talks to the server that served it,
@@ -35,6 +36,8 @@ R11. A failed ask is logged with its reason, keeps the release already known, an
 R12. When the GitHub API refuses (its unauthenticated limit is 60 asks an hour per address, and
      cloud hosts share addresses), the version is read from where
      `github.com/hotsauce-suite/hotsauce/releases/latest` redirects, without notes.
+R13. The helper installs the image digest the release recorded, never the version's tag
+     (`docs/PLAN-pinned-images.md`).
 
 ## Slices
 

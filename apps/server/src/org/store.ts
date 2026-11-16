@@ -81,6 +81,11 @@ export const OrgSettingsSchema = z.object({
     })
     .nullable()
     .default(null),
+  /**
+   * The team-space doc the Getting started tile opens for its last step ('' = just Docs).
+   * docs/PLAN-getting-started.md H1.
+   */
+  startHereDoc: z.string().max(500).default(''),
   /** Steps of the setup wizard the admin has been through, so it resumes where they left off. */
   stepsDone: z.array(z.string()).default([]),
   setupComplete: z.boolean().default(false),

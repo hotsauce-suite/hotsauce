@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
+import { type Cut, cutTranscript } from './cuts.js'
 
 export type ClipMode = 'screen_camera' | 'screen' | 'camera'
 /** recording: chunks arriving. processing: being assembled. ready: playable. failed: never playable. */
@@ -20,6 +21,8 @@ export interface TranscriptSegment {
 
 /** pending: the camera is waiting to be put into the video. none: there's no camera track. */
 export type CompositeStatus = 'none' | 'pending' | 'processing' | 'ready' | 'failed'
+/** The owner's trim: none (never edited or reverted), pending/processing (being made), ready, failed. */
+export type EditStatus = 'none' | 'pending' | 'processing' | 'ready' | 'failed'
 
 export interface ClipRecord {
   id: string
@@ -41,7 +44,10 @@ export interface ClipRecord {
   hasThumb: boolean
   transcriptStatus: TranscriptStatus
   transcriptError: string | null
+  /** The transcript of the video that plays: the edited one's when there is an edit. */
   transcript: TranscriptSegment[]
+  /** The transcript of the whole recording, as transcribed (times in the original video). */
+  fullTranscript: TranscriptSegment[]
   /** Chunks of the separately recorded camera, or null when there's no camera track. */
   cameraChunks: number | null
   cameraContainer: ClipContainer | null
@@ -55,6 +61,15 @@ export interface ClipRecord {
   speakers: Record<string, string>
   aiSummary: string | null
   aiActions: string | null
+  /** The cuts the owner last saved (being made, or made), in the original video's time. */
+  cuts: Cut[]
+  editStatus: EditStatus
+  /** Raised on every save and revert, so a superseded render knows to throw its work away. */
+  editVersion: number
+  /** The cuts in the edited video that plays, and its version (0: no edit, the original plays). */
+  appliedCuts: Cut[]
+  appliedVersion: number
+  editedDurationMs: number | null
   createdAt: string
   updatedAt: string
 }
@@ -99,6 +114,14 @@ const MIGRATIONS = [
   ALTER TABLE clips ADD COLUMN ai_summary TEXT;
   ALTER TABLE clips ADD COLUMN ai_actions TEXT;
   `,
+  `
+  ALTER TABLE clips ADD COLUMN cuts TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE clips ADD COLUMN edit_status TEXT NOT NULL DEFAULT 'none';
+  ALTER TABLE clips ADD COLUMN edit_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE clips ADD COLUMN applied_cuts TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE clips ADD COLUMN applied_version INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE clips ADD COLUMN edited_duration_ms INTEGER;
+  `,
 ]
 
 interface Row {
@@ -132,9 +155,17 @@ interface Row {
   speakers: string
   ai_summary: string | null
   ai_actions: string | null
+  cuts: string
+  edit_status: EditStatus
+  edit_version: number
+  applied_cuts: string
+  applied_version: number
+  edited_duration_ms: number | null
 }
 
 function toRecord(r: Row): ClipRecord {
+  const full = JSON.parse(r.transcript) as TranscriptSegment[]
+  const appliedCuts = JSON.parse(r.applied_cuts) as Cut[]
   return {
     id: r.id,
     ownerId: r.owner_id,
@@ -154,7 +185,8 @@ function toRecord(r: Row): ClipRecord {
     hasThumb: r.has_thumb === 1,
     transcriptStatus: r.transcript_status,
     transcriptError: r.transcript_error,
-    transcript: JSON.parse(r.transcript) as TranscriptSegment[],
+    transcript: r.applied_version > 0 ? cutTranscript(full, appliedCuts) : full,
+    fullTranscript: full,
     cameraChunks: r.camera_chunks,
     cameraContainer: r.camera_container,
     cameraOffsetMs: r.camera_offset_ms,
@@ -164,6 +196,12 @@ function toRecord(r: Row): ClipRecord {
     speakers: JSON.parse(r.speakers) as Record<string, string>,
     aiSummary: r.ai_summary,
     aiActions: r.ai_actions,
+    cuts: JSON.parse(r.cuts) as Cut[],
+    editStatus: r.edit_status,
+    editVersion: r.edit_version,
+    appliedCuts,
+    appliedVersion: r.applied_version,
+    editedDurationMs: r.edited_duration_ms,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -194,6 +232,12 @@ export type ClipPatch = Partial<
     | 'speakers'
     | 'aiSummary'
     | 'aiActions'
+    | 'cuts'
+    | 'editStatus'
+    | 'editVersion'
+    | 'appliedCuts'
+    | 'appliedVersion'
+    | 'editedDurationMs'
   >
 >
 
@@ -220,6 +264,12 @@ const COLUMN: Record<keyof ClipPatch, string> = {
   speakers: 'speakers',
   aiSummary: 'ai_summary',
   aiActions: 'ai_actions',
+  cuts: 'cuts',
+  editStatus: 'edit_status',
+  editVersion: 'edit_version',
+  appliedCuts: 'applied_cuts',
+  appliedVersion: 'applied_version',
+  editedDurationMs: 'edited_duration_ms',
 }
 
 /** `%` and `_` match themselves in a LIKE pattern built from what a member typed. */
@@ -312,7 +362,7 @@ export class ClipStore {
         values[column] = JSON.stringify(segments)
         sets.push('transcript_text = @transcript_text')
         values.transcript_text = segments.map((s) => s.text).join(' ')
-      } else if (key === 'speakers') {
+      } else if (key === 'speakers' || key === 'cuts' || key === 'appliedCuts') {
         values[column] = JSON.stringify(value)
       } else if (typeof value === 'boolean') {
         values[column] = value ? 1 : 0
@@ -321,7 +371,15 @@ export class ClipStore {
       }
     }
     this.#db.prepare(`UPDATE clips SET ${sets.join(', ')} WHERE id = @id`).run(values)
-    return this.get(id)
+    const updated = this.get(id)
+    // Search reads what plays: the transcript as trimmed, never the parts that were cut.
+    const trimChanged = patch.appliedCuts !== undefined || patch.appliedVersion !== undefined
+    if (updated && (trimChanged || (patch.transcript && updated.appliedVersion > 0))) {
+      this.#db
+        .prepare('UPDATE clips SET transcript_text = ? WHERE id = ?')
+        .run(updated.transcript.map((s) => s.text).join(' '), id)
+    }
+    return updated
   }
 
   delete(id: string): void {
@@ -393,6 +451,16 @@ export class ClipStore {
     const rows = this.#db
       .prepare(
         `SELECT * FROM clips WHERE status = 'ready' AND composite_status IN ('pending', 'processing')`,
+      )
+      .all() as Row[]
+    return rows.map(toRecord)
+  }
+
+  /** Ready clips whose edit was waiting or being made when the server stopped. */
+  editsInterrupted(): ClipRecord[] {
+    const rows = this.#db
+      .prepare(
+        `SELECT * FROM clips WHERE status = 'ready' AND edit_status IN ('pending', 'processing')`,
       )
       .all() as Row[]
     return rows.map(toRecord)

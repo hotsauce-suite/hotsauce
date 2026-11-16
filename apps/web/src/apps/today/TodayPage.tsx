@@ -1,6 +1,13 @@
-import { defaultTodayLayout, type TodayLayout } from '@hotsauce/format'
+import {
+  defaultTodayLayout,
+  layoutTiles,
+  removeTile,
+  showGettingStarted,
+  type TodayLayout,
+  type TodayTile,
+} from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { HotsauceApiError } from '../../api/client'
 import { dictationApi } from '../../api/dictation'
 import type { TaskView } from '../../api/tasks'
@@ -8,6 +15,7 @@ import { type TodayView, todayApi } from '../../api/today'
 import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { MAC_APP_SETTINGS, useMacAppBuild } from '../../components/MacApp'
 import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { desktopSignInBridge } from '../../lib/desktop'
@@ -29,7 +37,7 @@ const toolButton =
 export default function TodayPage() {
   const session = useSession()
   const [view, setView] = useState<TodayView | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   const clock = useMinuteClock()
   const [loadedAt, setLoadedAt] = useState(() => new Date())
   // Whichever is newer: the minute clock or the last load.
@@ -44,10 +52,10 @@ export default function TodayPage() {
       const next = await todayApi.get()
       if (ask !== latest.current) return
       setView(next)
-      setError(null)
-    } catch (err) {
+      setFailed(false)
+    } catch {
       if (ask !== latest.current) return
-      setError(err instanceof HotsauceApiError ? err.message : 'Today didn’t load.')
+      setFailed(true)
     } finally {
       setLoadedAt(new Date())
     }
@@ -100,11 +108,7 @@ export default function TodayPage() {
           <div className="mb-5 flex flex-wrap items-start gap-3">
             <TodayGreeting view={view} name={session.me?.principal.name} now={now} />
           </div>
-          {error ? (
-            <p role="alert" className="mb-4 text-sm text-ember-strong">
-              {error}
-            </p>
-          ) : null}
+          {failed ? <LoadError things="day" onRetry={() => void load()} className="mb-4" /> : null}
           {layouts.error ? (
             <p
               role="alert"
@@ -115,7 +119,7 @@ export default function TodayPage() {
             </p>
           ) : null}
           {view === null || layouts.shown === null ? (
-            error ? null : (
+            failed ? null : (
               <p className="text-sm text-ink-faint" data-testid="today-loading">
                 Loading your day…
               </p>
@@ -128,11 +132,13 @@ export default function TodayPage() {
               refresh={loadedAt.getTime()}
               editing={layouts.draft !== null}
               onChange={layouts.change}
+              onStartFinished={layouts.finish}
               onTaskDone={removeTask}
               onTaskAdded={addTask}
             />
           )}
-          {view ? (
+          {/* Getting started already offers the Mac app: not twice on one page. */}
+          {view && layouts.shown && !layoutTiles(layouts.shown).some((t) => t.kind === 'start') ? (
             <div className="mt-5 lg:ml-auto lg:w-2/5">
               <MacAppCard />
             </div>
@@ -170,25 +176,62 @@ function useLayout() {
     }
   }, [])
 
-  const save = async (next: TodayLayout): Promise<boolean> => {
+  // Saves go out one at a time, in the order they were made, and only the newest one's answer is
+  // shown: an older answer landing late would put back what a newer change replaced.
+  const newest = useRef(0)
+  const queue = useRef<Promise<unknown>>(Promise.resolve())
+  const save = (next: TodayLayout): Promise<boolean> => {
+    const mine = ++newest.current
     setSaving(true)
     setError(null)
-    try {
-      setLayout((await todayApi.saveLayout(next)).layout)
-      return true
-    } catch (err) {
-      setError(
-        err instanceof HotsauceApiError
-          ? `Your Today layout didn’t save: ${err.message}`
-          : 'Your Today layout didn’t save. Try again.',
-      )
-      return false
-    } finally {
-      setSaving(false)
-    }
+    const run = queue.current.then(async () => {
+      try {
+        const saved = (await todayApi.saveLayout(next)).layout
+        if (mine === newest.current) setLayout(saved)
+        return true
+      } catch (err) {
+        if (mine === newest.current)
+          setError(
+            err instanceof HotsauceApiError
+              ? `Your Today layout didn’t save: ${err.message}`
+              : 'Your Today layout didn’t save. Try again.',
+          )
+        return false
+      } finally {
+        if (mine === newest.current) setSaving(false)
+      }
+    })
+    queue.current = run
+    return run
   }
 
-  const current = layout ?? (loadFailed ? defaultTodayLayout() : null)
+  // Settings' "Getting started" link opens `/today?start=1`: put the tile back, fresh, and save.
+  const [params, setParams] = useSearchParams()
+  const replay = params.get('start') === '1'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `save` and `setParams` are new each render; this runs once per replay, when the saved layout is in
+  useEffect(() => {
+    if (!replay || !layout) return
+    const next = showGettingStarted(layout)
+    if (next !== layout) {
+      setLayout(next)
+      void save(next)
+    }
+    setParams(
+      (p) => {
+        p.delete('start')
+        return p
+      },
+      { replace: true },
+    )
+  }, [replay, layout !== null])
+
+  // A finished Getting started tile: already saved away, but kept on screen for this visit.
+  const [lingering, setLingering] = useState<TodayTile | null>(null)
+  const saved = layout ?? (loadFailed ? defaultTodayLayout() : null)
+  const current: TodayLayout | null =
+    saved && lingering
+      ? { schema: 1, columns: [[lingering, ...saved.columns[0]], saved.columns[1]] }
+      : saved
   return {
     shown: draft ?? current,
     draft,
@@ -215,9 +258,24 @@ function useLayout() {
     change: (next: TodayLayout) => {
       if (draft) setDraft(next)
       else if (layout) {
-        setLayout(next)
-        void save(next)
+        // The lingering tile is only on screen: it never goes back into what is saved.
+        const real = lingering ? removeTile(next, lingering.id) : next
+        if (lingering && !layoutTiles(next).some((t) => t.id === lingering.id)) setLingering(null)
+        setLayout(real)
+        void save(real)
       }
+    },
+    /**
+     * Getting started is finished: save the layout without it, through the same path as every
+     * other save, and keep the tile on screen until the page is left.
+     */
+    finish: (tile: TodayTile) => {
+      if (draft || !layout || lingering) return
+      if (!layoutTiles(layout).some((t) => t.id === tile.id)) return
+      const without = removeTile(layout, tile.id)
+      setLingering(tile)
+      setLayout(without)
+      void save(without)
     },
   }
 }

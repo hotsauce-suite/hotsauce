@@ -66,6 +66,22 @@ export {
 } from './checkins.js'
 export { type Chunk, chunkMarkdown } from './chunks.js'
 export {
+  COMMENTS_FOLDER,
+  CommentFrontmatter,
+  commentFolder,
+  commentPath,
+  commentRefOf,
+  findMentions,
+  isCommentableId,
+  isCommentPath,
+  MAX_COMMENT,
+  MAX_COMMENT_QUOTE,
+  MAX_COMMENTS_PER_ITEM,
+  type MentionMatch,
+  type MentionMember,
+  mentionedEmails,
+} from './comments.js'
+export {
   cleanFileName,
   cleanFolder,
   FILES_FOLDER,
@@ -127,6 +143,27 @@ export {
   patchFrontmatter,
 } from './frontmatter.js'
 export { isId, newId } from './ids.js'
+export {
+  addHighlight,
+  findQuote,
+  findQuoteIn,
+  HIGHLIGHT_CONTEXT,
+  HighlightError,
+  type HighlightsDocInput,
+  highlightsDoc,
+  highlightsOf,
+  highlightsSearchText,
+  inPageOrder,
+  LinkHighlight,
+  MAX_HIGHLIGHT_NOTE,
+  MAX_HIGHLIGHT_QUOTE,
+  MAX_HIGHLIGHTS,
+  type NewHighlight,
+  type PreparedText,
+  prepareText,
+  removeHighlight,
+  setHighlightNote,
+} from './link-highlights.js'
 export { extractLinks, type Link, rewriteLinksForMove } from './links.js'
 export {
   cleanSpeakerName,
@@ -268,10 +305,12 @@ export {
   moveTileNextTo,
   nudgeTile,
   nudgeTileStacked,
+  offerGettingStarted,
   parseTodayLayout,
   REPEATABLE_TILES,
   removeTile,
   serializeTodayLayout,
+  showGettingStarted,
   switchColumn,
   TODAY_LAYOUT_PATH,
   TODAY_TILE_KINDS,

@@ -23,10 +23,11 @@ import {
   joinPath,
 } from '../lib/paths'
 import { useSession } from '../state/session'
-import { untitledDocPath, useDirectory } from '../state/treeStore'
+import { untitledDocPath, useDirectory, useDirectoryFailed } from '../state/treeStore'
 import { Dialog } from './Dialog'
 import { FolderPicker } from './FolderPicker'
 import { Icon } from './Icon'
+import { LoadError } from './LoadError'
 import { Menu, type MenuAnchor, MenuItem } from './Menu'
 
 const DRAG_TYPE = 'application/x-hotsauce-path'
@@ -512,6 +513,17 @@ function TreeLevel({
 }) {
   const { tree } = useSession()
   const entries = useDirectory(tree, space, dir)
+  const failed = useDirectoryFailed(tree, space, dir)
+  if (entries === undefined && failed) {
+    // Only the top of a tree says so; a subfolder that vanished just drops out.
+    return depth === 0 ? (
+      <LoadError
+        things="docs"
+        onRetry={() => void tree.reload(space, dir).catch(() => {})}
+        className="mx-2 my-2"
+      />
+    ) : null
+  }
   if (entries === undefined) {
     return (
       <ul role="none" aria-busy="true">

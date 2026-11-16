@@ -10,6 +10,7 @@ import { product } from '../brand/product'
 import { NewToken } from '../components/AiToolSetup'
 import { initials, useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
+import { ConnectedApps } from '../components/ConnectedApps'
 import { Icon } from '../components/Icon'
 import { InstallButton, InstallSheet } from '../components/InstallBar'
 import { MacAppCard } from '../components/MacApp'
@@ -67,6 +68,7 @@ export function ConnectionsSettings() {
     <div data-testid="settings-connections">
       <CalendarPicker />
       <AiToolsSection />
+      <ConnectedApps origin={window.location.origin} />
     </div>
   )
 }
@@ -136,9 +138,12 @@ function AiToolsSection() {
         Connect an AI tool to {product()}
       </h2>
       <p className="mt-2 text-ink-soft">
-        An access token lets an AI tool such as ChatGPT, Claude, Grok or Cursor, or a script, work
-        in {product()} as you. Make one token for each tool, treat it like a password, and revoke it
-        when you stop using it.
+        A token lets Claude Code, Codex, Cursor or a script work in {product()} as you. Make one per
+        tool and treat it like a password. Claude, ChatGPT and Grok{' '}
+        <a href="#connected-apps" className="text-ember-strong underline">
+          sign in instead
+        </a>
+        .
       </p>
       <details data-testid="ai-tools-about" className="mt-2 text-sm text-ink-soft">
         <summary className="cursor-pointer text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink">

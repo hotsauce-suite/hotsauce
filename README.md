@@ -39,8 +39,8 @@ Deepgram keys; a small team spends a few dollars a month on them.
 screen recording and more share one sign-in, one search, one brand and one place your team's knowledge
 lives.
 
-**Agents are first-class.** A built-in MCP server lets any AI tool (Claude, Cursor, Codex or a script;
-ChatGPT and Grok once sign-in lands) search, read and write your docs, meetings, tasks, clips
+**Agents are first-class.** A built-in MCP server lets any AI tool (Claude, ChatGPT, Grok, Cursor, Codex or a
+script; sign in or use a token) search, read and write your docs, meetings, tasks, clips
 and files as you, with the same permissions you have. History shows which tool made each change.
 
 ## What's in the box
@@ -99,6 +99,9 @@ Markdown documents with a fast, source-first editor. Several people edit at once
 commit with a readable history, links survive renames, and search covers every space you can see.
 Import Markdown, Word and HTML files, and drop live task lists into a page.
 
+Every team doc, meeting note and task has a conversation under it: comment where the work is, quote
+a passage, and @mention a teammate to send them a notification that opens on your comment.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/default-docs-dark.webp">
   <img src="docs/screenshots/default-docs-light.webp" alt="A doc in Hotsauce Docs, with the file tree and outline">
@@ -109,12 +112,12 @@ Import Markdown, Word and HTML files, and drop live task lists into a page.
 | App | What it does |
 | --- | --- |
 | **People** | Everyone you meet with, from your calendar and meeting notes: past and next meetings, open to-dos, and a short note about each person. |
-| **Whiteboard** | Hand-drawn boards the whole team can draw on at once, saved as files you can search. |
+| **Boards** | Hand-drawn boards the whole team can draw on at once, saved as files you can search. |
 | **Files** | Upload and share files and folders, with previews and search across what's inside them. |
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note or meeting, or publish a page. |
-| **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, one-click Summarize and Action items, speed control and a shared library. |
+| **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, trimming, one-click Summarize and Action items, speed control and a shared library. |
 | **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is; a warm glow around the window shows it’s listening. Team word lists keep names spelled right. |
 | **Briefcast** | A five-minute audio briefing each weekday morning: your meetings, what changed and what's due, in your podcast app. |
 

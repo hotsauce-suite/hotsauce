@@ -55,6 +55,9 @@ const MAX_LINKS = 8
 /** Teammates' check-in answers read in one briefing, each cut to this many characters. */
 const MAX_CHECKINS = 12
 const CHECKIN_CHARS = 600
+/** Highlights per link in the briefing, and the characters kept of each (and its note). */
+const MAX_LINK_HIGHLIGHTS = 5
+const HIGHLIGHT_CHARS = 300
 const MAX_UNREAD_LINKS = 5
 const NIGHTLY_ATTEMPTS = 3
 const FORCED_PER_DAY = 10
@@ -105,7 +108,7 @@ type Deps = {
   syncer: Pick<Syncer, 'afterHeadChanged'>
   tasks: Pick<Tasks, 'list'>
   /** Saved links (§23); null leaves them out. */
-  links: Pick<Links, 'list'> | null
+  links: Pick<Links, 'list' | 'get'> | null
   /** Check-in answers (§24); null leaves them out. */
   checkins?: Pick<Checkins, 'answersSince'> | null
   calendar: CalendarSource
@@ -407,13 +410,15 @@ export class Briefcasts {
       summary: l.summary || l.description,
       status,
     })
+    const withHighlights = (cast: CastLink[], from: LinkView[]) =>
+      this.#withHighlights(principal, cast, from)
     const recent = await this.#d.links.list(principal, {
       view: 'all',
       savedBy: principal.email,
       savedSince: since.toISOString(),
       limit: MAX_LINKS,
     })
-    if (!monday) return recent.map(toCast('saved'))
+    if (!monday) return withHighlights(recent.map(toCast('saved')), recent)
     const weekAgo = new Date(since.getTime() - 7 * 86_400_000).toISOString()
     const unread = (
       await this.#d.links.list(principal, {
@@ -425,7 +430,40 @@ export class Briefcasts {
     )
       .filter((l) => l.saved < since.toISOString())
       .slice(0, MAX_UNREAD_LINKS)
-    return [...recent.map(toCast('saved')), ...unread.map(toCast('unread'))]
+    return withHighlights(
+      [...recent.map(toCast('saved')), ...unread.map(toCast('unread'))],
+      [...recent, ...unread],
+    )
+  }
+
+  /** The listener's own highlights on each link that has any (R9). */
+  async #withHighlights(
+    principal: Principal,
+    cast: CastLink[],
+    from: LinkView[],
+  ): Promise<CastLink[]> {
+    const links = this.#d.links
+    if (!links) return cast
+    const me = principal.email.toLowerCase()
+    return Promise.all(
+      cast.map(async (c, i) => {
+        const l = from[i]
+        if (!l || l.highlightCount === 0) return c
+        try {
+          const full = await links.get(principal, l.space, l.id)
+          const mine = full.highlights
+            .filter((h) => h.by === me)
+            .slice(0, MAX_LINK_HIGHLIGHTS)
+            .map((h) => ({
+              quote: cut(h.quote, HIGHLIGHT_CHARS),
+              ...(h.note ? { note: cut(h.note, HIGHLIGHT_CHARS) } : {}),
+            }))
+          return mine.length > 0 ? { ...c, highlights: mine } : c
+        } catch {
+          return c
+        }
+      }),
+    )
   }
 
   /** Docs other people changed since `since`, in spaces the member can read. */

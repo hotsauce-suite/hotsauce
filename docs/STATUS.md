@@ -14,7 +14,7 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 ## The apps (the rail, in order)
 
 ### Today
-The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief).
+The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
 ### Docs
@@ -30,7 +30,7 @@ Hold a key on the Mac, talk, and clean text lands at the cursor, with team word 
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
-Screen and camera recordings with a transcript, Summarize and Action items, speed control and a shared library.
+Screen and camera recordings with a transcript, trimming, Summarize and Action items, speed control and a shared library.
 Needs the speech and AI keys and `ffmpeg` on the server; video lives on the volume or in R2/S3.
 
 ### Tasks
@@ -42,7 +42,7 @@ Colored note and checklist cards with labels, pins and an archive; Google Keep i
 Needs nothing extra.
 
 ### Boards
-The Whiteboard: hand-drawn boards the team draws on at once, one file per board.
+Boards: hand-drawn boards the team draws on at once, one file per board.
 Needs nothing extra.
 
 ### People
@@ -66,7 +66,7 @@ Trackers with spreadsheet formulas, kept as CSV in Git.
 Needs nothing extra.
 
 ### Links
-A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read.
+A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read. Highlights and notes on a page (kept in the link's file, read by search, Ask, Briefcast and AI tools), a Highlights tab, and Copy highlights to a Doc. Links an AI tool saves wait for the member to press Get the page.
 Needs nothing extra; the AI summary needs the AI key.
 
 ### Briefcast
@@ -76,11 +76,12 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 ## Built into every app
 
 - **Ask** (⌘J): the assistant on every page, with the same tools as the MCP server, as the member. Needs the AI key; admins set the model and a monthly limit.
+- **Comments and @mentions**: a conversation under every team doc, meeting note and task; `@` and a name sends that teammate one notification that opens on the comment. Needs nothing extra; notifications must be on for the push. Not yet: a "For you" list, replies and comments from AI tools (the next steps in `docs/PLAN-comments.md`), and sending a comment written offline.
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
-- **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`).
+- **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
 - **Usage** (Settings → Usage, admins): each app's items made or changed and people per week for 12 weeks, counted from Git history, Clips' list and Dictate's connected Macs. Nothing is tracked; numbers only. Needs nothing extra.
 
@@ -116,4 +117,4 @@ Open pull requests on `main` at the date above (release numbers are taken at mer
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 
-Next on the Links roadmap: highlights and notes inside the link's file, then PDFs and papers.
+Next on the Links roadmap: PDFs and papers (highlights and notes shipped).

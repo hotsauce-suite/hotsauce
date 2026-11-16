@@ -1,7 +1,7 @@
 # Second audit: features added since Nov 9, 2026
 
-**Status:** fixes 1 to 3 are in pull request #115 (Nov 16, 2026) and reach instances with the
-first release after it merges. The findings left for later are listed under "Not fixed here".
+**Status:** shipped. Fixes 1 to 3 merged in pull request #115 and were released in 0.17.1
+(Nov 16, 2026). The findings left for later are listed under "Not fixed here".
 
 Two independent read-only reviewers, one for lost data and one for security, went through the
 self-updater and rollback, saved page copies, the AI tool connector, public forms and booking
@@ -30,11 +30,12 @@ branches' authors.
 
 - The page copy the Chrome extension sends is held in memory until its background read commits;
   a restart in between loses it and the retry fetches signed out. Keep it on disk until read.
-- `save_link` through the connector fetches any public address, so a tool that was told to can
-  send what it read out in the address. Don't fetch for connector saves until a member opens the link.
+- ~~`save_link` through the connector fetches any public address.~~ Fixed in 0.21.0 (#123): links an
+  AI tool saves wait for a member to press Get the page (docs/PLAN-links-ai-saves.md).
 - The updater installs whatever image the release tag points at. Install by digest, taken from
   the release.
-- Stars, pins and recents live only in `index.sqlite`, which backups leave out.
+- ~~Stars, pins and recents live only in `index.sqlite`, which backups leave out.~~ Fixed: they
+  moved to `account.sqlite` (docs/PLAN-member-lists.md).
 - After a rollback nothing checks that the previous release came up.
 - Per-address limits on public forms and booking trust `fly-client-ip` on hosts other than Fly.
 - State-changing requests don't check `Origin`; this rests on the sign-in cookie being same-site.
