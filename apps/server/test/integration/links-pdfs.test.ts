@@ -276,6 +276,34 @@ describe('bioRxiv and medRxiv (R5)', () => {
       json: { file: stored.id },
       status: 409,
     })
+    // Read again while the full text can't be had: the added PDF is the copy, not nothing.
+    failing = /source\.xml/
+    await api('POST', `/api/links/alice/${link.id}/refetch`)
+    await services.links.idle()
+    const reread = await api('GET', `/api/links/alice/${link.id}`)
+    expect(reread.status).toBe('ready')
+    expect(reread.body).toContain('The abstract sentence 1')
+    expect(reread.file).toBe(stored.id)
+  })
+
+  it('a read that finds no text keeps the copy the paper had', async () => {
+    const link = await save('https://www.biorxiv.org/content/10.1101/2024.02.01.666666v1')
+    expect(link.body).toContain('## Introduction')
+    failing = /source\.xml/
+    await api('POST', `/api/links/alice/${link.id}/refetch`)
+    await services.links.idle()
+    const got = await api('GET', `/api/links/alice/${link.id}`)
+    expect(got.status).toBe('ready')
+    expect(got.body).toContain('## Introduction')
+    expect(got.words).toBe(link.words)
+  })
+
+  it('a title the member gave a paper survives reading it again', async () => {
+    const link = await save('https://arxiv.org/abs/2401.77771')
+    await api('PATCH', `/api/links/alice/${link.id}`, { json: { title: 'Mirror paper' } })
+    await api('POST', `/api/links/alice/${link.id}/refetch`)
+    await services.links.idle()
+    expect((await api('GET', `/api/links/alice/${link.id}`)).title).toBe('Mirror paper')
   })
 })
 
@@ -319,6 +347,25 @@ describe('a PDF from the computer (R6)', () => {
       json: { space: 'alice', file: pdf.id },
       status: 403,
     })
+    // Only a PDF the member put in Links themselves: never a teammate's, never one elsewhere in
+    // Files, and never one another link keeps (a link moves and deletes its PDF).
+    const bobs = await upload('team', 'contract.pdf', makeTestPdf([['Contract']]), BOB)
+    await api('POST', '/api/links/pdf', { json: { space: 'team', file: bobs.id }, status: 403 })
+    const elsewhere = await services.files.storeFormFile(
+      { name: 'alice', email: ALICE },
+      { space: 'alice', folder: 'Contracts', name: 'nda.pdf', bytes: makeTestPdf([['NDA']]) },
+    )
+    await api('POST', '/api/links/pdf', {
+      json: { space: 'alice', file: elsewhere.id },
+      status: 403,
+    })
+    const first = await api('POST', '/api/links/pdf', {
+      json: { space: 'alice', file: pdf.id },
+      status: 201,
+    })
+    const paper = await save('https://www.biorxiv.org/content/10.1101/2024.02.01.777777v1')
+    await api('POST', `/api/links/alice/${paper.id}/pdf`, { json: { file: pdf.id }, status: 409 })
+    expect((await api('GET', `/api/links/alice/${first.id}`)).file).toBe(pdf.id)
     const token = await api('POST', '/api/tokens', { json: { name: 'script' }, status: 201 })
     const res = await call('POST', '/api/links/pdf', {
       token: token.token,

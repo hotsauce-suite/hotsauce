@@ -4,6 +4,7 @@ export {
   fetchPage,
   isPublicAddress,
   LinkFetchError,
+  liveFetcher,
   type PageFetcher,
 } from './fetch.js'
 export { readPage } from './read.js'

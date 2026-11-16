@@ -41,7 +41,13 @@ export function paperOf(raw: string): PaperRef | null {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
   const host = url.hostname.toLowerCase().replace(/^www\./, '')
   if (host === 'arxiv.org' || host === 'export.arxiv.org') {
-    const m = ARXIV_PATH.exec(decodeURIComponent(url.pathname))
+    let path: string
+    try {
+      path = decodeURIComponent(url.pathname)
+    } catch {
+      return null // a stray `%` that isn't an escape
+    }
+    const m = ARXIV_PATH.exec(path)
     if (!m?.[1]) return null
     return { server: 'arxiv', id: m[1], version: m[2] ? Number(m[2]) : null }
   }

@@ -593,6 +593,9 @@ export class Links {
     const current = await this.#read(space, id)
     if (current.record.fm.file) throw new HotsauceError('conflict', 'This link already has its PDF')
     const { bytes } = await this.#uploadedPdf(principal, space, fileId)
+    if (this.#records([{ name: space }]).some((r) => r.fm.file === fileId)) {
+      throw new HotsauceError('conflict', 'Another link already keeps that PDF')
+    }
     const read = await pdfPage(bytes, current.record.fm.site ?? '').catch(() => null)
     const view = await this.#edit(principal, space, id, 'edit', via, (cur) => {
       if (cur.fm.file) throw new HotsauceError('conflict', 'This link already has its PDF')
@@ -614,6 +617,14 @@ export class Links {
   ): Promise<{ view: Awaited<ReturnType<Files['get']>>; bytes: Uint8Array }> {
     const files = this.#files()
     const view = await files.get(principal, space, fileId)
+    // Only a PDF this member just put in the Links folder: a link moves and deletes its PDF, so
+    // it must never take a teammate's file or one another link keeps.
+    if (
+      view.folder !== LINKS_FILES_FOLDER ||
+      view.createdBy.toLowerCase() !== principal.email.toLowerCase()
+    ) {
+      throw new HotsauceError('forbidden', 'Only a PDF you added to Links can be kept with a link')
+    }
     if (view.size > MAX_PDF_BYTES) {
       throw new HotsauceError('bad_request', 'The PDF is too big to keep (over 50 MB)')
     }
@@ -719,7 +730,14 @@ export class Links {
             folder: LINKS_FILES_FOLDER,
             withLink: true,
           })
-          .catch((err) => this.#log(`links: couldn't move the PDF of ${id}: ${errorText(err)}`))
+          .catch(async (err) => {
+            // The PDF stays where it was, in Files; the link no longer claims it, so deleting
+            // the link later can't reach into the other space.
+            this.#log(`links: couldn't move the PDF of ${id}: ${errorText(err)}`)
+            await this.#edit(principal, toSpace, id, 'edit', via, (cur) =>
+              cur.fm.file === pdf ? patchFrontmatter(cur.content, { file: undefined }) : null,
+            ).catch(() => {})
+          })
       }
       // Moved before its page was read: the read in the old space finds nothing, so read it here.
       if (
@@ -908,10 +926,12 @@ export class Links {
           })
       const paper = got.paper
       fields = {
-        // A PDF from the computer is named after its file until its first read finds its own title.
+        // The first read names the link (a paper by its own title; a PDF from the computer was
+        // named after its file until now); after that, the title it has, maybe the member's, stays.
         title:
-          paper?.title ||
-          (!fm.url.trim() && !fm.fetched ? read.title || fm.title : fm.title || read.title) ||
+          (fm.fetched
+            ? fm.title || paper?.title || read.title
+            : paper?.title || (!fm.url.trim() ? read.title || fm.title : fm.title || read.title)) ||
           undefined,
         site: read.site || undefined,
         description: paper ? undefined : read.description || undefined,
@@ -934,7 +954,15 @@ export class Links {
       if (stored) fields.file = stored
       if (ai && ai.tags.length > 0) fields.tags = ai.tags
       body = read.markdown
+      // A read that found no text never wipes a copy the link already has.
+      if (read.words === 0 && had) {
+        body = null
+        delete fields.words
+      }
     } catch (err) {
+      // Whatever went wrong, a PDF kept by this read isn't going into the link.
+      if (stored) await this.#d.files?.remove(principal, space, stored, via).catch(() => {})
+      stored = null
       if (!(err instanceof LinkFetchError)) throw err
       if (copy !== null && had !== null) return
       fields = { fetch_error: err.message }
@@ -987,7 +1015,11 @@ export class Links {
       return { page: await pdfPage(bytes, ''), pdf: null, paper: null, ref: null }
     }
     const ref = this.#paperRef(fm)
-    if (ref) return this.#gatherPaper(ref, heldPdf)
+    if (ref) {
+      const kept = async () =>
+        fm.file ? ((await this.#d.files?.bytes(space, fm.file, MAX_PDF_BYTES)) ?? null) : null
+      return this.#gatherPaper(ref, heldPdf, kept)
+    }
     const got = await this.#readable(fm.url, copy)
     return { ...got, paper: null, ref: null }
   }
@@ -1004,6 +1036,7 @@ export class Links {
   async #gatherPaper(
     ref: PaperRef,
     heldPdf: Uint8Array | null,
+    kept: () => Promise<Uint8Array | null>,
   ): Promise<{ page: ReadablePage; pdf: Uint8Array | null; paper: PaperDetails; ref: PaperRef }> {
     const paper = await paperDetails(ref, this.#d.fetchPage)
     const at: PaperRef = { ...ref, version: paper.version }
@@ -1042,6 +1075,11 @@ export class Links {
       }
     }
     if (!page && pdf) page = await pdfPage(pdf, site).catch(() => null)
+    // The PDF the member added ("Add the PDF") is the copy when the site gives no text.
+    if (!page && !pdf) {
+      const mine = await kept().catch(() => null)
+      if (mine) page = await pdfPage(mine, site).catch(() => null)
+    }
     // Only the details: the abstract shows above an empty copy.
     page ??= { title: '', site, description: '', markdown: '', words: 0 }
     return { page: { ...page, title: paper.title || page.title, site }, pdf, paper, ref: at }
@@ -1063,7 +1101,7 @@ export class Links {
     if (!files?.available) return null
     if (fm.file) {
       const kept = await files.bytes(space, fm.file, MAX_PDF_BYTES).catch(() => null)
-      if (kept && Buffer.from(kept).equals(Buffer.from(bytes))) return null
+      if (kept && view(kept).equals(view(bytes))) return null
     }
     const title = read.title || fm.title || 'Saved PDF'
     try {
@@ -1342,6 +1380,11 @@ function checkPdf(bytes: Uint8Array): void {
 }
 
 /** A file name for a link's PDF in Files: its title, ending in .pdf. */
+/** A Buffer over the same memory (Buffer.from of a Uint8Array would copy 50 MB). */
+function view(u8: Uint8Array): Buffer {
+  return Buffer.from(u8.buffer, u8.byteOffset, u8.length)
+}
+
 function pdfName(title: string): string {
   // oneLine already turned control characters (all white space here) into spaces.
   const base = oneLine(title)

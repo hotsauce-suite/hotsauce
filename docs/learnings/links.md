@@ -97,3 +97,11 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   real text). Generate test PDFs in code (`links/test-pdf.ts`) rather than checking in binaries.
 - **fast-check isn't a dependency here** (despite the plan template); a seeded loop over a few
   hundred generated ids covers round-trip properties well enough.
+- **A fake that's more forgiving than the real thing hides wiring bugs.** The production fetcher
+  was wired as `(url) => fetchPage(url)`, dropping the new `kind` argument, so every paper API
+  call would have been refused as "not a web page" while every test (on the fake) passed. The fix
+  was a named `liveFetcher()` with its own test, and a fake that refuses an API answer unless it's
+  asked for as data, like the real one. When you widen a function's signature, grep its callers.
+- **A link that moves and deletes a file must own it.** Accept only a PDF the member put in the
+  Links folder themselves, and one no other link keeps; otherwise "move to personal" can carry a
+  teammate's file out of the team space.

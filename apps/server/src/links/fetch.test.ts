@@ -2,7 +2,13 @@ import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import zlib from 'node:zlib'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { fetchPage, isPublicAddress, LinkFetchError, publicAddressOf } from './fetch.js'
+import {
+  fetchPage,
+  isPublicAddress,
+  LinkFetchError,
+  liveFetcher,
+  publicAddressOf,
+} from './fetch.js'
 
 describe('isPublicAddress', () => {
   it('refuses loopback, private, link-local, reserved and multicast addresses', () => {
@@ -197,6 +203,9 @@ describe('fetchPage', () => {
     expect((await fetchPage(`${base}/json`, opts, 'data')).text).toBe('{"a":1}')
     await expect(fetchPage(`${base}/json`, opts)).rejects.toThrow(/isn’t a web page/)
     await expect(fetchPage(`${base}/pdf`, opts, 'data')).rejects.toThrow(/details/)
+    // The production fetcher passes the kind on: papers' APIs answer JSON and XML.
+    expect((await liveFetcher(opts)(`${base}/json`, 'data')).text).toBe('{"a":1}')
+    await expect(liveFetcher(opts)(`${base}/json`)).rejects.toThrow(/isn’t a web page/)
   })
 
   it('refuses files, big pages, slow sites, odd ports and errors', async () => {

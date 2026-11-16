@@ -10,7 +10,7 @@ import { makeTestPdf } from './test-pdf.js'
  * sites with stand-in papers (`fakePaper`): arXiv ids ending in 1 have a web version; id
  * `0000.00000` and DOI `10.1101/000000` are unknown; bioRxiv's own pages refuse a server.
  */
-export const fakePageFetcher: PageFetcher = async (url: string): Promise<FetchedPage> => {
+export const fakePageFetcher: PageFetcher = async (url, kind = 'page'): Promise<FetchedPage> => {
   const parsed = new URL(url)
   if (parsed.hostname.endsWith('fail.test')) throw new LinkFetchError('Couldn’t reach the site')
   if (parsed.hostname.endsWith('pdf.test')) {
@@ -27,7 +27,18 @@ export const fakePageFetcher: PageFetcher = async (url: string): Promise<Fetched
     return { url, contentType: 'application/pdf', text: '', bytes }
   }
   const paper = fakePaperAnswer(parsed)
-  if (paper) return paper
+  if (paper) {
+    // Like the real fetcher: an API's JSON or XML only comes back when asked for as data.
+    const data = /json|xml/.test(paper.contentType)
+    if (data !== (kind === 'data')) {
+      throw new LinkFetchError(
+        data
+          ? 'It isn’t a web page, so there’s no readable copy; the link is kept'
+          : 'The site didn’t answer with the paper’s details',
+      )
+    }
+    return paper
+  }
   const slug = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).at(-1) ?? 'home')
   const title = slug.replace(/[-_]+/g, ' ').replace(/^./, (c) => c.toUpperCase())
   if (parsed.hostname.endsWith('stub.test')) {

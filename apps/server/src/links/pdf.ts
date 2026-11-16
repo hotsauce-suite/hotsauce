@@ -9,7 +9,7 @@ import { MAX_LINK_BODY, oneLine, wordCount } from '@hotsauce/format'
 export const MAX_PDF_BYTES = 50 * 1024 * 1024
 /** Pages read for the copy; a longer PDF's copy stops here. */
 const MAX_PAGES = 600
-/** Reading stops here: pdf.js runs on the main thread. */
+/** Reading stops at the next page after this: pdf.js runs on the main thread. */
 const READ_TIMEOUT_MS = 60_000
 
 export interface PdfLine {
@@ -42,17 +42,20 @@ let queue: Promise<unknown> = Promise.resolve()
  * open it. A PDF with no text (scanned) gives an empty copy.
  */
 export function readPdf(bytes: Uint8Array): Promise<ReadablePdf> {
-  const run = queue.then(() => withTimeout(readNow(bytes), READ_TIMEOUT_MS))
+  const run = queue.then(async () => {
+    const stop = { late: false }
+    const timer = setTimeout(() => {
+      stop.late = true
+    }, READ_TIMEOUT_MS)
+    try {
+      return await readNow(bytes, stop)
+    } finally {
+      clearTimeout(timer)
+    }
+  })
+  // The next PDF waits for this one to really finish, not just to give up.
   queue = run.catch(() => {})
   return run
-}
-
-function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
-  let timer: NodeJS.Timeout | undefined
-  const late = new Promise<T>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Reading the PDF took too long')), ms)
-  })
-  return Promise.race([work, late]).finally(() => clearTimeout(timer))
 }
 
 interface TextItem {
@@ -62,7 +65,7 @@ interface TextItem {
   hasEOL?: boolean
 }
 
-async function readNow(bytes: Uint8Array): Promise<ReadablePdf> {
+async function readNow(bytes: Uint8Array, stop: { late: boolean }): Promise<ReadablePdf> {
   const { getDocumentProxy } = await import('unpdf')
   // pdf.js takes ownership of the buffer it's given; hand it a copy.
   const pdf = await getDocumentProxy(new Uint8Array(bytes))
@@ -70,6 +73,8 @@ async function readNow(bytes: Uint8Array): Promise<ReadablePdf> {
     const pageCount = Math.min(pdf.numPages, MAX_PAGES)
     const pages: PdfLine[][] = []
     for (let n = 1; n <= pageCount; n++) {
+      // Checked page by page: pdf.js can't be stopped mid-page, but a long PDF stops here.
+      if (stop.late) throw new Error('Reading the PDF took too long')
       const page = await pdf.getPage(n)
       const content = await page.getTextContent()
       pages.push(linesOf(content.items as TextItem[]))
@@ -90,6 +95,8 @@ async function readNow(bytes: Uint8Array): Promise<ReadablePdf> {
     }
   } finally {
     await pdf.cleanup()
+    // Frees the worker-side document too, where this pdf.js has it.
+    await (pdf as { destroy?: () => Promise<void> }).destroy?.()
   }
 }
 

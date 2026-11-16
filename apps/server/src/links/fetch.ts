@@ -10,6 +10,8 @@ import net from 'node:net'
 import zlib from 'node:zlib'
 
 export const FETCH_TIMEOUT_MS = 15_000
+/** A PDF gets longer to download once the site has started sending it. */
+const PDF_TIMEOUT_MS = 90_000
 /** The page's HTML after decompression; parsing runs on the main thread, so it stays small. */
 export const MAX_PAGE_BYTES = 2 * 1024 * 1024
 export const MAX_REDIRECTS = 5
@@ -163,6 +165,11 @@ export interface FetchOptions {
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 (compatible; saved-links)'
 
+/** The fetcher saved links use in production; it passes on what kind of answer is wanted. */
+export function liveFetcher(opts: FetchOptions = {}): PageFetcher {
+  return (url, kind) => fetchPage(url, opts, kind)
+}
+
 /** Fetches a page (or a PDF, or with `data` an API answer) the safe way. Throws `LinkFetchError`. */
 export async function fetchPage(
   raw: string,
@@ -199,7 +206,8 @@ export async function fetchPage(
         url: url.toString(),
         contentType: 'application/pdf',
         text: '',
-        bytes: new Uint8Array(res.body),
+        // A view, not a copy: a PDF can be 50 MB.
+        bytes: new Uint8Array(res.body.buffer, res.body.byteOffset, res.body.length),
       }
     }
     return {
@@ -262,6 +270,7 @@ async function requestOnce(
   if (left <= 0) throw new LinkFetchError('The site took too long to answer')
   const lib = url.protocol === 'https:' ? https : http
   return new Promise<RawResponse>((resolve, reject) => {
+    let timer: NodeJS.Timeout | undefined
     const req = lib.request(
       url,
       {
@@ -302,6 +311,11 @@ async function requestOnce(
             req.destroy()
             reject(err)
             return
+          }
+          if (limit.pdf && opts.timeoutMs === undefined) {
+            // A big PDF takes longer than a page; give it from here, not from the first byte.
+            clearTimeout(timer)
+            timer = setTimeout(() => req.destroy(new Error('timeout')), PDF_TIMEOUT_MS)
           }
           const declared = Number(res.headers['content-length'] ?? Number.NaN)
           if (Number.isFinite(declared) && declared > limit.maxBytes) {
@@ -345,7 +359,7 @@ async function requestOnce(
         stream.on('error', () => reject(new LinkFetchError('The page came back garbled')))
       },
     )
-    const timer = setTimeout(() => req.destroy(new Error('timeout')), left)
+    timer = setTimeout(() => req.destroy(new Error('timeout')), left)
     req.on('timeout', () => req.destroy(new Error('timeout')))
     req.on('error', (err) => {
       if (err instanceof LinkFetchError) reject(err)

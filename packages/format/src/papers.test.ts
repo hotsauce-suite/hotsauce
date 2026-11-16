@@ -35,6 +35,11 @@ describe('papers: which addresses are a paper (R2)', () => {
     expect(paperOf(url)).toEqual({ server, id: '10.1101/2020.03.22.002386', version })
   })
 
+  it('ignores an address with a broken escape instead of throwing', () => {
+    expect(paperOf('https://arxiv.org/abs/%E0%A4')).toBeNull()
+    expect(paperOf('https://www.biorxiv.org/content/%E0%A4')).toBeNull()
+  })
+
   it('reads old numeric bioRxiv DOIs', () => {
     expect(paperOf('https://www.biorxiv.org/content/10.1101/123456v1')).toMatchObject({
       id: '10.1101/123456',
