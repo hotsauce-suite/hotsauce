@@ -78,11 +78,15 @@ const link = (o: Record<string, unknown> = {}) => ({
   ...o,
 })
 
-/** Monday 00:00 UTC, two weeks out: clear of notice, inside the horizon. */
+/**
+ * Monday 00:00 UTC, 7 to 13 days out: clear of notice, and a booking on its Tuesday stays inside
+ * the calendar sync's 15-day horizon (SYNC_AHEAD_MS) on every day of the week. Counting from the
+ * Monday after next put that Tuesday 15 days 14 hours out when the tests ran on a Monday.
+ */
 function mondayAfterNext(): number {
   const d = new Date()
   d.setUTCHours(0, 0, 0, 0)
-  const toMonday = (8 - d.getUTCDay()) % 7 || 7
+  const toMonday = (8 - d.getUTCDay()) % 7
   return d.getTime() + (toMonday + 7) * DAY
 }
 const iso = (ms: number) => new Date(ms).toISOString()

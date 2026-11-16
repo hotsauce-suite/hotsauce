@@ -45,6 +45,7 @@
 <dl><dt>People and access</dt><dd>Who can sign in, the admins, the sign-in keys and read-only links.</dd></dl>
 <dl><dt>AI</dt><dd>The Anthropic and Deepgram keys, and the assistant’s model, monthly limit and use.</dd></dl>
 <dl><dt>Data and updates</dt><dd>Where your files live, backups and updates.</dd></dl>
+<dl><dt>Usage</dt><dd>Which apps your team uses, week by week, counted without tracking anyone.</dd></dl>
 </div>
 <h2 id="what-each-key-turns-on">What each key turns on</h2>
 <div class="tbl"><table>
@@ -71,6 +72,9 @@
 <h2 id="backups">Backups</h2>
 <p>With storage set up (Cloudflare R2 or any S3-compatible bucket), the server backs itself up every day to your own bucket. Recent backups are listed in <b>Settings → Data and updates</b>.</p>
 <p>To be told when a backup fails, point an uptime monitor such as Better Stack or UptimeRobot at <code>/api/health/backup</code> on your server's address. It turns red when the newest backup failed or none has worked for 26 hours.</p>
+
+<h2 id="usage">Which apps get used</h2>
+<p><b>Settings → Usage</b> shows, for each app, how many things people made or changed each week over the last 12 weeks, and how many different people did it. It counts from the history every document already keeps, in the team space and everyone's own space, so nothing new is tracked. It shows numbers only, never names or titles. Clips are counted from the clips list. Dictate keeps its history on each Mac, so the page only says how many Macs are connected and used lately.</p>
 
 <p>Setting up a new server? See <a href="/help/install">Install Hotsauce</a> and the <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">self-hosting guide</a>.</p>
 <nav class="pager" id="pager" aria-label="Next and previous"></nav>

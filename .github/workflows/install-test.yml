@@ -31,8 +31,34 @@ env:
   PROMPT: Install Hotsauce for my company by following https://hotsauce.work/install.md. Ask me before anything that needs my accounts, payment or DNS.
 
 jobs:
+  # The Release workflow runs after every merge and usually releases nothing (docs-only merges,
+  # its own version commit). Test only when the run that just finished published a release.
+  released:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      new: ${{ steps.check.outputs.new }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          STARTED: ${{ github.event.workflow_run.run_started_at }}
+        run: |
+          new=false
+          if [ "$EVENT" = workflow_run ] && [ "$CONCLUSION" = success ]; then
+            created="$(gh api "repos/$REPO/releases/latest" --jq .created_at)"
+            # ISO 8601 UTC timestamps sort as strings.
+            if [[ "$created" > "$STARTED" ]]; then new=true; fi
+            echo "Newest release created $created; this Release run started $STARTED."
+          fi
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+
   script:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    needs: released
+    if: github.event_name == 'workflow_dispatch' || needs.released.outputs.new == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -43,7 +69,8 @@ jobs:
         run: scripts/check-install.sh http://127.0.0.1:3000
 
   agent:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    needs: released
+    if: github.event_name == 'workflow_dispatch' || needs.released.outputs.new == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -85,7 +112,8 @@ jobs:
           if-no-files-found: ignore
 
   cloudflare:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    needs: released
+    if: github.event_name == 'workflow_dispatch' || needs.released.outputs.new == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

@@ -20,6 +20,7 @@ import {
   Summary,
 } from './org/sections'
 import { UpdatesSection } from './org/UpdatesSection'
+import { UsageSection } from './org/UsageSection'
 import { ORG_PAGES, type OrgPageId, orgPageOf } from './settings/pages'
 
 /**
@@ -193,5 +194,7 @@ function OrgPage({
           <UpdatesSection />
         </>
       )
+    case 'usage':
+      return <UsageSection />
   }
 }

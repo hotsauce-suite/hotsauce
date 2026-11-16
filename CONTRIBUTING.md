@@ -6,6 +6,7 @@ Thanks for helping. A few things keep the project easy to work on.
 
 - For anything bigger than a small fix, open an issue first so we can agree on the shape.
 - Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the area you're changing.
+- [docs/STATUS.md](docs/STATUS.md) says what each app does and needs today. Adding or changing an app means updating its entry there; a test fails when an app has none.
 
 ## Rules the code follows
 
@@ -15,6 +16,7 @@ Thanks for helping. A few things keep the project easy to work on.
 4. **Plain labels in the UI** ("Docs", "Meetings"), written for the people using it.
 5. **No secrets in the repository**, ever. Keys live in the host's secret store or in the instance's encrypted settings.
 6. **Small, focused changes.** Keep refactors apart from behavior changes.
+7. **Database changes only add.** The updater puts the previous release back when a new one fails, and that release then runs on the databases the new one already migrated. In the stores that hold real data (Clips, Dictate, the assistant) a migration adds tables, or columns that are nullable or have a default, which the older code can ignore; it never renames or drops what the previous release reads, and a store never lowers a saved schema version. The search index is different: an older release makes it again for itself and keeps only the spaces, stars, pins, recents and conflicts, by the columns it knows.
 
 ## Checks
 
@@ -35,4 +37,9 @@ By contributing, you agree that your contributions are licensed under the [AGPL-
 
 ## Releases
 
-Raise `HOTSAUCE_VERSION` in the pull request that finishes a piece of work people will notice (patch for fixes, minor for features). Merging it tags `v<version>`, publishes the release notes and pushes the image `ghcr.io/hotsauce-suite/hotsauce:<version>` (`.github/workflows/release.yml`). Merges that leave the version alone release nothing.
+Releases number themselves. Don't change `HOTSAUCE_VERSION` in a pull request (CI fails if you do). After each merge to `main`, `.github/workflows/release.yml` picks the next number from the newest `v*` tag, writes it to `main` as a `Release X.Y.Z` commit (pushed with the release robot's deploy key), pushes the image `ghcr.io/hotsauce-suite/hotsauce:<version>` and `:latest`, and only then tags `v<version>` and publishes the release notes. One release runs at a time; merges that land close together can share one release.
+
+- **Patch by default.** Add the `feature` label to a pull request for a minor release (0.15.x to 0.16.0). Label it before merging.
+- **Some merges release nothing**: changes only to `docs/`, top-level `*.md` files, `site/`, `.github/`, `e2e/`, test files, `scripts/tour-video/` and the scripts that aren't in the image, or the Mac app's sources (`apps/dictate-mac/`, except the built `release/`). The list is `NO_RELEASE` in `scripts/next-release.mjs`.
+- **By hand**: run the Release workflow from the Actions tab, with "feature" or "force" (release even if only docs changed) when needed. A hand-run that is still waiting can be replaced by a merge's run; run it again after.
+- **Check it ran**: after merging, the Release run should show a new tag within about ten minutes. If the image build fails, `main` already says the new number but nothing is tagged; the next run (or a hand-run) picks the same number and finishes.
