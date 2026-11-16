@@ -48,9 +48,10 @@ async function call(method: string, path: string, opts: { as: string; json?: unk
   })
 }
 
-async function put(as: string, space: string, path: string, content: string) {
+async function put(as: string, space: string, path: string, content: string): Promise<string> {
   const res = await call('PUT', `/api/spaces/${space}/file`, { as, json: { path, content } })
   expect(res.status, await res.clone().text()).toBe(200)
+  return ((await res.json()) as { blobOid: string }).blobOid
 }
 
 async function read(as: string, space: string, path: string): Promise<string | null> {
@@ -305,17 +306,20 @@ describe('the assistant with a scripted model', () => {
   })
 
   it('offers Undo for an edit and a create, and Undo puts the files back', async () => {
+    // Replacing a file takes the version the assistant read (base_blob_oid).
+    const rewrite: Record<string, string> = {
+      space: 'team',
+      path: 'docs/plan.md',
+      content: '# Plan\n\nRewritten.\n',
+    }
     const model = new Scripted([
       [
-        {
-          name: 'write_file',
-          input: { space: 'team', path: 'docs/plan.md', content: '# Plan\n\nRewritten.\n' },
-        },
+        { name: 'write_file', input: rewrite },
         { name: 'write_file', input: { space: 'alice', path: 'docs/new.md', content: '# New\n' } },
       ],
     ])
     await start({}, { assistantModel: model })
-    await put(ALICE, 'team', 'docs/plan.md', '# Plan\n\nOriginal.\n')
+    rewrite.base_blob_oid = await put(ALICE, 'team', 'docs/plan.md', '# Plan\n\nOriginal.\n')
     const { events } = await ask(ALICE, CONV, 'rewrite the plan and start a new doc')
     const results = events.filter((e) => e.type === 'tool_result')
     expect(results).toHaveLength(2)
@@ -341,16 +345,14 @@ describe('the assistant with a scripted model', () => {
   })
 
   it("refuses Undo when the file changed since, and never reverts a teammate's commit", async () => {
-    const model = new Scripted([
-      [
-        {
-          name: 'write_file',
-          input: { space: 'team', path: 'docs/plan.md', content: '# Plan\n\nBy the assistant.\n' },
-        },
-      ],
-    ])
+    const rewrite: Record<string, string> = {
+      space: 'team',
+      path: 'docs/plan.md',
+      content: '# Plan\n\nBy the assistant.\n',
+    }
+    const model = new Scripted([[{ name: 'write_file', input: rewrite }]])
     await start({}, { assistantModel: model })
-    await put(ALICE, 'team', 'docs/plan.md', '# Plan\n\nOriginal.\n')
+    rewrite.base_blob_oid = await put(ALICE, 'team', 'docs/plan.md', '# Plan\n\nOriginal.\n')
     const { events } = await ask(ALICE, CONV, 'rewrite')
     const undo = events.find((e) => e.type === 'tool_result')?.undo as string
     await put(BOB, 'team', 'docs/plan.md', '# Plan\n\nBob edited after.\n')

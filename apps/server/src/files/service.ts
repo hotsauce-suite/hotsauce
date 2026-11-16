@@ -758,6 +758,8 @@ export class Files {
         args.via,
       ),
       ...(args.unchanged ? { unchanged: args.unchanged } : {}),
+      // Files makes its own share links, and only this service writes its pointers (§18.3).
+      trusted: true,
     })
     if (result.status === 'conflict') {
       throw new HotsauceError('conflict', 'Someone changed this file at the same time; try again')

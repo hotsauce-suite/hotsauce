@@ -112,7 +112,11 @@ export class DictationStore {
         if (!row) this.#db.prepare('INSERT INTO schema_version (version) VALUES (0)').run()
         for (const sql of MIGRATIONS.slice(current)) this.#db.exec(sql)
         if (current === 0) this.#setWords('team', TEAM_WORDS_SEED)
-        this.#db.prepare('UPDATE schema_version SET version = ?').run(MIGRATIONS.length)
+        // Never lowered: a newer release may have migrated this file before a rollback, and
+        // it must not run those migrations again when it returns.
+        this.#db
+          .prepare('UPDATE schema_version SET version = ?')
+          .run(Math.max(current, MIGRATIONS.length))
       })
       .immediate()
   }

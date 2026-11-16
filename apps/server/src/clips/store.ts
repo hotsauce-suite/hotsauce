@@ -257,7 +257,11 @@ export class ClipStore {
         const current = row?.version ?? 0
         if (!row) this.#db.prepare('INSERT INTO schema_version (version) VALUES (0)').run()
         for (const sql of MIGRATIONS.slice(current)) this.#db.exec(sql)
-        this.#db.prepare('UPDATE schema_version SET version = ?').run(MIGRATIONS.length)
+        // Never lowered: a newer release may have migrated this file before a rollback, and
+        // it must not run those migrations again when it returns.
+        this.#db
+          .prepare('UPDATE schema_version SET version = ?')
+          .run(Math.max(current, MIGRATIONS.length))
       })
       .immediate()
   }
