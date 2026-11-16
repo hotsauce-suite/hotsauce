@@ -19,6 +19,7 @@ import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon, type IconName } from '../../components/Icon'
+import { ListBar, ListColumn } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { useListKeys } from '../../keyboard/listKeys'
 import { meetingUrl, taskUrl } from '../../lib/paths'
@@ -94,7 +95,11 @@ function Page({
         {...(item ? { back: { to: '/people', label: 'People' } } : {})}
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-24 md:px-8">{children}</div>
+        {item ? (
+          <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-24 md:px-8">{children}</div>
+        ) : (
+          <ListColumn width="reading">{children}</ListColumn>
+        )}
       </div>
     </>
   )
@@ -221,18 +226,15 @@ export function PeopleList() {
 
   return (
     <Page title="People">
-      <label className="mb-5 flex items-center gap-2 rounded-xl border border-ash bg-paper-raised px-3 py-2">
-        <Icon name="search" className="size-4 text-ink-faint" />
-        <span className="sr-only">Find a person</span>
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Find by name, email or company"
-          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
-          data-testid="people-search"
-        />
-      </label>
+      <ListBar
+        search={{
+          value: q,
+          onChange: setQ,
+          label: 'Find a person',
+          placeholder: 'Find by name, email or company',
+          testId: 'people-search',
+        }}
+      />
       {error ? (
         <LoadError things="people" whose="the" onRetry={() => void reload()} className="mb-4" />
       ) : null}
@@ -241,7 +243,7 @@ export function PeopleList() {
           <p className="text-sm text-ink-faint">Loading people…</p>
         )
       ) : people.length === 0 && error ? null : people.length === 0 ? (
-        <EmptyState icon="people" title={query ? 'No one matches' : 'No people yet'}>
+        <EmptyState icon="people" title={query ? 'No people match that' : 'No people yet'}>
           {query
             ? 'Search looks at names, email addresses and companies.'
             : 'People show up here once they’re in a meeting note, on your calendar or assigned a task.'}

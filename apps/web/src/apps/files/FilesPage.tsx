@@ -6,6 +6,7 @@ import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon, type IconName } from '../../components/Icon'
+import { ListBar, ListColumn } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { needsConnection } from '../../components/Offline'
@@ -212,15 +213,6 @@ export default function FilesPage() {
   return (
     <>
       <MeetingsPageHeader title="Files">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={`Search ${spaceLabel.toLowerCase()}`}
-          aria-label="Search files"
-          data-testid="files-search"
-          className="hidden h-9 w-56 rounded-lg border border-ash bg-paper px-3 text-sm sm:block"
-        />
         {kind === 'recent' || compact ? null : (
           <button
             type="button"
@@ -292,40 +284,51 @@ export default function FilesPage() {
             Drop to upload to {folder || spaceLabel}
           </div>
         ) : null}
-        <div className="mx-auto w-full max-w-5xl px-4 pt-5 pb-24 md:px-8">
-          <nav aria-label="Folder" className="mb-4 flex flex-wrap items-center gap-1 text-sm">
-            {kind === 'recent' ? (
-              <span className="font-medium text-ink">Recent</span>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => goFolder('')}
-                  className={
-                    crumbs.length ? 'text-ink-soft hover:text-ink' : 'font-medium text-ink'
-                  }
-                >
-                  {spaceLabel}
-                </button>
-                {crumbs.map((c, i) => {
-                  const to = crumbs.slice(0, i + 1).join('/')
-                  const last = i === crumbs.length - 1
-                  return (
-                    <span key={to} className="flex items-center gap-1">
-                      <Icon name="chevron" className="size-3 text-ink-faint" />
-                      <button
-                        type="button"
-                        onClick={() => goFolder(to)}
-                        className={last ? 'font-medium text-ink' : 'text-ink-soft hover:text-ink'}
-                      >
-                        {c}
-                      </button>
-                    </span>
-                  )
-                })}
-              </>
-            )}
-          </nav>
+        <ListColumn width="gallery">
+          <ListBar
+            search={{
+              value: q,
+              onChange: setQ,
+              label: 'Search files',
+              placeholder: `Search ${spaceLabel.toLowerCase()}`,
+              testId: 'files-search',
+            }}
+            className="mb-4"
+          >
+            <nav aria-label="Folder" className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
+              {kind === 'recent' ? (
+                <span className="font-medium text-ink">Recent</span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => goFolder('')}
+                    className={
+                      crumbs.length ? 'text-ink-soft hover:text-ink' : 'font-medium text-ink'
+                    }
+                  >
+                    {spaceLabel}
+                  </button>
+                  {crumbs.map((c, i) => {
+                    const to = crumbs.slice(0, i + 1).join('/')
+                    const last = i === crumbs.length - 1
+                    return (
+                      <span key={to} className="flex items-center gap-1">
+                        <Icon name="chevron" className="size-3 text-ink-faint" />
+                        <button
+                          type="button"
+                          onClick={() => goFolder(to)}
+                          className={last ? 'font-medium text-ink' : 'text-ink-soft hover:text-ink'}
+                        >
+                          {c}
+                        </button>
+                      </span>
+                    )
+                  })}
+                </>
+              )}
+            </nav>
+          </ListBar>
           {error ? (
             <p className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink" role="alert">
               {error}
@@ -420,7 +423,7 @@ export default function FilesPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </ListColumn>
       </section>
       <UploadTray />
 

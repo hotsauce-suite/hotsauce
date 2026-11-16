@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { type BoardSummary, boardsApi } from '../../api/boards'
 import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { ListBar, ListColumn, scopeTabs, useScope } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { useShortcut } from '../../keyboard/shortcuts'
@@ -13,12 +14,9 @@ import { formatWhen } from '../clips/format'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
 import { useNewBoard } from './useNewBoard'
 
-type Scope = 'mine' | 'team'
-
 /** `/boards`: the member's boards, or the team's, most recently changed first, searchable. */
 export default function BoardsPage() {
-  const [params, setParams] = useSearchParams()
-  const scope: Scope = params.get('scope') === 'team' ? 'team' : 'mine'
+  const [scope, setScope] = useScope(['mine', 'team'])
   const [query, setQuery] = useState('')
   const [boards, setBoards] = useState<BoardSummary[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -68,13 +66,6 @@ export default function BoardsPage() {
 
   const shown = boards?.filter((b) => (scope === 'team' ? b.space === 'team' : b.space !== 'team'))
 
-  const setScope = (next: Scope) => {
-    const p = new URLSearchParams(params)
-    if (next === 'team') p.set('scope', 'team')
-    else p.delete('scope')
-    setParams(p, { replace: true })
-  }
-
   return (
     <>
       <MeetingsPageHeader title="Boards">
@@ -88,38 +79,21 @@ export default function BoardsPage() {
         </MainButton>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="boards-list">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <div role="tablist" aria-label="Whose boards" className="clips-tabs">
-              {(['mine', 'team'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  role="tab"
-                  aria-selected={scope === s}
-                  data-testid={`boards-scope-${s}`}
-                  onClick={() => setScope(s)}
-                >
-                  {s === 'mine' ? 'Personal' : 'Team'}
-                </button>
-              ))}
-            </div>
-            <label className="relative ml-auto w-full sm:w-72">
-              <span className="sr-only">Search boards</span>
-              <Icon
-                name="search"
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-faint"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search titles and text on boards"
-                data-testid="boards-search"
-                className="h-9 w-full rounded-lg border border-ash bg-paper-raised pr-3 pl-9 text-sm text-ink placeholder:text-ink-faint focus:border-ember focus:outline-none"
-              />
-            </label>
-          </div>
+        <ListColumn width="gallery">
+          <ListBar
+            tabs={scopeTabs(['mine', 'team'], 'boards')}
+            tab={scope}
+            onTab={setScope}
+            tabsLabel="Whose boards"
+            search={{
+              value: query,
+              onChange: setQuery,
+              label: 'Search boards',
+              placeholder: 'Search titles and text on boards',
+              testId: 'boards-search',
+            }}
+            className=""
+          />
 
           {newBoard.error ? (
             <p role="alert" className="mt-6 text-sm text-ember">
@@ -190,7 +164,7 @@ export default function BoardsPage() {
               ))}
             </ul>
           ) : null}
-        </div>
+        </ListColumn>
       </div>
     </>
   )

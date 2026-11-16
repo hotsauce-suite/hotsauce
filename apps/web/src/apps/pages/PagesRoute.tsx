@@ -5,6 +5,14 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import {
+  inScope,
+  ListBar,
+  ListColumn,
+  matchesName,
+  scopeTabs,
+  useScope,
+} from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MenuItem } from '../../components/Menu'
 import { PageFrame } from '../../components/PageFrame'
@@ -26,9 +34,13 @@ const day = (iso: string | null) =>
 
 /** `/pages`: HTML pages AI tools published (ARCHITECTURE §20.2), newest first. */
 export function PagesList() {
-  const { spaceLabel } = useSession()
+  const { spaceLabel, spaces } = useSession()
   const list = useLoad(() => pagesApi.list().then((r) => r.pages))
   const pages: PageSummary[] | null = list.data
+  const [q, setQ] = useState('')
+  const [scope, setScope] = useScope(['all', 'mine', 'team'])
+  const teamSpace = spaces.find((s) => s.kind === 'team')?.name ?? null
+  const shown = pages?.filter((p) => inScope(scope, p.space, teamSpace) && matchesName(p.title, q))
   useEffect(() => {
     document.title = `Pages · ${product()}`
   }, [])
@@ -36,19 +48,42 @@ export function PagesList() {
     <>
       <MeetingsPageHeader title="Pages" />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
-          <p className="mb-5 text-sm text-ink-soft">
-            Plans and reports your AI tools published for the team. Ask yours to “publish this as a
-            page” and it appears here, with every version kept.
-          </p>
+        <ListColumn width="reading">
+          <ListBar
+            tabs={scopeTabs(['all', 'mine', 'team'], 'pages')}
+            tab={scope}
+            onTab={setScope}
+            tabsLabel="Whose pages"
+            search={{ value: q, onChange: setQ, label: 'Search pages', testId: 'pages-search' }}
+          />
           {list.failed ? <LoadError things="pages" whose="the" onRetry={list.reload} /> : null}
           {!list.failed && pages && pages.length === 0 ? (
             <EmptyState icon="tab" title="No pages yet" testId="pages-empty">
-              Ask your AI tool to “publish this as a page” and it appears here.
+              Plans and reports your AI tools published for the team. Ask yours to “publish this as
+              a page” and it appears here, with every version kept.
+            </EmptyState>
+          ) : null}
+          {!list.failed && pages && pages.length > 0 && shown?.length === 0 ? (
+            <EmptyState
+              icon="tab"
+              title={
+                q.trim()
+                  ? 'No pages match that'
+                  : scope === 'team'
+                    ? 'No team pages yet'
+                    : 'No personal pages yet'
+              }
+              testId="pages-no-match"
+            >
+              {q.trim()
+                ? 'Search looks at page names.'
+                : scope === 'team'
+                  ? 'Pages shared with the team show here.'
+                  : 'Pages only you can see show here.'}
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="pages-list">
-            {(pages ?? []).map((p) => (
+            {(shown ?? []).map((p) => (
               <li key={`${p.space}/${p.id}`}>
                 <Link
                   to={`/pages/${encodeURIComponent(p.space)}/${p.id}`}
@@ -64,7 +99,7 @@ export function PagesList() {
               </li>
             ))}
           </ul>
-        </div>
+        </ListColumn>
       </div>
     </>
   )

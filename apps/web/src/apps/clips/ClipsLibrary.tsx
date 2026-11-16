@@ -4,6 +4,7 @@ import { type Clip, clipsApi } from '../../api/clips'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { ListBar, ListColumn, scopeTabs, useScope } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
@@ -13,8 +14,8 @@ type Scope = 'mine' | 'team'
 
 /** `/clips`: the member's clips, or everyone's, newest first, searchable. */
 export default function ClipsLibrary() {
-  const [params, setParams] = useSearchParams()
-  const scope: Scope = params.get('scope') === 'team' ? 'team' : 'mine'
+  const [params] = useSearchParams()
+  const [scope, chooseScope] = useScope(['mine', 'team'])
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [clips, setClips] = useState<Clip[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -57,10 +58,7 @@ export default function ClipsLibrary() {
   }, [processing])
 
   const setScope = (next: Scope) => {
-    const p = new URLSearchParams(params)
-    if (next === 'team') p.set('scope', 'team')
-    else p.delete('scope')
-    setParams(p, { replace: true })
+    chooseScope(next)
     setClips(null)
   }
 
@@ -76,38 +74,21 @@ export default function ClipsLibrary() {
         </MainButton>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="clips-library">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <div role="tablist" aria-label="Whose clips" className="clips-tabs">
-              {(['mine', 'team'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  role="tab"
-                  aria-selected={scope === s}
-                  data-testid={`clips-scope-${s}`}
-                  onClick={() => setScope(s)}
-                >
-                  {s === 'mine' ? 'Personal' : 'Team'}
-                </button>
-              ))}
-            </div>
-            <label className="relative ml-auto w-full sm:w-72">
-              <span className="sr-only">Search clips</span>
-              <Icon
-                name="search"
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-faint"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search titles and transcripts"
-                data-testid="clips-search"
-                className="h-9 w-full rounded-lg border border-ash bg-paper-raised pr-3 pl-9 text-sm text-ink placeholder:text-ink-faint focus:border-ember focus:outline-none"
-              />
-            </label>
-          </div>
+        <ListColumn width="gallery">
+          <ListBar
+            tabs={scopeTabs(['mine', 'team'], 'clips')}
+            tab={scope}
+            onTab={setScope}
+            tabsLabel="Whose clips"
+            search={{
+              value: query,
+              onChange: setQuery,
+              label: 'Search clips',
+              placeholder: 'Search titles and transcripts',
+              testId: 'clips-search',
+            }}
+            className=""
+          />
 
           {failed ? (
             <LoadError things="clips" onRetry={() => setTick((n) => n + 1)} className="mt-6" />
@@ -137,7 +118,7 @@ export default function ClipsLibrary() {
               ))}
             </ul>
           ) : null}
-        </div>
+        </ListColumn>
       </div>
     </>
   )

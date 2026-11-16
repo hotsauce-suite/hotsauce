@@ -8,6 +8,14 @@ import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import {
+  inScope,
+  ListBar,
+  ListColumn,
+  listHeading,
+  scopeTabs,
+  useScope,
+} from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton, PageHeader } from '../../components/PageHeader'
 import { focusedRow, followRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
@@ -58,14 +66,20 @@ export default function NotesPage() {
   const [q, setQ] = useState('')
   // An open note stays on the view it was opened from; a link straight to one shows the board.
   const from = useRef<string>('/notes')
+  // Its tab too (`?scope=team`), so opening and closing a note keeps Personal or Team chosen.
+  const fromSearch = useRef('')
   const view = kind === 'archive' ? 'archive' : kind === 'trash' ? 'trash' : 'board'
-  if (kind !== 'item') from.current = location.pathname
+  if (kind !== 'item') {
+    from.current = location.pathname
+    fromSearch.current = location.search
+  }
   const listQuery: NotesQuery =
     kind === 'item' ? queryFor(from.current, q) : { view, label, q: q || undefined }
   const list = useNoteList(listQuery)
   const labels = useNoteLabels()
   const labelNames = useMemo(() => labels.map((l) => l.name), [labels])
   const teamSpace = session.spaces.find((s) => s.kind === 'team')?.name ?? null
+  const [scope, setScope] = useScope(['all', 'mine', 'team'])
 
   const [composerOpen, setComposerOpen] = useState(
     () => (location.state as { newNote?: boolean } | null)?.newNote === true,
@@ -168,7 +182,7 @@ export default function NotesPage() {
   )
 
   const actions: CardActions = {
-    open: (note) => navigate(itemUrl(note)),
+    open: (note) => navigate({ pathname: itemUrl(note), search: location.search }),
     tick: (note, index, checked) => {
       const body = toggleChecklistItem(note.body, index, checked)
       void save(note, { body, baseBlobOid: note.blobOid }, { ...note, body })
@@ -221,13 +235,19 @@ export default function NotesPage() {
     try {
       const note = await notesApi.create(input)
       list.replace(note)
+      // A new note is never hidden by the tab it was made under.
+      if (!inScope(scope, note.space, teamSpace)) setScope('all')
       changed()
     } catch (err) {
       notify(err)
     }
   }
 
-  const closeEditor = () => navigate(from.current === location.pathname ? '/notes' : from.current)
+  const closeEditor = () =>
+    navigate({
+      pathname: from.current === location.pathname ? '/notes' : from.current,
+      search: fromSearch.current,
+    })
 
   const makeTask = async (note: NoteView, text: string) => {
     try {
@@ -245,7 +265,10 @@ export default function NotesPage() {
     }
   }
 
-  const notes = list.notes
+  const notes = useMemo(
+    () => list.notes?.filter((n) => inScope(scope, n.space, teamSpace)) ?? null,
+    [list.notes, scope, teamSpace],
+  )
   const { pinned, others } = useMemo(() => splitPinned(notes ?? []), [notes])
   const listView = listQuery.view
   const title =
@@ -260,21 +283,6 @@ export default function NotesPage() {
   return (
     <>
       <PageHeader title="Notes">
-        <label className="relative flex min-w-0 items-center">
-          <span className="sr-only">Search notes</span>
-          <Icon
-            name="search"
-            className="pointer-events-none absolute left-2.5 size-4 text-ink-faint"
-          />
-          <input
-            type="search"
-            value={q}
-            placeholder="Search"
-            data-testid="notes-search"
-            onChange={(e) => setQ(e.target.value)}
-            className="h-9 w-28 min-w-0 rounded-lg border border-ash bg-paper-raised pr-2 pl-8 text-sm text-ink outline-none focus:border-ember sm:w-56"
-          />
-        </label>
         <MainButton
           icon="plus"
           testId="notes-new"
@@ -289,18 +297,25 @@ export default function NotesPage() {
         </MainButton>
       </PageHeader>
       <div data-testid="notes-page" data-view={listView} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-6xl px-3 pt-5 pb-28 md:px-8 md:pt-8">
-          <div className="mb-4 flex items-baseline gap-3 px-1">
-            <h1
-              data-testid="notes-title"
-              className="min-w-0 truncate font-display text-[1.9rem] leading-tight font-semibold tracking-tight text-ink"
-            >
-              {title}
-            </h1>
-            {listView === 'trash' && notes && notes.length > 0 ? (
-              <span className="text-sm text-ink-faint">Notes here are deleted after 30 days</span>
-            ) : null}
-          </div>
+        <ListColumn width="gallery" className="pb-28">
+          <ListBar
+            tabs={scopeTabs(['all', 'mine', 'team'], 'notes')}
+            tab={scope}
+            onTab={setScope}
+            tabsLabel="Whose notes"
+            search={{ value: q, onChange: setQ, label: 'Search notes', testId: 'notes-search' }}
+          />
+          {/* The top bar already says "Notes"; only another view (a label, Archive, Trash) is named. */}
+          {title !== 'Notes' ? (
+            <div className="mb-4 flex items-baseline gap-3 px-1">
+              <h2 data-testid="notes-title" className={`min-w-0 truncate ${listHeading}`}>
+                {title}
+              </h2>
+              {listView === 'trash' && notes && notes.length > 0 ? (
+                <span className="text-sm text-ink-faint">Notes here are deleted after 30 days</span>
+              ) : null}
+            </div>
+          ) : null}
 
           {listView === 'board' && !q ? (
             <div className="mb-7">
@@ -314,7 +329,7 @@ export default function NotesPage() {
             </div>
           ) : null}
 
-          {list.error && notes?.length === 0 ? (
+          {list.error && list.notes?.length === 0 ? (
             <LoadError things="notes" onRetry={list.reload} />
           ) : notes === null ? (
             <div aria-hidden="true" data-testid="notes-loading" className="notes-board">
@@ -328,6 +343,16 @@ export default function NotesPage() {
             q ? (
               <EmptyState icon="notes" title="No notes match that" testId="notes-empty">
                 Search looks at titles, text and list items.
+              </EmptyState>
+            ) : list.notes && list.notes.length > 0 ? (
+              <EmptyState
+                icon="notes"
+                title={scope === 'team' ? 'No team notes here' : 'No personal notes here'}
+                testId="notes-empty"
+              >
+                {scope === 'team'
+                  ? 'Notes shared with the team show under this tab.'
+                  : 'Notes only you can see show under this tab.'}
               </EmptyState>
             ) : (
               <EmptyState icon="notes" title={EMPTY[listView][0]} testId="notes-empty">
@@ -347,7 +372,7 @@ export default function NotesPage() {
               />
             </div>
           )}
-        </div>
+        </ListColumn>
       </div>
 
       {openNote ? (
@@ -374,7 +399,7 @@ export default function NotesPage() {
             list.replace(n)
             changed()
             setToast({ message: 'Moved to Team: everyone can see it now' })
-            navigate(itemUrl(n), { replace: true })
+            navigate({ pathname: itemUrl(n), search: location.search }, { replace: true })
           }}
           onMakeTask={(n, t) => void makeTask(n, t)}
           onClose={closeEditor}

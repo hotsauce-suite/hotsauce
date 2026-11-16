@@ -6,6 +6,7 @@ import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { ListBar, ListColumn, matchesName } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton, PageHeader } from '../../components/PageHeader'
 import { secondaryButton } from '../meetings/components/common'
@@ -30,6 +31,7 @@ export default function CheckinsPage() {
   const [loadFailed, setLoadFailed] = useState(false)
   const [draft, setDraft] = useState<CheckinInput | null>(null)
   const [busy, setBusy] = useState(false)
+  const [q, setQ] = useState('')
 
   const load = useCallback(() => {
     checkinsApi.list().then(
@@ -61,6 +63,7 @@ export default function CheckinsPage() {
     }
   }
 
+  const shown = (items ?? []).filter((c) => matchesName(c.title, q))
   const missingDefaults = DEFAULTS.filter((d) => !(items ?? []).some((i) => i.title === d.title))
 
   return (
@@ -73,12 +76,15 @@ export default function CheckinsPage() {
         ) : null}
       </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
-          <p className="mb-5 text-sm text-ink-soft">
-            A question the team answers on a schedule, like “What will you get done this week?”.
-            Everyone gets a reminder, answers by typing or speaking, and one summary goes to the
-            team’s chat room.
-          </p>
+        <ListColumn width="reading">
+          <ListBar
+            search={{
+              value: q,
+              onChange: setQ,
+              label: 'Search check-ins',
+              testId: 'checkins-search',
+            }}
+          />
           {error ? (
             <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
               {error}
@@ -105,13 +111,18 @@ export default function CheckinsPage() {
           ) : null}
           {!loadFailed && items && items.length === 0 ? (
             <EmptyState icon="checklist" title="No check-ins yet" testId="checkins-empty">
-              {canManage
-                ? 'Start with one of the two above, or press New check-in.'
-                : 'An admin sets them up.'}
+              A question the team answers on a schedule, like “What will you get done this week?”,
+              with one summary sent to the team’s chat room.{' '}
+              {canManage ? 'Pick one above, or press New check-in.' : 'An admin sets them up.'}
+            </EmptyState>
+          ) : null}
+          {!loadFailed && items && items.length > 0 && shown.length === 0 ? (
+            <EmptyState icon="checklist" title="No check-ins match that" testId="checkins-no-match">
+              Search looks at check-in names.
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="checkins-list">
-            {(items ?? []).map((c) => (
+            {shown.map((c) => (
               <li key={c.id}>
                 <Link
                   to={`/checkins/${c.id}`}
@@ -135,7 +146,7 @@ export default function CheckinsPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </ListColumn>
       </div>
       {draft ? (
         <Dialog title="New check-in" onClose={() => setDraft(null)} testId="checkin-dialog" wide>

@@ -5,7 +5,8 @@ Links and the words (PR #128), plain titles with "Boards" (PR #130), the re-reco
 (PR #133), and now "Saved" for "Committed" on a doc's save chip. Round 2 (the top bar) is shipped:
 the red main button (PR #145), "‹ App name" with × on pop-ups (PR #148), one "Share" button
 (PR #150) and the phone top bar (PR #152), with the app videos and README screenshots re-recorded
-after the last step. Still old: the Clips player video and the narrated tour video. Round 3 not started.
+after the last step. Still old: the Clips player video and the narrated tour video (both wait for the end of round 3;
+Morgan, Nov 16). Round 3 (one row above every list) is being built: slice 1 of 3 is in review.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
@@ -102,10 +103,50 @@ It ships in rounds; round 1 moves no control.
 - The app videos and screenshots are re-recorded once, at the end of round 2, because each step
   of the round changes the same top bars.
 
-## Round 3
+## Round 3: one row above every list
 
-12. One row above every list: Personal / Team on the left, search on the right.
-13. Two page widths (reading, gallery), one heading size, one button height.
+Morgan accepted all seven round 3 answers on Nov 16 ("yes" to Q1 to Q7). The before page:
+https://claude.ai/artifact/RwNw6CiwRzJgynzKJHYSeq
+
+### Requirements (each maps to a test in `e2e/consistency.spec.ts` unless it names another)
+
+12. Every list has one row right under the top bar (`components/ListBar.tsx`): its tabs at the
+    left edge, its search at the right edge. No search field sits in the top bar. The lists:
+    Tasks, Meetings, Clips, Notes, Boards, Files, Links, Forms, Tables, Pages, Check-ins, People.
+13. Every list has a search. Where there was none (Tasks, Forms, Tables, Pages, Check-ins) it
+    filters the list by name as you type: every word typed is somewhere in the name. When nothing
+    matches, the list says "No … match that".
+14. The tabs. Clips and Boards: Personal, Team. Notes, Forms, Tables and Pages: All, Personal,
+    Team, with All first so nothing is hidden on arrival. Links: Unread, Archive, Highlights.
+    Tasks: Inbox, Today, Upcoming, All, Done. Meetings: Coming up, All meetings. Files (folders in
+    its side list), Check-ins and People (one team list each) have no tabs; Files shows the folder
+    path where the tabs would be. A Personal / Team tab is kept in the address (`?scope=team`).
+15. No title twice. The top bar names the app; the list does not repeat it, and a view's name is
+    its selected tab, not a second big title. A view that is not a tab (a Notes label, Archive or
+    Trash; a Tasks project) is named in the one list heading size (`listHeading`).
+16. An app's intro paragraph shows only on its empty screen. With items, the list starts right
+    under the row.
+17. Two widths (`ListColumn`): rows of text (Tasks, Meetings, Links, Forms, Tables, Pages,
+    Check-ins, People) sit in one centered column; grids of cards (Clips, Boards, Notes, Files)
+    run wide. Every list of one kind measures the same.
+18. On a phone the row stacks: tabs, then the search under them at full width. Files has its
+    search on a phone, and Notes' search is out of the top bar. Nothing scrolls sideways.
+19. The app videos, README screenshots, help pages and the tour video show the row.
+
+Voice notes and Briefcast keep their own layouts (Morgan, Q7 note).
+
+### Slices
+
+1. The shared row, and Clips, Boards, Notes, Files, Links, Forms, Tables, Pages, Check-ins,
+   People on it (requirements 12 to 18 for those ten).
+2. Tasks and Meetings: tabs, search, no second title, one heading size.
+3. Requirement 19: videos, screenshots, help pages; then the tour video and the Clips player video.
+
+### Decisions taken in round 3
+
+- Personal / Team is sorted in the browser from the list already loaded; no server change.
+- A person's or company's own page keeps its wider column; only the People list is a list.
+- Links keeps its "Paste a link to save" row, now under the row of tabs and search.
 
 ## Shared files this touches
 
@@ -113,3 +154,4 @@ Round 1: new `apps/web/src/components/LoadError.tsx` and `EmptyState.tsx`; a few
 app's list page; `components/FileTree.tsx`, `state/treeStore.ts`. `SaveState.tsx` waits for requirement 6 (after
 offline step A).
 Round 2: `components/AppShell.tsx`, `TopBar.tsx`, `Sidebar.tsx`, every app's page header.
+Round 3: new `components/ListBar.tsx`; the top of every app's list page; `styles/clips.css` (the tabs).
