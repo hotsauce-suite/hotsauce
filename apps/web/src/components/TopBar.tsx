@@ -91,7 +91,7 @@ export function TopBar(props: TopBarProps) {
         </span>
       </nav>
 
-      {props.rename ? (
+      {props.rename && !compact ? (
         <div className="flex min-w-0 shrink items-center rounded-full border border-ash bg-paper-raised/70 pl-2.5 text-xs">
           <button
             type="button"
@@ -99,7 +99,7 @@ export function TopBar(props: TopBarProps) {
             onClick={props.rename.onRename}
             className="truncate text-ember-strong hover:underline"
           >
-            {compact ? 'Rename file' : `Rename file to ${basename(props.rename.to)}`}
+            Rename file to {basename(props.rename.to)}
           </button>
           <button
             type="button"
@@ -131,6 +131,20 @@ export function TopBar(props: TopBarProps) {
               }
               return (
                 <>
+                  {props.rename ? (
+                    <>
+                      <MenuItem
+                        icon="pencil"
+                        testId="rename-to-title"
+                        onSelect={pick(props.rename.onRename)}
+                      >
+                        Rename file to {basename(props.rename.to)}
+                      </MenuItem>
+                      <MenuItem icon="close" onSelect={pick(props.rename.onKeep)}>
+                        Keep the file name
+                      </MenuItem>
+                    </>
+                  ) : null}
                   {props.extraPanels?.map((toggle) => (
                     <MenuItem
                       key={toggle.id}

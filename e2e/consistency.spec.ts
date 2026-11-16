@@ -299,6 +299,23 @@ test.describe('a phone’s top bar', () => {
       await expect(page.getByRole('menuitem', { name })).toBeVisible()
     await page.getByRole('menuitem', { name: 'Reading view' }).click()
     await expect(page.getByTestId('reading-view')).toBeVisible()
+    // More closes on a second press, and Save version opens from it.
+    const more = page.getByTestId('page-more')
+    await more.click()
+    await expect(page.getByRole('menu')).toBeVisible()
+    await more.click()
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await more.click()
+    await page.getByRole('menuitem', { name: 'Save version' }).click()
+    await expect(page.getByRole('dialog', { name: 'Save version' })).toBeVisible()
+  })
+
+  test('Files: New folder is behind More and still makes a folder', async ({ page, user }) => {
+    await signIn(page, user.email)
+    await page.goto('/files')
+    await page.getByTestId('page-more').click()
+    await page.getByRole('menuitem', { name: 'New folder' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
   })
 
   test('a board: Share and Delete are behind More, and Ask sits above the board’s tools', async ({

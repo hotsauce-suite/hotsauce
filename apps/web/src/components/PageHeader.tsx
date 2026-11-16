@@ -251,19 +251,33 @@ export function MoreMenu({
   onOpen?: () => void
 }) {
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
-  const close = () => setAnchor(null)
+  const button = useRef<HTMLButtonElement>(null)
+  // The menu closes itself on a press outside it, which this button is: a press that began with
+  // the menu open closes it and stops there.
+  const openAtPress = useRef(false)
+  const close = () => {
+    setAnchor(null)
+    button.current?.focus()
+  }
   return (
     <>
       <button
+        ref={button}
         type="button"
         aria-label="More"
         title="More"
         aria-haspopup="menu"
         aria-expanded={anchor !== null}
         data-testid={testId}
+        onPointerDownCapture={() => {
+          openAtPress.current = anchor !== null
+        }}
         onClick={(event) => {
-          if (!anchor) onOpen?.()
-          setAnchor(anchor ? null : below(event.currentTarget))
+          const wasOpen = openAtPress.current || anchor !== null
+          openAtPress.current = false
+          if (wasOpen) return setAnchor(null)
+          onOpen?.()
+          setAnchor(below(event.currentTarget))
         }}
         className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-paper-sunk hover:text-ink"
       >

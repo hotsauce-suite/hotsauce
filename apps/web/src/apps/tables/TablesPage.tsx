@@ -49,7 +49,7 @@ export default function TablesPage() {
   return (
     <>
       <PageHeader title="Tables" menu={false}>
-        {compact && !me ? null : compact ? (
+        {compact && (!me || busy || spaces.length === 0) ? null : compact ? (
           <MoreMenu>
             {(close) =>
               spaces.map((space) => (

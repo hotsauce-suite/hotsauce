@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { tablesApi } from '../../api/tables'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
+import { MenuItem } from '../../components/Menu'
+import { MoreMenu } from '../../components/PageHeader'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { Grid } from './Grid'
 import { loadEngine, Sheet } from './sheet'
@@ -20,6 +23,7 @@ export default function FormTablePageRoute() {
 function FormTablePage() {
   const { space = '', id = '' } = useParams()
   const navigate = useNavigate()
+  const { compact } = useShell()
   const [data, setData] = useState<{ title: string; columns: Column[]; sheet: Sheet } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -51,14 +55,31 @@ function FormTablePage() {
         back={{ to: '/tables', label: 'Tables' }}
         title={data ? `${data.title}: answers` : 'Form answers'}
       >
-        <Link to={formUrl} className={`${secondaryButton} h-8 px-3`}>
-          Open the form
-        </Link>
+        {compact ? (
+          <MoreMenu>
+            {(close) => (
+              <MenuItem
+                icon="form"
+                onSelect={() => {
+                  close()
+                  navigate(formUrl)
+                }}
+              >
+                Open the form
+              </MenuItem>
+            )}
+          </MoreMenu>
+        ) : (
+          <Link to={formUrl} className={`${secondaryButton} h-8 px-3`}>
+            Open the form
+          </Link>
+        )}
         <button
           type="button"
           className={`${primaryButton} h-8 px-3`}
           disabled={!data || busy}
           data-testid="copy-to-table"
+          data-main-button=""
           onClick={async () => {
             setBusy(true)
             try {

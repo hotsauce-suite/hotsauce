@@ -77,7 +77,8 @@ It ships in rounds; round 1 moves no control.
     everything else: Share's items, Open, Trim, Download, Delete, New folder, Import. A doc shows
     its name (its heading) instead of its file name, with Share and More. The Ask button covers
     no control, and sits above a board's own tools. A title with nothing before it starts where
-    the page's words do. Exception: Notes keeps its search field in the bar until round 3.
+    the page's words do. Exceptions: Notes keeps its search field in the bar until round 3, Ask about meetings keeps its
+    picker, and a meeting being recorded keeps Pause, Keep audio and Stop in reach.
     *(e2e consistency: "a phone’s top bar")*
 
 ### Decisions taken in round 2
