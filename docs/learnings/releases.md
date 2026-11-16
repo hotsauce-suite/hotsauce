@@ -97,3 +97,15 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
 - **A change to the updater only takes effect one release later.** Instances install the release
   that carries new updater code with the old updater; the first install that exercises it is the
   release after. Check that second release lands on Haven before calling an updater change done.
+- **Release notes come from the pull request, not the commits.** Each PR's "## What's new"
+  section (or None) is checked on the PR and collected by the Release workflow into
+  `WHATS_NEW.json` in the "Release X.Y.Z" commit, so the server ships its own notes and the site
+  reads them from `main`. Checklist lines (`- [x] tests pass`) look like bullets: the parser skips
+  them. A hand edit to `WHATS_NEW.json` releases nothing, so it reaches Settings only with the next
+  release.
+- **A Mac-only change makes no release, so a Mac app's version alone can't say it's behind.** The
+  Mac app reports `version+build` and `mac-app.json` names both; the build breaks a tie. The
+  server caches the DMG and `mac-app.json` separately, so a DMG older than the version file is
+  fetched again, or Settings would offer an update and hand out the old app.
+- **Swift tests on the owner's Mac use Swift Testing, not XCTest**: it has only the Command Line
+  Tools, which don't ship XCTest.

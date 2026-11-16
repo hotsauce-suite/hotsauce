@@ -83,11 +83,12 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
 - **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
+- **What's new** (Settings → What's new, from the version under the Settings menu): plain release notes, newest first, from `WHATS_NEW.json`, which the Release workflow fills from each pull request's "What's new" section. Also at hotsauce.work/changes. Needs nothing extra.
 - **Usage** (Settings → Usage, admins): each app's items made or changed and people per week for 12 weeks, counted from Git history, Clips' list and Dictate's connected Macs. Nothing is tracked; numbers only. Needs nothing extra.
 
 ## Outside the web app
 
-- **Mac app** (`apps/dictate-mac`), 0.14.4 on the `mac-app` GitHub release: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it.
+- **Mac app** (`apps/dictate-mac`), 0.14.4 on the `mac-app` GitHub release: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the release); the app's menu says "Update available" too. Updating is download and drag.
 - **Chrome extension** (`apps/extension`), 0.7.0: records Meet tabs, saves links in one click, connects in one click. In Chrome Web Store review; installed by hand until approved.
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
 - **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool that sends a token header can search, read and write as the member. ChatGPT and Grok need OAuth, which is in flight.

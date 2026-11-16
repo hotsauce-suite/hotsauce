@@ -1,8 +1,9 @@
 # Plan: Mac app version and What's new
 
-Status (2026-11-16): building. Decisions settled with the owner on 2026-11-16 (all five
-recommendations accepted). The Mac app half needs one build on a Mac before Macs report their
-version; until then Settings says "version not reported" rather than guessing.
+Status (2026-11-16): built and tested (every requirement has a test). Decisions settled with the
+owner on 2026-11-16 (all five recommendations accepted). Macs report their version only after
+they install a Mac app built from this change; until the `mac-app` release carries `mac-app.json`,
+Settings shows versions without an update state.
 
 Why: nothing in Hotsauce knew which Mac app a member had. The Mac app never updates itself, and
 Settings offered "Download the newest version" whether or not it was newer. Release notes were
