@@ -13,6 +13,7 @@ import { FakeMeetings } from './fakeMeetings'
 import { FakeRepo, type FakeUser } from './fakeRepo'
 import { FakeFiles, fileHandlers, seedFiles } from './fileHandlers'
 import { FakeForms, formHandlers, seedForms } from './formHandlers'
+import { FakeLinks, linkHandlers, seedFakeLinks } from './linkHandlers'
 import { meetingHandlers } from './meetingHandlers'
 import { FakeNotes, noteHandlers } from './noteHandlers'
 import { peopleHandlers } from './peopleHandlers'
@@ -54,6 +55,7 @@ export interface MockApi {
   boards: FakeBoards
   files: FakeFiles
   forms: FakeForms
+  links: FakeLinks
   handlers: AnyHandler[]
   /** Pushes a server event to every authenticated socket, like the real broadcaster. */
   broadcast: (event: ServerEvent) => void
@@ -69,10 +71,10 @@ function createHandlers(
   meetings: FakeMeetings,
   tasks: FakeTasks,
   notes: FakeNotes,
-  work: { boards: FakeBoards; files: FakeFiles; forms: FakeForms },
+  work: { boards: FakeBoards; files: FakeFiles; forms: FakeForms; links: FakeLinks },
   latencyMs: number,
   seeded: boolean,
-): Omit<MockApi, 'repo' | 'meetings' | 'tasks' | 'notes' | 'boards' | 'files' | 'forms'> {
+): Omit<MockApi, 'repo' | 'meetings' | 'tasks' | 'notes' | 'boards' | 'files' | 'forms' | 'links'> {
   const ready = new Set<{ send: (data: string) => void }>()
 
   const broadcast = (event: ServerEvent) => {
@@ -526,6 +528,9 @@ function createHandlers(
   handlers.push(...boardHandlers({ boards: work.boards, latencyMs, principal, seeded }))
   handlers.push(...fileHandlers({ files: work.files, latencyMs, principal }))
   handlers.push(...formHandlers({ forms: work.forms, files: work.files, latencyMs, principal }))
+  handlers.push(
+    ...linkHandlers({ links: work.links, files: work.files, repo, latencyMs, principal }),
+  )
   handlers.push(...todayHandlers())
   handlers.push(...checkinHandlers({ principal }))
   handlers.push(
@@ -576,11 +581,17 @@ export function createMockApi(opts: { latencyMs?: number; seeded?: boolean } = {
   const tasks = new FakeTasks(repo)
   const notes = new FakeNotes()
   const seeded = opts.seeded ?? true
-  const work = { boards: new FakeBoards(), files: new FakeFiles(), forms: new FakeForms() }
+  const work = {
+    boards: new FakeBoards(),
+    files: new FakeFiles(),
+    forms: new FakeForms(),
+    links: new FakeLinks(),
+  }
   if (seeded) {
     seedBoards(work.boards)
     seedFiles(work.files)
     seedForms(work.forms)
+    seedFakeLinks(work.links, work.files)
   }
   return {
     repo,

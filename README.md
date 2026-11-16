@@ -119,6 +119,11 @@ DOI. Hotsauce remembers where you stopped reading and shows how much you've read
 add notes, see every highlight on one tab, and copy them into a doc. Search, Ask, Briefcast and your AI
 tools can all read what you saved. [More in the help center](https://hotsauce.work/help/links).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/links-dark.webp">
+  <img src="docs/screenshots/links-light.webp" alt="Hotsauce Links: saved pages with how much you've read, highlights, a paper and a PDF">
+</picture>
+
 ### Everything else
 
 | App | What it does |

@@ -34,10 +34,16 @@
   so the whole deploy path can be checked from a cloud session.
 - **The demo build is reproducible:** a fresh build's `demo/index.html` matched the live one byte
   for byte, so comparing it is a real check that the demo went out.
+- **An app with no mock routes fails quietly in the demo.** The demo answers anything the mock
+  doesn't cover with a 404 ("This part of the app isn't in the demo yet"), so a shipped app shows
+  "Couldn't load" there and no test notices. When an app ships, add its routes and sample data to
+  `apps/web/src/mocks/` in the same PR (Links went four releases without them).
+- **Re-shooting one app's loop needs no server** when the mock covers the app: run Vite with
+  `VITE_MOCK_API=1` and `node scripts/tour-video/rec.mjs <shot> <dir>` with
+  `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium-*/chrome-linux64/chrome` in a cloud session.
 
 ## README screenshots (Nov 16)
 
 - **Re-shoot them from the mock web app, not a real server.** `cd apps/web && VITE_MOCK_API=1 npx vite --port 5191`, sign in at `/sign-in` as `ada@example.test`, and shoot at 1600×1000 with Playwright's `colorScheme` set to light, then dark. Install the page clock at 7:50 AM so Today says "Good morning" and the next meeting is a minute away.
 - **Linux shows "Ctrl K" in the search box.** The sidebar reads `navigator.platform`, not the user agent: add an init script that makes it `MacIntel` so the shots show ⌘K and the placeholder doesn't wrap.
 - **The branded shot needs a brand the mock doesn't have.** Patch the `/api/org/brand` answer in `apps/web/src/mocks/handlers.ts` for the one shot (green primary, `modern` fonts, a data-URL `markUrl`), then put the file back. Don't commit it: the live demo uses the same mock.
-- **Links has no demo data.** The live demo's Links page says it couldn't load, so there is no Links screenshot yet.
