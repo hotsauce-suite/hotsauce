@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "version": "0.28.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Settings → Apps shows which Mac app version you have, and whether a newer one is out, with a Download button."
+        },
+        {
+          "text": "Settings → What's new lists what changed in each release, in plain words."
+        },
+        {
+          "text": "An \"Update available\" item in the menu bar menu when a newer Mac app is out.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.25.0",
       "date": "2026-11-16",
       "notes": [
