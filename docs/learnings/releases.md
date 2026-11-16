@@ -2,9 +2,30 @@
 
 Learnings from building release images and the self-updater (`docs/PLAN-releases-and-updates.md`).
 
-- **A release is a version bump.** `release.yml` runs when `HOTSAUCE_VERSION` changes on main and
-  does nothing for a version that's already tagged. Two PRs that both bump from the same version
-  conflict on that one file; rebase and take the higher number.
+- **Releases number themselves (since 2026-11-16).** Until then every PR raised `HOTSAUCE_VERSION`
+  and parallel threads kept claiming the same next number (0.14.2, 0.14.4 and 0.16.0 were each
+  claimed twice in one day). Now no PR touches the file; `release.yml` runs after every merge,
+  numbers from the newest *tag* (not the file, so a half-finished release is redone with the same
+  number), writes the number to main as the workflow's own commit and tags last.
+- **Writing to a protected main from a workflow needs a deploy key.** "Protect main" requires a
+  pull request and six checks, and a PR opened with the workflow's token starts no checks, so a
+  bot release PR would never merge. GitHub also refuses its own Actions app as a ruleset bypass
+  actor (422 Validation Failed). A write deploy key, with "deploy keys" on the bypass list and the
+  private key as an Actions secret, works. Its pushes do start workflows, so the release script
+  ignores a change to HOTSAUCE_VERSION alone; that is what stops a release loop.
+- **This cloud proxy can't write rulesets, deploy keys or Actions secrets**, and the auto-mode
+  check refuses ruleset edits without the owner's written approval. Hand the owner one Terminal
+  command for his Mac (gh is signed in there) and keep the private key on his machine.
+- **Don't rebase a release commit and build a different commit.** Each run checks out main as it
+  is, writes the number on top, and builds and tags exactly that commit. A merge that lands
+  mid-run is either in it or starts the next run; nothing is built from one commit and tagged on
+  another.
+- **A waiting concurrency run is replaced, not queued.** With `cancel-in-progress: false` GitHub
+  keeps one running and one pending run per group; a third cancels the second. That's safe only
+  because every run releases main as it is when it starts.
+- **Check a guard against the merge commit's first parent.** The "no version in pull requests"
+  lint compares `HEAD^1..HEAD` of the PR's merge commit, so a number main gained after the branch
+  started isn't blamed on the PR (a two-dot diff against main's tip would be).
 - **Tag only after the image exists.** The workflow pushes the ghcr image first and creates the
   GitHub release last, so an instance never sees a release it can't pull.
 - **A new ghcr package is private, even from a public repo.** Anonymous pulls (Fly, Docker, other
@@ -59,7 +80,10 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   (ETag) asks don't help here: a 304 is free only for authenticated requests.
 - **A squash merge copies every commit message, and GitHub reads the skip-ci marker anywhere in
   it.** A feature commit that only *described* the marker (feedback screenshots are committed with
-  it) carried it into the squash commit, so the push that raised `HOTSAUCE_VERSION` started no
-  workflow and the release silently didn't happen. Keep the marker out of commit messages and PR
-  titles (write "the skip-ci marker"); after a release merge, check the Release run started, and
-  if it didn't, run the Release workflow by hand on `main`.
+  it) carried it into the squash commit, so the push started no workflow and the release silently
+  didn't happen. Keep the marker out of commit messages and PR titles (write "the skip-ci
+  marker"). Since releases number themselves, a skipped run only delays the change to the next
+  merge's release; run the Release workflow by hand on `main` if it can't wait.
+- **"Release succeeded" no longer means "a release happened".** The Release workflow runs and
+  succeeds after every merge, mostly releasing nothing, so anything chained on it with
+  `workflow_run` (install-test.yml) must check that a release was created during that run.

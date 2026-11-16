@@ -5,11 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LinkView, LinkWithBody } from '../../api/links'
 import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
+import { forgetRecentPlaces } from './useReadingPlace'
 
 afterEach(cleanup)
 
 let store: LinkWithBody[]
 let posted: Array<Record<string, unknown>>
+let places: Array<{ id: string; space: string; json: unknown }>
 
 function link(over: Partial<LinkWithBody>): LinkWithBody {
   return {
@@ -31,6 +33,7 @@ function link(over: Partial<LinkWithBody>): LinkWithBody {
     words: 1200,
     source: 'web',
     status: 'ready',
+    reading: null,
     body: '## Why it matters\n\nSee [the paper](https://journal.test/p). ![fig](https://journal.test/f.png)',
     ...over,
   }
@@ -53,6 +56,8 @@ beforeEach(() => {
     link({ id: '01JC0000000000000000000003', title: 'Old read', archived: true }),
   ]
   posted = []
+  places = []
+  forgetRecentPlaces()
   const strip = ({ body: _b, ...rest }: LinkWithBody): LinkView => rest
   server.use(
     http.get('/api/links', ({ request }) => {
@@ -95,6 +100,19 @@ beforeEach(() => {
       return l
         ? HttpResponse.json(l)
         : HttpResponse.json({ error: { code: 'not_found', message: 'No link' } }, { status: 404 })
+    }),
+    http.put('/api/links/:space/:id/reading', async ({ params, request }) => {
+      places.push({
+        id: String(params.id),
+        space: String(params.space),
+        json: await request.json(),
+      })
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post('/api/links/:space/:id/move', async ({ params, request }) => {
+      const l = store.find((x) => x.id === params.id) as LinkWithBody
+      l.space = String(((await request.json()) as { toSpace: string }).toSpace)
+      return HttpResponse.json(strip(l))
     }),
     http.patch('/api/links/:space/:id', async ({ params, request }) => {
       const l = store.find((x) => x.id === params.id) as LinkWithBody
@@ -207,6 +225,90 @@ describe('the reader', () => {
     await user.clear(screen.getByTestId('link-tags-input'))
     await user.type(screen.getByTestId('link-tags-input'), 'policy, mirror life{Enter}')
     await waitFor(() => expect(store[0]?.tags).toEqual(['policy', 'mirror life']))
+  })
+})
+
+describe('reading position', () => {
+  const place = (furthest: number, anchor = 3) => ({
+    anchor,
+    percent: furthest,
+    furthest,
+    updated: '2026-11-13T10:00:00Z',
+  })
+
+  it('R7: shows how far you got on links you started, and Read at the end', async () => {
+    ;(store[0] as LinkWithBody).reading = place(42.7)
+    ;(store[1] as LinkWithBody).reading = place(97)
+    renderApp('/links')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(2))
+    expect(screen.getByText(/The Journal · 5 min read · 42% read · saved/)).toBeInTheDocument()
+    expect(screen.getByText(/b\.test · 5 min read · Read · saved/)).toBeInTheDocument()
+    const bars = screen.getAllByTestId('link-progress-bar')
+    expect(bars).toHaveLength(1)
+    expect(bars[0]).toHaveAttribute('aria-valuenow', '42')
+  })
+
+  it('R7: a link never opened looks as before', async () => {
+    renderApp('/links')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(2))
+    expect(screen.queryByTestId('link-progress-bar')).toBeNull()
+    expect(screen.queryByText(/% read/)).toBeNull()
+  })
+
+  it('R5: says it picked up where you left off, and Start from the top saves the top', async () => {
+    const user = userEvent.setup()
+    ;(store[0] as LinkWithBody).reading = place(60, 5)
+    renderApp('/links/ada/01JC0000000000000000000001')
+    expect(await screen.findByTestId('link-resumed')).toHaveTextContent(
+      'Picked up where you left off',
+    )
+    await user.click(screen.getByTestId('link-start-over'))
+    expect(screen.queryByTestId('link-resumed')).toBeNull()
+    await waitFor(() => expect(places.map((p) => p.id)).toEqual([store[0]?.id]))
+  })
+
+  it('R5 R6: a link opened for the first time starts at the top and saves the place when left', async () => {
+    const sent = vi.spyOn(globalThis, 'fetch')
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-body')
+    expect(screen.queryByTestId('link-resumed')).toBeNull()
+    window.dispatchEvent(new Event('pagehide'))
+    // jsdom lays nothing out, and MSW drops keepalive, so the call itself is checked.
+    const puts = () =>
+      sent.mock.calls.filter(
+        ([url, init]) => String(url).endsWith('/reading') && init?.method === 'PUT',
+      )
+    await waitFor(() => expect(puts().map(([, init]) => init?.keepalive)).toEqual([true]))
+    await waitFor(() => expect(places.map((p) => p.id)).toEqual([store[0]?.id]))
+    sent.mockRestore()
+  })
+
+  it('R6: saves nothing while the page is being fetched', async () => {
+    ;(store[0] as LinkWithBody).status = 'fetching'
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-fetching')
+    window.dispatchEvent(new Event('pagehide'))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(places).toEqual([])
+  })
+
+  it('R2: sharing mid-read keeps your place under the new address', async () => {
+    const user = userEvent.setup()
+    ;(store[0] as LinkWithBody).reading = place(60, 5)
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await screen.findByTestId('link-resumed')
+    await user.click(screen.getByTestId('link-share-team'))
+    await waitFor(() => expect(store[0]?.space).toBe('team'))
+    window.dispatchEvent(new Event('pagehide'))
+    await waitFor(() => expect(places.length).toBeGreaterThan(0))
+    expect(places.every((p) => p.space === 'team')).toBe(true)
+  })
+
+  it('R8: a Done button waits at the end of the article', async () => {
+    const user = userEvent.setup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await user.click(await screen.findByTestId('link-end-done'))
+    await waitFor(() => expect(store[0]?.archived).toBe(true))
   })
 })
 

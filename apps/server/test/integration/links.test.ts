@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
@@ -476,6 +477,94 @@ describe('spaces', () => {
     expect(files).toContain(`.trash/`)
     expect(files).toContain(`links/${link.id}.md`)
     expect(await log('alice')).toBe(`Alice <${ALICE}>|links: delete "Gone soon"`)
+  })
+})
+
+describe('reading position', () => {
+  const place = (
+    space: string,
+    id: string,
+    json: unknown,
+    opts: Options & { status?: number } = {},
+  ) => api('PUT', `/api/links/${space}/${id}/reading`, { status: 204, json, ...opts })
+
+  it('R1 R3: saves the member’s place without a commit, and gives it back on the link and in the list', async () => {
+    const link = await save({ url: 'https://a.test/long-read' })
+    expect(link.reading).toBeNull()
+    const before = await log('alice')
+    await place('alice', link.id, { anchor: 7, percent: 42.26 })
+    expect(await log('alice')).toBe(before)
+    const got = await api<LinkView>('GET', `/api/links/alice/${link.id}`)
+    expect(got.reading).toMatchObject({ anchor: 7, percent: 42.3, furthest: 42.3 })
+    const listed = (await api('GET', '/api/links')).links as LinkView[]
+    expect(listed[0]?.reading).toMatchObject({ anchor: 7, percent: 42.3 })
+  })
+
+  it('R3: furthest never goes down when the member scrolls back up', async () => {
+    const link = await save({ url: 'https://a.test/scroll-back' })
+    await place('alice', link.id, { anchor: 30, percent: 80 })
+    await place('alice', link.id, { anchor: 2, percent: 10 })
+    const got = await api<LinkView>('GET', `/api/links/alice/${link.id}`)
+    expect(got.reading).toMatchObject({ anchor: 2, percent: 10, furthest: 80 })
+  })
+
+  it('R1: refuses spaces the member can’t see, missing links and bad places', async () => {
+    const link = await save({ url: 'https://a.test/private-place' })
+    await place('alice', link.id, { anchor: 1, percent: 5 }, { as: BOB, status: 403 })
+    await place('alice', '01JC00000000000000000000ZZ', { anchor: 1, percent: 5 }, { status: 404 })
+    await place('alice', link.id, { anchor: -1, percent: 5 }, { status: 400 })
+    await place('alice', link.id, { anchor: 1, percent: 101 }, { status: 400 })
+    await place('alice', link.id, { anchor: 1.5, percent: 5 }, { status: 400 })
+  })
+
+  it('R2: each member has their own place on a team link, and it survives sharing', async () => {
+    const link = await save({ url: 'https://a.test/team-place' })
+    await place('alice', link.id, { anchor: 5, percent: 30 })
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    const alice = await api<LinkView>('GET', `/api/links/team/${link.id}`)
+    expect(alice.reading).toMatchObject({ anchor: 5, percent: 30 })
+    const bob = await api<LinkView>('GET', `/api/links/team/${link.id}`, { as: BOB })
+    expect(bob.reading).toBeNull()
+    await place('team', link.id, { anchor: 40, percent: 90 }, { as: BOB })
+    expect((await api<LinkView>('GET', `/api/links/team/${link.id}`)).reading?.percent).toBe(30)
+    const bobList = (await api('GET', '/api/links', { as: BOB })).links as LinkView[]
+    expect(bobList[0]?.reading?.percent).toBe(90)
+  })
+
+  it('R4: deleting a link forgets the places in it', async () => {
+    const link = await save({ url: 'https://a.test/forget-place' })
+    await place('alice', link.id, { anchor: 3, percent: 20 })
+    const rows = () => {
+      const db = new Database(join(root, 'data', 'links-reading.sqlite'), { readonly: true })
+      try {
+        return db.prepare('SELECT COUNT(*) AS n FROM reading WHERE link_id = ?').get(link.id)
+      } finally {
+        db.close()
+      }
+    }
+    expect(rows()).toEqual({ n: 1 })
+    await api('DELETE', `/api/links/alice/${link.id}`, { status: 204 })
+    expect(rows()).toEqual({ n: 0 })
+  })
+
+  it('R9: MCP list_links and get_link carry the member’s own place', async () => {
+    const link = await save({ url: 'https://a.test/agent-place' })
+    await place('alice', link.id, { anchor: 4, percent: 55 })
+    const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {
+      requestInit: { headers: { 'x-hearth-dev-user': ALICE } },
+      fetch: async (input, init) => app.request(new Request(input, init)),
+    })
+    const client = new Client({ name: 'test', version: '1.0.0' })
+    await client.connect(transport)
+    const text = async (name: string, args: Record<string, unknown>) => {
+      const result = (await client.callTool({ name, arguments: args })) as CallToolResult
+      const first = result.content[0]
+      return JSON.parse(first?.type === 'text' ? first.text : 'null')
+    }
+    expect((await text('list_links', {}))[0].reading).toMatchObject({ percent: 55 })
+    expect((await text('get_link', { space: 'alice', id: link.id })).reading).toMatchObject({
+      anchor: 4,
+    })
   })
 })
 
