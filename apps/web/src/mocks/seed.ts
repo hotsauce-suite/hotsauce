@@ -48,7 +48,7 @@ Every doc here is a **plain markdown file** in Git. Edit it here, in *Obsidian*,
 - [ ] Star the docs you open every day
 
 > [!note] Saving
-> Hotsauce commits after a short pause, when you leave a doc, or when you choose **Save version**.
+> Hotsauce saves after a short pause, when you leave a doc, or when you choose **Save version**.
 
 ![Sketch](../assets/2026/10/hotsauce-sketch-01JA2Z.svg)
 
