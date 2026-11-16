@@ -584,6 +584,28 @@ describe('links an AI tool saves', () => {
     expect(fetched).toHaveLength(1)
   })
 
+  it('reads the address the member gave, not the AI tool’s, when they save it (R3)', async () => {
+    const link = await aiSave('https://blog.test/post?utm_content=secret-plans#x')
+    await api('POST', '/api/links', { json: { url: 'https://blog.test/post', source: 'share' } })
+    await services.links.idle()
+    expect(fetched).toEqual(['https://blog.test/post'])
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({
+      url: 'https://blog.test/post',
+      status: 'ready',
+    })
+  })
+
+  it('treats a save with an access token as an AI tool’s, and only a session can ask (R8)', async () => {
+    const res = await call('POST', '/api/tokens', { as: ALICE, json: { name: 'agent' } })
+    const { token } = (await res.json()) as { token: string }
+    const link = await save({ url: 'https://attacker.test/?q=plans', source: 'web' }, { token })
+    expect(link).toMatchObject({ status: 'waiting', source: 'mcp' })
+    const refused = await call('POST', `/api/links/alice/${link.id}/refetch`, { token })
+    expect(refused.status).toBe(403)
+    await services.links.idle()
+    expect(fetched).toEqual([])
+  })
+
   it('stays waiting when shared with the team and back (R5)', async () => {
     const link = await aiSave('https://a.test/shared-waiting')
     const shared = await api('POST', `/api/links/alice/${link.id}/move`, {

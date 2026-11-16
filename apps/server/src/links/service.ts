@@ -240,9 +240,16 @@ export class Links {
     const key = normalizeLinkUrl(url)
     const same = this.#records(visible).find((r) => normalizeLinkUrl(r.fm.url) === key)
     if (same) {
-      const view = same.fm.archived
+      let view = same.fm.archived
         ? await this.update(principal, same.space, same.id, { archived: false }, via)
         : this.#view(same)
+      // An AI tool's address can differ in what normalizing drops (utm_*, the #hash) and carry
+      // text in it: the member's own save asks for the address they gave, so keep that one (R3).
+      if (input.source !== 'mcp' && view.status === 'waiting' && url !== same.fm.url) {
+        view = await this.#edit(principal, same.space, same.id, 'edit', via, (cur) =>
+          patchFrontmatter(cur.content, { url }),
+        )
+      }
       // A member's own page never goes into a team link: it may show their account.
       const html = same.space === TEAM_SPACE ? undefined : input.page?.html
       // An AI tool never makes the server visit an address (it could carry text out in it).

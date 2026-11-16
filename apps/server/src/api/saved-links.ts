@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
 import { MAX_LINK_LIST } from '../links/index.js'
 import type { AppDeps, AppEnv } from './env.js'
-import { viaFor } from './tokens.js'
+import { sessionOnly, viaFor } from './tokens.js'
 import { valid } from './validate.js'
 
 /** A page copy past this is refused outright; the service sets aside any over 2 MB. */
@@ -59,7 +59,9 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
           title: body.title,
           tags: body.tags,
           space: body.space,
-          source: body.source,
+          // An access token is what AI tools and scripts use (the connector too), so a save made
+          // with one waits for the member like save_link (docs/PLAN-links-ai-saves.md R8).
+          source: principal.via?.kind === 'token' ? 'mcp' : body.source,
           page: body.page,
         },
         viaFor(principal),
@@ -90,7 +92,8 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       },
     )
     .post('/:space/:id/refetch', valid('param', Params), async (c) => {
-      const principal = c.get('principal')
+      // "Get the page" is the member asking; an access token can't ask for them (R8).
+      const principal = sessionOnly(c.get('principal'))
       const { space, id } = c.req.valid('param')
       return c.json(await service.refetch(principal, space, id, viaFor(principal)))
     })
