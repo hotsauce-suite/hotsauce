@@ -1,0 +1,80 @@
+name: Deploy hotsauce.work
+
+# Publishes hotsauce.work, its help pages and the live demo at demo.hotsauce.work whenever a
+# merge to main changes them, then checks the live site shows the change
+# (docs/PLAN-site-deploy.md). The demo is the web app on sample data, so app changes count too.
+# "Run workflow" on the Actions page redeploys main by hand.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - apps/web/**
+      - packages/format/**
+      - pnpm-lock.yaml
+      - package.json
+      - pnpm-workspace.yaml
+      - tsconfig*.json
+      - .node-version
+      - .github/workflows/deploy-site.yml
+  workflow_dispatch:
+
+# One deploy at a time, in order. A newer merge waiting in line replaces an older one.
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.SITE_CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.SITE_CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Needs SITE_CLOUDFLARE_API_TOKEN and SITE_CLOUDFLARE_ACCOUNT_ID
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: |
+          echo "::error::Add the repository secrets SITE_CLOUDFLARE_API_TOKEN and SITE_CLOUDFLARE_ACCOUNT_ID. How: docs/PLAN-site-deploy.md."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Compare against what is live now, not the previous push: a merge whose own deploy was
+      # replaced by a newer one in the queue still gets its pages checked.
+      - name: What's live before this deploy
+        id: base
+        run: |
+          live=$(curl -fsSI https://hotsauce.work/ | tr -d '\r' | awk -F': ' 'tolower($1)=="x-site-version"{print $2}' || true)
+          echo "sha=$live" >> "$GITHUB_OUTPUT"
+      - name: Site tests
+        run: pnpm exec vitest run --project site
+      # wrangler.jsonc's build step builds the demo into site/public/demo/ first.
+      - name: Deploy
+        run: npx --yes wrangler@4.161.0 deploy --config site/wrangler.jsonc --var "SITE_VERSION:$GITHUB_SHA"
+      - name: Changed pages
+        env:
+          LIVE: ${{ steps.base.outputs.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          : > "$RUNNER_TEMP/changed.txt"
+          for base in "$LIVE" "$BEFORE"; do
+            if [ -n "$base" ] && [ "$base" != "0000000000000000000000000000000000000000" ] &&
+               git fetch --quiet --depth=1 origin "$base"; then
+              git -c core.quotePath=off diff --name-only --diff-filter=AMR "$base" "$GITHUB_SHA" -- site/public > "$RUNNER_TEMP/changed.txt"
+              echo "Changed since $base:"; cat "$RUNNER_TEMP/changed.txt"
+              exit 0
+            fi
+          done
+          echo "::warning::No earlier deploy to compare with; checking the version and the demo only."
+      - name: Check the live site shows this commit
+        run: node site/verify-live.mjs "$GITHUB_SHA" "$RUNNER_TEMP/changed.txt"
