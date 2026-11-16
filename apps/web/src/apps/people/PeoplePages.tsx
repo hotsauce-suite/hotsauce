@@ -19,6 +19,7 @@ import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon, type IconName } from '../../components/Icon'
+import { readingColumn } from '../../components/ItemColumn'
 import { ListBar, ListColumn } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { useListKeys } from '../../keyboard/listKeys'
@@ -96,7 +97,9 @@ function Page({
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {item ? (
-          <div className="mx-auto w-full max-w-4xl px-4 pt-6 pb-24 md:px-8">{children}</div>
+          <div data-item-width="reading" className={`${readingColumn} pt-6 pb-24`}>
+            {children}
+          </div>
         ) : (
           <ListColumn width="reading">{children}</ListColumn>
         )}
@@ -313,55 +316,47 @@ export function PersonPage() {
               </p>
             </div>
           </div>
-          <div className="grid gap-5 md:grid-cols-[3fr_2fr]">
-            <div className="flex min-w-0 flex-col gap-5">
-              <About
-                person={person}
-                onSaved={(about) => {
-                  bump()
-                  setData((p) => (p ? { ...p, about } : p))
-                }}
-              />
-              <Card title="Meetings" icon="calendar" testId="person-meetings">
-                <MeetingList meetings={person.history} testId="person-meeting" />
-              </Card>
-            </div>
-            <div className="flex min-w-0 flex-col gap-5">
-              <Card title="Next meeting" icon="today" testId="person-next">
-                {person.next ? (
-                  <p className="text-sm text-ink">
-                    {person.next.title}
-                    <span className="block text-xs text-ink-faint">{when(person.next.start)}</span>
-                  </p>
-                ) : (
-                  <Empty>Nothing on your calendar.</Empty>
-                )}
-              </Card>
-              <Card title="Open tasks" icon="tasks" testId="person-tasks">
-                {person.tasks.length === 0 ? (
-                  <Empty>None assigned to them.</Empty>
-                ) : (
-                  <ul className="flex flex-col gap-1.5">
-                    {person.tasks.map((t) => (
-                      <li key={`${t.space}/${t.id}`}>
-                        <Link
-                          to={taskUrl(t.space, t.path)}
-                          className="text-sm text-ink hover:text-ember-strong"
-                        >
-                          {t.title}
-                        </Link>
-                        {t.due ? (
-                          <span className="ml-2 text-xs text-ink-faint">
-                            due {t.due.slice(0, 10)}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            </div>
-          </div>
+          <About
+            person={person}
+            onSaved={(about) => {
+              bump()
+              setData((p) => (p ? { ...p, about } : p))
+            }}
+          />
+          <Card title="Next meeting" icon="today" testId="person-next">
+            {person.next ? (
+              <p className="text-sm text-ink">
+                {person.next.title}
+                <span className="block text-xs text-ink-faint">{when(person.next.start)}</span>
+              </p>
+            ) : (
+              <Empty>Nothing on your calendar.</Empty>
+            )}
+          </Card>
+          <Card title="Open tasks" icon="tasks" testId="person-tasks">
+            {person.tasks.length === 0 ? (
+              <Empty>None assigned to them.</Empty>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {person.tasks.map((t) => (
+                  <li key={`${t.space}/${t.id}`}>
+                    <Link
+                      to={taskUrl(t.space, t.path)}
+                      className="text-sm text-ink hover:text-ember-strong"
+                    >
+                      {t.title}
+                    </Link>
+                    {t.due ? (
+                      <span className="ml-2 text-xs text-ink-faint">due {t.due.slice(0, 10)}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <Card title="Meetings" icon="calendar" testId="person-meetings">
+            <MeetingList meetings={person.history} testId="person-meeting" />
+          </Card>
         </div>
       )}
     </Page>
@@ -501,7 +496,7 @@ export function CompanyPage() {
         </p>
       ) : null}
       {company === null ? null : (
-        <div className="grid gap-5 md:grid-cols-2" data-testid="company-page">
+        <div className="flex flex-col gap-5" data-testid="company-page">
           <Card title="People" icon="people" testId="company-people">
             <ul className="flex flex-col gap-2">
               {company.people.map((p) => (

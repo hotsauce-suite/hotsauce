@@ -14,6 +14,7 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { readingColumn } from '../../components/ItemColumn'
 import { ItemStatus } from '../../components/ItemStatus'
 import { ListBar, ListPanel, ListScope } from '../../components/ListBar'
 import { MenuItem, menuItemClass } from '../../components/Menu'
@@ -170,7 +171,7 @@ export default function FormEditor() {
     return (
       <>
         <MeetingsPageHeader title="Forms" menu={false} />
-        <div className="mx-auto max-w-3xl px-4 pt-8 md:px-8">
+        <div data-item-width="reading" className={`${readingColumn} pt-8`}>
           <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
             {loadError}
           </p>
@@ -327,7 +328,7 @@ export default function FormEditor() {
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ListScope>
-          <div className="mx-auto w-full max-w-3xl px-4 pt-5 md:px-8">
+          <div data-item-width="reading" className={`${readingColumn} pt-5`}>
             <ListBar
               className=""
               tabsLabel="Form"
@@ -459,7 +460,7 @@ function Builder({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pt-4 pb-24 md:px-8">
+    <div data-item-width="reading" className={`${readingColumn} pt-4 pb-24`}>
       <div className="flex flex-col gap-3 rounded-xl border border-ash bg-paper-raised p-4">
         <textarea
           aria-label="Description"

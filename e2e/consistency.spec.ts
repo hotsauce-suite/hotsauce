@@ -932,4 +932,94 @@ test.describe('the page of one thing', () => {
     await page.getByTestId('page-more').click()
     await expect(page.getByRole('menuitem', { name: 'Delete link' })).toBeVisible()
   })
+
+  test('a clip’s long transcript scrolls inside the side panel, not the panel itself', async ({
+    page,
+  }) => {
+    const now = new Date().toISOString()
+    const clip = {
+      id: 'long-transcript',
+      title: 'A long talk',
+      summary: null,
+      mode: 'screen',
+      status: 'ready',
+      error: null,
+      durationMs: 600_000,
+      sizeBytes: 1,
+      width: 1280,
+      height: 720,
+      mimeType: 'video/mp4',
+      owner: { name: 'Someone', email: 'someone@example.test' },
+      isOwner: false,
+      createdAt: now,
+      updatedAt: now,
+      transcriptStatus: 'ready',
+      transcriptError: null,
+      compositeStatus: 'none',
+      screenSurface: null,
+      screenLabel: null,
+      speakers: [],
+      aiSummary: null,
+      aiActions: null,
+      editStatus: 'none',
+      edited: false,
+      cuts: [],
+      sourceUrl: null,
+      sourceDurationMs: null,
+      videoUrl: null,
+      thumbUrl: null,
+      downloadUrl: null,
+    }
+    const transcript = Array.from({ length: 120 }, (_, i) => ({
+      start: i * 5,
+      end: i * 5 + 5,
+      text: `Line ${i + 1} of a long talk`,
+    }))
+    await page.route('**/api/clips/long-transcript', (route) =>
+      route.fulfill({ json: { clip, transcript } }),
+    )
+    await page.goto('/clips/long-transcript')
+    const panel = page.getByTestId('clip-transcript-panel')
+    await expect(panel.getByTestId('transcript-line')).toHaveCount(120)
+    const scroll = await panel.evaluate((aside) => {
+      const list = aside.querySelector('[data-testid="clip-transcript"]') as HTMLElement
+      const body = list.closest('.clip-side')?.parentElement as HTMLElement
+      return {
+        list: list.scrollHeight > list.clientHeight + 10,
+        body: body.scrollHeight <= body.clientHeight + 1,
+      }
+    })
+    expect(scroll).toEqual({ list: true, body: true })
+  })
+
+  test('a form and a saved link read at a doc’s width', async ({ page, user }) => {
+    const measure = await page.evaluate(() => {
+      const probe = document.createElement('div')
+      probe.style.width = 'var(--measure)'
+      document.body.append(probe)
+      const width = probe.getBoundingClientRect().width
+      probe.remove()
+      return width
+    })
+    expect(measure).toBeGreaterThan(600)
+    const widths = async () =>
+      page
+        .locator('[data-item-width="reading"]')
+        .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().width)))
+
+    await page.goto('/forms')
+    await newForm(page, `Width ${uid()}`)
+    await expect.poll(widths).toEqual(expect.arrayContaining([Math.round(measure)]))
+    expect((await widths()).every((w) => w === Math.round(measure))).toBe(true)
+
+    const res = await page.request.post('/api/links', {
+      data: { url: `https://journal.test/${uid()}/width` },
+      headers: { 'x-hearth-dev-user': user.email },
+    })
+    const { id, space } = (await res.json()) as { id: string; space: string }
+    await page.goto(`/links/${encodeURIComponent(space)}/${encodeURIComponent(id)}`)
+    await expect(page.getByTestId('link-share')).toBeVisible()
+    await expect.poll(widths).toEqual(expect.arrayContaining([Math.round(measure)]))
+    expect((await widths()).every((w) => w === Math.round(measure))).toBe(true)
+  })
 })

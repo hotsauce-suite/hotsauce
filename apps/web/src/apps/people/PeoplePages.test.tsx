@@ -42,6 +42,12 @@ describe('People', () => {
     expect(screen.getByTestId('page-header')).toHaveTextContent('Dana Lee')
     expect(within(page).queryByText('Dana Lee')).toBeNull()
     expect(within(page).getByTestId('person-company')).toHaveTextContent('acme.com')
+    // One column at a doc's width, the cards stacked: About, what's next, then the history.
+    expect(page.closest('[data-item-width="reading"]')).not.toBeNull()
+    const cards = [...page.querySelectorAll('section[data-testid]')].map((c) =>
+      c.getAttribute('data-testid'),
+    )
+    expect(cards).toEqual(['person-about', 'person-next', 'person-tasks', 'person-meetings'])
     const meetings = within(page).getAllByTestId('person-meeting')
     expect(meetings.map((m) => m.textContent)).toEqual(
       expect.arrayContaining([expect.stringContaining('Acme kickoff')]),
@@ -65,6 +71,9 @@ describe('People', () => {
     await userEvent.click(within(page).getByTestId('person-company'))
     const company = await screen.findByTestId('company-page')
     expect(within(company).getByText('Dana Lee')).toBeInTheDocument()
+    // Its cards stack too: one above the other, not side by side.
+    expect(company.className).toMatch(/\bflex-col\b/)
+    expect(company.className).not.toMatch(/grid|columns-/)
   })
 
   it('a save started before someone else’s is refused, even after the page reloads theirs', async () => {

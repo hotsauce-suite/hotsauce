@@ -13,6 +13,7 @@ import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { DictateButton } from '../../components/DictateButton'
 import { Icon } from '../../components/Icon'
+import { readingColumn } from '../../components/ItemColumn'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
 import { inputClass } from '../../routes/org/fields'
@@ -148,7 +149,7 @@ export default function CheckinPage() {
         ) : null}
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
+        <div data-item-width="reading" className={`${readingColumn} pt-6 pb-24`}>
           {error ? (
             <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
               {error}

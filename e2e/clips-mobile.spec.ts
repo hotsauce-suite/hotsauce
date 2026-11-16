@@ -51,9 +51,8 @@ test('a clip page fits a phone: video, speed and transcript', async ({
 
   await page.goto(`/clips/${clip.id}`)
   await expect(page.getByTestId('clip-video')).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByTestId('transcript-line').first()).toContainText('clip segment 1', {
-    timeout: 15_000,
-  })
+  // On a phone the transcript waits behind its button in the top bar.
+  await expect(page.getByTestId('clip-transcript-panel')).toHaveCount(0)
   await expect(page.getByTestId('clip-speed-2')).toBeVisible()
   await page.getByTestId('clip-speed-2').click()
   await expect
@@ -74,7 +73,23 @@ test('a clip page fits a phone: video, speed and transcript', async ({
   const box = await page.getByTestId('clip-video').boundingBox()
   expect(box?.width).toBeGreaterThan(300)
 
+  await page.getByTestId('transcript-toggle').click()
+  await expect(page.getByTestId('clip-transcript-panel')).toBeVisible()
+  await expect(page.getByTestId('transcript-line').first()).toContainText('clip segment 1', {
+    timeout: 15_000,
+  })
+  // The sheet fits the screen too.
+  const sheetOverflow = await page.evaluate(() => {
+    const width = document.documentElement.clientWidth
+    return [...document.querySelectorAll('[data-testid="clip-transcript-panel"] *')]
+      .filter((el) => el.getBoundingClientRect().right > width + 1)
+      .map((el) => el.tagName)
+  })
+  expect(sheetOverflow).toEqual([])
+  // Choosing a line plays from there and closes the sheet, so the video is in view.
   await page.getByTestId('transcript-line').nth(1).click()
+  await expect(page.getByTestId('clip-transcript-panel')).toHaveCount(0)
+  await expect(page.getByTestId('clip-video')).toBeFocused()
   await expect
     .poll(() => page.getByTestId('clip-video').evaluate((v: HTMLVideoElement) => v.currentTime))
     .toBeGreaterThanOrEqual(2)

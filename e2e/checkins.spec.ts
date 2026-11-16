@@ -36,6 +36,18 @@ test.describe('as an admin', () => {
     await bar.getByTestId('page-more').click()
     await expect(page.getByRole('menuitem', { name: 'Delete check-in' })).toBeVisible()
     await page.keyboard.press('Escape')
+    // It reads at a doc's width (requirement 25).
+    const [column, measure] = await page.evaluate(() => {
+      const probe = document.createElement('div')
+      probe.style.width = 'var(--measure)'
+      document.body.append(probe)
+      const width = probe.getBoundingClientRect().width
+      probe.remove()
+      const el = document.querySelector('[data-item-width="reading"]')
+      return [el ? el.getBoundingClientRect().width : 0, width]
+    })
+    expect(measure).toBeGreaterThan(600)
+    expect(Math.round(column)).toBe(Math.round(measure))
     const at = page.url()
 
     // When the minute comes, Today asks.

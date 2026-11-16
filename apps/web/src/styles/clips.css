@@ -398,25 +398,15 @@
 
 /* ------------------------------------------------------------ clip page */
 
+/* The video and what's under it; the transcript is the page's side panel (round 4, requirement 24). */
 .clip-layout {
-  display: grid;
-  gap: 1.5rem;
-  max-width: 88rem;
+  max-width: 64rem;
   margin: 0 auto;
   padding: 1.25rem 1rem 6rem;
 }
 @media (min-width: 1024px) {
   .clip-layout {
-    height: 100%;
-    grid-template-columns: minmax(0, 1fr) var(--panel-width);
-    padding: 1.5rem 2rem;
-  }
-  .clip-main {
-    min-height: 0;
-    overflow-y: auto;
-  }
-  .clip-side {
-    min-height: 0;
+    padding: 1.5rem 2rem 4rem;
   }
 }
 
@@ -488,22 +478,15 @@
 
 .clip-side {
   display: flex;
+  height: 100%;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--ash);
-  border-radius: 0.9rem;
-  background: color-mix(in oklab, var(--paper-raised) 85%, transparent);
 }
+/* It scrolls on its own, so the playing line can be kept in view inside it. */
 .clip-transcript {
-  max-height: 60vh;
+  min-height: 0;
+  flex: 1;
   overflow-y: auto;
   padding: 0.4rem;
-}
-@media (min-width: 1024px) {
-  .clip-transcript {
-    max-height: none;
-    flex: 1;
-  }
 }
 .clip-transcript button {
   display: grid;

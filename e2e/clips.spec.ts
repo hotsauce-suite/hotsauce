@@ -241,6 +241,16 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
   })
 
   await test.step('the transcript appears, clicking a line seeks there, and it highlights', async () => {
+    // On a computer it's the page's side panel, open beside the video; its button closes it.
+    const panel = page.getByTestId('clip-transcript-panel')
+    await expect(panel).toBeVisible()
+    const [videoBox, panelBox] = await Promise.all([video(page).boundingBox(), panel.boundingBox()])
+    expect(panelBox?.x ?? 0).toBeGreaterThanOrEqual((videoBox?.x ?? 0) + (videoBox?.width ?? 0))
+    await expect(page.getByTestId('transcript-toggle')).toHaveAttribute('aria-pressed', 'true')
+    await page.getByTestId('transcript-toggle').click()
+    await expect(panel).toHaveCount(0)
+    await page.getByTestId('transcript-toggle').click()
+    await expect(panel).toBeVisible()
     const lines = page.getByTestId('transcript-line')
     await expect(lines.first()).toContainText('clip segment 1', { timeout: 15_000 })
     await expect(lines.nth(1)).toContainText('0:02')
