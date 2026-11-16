@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "0.30.5",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Every list has the same row at the top: tabs on the left, search on the right."
+        },
+        {
+          "text": "Forms, Tables, Pages and Check-ins can be searched by name."
+        },
+        {
+          "text": "Notes, Forms, Tables and Pages have All, Personal and Team tabs."
+        },
+        {
+          "text": "Files can be searched on a phone."
+        }
+      ]
+    },
+    {
       "version": "0.30.4",
       "date": "2026-11-16",
       "notes": [
