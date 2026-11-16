@@ -72,3 +72,41 @@ Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadEr
   `PLAYWRIGHT_CHROMIUM` even for a single shot, and a shot that presses a button by its old
   place or name fails loudly (Forms did), which is the reminder to update `shots.mjs`.
 
+## Round 3: one row above every list (Nov 16)
+
+- **One component, one loop of tests.** `components/ListBar.tsx` holds the row, the two widths
+  (`ListColumn`), the list heading size and the All/Personal/Team tabs; `e2e/consistency.spec.ts`
+  has a `LIST_ROWS` table that measures the row in every app on a computer and a phone. A new
+  list page uses the component and adds one line to the table.
+- **A filter in the address needs carrying.** Tabs kept in `?scope=` were lost the moment a note
+  opened in its pop-up, because the pop-up changes the address. Anything that navigates from a
+  filtered list has to pass the search part along (Notes keeps it in a ref).
+- **Search and hidden filters multiply.** The first Meetings search looked only inside whatever
+  the side list's filters had left, so a meeting could be "not found" while sitting in another
+  space. A name search should look through everything and say when it is doing so. The same goes
+  for what gets added while a search is on: clear the search, or the new thing is invisible.
+- **Each filtered list needs three empty screens**: nothing at all (the intro), nothing under
+  this tab, nothing matching the search. Guard every one with "not failed", or a load error and
+  an empty message show together.
+- **Tabs that are links must not act on arrow keys.** Moving focus with the arrows is fine;
+  following the link on each press fills the Back history.
+- **Where the big search went on a phone.** Moving a search field out of the top bar or side
+  list can leave a phone with no way to the search that reads inside things. Check the phone
+  after moving any search.
+- **Two old tests failed on slow runs once this added load**, both for the same reason: they
+  checked the screen the instant after changing something the page hears about a moment later.
+  `Offline.test` saved a waiting draft while the app was still online, and the app's own
+  start-up send took it; `LiveMeeting.test` read a notice before the page had drawn again.
+  When a test fails once and passes alone, read the page dump in the CI log first: a stray
+  notice in it named the cause. `console.log` is hidden in the web tests; write to a file to
+  trace one.
+- **Help search text is kept by hand.** `site/public/help/index.html` carries each page's words
+  in `data-k`; a help page edit is not found by search until that line changes too.
+- **Don't load the machine while recording.** A CPU-heavy job running beside `run.sh` made one
+  loop fail without a clear error; it recorded fine alone.
+- **Re-cutting the tour takes about half an hour of machine time** and no Mac: the five extra
+  shots (`ask clipsRecorder clipsPlayer macSetup feedback`), then voice, captions, overlays and
+  the cut. `DEMO_CLIP` has to be rebuilt each time (nothing keeps it): a generated face still
+  with a slow zoom as the camera, `docs.mp4` as the screen, joined by the server's own
+  `composite()`. Re-encode the cut at `-crf 27` for the site. YouTube cannot swap a video in
+  place, so a new cut means a new upload and a new link in `site/public/index.html`.

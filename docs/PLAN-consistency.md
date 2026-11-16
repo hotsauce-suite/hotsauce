@@ -5,9 +5,12 @@ Links and the words (PR #128), plain titles with "Boards" (PR #130), the re-reco
 (PR #133), and now "Saved" for "Committed" on a doc's save chip. Round 2 (the top bar) is shipped:
 the red main button (PR #145), "‹ App name" with × on pop-ups (PR #148), one "Share" button
 (PR #150) and the phone top bar (PR #152), with the app videos and README screenshots re-recorded
-after the last step. Still old: the Clips player video and the narrated tour video (both wait for the end of round 3;
-Morgan, Nov 16). Round 3 (one row above every list): slice 1 is merged (PR #154, ten apps on the shared row);
-slice 2 (Tasks and Meetings) is in review; slice 3 (videos, screenshots, help) is next.
+after the last step. Round 3 (one row above every list) is shipped: ten apps on the shared row (PR #154), Tasks and
+Meetings (PR #155), and the app videos, README screenshots and help pages re-done after it.
+The narrated tour video and the Clips player video are re-cut from the new screens and on the
+site; the copy on YouTube is the old cut until Morgan uploads the new file (his to-do list).
+Left as nice-to-have from the round 3 review: a tab panel role for screen readers, a test that
+dragging is off while Tasks is being searched, and a test for Meetings filters with a search.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
