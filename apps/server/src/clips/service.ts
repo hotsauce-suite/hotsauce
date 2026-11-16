@@ -9,7 +9,16 @@ import type { Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
 import { type AudioStore, LocalAudioStore, R2AudioStore } from '../meetings/audio/index.js'
 import type { LLM } from '../meetings/llm/types.js'
-import { composite, extractAudio, type FfmpegPaths, probe, remux, thumbnail } from './media.js'
+import { type Cut, keptRanges, MAX_CUTS, MIN_KEPT_MS, normalizeCuts } from './cuts.js'
+import {
+  composite,
+  cutVideo,
+  extractAudio,
+  type FfmpegPaths,
+  probe,
+  remux,
+  thumbnail,
+} from './media.js'
 import { checklistOnly, stripImages } from './notes.js'
 import type {
   ClipContainer,
@@ -17,6 +26,7 @@ import type {
   ClipRecord,
   ClipStore,
   CompositeStatus,
+  EditStatus,
   TranscriptSegment,
 } from './store.js'
 import type { ClipTranscriber } from './transcriber.js'
@@ -41,7 +51,14 @@ const SUMMARY_TRANSCRIPT_CHARS = 12_000
 /** About an hour of talk: the summary and action items read the whole clip. */
 const NOTES_TRANSCRIPT_CHARS = 60_000
 
-const MEDIA_FILES = ['video', 'thumb', 'composite', 'camera-thumb'] as const
+const MEDIA_FILES = [
+  'video',
+  'thumb',
+  'composite',
+  'camera-thumb',
+  'edited',
+  'edited-thumb',
+] as const
 export type MediaFile = (typeof MEDIA_FILES)[number]
 export type ChunkTrack = 'screen' | 'camera'
 
@@ -88,6 +105,16 @@ export interface ClipView {
   speakers: ClipSpeaker[]
   aiSummary: string | null
   aiActions: string | null
+  /** The owner's trim. `durationMs`, the URLs and the transcript are the edited video's once
+   *  it's ready; until then (and while a new edit is being made) the previous version plays. */
+  editStatus: EditStatus
+  /** Whether the video that plays is an edited one. */
+  edited: boolean
+  /** The cuts last saved, in ms of the original video (owner only; empty for others). */
+  cuts: Cut[]
+  /** The whole recording, for the trim editor (owner only, null for others and until ready). */
+  sourceUrl: string | null
+  sourceDurationMs: number | null
   videoUrl: string | null
   thumbUrl: string | null
   downloadUrl: string | null
@@ -205,6 +232,10 @@ export class Clips {
 
   #composeDir(id: string): string {
     return path.join(this.#opts.dataDir, 'clips', 'compose', id)
+  }
+
+  #editDir(id: string): string {
+    return path.join(this.#opts.dataDir, 'clips', 'edit', id)
   }
 
   /** A track's chunk folder: the screen's at the top, the camera's inside it. */
@@ -404,19 +435,28 @@ export class Clips {
   async delete(principal: Principal, id: string): Promise<void> {
     const clip = this.#owned(principal, id)
     this.store.delete(id)
-    await this.#removeFiles(clip.id, clip.container)
+    await this.#removeFiles(clip.id, clip.container, [clip.appliedVersion, clip.editVersion])
     this.#log(`clip ${id} deleted by ${principal.email}`)
   }
 
-  async #removeFiles(id: string, container: ClipContainer): Promise<void> {
+  /** `editVersions`: versions of the trimmed video that may be stored. */
+  async #removeFiles(
+    id: string,
+    container: ClipContainer,
+    editVersions: number[] = [],
+  ): Promise<void> {
     this.#uploaded.delete(id)
     await rm(this.#uploadDir(id), { recursive: true, force: true })
     await rm(this.#workDir(id), { recursive: true, force: true })
     await rm(this.#composeDir(id), { recursive: true, force: true })
+    await rm(this.#editDir(id), { recursive: true, force: true })
     const media = this.#opts.media
     if (!media) return
     const keys = [videoKey(id, container), thumbKey(id), compositeKey(id)]
     keys.push(cameraKey(id, 'webm'), cameraKey(id, 'mp4'), compositeThumbKey(id))
+    for (const v of new Set(editVersions.filter((n) => n > 0))) {
+      keys.push(editedKey(id, v), editedThumbKey(id, v))
+    }
     for (const key of keys) {
       try {
         await media.delete(key)
@@ -499,6 +539,92 @@ export class Clips {
     return clip
   }
 
+  /**
+   * Saves the owner's trim: `cuts` are the parts of the whole recording to leave out, in ms.
+   * The edited video is made in the background; the current one plays until it's ready. No cuts
+   * at all is the same as reverting. Another save meanwhile supersedes this one.
+   */
+  async setCuts(principal: Principal, id: string, cuts: Cut[]): Promise<ClipView> {
+    const clip = this.#owned(principal, id)
+    if (clip.status !== 'ready' || !clip.durationMs) {
+      throw new HotsauceError('conflict', 'This clip isn’t ready yet')
+    }
+    if (clip.compositeStatus === 'pending' || clip.compositeStatus === 'processing') {
+      throw new HotsauceError(
+        'conflict',
+        'Your camera is still being added to this video; you can trim it once that’s done',
+      )
+    }
+    if (cuts.length > MAX_CUTS) {
+      throw new HotsauceError('bad_request', `A clip can have at most ${MAX_CUTS} cuts`)
+    }
+    const normalized = normalizeCuts(cuts, clip.durationMs)
+    if (normalized.length === 0) return this.revertEdit(principal, id)
+    const kept = keptRanges(normalized, clip.durationMs).reduce(
+      (sum, r) => sum + r.endMs - r.startMs,
+      0,
+    )
+    if (kept < Math.min(MIN_KEPT_MS, clip.durationMs)) {
+      throw new HotsauceError('bad_request', 'Keep at least a second of the clip')
+    }
+    // The same cuts as the edit that already plays (or is being made): nothing to do.
+    const same = (a: Cut[], b: Cut[]) => JSON.stringify(a) === JSON.stringify(b)
+    if (clip.editStatus !== 'failed' && same(normalized, clip.cuts) && clip.editStatus !== 'none') {
+      return this.view(clip, principal)
+    }
+    await this.#ensureRoom(clip.sizeBytes ?? 0)
+    // Read again after the await: a save that landed meanwhile has taken the next version.
+    const version = (this.store.get(id)?.editVersion ?? clip.editVersion) + 1
+    const updated = this.store.update(
+      id,
+      { cuts: normalized, editStatus: 'pending', editVersion: version },
+      this.#nowIso(),
+    )
+    this.#enqueueEdit(id, version)
+    this.#log(`clip ${id}: edit ${version} saved (${normalized.length} cut(s))`)
+    return this.view(updated ?? clip, principal)
+  }
+
+  /** Back to the whole recording: the edit is forgotten and its video removed. */
+  async revertEdit(principal: Principal, id: string): Promise<ClipView> {
+    const clip = this.#owned(principal, id)
+    if (clip.editStatus === 'none' && clip.appliedVersion === 0) return this.view(clip, principal)
+    const updated = this.store.update(
+      id,
+      {
+        cuts: [],
+        appliedCuts: [],
+        appliedVersion: 0,
+        editStatus: 'none',
+        editedDurationMs: null,
+        // Any render still running sees a newer version and throws its work away.
+        editVersion: clip.editVersion + 1,
+        // Notes from the trimmed clip are written again from the whole one when asked.
+        ...(clip.appliedVersion > 0 ? { aiSummary: null, aiActions: null } : {}),
+      },
+      this.#nowIso(),
+    )
+    await this.#removeEdited(id, [clip.appliedVersion])
+    if (clip.appliedVersion > 0 && updated && updated.transcript.length > 0) {
+      void this.#suggest(updated, { title: false })
+    }
+    return this.view(updated ?? clip, principal)
+  }
+
+  async #removeEdited(id: string, versions: number[]): Promise<void> {
+    const media = this.#opts.media
+    if (!media) return
+    for (const v of versions.filter((n) => n > 0)) {
+      for (const key of [editedKey(id, v), editedThumbKey(id, v)]) {
+        try {
+          await media.delete(key)
+        } catch (err) {
+          this.#log(`clip ${id}: couldn't delete ${key}: ${(err as Error).message}`)
+        }
+      }
+    }
+  }
+
   /** Transcribes a ready clip again, after a failure. */
   retryTranscript(principal: Principal, id: string): Promise<ClipView> {
     const clip = this.#owned(principal, id)
@@ -555,20 +681,28 @@ export class Clips {
 
   async view(clip: ClipRecord, principal: Principal): Promise<ClipView> {
     const ready = clip.status === 'ready'
-    // With the camera put in, that's the video; until then, the screen alone.
-    const file: MediaFile = clip.compositeStatus === 'ready' ? 'composite' : 'video'
-    const container: ClipContainer = file === 'composite' ? 'mp4' : clip.container
-    const [videoUrl, thumbUrl, downloadUrl] = ready
+    const isOwner = clip.ownerId === principal.userId
+    const edited = clip.appliedVersion > 0
+    // With the camera put in, that's the whole recording; until then, the screen alone. An
+    // edit, once made, is what plays.
+    const source: MediaFile = clip.compositeStatus === 'ready' ? 'composite' : 'video'
+    const file: MediaFile = edited ? 'edited' : source
+    const container: ClipContainer = file === 'video' ? clip.container : 'mp4'
+    // Its own name once the camera is in (or the edit made), so a browser's cached thumbnail
+    // (same signed URL for hours with the local store) isn't shown in its place.
+    const thumb: MediaFile = edited
+      ? 'edited-thumb'
+      : clip.compositeStatus === 'ready'
+        ? 'camera-thumb'
+        : 'thumb'
+    const [videoUrl, thumbUrl, downloadUrl, sourceUrl] = ready
       ? await Promise.all([
           this.#url(clip, file),
-          // Its own name once the camera is in, so a browser's cached screen-only thumbnail
-          // (same signed URL for hours with the local store) isn't shown in its place.
-          clip.hasThumb
-            ? this.#url(clip, clip.compositeStatus === 'ready' ? 'camera-thumb' : 'thumb')
-            : null,
+          clip.hasThumb ? this.#url(clip, thumb) : null,
           this.#url(clip, file, fileName(clip.title, container)),
+          isOwner ? this.#url(clip, source) : null,
         ])
-      : [null, null, null]
+      : [null, null, null, null]
     return {
       id: clip.id,
       title: clip.title,
@@ -576,13 +710,13 @@ export class Clips {
       mode: clip.mode,
       status: clip.status,
       error: clip.error,
-      durationMs: clip.durationMs,
+      durationMs: edited ? (clip.editedDurationMs ?? clip.durationMs) : clip.durationMs,
       sizeBytes: clip.sizeBytes,
       width: clip.width,
       height: clip.height,
       mimeType: CONTENT_TYPE[container],
       owner: { name: clip.ownerName, email: clip.ownerEmail },
-      isOwner: clip.ownerId === principal.userId,
+      isOwner,
       createdAt: clip.createdAt,
       updatedAt: clip.updatedAt,
       transcriptStatus: clip.transcriptStatus,
@@ -594,6 +728,11 @@ export class Clips {
       speakers: speakersOf(clip),
       aiSummary: clip.aiSummary,
       aiActions: clip.aiActions,
+      editStatus: clip.editStatus,
+      edited,
+      cuts: isOwner ? clip.cuts : [],
+      sourceUrl,
+      sourceDurationMs: isOwner ? clip.durationMs : null,
       videoUrl,
       thumbUrl,
       downloadUrl,
@@ -607,7 +746,10 @@ export class Clips {
    */
   async #url(clip: ClipRecord, file: MediaFile, download?: string): Promise<string | null> {
     const media = this.#opts.media
-    if (media instanceof LocalAudioStore) return this.#localUrl(clip.id, file, download)
+    if (media instanceof LocalAudioStore) {
+      const version = file === 'edited' || file === 'edited-thumb' ? clip.appliedVersion : 0
+      return this.#localUrl(clip.id, file, download, version)
+    }
     if (media instanceof R2AudioStore) {
       return media.presignGet(mediaKey(clip, file), {
         windowSeconds: URL_WINDOW_SECONDS,
@@ -618,12 +760,14 @@ export class Clips {
     return null
   }
 
-  #localUrl(id: string, file: MediaFile, download?: string): string {
+  #localUrl(id: string, file: MediaFile, download?: string, version = 0): string {
     const windowMs = URL_WINDOW_SECONDS * 1000
     const exp = (Math.floor(this.#now().getTime() / windowMs) + 2) * (windowMs / 1000)
     const params = new URLSearchParams({ exp: String(exp) })
     if (download !== undefined) params.set('download', download)
     params.set('sig', this.#sign(id, file, exp, download))
+    // Each edit is a new file under the same name: a new URL, so a cached old one isn't played.
+    if (version) params.set('v', String(version))
     return `/api/clips/media/${id}/${file}?${params.toString()}`
   }
 
@@ -661,9 +805,9 @@ export class Clips {
     return {
       path: file,
       contentType:
-        req.file === 'thumb' || req.file === 'camera-thumb'
+        req.file === 'thumb' || req.file === 'camera-thumb' || req.file === 'edited-thumb'
           ? 'image/jpeg'
-          : req.file === 'composite'
+          : req.file === 'composite' || req.file === 'edited'
             ? CONTENT_TYPE.mp4
             : CONTENT_TYPE[clip.container],
       size,
@@ -692,6 +836,16 @@ export class Clips {
       .then(() => this.#composite(id))
       .catch((err: unknown) => {
         this.#log(`clip composite job failed: ${err instanceof Error ? err.message : String(err)}`)
+      })
+  }
+
+  /** Trims share the composites' queue: both re-encode, and one encode at a time is the box's
+   *  limit. */
+  #enqueueEdit(id: string, version: number): void {
+    this.#composites = this.#composites
+      .then(() => this.#edit(id, version))
+      .catch((err: unknown) => {
+        this.#log(`clip edit job failed: ${err instanceof Error ? err.message : String(err)}`)
       })
   }
 
@@ -725,6 +879,10 @@ export class Clips {
       resumed++
       this.#enqueueComposite(clip.id)
     }
+    for (const clip of this.store.editsInterrupted()) {
+      resumed++
+      this.#enqueueEdit(clip.id, clip.editVersion)
+    }
     void this.sweep()
     this.#sweepTimer = setInterval(() => void this.sweep(), 3_600_000)
     this.#sweepTimer.unref()
@@ -749,7 +907,7 @@ export class Clips {
       await this.#removeFiles(clip.id, clip.container)
       removed++
     }
-    for (const kind of ['uploads', 'work', 'compose']) {
+    for (const kind of ['uploads', 'work', 'compose', 'edit']) {
       const root = path.join(this.#opts.dataDir, 'clips', kind)
       for (const id of await readdir(root).catch(() => [] as string[])) {
         const clip = this.store.get(id)
@@ -1021,6 +1179,14 @@ export class Clips {
         return
       }
       await rm(this.#uploadDir(id), { recursive: true, force: true })
+      // An edit made from the screen alone is made again from the video with the camera. Read
+      // again: a revert may have landed during the await.
+      const latest = this.store.get(id)
+      if (latest && latest.cuts.length > 0 && latest.editStatus !== 'pending') {
+        const version = latest.editVersion + 1
+        this.store.update(id, { editStatus: 'pending', editVersion: version }, this.#nowIso())
+        this.#enqueueEdit(id, version)
+      }
       this.#log(
         `clip composite ${JSON.stringify({ id, ms: Date.now() - started, durationMs: clip.durationMs, bytes: size })}`,
       )
@@ -1038,8 +1204,129 @@ export class Clips {
     }
   }
 
+  /**
+   * Makes edit `version`: the whole recording (with the camera, once it's in) minus the saved
+   * cuts, as a new MP4 and thumbnail. Only the newest version is kept: a save or revert made
+   * meanwhile makes this one throw its work away. A failure leaves the previous video playing.
+   */
+  async #edit(id: string, version: number): Promise<void> {
+    let clip = this.store.get(id)
+    if (clip?.status !== 'ready' || clip.editVersion !== version) return
+    if (clip.editStatus !== 'pending' && clip.editStatus !== 'processing') return
+    if (!clip.durationMs || clip.cuts.length === 0) {
+      // Nothing to cut (a revert got here first): don't leave the page waiting on it.
+      this.store.update(
+        id,
+        { editStatus: clip.appliedVersion > 0 ? 'ready' : 'none' },
+        this.#nowIso(),
+      )
+      return
+    }
+    clip = this.store.update(id, { editStatus: 'processing' }, this.#nowIso())
+    if (!clip?.durationMs) return
+    // What this job renders; a save made meanwhile renders its own cuts under a newer version.
+    const rendered = clip.cuts
+    const started = Date.now()
+    const dir = this.#editDir(id)
+    await rm(dir, { recursive: true, force: true })
+    await mkdir(dir, { recursive: true })
+    const output = path.join(dir, 'edited.mp4')
+    const thumb = path.join(dir, 'thumb.jpg')
+    let stored = false
+    try {
+      const media = this.#media()
+      const withCamera = clip.compositeStatus === 'ready'
+      let input: string
+      if (media instanceof LocalAudioStore) {
+        input = media.pathOf(withCamera ? compositeKey(id) : videoKey(id, clip.container))
+      } else if (withCamera) {
+        const object = await media.get(compositeKey(id))
+        if (!object) throw new Error('the video with the camera is missing from storage')
+        input = path.join(dir, 'source.mp4')
+        await pipeline(Readable.fromWeb(object.body as never), createWriteStream(input))
+      } else {
+        input = await this.#localVideo(clip, dir)
+      }
+      const info = await probe(this.#opts.ffmpeg, input)
+      const keep = keptRanges(rendered, clip.durationMs).map((r) => ({
+        start: r.startMs / 1000,
+        end: r.endMs / 1000,
+      }))
+      await cutVideo(this.#opts.ffmpeg, {
+        input,
+        output,
+        keep,
+        hasVideo: info.hasVideo,
+        hasAudio: info.hasAudio,
+        height: info.height,
+        durationMs: clip.durationMs,
+      })
+      const result = await probe(this.#opts.ffmpeg, output)
+      // The page shows the edit's own thumbnail whenever the clip has one, so a video edit
+      // without its thumbnail fails rather than linking to a missing picture.
+      const hasThumb = result.hasVideo
+      if (hasThumb) await thumbnail(this.#opts.ffmpeg, output, thumb, result.durationMs)
+      // Superseded while it was made: nothing stored, nothing changed.
+      if (this.store.get(id)?.editVersion !== version) return
+      await media.put(
+        editedKey(id, version),
+        createReadStream(output),
+        (await stat(output)).size,
+        CONTENT_TYPE.mp4,
+      )
+      if (hasThumb) {
+        await media.put(
+          editedThumbKey(id, version),
+          createReadStream(thumb),
+          (await stat(thumb)).size,
+          'image/jpeg',
+        )
+      }
+      stored = true
+      const current = this.store.get(id)
+      if (current?.editVersion !== version) {
+        await this.#removeEdited(id, [version])
+        return
+      }
+      const previous = current.appliedVersion
+      this.store.update(
+        id,
+        {
+          editStatus: 'ready',
+          appliedCuts: rendered,
+          appliedVersion: version,
+          editedDurationMs: result.durationMs,
+          ...(hasThumb ? { hasThumb: true } : {}),
+          // Notes made from the whole recording may mention what was cut: they go, and the
+          // short summary is written again from what's left.
+          aiSummary: null,
+          aiActions: null,
+        },
+        this.#nowIso(),
+      )
+      if (previous !== version) await this.#removeEdited(id, [previous])
+      const applied = this.store.get(id)
+      if (applied && applied.transcript.length > 0) await this.#suggest(applied, { title: false })
+      this.#log(
+        `clip edit ${JSON.stringify({ id, version, ms: Date.now() - started, durationMs: result.durationMs })}`,
+      )
+    } catch (err) {
+      this.#log(`clip ${id} edit ${version} failed: ${(err as Error).message}`)
+      const current = this.store.get(id)
+      if (current?.editVersion === version) {
+        this.store.update(id, { editStatus: 'failed' }, this.#nowIso())
+      }
+      // Never applied: whatever this job stored (a video without its thumbnail, say) goes.
+      if (current?.appliedVersion !== version) await this.#removeEdited(id, [version])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+      // Deleted while it was made: what this job stored goes too.
+      if (!this.store.get(id) && stored) await this.#removeEdited(id, [version])
+    }
+  }
+
   /** A suggested title (unless the owner chose one) and a short summary. Failure is only logged. */
-  async #suggest(clip: ClipRecord): Promise<void> {
+  async #suggest(clip: ClipRecord, opts: { title?: boolean } = {}): Promise<void> {
     try {
       const { text } = await this.#opts.llm.complete({
         model: this.#opts.model,
@@ -1065,7 +1352,7 @@ export class Clips {
       this.store.update(
         clip.id,
         {
-          ...(title && !current.titleSet ? { title } : {}),
+          ...(title && !current.titleSet && opts.title !== false ? { title } : {}),
           ...(summary ? { summary } : {}),
         },
         this.#nowIso(),
@@ -1120,10 +1407,22 @@ function stillNeeded(clip: ClipRecord, kind: string): boolean {
       clip.transcriptStatus === 'processing'
     )
   }
+  if (kind === 'edit') return clip.editStatus === 'processing'
   return clip.compositeStatus === 'processing'
 }
 
+/** A trimmed version of the clip: a new key per version, so caches never serve an older one. */
+export function editedKey(id: string, version: number): string {
+  return `clips/${id}/edited-${version}.mp4`
+}
+
+export function editedThumbKey(id: string, version: number): string {
+  return `clips/${id}/thumb-edited-${version}.jpg`
+}
+
 function mediaKey(clip: ClipRecord, file: MediaFile): string {
+  if (file === 'edited') return editedKey(clip.id, clip.appliedVersion)
+  if (file === 'edited-thumb') return editedThumbKey(clip.id, clip.appliedVersion)
   if (file === 'thumb') return thumbKey(clip.id)
   if (file === 'camera-thumb') return compositeThumbKey(clip.id)
   if (file === 'composite') return compositeKey(clip.id)
