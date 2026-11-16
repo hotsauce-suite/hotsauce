@@ -86,7 +86,9 @@ const isOffline = () => !isOnline()
  */
 export function useComments(space: string, path: string, enabled = true): Conversation {
   // Each member's own: on a shared computer the next member never sees what the last one typed.
-  const key = `${DRAFT_PREFIX}${encodeURIComponent(rememberedMember()?.userId ?? '')}/${space}:${path}`
+  // Before the app knows who is signed in (a first visit), the owner is blank.
+  const owner = rememberedMember()?.userId ?? ''
+  const key = `${DRAFT_PREFIX}${encodeURIComponent(owner)}/${space}:${path}`
   const [status, setStatus] = useState<Conversation['status']>('loading')
   const [canComment, setCanComment] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
@@ -103,10 +105,17 @@ export function useComments(space: string, path: string, enabled = true): Conver
   const keyRef = useRef(key)
   keyRef.current = key
 
-  // A different item (the task panel moves from task to task): start clean, with its own draft.
-  const [shownKey, setShownKey] = useState(key)
-  if (shownKey !== key) {
-    setShownKey(key)
+  // The app learned who is signed in while the box was open: what's typed so far is theirs.
+  const [shown, setShown] = useState({ key, owner, item: `${space}:${path}` })
+  if (shown.key !== key && shown.owner === '' && shown.item === `${space}:${path}`) {
+    setShown({ key, owner, item: shown.item })
+    writeDraft(key, draft)
+    writeDraft(shown.key, { text: '', quote: null })
+  }
+  // A different item (the task panel moves from task to task), or a different member: start
+  // clean, with its own draft.
+  else if (shown.key !== key) {
+    setShown({ key, owner, item: `${space}:${path}` })
     setStatus('loading')
     setCanComment(false)
     setComments([])

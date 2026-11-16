@@ -28,7 +28,8 @@ test('a doc edited offline is kept on the device, survives a reload, and is save
   await expect(page.getByTestId('offline-bar')).toBeVisible()
   await expect(page.getByTestId('assistant-open')).toBeDisabled()
 
-  await page.getByTestId('editor-content').click()
+  // In the doc's text: a team doc's comment box sits under it in the same area.
+  await docText(page).getByText('Start.').click()
   await typeAtEnd(page, line)
   await waitForState('save-state', 'offline')
   await expect(page.getByTestId('save-state')).toHaveText('Saved on this device')
@@ -41,7 +42,8 @@ test('a doc edited offline is kept on the device, survives a reload, and is save
   expect((await api.readFile(user.team, file))?.content).not.toContain(line)
   // Keep typing after the offline start: that waits too, and nothing blocks the reconnect.
   const more = `And more after the reload ${uid()}`
-  await page.getByTestId('editor-content').click()
+  // In the doc's text: a team doc's comment box sits under it in the same area.
+  await docText(page).getByText('Start.').click()
   await typeAtEnd(page, more)
   await waitForState('save-state', 'offline')
 
@@ -96,7 +98,8 @@ test('another member on the same browser never sees what the last one typed offl
   await expect(docText(page)).toContainText('Start.')
   await offlineReady(page)
   await context.setOffline(true)
-  await page.getByTestId('editor-content').click()
+  // In the doc's text: a team doc's comment box sits under it in the same area.
+  await docText(page).getByText('Start.').click()
   await typeAtEnd(page, secret)
   await expect(page.getByTestId('save-state')).toHaveAttribute('data-state', 'offline')
   await page.goto('/settings')
