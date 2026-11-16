@@ -1,4 +1,5 @@
-// The hotsauce.work website: static pages on Cloudflare Workers. Deploy with `npx wrangler deploy` from this folder.
+// The hotsauce.work website: static pages on Cloudflare Workers. GitHub deploys it on each merge to main
+// that changes it (.github/workflows/deploy-site.yml, docs/PLAN-site-deploy.md); "Run workflow" redeploys by hand.
 // Each deploy first builds the live demo (docs/PLAN-live-demo.md) into public/demo/.
 {
   "name": "hotsauce-site",

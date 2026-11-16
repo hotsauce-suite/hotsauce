@@ -1,0 +1,68 @@
+name: Deploy hotsauce.work
+
+# Publishes hotsauce.work, its help pages and the live demo at demo.hotsauce.work whenever a
+# merge to main changes them, then checks the live site shows the change
+# (docs/PLAN-site-deploy.md). The demo is the web app on sample data, so app changes count too.
+# "Run workflow" on the Actions page redeploys main by hand.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - apps/web/**
+      - packages/format/**
+      - pnpm-lock.yaml
+      - .github/workflows/deploy-site.yml
+  workflow_dispatch:
+
+# One deploy at a time, in order. A newer merge waiting in line replaces an older one.
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.SITE_CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.SITE_CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Needs SITE_CLOUDFLARE_API_TOKEN and SITE_CLOUDFLARE_ACCOUNT_ID
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: |
+          echo "::error::Add the repository secrets SITE_CLOUDFLARE_API_TOKEN and SITE_CLOUDFLARE_ACCOUNT_ID. How: docs/PLAN-site-deploy.md."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Site tests
+        run: pnpm exec vitest run --project site
+      # wrangler.jsonc's build step builds the demo into site/public/demo/ first.
+      - name: Deploy
+        run: npx --yes wrangler@4.161.0 deploy --config site/wrangler.jsonc --var "SITE_VERSION:$GITHUB_SHA"
+      - name: Changed pages
+        id: changed
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          files=""
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] &&
+             git fetch --quiet --depth=1 origin "$BEFORE"; then
+            files=$(git diff --name-only --diff-filter=AMR "$BEFORE" "$GITHUB_SHA" -- site/public | tr '\n' ' ')
+          fi
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+      - name: Check the live site shows this commit
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        # FILES is split into one argument per file on purpose.
+        run: node site/verify-live.mjs "$GITHUB_SHA" $FILES
