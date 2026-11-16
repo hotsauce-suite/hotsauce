@@ -9,7 +9,8 @@ by the owner on 2026-11-15. This file is where that map ends: the spec the build
 
 - 2026-11-15: planned. Nothing is built. Each slice below is one thread and one release; a thread
   claims a slice by opening its draft PR and adding a line here.
-- Slice 1: not started.
+- Slice 1 (requirements 1 to 11): being built, 2026-11-16, in the PR "Comments and @mentions on docs,
+  meeting notes and tasks" (branch `claude/project-thread-9omzow`).
 - Slice 2: not started.
 - Slice 3: not started.
 - Slice 4: not started.
