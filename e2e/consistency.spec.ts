@@ -829,6 +829,18 @@ async function expectNothingLoose(page: Page) {
   await expect(page.locator('main button:visible', { hasText: /^Delete/ })).toHaveCount(0)
 }
 
+/** The top bar's controls sit left to right in this order, each one present. */
+async function expectOrder(page: Page, testIds: string[]) {
+  const bar = page.getByTestId('page-header')
+  const xs: number[] = []
+  for (const id of testIds) {
+    const box = await bar.getByTestId(id).first().boundingBox()
+    expect(box, `${id} is in the top bar`).not.toBeNull()
+    xs.push(box?.x ?? 0)
+  }
+  expect(xs).toEqual([...xs].sort((a, b) => a - b))
+}
+
 test.describe('the page of one thing', () => {
   test('a board: its name and status in the top bar, Delete in More', async ({ page }) => {
     await page.goto('/boards')
@@ -839,8 +851,7 @@ test.describe('the page of one thing', () => {
     await expect(bar.getByTestId('item-whose')).toHaveText(/^(Personal|Team)$/)
     await expect(bar.getByTestId('board-status')).toHaveText('Saved', { timeout: 8_000 })
     await expectNothingLoose(page)
-    const words = await headerButtons(page)
-    expect(words.indexOf('Share')).toBeLessThan(words.indexOf('More'))
+    await expectOrder(page, ['item-status', 'board-share', 'page-more'])
     await page.getByTestId('page-more').click()
     await expect(page.getByRole('menuitem', { name: 'Delete board' })).toBeVisible()
   })
@@ -853,6 +864,7 @@ test.describe('the page of one thing', () => {
     await expect(bar.getByTestId('table-title')).toHaveValue('Untitled table')
     await expect(bar.getByTestId('item-whose')).toHaveText('Team')
     await expect(bar.getByTestId('save-status')).toHaveText('Saved', { timeout: 10_000 })
+    await expectOrder(page, ['item-status', 'page-more'])
     await expectNothingLoose(page)
     await page.getByTestId('page-more').click()
     for (const name of ['Download CSV', 'Download Excel', 'Delete table'])
@@ -870,6 +882,14 @@ test.describe('the page of one thing', () => {
     // The name isn't repeated in the page under the top bar.
     await expect(page.locator('main input[aria-label="Form title"]')).toHaveCount(1)
     await expect(bar.getByTestId('item-whose')).toHaveText('Team')
+    await expectOrder(page, [
+      'item-status',
+      'form-share',
+      'form-open-link',
+      'form-settings',
+      'page-more',
+    ])
+    await expect(page.getByRole('tabpanel')).toBeVisible()
     await expect(page.getByTestId('list-tabs').getByRole('tab')).toHaveText([
       'Questions',
       /^Answers/,
@@ -907,6 +927,7 @@ test.describe('the page of one thing', () => {
     await expect(bar.getByTestId('link-share')).toBeVisible()
     await expect(bar.getByTestId('link-reader-done')).toBeVisible()
     await expect(bar.locator('h1')).not.toBeEmpty()
+    await expectOrder(page, ['link-share', 'link-reader-done', 'page-more'])
     await expectNothingLoose(page)
     await page.getByTestId('page-more').click()
     await expect(page.getByRole('menuitem', { name: 'Delete link' })).toBeVisible()

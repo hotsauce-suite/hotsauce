@@ -191,12 +191,12 @@ export function PageRoute() {
     <>
       <MeetingsPageHeader title={page?.title ?? 'Page'} back={{ to: '/pages', label: 'Pages' }}>
         {page ? <ItemStatus whose={spaceLabel(page.space)} /> : null}
-        {compact ? null : versionPicker}
         {compact ? null : (
           <ShareButton testId="page-share" onOpen={() => link.refresh()}>
             {shareItems}
           </ShareButton>
         )}
+        {compact ? null : versionPicker}
         <MoreMenu onOpen={() => link.refresh()}>
           {(close) => (
             <>

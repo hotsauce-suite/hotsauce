@@ -15,7 +15,7 @@ import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { ItemStatus } from '../../components/ItemStatus'
-import { ListBar } from '../../components/ListBar'
+import { ListBar, ListPanel, ListScope } from '../../components/ListBar'
 import { MenuItem, menuItemClass } from '../../components/Menu'
 import { MoreMenu, useNameWhenFresh } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
@@ -113,12 +113,16 @@ export default function FormEditor() {
     setError(null)
   }
 
-  const save = useCallback(async () => {
-    if (!draft || saving || !dirty) return
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!draft || saving) return false
+    if (!dirty) return true
     const problem = draft.title.trim()
       ? questionsProblem(draft.questions)
       : 'The form needs a title'
-    if (problem) return setError(problem)
+    if (problem) {
+      setError(problem)
+      return false
+    }
     const sent = draft
     setSaving(true)
     try {
@@ -129,6 +133,7 @@ export default function FormEditor() {
       setDraft((d) => (d ? { ...d, blobOid: saved.blobOid } : d))
       if (still) setDirty(false)
       setError(null)
+      return true
     } catch (e) {
       setError(
         e instanceof HotsauceApiError && e.status === 409
@@ -137,6 +142,7 @@ export default function FormEditor() {
             ? e.message
             : 'Couldn’t save',
       )
+      return false
     } finally {
       setSaving(false)
     }
@@ -234,6 +240,9 @@ export default function FormEditor() {
           whose={spaceLabel(space)}
           save={status}
           words={status === 'unsaved' ? 'Unsaved changes' : undefined}
+          title={
+            status === 'unsaved' ? 'Press Save, or Ctrl or ⌘ S, to keep your changes.' : undefined
+          }
           testId="form-status"
         />
         {dirty || saving ? (
@@ -262,6 +271,7 @@ export default function FormEditor() {
             </a>
             <Link
               to={`${base}/settings`}
+              replace
               className={`${secondaryButton} h-8 px-3`}
               data-testid="form-settings"
             >
@@ -293,7 +303,7 @@ export default function FormEditor() {
                     testId="form-settings"
                     onSelect={() => {
                       close()
-                      navigate(`${base}/settings`)
+                      navigate(`${base}/settings`, { replace: true })
                     }}
                   >
                     Settings
@@ -316,42 +326,50 @@ export default function FormEditor() {
         </MoreMenu>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-5 md:px-8">
-          <ListBar
-            className=""
-            tabsLabel="Form"
-            tab={openTab}
-            tabs={[
-              { id: 'questions', label: 'Questions', to: base, testId: 'form-tab-questions' },
-              {
-                id: 'answers',
-                label: `Answers (${form.answerCount})`,
-                to: `${base}/answers`,
-                testId: 'form-tab-answers',
-              },
-            ]}
-          />
-          {error ? (
-            <p
-              role="alert"
-              className="mt-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink"
-              data-testid="form-save-error"
-            >
-              {error}
-            </p>
-          ) : null}
-        </div>
-        {openTab === 'answers' ? (
-          <FormAnswers
-            form={form}
-            onCount={(n) => setForm((f) => (f ? { ...f, answerCount: n } : f))}
-          />
-        ) : (
-          <Builder draft={draft} onChange={change} />
-        )}
+        <ListScope>
+          <div className="mx-auto w-full max-w-3xl px-4 pt-5 md:px-8">
+            <ListBar
+              className=""
+              tabsLabel="Form"
+              tab={openTab}
+              tabs={[
+                { id: 'questions', label: 'Questions', to: base, testId: 'form-tab-questions' },
+                {
+                  id: 'answers',
+                  label: `Answers (${form.answerCount})`,
+                  to: `${base}/answers`,
+                  testId: 'form-tab-answers',
+                },
+              ]}
+            />
+            {error ? (
+              <p
+                role="alert"
+                className="mt-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink"
+                data-testid="form-save-error"
+              >
+                {error}
+              </p>
+            ) : null}
+          </div>
+          <ListPanel tab={openTab}>
+            {openTab === 'answers' ? (
+              <FormAnswers
+                form={form}
+                onCount={(n) => setForm((f) => (f ? { ...f, answerCount: n } : f))}
+              />
+            ) : (
+              <Builder draft={draft} onChange={change} />
+            )}
+          </ListPanel>
+        </ListScope>
       </div>
       {settingsOpen ? (
-        <Dialog title="Form settings" onClose={() => navigate(base)} testId="form-settings-dialog">
+        <Dialog
+          title="Form settings"
+          onClose={() => navigate(base, { replace: true })}
+          testId="form-settings-dialog"
+        >
           <Settings draft={draft} rooms={rooms} spaceLabel={spaceLabel(space)} onChange={change} />
           <div className="mt-6 flex justify-end gap-2">
             <button
@@ -360,8 +378,10 @@ export default function FormEditor() {
               data-testid="form-settings-done"
               disabled={saving}
               onClick={() => {
-                void save()
-                navigate(base)
+                // Closes once saved; a refused save keeps the pop-up open with its reason.
+                void save().then((saved) => {
+                  if (saved) navigate(base, { replace: true })
+                })
               }}
             >
               Done

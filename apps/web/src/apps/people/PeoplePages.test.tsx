@@ -38,7 +38,9 @@ describe('People', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/people/dana%40acme.com'))
 
     const page = await screen.findByTestId('person-page')
-    expect(within(page).getByText('Dana Lee')).toBeInTheDocument()
+    // The name is in the top bar, once (docs/PLAN-consistency.md, requirement 20).
+    expect(screen.getByTestId('page-header')).toHaveTextContent('Dana Lee')
+    expect(within(page).queryByText('Dana Lee')).toBeNull()
     expect(within(page).getByTestId('person-company')).toHaveTextContent('acme.com')
     const meetings = within(page).getAllByTestId('person-meeting')
     expect(meetings.map((m) => m.textContent)).toEqual(

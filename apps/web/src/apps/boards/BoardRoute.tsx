@@ -230,6 +230,8 @@ export default function BoardRoute() {
                   onClick={() => void remove()}
                   className="h-8 rounded-md bg-ember px-2 text-sm text-paper-raised"
                   data-testid="board-delete-confirm"
+                  // biome-ignore lint/a11y/noAutofocus: chosen from More, which closes as this appears
+                  autoFocus
                 >
                   Delete board
                 </button>

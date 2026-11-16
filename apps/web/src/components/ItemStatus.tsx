@@ -31,6 +31,7 @@ export function ItemStatus({
   save,
   words,
   error,
+  title,
   testId,
 }: {
   /** "Personal" or "Team". Hidden on a phone, where the top bar has no room for it. */
@@ -41,6 +42,8 @@ export function ItemStatus({
   words?: string | undefined
   /** What went wrong, shown on hover. */
   error?: string | undefined
+  /** The hover text when it differs from the state's own. */
+  title?: string | undefined
   testId?: string | undefined
 }) {
   return (
@@ -55,7 +58,7 @@ export function ItemStatus({
           data-testid={testId}
           data-state={DOT_STATE[save]}
           aria-live="polite"
-          title={error ? `${TITLES[save]} (${error})` : TITLES[save]}
+          title={error ? `${TITLES[save]} (${error})` : (title ?? TITLES[save])}
           className={`flex h-7 shrink-0 items-center gap-2 rounded-full border border-ash bg-paper-raised/70 px-2.5 text-xs whitespace-nowrap ${
             save === 'error' ? 'text-ember-strong' : 'text-ink-soft'
           }`}

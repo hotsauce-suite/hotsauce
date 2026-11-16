@@ -294,7 +294,6 @@ export default function LinkReader() {
         menu={false}
         title={link.title || link.url || 'Untitled PDF'}
       >
-        {doneButton('link-reader-done')}
         <input
           ref={pdfInput}
           type="file"
@@ -317,30 +316,29 @@ export default function LinkReader() {
           }}
         />
         {compact ? null : (
-          <>
-            {pdfFile ? (
-              <Link to={pdfFile} className={headerButton} data-testid="link-open-pdf">
-                <Icon name="file" />
-                Open PDF
-              </Link>
-            ) : canAddPdf ? (
-              <button
-                type="button"
-                className={headerButton}
-                data-testid="link-add-pdf"
-                disabled={busy}
-                title={addPdfHint}
-                onClick={() => pdfInput.current?.click()}
-              >
-                <Icon name="upload" />
-                Add the PDF
-              </button>
-            ) : null}
-            <ShareButton testId="link-share" className={headerButton} disabled={busy}>
-              {shareItems}
-            </ShareButton>
-          </>
+          <ShareButton testId="link-share" className={headerButton} disabled={busy}>
+            {shareItems}
+          </ShareButton>
         )}
+        {doneButton('link-reader-done')}
+        {compact ? null : pdfFile ? (
+          <Link to={pdfFile} className={headerButton} data-testid="link-open-pdf">
+            <Icon name="file" />
+            Open PDF
+          </Link>
+        ) : canAddPdf ? (
+          <button
+            type="button"
+            className={headerButton}
+            data-testid="link-add-pdf"
+            disabled={busy}
+            title={addPdfHint}
+            onClick={() => pdfInput.current?.click()}
+          >
+            <Icon name="upload" />
+            Add the PDF
+          </button>
+        ) : null}
         <MoreMenu>
           {(close) => (
             <>
@@ -378,7 +376,7 @@ export default function LinkReader() {
                 testId="link-delete"
                 onSelect={() => {
                   close()
-                  if (!window.confirm('Delete this saved link?')) return
+                  if (busy || !window.confirm('Delete this saved link?')) return
                   void act(async () => {
                     await linksApi.remove(link.space, link.id)
                     navigate('/links')
