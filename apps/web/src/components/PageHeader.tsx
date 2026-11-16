@@ -244,9 +244,12 @@ export function MoreMenu({
   children,
   testId = 'page-more',
   onOpen,
+  className = 'rounded-lg hover:bg-paper-sunk',
 }: {
   children: (close: () => void) => ReactNode
   testId?: string
+  /** The button's shape and hover, where it sits among other buttons (a note's round tools). */
+  className?: string
   /** Called as the menu opens, to load what it shows. */
   onOpen?: () => void
 }) {
@@ -279,7 +282,7 @@ export function MoreMenu({
           onOpen?.()
           setAnchor(below(event.currentTarget))
         }}
-        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-paper-sunk hover:text-ink"
+        className={`flex size-8 shrink-0 items-center justify-center text-ink-soft hover:text-ink ${className}`}
       >
         <Icon name="more" className="size-4" />
       </button>

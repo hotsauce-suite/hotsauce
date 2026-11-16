@@ -149,6 +149,18 @@ describe('the editor', () => {
     )
   })
 
+  it('Delete note in More keeps the last typing, then moves the note to the trash', async () => {
+    const user = userEvent.setup()
+    await openBoard()
+    await user.click(screen.getByRole('button', { name: 'Open note Board meeting ideas' }))
+    const editor = await screen.findByTestId('note-editor')
+    await user.type(within(editor).getByTestId('note-editor-body'), '\nLast thought.')
+    await user.click(within(editor).getByTestId('note-editor-more'))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete note' }))
+    await waitFor(() => expect(stored('Board meeting ideas').trashed).not.toBeNull())
+    expect(stored('Board meeting ideas').body).toContain('Last thought.')
+  })
+
   it('turns text into a checklist and back without losing words', async () => {
     const user = userEvent.setup()
     await openBoard()

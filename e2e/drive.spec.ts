@@ -183,7 +183,12 @@ test('attach a file to a doc, a note and a task', async ({ page, member }) => {
   await dialog.getByTestId('file-more').click()
   await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'Delete file' })).toBeVisible()
+  // Rename opens on top; Escape closes only the rename, and the file stays open.
+  await page.getByRole('menuitem', { name: 'Rename' }).click()
+  await expect(page.getByRole('dialog', { name: 'Rename file' })).toBeVisible()
   await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Rename file' })).toHaveCount(0)
+  await expect(dialog).toBeVisible()
 
   // From a task.
   const created = await member.request.post('/api/tasks', { data: { title: `Task ${id}` } })

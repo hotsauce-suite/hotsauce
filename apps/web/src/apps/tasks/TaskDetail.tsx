@@ -224,7 +224,7 @@ export function TaskDetail(props: TaskDetailProps) {
           aria-label="Close"
           data-testid="detail-close"
           onClick={props.onClose}
-          className="mt-1.5 flex size-8 shrink-0 items-center justify-center rounded-md text-ink-faint hover:bg-paper-sunk hover:text-ink"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-ink-faint hover:bg-paper-sunk hover:text-ink"
         >
           <Icon name="close" className="size-4" />
         </button>

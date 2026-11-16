@@ -265,7 +265,7 @@ export function NoteEditor({
             onClick={() => void write({ pinned: !note.pinned }).catch(() => {})}
           />
           {/* Delete is in More, the same on every page of one thing (requirement 26). */}
-          <MoreMenu testId="note-editor-more">
+          <MoreMenu testId="note-editor-more" className="rounded-full hover:bg-ink/10">
             {(closeMenu) => (
               <MenuItem
                 icon="trash"

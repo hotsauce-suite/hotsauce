@@ -31,3 +31,40 @@ describe('Dialog with nothing to close to', () => {
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
   })
 })
+
+describe('Dialog with buttons beside the ×', () => {
+  it('starts focus on what the pop-up is for, not on its ⋯ More', () => {
+    render(
+      <Dialog
+        title="brief.pdf"
+        onClose={() => {}}
+        actions={
+          <button type="button" aria-label="More">
+            ⋯
+          </button>
+        }
+      >
+        <a href="/download">Download</a>
+      </Dialog>,
+    )
+    expect(screen.getByRole('link', { name: 'Download' })).toHaveFocus()
+  })
+
+  it('Escape closes only the pop-up on top', async () => {
+    const under = vi.fn()
+    const top = vi.fn()
+    render(
+      <>
+        <Dialog title="brief.pdf" onClose={under}>
+          <a href="/download">Download</a>
+        </Dialog>
+        <Dialog title="Rename" onClose={top}>
+          <input aria-label="Name" />
+        </Dialog>
+      </>,
+    )
+    await userEvent.keyboard('{Escape}')
+    expect(top).toHaveBeenCalledTimes(1)
+    expect(under).not.toHaveBeenCalled()
+  })
+})

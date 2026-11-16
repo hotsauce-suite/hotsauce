@@ -31,13 +31,20 @@ export function Dialog({
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
-    const first = panel.current?.querySelector<HTMLElement>(
-      'input, textarea, button:not([data-dialog-close]), [href], [tabindex]:not([tabindex="-1"])',
-    )
+    // Not the buttons at the top right (×, a file's ⋯ More): focus starts on what the pop-up is for.
+    const first = [
+      ...(panel.current?.querySelectorAll<HTMLElement>(
+        'input, textarea, button:not([data-dialog-close]), [href], [tabindex]:not([tabindex="-1"])',
+      ) ?? []),
+    ].find((el) => !el.closest('[data-dialog-actions]'))
     // Nothing to focus (a sheet of text): focus the panel, so keys and Tab stay inside it.
     ;(first ?? panel.current)?.focus()
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current()
+      if (event.key !== 'Escape') return
+      // Only the top pop-up closes (a Rename opened from a file's pop-up), not the one under it.
+      const open = document.querySelectorAll('[role="dialog"][aria-modal="true"]')
+      if (open[open.length - 1] !== panel.current) return
+      onCloseRef.current()
     }
     document.addEventListener('keydown', onKey)
     return () => {
@@ -72,7 +79,11 @@ export function Dialog({
           >
             {title}
           </h2>
-          {actions}
+          {actions ? (
+            <div data-dialog-actions className="-mt-1 flex items-center">
+              {actions}
+            </div>
+          ) : null}
           {/* Every pop-up closes from its top right (docs/PLAN-consistency.md, requirement 9). */}
           {closable ? (
             <button
