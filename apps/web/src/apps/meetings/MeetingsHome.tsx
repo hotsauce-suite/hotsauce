@@ -13,7 +13,9 @@ import type {
   MeetingSummary,
 } from '../../api/types'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { useListKeys } from '../../keyboard/listKeys'
 import { meetingUrl } from '../../lib/paths'
 import { useSession } from '../../state/session'
@@ -228,7 +230,12 @@ export default function MeetingsHome() {
               </h2>
               <Filters filters={filters} onChange={setFilters} />
             </div>
-            <MeetingList list={list.meetings} status={list.status} error={list.error} now={now} />
+            <MeetingList
+              list={list.meetings}
+              status={list.status}
+              onRetry={list.reload}
+              now={now}
+            />
           </section>
         </div>
       </div>
@@ -550,12 +557,12 @@ function Filters({
 function MeetingList({
   list,
   status,
-  error,
+  onRetry,
   now,
 }: {
   list: MeetingSummary[]
   status: 'loading' | 'ready' | 'error'
-  error: string | null
+  onRetry: () => void
   now: number
 }) {
   const session = useSession()
@@ -563,11 +570,13 @@ function MeetingList({
   const dated = list.filter((m) => m.date)
   return (
     <div data-testid="meeting-list" aria-busy={status === 'loading'} className="mt-4">
-      {status === 'error' ? <p className="text-sm text-ember-strong">{error}</p> : null}
+      {status === 'error' ? (
+        <LoadError things="meetings" onRetry={onRetry} className="mb-4" />
+      ) : null}
       {status === 'ready' && list.length === 0 ? (
-        <p className="text-sm text-ink-soft">
-          No meetings here yet. Notes you take land in your personal space.
-        </p>
+        <EmptyState icon="calendar" title="No meetings here yet" testId="meetings-empty">
+          Notes you take land in your personal space.
+        </EmptyState>
       ) : null}
       {groupByDay(dated, (m) => new Date(m.date)).map((group) => (
         <div key={dayKey(group.day)} className="mt-5 first:mt-0">
