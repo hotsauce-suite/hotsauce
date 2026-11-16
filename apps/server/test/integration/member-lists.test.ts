@@ -107,4 +107,16 @@ describe('member lists survive', () => {
     await start()
     expect(await call('GET', '/api/stars')).toEqual([])
   })
+
+  it('a rollback to the older release and back again (R6)', async () => {
+    await call('PUT', '/api/spaces/team/file', { path: 'docs/plan.md', content: '# Plan\n' })
+    await call('POST', '/api/stars', { space: 'team', path: 'docs/plan.md', starred: true })
+    stop()
+    // The older release ran meanwhile and Alice changed her pins there, in the index.
+    const raw = new Database(join(config.DATA_DIR, 'index.sqlite'))
+    raw.prepare('INSERT INTO pins VALUES (?, ?)').run(ALICE, '["notes"]')
+    raw.close()
+    await start()
+    expect(await call('GET', '/api/pins')).toEqual({ pins: ['notes'] })
+  })
 })

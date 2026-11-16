@@ -13,7 +13,7 @@ import { rebuildRegistryFromClones } from '../spaces/index.js'
 
 async function reindex(only: string | undefined): Promise<void> {
   loadEnvFile()
-  const { git, index, indexer } = createServices(loadConfig())
+  const { git, index, indexer, account } = createServices(loadConfig())
   try {
     const clones = await git.listClones()
     if (only !== undefined && !clones.includes(only)) {
@@ -27,6 +27,7 @@ async function reindex(only: string | undefined): Promise<void> {
     }
   } finally {
     index.close()
+    account.close()
   }
 }
 

@@ -80,9 +80,9 @@ describe('copying from the index (R4)', () => {
     pins: [{ user: A, apps: '["tasks","today"]' }],
   }
 
-  it('copies every row once; an unstar after it sticks', () => {
+  it('copies every row on first start; an unstar after it sticks', () => {
     const s = new AccountStore(':memory:')
-    expect(s.copyFromIndexOnce(() => old)).toBe(true)
+    expect(s.syncFromIndex(() => old)).toBe('copied')
     expect(s.listRecents(A, 20)).toEqual([
       { space: 'team', path: 'r.md', openedAt: '2026-11-01T00:00:00.000Z' },
     ])
@@ -91,36 +91,55 @@ describe('copying from the index (R4)', () => {
     expect(s.getPins(A)).toEqual(['tasks', 'today'])
 
     s.setStarred(A, 'team', 's.md', false)
-    let read = 0
-    expect(
-      s.copyFromIndexOnce(() => {
-        read++
-        return old
-      }),
-    ).toBe(false)
-    expect(read).toBe(0)
+    expect(s.syncFromIndex(() => old)).toBe('unchanged')
     expect(s.listStars(A)).toEqual([])
     s.close()
   })
 
-  it('keeps what is already here over the old copy', () => {
+  it('keeps what is already here over the old copy on first start', () => {
     const s = new AccountStore(':memory:')
     s.setPins(A, ['docs'])
     s.touchRecent(A, 'team', 'r.md')
-    s.copyFromIndexOnce(() => old)
+    s.syncFromIndex(() => old)
     expect(s.getPins(A)).toEqual(['docs'])
     expect(s.listRecents(A, 20)[0]?.openedAt).not.toBe('2026-11-01T00:00:00.000Z')
+    s.close()
+  })
+
+  it('after a rollback, what members did on the older release comes back on the next upgrade', () => {
+    const s = new AccountStore(':memory:')
+    s.syncFromIndex(() => old)
+    s.setStarred(A, 'team', 'new-here.md', true)
+    // The older release ran again: A unstarred s.md and re-pinned; B's lists are unchanged.
+    const onOlder: LegacyMemberLists = {
+      ...old,
+      stars: [{ user: B, space: 'team', path: 't.md' }],
+      pins: [{ user: A, apps: '["chat"]' }],
+    }
+    expect(s.syncFromIndex(() => onOlder)).toBe('replaced')
+    expect(s.listStars(A)).toEqual([])
+    expect(s.getPins(A)).toEqual(['chat'])
+    expect(s.listStars(B)).toEqual([{ space: 'team', path: 't.md' }])
+    expect(s.syncFromIndex(() => onOlder)).toBe('unchanged')
+    s.close()
+  })
+
+  it('ignores old tables a rebuilt index left empty', () => {
+    const s = new AccountStore(':memory:')
+    s.syncFromIndex(() => old)
+    expect(s.syncFromIndex(() => ({ recents: [], stars: [], pins: [] }))).toBe('unchanged')
+    expect(s.listStars(A)).toHaveLength(1)
     s.close()
   })
 
   it('copies nothing and tries again next start when reading the index fails', () => {
     const s = new AccountStore(':memory:')
     expect(() =>
-      s.copyFromIndexOnce(() => {
+      s.syncFromIndex(() => {
         throw new Error('disk')
       }),
     ).toThrow('disk')
-    expect(s.copyFromIndexOnce(() => old)).toBe(true)
+    expect(s.syncFromIndex(() => old)).toBe('copied')
     expect(s.listStars(A)).toHaveLength(1)
     s.close()
   })

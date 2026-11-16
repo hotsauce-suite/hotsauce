@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
@@ -35,15 +36,23 @@ const MIGRATIONS = [
     apps TEXT NOT NULL
   );
 
-  -- One-time steps already done to this file, by name (the copy out of the index).
-  CREATE TABLE done (
-    name TEXT PRIMARY KEY,
-    at   TEXT NOT NULL
+  -- Small facts about this file, by name: the fingerprint of the index's old tables when they
+  -- were last copied (AccountStore.syncFromIndex).
+  CREATE TABLE meta (
+    name  TEXT PRIMARY KEY,
+    value TEXT NOT NULL
   );
   `,
 ]
 
-const FROM_INDEX = 'copied-from-index'
+const INDEX_PRINT = 'index-lists-fingerprint'
+
+/** What syncFromIndex did. */
+export type SyncResult = 'copied' | 'unchanged' | 'replaced'
+
+function fingerprint(lists: LegacyMemberLists): string {
+  return createHash('sha256').update(JSON.stringify(lists)).digest('hex')
+}
 
 /**
  * Each member's recents, stars and rail pins, keyed by email. Its own SQLite file beside the
@@ -88,20 +97,34 @@ export class AccountStore {
   }
 
   /**
-   * Copies the lists an older release kept in the index into this file, once. `read` is called
-   * only the first time; later starts skip it, so an unstarred file never comes back from the
-   * old copy. Rows already here win over the old copy. All or nothing.
+   * Brings in the lists an older release keeps in the index's old tables. `read` must list rows in
+   * a stable order. All or nothing, in one IMMEDIATE transaction.
+   *
+   * - First start with this store: copies them, keeping any row already here.
+   * - Old tables unchanged since then: nothing, so an unstar here never comes back from them.
+   * - Old tables changed: an older release ran after this one (a rollback) and members used it,
+   *   so its lists replace these. Empty old tables are a rebuilt index, not a member's choice,
+   *   and are ignored.
    */
-  copyFromIndexOnce(read: () => LegacyMemberLists): boolean {
+  syncFromIndex(read: () => LegacyMemberLists): SyncResult {
     return this.#db
-      .transaction(() => {
-        if (this.#q.isDone.get(FROM_INDEX)) return false
+      .transaction((): SyncResult => {
         const old = read()
+        const print = fingerprint(old)
+        const seen = this.#q.getMeta.get(INDEX_PRINT)?.value
+        if (seen === print) return 'unchanged'
+        const empty = old.recents.length + old.stars.length + old.pins.length === 0
+        if (seen !== undefined && empty) return 'unchanged'
+        if (seen !== undefined) {
+          this.#q.clearRecents.run()
+          this.#q.clearStars.run()
+          this.#q.clearPins.run()
+        }
         for (const r of old.recents) this.#q.keepRecent.run(r.user, r.space, r.path, r.openedAt)
         for (const s of old.stars) this.#q.addStar.run(s.user, s.space, s.path)
         for (const p of old.pins) this.#q.keepPins.run(p.user, p.apps)
-        this.#q.markDone.run(FROM_INDEX, new Date().toISOString())
-        return true
+        this.#q.setMeta.run(INDEX_PRINT, print)
+        return seen === undefined ? 'copied' : 'replaced'
       })
       .immediate()
   }
@@ -141,8 +164,13 @@ export class AccountStore {
 
 function prepare(db: Database.Database) {
   return {
-    isDone: db.prepare<[string], { name: string }>('SELECT name FROM done WHERE name = ?'),
-    markDone: db.prepare<[string, string]>('INSERT OR IGNORE INTO done (name, at) VALUES (?, ?)'),
+    getMeta: db.prepare<[string], { value: string }>('SELECT value FROM meta WHERE name = ?'),
+    setMeta: db.prepare<[string, string]>(`
+      INSERT INTO meta (name, value) VALUES (?, ?)
+      ON CONFLICT (name) DO UPDATE SET value = excluded.value`),
+    clearRecents: db.prepare('DELETE FROM recents'),
+    clearStars: db.prepare('DELETE FROM stars'),
+    clearPins: db.prepare('DELETE FROM pins'),
 
     touchRecent: db.prepare<[string, string, string, string]>(`
       INSERT INTO recents (user, space, path, opened_at) VALUES (?, ?, ?, ?)

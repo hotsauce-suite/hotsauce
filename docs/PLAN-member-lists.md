@@ -20,22 +20,33 @@ own file, `DATA_DIR/account.sqlite`, which is backed up like Clips and Dictate.
 3. Deleting `index.sqlite` and starting again leaves every member's stars, pins and recents as
    they were, titles included once the space is indexed. (`test/integration/member-lists.test.ts`)
 4. The first start of this release copies the lists an older release left in `index.sqlite` into
-   `account.sqlite`, all or nothing, and only once: an unstar afterwards sticks through restarts.
+   `account.sqlite`, all or nothing; while those old tables stay as they were, it never copies
+   again, so an unstar afterwards sticks through restarts.
    Rows already in `account.sqlite` win over the old copy (a later open, saved pins).
    (`src/account/store.test.ts` "copying from the index"; `test/integration/member-lists.test.ts`)
 5. The API is unchanged: `GET/POST /api/recents`, `GET/POST /api/stars`, `GET/PUT /api/pins`
    return what they did, filtered to spaces the member can open. (`test/integration/api.test.ts`
    "recents and stars", "rail pins")
+6. After a rollback to the older release and an upgrade again, what members changed on the
+   older release (kept in the index's old tables) replaces the store's lists; old tables a
+   rebuilt index left empty are ignored. (`src/account/store.test.ts` "after a rollback",
+   "ignores old tables"; `test/integration/member-lists.test.ts` R6)
 
 ## Decisions taken
 
-- **The old tables stay in `index.sqlite`, unused.** Dropping them would need an index
+- **The old tables stay in `index.sqlite`, read only at start.** Dropping them would need an index
   migration, and a rollback to the previous release would then find its stars gone. A later
   release can drop them once no instance can roll back past this one.
 - **Titles still come from the index**, looked up per row (at most 20 recents and a member's
   stars), so a renamed doc shows its new title and an unindexed one shows none, as before.
-- **Copied once, marked in the new file.** Copying on every start would bring back what a member
-  unstarred.
+- **Copied when the old tables change, not on every start.** A fingerprint of the old tables is
+  saved with the copy. Copying on every start would bring back what a member unstarred; copying
+  only once would lose what members did on the older release after a rollback (found in review).
+  When the old tables did change, the older release's lists replace the store's whole: that is
+  what members last saw and used. What they changed on the newer release before the rollback is
+  lost, as it already was from their view on the older one.
+- **The newer release doesn't write to the old tables.** After a rollback the older release shows
+  the lists as they were when the newer one first started.
 
 ## Shared files touched
 

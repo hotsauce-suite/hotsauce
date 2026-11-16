@@ -236,9 +236,9 @@ export class Index {
   }
 
   /**
-   * Recents, stars and rail pins as releases before the account store kept them here. Read once,
-   * on the first start of a release that has the store (AccountStore.copyFromIndexOnce). The tables
-   * stay, unused, so a rollback to an older release still finds them.
+   * Recents, stars and rail pins as releases before the account store kept them here. Read on each
+   * start (AccountStore.syncFromIndex), in a stable order. The tables stay, so a rollback to an
+   * older release still finds them, and what members change there comes back on the next upgrade.
    */
   legacyMemberLists(): LegacyMemberLists {
     return {
@@ -396,12 +396,14 @@ function prepareStatements(db: Database.Database) {
       'SELECT title FROM files WHERE space = ? AND path = ?',
     ),
     legacyRecents: db.prepare<[], LegacyMemberLists['recents'][number]>(
-      'SELECT user, space, path, opened_at AS openedAt FROM recents',
+      'SELECT user, space, path, opened_at AS openedAt FROM recents ORDER BY user, space, path',
     ),
     legacyStars: db.prepare<[], LegacyMemberLists['stars'][number]>(
-      'SELECT user, space, path FROM stars',
+      'SELECT user, space, path FROM stars ORDER BY user, space, path',
     ),
-    legacyPins: db.prepare<[], LegacyMemberLists['pins'][number]>('SELECT user, apps FROM pins'),
+    legacyPins: db.prepare<[], LegacyMemberLists['pins'][number]>(
+      'SELECT user, apps FROM pins ORDER BY user',
+    ),
 
     getSpace: db.prepare<[string], SpaceRecord>(`
       SELECT name, kind, owner_email AS ownerEmail, created_at AS createdAt

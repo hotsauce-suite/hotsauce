@@ -225,7 +225,7 @@ conflicts(space, ref, path, created_at, PRIMARY KEY(space, ref))
 spaces(name PRIMARY KEY, kind CHECK(kind IN ('team','personal')), owner_email NULL, created_at)   -- personal spaces are bound to the owner's email, never to the derived handle alone
 ```
 
-Each member's recents, stars and rail pins are **not** in the index: they live in `DATA_DIR/account.sqlite` (`AccountStore`, `account/`), which is backed up and mirrored; their titles are looked up in the index per row. Releases before it kept them in the index's `recents`, `stars` and `pins` tables; the first start with the store copies them over once (marked in its `done` table), and those tables stay, unused, so a rollback still finds them (docs/PLAN-member-lists.md).
+Each member's recents, stars and rail pins are **not** in the index: they live in `DATA_DIR/account.sqlite` (`AccountStore`, `account/`), which is backed up and mirrored; their titles are looked up in the index per row. Releases before it kept them in the index's `recents`, `stars` and `pins` tables; the first start with the store copies them over, and those tables stay, so a rollback still finds them. Each start compares a fingerprint of them with the one saved in the store's `meta` table: changed (an older release ran after a rollback and members used it) means the older release's lists replace the store's; empty (a rebuilt index) is ignored (docs/PLAN-member-lists.md).
 
 Only `.md` files are indexed, and nothing under hidden folders (`.hearth/`, `.trash/`). `search()` returns `score` as negated bm25 (higher is better; title weighted 4x) and `snippet` with matches wrapped in `SNIPPET_OPEN` (`\u0002`) / `SNIPPET_CLOSE` (`\u0003`), which the web client splits on; snippets never carry HTML. Timestamps are ISO strings.
 

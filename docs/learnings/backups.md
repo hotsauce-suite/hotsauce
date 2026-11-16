@@ -20,6 +20,8 @@ Learnings from running nightly backups on a real instance (`docs/PLAN-backups-st
   adding a table to the index, ask whether Git could give it back; if not, it needs its own file
   under `DATA_DIR` (anything there except `index.sqlite` is backed up and mirrored with no extra
   code). `docs/PLAN-member-lists.md`.
-- **Moving data between SQLite files: copy once, mark it, leave the old rows.** A copy that runs on
-  every start resurrects what a member deleted since; dropping the old table blocks a rollback.
-  The marker lives in the new file, in the same transaction as the copy.
+- **Moving data between SQLite files: leave the old rows, and copy again only when they change.**
+  A copy on every start resurrects what a member deleted since; dropping the old table blocks a
+  rollback; a copy-once marker silently loses what members did on the older release after a
+  rollback and re-upgrade (the review caught this). Save a fingerprint of the old rows with the
+  copy, in the same transaction, and treat a changed fingerprint as "the older release ran".

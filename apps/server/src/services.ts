@@ -197,9 +197,10 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   })
   const host = createHostAdapter(config)
   const index = new Index(indexPath(config.DATA_DIR))
-  // Recents, stars and rail pins: their own backed-up file, filled from the index on first start.
+  // Recents, stars and rail pins: their own backed-up file, brought over from
+  // the index's old tables on first start, and again after a rollback changed them.
   const account = new AccountStore(accountPath(config.DATA_DIR))
-  account.copyFromIndexOnce(() => index.legacyMemberLists())
+  account.syncFromIndex(() => index.legacyMemberLists())
   const indexer = new Indexer(git, index)
   // Personal access tokens in front of Clerk (or dev) auth, everywhere a request is authenticated.
   const tokens = new TokenStore(config.DATA_DIR)
