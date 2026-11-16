@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "version": "0.29.2",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Every app now has its main button in the same place, at the top right: New doc, New note, New form, New table, New check-in, Save a link, Record a voice note."
+        },
+        {
+          "text": "New form and New table make it straight away and put the cursor in its name, so you type the name on the form or table itself."
+        },
+        {
+          "text": "On a phone, main buttons show their words instead of only an icon."
+        }
+      ]
+    },
+    {
       "version": "0.29.1",
       "date": "2026-11-16",
       "notes": [
