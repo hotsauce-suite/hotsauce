@@ -5,6 +5,14 @@ import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import {
+  inScope,
+  ListBar,
+  ListColumn,
+  matchesName,
+  scopeTabs,
+  useScope,
+} from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu, NewInSpaceButton, PageHeader } from '../../components/PageHeader'
@@ -21,6 +29,10 @@ export default function TablesPage() {
   const tables: TableSummary[] | null = list.data
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [q, setQ] = useState('')
+  const [scope, setScope] = useScope(['all', 'mine', 'team'])
+  const teamSpace = spaces.find((s) => s.kind === 'team')?.name ?? null
+  const shown = tables?.filter((t) => inScope(scope, t.space, teamSpace) && matchesName(t.title, q))
   const file = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -114,11 +126,14 @@ export default function TablesPage() {
         </NewInSpaceButton>
       </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
-          <p className="mb-5 text-sm text-ink-soft">
-            Trackers and lists with spreadsheet formulas, kept in {product()} so search and your AI
-            tools can read them. Import a .csv or Excel file, or start from scratch.
-          </p>
+        <ListColumn width="reading">
+          <ListBar
+            tabs={scopeTabs(['all', 'mine', 'team'], 'tables')}
+            tab={scope}
+            onTab={setScope}
+            tabsLabel="Whose tables"
+            search={{ value: q, onChange: setQ, label: 'Search tables', testId: 'tables-search' }}
+          />
           {error ? (
             <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
               {error}
@@ -129,12 +144,24 @@ export default function TablesPage() {
           ) : null}
           {!list.failed && tables && tables.length === 0 ? (
             <EmptyState icon="table" title="No tables yet" testId="tables-empty">
-              Press New table, or import a file. A form’s answers can open as a table too: Forms → a
-              form → Answers → Open as a table.
+              Trackers and lists with spreadsheet formulas, kept in {product()} so search and your
+              AI tools can read them. Press New table, or import a .csv or Excel file. A form’s
+              answers can open as a table too: Forms → a form → Answers → Open as a table.
+            </EmptyState>
+          ) : null}
+          {tables && tables.length > 0 && shown?.length === 0 ? (
+            <EmptyState
+              icon="table"
+              title={q.trim() ? 'No tables match that' : 'No tables here yet'}
+              testId="tables-no-match"
+            >
+              {q.trim()
+                ? 'Search looks at table names.'
+                : 'Tables in this space show under this tab.'}
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="tables-list">
-            {(tables ?? []).map((t) => (
+            {(shown ?? []).map((t) => (
               <li key={`${t.space}/${t.id}`}>
                 <Link
                   to={`/tables/${encodeURIComponent(t.space)}/${t.id}`}
@@ -149,7 +176,7 @@ export default function TablesPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </ListColumn>
       </div>
     </>
   )

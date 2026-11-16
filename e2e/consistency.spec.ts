@@ -336,3 +336,224 @@ test.describe('a phone’s top bar', () => {
       await expect(page.getByRole('menuitem', { name })).toBeVisible()
   })
 })
+
+// Round 3, requirements 12 to 18: one row above every list. Tabs on the left, search on the
+// right, right under the top bar; no search field in the top bar; two page widths; the intro
+// paragraph only on the empty screen; on a phone the search sits under the tabs, full width.
+
+interface ListRow {
+  name: string
+  url: string
+  /** The tabs in order, or null where the list has none. */
+  tabs: string[] | null
+  search: string
+  width: 'reading' | 'gallery'
+}
+
+const LIST_ROWS: ListRow[] = [
+  {
+    name: 'Clips',
+    url: '/clips',
+    tabs: ['Personal', 'Team'],
+    search: 'clips-search',
+    width: 'gallery',
+  },
+  {
+    name: 'Boards',
+    url: '/boards',
+    tabs: ['Personal', 'Team'],
+    search: 'boards-search',
+    width: 'gallery',
+  },
+  {
+    name: 'Notes',
+    url: '/notes',
+    tabs: ['All', 'Personal', 'Team'],
+    search: 'notes-search',
+    width: 'gallery',
+  },
+  { name: 'Files', url: '/files', tabs: null, search: 'files-search', width: 'gallery' },
+  {
+    name: 'Links',
+    url: '/links',
+    tabs: ['Unread', 'Archive', 'Highlights'],
+    search: 'links-search',
+    width: 'reading',
+  },
+  {
+    name: 'Forms',
+    url: '/forms',
+    tabs: ['All', 'Personal', 'Team'],
+    search: 'forms-search',
+    width: 'reading',
+  },
+  {
+    name: 'Tables',
+    url: '/tables',
+    tabs: ['All', 'Personal', 'Team'],
+    search: 'tables-search',
+    width: 'reading',
+  },
+  {
+    name: 'Pages',
+    url: '/pages',
+    tabs: ['All', 'Personal', 'Team'],
+    search: 'pages-search',
+    width: 'reading',
+  },
+  { name: 'Check-ins', url: '/checkins', tabs: null, search: 'checkins-search', width: 'reading' },
+  { name: 'People', url: '/people', tabs: null, search: 'people-search', width: 'reading' },
+]
+
+for (const width of [
+  { label: 'computer', viewport: { width: 1280, height: 800 } },
+  { label: 'phone', viewport: { width: 390, height: 844 } },
+]) {
+  test.describe(`the row above a list, on a ${width.label}`, () => {
+    test.use({ viewport: width.viewport })
+    const phone = width.label === 'phone'
+    const columns: Record<string, number> = {}
+
+    for (const app of LIST_ROWS) {
+      test(`${app.name}: tabs on the left, search on the right`, async ({ page }) => {
+        await page.goto(app.url)
+        const header = page.getByTestId('page-header')
+        const row = page.getByTestId('list-bar')
+        await expect(row).toHaveCount(1)
+        await expect(row).toBeVisible()
+        // The search is in the row, never in the top bar.
+        await expect(header.locator('input[type="search"]')).toHaveCount(0)
+        const search = row.getByTestId(app.search)
+        await expect(search).toBeVisible()
+
+        const column = page.locator(`[data-list-width="${app.width}"]`)
+        await expect(column).toHaveCount(1)
+        const [bar, rowBox, searchBox, col] = await Promise.all([
+          header.boundingBox(),
+          row.boundingBox(),
+          search.boundingBox(),
+          column.boundingBox(),
+        ])
+        if (!bar || !rowBox || !searchBox || !col) throw new Error('nothing to measure')
+        // The row is the first thing under the top bar.
+        expect(rowBox.y - (bar.y + bar.height)).toBeLessThanOrEqual(32)
+        // The search ends at the row's right edge.
+        expect(
+          Math.abs(rowBox.x + rowBox.width - (searchBox.x + searchBox.width)),
+        ).toBeLessThanOrEqual(2)
+
+        if (app.tabs) {
+          const tabs = row.getByRole('tab')
+          await expect(tabs).toHaveText(app.tabs)
+          await expect(row.getByRole('tab', { selected: true })).toHaveText(app.tabs[0] as string)
+          const first = await tabs.first().boundingBox()
+          if (!first) throw new Error('no tabs')
+          // The tabs start at the row's left edge.
+          expect(first.x - rowBox.x).toBeLessThanOrEqual(8)
+          if (phone) {
+            // On a phone the search is under the tabs.
+            expect(searchBox.y).toBeGreaterThan(first.y + first.height - 1)
+          } else {
+            expect(searchBox.x).toBeGreaterThan(first.x + first.width)
+            expect(
+              Math.abs(searchBox.y + searchBox.height / 2 - (first.y + first.height / 2)),
+            ).toBeLessThanOrEqual(6)
+          }
+        }
+        if (phone) {
+          // Full width, and nothing makes the page scroll sideways.
+          expect(searchBox.width).toBeGreaterThanOrEqual(rowBox.width - 2)
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth),
+          ).toBeLessThanOrEqual(390)
+        }
+        // Every list of one kind is the same width.
+        columns[app.width] ??= col.width
+        expect(col.width).toBe(columns[app.width])
+      })
+    }
+  })
+}
+
+test.describe('the row above a list', () => {
+  test('Forms: search filters by name, and the tabs sort Personal from Team', async ({ page }) => {
+    const id = uid()
+    await page.goto('/forms')
+    await newForm(page, `Lunch order ${id}`)
+    await page.goto('/forms')
+    const rows = page.getByTestId('forms-list').getByRole('listitem')
+    await expect(rows.filter({ hasText: `Lunch order ${id}` })).toHaveCount(1)
+    // With something in the list the intro paragraph is gone.
+    await expect(page.getByText('Surveys, sign-ups and requests')).toHaveCount(0)
+
+    await page.getByTestId('forms-search').fill(`order ${id} lunch`)
+    await expect(rows).toHaveCount(1)
+    await page.getByTestId('forms-search').fill(`nothing-${id}`)
+    await expect(rows).toHaveCount(0)
+    await expect(page.getByTestId('forms-no-match')).toContainText('No forms match that')
+    await page.getByTestId('forms-search').fill('')
+
+    // The form is in one space, so it shows under exactly one of Personal and Team.
+    const mine = rows.filter({ hasText: `Lunch order ${id}` })
+    await page.getByTestId('forms-scope-mine').click()
+    await expect(page).toHaveURL(/scope=mine/)
+    const underPersonal = await mine.count()
+    await page.getByTestId('forms-scope-team').click()
+    await expect(page).toHaveURL(/scope=team/)
+    expect(underPersonal + (await mine.count())).toBe(1)
+    // The tab is in the address, so a reload keeps it.
+    await page.reload()
+    await expect(page.getByTestId('forms-scope-team')).toHaveAttribute('aria-selected', 'true')
+    await page.getByTestId('forms-scope-all').click()
+    await expect(page).not.toHaveURL(/scope=/)
+    await expect(mine).toHaveCount(1)
+  })
+
+  for (const app of [
+    {
+      name: 'Forms',
+      url: '/forms',
+      api: '/api/forms',
+      key: 'forms',
+      intro: 'Surveys, sign-ups and requests',
+    },
+    {
+      name: 'Tables',
+      url: '/tables',
+      api: '/api/tables',
+      key: 'tables',
+      intro: 'Trackers and lists',
+    },
+    { name: 'Pages', url: '/pages', api: '/api/pages', key: 'pages', intro: 'Plans and reports' },
+    {
+      name: 'Check-ins',
+      url: '/checkins',
+      api: '/api/checkins',
+      key: 'checkins',
+      intro: 'A question the team answers',
+    },
+  ]) {
+    test(`${app.name}: the intro shows only on the empty screen`, async ({ page }) => {
+      await page.route(
+        (url) => url.pathname === app.api,
+        async (route) => {
+          const response = await route.fetch()
+          await route.fulfill({ response, json: { ...(await response.json()), [app.key]: [] } })
+        },
+      )
+      await page.goto(app.url)
+      await expect(page.locator('[data-empty-state]')).toContainText(app.intro)
+    })
+  }
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 } })
+    test('Files: search and the folder path are in the row', async ({ page }) => {
+      await page.goto('/files')
+      await expect(page.getByTestId('files-search')).toBeVisible()
+      await expect(
+        page.getByTestId('list-bar').getByRole('navigation', { name: 'Folder' }),
+      ).toBeVisible()
+    })
+  })
+})

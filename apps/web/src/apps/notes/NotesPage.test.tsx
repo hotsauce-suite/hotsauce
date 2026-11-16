@@ -30,7 +30,10 @@ describe('the board', () => {
     const sections = screen.getAllByTestId('notes-section')
     expect(within(sections[0] as HTMLElement).getByText('Pinned')).toBeInTheDocument()
     expect(cardTitles()).toEqual(['Groceries', 'Board meeting ideas', 'Offsite packing list'])
-    expect(screen.getAllByText('Team')).toHaveLength(1)
+    // One card is marked as the team's (the other "Team" on the page is the tab).
+    expect(
+      screen.getAllByText('Team').filter((el) => el.getAttribute('role') !== 'tab'),
+    ).toHaveLength(1)
     // A checklist card shows its open items; the ticked one is summarized.
     expect(screen.getByText('Oat milk')).toBeInTheDocument()
     expect(screen.getByText('1 ticked')).toBeInTheDocument()

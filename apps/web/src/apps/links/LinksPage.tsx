@@ -14,6 +14,7 @@ import {
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { ListBar, ListColumn } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton, PageHeader } from '../../components/PageHeader'
 import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
@@ -202,12 +203,31 @@ export default function LinksPage() {
         data-testid="links-drop"
         {...dropProps}
       >
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
-          <p className="mb-4 text-sm text-ink-soft">
-            Pages, PDFs and papers saved to read later. Each keeps a readable copy, so search, Ask
-            and your AI tools can find it.
-          </p>
-          <form onSubmit={save} className="mb-1 flex gap-2">
+        <ListColumn width="reading">
+          <ListBar
+            tabs={[
+              { id: 'unread', label: 'Unread', testId: 'links-view-unread' },
+              { id: 'archive', label: 'Archive', testId: 'links-view-archive' },
+              { id: 'highlights', label: 'Highlights', testId: 'links-view-highlights' },
+            ]}
+            tab={view}
+            onTab={(v) => set('view', v === 'unread' ? '' : v)}
+            tabsLabel="Which saved pages"
+            search={{
+              value: q,
+              onChange: (value) => {
+                setQ(value)
+                if (!value) set('q', '')
+              },
+              onSubmit: () => set('q', q.trim()),
+              label: 'Search saved pages',
+              placeholder:
+                view === 'highlights' ? 'Search highlights and notes' : 'Search saved pages',
+              testId: 'links-search',
+            }}
+            className="mb-4"
+          />
+          <form onSubmit={save} className="mb-4 flex gap-2">
             <input
               data-testid="links-paste"
               className={inputClass}
@@ -253,45 +273,6 @@ export default function LinksPage() {
             </p>
           ) : null}
 
-          <div className="mt-5 mb-3 flex flex-wrap items-center gap-2">
-            <div className="flex rounded-lg border border-ash-strong p-0.5" role="tablist">
-              {(['unread', 'archive', 'highlights'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="tab"
-                  aria-selected={view === v}
-                  data-testid={`links-view-${v}`}
-                  onClick={() => set('view', v === 'unread' ? '' : v)}
-                  className={`h-8 rounded-md px-3 text-sm ${view === v ? 'bg-ash text-ink' : 'text-ink-soft hover:text-ink'}`}
-                >
-                  {v === 'unread' ? 'Unread' : v === 'archive' ? 'Archive' : 'Highlights'}
-                </button>
-              ))}
-            </div>
-            <form
-              className="min-w-40 flex-1"
-              onSubmit={(e) => {
-                e.preventDefault()
-                set('q', q.trim())
-              }}
-            >
-              <input
-                data-testid="links-search"
-                className={`${inputClass} h-9`}
-                type="search"
-                placeholder={
-                  view === 'highlights' ? 'Search highlights and notes' : 'Search saved pages'
-                }
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value)
-                  if (!e.target.value) set('q', '')
-                }}
-                aria-label="Search saved pages"
-              />
-            </form>
-          </div>
           {tags.length > 0 && view !== 'highlights' ? (
             <fieldset className="mb-4 flex flex-wrap gap-1.5">
               <legend className="sr-only">Tags</legend>
@@ -332,7 +313,7 @@ export default function LinksPage() {
               ))}
             </ul>
           )}
-        </div>
+        </ListColumn>
       </div>
     </>
   )
@@ -398,8 +379,9 @@ function EmptyList({ view, filtered }: { view: 'unread' | 'archive'; filtered: b
   }
   return (
     <EmptyState icon="bookmark" title="Nothing to read yet" testId="links-empty">
-      Paste a link above, click the Chrome extension, or share a page to {product()} from your
-      phone.
+      Pages, PDFs and papers saved to read later. Each keeps a readable copy, so search, Ask and
+      your AI tools can find it. Paste a link above, click the Chrome extension, or share a page to{' '}
+      {product()} from your phone.
     </EmptyState>
   )
 }

@@ -32,7 +32,9 @@ test('take a note and a checklist, edit, color, pin and label them, and they sur
 }) => {
   const id = uid()
   await page.goto('/notes')
-  await expect(page.getByTestId('notes-title')).toHaveText('Notes')
+  await expect(page.getByTestId('page-header')).toContainText('Notes')
+  // The bar names the app once; the list doesn't repeat it (PLAN-consistency, requirement 15).
+  await expect(page.getByTestId('notes-title')).toHaveCount(0)
 
   await page.getByTestId('notes-take-note').click()
   await page.getByTestId('composer-title').fill(`Plumber ${id}`)

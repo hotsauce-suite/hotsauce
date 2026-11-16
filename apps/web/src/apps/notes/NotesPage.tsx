@@ -8,6 +8,14 @@ import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import {
+  inScope,
+  ListBar,
+  ListColumn,
+  listHeading,
+  scopeTabs,
+  useScope,
+} from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton, PageHeader } from '../../components/PageHeader'
 import { focusedRow, followRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
@@ -245,7 +253,11 @@ export default function NotesPage() {
     }
   }
 
-  const notes = list.notes
+  const [scope, setScope] = useScope(['all', 'mine', 'team'])
+  const notes = useMemo(
+    () => list.notes?.filter((n) => inScope(scope, n.space, teamSpace)) ?? null,
+    [list.notes, scope, teamSpace],
+  )
   const { pinned, others } = useMemo(() => splitPinned(notes ?? []), [notes])
   const listView = listQuery.view
   const title =
@@ -260,21 +272,6 @@ export default function NotesPage() {
   return (
     <>
       <PageHeader title="Notes">
-        <label className="relative flex min-w-0 items-center">
-          <span className="sr-only">Search notes</span>
-          <Icon
-            name="search"
-            className="pointer-events-none absolute left-2.5 size-4 text-ink-faint"
-          />
-          <input
-            type="search"
-            value={q}
-            placeholder="Search"
-            data-testid="notes-search"
-            onChange={(e) => setQ(e.target.value)}
-            className="h-9 w-28 min-w-0 rounded-lg border border-ash bg-paper-raised pr-2 pl-8 text-sm text-ink outline-none focus:border-ember sm:w-56"
-          />
-        </label>
         <MainButton
           icon="plus"
           testId="notes-new"
@@ -289,18 +286,25 @@ export default function NotesPage() {
         </MainButton>
       </PageHeader>
       <div data-testid="notes-page" data-view={listView} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-6xl px-3 pt-5 pb-28 md:px-8 md:pt-8">
-          <div className="mb-4 flex items-baseline gap-3 px-1">
-            <h1
-              data-testid="notes-title"
-              className="min-w-0 truncate font-display text-[1.9rem] leading-tight font-semibold tracking-tight text-ink"
-            >
-              {title}
-            </h1>
-            {listView === 'trash' && notes && notes.length > 0 ? (
-              <span className="text-sm text-ink-faint">Notes here are deleted after 30 days</span>
-            ) : null}
-          </div>
+        <ListColumn width="gallery" className="pb-28">
+          <ListBar
+            tabs={scopeTabs(['all', 'mine', 'team'], 'notes')}
+            tab={scope}
+            onTab={setScope}
+            tabsLabel="Whose notes"
+            search={{ value: q, onChange: setQ, label: 'Search notes', testId: 'notes-search' }}
+          />
+          {/* The top bar already says "Notes"; only another view (a label, Archive, Trash) is named. */}
+          {title !== 'Notes' ? (
+            <div className="mb-4 flex items-baseline gap-3 px-1">
+              <h2 data-testid="notes-title" className={`min-w-0 truncate ${listHeading}`}>
+                {title}
+              </h2>
+              {listView === 'trash' && notes && notes.length > 0 ? (
+                <span className="text-sm text-ink-faint">Notes here are deleted after 30 days</span>
+              ) : null}
+            </div>
+          ) : null}
 
           {listView === 'board' && !q ? (
             <div className="mb-7">
@@ -347,7 +351,7 @@ export default function NotesPage() {
               />
             </div>
           )}
-        </div>
+        </ListColumn>
       </div>
 
       {openNote ? (

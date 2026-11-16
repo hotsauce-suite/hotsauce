@@ -4,6 +4,14 @@ import { type FormSummary, formsApi } from '../../api/forms'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import {
+  inScope,
+  ListBar,
+  ListColumn,
+  matchesName,
+  scopeTabs,
+  useScope,
+} from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { NewInSpaceButton, PageHeader } from '../../components/PageHeader'
 import { useLoad } from '../../hooks/useLoad'
@@ -26,6 +34,10 @@ export default function FormsPage() {
   const forms: FormSummary[] | null = list.data
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [q, setQ] = useState('')
+  const [scope, setScope] = useScope(['all', 'mine', 'team'])
+  const teamSpace = spaces.find((s) => s.kind === 'team')?.name ?? null
+  const shown = forms?.filter((f) => inScope(scope, f.space, teamSpace) && matchesName(f.title, q))
 
   useEffect(() => {
     document.title = `Forms · ${product()}`
@@ -56,11 +68,14 @@ export default function FormsPage() {
         </NewInSpaceButton>
       </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
-          <p className="mb-5 text-sm text-ink-soft">
-            Surveys, sign-ups and requests whose answers land in {product()}. Share a form with the
-            team, or with anyone who has the link.
-          </p>
+        <ListColumn width="reading">
+          <ListBar
+            tabs={scopeTabs(['all', 'mine', 'team'], 'forms')}
+            tab={scope}
+            onTab={setScope}
+            tabsLabel="Whose forms"
+            search={{ value: q, onChange: setQ, label: 'Search forms', testId: 'forms-search' }}
+          />
           {error ? (
             <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
               {error}
@@ -69,11 +84,23 @@ export default function FormsPage() {
           {list.failed ? <LoadError things="forms" onRetry={list.reload} className="mb-4" /> : null}
           {!list.failed && forms && forms.length === 0 ? (
             <EmptyState icon="form" title="No forms yet" testId="forms-empty">
-              Press New form to start. Answers land here, and can open as a table.
+              Surveys, sign-ups and requests whose answers land in {product()}. Press New form to
+              start; share it with the team, or with anyone who has the link.
+            </EmptyState>
+          ) : null}
+          {forms && forms.length > 0 && shown?.length === 0 ? (
+            <EmptyState
+              icon="form"
+              title={q.trim() ? 'No forms match that' : 'No forms here yet'}
+              testId="forms-no-match"
+            >
+              {q.trim()
+                ? 'Search looks at form names.'
+                : 'Forms in this space show under this tab.'}
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="forms-list">
-            {(forms ?? []).map((f) => (
+            {(shown ?? []).map((f) => (
               <li key={`${f.space}/${f.id}`}>
                 <Link
                   to={`/forms/${encodeURIComponent(f.space)}/${f.id}`}
@@ -99,7 +126,7 @@ export default function FormsPage() {
               </li>
             ))}
           </ul>
-        </div>
+        </ListColumn>
       </div>
     </>
   )

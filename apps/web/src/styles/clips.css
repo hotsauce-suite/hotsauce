@@ -10,14 +10,20 @@
   border-radius: 0.6rem;
   background: var(--paper-sunk);
 }
-.clips-tabs button {
+.clips-tabs button,
+.clips-tabs a {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  white-space: nowrap;
   height: 1.9rem;
   padding: 0 0.85rem;
   border-radius: 0.45rem;
   font-size: 0.85rem;
   color: var(--ink-soft);
 }
-.clips-tabs button[aria-selected="true"] {
+.clips-tabs button[aria-selected="true"],
+.clips-tabs a[aria-selected="true"] {
   background: var(--paper-raised);
   color: var(--ink);
   font-weight: 500;
