@@ -83,8 +83,57 @@ describe('Getting started on Today', () => {
       'href',
       '/settings/connections#calendars',
     )
-    // It isn't worded as an error.
-    expect(screen.queryByTestId('today-calendar-error')).toBeNull()
+    // The server's own sentence, which says how, stays in view under it.
+    expect(within(connect).getByTestId('today-calendar-error')).toHaveTextContent(
+      'Google Calendar is not connected.',
+    )
+  })
+
+  it('T1: a calendar that fails to load is neither ticked nor offered, and never finishes the tile', async () => {
+    await dictationApi.connect('My Mac')
+    const done = updateTile(offerGettingStarted(defaultTodayLayout()), {
+      id: 'start',
+      kind: 'start',
+      openedDocs: true,
+    })
+    server.use(
+      http.get('/api/today/layout', () => HttpResponse.json({ layout: done, saved: true })),
+      http.get('/api/calendar/upcoming', () =>
+        HttpResponse.json(
+          { error: { code: 'upstream', message: 'Your calendar didn’t load right now.' } },
+          { status: 502 },
+        ),
+      ),
+    )
+    const saves = watchSaves()
+    renderApp('/today')
+    await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('mac')?.dataset.done).toBe('true'))
+    expect(step('calendar')?.dataset.done).toBe('false')
+    expect(screen.queryByTestId('today-start-calendar')).toBeNull()
+    expect(screen.queryByTestId('today-start-finished')).toBeNull()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(saves).toHaveLength(0)
+  })
+
+  it('T1: an older server that does not say `connected` counts its calendar error as not connected', async () => {
+    server.use(
+      http.get('/api/today', () =>
+        HttpResponse.json({
+          date: '2026-11-16',
+          meetings: { events: [], error: 'Google Calendar is not connected.' },
+          tasks: [],
+          actionItems: [],
+          notes: [],
+          docs: [],
+          briefcast: null,
+        }),
+      ),
+    )
+    renderApp('/today')
+    await screen.findByTestId('today-start')
+    expect(step('calendar')?.dataset.done).toBe('false')
+    expect(screen.getByTestId('today-start-calendar')).toBeInTheDocument()
   })
 
   it('T1: a connected Mac ticks the Mac step', async () => {
@@ -114,7 +163,6 @@ describe('Getting started on Today', () => {
     await screen.findByTestId('today-start')
     await waitFor(() => expect(step('mac')).toBeUndefined())
     expect(screen.getByTestId('today-start-count')).toHaveTextContent('1 of 2')
-    expect(screen.getByTestId('today-start')).toHaveTextContent('Two things')
   })
 
   it('T1: on a phone the second step is the Home Screen', async () => {
@@ -162,6 +210,33 @@ describe('Getting started on Today', () => {
     await new Promise((r) => setTimeout(r, 50))
     expect(saves).toHaveLength(1)
     expect(screen.getByTestId('today-start')).toBeInTheDocument()
+  })
+
+  it('T4: a later save in the same visit does not put the finished tile back', async () => {
+    await dictationApi.connect('My Mac')
+    const done = updateTile(offerGettingStarted(defaultTodayLayout()), {
+      id: 'start',
+      kind: 'start',
+      openedDocs: true,
+    })
+    server.use(
+      http.get('/api/today/layout', () => HttpResponse.json({ layout: done, saved: true })),
+    )
+    const saves = watchSaves()
+    renderApp('/today')
+    await screen.findByTestId('today-start-finished')
+    await waitFor(() => expect(saves).toHaveLength(1))
+    // Arrange Today: the tile isn't among what's being arranged, and Done saves without it.
+    await userEvent.click(screen.getByTestId('today-edit'))
+    expect(screen.getAllByTestId('today-edit-tile').map((el) => el.dataset.tileId)).not.toContain(
+      'start',
+    )
+    await userEvent.click(screen.getByTestId('today-add-tile'))
+    await userEvent.click(screen.getByTestId('today-add-starred'))
+    await userEvent.click(screen.getByTestId('today-done'))
+    await waitFor(() => expect(saves).toHaveLength(2))
+    expect(kinds(saves[1] as TodayLayout)).toContain('starred')
+    expect(kinds(saves[1] as TodayLayout)).not.toContain('start')
   })
 
   it('is one of the tiles Add tile offers once hidden', async () => {

@@ -85,6 +85,8 @@ export interface TodayTilesProps {
   refresh: number
   editing: boolean
   onChange: (layout: TodayLayout) => void
+  /** Every Getting started step is done: save it away, keeping it on screen for this visit. */
+  onStartFinished: (tile: TodayTile) => void
   onTaskDone: (task: TaskView) => void
   onTaskAdded: (task: TaskView) => void
 }
@@ -353,6 +355,7 @@ function TileBody({
   editing,
   layout,
   onChange,
+  onStartFinished,
   onTaskDone,
   onTaskAdded,
 }: TodayTilesProps & { tile: TodayTile }): ReactNode {
@@ -396,7 +399,14 @@ function TileBody({
       return <WeekTile now={now} refresh={refresh} />
     case 'start':
       return (
-        <StartTile tile={tile} layout={layout} view={view} editing={editing} onChange={onChange} />
+        <StartTile
+          tile={tile}
+          layout={layout}
+          view={view}
+          editing={editing}
+          onChange={onChange}
+          onFinished={onStartFinished}
+        />
       )
   }
 }

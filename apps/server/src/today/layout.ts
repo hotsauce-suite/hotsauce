@@ -37,7 +37,8 @@ export class TodayLayouts {
 
   async get(principal: Principal): Promise<TodayLayoutView> {
     const space = await this.#personalSpace(principal)
-    if (!space) return { layout: offerGettingStarted(defaultTodayLayout()), saved: false }
+    // Nowhere to save, so nothing they could hide or finish: no Getting started.
+    if (!space) return { layout: defaultTodayLayout(), saved: false }
     let content: string
     try {
       content = (await this.#deps.git.readFile(space, TODAY_LAYOUT_PATH)).content

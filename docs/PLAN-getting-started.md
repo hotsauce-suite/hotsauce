@@ -28,6 +28,9 @@ thing on the page.
 - No new storage: the tile is a tile. Whether it has been dealt with lives in the member's Today
   layout file, in Git.
 
+Known and accepted: a browser tab still running the previous release shows the tile as an unknown
+kind, and its Edit Today fails until the tab reloads (new versions install themselves).
+
 A fact found while building: a calendar is connected by signing in with Google and allowing
 calendar access; there is no separate connect button. A member who signs in with an emailed code
 can't connect one, so for them step 1 stays open until they hide the tile.
@@ -47,10 +50,11 @@ Each maps to a test, named in brackets.
   same regardless of the mark (replay), and leaves a layout that has the tile alone.
   [format today.test]
 - F4. `GET /api/today/layout` offers the tile on the default layout and on a saved layout from
-  before this feature; a layout saved without the tile afterwards doesn't get it back.
+  before this feature; a layout saved without the tile afterwards doesn't get it back. A member
+  with no personal space, who couldn't save hiding it, isn't offered it.
   [integration today-layout.test]
 - F5. `GET /api/today` says `meetings.connected: false` when the member has no calendar grant, and
-  `true` otherwise (including a calendar that failed to load just now). [server today service test]
+  `true` otherwise (including a calendar that failed to load just now). [integration today.test]
 
 **The tile**
 
@@ -62,19 +66,21 @@ Each maps to a test, named in brackets.
 - T3. "Hide" saves the layout without the tile; it disappears at once. [StartTile.test,
   e2e getting-started.spec]
 - T4. With every step done the tile says "You're set", saves the layout without the tile once, and
-  stays for this visit. [StartTile.test]
+  stays for this visit. A later save in that visit doesn't put it back. A calendar that is
+  connected but failed to load just now is not known either way: it is neither ticked nor
+  offered, and the tile doesn't finish on it. [StartTile.test]
 - T5. While the tile shows, the separate "Get the Mac app" card at the bottom of Today doesn't.
-  [TodayPage.test]
+  [StartTile.test]
 - T6. The Meetings tile, with no calendar connected, says what connecting gives you and has a
   "Connect calendar" button to Settings → Connections. Another calendar error keeps its sentence
-  and its Settings link. [DayTiles test in TodayPage.test]
+  and its Settings link. The server's own sentence (which says how to connect) stays under the button. [StartTile.test, TodayPage.test T6]
 
 **Replay**
 
 - R1. The help strip under the Settings menu has "Getting started", linking to `/today?start=1`.
-  [settingsPages.test]
+  [StartTile.test]
 - R2. Opening `/today?start=1` puts the tile back at the top (fresh, nothing recorded) if it isn't
-  showing, saves that, and drops `?start=1` from the address. [TodayPage.test,
+  showing, saves that, and drops `?start=1` from the address. [StartTile.test,
   e2e getting-started.spec]
 
 **Journey**

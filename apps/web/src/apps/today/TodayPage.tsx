@@ -1,8 +1,10 @@
 import {
   defaultTodayLayout,
   layoutTiles,
+  removeTile,
   showGettingStarted,
   type TodayLayout,
+  type TodayTile,
 } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
@@ -133,6 +135,7 @@ export default function TodayPage() {
               refresh={loadedAt.getTime()}
               editing={layouts.draft !== null}
               onChange={layouts.change}
+              onStartFinished={layouts.finish}
               onTaskDone={removeTask}
               onTaskAdded={addTask}
             />
@@ -214,7 +217,13 @@ function useLayout() {
     )
   }, [replay, layout !== null])
 
-  const current = layout ?? (loadFailed ? defaultTodayLayout() : null)
+  // A finished Getting started tile: already saved away, but kept on screen for this visit.
+  const [lingering, setLingering] = useState<TodayTile | null>(null)
+  const saved = layout ?? (loadFailed ? defaultTodayLayout() : null)
+  const current: TodayLayout | null =
+    saved && lingering
+      ? { schema: 1, columns: [[lingering, ...saved.columns[0]], saved.columns[1]] }
+      : saved
   return {
     shown: draft ?? current,
     draft,
@@ -241,9 +250,24 @@ function useLayout() {
     change: (next: TodayLayout) => {
       if (draft) setDraft(next)
       else if (layout) {
-        setLayout(next)
-        void save(next)
+        // The lingering tile is only on screen: it never goes back into what is saved.
+        const real = lingering ? removeTile(next, lingering.id) : next
+        if (lingering && !layoutTiles(next).some((t) => t.id === lingering.id)) setLingering(null)
+        setLayout(real)
+        void save(real)
       }
+    },
+    /**
+     * Getting started is finished: save the layout without it, through the same path as every
+     * other save, and keep the tile on screen until the page is left.
+     */
+    finish: (tile: TodayTile) => {
+      if (draft || !layout || lingering) return
+      if (!layoutTiles(layout).some((t) => t.id === tile.id)) return
+      const without = removeTile(layout, tile.id)
+      setLingering(tile)
+      setLayout(without)
+      void save(without)
     },
   }
 }

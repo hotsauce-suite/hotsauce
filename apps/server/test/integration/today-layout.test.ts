@@ -139,6 +139,12 @@ describe('Today layout', () => {
     expect(got.layout.columns[0].map((t: { kind: string }) => t.kind)).toEqual(['start', 'tasks'])
   })
 
+  it('is not offered to a member with nowhere to save it', async () => {
+    vi.spyOn(services.spaces, 'visibleSpaces').mockResolvedValue([])
+    const got = await (await call('GET', '/api/today/layout')).json()
+    expect(got).toEqual({ layout: defaultTodayLayout(), saved: false })
+  })
+
   it('refuses something that is not a layout', async () => {
     const res = await call('PUT', '/api/today/layout', ALICE, { layout: { columns: 'no' } })
     expect(res.status).toBe(400)

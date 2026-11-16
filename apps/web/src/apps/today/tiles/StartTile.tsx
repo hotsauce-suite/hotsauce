@@ -3,10 +3,10 @@
 // a click, except "see the docs", which nothing else can show.
 
 import { removeTile, type TodayLayout, type TodayTile, updateTile } from '@hotsauce/format'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { dictationApi } from '../../../api/dictation'
-import { type TodayView, todayApi } from '../../../api/today'
+import type { TodayView } from '../../../api/today'
 import { product } from '../../../brand/product'
 import { Icon } from '../../../components/Icon'
 import { MAC_APP_SETTINGS, useMacAppBuild } from '../../../components/MacApp'
@@ -29,6 +29,16 @@ interface Step {
 
 const stepButton =
   'inline-flex h-7 shrink-0 items-center rounded-md border border-ember/60 px-2.5 text-xs font-medium text-ember-strong hover:border-ember hover:bg-ember/5'
+
+/**
+ * Loaded: connected. No grant: not connected. Connected but failing right now (Google down): not
+ * known, so it's neither ticked nor offered. An older server doesn't say `connected`; its error
+ * counts as not connected, as it always has.
+ */
+function calendarDone(meetings: TodayView['meetings']): boolean | null {
+  if (meetings.error === null) return true
+  return meetings.connected === true ? null : false
+}
 
 /** Whether the member has the Mac app: true inside it or once a Mac is connected; null while asking. */
 function useHasMac(enabled: boolean): boolean | null {
@@ -59,12 +69,15 @@ export function StartTile({
   view,
   editing,
   onChange,
+  onFinished,
 }: {
   tile: TodayTile
   layout: TodayLayout
   view: TodayView
   editing: boolean
   onChange: (layout: TodayLayout) => void
+  /** Every step is done: the page saves the tile away and keeps showing it for this visit. */
+  onFinished: (tile: TodayTile) => void
 }) {
   const navigate = useNavigate()
   const touch = useMediaQuery(TOUCH_QUERY)
@@ -78,8 +91,7 @@ export function StartTile({
       id: 'calendar',
       title: 'Connect your calendar',
       hint: 'Your meetings show up here, each with a page for notes.',
-      // An older server doesn't say `connected`; no error means the calendar loaded.
-      done: view.meetings.connected ?? view.meetings.error === null,
+      done: calendarDone(view.meetings),
       action: (
         <Link to={CALENDARS} className={stepButton} data-testid="today-start-calendar">
           Connect
@@ -138,15 +150,10 @@ export function StartTile({
   const finished = steps.every((s) => s.done === true)
 
   // Finished: it stays for this visit and is saved away, so it's gone the next time Today opens.
-  const put = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the last step ticks; the page ignores a repeat
   useEffect(() => {
-    if (!finished || editing || put.current) return
-    put.current = true
-    // If this fails the tile is simply still there next time, and tries again.
-    todayApi.saveLayout(removeTile(layout, tile.id)).catch(() => {
-      put.current = false
-    })
-  }, [finished, editing, layout, tile.id])
+    if (finished && !editing) onFinished(tile)
+  }, [finished, editing])
 
   return (
     <Card
@@ -157,11 +164,13 @@ export function StartTile({
         <span className="flex items-center gap-3">
           <span className="text-xs text-ink-faint tabular-nums" data-testid="today-start-count">
             {count} of {steps.length}
+            <span className="sr-only"> steps done</span>
           </span>
           <button
             type="button"
             onClick={() => onChange(removeTile(layout, tile.id))}
             data-testid="today-start-hide"
+            aria-label="Hide Getting started"
             className="text-xs text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink"
           >
             Hide
@@ -176,7 +185,7 @@ export function StartTile({
         </p>
       ) : (
         <p className="text-sm text-ink-soft">
-          {steps.length === 3 ? 'Three' : 'Two'} things that make {product()} useful from day one.
+          A few things that make {product()} useful from day one.
         </p>
       )}
       <ul className="mt-3 flex flex-col divide-y divide-ash/70 border-t border-ash/70">
