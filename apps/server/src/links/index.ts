@@ -1,6 +1,7 @@
 export { fakePageFetcher } from './fake.js'
 export { fetchPage, isPublicAddress, LinkFetchError, type PageFetcher } from './fetch.js'
 export { readPage } from './read.js'
+export { MAX_ANCHOR, type ReadingPlace, ReadingStore } from './reading.js'
 export {
   type LinkFilter,
   type LinkListView,

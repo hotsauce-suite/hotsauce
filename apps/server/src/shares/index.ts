@@ -1,4 +1,5 @@
 export {
+  assertOwnShare,
   SHARE_TOKEN,
   type SharedFile,
   type SharedItem,

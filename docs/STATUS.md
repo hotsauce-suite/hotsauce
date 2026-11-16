@@ -66,7 +66,7 @@ Trackers with spreadsheet formulas, kept as CSV in Git.
 Needs nothing extra.
 
 ### Links
-A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it.
+A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read.
 Needs nothing extra; the AI summary needs the AI key.
 
 ### Briefcast
@@ -109,7 +109,6 @@ production refuses the test stand-ins, so nothing pretends to work.
 
 Open pull requests on `main` at the date above (release numbers are taken at merge, not here):
 
-- **#98** Links remembers where you stopped reading (the second step of the Links roadmap).
 - **#102** Offline mode, step A: opens offline and never loses a save.
 - **#110** GitHub publishes hotsauce.work and the demo on merge.
 - **#112** Releases number themselves.
@@ -117,4 +116,4 @@ Open pull requests on `main` at the date above (release numbers are taken at mer
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 
-Next on the Links roadmap after #98: highlights and notes inside the link's file, then PDFs and papers.
+Next on the Links roadmap: highlights and notes inside the link's file, then PDFs and papers.
