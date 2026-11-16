@@ -26,6 +26,7 @@ export function EmptyState({
   return (
     <div
       data-testid={testId}
+      data-empty-state
       className={`flex flex-col items-center gap-3 px-4 py-12 text-center ${className}`}
     >
       <Icon name={icon} className="size-10 text-ink-faint" />

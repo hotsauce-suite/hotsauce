@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { type BriefcastOverview, briefcastApi, type Episode } from '../../api/briefcast'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { loadSpeed, SPEEDS, saveSpeed, speedLabel } from '../clips/speed'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 
@@ -19,7 +20,9 @@ export default function BriefcastPage() {
   const [making, setMaking] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is the retry trigger.
   useEffect(() => {
     document.title = `Briefcast · ${product()}`
     let cancelled = false
@@ -39,7 +42,7 @@ export default function BriefcastPage() {
     return () => {
       cancelled = true
     }
-  }, [date])
+  }, [date, attempt])
 
   const make = async () => {
     setMaking(true)
@@ -95,9 +98,7 @@ export default function BriefcastPage() {
           {load.status === 'loading' ? (
             <div className="h-40 animate-pulse rounded-xl bg-paper-sunk" aria-hidden="true" />
           ) : load.status === 'error' ? (
-            <p role="alert" className="text-sm text-ember">
-              {load.message}
-            </p>
+            <LoadError things="briefcast" onRetry={() => setAttempt((n) => n + 1)} />
           ) : (
             <>
               {load.episode ? (

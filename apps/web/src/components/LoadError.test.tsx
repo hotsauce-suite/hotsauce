@@ -9,7 +9,9 @@ describe('LoadError', () => {
     const onRetry = vi.fn()
     render(<LoadError things="tasks" onRetry={onRetry} />)
     const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent('Couldn’t load your tasks. Check your connection and try again.')
+    expect(alert).toHaveTextContent(
+      'Couldn’t load your tasks. Check your connection and try again.',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(onRetry).toHaveBeenCalledOnce()
   })

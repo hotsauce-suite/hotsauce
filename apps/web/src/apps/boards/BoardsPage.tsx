@@ -128,11 +128,7 @@ export default function BoardsPage() {
             </p>
           ) : null}
           {failed ? (
-            <LoadError
-              things="boards"
-              onRetry={() => setTick((n) => n + 1)}
-              className="mt-6"
-            />
+            <LoadError things="boards" onRetry={() => setTick((n) => n + 1)} className="mt-6" />
           ) : null}
 
           {!failed && shown?.length === 0 ? (

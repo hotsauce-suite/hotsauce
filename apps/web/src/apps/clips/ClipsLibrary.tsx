@@ -121,7 +121,9 @@ export default function ClipsLibrary() {
             </div>
           ) : null}
 
-          {!failed && clips?.length === 0 ? <Empty searching={query.trim() !== ''} scope={scope} /> : null}
+          {!failed && clips?.length === 0 ? (
+            <Empty searching={query.trim() !== ''} scope={scope} />
+          ) : null}
 
           {!failed && clips && clips.length > 0 ? (
             <ul className="clips-grid mt-6">

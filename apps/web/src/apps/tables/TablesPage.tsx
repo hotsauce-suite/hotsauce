@@ -118,11 +118,13 @@ export default function TablesPage() {
               {error}
             </p>
           ) : null}
-          {list.failed ? <LoadError things="tables" onRetry={list.reload} className="mb-4" /> : null}
+          {list.failed ? (
+            <LoadError things="tables" onRetry={list.reload} className="mb-4" />
+          ) : null}
           {!list.failed && tables && tables.length === 0 ? (
             <EmptyState icon="table" title="No tables yet" testId="tables-empty">
-              Name one above, or import a file. A form’s answers can open as a table too: Forms →
-              a form → Answers → Open as a table.
+              Name one above, or import a file. A form’s answers can open as a table too: Forms → a
+              form → Answers → Open as a table.
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="tables-list">

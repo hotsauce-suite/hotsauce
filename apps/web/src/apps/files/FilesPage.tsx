@@ -309,7 +309,9 @@ export default function FilesPage() {
           ) : null}
           {loadFailed ? (
             <LoadError
-              things={kind === 'recent' ? 'recent files' : space === 'team' ? 'team files' : 'files'}
+              things={
+                kind === 'recent' ? 'recent files' : space === 'team' ? 'team files' : 'files'
+              }
               whose={space === 'team' && kind !== 'recent' ? 'the' : 'your'}
               onRetry={() => setTick((n) => n + 1)}
               className="mb-4"
@@ -321,7 +323,9 @@ export default function FilesPage() {
           {!loadFailed && !loading && files.length === 0 && folders.length === 0 ? (
             <EmptyState
               icon="drive"
-              title={q ? 'No files match' : kind === 'recent' ? 'No recent files' : 'No files here yet'}
+              title={
+                q ? 'No files match' : kind === 'recent' ? 'No recent files' : 'No files here yet'
+              }
               className="rounded-xl border border-dashed border-ash-strong"
             >
               {q

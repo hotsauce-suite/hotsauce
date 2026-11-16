@@ -541,7 +541,11 @@ export default function TasksPage() {
               </div>
             ) : tasks.length === 0 ? (
               missing ? (
-                <EmptyState icon="tasks" title="That task isn’t here any more" testId="tasks-empty" />
+                <EmptyState
+                  icon="tasks"
+                  title="That task isn’t here any more"
+                  testId="tasks-empty"
+                />
               ) : (
                 <EmptyState icon="tasks" title={EMPTY[view.id][0]} testId="tasks-empty">
                   {EMPTY[view.id][1]}
