@@ -666,7 +666,17 @@ export function DocumentView({
             {state.status === 'ready' && !reading
               ? createPortal(
                   conversation.canComment || conversation.status === 'error' ? (
-                    <div className="pt-10">
+                    // The gap above the conversation still belongs to the doc: a click there
+                    // goes on writing at the end of the text.
+                    // biome-ignore lint/a11y/noStaticElementInteractions: the editor's own margin
+                    <div
+                      className="pt-10"
+                      onMouseDown={(e) => {
+                        if (e.target !== e.currentTarget) return
+                        e.preventDefault()
+                        editor.current?.focusEnd?.()
+                      }}
+                    >
                       <Conversation
                         conversation={conversation}
                         focusId={focusComment}

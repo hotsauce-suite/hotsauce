@@ -21,6 +21,8 @@ export interface EditorBridge {
   insertBlock?: (text: string) => void
   /** Scrolls to what sits under the last line (the conversation), leaving the cursor alone. */
   revealEnd?: () => void
+  /** Puts the cursor after the last character, ready to type. */
+  focusEnd?: () => void
 }
 
 export interface EditorSelectionJSON {
@@ -150,6 +152,10 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           selection: { anchor: target.from },
           effects: EditorView.scrollIntoView(target.from, { y: 'center' }),
         })
+      },
+      focusEnd: () => {
+        editor.dispatch({ selection: { anchor: editor.state.doc.length } })
+        editor.focus()
       },
       revealEnd: () =>
         editor.dispatch({
