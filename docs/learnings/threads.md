@@ -25,3 +25,18 @@
   the server has generated its own pair in production since setup mode shipped.
 - Instance-specific status (what is live, which keys are missing) belongs in the instance's
   private ops repo, never in the public repo's status page.
+
+## Planning a multi-thread effort as a map (2026-11-15, comments and For you)
+
+- The first map (issue #109, ending in `docs/PLAN-comments.md`) took two question rounds and under
+  an hour. What made it quick: reading the code first so every question was a product choice with a
+  recommendation, and asking a whole round at once so one "yes" could settle it.
+- Sort each open point before asking: a standing rule already decides it (record it, don't ask),
+  it is a product choice (ask), or it waits on other work in flight (leave it in "Not yet
+  specified" and name what it waits on). Only the middle kind goes to the owner.
+- One issue was enough. Child tickets per question would have been noise for a round answered in
+  minutes; the map's body listed the open questions and was rewritten after each round.
+- The owner reads an HTML page, never the issue. Update both in the same turn or they drift.
+- End the map in a plan doc with a Status block that build threads claim, and merge it before the
+  first build thread starts, so the build reads `main` rather than a planning branch.
+- The public map and plan name no people and no organization; "the owner" and "a teammate" are enough.

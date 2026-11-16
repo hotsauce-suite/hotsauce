@@ -3,7 +3,8 @@ import { type FetchedPage, LinkFetchError, type PageFetcher } from './fetch.js'
 /**
  * Stand-in pages for development and tests (LINK_FETCH=fake): any address gives a short article
  * named after its last path segment; a host ending in `fail.test` can't be reached, and one
- * ending in `pdf.test` is a PDF, and one ending in `stub.test` gives only a few words.
+ * ending in `pdf.test` is a PDF, one ending in `stub.test` gives only a few words, and one ending
+ * in `long.test` is a long read of 40 numbered sections.
  */
 export const fakePageFetcher: PageFetcher = async (url: string): Promise<FetchedPage> => {
   const parsed = new URL(url)
@@ -18,6 +19,15 @@ export const fakePageFetcher: PageFetcher = async (url: string): Promise<Fetched
   if (parsed.hostname.endsWith('stub.test')) {
     const stub = `<!doctype html><html><head><title>${title}</title></head><body><article><p>${title}, cut short.</p></article></body></html>`
     return { url, contentType: 'text/html', text: stub }
+  }
+  if (parsed.hostname.endsWith('long.test')) {
+    const sections = Array.from(
+      { length: 40 },
+      (_, i) =>
+        `<h2>Part ${i + 1}</h2><p>${`Part ${i + 1} of ${title.toLowerCase()} goes on. `.repeat(20)}</p>`,
+    ).join('')
+    const long = `<!doctype html><html><head><title>${title}</title></head><body><article><h1>${title}</h1>${sections}</article></body></html>`
+    return { url, contentType: 'text/html', text: long }
   }
   const para = `${title} is the subject of this page. `.repeat(12)
   const text = `<!doctype html><html><head><title>${title}</title>
