@@ -22,3 +22,9 @@ Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadEr
   in a cloud session, or Playwright looks for the build the lockfile pins and every test fails
   at launch.
 - **Files opens on the team space**, so its words are "the team files", not "your files".
+- **A label lives in more places than the button.** Renaming "My files" meant the sidebar, the
+  tabs, move menus, the file picker, an e2e role lookup, three help pages, the landing page's
+  feature list and ARCHITECTURE. Grep the whole repository, not `apps/web`, before calling a
+  wording change done.
+- **Quick-add rows keep their verb.** The page's main button is "New task"; the inline row and
+  the dialog's confirm button stay "Add task", because there you are adding the line you typed.

@@ -101,7 +101,7 @@ export default function BoardsPage() {
                   data-testid={`boards-scope-${s}`}
                   onClick={() => setScope(s)}
                 >
-                  {s === 'mine' ? 'My boards' : 'Team'}
+                  {s === 'mine' ? 'Personal' : 'Team'}
                 </button>
               ))}
             </div>

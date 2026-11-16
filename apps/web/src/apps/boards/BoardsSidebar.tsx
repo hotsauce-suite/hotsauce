@@ -20,7 +20,7 @@ export function BoardsSidebar() {
         <Icon name="plus" className="size-4" />
         New board
       </button>
-      <Item to="/boards" icon="board" label="My boards" active={onList && scope === 'mine'} />
+      <Item to="/boards" icon="board" label="Personal boards" active={onList && scope === 'mine'} />
       <Item
         to="/boards?scope=team"
         icon="share"
