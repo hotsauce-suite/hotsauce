@@ -78,11 +78,15 @@ const link = (o: Record<string, unknown> = {}) => ({
   ...o,
 })
 
-/** Monday 00:00 UTC, two weeks out: clear of notice, inside the horizon. */
+/**
+ * Monday 00:00 UTC, 7 to 13 days out: clear of notice, and the week after it stays inside the
+ * 15-day calendar sync horizon on every weekday. (Counting a Monday as "next week" put Tuesday
+ * 15.6 days out on Mondays, past the horizon, so the synced event never showed.)
+ */
 function mondayAfterNext(): number {
   const d = new Date()
   d.setUTCHours(0, 0, 0, 0)
-  const toMonday = (8 - d.getUTCDay()) % 7 || 7
+  const toMonday = (8 - d.getUTCDay()) % 7
   return d.getTime() + (toMonday + 7) * DAY
 }
 const iso = (ms: number) => new Date(ms).toISOString()
