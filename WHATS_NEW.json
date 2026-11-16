@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.30.3",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "The live demo now has Links: saved pages with reading progress, highlights and notes, an arXiv paper with its PDF, a bioRxiv paper, an added PDF and a link an AI tool saved."
+        },
+        {
+          "text": "Hotsauce.work has a Links card with a short video of it in action."
+        }
+      ]
+    },
+    {
       "version": "0.30.2",
       "date": "2026-11-16",
       "notes": [
