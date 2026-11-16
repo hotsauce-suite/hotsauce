@@ -119,12 +119,21 @@ describe('Index database', () => {
     expect(index.getSyncState('team')).toBeNull()
   })
 
-  it('refuses a database written by a newer build', () => {
+  // It used to refuse, which left the site down after the updater rolled a release back, with
+  // advice to delete the file that holds everyone's stars and pins (docs/PLAN-audit-2.md).
+  it('makes a database written by a newer build again for this one', () => {
     index.close()
     const raw = new Database(file)
+    const { version } = raw.prepare('SELECT version FROM schema_version').get() as {
+      version: number
+    }
     raw.prepare('UPDATE schema_version SET version = 99').run()
     raw.close()
-    expect(() => new Index(file)).toThrow(/newer than this build/)
+    index = new Index(file)
+    index.close()
+    const check = new Database(file)
+    expect(check.prepare('SELECT version FROM schema_version').get()).toEqual({ version })
+    check.close()
     index = new Index(':memory:') // keep afterEach's close() valid
   })
 })

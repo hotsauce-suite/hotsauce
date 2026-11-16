@@ -1,3 +1,7 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ClipStore } from './store.js'
 
@@ -66,5 +70,46 @@ describe('ClipStore', () => {
     expect(two.get('X')?.mode).toBe('camera')
     two.close()
     await rm(dir, { recursive: true, force: true })
+  })
+})
+
+describe('ClipStore after a rollback', () => {
+  // A release that added a migration ran, then the updater put the previous release back. The
+  // older build must leave the version alone, or the next update runs that migration twice.
+  it('opens a database a newer release migrated without lowering its version', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hotsauce-clips-'))
+    try {
+      const file = path.join(dir, 'clips.sqlite')
+      const first = new ClipStore(file)
+      first.create({
+        id: 'c1',
+        owner: alice,
+        title: 'Kept',
+        mode: 'screen',
+        container: 'webm',
+        now: '2026-11-10T10:00:00.000Z',
+      })
+      first.close()
+
+      const raw = new Database(file)
+      const { version } = raw.prepare('SELECT version FROM schema_version').get() as {
+        version: number
+      }
+      raw.exec('ALTER TABLE clips ADD COLUMN added_by_a_newer_release TEXT')
+      raw.prepare('UPDATE schema_version SET version = ?').run(version + 1)
+      raw.close()
+
+      const older = new ClipStore(file)
+      expect(older.get('c1')?.title).toBe('Kept')
+      older.close()
+
+      const check = new Database(file)
+      expect(check.prepare('SELECT version FROM schema_version').get()).toEqual({
+        version: version + 1,
+      })
+      check.close()
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
