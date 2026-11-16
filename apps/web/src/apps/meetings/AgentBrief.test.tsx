@@ -34,6 +34,10 @@ describe('Agent brief page', () => {
 
     const prompts = within(screen.getByTestId('brief-prompts')).getAllByRole('listitem')
     expect(prompts).toHaveLength(BRIEF_PROMPTS.length)
+    // "Connect your AI tool … from Settings" opens the tokens, not the top of Settings.
+    expect(
+      within(screen.getByTestId('agent-brief-connect')).getByRole('link', { name: 'Settings' }),
+    ).toHaveAttribute('href', '/settings/connections#ai-tools')
     const ask = within(prompts[0] as HTMLElement).getByRole('link', { name: /Ask Claude/ })
     expect(decodeURIComponent(ask.getAttribute('href') ?? '')).toContain(
       'agent brief first. What are my priorities right now?',

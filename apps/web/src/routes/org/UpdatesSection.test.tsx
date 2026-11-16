@@ -40,7 +40,7 @@ function serve(status: UpdateStatus) {
   )
 }
 
-describe('Settings → Organization → Updates', () => {
+describe('Settings → Data and updates → Updates', () => {
   it('shows the new release with its notes, and Update starts it', async () => {
     serve(base)
     render(<UpdatesSection />)

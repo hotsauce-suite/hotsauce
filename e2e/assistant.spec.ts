@@ -89,7 +89,7 @@ test.describe('as an admin', () => {
     await panel.getByTestId('assistant-send').click()
     await expect(panel.getByTestId('assistant-tool').first()).toHaveAttribute('data-status', 'done')
 
-    await page.goto('/settings/organization')
+    await page.goto('/settings/organization/ai')
     const section = page.getByTestId('org-assistant')
     await expect(section.getByTestId('assistant-usage')).toContainText(/e2e.?admin/i)
     const model = section.getByTestId('assistant-model')

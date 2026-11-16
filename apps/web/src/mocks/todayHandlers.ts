@@ -47,7 +47,7 @@ const SAMPLE_PLACES: WeatherPlace[] = [
 export function todayHandlers(): AnyHandler[] {
   // One layout per member, for as long as the page is open.
   const layouts = new Map<string, TodayLayout>()
-  // The team's default weather place (Settings → Organization → Weather); none to start.
+  // The team's default weather place (Settings → Workspace); none to start.
   let teamPlace: WeatherPlace | null = null
   const who = (request: Request) => request.headers.get('x-hearth-dev-user') ?? 'me'
   return [
