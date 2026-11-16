@@ -539,4 +539,55 @@ export const shots = {
     await type('budget', 80)
     await wait(2200)
   },
+
+  // Links: reading progress in the list, a highlight with a note, then a paper's details.
+  async links({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
+    await signIn()
+    await page.goto(`${B}/links`)
+    await wait(1500)
+    await startCapture()
+    await moveTo(800, 500, 10)
+    await wait(700)
+    const review = page.getByTestId('links-list').getByText('How to run a weekly review')
+    await point(review, { ms: 700 })
+    await wait(900)
+    await click(review, { after: 1600 })
+    await click(page.getByTestId('link-start-over'), { after: 1200 })
+    // Highlight a sentence by dragging across it, then add a note.
+    const line = page.getByTestId('link-body').getByText(/Dropping is allowed/)
+    const box = await line.boundingBox()
+    if (box) {
+      const text = await line.evaluate((el) => {
+        const range = document.createRange()
+        const node = [...el.childNodes].find((n) => n.textContent?.includes('Dropping is allowed'))
+        const at = node?.textContent?.indexOf('Dropping is allowed') ?? -1
+        if (!node || at < 0) return null
+        range.setStart(node, at)
+        range.setEnd(node, at + 'Dropping is allowed.'.length)
+        const r = range.getBoundingClientRect()
+        return { x0: r.left + 2, x1: r.right - 1, y: r.top + r.height / 2 }
+      })
+      if (text) {
+        await moveTo(text.x0, text.y, 600)
+        await page.mouse.down()
+        await moveTo(text.x1, text.y, 700)
+        await page.mouse.up()
+        await wait(700)
+        await click(page.getByTestId('link-add-note'), { after: 600 })
+        await type('Let’s drop two old projects this week.', 45)
+        await click(page.getByTestId('link-note-save'), { after: 1400 })
+      }
+    }
+    await click(page.getByRole('link', { name: 'Links' }).first(), { after: 1400 })
+    await click(page.getByTestId('links-view-highlights'), { after: 1800 })
+    await click(page.getByTestId('links-view-unread'), { after: 1000 })
+    await click(page.getByTestId('links-list').getByText('Meeting notes that write themselves'), {
+      after: 1400,
+    })
+    await click(page.getByTestId('link-start-over'), { after: 900 })
+    await point(page.getByTestId('link-paper'), { ms: 700 })
+    await wait(900)
+    await point(page.getByTestId('link-abstract'), { ms: 700 })
+    await wait(1800)
+  },
 }

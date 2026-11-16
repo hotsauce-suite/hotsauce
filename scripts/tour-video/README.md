@@ -18,7 +18,7 @@ The demo data (neutral names, a realistic agent brief and briefing) lives in `ap
    cd apps/web && VITE_MOCK_API=1 npx vite --port 5191 --strictPort
    ```
 2. Record every shot. Each makes `<shot>.mp4` and a contact sheet:
-   `DEMO_FILES=$PWD/scripts/tour-video/demo-files DEMO_CLIP=/tmp/demo-clip scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask assistant tasks notes checkins clipsRecorder clipsPlayer dictate macSetup feedback boards people files forms booking briefcast`
+   `DEMO_FILES=$PWD/scripts/tour-video/demo-files DEMO_CLIP=/tmp/demo-clip scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask assistant tasks notes checkins clipsRecorder clipsPlayer dictate macSetup feedback boards people files forms booking briefcast links`
 
    The `files` shot uploads the sample files in `demo-files/` into a new folder, so use a fresh `DATA_DIR` or change the folder name in `shots.mjs`.
 3. Voice, captions, overlays and the cut (needs `OPENAI_API_KEY`):

@@ -34,3 +34,10 @@
   so the whole deploy path can be checked from a cloud session.
 - **The demo build is reproducible:** a fresh build's `demo/index.html` matched the live one byte
   for byte, so comparing it is a real check that the demo went out.
+- **An app with no mock routes fails quietly in the demo.** The demo answers anything the mock
+  doesn't cover with a 404 ("This part of the app isn't in the demo yet"), so a shipped app shows
+  "Couldn't load" there and no test notices. When an app ships, add its routes and sample data to
+  `apps/web/src/mocks/` in the same PR (Links went four releases without them).
+- **Re-shooting one app's loop needs no server** when the mock covers the app: run Vite with
+  `VITE_MOCK_API=1` and `node scripts/tour-video/rec.mjs <shot> <dir>` with
+  `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium-*/chrome-linux64/chrome` in a cloud session.
