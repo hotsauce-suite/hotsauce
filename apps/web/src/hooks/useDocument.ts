@@ -416,7 +416,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
     } catch {
       // The banner is a convenience; the conflict branch is safe on the server regardless.
     }
-  }, [state.draft, space, path, owner, patch])
+  }, [space, path, patch])
 
   // Load.
   useEffect(() => {
@@ -522,7 +522,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
     return () => {
       cancelled = true
     }
-  }, [space, path, loadConflicts])
+  }, [space, path, loadConflicts, owner, writeDraftNow])
 
   // Back online: send what waited on this device (A4.2).
   useEffect(
