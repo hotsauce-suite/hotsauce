@@ -14,7 +14,12 @@ work too, not Claude-specific.
 
 ## Status
 
-- In progress on `claude/mcp-oauth`.
+- Built on `claude/mcp-oauth` (PR #108): R1–R11 done, with tests at each level.
+- Hardened after two independent reviews (Nov 16): body, URI and registration limits; eviction
+  never drops a just-registered client; a 30 s refresh grace; the metadata fetch pinned to the
+  checked address; the Allow page names an app only when its return host proves it, and accepts
+  Allow only as JSON from its own origin.
+- Left for Morgan: a real Connect from claude.ai against Haven once released.
 
 ## Standards followed
 

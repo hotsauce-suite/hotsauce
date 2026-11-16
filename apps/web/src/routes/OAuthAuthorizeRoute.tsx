@@ -64,24 +64,35 @@ export default function OAuthAuthorizeRoute() {
     }
   }
 
+  const who = check.verified ? check.clientName : check.redirectHost
   if (phase === 'done') {
     return (
-      <DesktopPage title={`Connected to ${check.clientName}`}>
-        <p className="text-ink-soft">Going back to {check.clientName}. You can close this tab.</p>
+      <DesktopPage title={`Connected to ${who}`}>
+        <p className="text-ink-soft">Going back to {who}. You can close this tab.</p>
       </DesktopPage>
     )
   }
 
   return (
-    <DesktopPage title={`Let ${check.clientName} use your ${product()}?`}>
+    <DesktopPage title={`Let ${who} use your ${product()}?`}>
+      {check.verified ? null : (
+        <p
+          data-testid="oauth-unverified"
+          className="mb-3 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ember-strong"
+        >
+          An app at <span className="font-medium">{check.redirectHost}</span> calls itself “
+          {check.clientName}”. {product()} can’t confirm that. Allow it only if you just pressed
+          Connect in that app.
+        </p>
+      )}
       <p className="text-ink-soft">
-        {check.clientName} will be able to read, search and write in the team space and your own
-        space, as {email ? <span className="font-medium text-ink">{email}</span> : 'you'}. It can’t
-        change your settings or make tokens.
+        It will be able to read, search and write in the team space and your own space, as{' '}
+        {email ? <span className="font-medium text-ink">{email}</span> : 'you'}. It can’t change
+        your settings or make tokens.
       </p>
-      <p className="mt-3 text-sm text-ink-faint">
-        It returns to <span className="font-medium text-ink-soft">{check.redirectHost}</span>. You
-        can disconnect it any time in Settings → Connections.
+      <p className="mt-3 text-sm text-ink-soft">
+        It returns to <span className="font-medium text-ink">{check.redirectHost}</span> and stays
+        connected until you disconnect it in Settings → Connections.
       </p>
       <button
         type="button"

@@ -44,7 +44,8 @@ test('an AI tool connects by signing in, works on /mcp, and stops when disconnec
     await route.fulfill({ status: 200, body: 'back in the tool' })
   })
   await page.goto(authorize.toString())
-  await expect(page.getByRole('heading', { name: /Let E2E Tool use your/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Let ai-tool\.example use your/ })).toBeVisible()
+  await expect(page.getByTestId('oauth-unverified')).toContainText('calls itself “E2E Tool”')
   await expect(page.getByText(user.email)).toBeVisible()
   await page.getByRole('button', { name: 'Allow' }).click()
   await expect(page.getByText('back in the tool')).toBeVisible()
@@ -91,7 +92,7 @@ test('an AI tool connects by signing in, works on /mcp, and stops when disconnec
   expect(spaces.map((s) => s.name).sort()).toEqual([user.personal, user.team].sort())
   await client.close()
 
-  await page.goto('/settings')
+  await page.goto('/settings/connections')
   const item = page.getByTestId('connection-item').filter({ hasText: 'E2E Tool' })
   await expect(item).toContainText('ai-tool.example')
   page.once('dialog', (d) => void d.accept())

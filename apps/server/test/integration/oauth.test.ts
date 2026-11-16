@@ -54,6 +54,8 @@ async function call(
   const headers: Record<string, string> = {}
   if (opts.as) headers['x-hearth-dev-user'] = opts.as
   if (opts.token) headers.authorization = `Bearer ${opts.token}`
+  // The Allow page posts from the server's own origin, as a browser does.
+  if (method === 'POST' && path === '/api/oauth/authorize') headers.origin = BASE
   let body: string | undefined
   if (opts.json !== undefined) {
     headers['content-type'] = 'application/json'
@@ -266,6 +268,54 @@ describe('the Allow page (R5)', () => {
       const res = await call('GET', `/api/oauth/authorize?${bad}`, { as: ALICE })
       expect(res.status, JSON.stringify(extra)).toBe(400)
     }
+  })
+
+  it('says whether the app’s name is proven by its return address', async () => {
+    const { challenge } = pkce()
+    const self = await register([REDIRECT], 'Claude')
+    const real = await register(['https://claude.ai/api/mcp/auth_callback'], 'whatever')
+    const check = async (clientId: string, redirect: string) =>
+      (await (
+        await call(
+          'GET',
+          `/api/oauth/authorize?${new URLSearchParams(authorizeParams(clientId, challenge, { redirect_uri: redirect }))}`,
+          { as: ALICE },
+        )
+      ).json()) as { clientName: string; verified: boolean }
+    expect(await check(self.client_id, REDIRECT)).toMatchObject({
+      clientName: 'Claude',
+      verified: false,
+    })
+    expect(await check(real.client_id, 'https://claude.ai/api/mcp/auth_callback')).toMatchObject({
+      clientName: 'Claude',
+      verified: true,
+    })
+  })
+
+  it('Allow is refused from another origin or as a plain-text post', async () => {
+    const { client_id } = await register()
+    const { challenge } = pkce()
+    const body = JSON.stringify(authorizeParams(client_id, challenge))
+    const post = (headers: Record<string, string>) =>
+      app.request(`${BASE}/api/oauth/authorize`, {
+        method: 'POST',
+        headers: { 'x-hearth-dev-user': ALICE, ...headers },
+        body,
+      })
+    expect(
+      (await post({ 'content-type': 'application/json', origin: 'https://evil.example' })).status,
+    ).toBe(403)
+    expect((await post({ 'content-type': 'application/json' })).status).toBe(403)
+    expect(
+      (
+        await post({
+          'content-type': 'application/json',
+          origin: BASE,
+          'sec-fetch-site': 'same-site',
+        })
+      ).status,
+    ).toBe(403)
+    expect((await post({ 'content-type': 'text/plain', origin: BASE })).status).toBe(415)
   })
 
   it('Allow answers the redirect with a code, the state and the issuer', async () => {

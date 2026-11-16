@@ -31,6 +31,7 @@ const check = {
   clientName: 'Claude',
   clientId: 'c1',
   redirectHost: 'claude.ai',
+  verified: true,
   cancelUrl: 'https://claude.ai/cb?error=access_denied&state=s1',
 }
 
@@ -61,6 +62,7 @@ describe('/oauth/authorize', () => {
     ).toBeInTheDocument()
     expect(await screen.findByText(TEST_USER)).toBeInTheDocument()
     expect(screen.getByText('claude.ai')).toBeInTheDocument()
+    expect(screen.queryByTestId('oauth-unverified')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', check.cancelUrl)
     expect(allowed).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Allow' }))
@@ -71,6 +73,25 @@ describe('/oauth/authorize', () => {
       state: 's1',
     })
     expect(assign).toHaveBeenCalledWith('https://claude.ai/cb?code=htc_1&state=s1')
+  })
+
+  it('leads with the return address when the app names itself', async () => {
+    server.use(
+      http.get('/api/oauth/authorize', () =>
+        HttpResponse.json({
+          ...check,
+          redirectHost: 'claude-auth.example',
+          verified: false,
+        }),
+      ),
+    )
+    renderAt(`/oauth/authorize${QS}`)
+    expect(
+      await screen.findByRole('heading', {
+        name: `Let claude-auth.example use your ${product()}?`,
+      }),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('oauth-unverified')).toHaveTextContent('calls itself “Claude”')
   })
 
   it('shows a bad request on the page and offers no Allow', async () => {

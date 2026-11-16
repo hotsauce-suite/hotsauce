@@ -45,6 +45,24 @@ export function oauthBodyLimit() {
   })
 }
 
+/**
+ * The AI tools whose return address proves who they are: only these show their own name as fact
+ * on the Allow page. Any other client's name is its own claim, shown as such (§8.4).
+ */
+const KNOWN_HOSTS: Record<string, string> = {
+  'claude.ai': 'Claude',
+  'claude.com': 'Claude',
+  'chatgpt.com': 'ChatGPT',
+  'chat.openai.com': 'ChatGPT',
+  'grok.com': 'Grok',
+}
+
+/** The tool a return address belongs to, when it is one we know, else null. */
+export function knownToolFor(redirectUri: string): string | null {
+  const host = new URL(redirectUri).hostname.toLowerCase()
+  return KNOWN_HOSTS[host] ?? null
+}
+
 const anyOrigin = cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'], maxAge: 86400 })
 
 /**
@@ -190,10 +208,12 @@ export function oauthApiRoutes(deps: OAuthDeps) {
     .get('/authorize', async (c) => {
       sessionOnly(c.get('principal'))
       const req = await checkAuthorization(deps, new URL(c.req.url).searchParams)
+      const known = knownToolFor(req.redirectUri)
       return c.json({
-        clientName: req.client.name,
+        clientName: known ?? req.client.name,
         clientId: req.client.id,
         redirectHost: new URL(req.redirectUri).host,
+        verified: known !== null,
         cancelUrl: redirectWith(deps, req.redirectUri, {
           error: 'access_denied',
           state: req.state,
@@ -202,6 +222,16 @@ export function oauthApiRoutes(deps: OAuthDeps) {
     })
     .post('/authorize', async (c) => {
       const principal = sessionOnly(c.get('principal'))
+      // Only the Allow page itself can press Allow: JSON (no simple cross-site form or text/plain
+      // request) from this server's own origin.
+      if (!(c.req.header('content-type') ?? '').includes('application/json')) {
+        throw new HotsauceError('bad_request', 'Send JSON', { status: 415 })
+      }
+      const origin = c.req.header('origin')
+      const site = c.req.header('sec-fetch-site')
+      if (origin !== new URL(issuerOf(deps.config)).origin || (site && site !== 'same-origin')) {
+        throw new HotsauceError('forbidden', 'Allow only from this server’s own page')
+      }
       const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
       const params = new URLSearchParams()
       for (const [k, v] of Object.entries(body)) if (typeof v === 'string') params.set(k, v)
