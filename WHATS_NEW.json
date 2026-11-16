@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "version": "0.32.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "A clip's transcript is the page's side panel on the right, like a meeting's. It is open when you arrive on a computer, and the Transcript button at the top hides or shows it. On a phone it opens as a sheet, and choosing a line plays from there and closes it."
+        },
+        {
+          "text": "A saved link, a form, a check-in, a person and a company read at the same width as a doc."
+        },
+        {
+          "text": "A person's and a company's cards stack in one column: About, Next meeting, Open tasks, then Meetings."
+        }
+      ]
+    },
+    {
       "version": "0.31.0",
       "date": "2026-11-16",
       "notes": [
