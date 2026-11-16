@@ -78,8 +78,11 @@ test('Sign out pressed offline signs out for real once the connection is back (S
   await page.getByTestId('settings-sign-out').click()
   await expect(page).toHaveURL(/\/sign-in/)
   await context.setOffline(false)
-  // Back online: still signed out, and the server agrees.
-  await page.goto('/docs')
+  // Back online: still signed out, and the server agrees. A page that started offline reloads
+  // itself on reconnect (auth/offlineAuth), which can cut short a navigation started meanwhile.
+  await expect(async () => {
+    await page.goto('/docs')
+  }).toPass({ timeout: 20_000 })
   await expect(page).toHaveURL(/\/sign-in/, { timeout: 20_000 })
   const me = await page.evaluate(async () => (await fetch('/api/me')).status)
   expect(me).toBe(401)
