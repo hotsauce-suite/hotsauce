@@ -24,6 +24,7 @@ import {
   fileRoutes,
   formFillRoutes,
   formRoutes,
+  forYouRoutes,
   handleError,
   historyRoutes,
   limitBody,
@@ -101,6 +102,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', linkRoutes(deps))
     .route('/api', checkinRoutes(deps))
     .route('/api', commentRoutes(deps))
+    .route('/api', forYouRoutes(deps))
     .route('/api', assistantRoutes(deps))
     .route('/api', oauthApiRoutes(deps))
   // e2e hooks (ARCHITECTURE §7.8); never mounted outside NODE_ENV=test.

@@ -56,6 +56,7 @@ import {
 } from './feedback/index.js'
 import { Files } from './files/index.js'
 import { ChatRooms, Forms } from './forms/index.js'
+import { ForYou } from './foryou/index.js'
 import { GitStore } from './git/index.js'
 import { createHostAdapter } from './hosts/index.js'
 import { Index, Indexer, indexPath } from './index/index.js'
@@ -169,6 +170,8 @@ export interface ServiceOverrides {
   briefcastNow?: () => Date
   /** The clock Check-ins and its scheduler read; tests pin it. */
   checkinsNow?: () => Date
+  /** The clock For you reads (Later's 9 AM), so a test can move time on. */
+  forYouNow?: () => Date
   /** Stands in for Web Push; reminders run with it even without VAPID keys. */
   pushSender?: PushSender
   dictationTranscriber?: DictationTranscriber
@@ -543,6 +546,15 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     checkins,
     checkinScheduler,
     comments,
+    // For you (§27.5): what waits on each member, from the index; only their marks are written.
+    forYou: new ForYou({
+      git,
+      index,
+      spaces,
+      syncer,
+      names: () => checkinMembers.all(),
+      ...(overrides.forYouNow ? { now: overrides.forYouNow } : {}),
+    }),
     org,
     brand,
     backups: createBackups(config, overrides.backupStore, (space, fn) =>

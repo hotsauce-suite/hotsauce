@@ -9,6 +9,7 @@ export const TODAY_LAYOUT_PATH = '.hearth/today.json'
 export const MAX_TODAY_TILES = 40
 
 export const TODAY_TILE_KINDS = [
+  'for-you',
   'checkins',
   'meetings',
   'tasks',
@@ -50,9 +51,14 @@ export interface TodayLayout {
    * before the tile existed, and is offered it once (`offerGettingStarted`).
    */
   gettingStarted?: 'dismissed'
+  /**
+   * The same for the For you tile: set on a layout saved without it. A saved layout with neither
+   * is from before the tile existed, and is offered it once (`offerForYou`).
+   */
+  forYou?: 'dismissed'
 }
 
-/** Today as it looked before tiles could be changed. */
+/** Today as it looked before tiles could be changed. A member who hasn't arranged it is offered For you on top. */
 export function defaultTodayLayout(): TodayLayout {
   return {
     schema: 1,
@@ -79,6 +85,7 @@ const RawLayout = z.looseObject({
   schema: z.literal(1),
   columns: z.tuple([z.array(z.unknown()), z.array(z.unknown())]),
   gettingStarted: z.unknown().optional(),
+  forYou: z.unknown().optional(),
 })
 
 export class TodayLayoutError extends Error {}
@@ -133,7 +140,12 @@ export function parseTodayLayout(input: string | unknown): TodayLayout {
   }
   if (raw.data.gettingStarted === 'dismissed' && !hasStart(layout))
     layout.gettingStarted = 'dismissed'
+  if (raw.data.forYou === 'dismissed' && !hasKind(layout, 'for-you')) layout.forYou = 'dismissed'
   return layout
+}
+
+function hasKind(layout: TodayLayout, kind: TodayTileKind): boolean {
+  return layoutTiles(layout).some((t) => t.kind === kind)
 }
 
 function hasStart(layout: TodayLayout): boolean {
@@ -143,10 +155,10 @@ function hasStart(layout: TodayLayout): boolean {
 /** The file's text: stable key order, two-space indent, a trailing newline. */
 export function serializeTodayLayout(layout: TodayLayout): string {
   const { schema, columns } = parseTodayLayout(layout)
-  // What the file says about Getting started follows from its tiles, not from the caller.
-  const clean: TodayLayout = hasStart({ schema, columns })
-    ? { schema, columns }
-    : { schema, columns, gettingStarted: 'dismissed' }
+  // What the file says about Getting started and For you follows from its tiles, not the caller.
+  const clean: TodayLayout = { schema, columns }
+  if (!hasStart(clean)) clean.gettingStarted = 'dismissed'
+  if (!hasKind(clean, 'for-you')) clean.forYou = 'dismissed'
   return `${JSON.stringify(clean, null, 2)}\n`
 }
 
@@ -157,6 +169,22 @@ export function serializeTodayLayout(layout: TodayLayout): string {
 export function offerGettingStarted(layout: TodayLayout): TodayLayout {
   if (layout.gettingStarted === 'dismissed') return layout
   return showGettingStarted(layout)
+}
+
+/**
+ * The layout with For you offered once (comments plan R13): first on the left (after Getting
+ * started), unless it's there, they removed it, or Today is full. Nothing is saved until they act.
+ */
+export function offerForYou(layout: TodayLayout): TodayLayout {
+  if (layout.forYou === 'dismissed' || hasKind(layout, 'for-you')) return layout
+  if (layoutTiles(layout).length >= MAX_TODAY_TILES) return layout
+  const [left, right] = layout.columns
+  const at = left[0]?.kind === 'start' ? 1 : 0
+  const next: TodayLayout = {
+    ...layout,
+    columns: [[...left.slice(0, at), tile('for-you'), ...left.slice(at)], right],
+  }
+  return next
 }
 
 /** Puts a fresh Getting started tile first on the left (Settings' replay), whatever came before. */

@@ -26,3 +26,26 @@
   wrong request under load. Run the whole suite locally (`PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium
   pnpm exec playwright test --project=desktop-chromium`) before blaming your own change, and ask the
   coordinator whether the owning thread is already fixing it.
+
+## For you (slice 2)
+
+- **Derive the list, store only the member's marks.** For you reads mentions straight from the
+  index (`json_each` over the comment frontmatter's `mentions`) and keeps one small JSON file of
+  seen/done/later marks in the member's personal space. Nothing to backfill, and a reindex rebuilds
+  it for free.
+- **A cache keyed on "the index head" is wrong right after your own commit.** The index catches up
+  a moment later, so the head you read is the old one and the cache serves stale marks. Key the
+  cached marks on the oid your commit returned, and only keep them when the index already sits at
+  that oid.
+- **"Later" has to remember when it was chosen.** Without `laterAt`, a mention that arrived after
+  Later was chosen could not tell the Later apart from an old one, and the item came round twice.
+- **An edit that adds a name is a new mention for that person.** Sorting by the comment's `created`
+  put it at the bottom; the comment now records `named[email]` when an edit first names someone.
+- **A "put it on the rail once" offer must be used up when it is shown, not when they save.** Using
+  it up on PUT /pins took the new app away from anyone who saved an arrangement without having seen
+  it. `pinsWithOffers` records the offer in the same transaction that returns it.
+- **New default pins ripple through tests.** The rail tests count and order entries; narrow test-id
+  selectors (`[data-testid^="app-"]` caught the new count badge) before adding a badge inside an
+  entry.
+- **Sample tasks seed lazily per user in the mocks.** A mock that lists things across items has to
+  seed them first (`seedTasksOnce`), or the demo shows half the list.

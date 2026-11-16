@@ -13,6 +13,7 @@ import type { Dictation } from '../dictation/index.js'
 import type { Feedback } from '../feedback/index.js'
 import type { Files } from '../files/index.js'
 import type { ChatRooms, Forms } from '../forms/index.js'
+import type { ForYou } from '../foryou/index.js'
 import type { Author, GitStore } from '../git/index.js'
 import type { HostAdapter } from '../hosts/index.js'
 import type { Index } from '../index/index.js'
@@ -70,6 +71,8 @@ export interface AppDeps {
   checkinScheduler: CheckinScheduler
   /** The conversation under a team item (ARCHITECTURE §27). */
   comments: Comments
+  /** What is waiting on each member (ARCHITECTURE §27.5). */
+  forYou: ForYou
   org: OrgStore
   brand: BrandStore
   updates: Updater

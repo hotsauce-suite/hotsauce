@@ -43,6 +43,15 @@ const MIGRATIONS = [
     value TEXT NOT NULL
   );
   `,
+  `
+  -- Apps added once to every member's rail (comments plan R13): a member who already arranged
+  -- their pins gets each one a single time; unpinned afterwards, it stays unpinned.
+  CREATE TABLE pin_offers (
+    user TEXT NOT NULL,
+    app  TEXT NOT NULL,
+    PRIMARY KEY (user, app)
+  );
+  `,
 ]
 
 const INDEX_PRINT = 'index-lists-fingerprint'
@@ -160,6 +169,33 @@ export class AccountStore {
   setPins(user: string, apps: readonly string[]): void {
     this.#q.setPins.run(user, JSON.stringify(apps))
   }
+
+  /**
+   * The member's pins with each of `offers` added once, right after the app it names (first when
+   * that isn't pinned): a member still on the defaults already has them, and an offer made once is
+   * never made again. Null, like `getPins`, until they first change their pins.
+   */
+  pinsWithOffers(
+    user: string,
+    offers: ReadonlyArray<{ app: string; after: string }>,
+  ): string[] | null {
+    return this.#db
+      .transaction((): string[] | null => {
+        const pins = this.getPins(user)
+        const fresh = offers.filter((o) => !this.#q.hasOffer.get(user, o.app))
+        if (fresh.length === 0) return pins
+        for (const o of fresh) this.#q.addOffer.run(user, o.app)
+        if (pins === null) return null
+        const next = [...pins]
+        for (const o of fresh) {
+          if (next.includes(o.app)) continue
+          next.splice(next.indexOf(o.after) + 1, 0, o.app)
+        }
+        this.setPins(user, next)
+        return next
+      })
+      .immediate()
+  }
 }
 
 function prepare(db: Database.Database) {
@@ -197,6 +233,12 @@ function prepare(db: Database.Database) {
     setPins: db.prepare<[string, string]>(`
       INSERT INTO pins (user, apps) VALUES (?, ?)
       ON CONFLICT (user) DO UPDATE SET apps = excluded.apps`),
+    hasOffer: db.prepare<[string, string], { app: string }>(
+      'SELECT app FROM pin_offers WHERE user = ? AND app = ?',
+    ),
+    addOffer: db.prepare<[string, string]>(
+      'INSERT OR IGNORE INTO pin_offers (user, app) VALUES (?, ?)',
+    ),
     // A member who already saved pins here keeps them over the old copy.
     keepPins: db.prepare<[string, string]>('INSERT OR IGNORE INTO pins (user, apps) VALUES (?, ?)'),
   }
