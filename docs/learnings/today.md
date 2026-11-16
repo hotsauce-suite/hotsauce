@@ -88,3 +88,5 @@
   shown.
 - **A browser test that changes a workspace-wide setting collides with itself** under
   `--repeat-each` with two workers. Run such a spec with `--workers=1` when repeating it.
+- **hotsauce.work now redirects `/help/<page>.html` to `/help/<page>`.** A check of a help page
+  after a site deploy needs `curl -L`, or it reads the empty redirect and reports the text missing.
