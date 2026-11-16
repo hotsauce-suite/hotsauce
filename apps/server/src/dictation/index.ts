@@ -35,8 +35,8 @@ export {
   hashDeviceToken,
   MAX_WORD_LENGTH,
   MAX_WORDS_PER_LIST,
-  newDeviceToken,
   macAppVersionFrom,
+  newDeviceToken,
   normalizeWords,
   TEAM_WORDS_SEED,
 } from './store.js'

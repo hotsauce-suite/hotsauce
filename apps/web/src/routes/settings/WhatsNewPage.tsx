@@ -26,10 +26,7 @@ export function WhatsNewPage({ releases = RELEASES }: { releases?: ReleaseNotes[
   }, [])
   return (
     <section aria-labelledby="whats-new-title" data-testid="settings-whats-new">
-      <h2
-        id="whats-new-title"
-        className="font-display text-[1.6rem] font-semibold tracking-tight"
-      >
+      <h2 id="whats-new-title" className="font-display text-[1.6rem] font-semibold tracking-tight">
         What’s new
       </h2>
       <p className="mt-2 text-ink-soft">

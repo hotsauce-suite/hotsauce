@@ -377,11 +377,18 @@ describe('device tokens', () => {
           await call('GET', '/api/dictation/devices', { as: ALICE }),
         )
       ).map((d) => d.appVersion)
-    await json(await call('GET', '/api/dictation/words', { token, headers: { 'hotsauce-app': 'mac/0.26.0' } }))
+    await json(
+      await call('GET', '/api/dictation/words', {
+        token,
+        headers: { 'hotsauce-app': 'mac/0.26.0' },
+      }),
+    )
     expect(await versions()).toEqual(['0.26.0'])
     // A request without the header, or with a malformed one, keeps what was reported.
     await json(await call('GET', '/api/dictation/words', { token }))
-    await json(await call('GET', '/api/dictation/words', { token, headers: { 'hotsauce-app': 'mac/<b>' } }))
+    await json(
+      await call('GET', '/api/dictation/words', { token, headers: { 'hotsauce-app': 'mac/<b>' } }),
+    )
     expect(await versions()).toEqual(['0.26.0'])
   })
 

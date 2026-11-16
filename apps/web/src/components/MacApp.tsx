@@ -95,8 +95,7 @@ export function MacAppCard() {
                 , version <span data-testid="mac-app-version">{installed}</span>
               </>
             ) : null}
-            .
-            {/* The app doesn't update itself: a newer build is fetched from here. */}
+            .{/* The app doesn't update itself: a newer build is fetched from here. */}
             {state === 'outdated' && latest ? (
               <>
                 {' '}

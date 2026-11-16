@@ -193,7 +193,11 @@ export class DictationStore {
    * The live device a token belongs to, marking it used and keeping the app version it reports
    * (a request without one leaves the last one); null for an unknown or revoked token.
    */
-  useToken(token: string, now = new Date(), appVersion: string | null = null): DictationDevice | null {
+  useToken(
+    token: string,
+    now = new Date(),
+    appVersion: string | null = null,
+  ): DictationDevice | null {
     const row = this.#db
       .prepare('SELECT * FROM dictation_devices WHERE token_hash = ? AND revoked_at IS NULL')
       .get(hashDeviceToken(token)) as DeviceRow | undefined
