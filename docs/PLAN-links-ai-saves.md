@@ -1,6 +1,6 @@
 # Plan: links an AI tool saves wait for a person
 
-Status (2026-11-16): built; every requirement has a test (R1 to R5 in `apps/server/test/integration/links.test.ts`, R6 in `apps/web/src/apps/links/links.test.tsx`, R7 in the MCP test there, R8 in the API tests there). Follow-up from the second audit ("Not fixed here" in
+Status (2026-11-16): shipped in 0.21.0 (#123), live on Haven 0.22.1; every requirement has a test (R1 to R5 in `apps/server/test/integration/links.test.ts`, R6 in `apps/web/src/apps/links/links.test.tsx`, R7 in the MCP test there, R8 in the API tests there). Follow-up from the second audit ("Not fixed here" in
 `docs/PLAN-audit-2.md`), approved by Morgan on 2026-11-16. He chose a button over fetching when the link is opened (Q1).
 
 `save_link` through the connector made the server fetch any public address straight away. A tool
