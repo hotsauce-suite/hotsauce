@@ -34,7 +34,11 @@ export interface TodayMeeting {
 
 export interface TodayView {
   date: string
-  meetings: { events: TodayMeeting[]; error: string | null }
+  /**
+   * `connected` is false only when the member has no calendar grant, which signing in with Google
+   * fixes; a calendar that failed to load just now is still connected.
+   */
+  meetings: { events: TodayMeeting[]; error: string | null; connected: boolean }
   /** Open tasks of the member's due today or before. */
   tasks: TaskView[]
   actionItems: MeetingActionItems[]
@@ -157,7 +161,8 @@ export class Today {
       // No calendar grant (or Google down): the rest of Today still loads, and this says why.
       const message =
         err instanceof HotsauceError ? err.message : 'Your calendar didn’t load right now.'
-      return { events: [], error: message }
+      const connected = !(err instanceof HotsauceError && err.code === 'forbidden')
+      return { events: [], error: message, connected }
     }
     const byEvent = new Map<string, MeetingFile>()
     // Own space first, so the member's own note wins over a teammate's.
@@ -165,6 +170,7 @@ export class Today {
       if (f.eventId && !byEvent.has(f.eventId)) byEvent.set(f.eventId, f)
     return {
       error: null,
+      connected: true,
       events: events.map((e) => {
         const note = byEvent.get(e.id)
         return {

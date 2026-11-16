@@ -1,6 +1,13 @@
-import { defaultTodayLayout, type TodayLayout } from '@hotsauce/format'
+import {
+  defaultTodayLayout,
+  layoutTiles,
+  removeTile,
+  showGettingStarted,
+  type TodayLayout,
+  type TodayTile,
+} from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { HotsauceApiError } from '../../api/client'
 import { dictationApi } from '../../api/dictation'
 import type { TaskView } from '../../api/tasks'
@@ -125,11 +132,13 @@ export default function TodayPage() {
               refresh={loadedAt.getTime()}
               editing={layouts.draft !== null}
               onChange={layouts.change}
+              onStartFinished={layouts.finish}
               onTaskDone={removeTask}
               onTaskAdded={addTask}
             />
           )}
-          {view ? (
+          {/* Getting started already offers the Mac app: not twice on one page. */}
+          {view && layouts.shown && !layoutTiles(layouts.shown).some((t) => t.kind === 'start') ? (
             <div className="mt-5 lg:ml-auto lg:w-2/5">
               <MacAppCard />
             </div>
@@ -185,7 +194,33 @@ function useLayout() {
     }
   }
 
-  const current = layout ?? (loadFailed ? defaultTodayLayout() : null)
+  // Settings' "Getting started" link opens `/today?start=1`: put the tile back, fresh, and save.
+  const [params, setParams] = useSearchParams()
+  const replay = params.get('start') === '1'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `save` and `setParams` are new each render; this runs once per replay, when the saved layout is in
+  useEffect(() => {
+    if (!replay || !layout) return
+    const next = showGettingStarted(layout)
+    if (next !== layout) {
+      setLayout(next)
+      void save(next)
+    }
+    setParams(
+      (p) => {
+        p.delete('start')
+        return p
+      },
+      { replace: true },
+    )
+  }, [replay, layout !== null])
+
+  // A finished Getting started tile: already saved away, but kept on screen for this visit.
+  const [lingering, setLingering] = useState<TodayTile | null>(null)
+  const saved = layout ?? (loadFailed ? defaultTodayLayout() : null)
+  const current: TodayLayout | null =
+    saved && lingering
+      ? { schema: 1, columns: [[lingering, ...saved.columns[0]], saved.columns[1]] }
+      : saved
   return {
     shown: draft ?? current,
     draft,
@@ -212,9 +247,24 @@ function useLayout() {
     change: (next: TodayLayout) => {
       if (draft) setDraft(next)
       else if (layout) {
-        setLayout(next)
-        void save(next)
+        // The lingering tile is only on screen: it never goes back into what is saved.
+        const real = lingering ? removeTile(next, lingering.id) : next
+        if (lingering && !layoutTiles(next).some((t) => t.id === lingering.id)) setLingering(null)
+        setLayout(real)
+        void save(real)
       }
+    },
+    /**
+     * Getting started is finished: save the layout without it, through the same path as every
+     * other save, and keep the tile on screen until the page is left.
+     */
+    finish: (tile: TodayTile) => {
+      if (draft || !layout || lingering) return
+      if (!layoutTiles(layout).some((t) => t.id === tile.id)) return
+      const without = removeTile(layout, tile.id)
+      setLingering(tile)
+      setLayout(without)
+      void save(without)
     },
   }
 }

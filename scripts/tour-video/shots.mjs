@@ -12,6 +12,9 @@ export const shots = {
     await wait(600)
     await point(page.getByTestId('today-greeting'), { ms: 700 })
     await wait(700)
+    // A new teammate's first steps, at the top until done or hidden.
+    await point(page.getByTestId('today-start-count'), { ms: 700 })
+    await wait(900)
     await click(page.getByTestId('today-weather-on'), { ms: 700 })
     await wait(900)
     await point(page.getByTestId('today-time'), { ms: 600 })

@@ -50,3 +50,24 @@
 - **This sandbox's Playwright browser path differs from the repo's pinned version.** A local,
   git-excluded config that spreads `playwright.config.ts` and sets
   `launchOptions.executablePath: '/opt/pw-browsers/chromium'` runs the e2e suite without a download.
+
+## Getting started tile (2026-11-16)
+
+- **A first-run prompt doesn't need its own state if it can be a thing the member already owns.**
+  Getting started is a Today tile, so "skip" is removing a tile and "replay" is adding it back.
+  The only new fact stored is a mark on a layout saved without the tile, and the serializer works
+  that mark out from the tiles, so no caller can get it wrong.
+- **"Offer it to everyone once" needs a way to tell "never saw it" from "removed it".** A saved
+  layout without the tile is both. Writing the mark on every save from now on makes the files with
+  neither tile nor mark exactly the ones from before the feature.
+- **Calendars connect through Google sign-in; there is no connect button to send people to.** A
+  member who signs in with an emailed code can't connect one. `meetings.connected` (false only for
+  a missing grant) lets the page word that as a first step and keep "Google is down" as an error.
+- **Adding to the default layout breaks every test that counts tiles.** Those tests are about a
+  member arranging Today, so they now start by saving a layout (`todayApi.saveLayout(...)` in a
+  `beforeEach`), which is what a member who hid the tile has. Put the new tile's own tests in a
+  new file.
+- **A step that ticks itself must know when it doesn't know.** `done: null` while a request is out
+  keeps "all done" from firing on a guess, and a failed lookup counts as not done, never as done.
+- **`src/routes/FeedbackScreenshots.test.tsx` (S7) times out in the cloud sandbox on unchanged
+  main.** It passes in CI.

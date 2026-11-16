@@ -122,7 +122,25 @@ test('the Mac app: Today links to its download in Settings', async ({ page }) =>
   await expect(page.getByTestId('mac-app-download')).toHaveCount(0)
 })
 
-test('the Mac app: with a build, Today offers it until closed', async ({ page }) => {
+test('the Mac app: with a build, Today offers it until closed', async ({ page, user }) => {
+  // For a member who has hidden Getting started, which offers the Mac app itself while it shows
+  // (docs/PLAN-getting-started.md T5).
+  const hidden = await page.request.put('/api/today/layout', {
+    headers: { 'x-hearth-dev-user': user.email },
+    data: {
+      layout: {
+        schema: 1,
+        columns: [
+          [
+            { id: 'meetings', kind: 'meetings' },
+            { id: 'tasks', kind: 'tasks' },
+          ],
+          [{ id: 'docs', kind: 'docs' }],
+        ],
+      },
+    },
+  })
+  expect(hidden.status(), await hidden.text()).toBe(200)
   // Stands in for the Docker image's copy of the app.
   await page.route('**/downloads/Hotsauce.dmg', (route) =>
     route.fulfill({ status: 200, contentType: 'application/x-apple-diskimage', body: '' }),
