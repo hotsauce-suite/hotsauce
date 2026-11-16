@@ -81,4 +81,17 @@ describe('sending saves that waited on this device (A4.4)', () => {
     // Not sent again, and not lost.
     expect((await sendWaitingDrafts(ME)).failed).toEqual([])
   })
+
+  it('leaves a save another open tab is still typing into for that tab to send', async () => {
+    const thisTab = sessionStorage.getItem('hotsauce.tab')
+    sessionStorage.setItem('hotsauce.tab', 'tab-a')
+    saveDraft(ME, SPACE, Q4, blob(Q4), 'tab A’s words', 'waiting')
+    sessionStorage.setItem('hotsauce.tab', thisTab ?? 'tab-b')
+    localStorage.setItem('hotsauce.tab-alive:tab-a', String(Date.now()))
+    expect(await sendWaitingDrafts(ME)).toEqual({ sent: 0, conflicts: [], failed: [] })
+    expect(findDraft(SPACE, Q4, ME)?.content).toBe('tab A’s words')
+    // Tab A closed: this tab sends it.
+    localStorage.removeItem('hotsauce.tab-alive:tab-a')
+    expect(await sendWaitingDrafts(ME)).toEqual({ sent: 1, conflicts: [], failed: [] })
+  })
 })

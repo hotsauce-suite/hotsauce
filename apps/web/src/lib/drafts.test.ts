@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   clearDrafts,
   findDraft,
+  markDraft,
+  otherTabOpen,
   removeDraft,
   saveDraft,
   strandedDrafts,
@@ -74,5 +76,25 @@ describe('drafts per member and per tab (docs/PLAN-offline.md, audit findings 3 
     expect(strandedDrafts(A).map((d) => d.path)).toEqual([DOC])
     expect(strandedDrafts(B)).toEqual([])
     expect(waitingDrafts(A)).toEqual([])
+  })
+
+  it('text kept as stranded stays until discarded, whatever is typed or saved at that path', () => {
+    saveDraft(A, 'team', DOC, 'blob1', 'words the server refused', 'waiting')
+    const [stranded] = waitingDrafts(A)
+    markDraft(stranded?.key ?? '', 'stranded')
+    // A new doc at the same path, typed into and saved in the same tab.
+    saveDraft(A, 'team', DOC, 'new', 'a fresh doc')
+    clearDrafts(A, 'team', DOC)
+    expect(strandedDrafts(A).map((d) => d.content)).toEqual(['words the server refused'])
+  })
+
+  it('knows which other tabs are open from their heartbeat', () => {
+    expect(otherTabOpen(null)).toBe(false)
+    expect(otherTabOpen(sessionStorage.getItem('hotsauce.tab') ?? '')).toBe(false)
+    localStorage.setItem('hotsauce.tab-alive:open1', String(Date.now()))
+    localStorage.setItem('hotsauce.tab-alive:gone1', String(Date.now() - 60_000))
+    expect(otherTabOpen('open1')).toBe(true)
+    expect(otherTabOpen('gone1')).toBe(false)
+    expect(otherTabOpen('never')).toBe(false)
   })
 })

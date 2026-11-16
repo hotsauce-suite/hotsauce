@@ -466,6 +466,16 @@ describe('useDocument', () => {
       expect(result.current.state.draft?.content).toBe('Words to keep')
     })
 
+    it('offline, an old copy from a closed tab is not reopened or sent: only a waiting save (A4.3)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      saveDraft(ME, SPACE, Q4, blob, 'Left when a tab closed', 'editing')
+      server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await waitFor(() => expect(result.current.state.status).toBe('error'))
+      expect(result.current.state.error?.code).toBe('network')
+      expect(findDraft(SPACE, Q4, ME)).toMatchObject({ state: 'editing' })
+    })
+
     it('offline with nothing on this device: an offline error, not a raw one', async () => {
       server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
       const { result } = renderDocument(Q4)

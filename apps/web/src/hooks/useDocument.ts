@@ -20,6 +20,7 @@ import {
   draftKey,
   findDraft,
   markDraft,
+  otherTabOpen,
   removeDraft,
   saveDraft,
 } from '../lib/drafts'
@@ -136,7 +137,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
   const ownerRef = useRef<string | null>(null)
   const owner = useCallback(() => {
     const id = rememberedMember()?.userId
-    if (id) ownerRef.current = id
+    if (id) ownerRef.current ??= id
     return ownerRef.current
   }, [])
   const editSeq = useRef(0)
@@ -446,7 +447,10 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
       }))
       // Kept from now on as this tab's (another tab's copy, or one from before drafts had owners).
       const stored = draftKey(owner() ?? '', space, path, base.current.blobOid ?? 'new')
-      if (writeDraftNow() && draft.key !== stored) removeDraft(draft.key)
+      // Another tab still open on it keeps its own copy (and sends it).
+      if (writeDraftNow() && draft.key !== stored && !otherTabOpen(draft.tab)) {
+        removeDraft(draft.key)
+      }
       if (isOnline() && !inOfflineSession()) void commitRef.current()
     }
     api.readFile(space, path).then(
@@ -478,12 +482,12 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
         if (cancelled) return
         const draft = findDraft(space, path, owner())
         // Offline with this doc's latest text on the device: open that.
-        // Only this member's own: never another member's, nor an ownerless one from before.
+        // Only a save this member left waiting: never another member's, an ownerless one from
+        // before, an old copy from a closed tab (offered to restore once online), or a stranded one.
         if (
           err instanceof HotsauceApiError &&
           err.code === 'network' &&
-          draft?.owner &&
-          draft.owner === owner()
+          waitingHere(draft, owner())
         ) {
           openWaiting(draft, draft.blobOid === 'new')
           return
@@ -708,7 +712,7 @@ export function useDocument(space: string, path: string, options: UseDocumentOpt
     dirty.current = true
     // Kept from now on as this tab's; the copy it came from goes once that's written.
     const stored = draftKey(owner() ?? '', space, path, base.current.blobOid ?? 'new')
-    if (writeDraftNow() && draft.key !== stored) removeDraft(draft.key)
+    if (writeDraftNow() && draft.key !== stored && !otherTabOpen(draft.tab)) removeDraft(draft.key)
     patch({ draft: null })
     setSaveState('dirty')
     scheduleIdleCommit()

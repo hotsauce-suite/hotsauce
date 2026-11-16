@@ -27,6 +27,8 @@ export interface Draft {
   owner: string | null
   /** Where it's stored, so it can be replaced or removed exactly. */
   key: string
+  /** The tab that typed it; null for a draft saved before drafts had tabs. */
+  tab: string | null
 }
 
 export interface StoredDraft extends Draft {
@@ -117,8 +119,8 @@ function parseBody(
 }
 
 /** Every stored draft, old and new, newest first. */
-function allDrafts(): Array<StoredDraft & { tab: string | null }> {
-  const found: Array<StoredDraft & { tab: string | null }> = []
+function allDrafts(): StoredDraft[] {
+  const found: StoredDraft[] = []
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
@@ -158,7 +160,13 @@ export function saveDraft(
   }
   const tab = tabId()
   for (const draft of forDoc(space, path)) {
-    if (draft.key !== key && draft.owner === owner && draft.tab === tab) removeDraft(draft.key)
+    if (
+      draft.key !== key &&
+      draft.owner === owner &&
+      draft.tab === tab &&
+      draft.state !== 'stranded'
+    )
+      removeDraft(draft.key)
   }
   return true
 }
@@ -181,11 +189,15 @@ export function markDraft(key: string, state: DraftState): void {
   }
 }
 
-/** Removes `owner`'s drafts of this doc from this tab (its save went through). */
+/**
+ * Removes `owner`'s drafts of this doc from this tab (its save went through). Never a stranded
+ * one: that goes only when the member discards it from "Kept on this device".
+ */
 export function clearDrafts(owner: string, space: string, path: string): void {
   const tab = tabId()
   for (const draft of forDoc(space, path)) {
-    if (draft.owner === owner && draft.tab === tab) removeDraft(draft.key)
+    if (draft.owner === owner && draft.tab === tab && draft.state !== 'stranded')
+      removeDraft(draft.key)
   }
 }
 
@@ -198,7 +210,7 @@ export function findDraft(space: string, path: string, owner: string | null): Dr
   const mine = owner ? drafts.find((d) => d.owner === owner) : undefined
   const found = mine ?? drafts.find((d) => d.owner === null)
   if (!found) return null
-  const { tab: _tab, space: _space, path: _path, ...draft } = found
+  const { space: _space, path: _path, ...draft } = found
   return draft
 }
 
@@ -212,4 +224,48 @@ export function waitingDrafts(owner: string | null): StoredDraft[] {
 export function strandedDrafts(owner: string | null): StoredDraft[] {
   if (!owner) return []
   return allDrafts().filter((d) => d.owner === owner && d.state === 'stranded')
+}
+
+// Open tabs say they're alive every few seconds, so a tab never sends or takes over a waiting
+// save that another open tab is still typing into (that tab sends its own).
+const ALIVE_PREFIX = 'hotsauce.tab-alive:'
+const BEAT_MS = 5_000
+const ALIVE_FOR_MS = 3 * BEAT_MS
+
+/** Starts this tab's heartbeat; returns a stop function. */
+export function keepTabAlive(): () => void {
+  const key = ALIVE_PREFIX + tabId()
+  const beat = () => {
+    try {
+      localStorage.setItem(key, String(Date.now()))
+    } catch {
+      // Best-effort: without it other tabs treat this one as gone, as before.
+    }
+  }
+  const gone = () => {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // Best-effort.
+    }
+  }
+  beat()
+  const timer = setInterval(beat, BEAT_MS)
+  window.addEventListener('pagehide', gone)
+  return () => {
+    clearInterval(timer)
+    window.removeEventListener('pagehide', gone)
+    gone()
+  }
+}
+
+/** Whether `tab` is another tab that's open right now. */
+export function otherTabOpen(tab: string | null): boolean {
+  if (!tab || tab === tabId()) return false
+  try {
+    const at = Number(localStorage.getItem(ALIVE_PREFIX + tab))
+    return Number.isFinite(at) && Date.now() - at < ALIVE_FOR_MS
+  } catch {
+    return false
+  }
 }

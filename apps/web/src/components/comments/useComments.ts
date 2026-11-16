@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { HotsauceApiError } from '../../api/client'
 import { type Comment, type CommentMember, commentsApi } from '../../api/comments'
 import { hotsauceSocket } from '../../api/ws'
+import { isOnline, onConnectionChange } from '../../lib/connection'
+import { rememberedMember } from '../../lib/offlineStart'
 
 const DRAFT_PREFIX = 'hotsauce.comment-draft:'
 
@@ -75,7 +77,7 @@ export function resetCommentMembers(): void {
   membersOnce = null
 }
 
-const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false
+const isOffline = () => !isOnline()
 
 /**
  * The conversation under one item (docs/PLAN-comments.md R1 to R11). It loads on its own, after
@@ -83,7 +85,8 @@ const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine ===
  * the draft survives a reload, a lost connection and a failed send.
  */
 export function useComments(space: string, path: string, enabled = true): Conversation {
-  const key = `${DRAFT_PREFIX}${space}:${path}`
+  // Each member's own: on a shared computer the next member never sees what the last one typed.
+  const key = `${DRAFT_PREFIX}${encodeURIComponent(rememberedMember()?.userId ?? '')}/${space}:${path}`
   const [status, setStatus] = useState<Conversation['status']>('loading')
   const [canComment, setCanComment] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
@@ -143,15 +146,7 @@ export function useComments(space: string, path: string, enabled = true): Conver
     }
   }, [enabled, load, space])
 
-  useEffect(() => {
-    const update = () => setOffline(isOffline())
-    window.addEventListener('online', update)
-    window.addEventListener('offline', update)
-    return () => {
-      window.removeEventListener('online', update)
-      window.removeEventListener('offline', update)
-    }
-  }, [])
+  useEffect(() => onConnectionChange(() => setOffline(isOffline())), [])
 
   const setDraft = useCallback(
     (next: CommentDraft) => {

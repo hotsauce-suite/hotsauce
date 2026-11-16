@@ -13,6 +13,7 @@ import type { Me, RecentItem, Space, StarItem } from '../api/types'
 import { hotsauceSocket } from '../api/ws'
 import { org } from '../brand/product'
 import { isOnline, onBackOnline } from '../lib/connection'
+import { keepTabAlive } from '../lib/drafts'
 import { offlineMe, rememberedMember, rememberMember } from '../lib/offlineStart'
 import { displayName } from '../lib/paths'
 import { sendWaitingDrafts } from '../lib/sendWaiting'
@@ -106,6 +107,9 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
     refreshRecents()
     api.stars().then(setStars, () => {})
   }, [refreshRecents])
+
+  // Other tabs leave this tab's waiting saves for it to send (lib/drafts).
+  useEffect(() => keepTabAlive(), [])
 
   // Doc saves that waited on this device for the connection (docs/PLAN-offline.md, A4.4): sent
   // at start and whenever the connection comes back. An open doc sends its own.

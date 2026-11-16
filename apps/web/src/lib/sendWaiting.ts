@@ -4,7 +4,7 @@
 // Only the signed-in member's own: never what another member left on a shared device.
 
 import { api, HotsauceApiError } from '../api/client'
-import { markDraft, removeDraft, waitingDrafts } from './drafts'
+import { markDraft, otherTabOpen, removeDraft, waitingDrafts } from './drafts'
 import { inOfflineSession } from './offlineStart'
 import { isOpenDoc } from './openDoc'
 import { docUrl } from './paths'
@@ -36,6 +36,8 @@ async function send(owner: string): Promise<SendResult> {
   for (const draft of waitingDrafts(owner)) {
     // The open doc sends its own, even one still opening (its page is the one on screen).
     if (isOpenDoc(draft.space, draft.path) || onScreen(draft.space, draft.path)) continue
+    // Another open tab is still typing into it: that tab sends its own.
+    if (otherTabOpen(draft.tab)) continue
     const creating = draft.blobOid === 'new'
     try {
       const outcome = await api.putFile(draft.space, {
