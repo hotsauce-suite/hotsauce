@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let setupLocation = LocationService()
     let mainWindow = MainWindow()
     private var pruneTimer: Timer?
+    /// A newer Mac app the server offers, for the menu bar menu (M7); nil when this one is newest.
+    private var availableUpdate: String?
+    private var updateTimer: Timer?
     private var statusItem: NSStatusItem!
     private var healthTimer: Timer?
     /// The suite's window; its page also answers the meeting reminders' calendar calls.
@@ -116,6 +119,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pruneHistory()
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3_600, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pruneHistory() }
+        }
+        checkForUpdate()
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3_600, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkForUpdate() }
         }
         // A login item starts quietly: the suite loads (for reminders) without its window. A Mac
         // with no workspace yet loads nothing; the setup window asks for one.
@@ -522,6 +529,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         menu.addItem(disabled(statusLine))
+        if let version = availableUpdate {
+            menu.addItem(item("Update available (\(version))…", #selector(downloadUpdate)))
+        }
         menu.addItem(.separator())
 
         let history = controller.history.records.prefix(10).map(\.text)
@@ -690,6 +700,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+
+    // MARK: Updates
+
+    /// Asks the window's server which Mac app is newest (`/downloads/mac-app.json`). Quietly does
+    /// nothing offline or on a server that doesn't say (docs/PLAN-mac-version-and-whats-new.md, M7).
+    private func checkForUpdate() {
+        guard let server = suiteServer, let installed = AppVersion.current else { return }
+        Task { [weak self] in
+            var request = URLRequest(url: AppVersion.infoURL(server: server), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            guard let (data, response) = try? await URLSession.shared.data(for: request),
+                  (response as? HTTPURLResponse)?.statusCode == 200 else { return }
+            let update = AppVersion.update(installed: installed, latest: AppVersion.latest(fromJSON: data))
+            await MainActor.run { self?.availableUpdate = update }
+        }
+    }
+
+    /// Downloads the newest build in the browser; the person drags it into Applications.
+    @objc private func downloadUpdate() {
+        guard let server = suiteServer else { return }
+        NSWorkspace.shared.open(AppVersion.downloadURL(server: server))
+    }
 
     // MARK: Connecting
 

@@ -3,7 +3,7 @@
 The menu bar app behind Dictate (ARCHITECTURE §9). Build it on a Mac with the Xcode Command Line Tools:
 
 1. Once per Mac: `scripts/create-signing-identity.sh` makes a stable self-signed signing identity, so updates keep their microphone and Accessibility permissions.
-2. `scripts/build-app.sh` builds a universal app and writes `release/Hotsauce.dmg` and `.zip`.
+2. `scripts/build-app.sh` builds a universal app and writes `release/Hotsauce.dmg`, `.zip` and `mac-app.json` (its version, numbered from `HOTSAUCE_VERSION`). Upload all three to the `mac-app` GitHub release: servers read `mac-app.json` to tell members whether their Mac app is behind (Settings → Apps, and the menu bar's Update available item).
 3. Put both files in `apps/dictate-mac/release/` before building the server image. The Dockerfile copies them to `/downloads/`, where Settings → Apps offers them.
 
 Without a Developer ID, macOS asks each person to confirm the app once (System Settings → Privacy & Security → Open Anyway). Settings → Apps explains this.

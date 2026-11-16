@@ -65,6 +65,12 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.addUserScript(WKUserScript(
             source: Self.downloadLinkScript, injectionTime: .atDocumentStart, forMainFrameOnly: true
         ))
+        // Settings → Apps reads which version this is (docs/PLAN-mac-version-and-whats-new.md, M4).
+        if let versionScript = AppVersion.pageScript(version: AppVersion.current, build: AppVersion.build) {
+            configuration.userContentController.addUserScript(WKUserScript(
+                source: versionScript, injectionTime: .atDocumentStart, forMainFrameOnly: true
+            ))
+        }
         webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 1280, height: 820), configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
