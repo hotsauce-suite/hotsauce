@@ -86,6 +86,13 @@ export function Conversation({
   }, [focusBox, handled])
 
   if (!c.canComment) {
+    if (c.status === 'error' && c.offline) {
+      return (
+        <p data-testid="comments-offline" role="status" className="text-sm text-ink-faint">
+          You’re offline. Comments need a connection.
+        </p>
+      )
+    }
     return c.status === 'error' ? (
       <p className="text-sm text-ink-faint">
         Comments didn’t load.{' '}

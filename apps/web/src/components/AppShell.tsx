@@ -19,12 +19,14 @@ import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
 import { useAppShortcuts } from '../keyboard/useAppShortcuts'
 import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
+import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
 import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
 import { AssistantHost } from './assistant/AssistantHost'
 import { Icon } from './Icon'
 import { InstallBar } from './InstallBar'
+import { OfflineBar, OfflineEmpty } from './Offline'
 import { Sidebar, SidebarFrame } from './Sidebar'
 
 const CommandK = lazy(() => import('./CommandK'))
@@ -63,6 +65,32 @@ export default function AppShell() {
   )
 }
 
+/**
+ * Screens that open offline with what's on the device (docs/PLAN-offline.md): a doc (from its
+ * waiting save), what's kept on the device, Settings (to sign out) and voice notes (kept and
+ * sent later). Any other screen opened offline says
+ * "Not available offline yet"; one already open when the connection drops keeps what it shows.
+ */
+function opensOffline(pathname: string): boolean {
+  return (
+    /^\/docs\/[^/]+\/.+/.test(pathname) ||
+    pathname === '/docs/kept' ||
+    // Your account (Sign out works offline: it's finished when the connection is back).
+    pathname === '/settings' ||
+    pathname === '/dictate/voice'
+  )
+}
+
+/** Whether this screen was opened while offline (and the app is still offline). */
+function useOpenedOffline(): boolean {
+  const location = useLocation()
+  const online = useOnline()
+  const [opened, setOpened] = useState(() => ({ key: location.key, offline: !isOnline() }))
+  if (opened.key !== location.key) setOpened({ key: location.key, offline: !isOnline() })
+  else if (online && opened.offline) setOpened({ key: location.key, offline: false })
+  return !online && opened.key === location.key && opened.offline
+}
+
 function decodePath(splat: string | undefined): string | null {
   if (!splat) return null
   try {
@@ -87,6 +115,7 @@ function ShellLayout() {
   const { setSpace } = session
   const app = appForPath(location.pathname)
   const live = useLive()
+  const openedOffline = useOpenedOffline() && !opensOffline(location.pathname)
   // The voice notes page shows its own recording, and what any other meeting is doing.
   const onLivePage =
     live !== null &&
@@ -196,6 +225,7 @@ function ShellLayout() {
         Skip to content
       </button>
       <InstallBar />
+      <OfflineBar />
       <div className="flex min-h-0 flex-1">
         {compact ? (
           drawerOpen ? (
@@ -252,7 +282,7 @@ function ShellLayout() {
           className="shell-main flex h-full min-w-0 flex-1 flex-col outline-none"
         >
           {live && !onLivePage ? <RecordingIndicator live={live} variant="strip" /> : null}
-          <Outlet context={context} />
+          {openedOffline ? <OfflineEmpty /> : <Outlet context={context} />}
         </main>
       </div>
 

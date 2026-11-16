@@ -2,8 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { setAuthHeaders } from '../../api/client'
 import type { Comment } from '../../api/comments'
-import { server } from '../../test/mockServer'
+import { rememberedMember } from '../../lib/offlineStart'
+import { server, TEST_USER } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
 import { mentionQuery, mentionText } from './Composer'
 import { commentIdFromHash } from './Conversation'
@@ -146,6 +148,18 @@ describe('Comments', () => {
     expect(screen.getByTestId('comment-input')).toHaveValue('Written on the train')
   })
 
+  it('R10: opened with no connection, the conversation says it needs one', async () => {
+    server.use(http.get('/api/comments', () => HttpResponse.error()))
+    vi.stubGlobal('navigator', { ...navigator, onLine: false })
+    window.dispatchEvent(new Event('offline'))
+    renderApp(Q4)
+    expect(await screen.findByTestId('comments-offline')).toHaveTextContent(
+      'Comments need a connection',
+    )
+    expect(screen.queryByText(/Comments didn’t load/)).toBeNull()
+    window.dispatchEvent(new Event('online'))
+  })
+
   it('R10: a send that fails keeps the words, and they survive a reload', async () => {
     const first = await openDoc()
     server.use(http.post('/api/comments', () => HttpResponse.error()))
@@ -159,6 +173,27 @@ describe('Comments', () => {
     document.body.innerHTML = ''
     await openDoc()
     expect(screen.getByTestId('comment-input')).toHaveValue('Do not lose me')
+  })
+
+  it('R10: a kept draft is that member’s: the next member on this browser never sees it', async () => {
+    const first = await openDoc()
+    server.use(http.post('/api/comments', () => HttpResponse.error()))
+    await userEvent.type(screen.getByTestId('comment-input'), 'Only mine')
+    await userEvent.click(screen.getByTestId('comment-send'))
+    expect(await screen.findByTestId('comments-error')).toBeVisible()
+
+    first.router.dispose()
+    document.body.innerHTML = ''
+    // Someone else signs in on this browser.
+    setAuthHeaders(() => ({ 'x-hearth-dev-user': 'bob@example.test' }))
+    try {
+      renderApp(Q4)
+      const input = await screen.findByTestId('comment-input')
+      await waitFor(() => expect(rememberedMember()?.email).toBe('bob@example.test'))
+      await waitFor(() => expect(input).toHaveValue(''))
+    } finally {
+      setAuthHeaders(() => ({ 'x-hearth-dev-user': TEST_USER }))
+    }
   })
 
   it('R11: a long conversation shows the latest comments, with the earlier ones a click away', async () => {

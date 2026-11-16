@@ -94,14 +94,17 @@ describe('format helpers', () => {
 })
 
 describe('drafts', () => {
-  it('keeps one draft per file, keyed by the version it was edited from', () => {
-    saveDraft('team', 'docs/a.md', 'blob1', 'first')
-    saveDraft('team', 'docs/a.md', 'blob2', 'second')
-    expect(localStorage.getItem(draftKey('team', 'docs/a.md', 'blob1'))).toBeNull()
-    expect(findDraft('team', 'docs/a.md')).toMatchObject({ content: 'second', blobOid: 'blob2' })
-    expect(findDraft('team', 'docs/a.md.bak')).toBeNull()
-    clearDrafts('team', 'docs/a.md')
-    expect(findDraft('team', 'docs/a.md')).toBeNull()
+  it('keeps one draft per file per member, keyed by the version it was edited from', () => {
+    saveDraft('u1', 'team', 'docs/a.md', 'blob1', 'first')
+    saveDraft('u1', 'team', 'docs/a.md', 'blob2', 'second')
+    expect(localStorage.getItem(draftKey('u1', 'team', 'docs/a.md', 'blob1'))).toBeNull()
+    expect(findDraft('team', 'docs/a.md', 'u1')).toMatchObject({
+      content: 'second',
+      blobOid: 'blob2',
+    })
+    expect(findDraft('team', 'docs/a.md.bak', 'u1')).toBeNull()
+    clearDrafts('u1', 'team', 'docs/a.md')
+    expect(findDraft('team', 'docs/a.md', 'u1')).toBeNull()
   })
 })
 

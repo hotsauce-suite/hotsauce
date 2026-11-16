@@ -29,3 +29,8 @@ export async function saveOpenDocUnder(space: string, path: string): Promise<boo
   const outcome = await open.commit()
   return outcome === 'committed' || outcome === 'noop'
 }
+
+/** Whether this doc is open in the editor here (it sends its own waiting save). */
+export function isOpenDoc(space: string, path: string): boolean {
+  return open !== null && open.space === space && open.path === path
+}

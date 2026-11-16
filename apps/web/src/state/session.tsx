@@ -5,11 +5,18 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
-import { api } from '../api/client'
+import { api, HotsauceApiError } from '../api/client'
 import type { Me, RecentItem, Space, StarItem } from '../api/types'
 import { hotsauceSocket } from '../api/ws'
+import { org } from '../brand/product'
+import { isOnline, onBackOnline } from '../lib/connection'
+import { keepTabAlive } from '../lib/drafts'
+import { offlineMe, rememberedMember, rememberMember } from '../lib/offlineStart'
+import { displayName } from '../lib/paths'
+import { sendWaitingDrafts } from '../lib/sendWaiting'
 import { TreeStore } from './treeStore'
 
 const DEFAULT_IDLE_COMMIT_MS = 60_000
@@ -60,6 +67,7 @@ let noticeId = 0
 export function SessionProvider({ children, tree }: { children: ReactNode; tree?: TreeStore }) {
   const [store] = useState(() => tree ?? new TreeStore())
   const [me, setMe] = useState<Me | null>(null)
+  const meFromServer = useRef(false)
   const [space, setSpaceState] = useState(storedSpace)
   const [recents, setRecents] = useState<RecentItem[]>([])
   const [stars, setStars] = useState<StarItem[]>([])
@@ -81,10 +89,54 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
   }, [])
 
   useEffect(() => {
-    api.me().then(setMe, () => {})
+    api.me().then(
+      (next) => {
+        meFromServer.current = true
+        setMe(next)
+        // What an offline start opens as (lib/offlineStart): id, name, email, workspace only.
+        rememberMember(next.principal, org() || null)
+      },
+      (err: unknown) => {
+        // Offline: who this device last saw signed in, so the shell still says who you are.
+        // Not for an error answer: that member would show without their spaces or admin items.
+        if (!(err instanceof HotsauceApiError && err.code === 'network')) return
+        const member = rememberedMember()
+        if (member) setMe((current) => current ?? offlineMe(member))
+      },
+    )
     refreshRecents()
     api.stars().then(setStars, () => {})
   }, [refreshRecents])
+
+  // Other tabs leave this tab's waiting saves for it to send (lib/drafts).
+  useEffect(() => keepTabAlive(), [])
+
+  // Doc saves that waited on this device for the connection (docs/PLAN-offline.md, A4.4): sent
+  // at start and whenever the connection comes back. An open doc sends its own.
+  const userId = me?.principal.userId
+  useEffect(() => {
+    // Only as the member the server says is signed in: not the offline stand-in.
+    if (!userId || !meFromServer.current) return
+    const send = () =>
+      void sendWaitingDrafts(userId).then(({ sent, conflicts, failed }) => {
+        if (sent > 0)
+          notify(
+            sent === 1
+              ? 'A doc you edited offline is saved.'
+              : `${sent} docs you edited offline are saved.`,
+          )
+        for (const path of conflicts)
+          notify(
+            `${displayName(path)} changed elsewhere while you were offline. Open it to choose what to keep.`,
+          )
+        for (const { path, reason } of failed)
+          notify(
+            `Your offline edits to ${displayName(path)} couldn’t be saved: ${reason}. They’re kept on this device in Docs → Kept on this device.`,
+          )
+      })
+    if (isOnline()) send()
+    return onBackOnline(send)
+  }, [notify, userId])
 
   useEffect(() => {
     hotsauceSocket.start()
