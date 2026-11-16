@@ -66,6 +66,22 @@ export {
 } from './checkins.js'
 export { type Chunk, chunkMarkdown } from './chunks.js'
 export {
+  COMMENTS_FOLDER,
+  CommentFrontmatter,
+  commentFolder,
+  commentPath,
+  commentRefOf,
+  findMentions,
+  isCommentableId,
+  isCommentPath,
+  MAX_COMMENT,
+  MAX_COMMENT_QUOTE,
+  MAX_COMMENTS_PER_ITEM,
+  type MentionMatch,
+  type MentionMember,
+  mentionedEmails,
+} from './comments.js'
+export {
   cleanFileName,
   cleanFolder,
   FILES_FOLDER,

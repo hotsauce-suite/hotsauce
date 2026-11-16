@@ -99,6 +99,9 @@ Markdown documents with a fast, source-first editor. Several people edit at once
 commit with a readable history, links survive renames, and search covers every space you can see.
 Import Markdown, Word and HTML files, and drop live task lists into a page.
 
+Every team doc, meeting note and task has a conversation under it: comment where the work is, quote
+a passage, and @mention a teammate to send them a notification that opens on your comment.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/default-docs-dark.webp">
   <img src="docs/screenshots/default-docs-light.webp" alt="A doc in Hotsauce Docs, with the file tree and outline">

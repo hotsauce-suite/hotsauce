@@ -2,11 +2,11 @@
 
 ## Status
 
-2026-11-16: slice 1 built (the tile, the Connect calendar button, the replay link, help pages, the
-demo and the Today loop). Every requirement below has a passing test. Decisions settled with the
-owner on 2026-11-15 (options page: https://claude.ai/artifact/7aHzYDrEhJwGqT3dBKPgfY; he accepted
-every recommendation). Not built yet: slice 2, a "start here" doc an admin picks for step 3, in
-its own pull request.
+2026-11-16: both slices built. Slice 1 (the tile, the Connect calendar button, the replay link,
+help pages, the demo and the Today loop) merged as #119. Slice 2 (the start-here doc an admin
+picks, H1 to H3) is its own pull request. Every requirement below has a passing test. Decisions
+settled with the owner on 2026-11-15 (options page:
+https://claude.ai/artifact/7aHzYDrEhJwGqT3dBKPgfY; he accepted every recommendation).
 
 Why: a new member signed in and landed on a nearly empty Today with no hint of what to do. The
 one step that fills Today (the calendar) read like an error, and the Mac app card was the last
@@ -85,6 +85,23 @@ Each maps to a test, named in brackets.
   showing, saves that, and drops `?start=1` from the address. [StartTile.test,
   e2e getting-started.spec]
 
+**The start-here doc (slice 2)**
+
+- H1. `GET /api/today/start-here` gives `{ doc: { path, title } | null }`: the Team-space doc an
+  admin picked, with its title as it reads now; null when none is picked or the doc has gone.
+  `PUT /api/today/start-here` with `{ link }` (a doc's link or address; null clears) is for
+  admins only and refuses anything that isn't an existing Markdown doc in the Team space, keeping
+  what was picked. [integration today-layout.test]
+- H2. With a doc picked, the tile's last step says "Start with “<title>”." and its button, "Open
+  it", records the step and opens that doc. With none, or when asking fails, it opens Docs as
+  before. Until it's known which, the step shows no button, so a quick click can't skip the doc. [StartTile.test, e2e getting-started.spec J2]
+- H3. Settings → Workspace has a "Start-here doc" section after the weather city: what is picked
+  (linked), a field to paste a doc's address, and Remove. The server's refusal shows as written.
+  [StartTile.test, settingsPages.test, e2e getting-started.spec J2]
+
+Known and accepted: the picked doc doesn't follow a rename or move; it then reads as none and the
+admin picks it again.
+
 **Journey**
 
 - J1. In a real browser: a new member opens Today and sees Getting started first; hides it; it
@@ -106,4 +123,4 @@ Each maps to a test, named in brackets.
 1. Format and server (F1 to F5).
 2. The tile, the Meetings button, the Mac card rule (T1 to T6).
 3. Replay (R1, R2), the journey, mocks and support materials.
-4. Later pull request: the admin's "start here" doc.
+4. Own pull request: the admin's start-here doc (H1 to H3).

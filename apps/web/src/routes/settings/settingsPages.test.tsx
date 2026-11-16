@@ -252,7 +252,14 @@ describe('Settings: the organization’s pages', () => {
   const pages: [string, string[], string[]][] = [
     [
       '/settings/organization',
-      ['org-summary', 'org-names-section', 'org-weather', 'org-chat-section', 'org-chat-rooms'],
+      [
+        'org-summary',
+        'org-names-section',
+        'org-weather',
+        'org-start-here',
+        'org-chat-section',
+        'org-chat-rooms',
+      ],
       ['brand-section', 'org-people-section', 'signin-section', 'ai-section', 'storage-section'],
     ],
     [

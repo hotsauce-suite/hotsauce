@@ -1,8 +1,10 @@
 import { normalizeRecurrence } from '@hotsauce/format'
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import type { Priority, TaskPatch, TaskPerson, TaskView } from '../../api/tasks'
+import { Conversation, commentIdFromHash } from '../../components/comments/Conversation'
+import { useComments } from '../../components/comments/useComments'
 import { DatePicker } from '../../components/DatePicker'
 import { AttachmentChips, FilePicker } from '../../components/FilePicker'
 import { Icon } from '../../components/Icon'
@@ -70,6 +72,9 @@ function Row({
 export function TaskDetail(props: TaskDetailProps) {
   const { task } = props
   const id = useId()
+  const location = useLocation()
+  // Team tasks have a conversation (docs/PLAN-comments.md); a personal task has none.
+  const conversation = useComments(task.space, task.path, task.space === props.spaces.team)
   const titleRef = useRef<HTMLInputElement>(null)
   // Escape blurs the title to leave it; that blur must not save what was typed.
   const discardTitle = useRef(false)
@@ -453,6 +458,16 @@ export function TaskDetail(props: TaskDetailProps) {
               </p>
             )}
           </Row>
+        ) : null}
+
+        {conversation.canComment ? (
+          <div className="border-t border-ash/70 pt-4">
+            <Conversation
+              conversation={conversation}
+              focusId={commentIdFromHash(location.hash)}
+              dense
+            />
+          </div>
         ) : null}
 
         <p className="text-xs text-ink-faint">

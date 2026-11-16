@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { type OrgState, orgEditor, waitForRestart } from '../api/org'
 import { primaryButton } from '../apps/meetings/components/common'
+import { OrgStartHereSection } from '../apps/today/StartHereSettings'
 import { OrgWeatherSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { useSession } from '../state/session'
@@ -165,6 +166,7 @@ function OrgPage({
           <Summary state={state} />
           <OrgSection {...restart} part="names" />
           <OrgWeatherSection />
+          <OrgStartHereSection />
           <OrgSection {...restart} part="chat" />
           <ChatRoomsSection />
         </>

@@ -6,13 +6,14 @@ import { removeTile, type TodayLayout, type TodayTile, updateTile } from '@hotsa
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { dictationApi } from '../../../api/dictation'
-import type { TodayView } from '../../../api/today'
+import { type StartHereDoc, type TodayView, todayApi } from '../../../api/today'
 import { product } from '../../../brand/product'
 import { Icon } from '../../../components/Icon'
 import { MAC_APP_SETTINGS, useMacAppBuild } from '../../../components/MacApp'
 import { TOUCH_QUERY, useMediaQuery } from '../../../hooks/useMediaQuery'
 import { desktopSignInBridge } from '../../../lib/desktop'
 import { installContext } from '../../../lib/install'
+import { docUrl } from '../../../lib/paths'
 import { Card } from './Card'
 
 const CALENDARS = '/settings/connections#calendars'
@@ -63,6 +64,30 @@ function useHasMac(enabled: boolean): boolean | null {
   return inApp ? true : connected
 }
 
+/**
+ * The doc the team's admin picked to start with (plan H2): undefined while asking, null for none.
+ * Not knowing which doc counts as none: Docs itself is still the right place.
+ */
+function useStartHere(enabled: boolean): StartHereDoc | null | undefined {
+  const [doc, setDoc] = useState<StartHereDoc | null | undefined>(undefined)
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    todayApi.startHere().then(
+      (r) => {
+        if (!cancelled) setDoc(r.doc)
+      },
+      () => {
+        if (!cancelled) setDoc(null)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [enabled])
+  return doc
+}
+
 export function StartTile({
   tile,
   layout,
@@ -88,6 +113,7 @@ export function StartTile({
   // Set as "Open Docs" leaves Today: if that was the last step, "You're set" waits for the next
   // time Today opens, where it can be read, instead of saving the tile away unseen.
   const leaving = useRef(false)
+  const startHere = useStartHere(tile.openedDocs !== true)
 
   const steps: Step[] = [
     {
@@ -132,8 +158,10 @@ export function StartTile({
   steps.push({
     id: 'docs',
     title: 'See where the team’s work lives',
-    hint: 'Shared docs, grouped by space.',
-    done: tile.openedDocs === true,
+    hint: startHere ? `Start with “${startHere.title}”.` : 'Shared docs, grouped by space.',
+    // Until it's known which doc to open, the step offers nothing: a click then would open
+    // Docs and tick the step, and the picked doc would never be offered.
+    done: tile.openedDocs === true ? true : startHere === undefined ? null : false,
     action: (
       <button
         type="button"
@@ -142,10 +170,10 @@ export function StartTile({
         onClick={() => {
           leaving.current = true
           onChange(updateTile(layout, { ...tile, openedDocs: true }))
-          void navigate('/docs')
+          void navigate(startHere ? docUrl('team', startHere.path) : '/docs')
         }}
       >
-        Open Docs
+        {startHere ? 'Open it' : 'Open Docs'}
       </button>
     ),
   })

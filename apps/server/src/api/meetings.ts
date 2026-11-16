@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { parse as parseYaml } from 'yaml'
 import { z } from 'zod'
+import { commentRemovals } from '../comments/index.js'
 import { HotsauceError } from '../errors.js'
 import {
   completeActionItem,
@@ -394,6 +395,7 @@ export function meetingRoutes(deps: AppDeps) {
               sessions,
               writablePath,
               afterCommit: (space, p, commit) => afterCommit(deps, space, p, commit),
+              commentRemovals: (space, p) => commentRemovals(deps.index, space, [p]),
             },
             principal,
             { ...body, via: viaFor(principal) },
