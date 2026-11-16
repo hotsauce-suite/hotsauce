@@ -166,7 +166,7 @@ test('attach a file to a doc, a note and a task', async ({ page, member }) => {
   await page.getByTestId('file-picker-search').fill(id)
   await page.getByTestId('file-picker-item').filter({ hasText: name }).click()
   await expect(page.getByTestId('note-editor').getByTestId('attachment-chips')).toContainText(name)
-  await page.getByTestId('note-editor-close').click()
+  await page.getByTestId('note-editor-x').click()
   const chip = page
     .getByTestId('note-card')
     .filter({ hasText: `Note ${id}` })
@@ -174,7 +174,21 @@ test('attach a file to a doc, a note and a task', async ({ page, member }) => {
   await expect(chip).toBeVisible()
   await chip.click()
   await expect(page).toHaveURL(/\/files\/team\/[0-9A-Z]{26}$/)
-  await expect(page.getByTestId('file-dialog')).toBeVisible()
+  const dialog = page.getByTestId('file-dialog')
+  await expect(dialog).toBeVisible()
+  // Its name at the top, × at the top right, Rename and Delete in More (requirement 26).
+  await expect(dialog.getByRole('heading')).toHaveText(name)
+  await expect(dialog.getByTestId('dialog-x')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Delete' })).toHaveCount(0)
+  await dialog.getByTestId('file-more').click()
+  await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Delete file' })).toBeVisible()
+  // Rename opens on top; Escape closes only the rename, and the file stays open.
+  await page.getByRole('menuitem', { name: 'Rename' }).click()
+  await expect(page.getByRole('dialog', { name: 'Rename file' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Rename file' })).toHaveCount(0)
+  await expect(dialog).toBeVisible()
 
   // From a task.
   const created = await member.request.post('/api/tasks', { data: { title: `Task ${id}` } })

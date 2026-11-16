@@ -138,6 +138,11 @@ describe('Briefcast page (R10)', () => {
     expect(within(past).getByText('Script')).toBeInTheDocument()
     await user.click(within(past).getByRole('link', { name: /Wednesday, November 11/ }))
     expect(await screen.findByText('Yesterday’s script.')).toBeInTheDocument()
+    // A past episode is named once, in the top bar (docs/PLAN-consistency.md, requirement 27).
+    expect(screen.getByTestId('page-header')).toHaveTextContent(
+      'Briefcast for Wednesday, November 11',
+    )
+    expect(within(screen.getByTestId('briefcast-episode')).queryByRole('heading')).toBeNull()
     expect(screen.getByTestId('briefcast-no-audio')).toHaveTextContent(/deleted after 30 days/)
   })
 })

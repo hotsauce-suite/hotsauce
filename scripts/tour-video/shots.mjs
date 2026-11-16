@@ -195,7 +195,7 @@ export const shots = {
       { after: 500 },
     )
     await click(editor.getByTestId('note-editor-pin'), { after: 500 })
-    await click(editor.getByTestId('note-editor-close'), { after: 2200 })
+    await click(editor.getByTestId('note-editor-x'), { after: 2200 })
   },
 
   async clipsRecorder({ page, signIn, startCapture, wait, moveTo, point }) {

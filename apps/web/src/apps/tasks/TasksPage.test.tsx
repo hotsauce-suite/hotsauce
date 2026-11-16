@@ -472,7 +472,10 @@ describe('detail', () => {
       expect(stored('Sort out October expense receipts').assignee).toBe('priya@example.test'),
     )
 
-    await userEvent.click(within(moved).getByTestId('detail-delete'))
+    // Delete is in More, beside the × (docs/PLAN-consistency.md, requirement 26).
+    expect(within(moved).queryByTestId('detail-delete')).toBeNull()
+    await userEvent.click(within(moved).getByTestId('task-more'))
+    await userEvent.click(await screen.findByTestId('detail-delete'))
     await userEvent.click(await screen.findByTestId('task-delete-confirm'))
     await waitFor(() =>
       expect(

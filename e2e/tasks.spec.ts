@@ -167,6 +167,16 @@ test('edits in the detail panel are saved and survive a reload', async ({ page, 
   await row(page, title).getByTestId('task-open').click()
   const detail = page.getByTestId('task-detail')
   await expect(detail.getByTestId('detail-title')).toHaveValue(title)
+  // Name at the top, then More and × at the top right; Delete is in More (requirement 26).
+  const [more, x] = await Promise.all([
+    detail.getByTestId('task-more').boundingBox(),
+    detail.getByTestId('detail-close').boundingBox(),
+  ])
+  expect(more?.x ?? 0).toBeLessThan(x?.x ?? 0)
+  await detail.getByTestId('task-more').click()
+  await expect(page.getByRole('menuitem', { name: 'Delete task' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(detail).toBeVisible()
 
   await detail.getByTestId('detail-notes').fill(`Numbers from finance ${id}`)
   await detail.getByTestId('detail-title').click()

@@ -31,6 +31,6 @@ test('on a phone, taking a note and editing it in the sheet both work', async ({
   const height = page.viewportSize()?.height ?? 0
   expect(Math.round((box?.y ?? 0) + (box?.height ?? 0))).toBeGreaterThanOrEqual(height - 2)
   await editor.getByTestId('note-editor-body').fill('Edited on a phone')
-  await editor.getByTestId('note-editor-close').click()
+  await editor.getByTestId('note-editor-x').click()
   await expect(card).toContainText('Edited on a phone')
 })

@@ -4,6 +4,7 @@ import { type BriefcastOverview, briefcastApi, type Episode } from '../../api/br
 import { HotsauceApiError } from '../../api/client'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { readingColumn } from '../../components/ItemColumn'
 import { LoadError } from '../../components/LoadError'
 import { NEEDS_CONNECTION } from '../../components/Offline'
 import { MainButton } from '../../components/PageHeader'
@@ -76,7 +77,16 @@ export default function BriefcastPage() {
   return (
     <>
       <MeetingsPageHeader
-        title={date ? 'Past briefing' : 'Briefcast'}
+        // A past episode is named once, in the top bar (docs/PLAN-consistency.md, requirement 27).
+        title={
+          date ? (
+            <span className="truncate" data-testid="briefcast-title">
+              {load.status === 'ready' && load.episode ? load.episode.title : 'Past briefing'}
+            </span>
+          ) : (
+            'Briefcast'
+          )
+        }
         {...(date ? { back: { to: '/briefcast', label: 'Briefcast' } } : {})}
       >
         <MainButton
@@ -90,7 +100,7 @@ export default function BriefcastPage() {
         </MainButton>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="briefcast-page">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
+        <div data-item-width="reading" className={`${readingColumn} pt-6 pb-24`}>
           {message ? (
             <p className="mb-4 text-sm text-ink-soft" data-testid="briefcast-message">
               {message}
@@ -112,7 +122,7 @@ export default function BriefcastPage() {
           ) : (
             <>
               {load.episode ? (
-                <EpisodeView episode={load.episode} voice={load.overview.voice} />
+                <EpisodeView episode={load.episode} voice={load.overview.voice} named={!date} />
               ) : (
                 <Empty hour={load.overview.readyHour} />
               )}
@@ -151,7 +161,16 @@ function Empty({ hour }: { hour: number }) {
   )
 }
 
-function EpisodeView({ episode, voice }: { episode: Episode; voice: boolean }) {
+function EpisodeView({
+  episode,
+  voice,
+  named,
+}: {
+  episode: Episode
+  voice: boolean
+  /** Today's episode shows its name here; a past one has it in the top bar. */
+  named: boolean
+}) {
   const made = episode.generated ? new Date(episode.generated) : null
   const sources = [
     plural(episode.counts.events, 'meeting today', 'meetings today'),
@@ -165,10 +184,12 @@ function EpisodeView({ episode, voice }: { episode: Episode; voice: boolean }) {
       className="rounded-xl border border-ash bg-paper-raised p-5 md:p-6"
       data-testid="briefcast-episode"
     >
-      <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
-        {episode.title}
-      </h2>
-      <p className="mt-1 text-xs text-ink-faint" data-testid="briefcast-made">
+      {named ? (
+        <h2 className="mb-1 font-display text-2xl font-semibold tracking-tight text-ink">
+          {episode.title}
+        </h2>
+      ) : null}
+      <p className="text-xs text-ink-faint" data-testid="briefcast-made">
         {made
           ? `Made ${made.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`
           : ''}
