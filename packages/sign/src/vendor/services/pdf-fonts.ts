@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";

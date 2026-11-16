@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 /**
  * JSON with object keys in sorted order and undefined members left out, so
  * a value hashes the same before it is stored and after Postgres hands it

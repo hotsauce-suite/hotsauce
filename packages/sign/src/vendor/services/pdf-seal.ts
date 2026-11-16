@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 import { createHash, createSign, randomBytes } from "node:crypto";
 
 import { SignPdf } from "@signpdf/signpdf";
@@ -42,6 +43,8 @@ export type SealIdentity = {
 };
 
 export type SealOptions = {
+  /** Hotsauce: the product name written into the seal (white-label). */
+  appName?: string;
   contactInfo?: string;
   location?: string;
   name: string;
@@ -394,7 +397,7 @@ export async function saveSealedPdf(
   const signingTime = options.signingTime ?? new Date();
 
   pdflibAddPlaceholder({
-    appName: "Hotsauce",
+    appName: options.appName ?? "Hotsauce",
     contactInfo: options.contactInfo ?? "",
     location: options.location ?? "",
     name: options.name,

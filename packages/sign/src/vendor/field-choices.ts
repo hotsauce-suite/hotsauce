@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see LICENSE-SignuDoc.
 // The rules for the fields a signer answers by choosing or by typing a
 // number: dropdowns, radio buttons and number fields. Shared by the field
 // editor, the signing page and the server, so all three agree.

@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 export const MAX_SIGNERS_PER_ENVELOPE = 10;
 /** People who get a copy of the finished document without signing. */
 export const MAX_COPY_RECIPIENTS_PER_ENVELOPE = 10;

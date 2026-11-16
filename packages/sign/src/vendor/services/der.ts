@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 // A small DER reader and writer, for the parts of certificates, timestamp
 // tokens, OCSP answers and revocation lists that sealing needs to look at.
 //

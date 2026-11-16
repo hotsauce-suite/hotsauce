@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 import { randomUUID } from "node:crypto";
 
 import { PDFDocument, type PDFImage, type PDFPage, rgb } from "pdf-lib";
@@ -1141,6 +1142,8 @@ function appendAuditTrailPages(input: {
 export type CertificateCopyRecipient = { email: string; name: string };
 
 type CertificateInput = {
+  /** Hotsauce: the product name in the PDF's Producer field (white-label). */
+  productName?: string;
   auditEvents: AuditEventRecord[];
   copyRecipients?: readonly CertificateCopyRecipient[];
   envelope: EnvelopeRecord;
@@ -1205,7 +1208,7 @@ export async function renderEnvelopeCertificatePdf(
     signers: input.signers,
   });
   pdfDocument.setTitle(`Audit certificate: ${input.envelope.title}`);
-  pdfDocument.setProducer("Hotsauce");
+  pdfDocument.setProducer(input.productName ?? "Hotsauce");
 
   return seal(pdfDocument, "certificate");
 }

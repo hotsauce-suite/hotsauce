@@ -1,7 +1,15 @@
 // docs/PLAN-sign.md R1 to R5, at the package's public boundary.
 import { createHash } from 'node:crypto'
 import forge from 'node-forge'
-import { PDFDocument, rgb } from 'pdf-lib'
+import {
+  decodePDFRawStream,
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFRawStream,
+  rgb,
+} from 'pdf-lib'
 import { describe, expect, it } from 'vitest'
 import {
   type AuditEventRecord,
@@ -27,7 +35,10 @@ const NOW = 1_800_000_000
  * Checks a PDF's one seal the way a reader does: the digest over the ByteRange matches the
  * signed attributes, and the signature over those attributes verifies with the certificate.
  */
-function checkSeal(pdf: Uint8Array): { ok: boolean; covered: number; subFilter: string } {
+function checkSeal(
+  pdf: Uint8Array,
+  certificatePem = identity.certificatePem,
+): { ok: boolean; wholeFile: boolean; subFilter: string; appName: string } {
   const text = Buffer.from(pdf).toString('latin1')
   const range = /\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/.exec(text)
   if (!range) throw new Error('no seal')
@@ -62,10 +73,20 @@ function checkSeal(pdf: Uint8Array): { ok: boolean; covered: number; subFilter: 
   )
   const set = forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.SET, true, attrs)
   const md = forge.md.sha256.create().update(forge.asn1.toDer(set).getBytes())
-  const publicKey = message.certificates[0]?.publicKey as forge.pki.rsa.PublicKey
-  const signatureOk = publicKey.verify(md.digest().getBytes(), message.rawCapture.signature)
+  // Checked against the install's own certificate, not the one the PDF carries.
+  const publicKey = forge.pki.certificateFromPem(certificatePem)
+    .publicKey as forge.pki.rsa.PublicKey
+  let signatureOk = false
+  try {
+    signatureOk = publicKey.verify(md.digest().getBytes(), message.rawCapture.signature)
+  } catch {
+    // forge throws when the signature was made with a different key.
+  }
   const digestOk = digest === createHash('sha256').update(covered).digest('hex')
-  return { ok: signatureOk && digestOk, covered: b + d, subFilter }
+  // The range must start at byte 0 and end at the file's last byte, so nothing sits outside it.
+  const wholeFile = a === 0 && c + d === pdf.byteLength
+  const appName = /\/App\s*<<\s*\/Name\s*\/([\w.]+)/.exec(text)?.[1] ?? ''
+  return { ok: signatureOk && digestOk && wholeFile, wholeFile, subFilter, appName }
 }
 
 async function sourcePdf(): Promise<Uint8Array> {
@@ -201,18 +222,30 @@ describe('R1 createSealIdentity', () => {
 })
 
 describe('R2 makeSealer', () => {
-  it('seals the whole file, and a changed byte breaks the seal', async () => {
+  it('seals the whole file, and a changed or added byte breaks the seal', async () => {
     const doc = await PDFDocument.create()
     doc.addPage()
     const sealed = await seal(doc, 'signed-document')
-    const check = checkSeal(sealed)
-    expect(check).toMatchObject({ ok: true, subFilter: 'ETSI.CAdES.detached' })
-    // The range covers everything except the signature's own slot.
-    expect(sealed.byteLength - check.covered).toBeLessThan(60_000)
+    expect(checkSeal(sealed)).toMatchObject({
+      ok: true,
+      wholeFile: true,
+      subFilter: 'ETSI.CAdES.detached',
+    })
 
     const tampered = Uint8Array.from(sealed)
     tampered[20] = tampered[20] === 0x41 ? 0x42 : 0x41
     expect(checkSeal(tampered).ok).toBe(false)
+
+    const appended = new Uint8Array([...sealed, ...Buffer.from('\n% added later\n')])
+    expect(checkSeal(appended)).toMatchObject({ ok: false, wholeFile: false })
+  })
+
+  it("does not verify against another install's certificate", async () => {
+    const doc = await PDFDocument.create()
+    doc.addPage()
+    const sealed = await seal(doc, 'certificate')
+    const other = createSealIdentity({ commonName: 'Someone else' })
+    expect(checkSeal(sealed, other.certificatePem).ok).toBe(false)
   })
 })
 
@@ -236,6 +269,38 @@ describe('R3 renderSignedPdf', () => {
     expect(text).toContain('2026-11-16')
     expect(text).toContain('Санкт-Петербург')
     expect((await PDFDocument.load(signed)).getPageCount()).toBe(2)
+
+    // The drawn signature is an image on page 1, and the ticked checkbox adds drawing there.
+    const without = (id: string) =>
+      renderSignedPdf(
+        {
+          source,
+          envelope: r.envelope,
+          signers: r.signers,
+          fields: r.fields.filter((f) => f.id !== id),
+          images: new Map([['sig-maya', PNG]]),
+        },
+        seal,
+      )
+    const pageOps = async (pdf: Uint8Array) => {
+      const page = (await PDFDocument.load(pdf)).getPage(0)
+      const resources = page.node.Resources()
+      const xobjects = resources?.lookup(PDFName.of('XObject'), PDFDict)
+      const images = (xobjects?.keys() ?? []).length
+      const contents = page.node.Contents()
+      const streams =
+        contents instanceof PDFArray
+          ? contents.asArray().map((ref) => page.doc.context.lookup(ref))
+          : [contents]
+      let size = 0
+      for (const stream of streams) {
+        if (stream instanceof PDFRawStream) size += decodePDFRawStream(stream).decode().length
+      }
+      return { images, size }
+    }
+    const full = await pageOps(signed)
+    expect(full.images).toBeGreaterThan((await pageOps(await without('f-2'))).images)
+    expect(full.size).toBeGreaterThan((await pageOps(await without('f-5'))).size)
   })
 
   it('refuses a source that is not the one the envelope was sent with', async () => {
@@ -258,6 +323,37 @@ describe('R3 renderSignedPdf', () => {
     await expect(
       renderSignedPdf({ source, envelope: r.envelope, signers: r.signers, fields: r.fields }, seal),
     ).rejects.toThrow(/sig-maya/)
+  })
+})
+
+describe('R6 scripts', () => {
+  it('replaces CJK text with U+FFFD instead of dropping it or failing', async () => {
+    const source = await sourcePdf()
+    const r = records(source)
+    const fields = r.fields.map((f) => (f.id === 'f-4' ? { ...f, value: 'Tokyo 東京' } : f))
+    const signed = await renderSignedPdf(
+      {
+        source,
+        envelope: r.envelope,
+        signers: r.signers,
+        fields,
+        images: new Map([['sig-maya', PNG]]),
+      },
+      seal,
+    )
+    const text = await textOf(signed)
+    expect(text).toContain('Tokyo \uFFFD\uFFFD')
+  })
+})
+
+describe('white-label', () => {
+  it('writes the product name into the seal and the certificate', async () => {
+    const source = await sourcePdf()
+    const r = records(source)
+    const acme = makeSealer(identity, { name: 'Acme', productName: 'AcmeDocs' })
+    const cert = await renderCertificate({ ...r, productName: 'AcmeDocs' }, acme)
+    expect(checkSeal(cert).appName).toBe('AcmeDocs')
+    expect(Buffer.from(cert).toString('latin1')).toContain('AcmeDocs')
   })
 })
 

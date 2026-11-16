@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see LICENSE-SignuDoc.
 import { signatureMeanings, type SignatureMeaning } from "./types/domain.ts";
 
 // What a Part 11 signature means (21 CFR 11.50(a)(3)), in words for the

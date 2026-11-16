@@ -73,6 +73,7 @@ export type SealLabel = {
 export function makeSealer(identity: SealIdentity, label: SealLabel): PdfSealer {
   return (document: PDFDocument, purpose: SealPurpose) =>
     saveSealedPdf(document, identity, {
+      appName: label.productName,
       contactInfo: label.contactInfo ?? '',
       name: label.name,
       reason:
@@ -135,11 +136,14 @@ export function renderCertificate(
     signedPdfSha256?: string | null
     copyRecipients?: readonly CertificateCopyRecipient[]
     forRecipients?: boolean
+    /** The product name in the PDF's Producer field (white-label). */
+    productName?: string
   },
   seal: PdfSealer,
 ): Promise<Uint8Array> {
   return renderEnvelopeCertificatePdf(
     {
+      ...(input.productName ? { productName: input.productName } : {}),
       auditEvents: input.auditEvents,
       envelope: input.envelope,
       signers: input.signers,

@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 import { z } from "zod";
 
 export const idSchema = z.string().trim().min(1);

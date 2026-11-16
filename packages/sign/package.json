@@ -5,7 +5,9 @@
   "type": "module",
   "files": [
     "dist",
-    "fonts"
+    "fonts",
+    "src/vendor/LICENSE-SignuDoc",
+    "README.md"
   ],
   "exports": {
     ".": {

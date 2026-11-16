@@ -28,8 +28,9 @@ copied from SignuDoc (https://github.com/NYLLON-SOFTWARE/signudoc, MIT, checked 
 
 R1. `@hotsauce/sign` exports `createSealIdentity({ commonName, organization })`: a fresh RSA key
     and a self-signed certificate valid 20 years, as PEM.
-R2. `sealPdf(document, identity, options)` returns PDF bytes carrying one PAdES (ETSI.CAdES.detached)
-    signature over the whole file; changing any byte after it makes the signature check fail.
+R2. `makeSealer(identity, { name, productName })` gives a sealer that saves a PDF with one PAdES
+    (ETSI.CAdES.detached) signature over the whole file, naming the product (white-label);
+    changing or adding any byte after it makes the signature check fail.
 R3. `renderSignedPdf({ source, envelope, signers, fields, images }, seal)` stamps every filled field
     (signature typed or drawn, initials, date, text, number, checkbox, dropdown, radio) onto the
     source PDF at its page and position, flattens any form, and seals it. It refuses a source whose
@@ -47,7 +48,8 @@ R6. Latin, Greek and Cyrillic names and text are drawn correctly. Chinese, Japan
 R7. An envelope is one file in Git (`sign/<id>.md`, frontmatter: title, status, source file id and
     hash, signers, fields; body: the audit trail, one event per line). Signing-link tokens are
     stored only as hashes. Reindexing rebuilds the Sign list from these files.
-R8. Files has "Send for signature" on a PDF; the Sign app lists envelopes; a member places fields
+R8. (Build) the server depends on `@hotsauce/sign`, and the Dockerfile builds it before the server.
+R9. Files has "Send for signature" on a PDF; the Sign app lists envelopes; a member places fields
     and signs in the app; the sealed PDF and certificate land in Files beside the original.
 
 ### Slice 3 to 5 (later, requirements written when each starts)

@@ -1,3 +1,4 @@
+// Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 import type { EnvelopePageRecord } from "../schemas/envelope.ts";
 
 export type NormalizedFieldRect = {
