@@ -167,3 +167,57 @@ test('a long read picks up where you left off, and the list shows how far you go
   await expect(page).toHaveURL(/\/links$/)
   await expect(page.getByTestId('link-row').filter({ hasText: 'Slow read' })).toHaveCount(0)
 })
+
+test('highlight a passage with a note, find it in Highlights, and copy it to a Doc', async ({
+  page,
+}) => {
+  const id = uid()
+  await page.goto(`/links/save?url=${encodeURIComponent(`https://marks.test/${id}/marked-read`)}`)
+  await page.getByTestId('link-save-confirm').click()
+  await expect(page.getByTestId('link-saved')).toHaveText('Saved')
+  await page.getByRole('link', { name: 'Open it' }).click()
+  const body = page.getByTestId('link-body')
+  await expect(body).toContainText('is the subject of this page')
+
+  // Select the first sentence of the second paragraph, the way a drag would.
+  await body.evaluate((el) => {
+    const p = el.querySelectorAll('p')[1] as HTMLElement
+    const text = p.firstChild as Text
+    const range = document.createRange()
+    range.setStart(text, 0)
+    range.setEnd(text, text.data.indexOf('.') + 1)
+    const sel = document.getSelection() as Selection
+    sel.removeAllRanges()
+    sel.addRange(range)
+  })
+  await page.getByTestId('link-add-note').click()
+  await page.getByTestId('link-note-input').fill('The key line')
+  await page.getByTestId('link-note-save').click()
+  const item = page.getByTestId('link-highlight-item')
+  await expect(item).toContainText('Marked read is the subject of this page.')
+  await expect(item).toContainText('The key line')
+  // Drawn over the copy without changing it.
+  expect(await page.evaluate(() => CSS.highlights.has('link-mine'))).toBe(true)
+  await page.screenshot({ path: 'test-results/link-highlight.png' })
+
+  // The Highlights list goes to the passage and opens its note.
+  await item.getByRole('button').first().click()
+  await expect(page.getByTestId('link-popover-note')).toHaveText('The key line')
+  await page.keyboard.press('Escape')
+
+  // The list counts it, and the Highlights tab takes you back to the passage.
+  await page.getByRole('link', { name: 'Links' }).first().click()
+  await expect(page.getByTestId('link-row').filter({ hasText: 'Marked read' })).toContainText(
+    '1 highlight',
+  )
+  await page.getByTestId('links-view-highlights').click()
+  const row = page.getByTestId('highlight-row').filter({ hasText: 'The key line' })
+  await row.getByRole('link').click()
+  await expect(page.getByTestId('link-highlight-popover')).toContainText('The key line')
+  await page.keyboard.press('Escape')
+
+  await page.getByTestId('link-copy-highlights').click()
+  await expect(page).toHaveURL(/\/docs\/[^/]+\/docs\/highlights-marked-read/)
+  await expect(page.getByText('Marked read is the subject of this page.').first()).toBeVisible()
+  await page.screenshot({ path: 'test-results/link-highlights-doc.png' })
+})

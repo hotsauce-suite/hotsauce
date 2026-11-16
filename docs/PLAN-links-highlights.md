@@ -1,6 +1,6 @@
 # Plan: highlights and notes in saved links
 
-Status (2026-11-16): building. Step 3 of the Links roadmap Morgan accepted on 2026-11-15 (ideas
+Status (2026-11-16): built; every requirement has a test (format unit, server integration, web, and the e2e journey "highlight a passage with a note…"). Step 3 of the Links roadmap Morgan accepted on 2026-11-15 (ideas
 drawn from Omnivore, AGPL, so ideas only: no code from it). Built on the recommendations in the
 thread (Q1 to Q8) while Morgan answers; change here if he picks otherwise.
 
@@ -31,8 +31,8 @@ R3. `PATCH …/highlights/:hid {note}` changes the note (empty removes it; sets 
 R4. A fresh read of the page ("Get the page again", a better browser copy) never drops
     highlights; ones whose words are no longer in the copy still list, marked "not in the page
     any more".
-R5. `GET /api/links/:space/:id` returns `highlights` (every one in the file, oldest first);
-    `GET /api/links` gives each link `highlights: number`. Share with team and Make private carry
+R5. `GET /api/links/:space/:id` returns `highlights` (every one in the file, oldest first, each
+    with its maker's `name`); every link view gives `highlightCount`. Share with team and Make private carry
     them along unchanged (they are in the file).
 R6. `GET /api/links/highlights?q=&limit=` lists highlights across every link the member can see,
     newest first, each with its link's space, id, title and site.
@@ -51,7 +51,7 @@ R10. `POST /api/links/:space/:id/highlights/doc` makes a new doc in the member's
     with no highlights is 409.
 R11. Reader: selecting words in the copy shows "Highlight" and "Add note". Highlights show in the
     text (yours bright, teammates' softer); clicking one opens its note, Edit and Delete (yours) or
-    who made it (theirs). A "Highlights" section lists them with "Copy to a Doc" and, on a team
+    who made it (theirs). A "Highlights" section under the article lists them with "Copy to a Doc" and, on a team
     link with others' highlights, "Show only mine". Works with a mouse, a finger and the keyboard.
 R12. Links list: a Highlights tab beside Unread and Archive (R6), each opening the link at that
     passage; rows show "N highlights".

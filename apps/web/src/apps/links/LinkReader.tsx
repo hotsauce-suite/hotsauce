@@ -226,6 +226,23 @@ export default function LinkReader() {
             {[readingTime(link.words), `saved ${savedDay(link.saved)}`, spaceLabel(link.space)]
               .filter(Boolean)
               .join(' · ')}
+            {link.highlights.length > 0 ? (
+              <>
+                {' · '}
+                <button
+                  type="button"
+                  className="underline hover:text-ink"
+                  data-testid="link-jump-highlights"
+                  onClick={() =>
+                    document
+                      .querySelector('[data-testid="link-highlights"]')
+                      ?.scrollIntoView({ block: 'start' })
+                  }
+                >
+                  {highlightLabel(link.highlights.length)}
+                </button>
+              </>
+            ) : null}
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -337,8 +354,6 @@ export default function LinkReader() {
             </p>
           ) : null}
 
-          {highlights.section}
-
           <div className="mt-6">
             {link.status === 'waiting' ? (
               <div
@@ -412,6 +427,7 @@ export default function LinkReader() {
                     </button>
                   </p>
                 ) : null}
+                {highlights.section}
                 <div className="mt-10 flex justify-center border-t border-ash/70 pt-6">
                   {doneButton('link-end-done')}
                 </div>
