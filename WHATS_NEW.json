@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "0.33.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "A task's panel, a note and a file's pop-up each keep their name at the top and × at the top right, with Delete in ⋯ More beside the ×."
+        },
+        {
+          "text": "A note no longer has a second \"Close\" button at the bottom."
+        },
+        {
+          "text": "A file's Rename sits in More with Delete; Download and Share stay beside the preview."
+        },
+        {
+          "text": "A past Briefcast episode is named in the top bar, not again in the page, and reads at a doc's width."
+        }
+      ]
+    },
+    {
       "version": "0.32.0",
       "date": "2026-11-16",
       "notes": [
