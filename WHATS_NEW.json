@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.29.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "A doc's status now reads \"Saved\" instead of \"Committed\"."
+        }
+      ]
+    },
+    {
       "version": "0.29.0",
       "date": "2026-11-16",
       "notes": [
