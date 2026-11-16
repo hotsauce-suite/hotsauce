@@ -9,11 +9,11 @@ by the owner on 2026-11-15. This file is where that map ends: the spec the build
 
 - 2026-11-15: planned. Nothing is built. Each slice below is one thread and one release; a thread
   claims a slice by opening its draft PR and adding a line here.
-- Slice 1 (requirements 1 to 11): built 2026-11-16 in #121 ("Comments and @mentions on docs,
+- Slice 1 (requirements 1 to 11): released in 0.24.0 on 2026-11-16, built in #121 ("Comments and @mentions on docs,
   meeting notes and tasks"); how it works is ARCHITECTURE §27. Requirement 10 is half done on
   purpose: with no connection the box says so and keeps the draft; sending it on reconnect waits on
   offline mode (#102). What the build changed from the design below is under "Design, as built".
-- Slice 2: not started.
+- Slice 2: not started. It can start now that slice 1 is released.
 - Slice 3: not started.
 - Slice 4: not started.
 - Slice 5: not started.

@@ -15,3 +15,14 @@
 - **Check the verb before deleting things in a shared helper.** `Tasks.#trash` serves both delete and move-to-another-space; the first version deleted a task's conversation on a move.
 - **State that says "already scrolled there" must live above anything that remounts.** The conversation mounts once in the editor and once in the reading view, so "which comment did I land on" and "which focus request did I handle" live in the `useComments` hook, not in the view.
 - **Act on `pointerdown` for a button that floats beside a selection.** A touch tap collapses the selection, and so removes the button, before `click` arrives.
+
+## Merging on a busy day
+
+- The landing page keeps every app's feature list on one long line (`const APPS = …` in
+  `site/public/index.html`), so any two branches that touch it conflict. Don't hand-merge it: take
+  main's line and re-apply your own additions with a small script that asserts each anchor is found
+  once.
+- A browser journey that only fails when the whole suite runs is usually a wait that matched the
+  wrong request under load. Run the whole suite locally (`PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium
+  pnpm exec playwright test --project=desktop-chromium`) before blaming your own change, and ask the
+  coordinator whether the owning thread is already fixing it.
