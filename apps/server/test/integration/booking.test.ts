@@ -78,11 +78,14 @@ const link = (o: Record<string, unknown> = {}) => ({
   ...o,
 })
 
-/** Monday 00:00 UTC, two weeks out: clear of notice, inside the horizon. */
+/**
+ * Monday 00:00 UTC, one to two weeks out: clear of notice, inside the horizon and inside the
+ * 15 days the calendar sync reads ahead (on a Monday, two full weeks out was past it).
+ */
 function mondayAfterNext(): number {
   const d = new Date()
   d.setUTCHours(0, 0, 0, 0)
-  const toMonday = (8 - d.getUTCDay()) % 7 || 7
+  const toMonday = (8 - d.getUTCDay()) % 7
   return d.getTime() + (toMonday + 7) * DAY
 }
 const iso = (ms: number) => new Date(ms).toISOString()

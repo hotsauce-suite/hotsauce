@@ -1,8 +1,9 @@
 # Plan: Settings as a few small pages
 
-Status (2026-11-15): building on `settings-pages` in a draft PR. Decisions settled with the owner
-the same day (map: https://claude.ai/artifact/YGW6SgLkTG2833vEcUaqwz). No setting is added or
-removed; this is grouping, names, order and two trims.
+Status (2026-11-16): shipped in release 0.16.0 (#106) and live. Decisions settled with the owner
+on 2026-11-15 (map: https://claude.ai/artifact/YGW6SgLkTG2833vEcUaqwz). No setting is added or
+removed; this is grouping, names, order and two trims. Left for later: an organization page shows
+nothing if the account lookup fails, and there is no end-to-end test for an old address.
 
 Why: both Settings screens were single long scrolls (11 sections for a member, 12 more for an
 admin), with two oversized blocks (the Mac app's install guide, the AI tools intro), three kinds of
