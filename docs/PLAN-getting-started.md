@@ -2,11 +2,12 @@
 
 ## Status
 
-2026-11-16: both slices built. Slice 1 (the tile, the Connect calendar button, the replay link,
-help pages, the demo and the Today loop) merged as #119. Slice 2 (the start-here doc an admin
-picks, H1 to H3) is its own pull request. Every requirement below has a passing test. Decisions
-settled with the owner on 2026-11-15 (options page:
-https://claude.ai/artifact/7aHzYDrEhJwGqT3dBKPgfY; he accepted every recommendation).
+2026-11-16: done and shipped. Slice 1 (the tile, the Connect calendar button, the replay link,
+help pages, the demo and the Today loop) merged as #119, release 0.22.0. Slice 2 (the start-here
+doc an admin picks, H1 to H3) merged as #127, release 0.23.0. hotsauce.work and the demo are
+published with both. Every requirement below has a passing test. Decisions settled with the owner
+on 2026-11-15 (options page: https://claude.ai/artifact/7aHzYDrEhJwGqT3dBKPgfY; he accepted every
+recommendation).
 
 Why: a new member signed in and landed on a nearly empty Today with no hint of what to do. The
 one step that fills Today (the calendar) read like an error, and the Mac app card was the last
