@@ -64,9 +64,12 @@ function useHasMac(enabled: boolean): boolean | null {
   return inApp ? true : connected
 }
 
-/** The doc the team's admin picked to start with, if any (plan H2). Null while asking, too. */
-function useStartHere(enabled: boolean): StartHereDoc | null {
-  const [doc, setDoc] = useState<StartHereDoc | null>(null)
+/**
+ * The doc the team's admin picked to start with (plan H2): undefined while asking, null for none.
+ * Not knowing which doc counts as none: Docs itself is still the right place.
+ */
+function useStartHere(enabled: boolean): StartHereDoc | null | undefined {
+  const [doc, setDoc] = useState<StartHereDoc | null | undefined>(undefined)
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
@@ -74,8 +77,9 @@ function useStartHere(enabled: boolean): StartHereDoc | null {
       (r) => {
         if (!cancelled) setDoc(r.doc)
       },
-      // Not knowing which doc: Docs itself is still the right place.
-      () => {},
+      () => {
+        if (!cancelled) setDoc(null)
+      },
     )
     return () => {
       cancelled = true
@@ -155,7 +159,9 @@ export function StartTile({
     id: 'docs',
     title: 'See where the team’s work lives',
     hint: startHere ? `Start with “${startHere.title}”.` : 'Shared docs, grouped by space.',
-    done: tile.openedDocs === true,
+    // Until it's known which doc to open, the step offers nothing: a click then would open
+    // Docs and tick the step, and the picked doc would never be offered.
+    done: tile.openedDocs === true ? true : startHere === undefined ? null : false,
     action: (
       <button
         type="button"

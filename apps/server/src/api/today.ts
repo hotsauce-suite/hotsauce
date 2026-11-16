@@ -65,7 +65,8 @@ export function startHerePath(link: string): string | null {
   } catch {
     return null
   }
-  if (!isMarkdown(path) || path.split('/').some((part) => part === '' || part === '..')) return null
+  if (path.length > 500 || !isMarkdown(path)) return null
+  if (path.split('/').some((part) => part === '' || part === '..')) return null
   return path
 }
 

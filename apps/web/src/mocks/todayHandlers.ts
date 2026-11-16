@@ -52,6 +52,18 @@ const SAMPLE_PLACES: WeatherPlace[] = [
   { name: 'San Francisco', detail: 'California, United States', lat: 37.77, lon: -122.42 },
 ]
 
+/** Like the server: the Team-space path a pasted doc address names, or null. */
+function startHerePath(link: string): string | null {
+  try {
+    const m = /^\/docs\/team\/(.+\.md)$/i.exec(new URL(link, 'http://x').pathname)
+    const path = m?.[1]?.split('/').map(decodeURIComponent).join('/')
+    if (!path || path.split('/').some((part) => part === '' || part === '..')) return null
+    return path
+  } catch {
+    return null
+  }
+}
+
 export function todayHandlers(): AnyHandler[] {
   // One layout per member, for as long as the page is open.
   const layouts = new Map<string, TodayLayout>()
@@ -99,9 +111,8 @@ export function todayHandlers(): AnyHandler[] {
       const { link } = (await request.json()) as { link: string | null }
       if (!link) startHere = null
       else {
-        // Like the server: a doc's address in the Team space.
-        const m = /\/docs\/team\/(.+\.md)$/i.exec(new URL(link, 'http://x').pathname)
-        if (!m?.[1])
+        const path = startHerePath(link)
+        if (!path)
           return HttpResponse.json(
             {
               error: {
@@ -112,9 +123,7 @@ export function todayHandlers(): AnyHandler[] {
             },
             { status: 400 },
           )
-        const path = m[1].split('/').map(decodeURIComponent).join('/')
-        const name = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
-        startHere = { path, title: name }
+        startHere = { path, title: path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '') }
       }
       return HttpResponse.json({ doc: startHere })
     }),

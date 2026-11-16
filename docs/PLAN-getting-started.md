@@ -94,10 +94,10 @@ Each maps to a test, named in brackets.
   what was picked. [integration today-layout.test]
 - H2. With a doc picked, the tile's last step says "Start with “<title>”." and its button, "Open
   it", records the step and opens that doc. With none, or when asking fails, it opens Docs as
-  before. [StartTile.test, e2e getting-started.spec J2]
+  before. Until it's known which, the step shows no button, so a quick click can't skip the doc. [StartTile.test, e2e getting-started.spec J2]
 - H3. Settings → Workspace has a "Start-here doc" section after the weather city: what is picked
   (linked), a field to paste a doc's address, and Remove. The server's refusal shows as written.
-  [StartTile.test, settingsPages.test]
+  [StartTile.test, settingsPages.test, e2e getting-started.spec J2]
 
 Known and accepted: the picked doc doesn't follow a rename or move; it then reads as none and the
 admin picks it again.

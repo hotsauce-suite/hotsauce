@@ -1,3 +1,4 @@
+import { signIn } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
 // A new member's first run (docs/PLAN-getting-started.md, J1): Getting started is the first thing
@@ -73,23 +74,37 @@ test('J1: Getting started leads Today, hides for good, and comes back from Setti
   await expect(tile).toHaveCount(0)
 })
 
-test('J2: the doc an admin picks is what the last step opens', async ({ page, member }) => {
+test('J2: the doc an admin picks in Settings is what the last step opens', async ({
+  page,
+  member,
+  browser,
+  baseURL,
+}) => {
   const path = `guides/start-here-${Date.now()}.md`
   const doc = await member.request.put(`/api/spaces/${member.team}/file`, {
     data: { path, content: '# Welcome to the team\n\nRead this first.\n' },
   })
   expect(doc.status(), await doc.text()).toBe(200)
-  const admin = { 'x-hearth-dev-user': 'e2e-admin@example.test' }
   const link = `/docs/${member.team}/${path}`
+  // A member can't pick it.
+  const refused = await member.request.put('/api/today/start-here', { data: { link } })
+  expect(refused.status()).toBe(403)
+
+  // An admin, in their own browser window: Settings → Workspace → Start-here doc.
+  const context = await browser.newContext(baseURL ? { baseURL } : {})
+  const adminPage = await context.newPage()
   try {
-    // A member can't pick it; an admin can, by the doc's address.
-    const refused = await member.request.put('/api/today/start-here', { data: { link } })
-    expect(refused.status()).toBe(403)
-    const picked = await page.request.put('/api/today/start-here', {
-      headers: admin,
-      data: { link },
-    })
-    expect(picked.status(), await picked.text()).toBe(200)
+    await signIn(adminPage, 'e2e-admin@example.test')
+    await adminPage.goto('/settings/organization')
+    const section = adminPage.getByTestId('org-start-here')
+    await adminPage.getByTestId('org-start-here-link').fill(`${baseURL ?? ''}/docs/team/nope.md`)
+    await adminPage.getByTestId('org-start-here-save').click()
+    await expect(section.getByRole('alert')).toContainText('That isn’t a doc in the Team space')
+    await adminPage.getByTestId('org-start-here-link').fill(`${baseURL ?? ''}${link}`)
+    await adminPage.getByTestId('org-start-here-save').click()
+    await expect(adminPage.getByTestId('org-start-here-now')).toContainText(
+      'New teammates start with Welcome to the team.',
+    )
 
     await page.goto('/today')
     const step = page.getByTestId('today-start').locator('[data-step="docs"]')
@@ -100,6 +115,9 @@ test('J2: the doc an admin picks is what the last step opens', async ({ page, me
     await expect(page.getByText('Read this first.')).toBeVisible()
   } finally {
     // Other specs expect the step to open Docs.
-    await page.request.put('/api/today/start-here', { headers: admin, data: { link: null } })
+    await adminPage.goto('/settings/organization')
+    await adminPage.getByTestId('org-start-here-clear').click()
+    await expect(adminPage.getByTestId('org-start-here-now')).toContainText('No doc picked')
+    await context.close()
   }
 })

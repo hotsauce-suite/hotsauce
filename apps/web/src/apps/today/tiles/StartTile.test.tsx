@@ -286,7 +286,32 @@ describe('Getting started: the team’s start-here doc (H2, H3)', () => {
     expect(saves[0]?.columns[0][0]).toEqual({ id: 'start', kind: 'start', openedDocs: true })
   })
 
-  it('H2: with none picked, or when asking fails, the step opens Docs', async () => {
+  it('H2: until it is known which doc, the step offers no button', async () => {
+    let answer: (() => void) | undefined
+    const asked = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    server.use(
+      http.get('/api/today/start-here', async () => {
+        await asked
+        return HttpResponse.json({ doc: { path: 'guides/Start here.md', title: 'Welcome' } })
+      }),
+    )
+    renderApp('/today')
+    await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('mac')?.dataset.done).toBe('false'))
+    expect(screen.queryByTestId('today-start-docs')).toBeNull()
+    expect(step('docs')?.dataset.done).toBe('false')
+    answer?.()
+    expect(await screen.findByTestId('today-start-docs')).toHaveTextContent('Open it')
+  })
+
+  it('H2: with none picked, the step opens Docs', async () => {
+    renderApp('/today')
+    expect(await screen.findByTestId('today-start-docs')).toHaveTextContent('Open Docs')
+  })
+
+  it('H2: when asking fails, the step opens Docs', async () => {
     server.use(http.get('/api/today/start-here', () => new HttpResponse(null, { status: 500 })))
     renderApp('/today')
     expect(await screen.findByTestId('today-start-docs')).toHaveTextContent('Open Docs')

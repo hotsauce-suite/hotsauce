@@ -313,6 +313,9 @@ describe('the team’s start-here doc', () => {
       '/docs/team/../team/guides/Start%20here.md/..',
       '/docs/team/guides/picture.png',
       'not a link',
+      '/docs/team/guides%2F..%2F..%2Fx.md',
+      '/docs/team/%E0%A4%A.md',
+      `/docs/team/${'a'.repeat(600)}.md`,
     ]) {
       const res = await put(ALICE, link)
       expect(res.status, link).toBe(400)
