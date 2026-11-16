@@ -1,7 +1,8 @@
+import { defaultTodayLayout } from '@hotsauce/format'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { todayApi } from '../../api/today'
 import { TOUCH_QUERY } from '../../hooks/useMediaQuery'
 import { IPHONE, pretend } from '../../test/devices'
@@ -9,6 +10,12 @@ import { server } from '../../test/mockServer'
 import { renderApp } from '../../test/renderApp'
 import { STACKED_QUERY } from './TodayTiles'
 import { isoDate, weekDays } from './tiles/MoreTiles'
+
+// These are about arranging Today, for a member who has already hidden Getting started
+// (its own tests: tiles/StartTile.test.tsx).
+beforeEach(async () => {
+  await todayApi.saveLayout(defaultTodayLayout())
+})
 
 const tileIds = (column: 0 | 1) =>
   within(screen.getByTestId(`today-column-${column}`))

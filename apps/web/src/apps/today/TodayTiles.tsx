@@ -41,6 +41,7 @@ import {
   StarredTile,
   WeekTile,
 } from './tiles/MoreTiles'
+import { StartTile } from './tiles/StartTile'
 
 export const TILE_CATALOG: Record<TodayTileKind, { label: string; icon: IconName; about: string }> =
   {
@@ -70,6 +71,7 @@ export const TILE_CATALOG: Record<TodayTileKind, { label: string; icon: IconName
       icon: 'calendar',
       about: 'Monday to Sunday: meetings and due tasks',
     },
+    start: { label: 'Getting started', icon: 'flag', about: 'The first few things worth doing' },
   }
 
 /** Below Tailwind's `lg`, the two columns stack into one list: the left column, then the right. */
@@ -392,6 +394,10 @@ function TileBody({
       )
     case 'week':
       return <WeekTile now={now} refresh={refresh} />
+    case 'start':
+      return (
+        <StartTile tile={tile} layout={layout} view={view} editing={editing} onChange={onChange} />
+      )
   }
 }
 

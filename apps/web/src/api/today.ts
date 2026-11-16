@@ -18,7 +18,8 @@ export interface TodayMeeting {
 
 export interface TodayView {
   date: string
-  meetings: { events: TodayMeeting[]; error: string | null }
+  /** `connected: false`: no calendar grant yet (an older server leaves it out). */
+  meetings: { events: TodayMeeting[]; error: string | null; connected?: boolean }
   tasks: TaskView[]
   actionItems: MeetingActionItems[]
   notes: Array<{

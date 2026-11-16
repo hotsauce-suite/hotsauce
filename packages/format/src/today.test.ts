@@ -9,9 +9,11 @@ import {
   moveTileNextTo,
   nudgeTile,
   nudgeTileStacked,
+  offerGettingStarted,
   parseTodayLayout,
   removeTile,
   serializeTodayLayout,
+  showGettingStarted,
   switchColumn,
   TODAY_TILE_KINDS,
   type TodayLayout,
@@ -25,7 +27,8 @@ describe('Today layout file (L1)', () => {
   it('round-trips the default layout', () => {
     const text = serializeTodayLayout(defaultTodayLayout())
     expect(text.endsWith('\n')).toBe(true)
-    expect(parseTodayLayout(text)).toEqual(defaultTodayLayout())
+    // Saved without the Getting started tile, so it is marked as dealt with (F2).
+    expect(parseTodayLayout(text)).toEqual({ ...defaultTodayLayout(), gettingStarted: 'dismissed' })
   })
 
   it('throws on text that is not a layout', () => {
@@ -119,7 +122,7 @@ describe('Today layout edits (E1, E2)', () => {
     expect(ids(l)[1]).toEqual(['notes', 'tasks'])
     l = addTile(l, 'board')
     l = updateTile(l, { id: 'board', kind: 'board', board: { space: 'team', id: 'b1' } })
-    expect(parseTodayLayout(serializeTodayLayout(l))).toEqual(l)
+    expect(parseTodayLayout(serializeTodayLayout(l))).toEqual({ ...l, gettingStarted: 'dismissed' })
   })
 
   it('moving or removing a missing tile changes nothing', () => {
@@ -203,5 +206,90 @@ describe('Today layout edits (E1, E2)', () => {
           expect(got).toEqual(want)
         }
       }
+  })
+})
+
+describe('Getting started tile (PLAN-getting-started F1–F3)', () => {
+  const start = { id: 'start', kind: 'start' } as const
+
+  it('F1: a start tile keeps openedDocs; other kinds drop it', () => {
+    const layout = parseTodayLayout({
+      schema: 1,
+      columns: [
+        [
+          { id: 'start', kind: 'start', openedDocs: true },
+          { id: 'tasks', kind: 'tasks', openedDocs: true },
+        ],
+        [{ id: 'start-2', kind: 'start' }],
+      ],
+    })
+    expect(layout.columns[0]).toEqual([
+      { id: 'start', kind: 'start', openedDocs: true },
+      { id: 'tasks', kind: 'tasks' },
+    ])
+    // Single-use.
+    expect(layout.columns[1]).toEqual([])
+    expect(
+      parseTodayLayout({
+        schema: 1,
+        columns: [[{ id: 'start', kind: 'start', openedDocs: 'yes' }], []],
+      }).columns[0],
+    ).toEqual([start])
+  })
+
+  it('F2: a layout saved without the tile is marked dismissed; with it, not', () => {
+    const without = JSON.parse(serializeTodayLayout(defaultTodayLayout()))
+    expect(without.gettingStarted).toBe('dismissed')
+    expect(parseTodayLayout(without).gettingStarted).toBe('dismissed')
+
+    const withTile = offerGettingStarted(defaultTodayLayout())
+    const saved = JSON.parse(serializeTodayLayout({ ...withTile, gettingStarted: 'dismissed' }))
+    expect('gettingStarted' in saved).toBe(false)
+    expect(parseTodayLayout(saved).gettingStarted).toBeUndefined()
+    // A mark that isn't ours is ignored.
+    expect(
+      parseTodayLayout({ schema: 1, columns: [[], []], gettingStarted: 'later' }).gettingStarted,
+    ).toBeUndefined()
+  })
+
+  it('F3: the tile is offered first on the left, once', () => {
+    const offered = offerGettingStarted(defaultTodayLayout())
+    expect(offered.columns[0][0]).toEqual(start)
+    expect(ids(offered)[0]?.slice(1)).toEqual(ids(defaultTodayLayout())[0])
+    expect(offered.columns[1]).toEqual(defaultTodayLayout().columns[1])
+    expect(offerGettingStarted(offered)).toEqual(offered)
+  })
+
+  it('F3: a layout from before the feature gets the offer; a dismissed one does not', () => {
+    const old = parseTodayLayout({ schema: 1, columns: [[{ id: 'tasks', kind: 'tasks' }], []] })
+    expect(ids(offerGettingStarted(old))).toEqual([['start', 'tasks'], []])
+    const hidden = parseTodayLayout(serializeTodayLayout(old))
+    expect(offerGettingStarted(hidden)).toEqual(hidden)
+  })
+
+  it('F3: a full layout is left alone', () => {
+    let full: TodayLayout = { schema: 1, columns: [[], []] }
+    for (let i = 0; i < MAX_TODAY_TILES; i++)
+      full = { schema: 1, columns: [[...full.columns[0], { id: `board-${i}`, kind: 'board' }], []] }
+    expect(offerGettingStarted(full)).toEqual(full)
+    expect(showGettingStarted(full)).toEqual(full)
+  })
+
+  it('F3: replay puts a fresh tile back even after it was dismissed, and leaves a shown one alone', () => {
+    const hidden = parseTodayLayout(serializeTodayLayout(defaultTodayLayout()))
+    const again = showGettingStarted(hidden)
+    expect(again.columns[0][0]).toEqual(start)
+    expect(again.gettingStarted).toBeUndefined()
+    const used = updateTile(again, { id: 'start', kind: 'start', openedDocs: true })
+    expect(showGettingStarted(used)).toEqual(used)
+  })
+
+  it('hiding it and saving keeps it hidden through a round trip', () => {
+    const offered = offerGettingStarted(defaultTodayLayout())
+    const hidden = removeTile(offered, 'start')
+    const reread = parseTodayLayout(serializeTodayLayout(hidden))
+    expect(layoutTiles(offerGettingStarted(reread)).some((t) => t.kind === 'start')).toBe(false)
+    // It can still be added back by hand.
+    expect(addableTiles(reread)).toContain('start')
   })
 })

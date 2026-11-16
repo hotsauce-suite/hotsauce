@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { defaultTodayLayout, TODAY_LAYOUT_PATH } from '@hotsauce/format'
+import { defaultTodayLayout, offerGettingStarted, TODAY_LAYOUT_PATH } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
@@ -69,7 +69,7 @@ const mine = {
 describe('Today layout', () => {
   it('is the default until saved, then the saved one, per member', async () => {
     const before = await (await call('GET', '/api/today/layout')).json()
-    expect(before).toEqual({ layout: defaultTodayLayout(), saved: false })
+    expect(before).toEqual({ layout: offerGettingStarted(defaultTodayLayout()), saved: false })
 
     const put = await call('PUT', '/api/today/layout', ALICE, { layout: mine })
     expect(put.status).toBe(200)
@@ -100,6 +100,43 @@ describe('Today layout', () => {
     const head = await services.git.headOid(personal)
     await call('PUT', '/api/today/layout', ALICE, { layout: mine })
     expect(await services.git.headOid(personal)).toBe(head)
+  })
+
+  it('F4: Getting started is offered until a layout is saved without it', async () => {
+    const kinds = async (as = ALICE) =>
+      (await (await call('GET', '/api/today/layout', as)).json()).layout.columns[0].map(
+        (t: { kind: string }) => t.kind,
+      )
+    expect((await kinds())[0]).toBe('start')
+
+    // Saved with the tile (say, after moving another one): it stays.
+    const offered = (await (await call('GET', '/api/today/layout')).json()).layout
+    await call('PUT', '/api/today/layout', ALICE, { layout: offered })
+    expect((await kinds())[0]).toBe('start')
+
+    // Hidden: gone for good.
+    offered.columns[0].shift()
+    const put = await (await call('PUT', '/api/today/layout', ALICE, { layout: offered })).json()
+    expect(put.layout.gettingStarted).toBe('dismissed')
+    expect(await kinds()).not.toContain('start')
+  })
+
+  it('F4: a layout saved before Getting started existed is offered it once', async () => {
+    const spaces = await services.spaces.visibleSpaces({ email: BOB, name: 'Bob' } as never)
+    const personal = spaces.find((s) => s.kind === 'personal')?.name as string
+    await services.git.commit(personal, {
+      changes: [
+        {
+          path: TODAY_LAYOUT_PATH,
+          content: JSON.stringify({ schema: 1, columns: [[{ id: 'tasks', kind: 'tasks' }], []] }),
+        },
+      ],
+      author: { name: 'Bob', email: BOB },
+      message: 'An old layout',
+    })
+    const got = await (await call('GET', '/api/today/layout', BOB)).json()
+    expect(got.saved).toBe(true)
+    expect(got.layout.columns[0].map((t: { kind: string }) => t.kind)).toEqual(['start', 'tasks'])
   })
 
   it('refuses something that is not a layout', async () => {

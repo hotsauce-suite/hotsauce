@@ -1,6 +1,11 @@
-import { defaultTodayLayout, type TodayLayout } from '@hotsauce/format'
+import {
+  defaultTodayLayout,
+  layoutTiles,
+  showGettingStarted,
+  type TodayLayout,
+} from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { HotsauceApiError } from '../../api/client'
 import { dictationApi } from '../../api/dictation'
 import type { TaskView } from '../../api/tasks'
@@ -132,7 +137,8 @@ export default function TodayPage() {
               onTaskAdded={addTask}
             />
           )}
-          {view ? (
+          {/* Getting started already offers the Mac app: not twice on one page. */}
+          {view && layouts.shown && !layoutTiles(layouts.shown).some((t) => t.kind === 'start') ? (
             <div className="mt-5 lg:ml-auto lg:w-2/5">
               <MacAppCard />
             </div>
@@ -187,6 +193,26 @@ function useLayout() {
       setSaving(false)
     }
   }
+
+  // Settings' "Getting started" link opens `/today?start=1`: put the tile back, fresh, and save.
+  const [params, setParams] = useSearchParams()
+  const replay = params.get('start') === '1'
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `save` and `setParams` are new each render; this runs once per replay, when the saved layout is in
+  useEffect(() => {
+    if (!replay || !layout) return
+    const next = showGettingStarted(layout)
+    if (next !== layout) {
+      setLayout(next)
+      void save(next)
+    }
+    setParams(
+      (p) => {
+        p.delete('start')
+        return p
+      },
+      { replace: true },
+    )
+  }, [replay, layout !== null])
 
   const current = layout ?? (loadFailed ? defaultTodayLayout() : null)
   return {

@@ -3,6 +3,7 @@
 
 import {
   defaultTodayLayout,
+  offerGettingStarted,
   parseTodayLayout,
   serializeTodayLayout,
   TODAY_LAYOUT_PATH,
@@ -36,20 +37,22 @@ export class TodayLayouts {
 
   async get(principal: Principal): Promise<TodayLayoutView> {
     const space = await this.#personalSpace(principal)
-    if (!space) return { layout: defaultTodayLayout(), saved: false }
+    if (!space) return { layout: offerGettingStarted(defaultTodayLayout()), saved: false }
     let content: string
     try {
       content = (await this.#deps.git.readFile(space, TODAY_LAYOUT_PATH)).content
     } catch (err) {
       if (err instanceof HotsauceError && err.code === 'not_found')
-        return { layout: defaultTodayLayout(), saved: false }
+        return { layout: offerGettingStarted(defaultTodayLayout()), saved: false }
       throw err
     }
     try {
-      return { layout: parseTodayLayout(content), saved: true }
+      // A layout saved before Getting started existed is offered it once (PLAN-getting-started F4).
+      return { layout: offerGettingStarted(parseTodayLayout(content)), saved: true }
     } catch (err) {
       // A hand-edited file that no longer parses: show the default rather than an empty Today.
-      if (err instanceof TodayLayoutError) return { layout: defaultTodayLayout(), saved: false }
+      if (err instanceof TodayLayoutError)
+        return { layout: offerGettingStarted(defaultTodayLayout()), saved: false }
       throw err
     }
   }
@@ -79,7 +82,8 @@ export class TodayLayouts {
       })
       await this.#deps.syncer.afterHeadChanged(space)
     }
-    return { layout, saved: true }
+    // As the file now reads, with its Getting started mark.
+    return { layout: parseTodayLayout(content), saved: true }
   }
 
   async #personalSpace(principal: Principal): Promise<string | null> {
