@@ -6,7 +6,7 @@ import type { AppManifest } from '../registry'
 export const boardsApp: AppManifest = {
   id: 'boards',
   get name() {
-    return `${product()} Whiteboard`
+    return `${product()} Boards`
   },
   label: 'Boards',
   icon: 'board',

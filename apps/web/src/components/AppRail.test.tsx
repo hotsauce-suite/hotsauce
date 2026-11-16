@@ -61,7 +61,7 @@ describe('the app rail', () => {
     expect(within(rail).getByTestId('account-menu')).toBeInTheDocument()
     // The old sidebar footer is gone: the sidebar has no sign out or settings of its own.
     expect(within(screen.getByTestId('sidebar')).queryByText('Sign out')).toBeNull()
-    expect(screen.getByTestId('sidebar-app-name')).toHaveTextContent('Hotsauce Docs')
+    expect(screen.getByTestId('sidebar-app-name')).toHaveTextContent('Docs')
   })
 
   it('marks Settings, and no app, on the Settings page; Docs then returns to its last doc', async () => {

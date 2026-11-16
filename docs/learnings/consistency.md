@@ -28,3 +28,9 @@ Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadEr
   wording change done.
 - **Quick-add rows keep their verb.** The page's main button is "New task"; the inline row and
   the dialog's confirm button stay "Add task", because there you are adding the line you typed.
+- **An app has two names.** `label` is the plain one people see (sidebar heading, page top bar,
+  rail); `name` ("Hotsauce Tasks") stays for browser tab titles and accessible names, which read
+  out of context. Use `label` for anything on screen inside the app.
+- **Renaming an app is mostly outside the app.** "Whiteboard" to "Boards" touched the landing
+  page card, the FAQ (twice, once in its search-engine data), llms.txt, four help pages, README
+  and STATUS. The help page keeps its address (`/help/whiteboard`) so old links work.

@@ -467,7 +467,7 @@ export default function TasksPage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Tasks`}>
+      <MeetingsPageHeader title="Tasks">
         <button
           type="button"
           data-testid="tasks-add"

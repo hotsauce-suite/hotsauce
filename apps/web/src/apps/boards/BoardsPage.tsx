@@ -29,7 +29,7 @@ export default function BoardsPage() {
   })
 
   useEffect(() => {
-    document.title = `${product()} Whiteboard`
+    document.title = `${product()} Boards`
   }, [])
 
   // Another member's new board shows up without a reload.
@@ -76,7 +76,7 @@ export default function BoardsPage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Whiteboard`}>
+      <MeetingsPageHeader title="Boards">
         <button
           type="button"
           className={`${primaryButton} h-9`}

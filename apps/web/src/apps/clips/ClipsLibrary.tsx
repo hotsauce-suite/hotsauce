@@ -65,7 +65,7 @@ export default function ClipsLibrary() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Clips`}>
+      <MeetingsPageHeader title="Clips">
         <Link to="/clips/new" className={`${primaryButton} h-9`} data-testid="record-clip">
           <span className="size-2 rounded-full bg-paper-raised" aria-hidden="true" />
           Record a clip

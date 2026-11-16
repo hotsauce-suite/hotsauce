@@ -112,7 +112,7 @@ a passage, and @mention a teammate to send them a notification that opens on you
 | App | What it does |
 | --- | --- |
 | **People** | Everyone you meet with, from your calendar and meeting notes: past and next meetings, open to-dos, and a short note about each person. |
-| **Whiteboard** | Hand-drawn boards the whole team can draw on at once, saved as files you can search. |
+| **Boards** | Hand-drawn boards the whole team can draw on at once, saved as files you can search. |
 | **Files** | Upload and share files and folders, with previews and search across what's inside them. |
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |

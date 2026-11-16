@@ -204,7 +204,7 @@ export default function FilesPage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Files`}>
+      <MeetingsPageHeader title="Files">
         <input
           type="search"
           value={q}

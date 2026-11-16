@@ -163,7 +163,7 @@ export default function MeetingsHome() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Meetings`}>
+      <MeetingsPageHeader title="Meetings">
         <Link
           to="/meetings/start"
           data-testid="new-meeting"

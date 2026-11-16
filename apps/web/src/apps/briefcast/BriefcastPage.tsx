@@ -71,7 +71,7 @@ export default function BriefcastPage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Briefcast`}>
+      <MeetingsPageHeader title="Briefcast">
         <button
           type="button"
           className={`${primaryButton} h-9`}
@@ -80,10 +80,7 @@ export default function BriefcastPage() {
           data-testid="briefcast-make"
         >
           <Icon name="sparkle" className="size-4" />
-          <span className="hidden sm:inline">
-            {making ? 'Making your briefing…' : 'Make today’s briefing'}
-          </span>
-          <span className="sm:hidden">{making ? 'Making…' : 'Make'}</span>
+          {making ? 'Making your briefing…' : 'Make today’s briefing'}
         </button>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="briefcast-page">

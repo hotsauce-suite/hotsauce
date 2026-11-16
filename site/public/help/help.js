@@ -30,7 +30,7 @@ const PAGES = [
   { slug: 'tasks', title: 'Tasks', group: 'apps' },
   { slug: 'notes', title: 'Notes', group: 'apps' },
   { slug: 'files', title: 'Files', group: 'apps' },
-  { slug: 'whiteboard', title: 'Whiteboard', group: 'apps' },
+  { slug: 'whiteboard', title: 'Boards', group: 'apps' },
   { slug: 'people', title: 'People', group: 'apps' },
   { slug: 'forms', title: 'Forms', group: 'apps' },
   { slug: 'tables', title: 'Tables', group: 'apps' },

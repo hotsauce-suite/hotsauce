@@ -42,7 +42,7 @@ Colored note and checklist cards with labels, pins and an archive; Google Keep i
 Needs nothing extra.
 
 ### Boards
-The Whiteboard: hand-drawn boards the team draws on at once, one file per board.
+Boards: hand-drawn boards the team draws on at once, one file per board.
 Needs nothing extra.
 
 ### People

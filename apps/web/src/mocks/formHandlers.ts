@@ -134,7 +134,7 @@ export class FakeForms {
 }
 
 const SITES = ['North', 'Harbor', 'Valley']
-const FEATURES = ['Docs', 'Meetings', 'Tasks', 'Files', 'Whiteboard']
+const FEATURES = ['Docs', 'Meetings', 'Tasks', 'Files', 'Boards']
 
 /** Two team forms with a few answers each. */
 export function seedForms(fake: FakeForms, now = Date.now()): void {
@@ -231,7 +231,7 @@ export function seedForms(fake: FakeForms, now = Date.now()): void {
       name: 'Ada Lovelace',
       email: ADA.email,
       site: 'Valley',
-      used: ['Meetings', 'Whiteboard'],
+      used: ['Meetings', 'Boards'],
       rating: 3,
       blocker: 'Two people still don’t have laptops, so half the team is on email.',
       best: 'The launch plan board made the timeline easy to explain.',

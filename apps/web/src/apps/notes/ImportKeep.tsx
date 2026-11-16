@@ -73,7 +73,7 @@ export default function ImportKeep() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Notes`} />
+      <MeetingsPageHeader title="Notes" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-2xl px-4 pt-6 pb-28 md:px-8 md:pt-10">
           <h1 className="font-display text-[1.9rem] leading-tight font-semibold tracking-tight text-ink">

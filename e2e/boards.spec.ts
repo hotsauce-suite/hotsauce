@@ -54,7 +54,7 @@ test('W9: new board → draw a box and a text → it saves itself → reload →
   let space = ''
   let id = ''
 
-  await test.step('Whiteboard opens from the launcher; New board opens an empty canvas', async () => {
+  await test.step('Boards opens from the launcher; New board opens an empty canvas', async () => {
     await page.goto('/docs')
     await openApp(page, 'boards')
     await expect(page).toHaveURL(/\/boards$/)
