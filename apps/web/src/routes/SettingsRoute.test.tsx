@@ -336,9 +336,20 @@ describe('Settings: General, Apps, and the help strip', () => {
   })
 
   // T2: inside the Mac app there's no install guide, only the newest build.
-  it('says you’re using the Mac app inside it, with no download', async () => {
+  function inMacApp(version?: string): () => void {
     const postMessage = vi.fn().mockResolvedValue('on')
     Object.assign(window, { webkit: { messageHandlers: { hearthNotifications: { postMessage } } } })
+    if (version) Object.assign(window, { hotsauceMacApp: { version } })
+    return () => {
+      Reflect.deleteProperty(window, 'webkit')
+      Reflect.deleteProperty(window, 'hotsauceMacApp')
+    }
+  }
+
+  it('says you’re using the Mac app inside it, with no download', async () => {
+    // A server that doesn't know the newest version: just the link to the newest build.
+    server.use(http.get('/downloads/mac-app.json', () => new HttpResponse(null, { status: 404 })))
+    const leave = inMacApp()
     try {
       renderApp('/settings/apps')
       const card = await screen.findByTestId('mac-app')
@@ -352,8 +363,105 @@ describe('Settings: General, Apps, and the help strip', () => {
       expect(screen.queryByTestId('mac-app-download')).toBeNull()
       expect(screen.queryByTestId('mac-app-first-install')).toBeNull()
     } finally {
-      Reflect.deleteProperty(window, 'webkit')
+      leave()
     }
+  })
+
+  // M5: the version, and whether it's the newest.
+  it('says the Mac app is up to date when it runs the newest version', async () => {
+    const leave = inMacApp('0.26.0')
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      expect(within(card).getByTestId('mac-app-version')).toHaveTextContent('0.26.0')
+      await waitFor(() =>
+        expect(within(card).getByTestId('mac-app-in-use')).toHaveTextContent('Up to date'),
+      )
+      expect(within(card).queryByTestId('mac-app-update')).toBeNull()
+    } finally {
+      leave()
+    }
+  })
+
+  it('offers the update and what’s new when the Mac app is behind', async () => {
+    const leave = inMacApp('0.25.0')
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      expect(await within(card).findByTestId('mac-app-update')).toHaveAttribute(
+        'href',
+        '/downloads/Hotsauce.dmg',
+      )
+      expect(within(card).getByTestId('mac-app-update-available')).toHaveTextContent(
+        'Update available: 0.26.0.',
+      )
+      expect(within(card).getByTestId('mac-app-whats-new')).toHaveAttribute(
+        'href',
+        '/settings/whats-new',
+      )
+      expect(within(card).queryByTestId('mac-app-in-use')).toBeNull()
+    } finally {
+      leave()
+    }
+  })
+
+  it('calls a Mac app too old to say its version out of date, once the newest one can', async () => {
+    const leave = inMacApp()
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      expect(await within(card).findByTestId('mac-app-update')).toBeInTheDocument()
+      expect(card).toHaveTextContent('You’re using it on this Mac, an older version.')
+    } finally {
+      leave()
+    }
+  })
+
+  // M6: in a browser, each connected Mac and its version.
+  it('lists your Macs in a browser with the version each reported', async () => {
+    server.use(
+      http.get('/api/dictation/devices', () =>
+        HttpResponse.json([
+          {
+            id: 'a',
+            name: 'Studio',
+            createdAt: '2026-11-01T00:00:00Z',
+            lastUsedAt: null,
+            appVersion: '0.26.0',
+          },
+          {
+            id: 'b',
+            name: 'Laptop',
+            createdAt: '2026-11-01T00:00:00Z',
+            lastUsedAt: null,
+            appVersion: '0.14.4',
+          },
+          {
+            id: 'c',
+            name: 'Old Mac',
+            createdAt: '2026-11-01T00:00:00Z',
+            lastUsedAt: null,
+            appVersion: null,
+          },
+        ]),
+      ),
+    )
+    renderApp('/settings/apps')
+    const macs = await screen.findByTestId('mac-app-your-macs')
+    await waitFor(() => expect(within(macs).getAllByTestId('mac-app-device')).toHaveLength(3))
+    const rows = within(macs)
+      .getAllByTestId('mac-app-device')
+      .map((r) => r.textContent)
+    expect(rows[0]).toBe('Studioversion 0.26.0Up to date')
+    expect(rows[1]).toBe('Laptopversion 0.14.4Update available')
+    expect(rows[2]).toBe('Old Macan older versionUpdate available')
+    expect(macs).toHaveTextContent('Version 0.26.0 is out')
+  })
+
+  it('shows no list of Macs to someone who has none', async () => {
+    renderApp('/settings/apps')
+    await screen.findByTestId('mac-app-download')
+    expect(screen.queryByTestId('mac-app-your-macs')).toBeNull()
   })
 
   it('shows who is signed in, and signs out from the Account card', async () => {

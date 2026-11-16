@@ -4,7 +4,8 @@ name: Release
 # HOTSAUCE_VERSION. After every merge to main this picks the next number from the newest v* tag
 # (scripts/next-release.mjs): a patch, or a minor when a pull request in the batch has the
 # "feature" label. Merges that only touch docs, the site, CI or the Mac app's sources release
-# nothing. It then writes the number to main as a "Release X.Y.Z" commit, builds and pushes the
+# nothing. It then writes the number and the pull requests' "What's new" lines (WHATS_NEW.json,
+# scripts/release-notes.mjs) to main as a "Release X.Y.Z" commit, builds and pushes the
 # image ghcr.io/hotsauce-suite/hotsauce:<version> and :latest, and tags v<version> last.
 #
 # Writing to main: the "Protect main" ruleset lets deploy keys bypass it, and the release robot's
@@ -99,7 +100,14 @@ jobs:
             version="$(echo "$result" | jq -r .version)"
             if [ "$(tr -d '[:space:]' < HOTSAUCE_VERSION)" != "$version" ]; then
               echo "$version" > HOTSAUCE_VERSION
-              git commit -q -m "Release $version" -- HOTSAUCE_VERSION
+              # Each pull request's "What's new" lines become this release's notes
+              # (scripts/release-notes.mjs, docs/PLAN-mac-version-and-whats-new.md N3).
+              : > "$RUNNER_TEMP/prs.jsonl"
+              for sha in $(git log --format=%H "v$last..HEAD"); do
+                gh api "repos/$REPO/commits/$sha/pulls" | jq -c '.[] | {number, body}' >> "$RUNNER_TEMP/prs.jsonl"
+              done
+              node scripts/release-notes.mjs add "$version" "$(date -u +%F)" "$RUNNER_TEMP/prs.jsonl"
+              git commit -q -m "Release $version" -- HOTSAUCE_VERSION WHATS_NEW.json
               if ! git push -q origin HEAD:main; then
                 echo "main moved while releasing; trying again."
                 sleep $((attempt * 5))
@@ -153,7 +161,10 @@ jobs:
             exit 1
           fi
           echo "$DIGEST" > image-digest.txt
-          gh release create "v$VERSION" image-digest.txt --target "$SHA" --title "Hotsauce $VERSION" --generate-notes
+          # The plain notes first, then GitHub's list of pull requests.
+          git show "$SHA:WHATS_NEW.json" > WHATS_NEW.json 2>/dev/null || echo '{"releases":[]}' > WHATS_NEW.json
+          node scripts/release-notes.mjs markdown "$VERSION" > release-notes.md
+          gh release create "v$VERSION" image-digest.txt --target "$SHA" --title "Hotsauce $VERSION" --generate-notes --notes-file release-notes.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}

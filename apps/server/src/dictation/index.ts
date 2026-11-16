@@ -35,6 +35,7 @@ export {
   hashDeviceToken,
   MAX_WORD_LENGTH,
   MAX_WORDS_PER_LIST,
+  macAppVersionFrom,
   newDeviceToken,
   normalizeWords,
   TEAM_WORDS_SEED,

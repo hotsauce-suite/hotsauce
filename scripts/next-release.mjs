@@ -25,7 +25,7 @@ const NO_RELEASE = [
   /^\.claude\//,
   /^e2e\//,
   /^scripts\/tour-video\//,
-  /^scripts\/(next-release\.mjs|check-install\.sh|deploy-fly\.sh)$/,
+  /^scripts\/(next-release\.mjs|release-notes\.mjs|check-install\.sh|deploy-fly\.sh)$/,
   /\.test\.[cm]?[jt]sx?$/,
   /^apps\/[^/]+\/test\//,
   // The Mac app ships on its own download; only its built release/ goes into the image.
@@ -60,9 +60,14 @@ export function bump(version, kind) {
   return `${v[0]}.${v[1]}.${v[2] + 1}`
 }
 
+/** What a "Release X.Y.Z" commit writes: the number and its notes (scripts/release-notes.mjs). */
+const RELEASE_FILES = ['HOTSAUCE_VERSION', 'WHATS_NEW.json']
+
 /** True when any changed path can reach a running server. */
 export function needsRelease(changed) {
-  return changed.some((f) => f && f !== 'HOTSAUCE_VERSION' && !NO_RELEASE.some((re) => re.test(f)))
+  return changed.some(
+    (f) => f && !RELEASE_FILES.includes(f) && !NO_RELEASE.some((re) => re.test(f)),
+  )
 }
 
 export function plan({ tags, changed, written = null, feature = false, force = false }) {

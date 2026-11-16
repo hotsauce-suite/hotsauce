@@ -13,7 +13,7 @@ import {
   LEGACY_EXTENSION_ZIP_PATH,
 } from './extension/download.js'
 import { legacyHostRedirect } from './legacyHosts.js'
-import { MacAppDownloads, releaseAsset } from './macApp.js'
+import { assetType, MAC_APP_INFO, MacAppDownloads, releaseAsset } from './macApp.js'
 import { OrgStore } from './org/store.js'
 import { createServices, loadEnvFile } from './services.js'
 import { rebuildRegistryFromClones } from './spaces/index.js'
@@ -304,12 +304,9 @@ function serveWebApp(
     if (!asset || !macApp) return next()
     const file = await macApp.file(asset)
     if (!file) return next()
-    c.header(
-      'Content-Type',
-      asset.endsWith('.dmg') ? 'application/x-apple-diskimage' : 'application/zip',
-    )
+    c.header('Content-Type', assetType(asset))
     c.header('Content-Length', String(statSync(file).size))
-    c.header('Content-Disposition', `attachment; filename="${asset}"`)
+    if (asset !== MAC_APP_INFO) c.header('Content-Disposition', `attachment; filename="${asset}"`)
     c.header('Cache-Control', 'no-cache')
     if (c.req.method === 'HEAD') return c.body(null)
     return c.body(Readable.toWeb(createReadStream(file)) as ReadableStream)

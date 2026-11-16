@@ -1,0 +1,29 @@
+name: What's new
+
+# Every pull request says what's new in plain words, or None (docs/PLAN-mac-version-and-whats-new.md,
+# N2). The Release workflow turns those lines into the release notes people read in Settings →
+# What's new and on hotsauce.work/changes. Editing the description runs this again.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  whats-new:
+    # Copies of Hotsauce and bots' pull requests (dependency updates) aren't asked.
+    if: github.repository == 'hotsauce-suite/hotsauce' && github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: The description has a "What's new" section
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/release-notes.mjs check

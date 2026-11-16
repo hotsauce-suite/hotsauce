@@ -220,15 +220,31 @@ function HelpStrip() {
           Send feedback
         </Link>
       ) : null}
+      {/* The release notes (docs/PLAN-mac-version-and-whats-new.md, N5). */}
+      <NavLink
+        to="/settings/whats-new"
+        data-testid="settings-whats-new-link"
+        className={({ isActive }) =>
+          `${stripLink} ${isActive ? 'bg-paper-sunk font-medium text-ink' : ''}`
+        }
+      >
+        What’s new
+      </NavLink>
       <p
         data-testid="settings-about"
         className="mt-2 px-2.5 text-xs text-ink-faint"
         title="New versions install themselves; reload to get one now."
       >
         {product()}{' '}
-        <span data-testid="settings-version" className="font-mono">
-          {health?.version ? `version ${health.version}` : ''}
-        </span>
+        {health?.version ? (
+          <Link
+            to="/settings/whats-new"
+            data-testid="settings-version"
+            className="font-mono hover:text-ink hover:underline"
+          >
+            version {health.version}
+          </Link>
+        ) : null}
         <button
           type="button"
           data-testid="settings-reload"

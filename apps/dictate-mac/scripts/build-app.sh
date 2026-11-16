@@ -14,11 +14,12 @@
 # The disk image window (background, icon spots) comes from Resources/dmg/ via dmgbuild, run with
 # uvx; without uv it falls back to a plain window.
 #
-#   apps/dictate-mac/scripts/build-app.sh   → build/Hotsauce.app, release/Hotsauce.{dmg,zip}
+#   apps/dictate-mac/scripts/build-app.sh   → build/Hotsauce.app, release/Hotsauce.{dmg,zip}, release/mac-app.json
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${VERSION:-0.5.0}"
+# The Mac app takes the Hotsauce release it is built from, unless VERSION says otherwise.
+VERSION="${VERSION:-$(tr -d '[:space:]' < ../../HOTSAUCE_VERSION 2>/dev/null || echo 0.0.0)}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 # The display name and deep-link scheme live in one place, Sources/DictateCore/Brand.swift.
 brand() { sed -n "s/.*static let $1 = \"\\(.*\\)\".*/\\1/p" Sources/DictateCore/Brand.swift; }
@@ -145,4 +146,9 @@ if (( NOTARIZE )); then
   spctl -a -t open --context context:primary-signature -v "$DMG"
 fi
 
-echo "Built $APP, $DMG ($(du -h "$DMG" | cut -f1)) and $ZIP ($(du -h "$ZIP" | cut -f1))"
+# What this build is, published beside it on the mac-app release so servers and installed apps
+# can tell whether they're behind (docs/PLAN-mac-version-and-whats-new.md, M1). From this build
+# on, the app reports its version, so an app that doesn't is older.
+printf '{"version":"%s","build":"%s","reportsVersion":true}\n' "$VERSION" "$BUILD_NUMBER" > release/mac-app.json
+
+echo "Built $APP, $DMG ($(du -h "$DMG" | cut -f1)), $ZIP ($(du -h "$ZIP" | cut -f1)) and release/mac-app.json"

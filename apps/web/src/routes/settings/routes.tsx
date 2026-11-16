@@ -18,6 +18,11 @@ export const settingsRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('../SettingsRoute')).AppsSettings }),
     },
     {
+      // Release notes, from the version under the menu (docs/PLAN-mac-version-and-whats-new.md N5).
+      path: 'whats-new',
+      lazy: async () => ({ Component: (await import('./WhatsNewPage')).default }),
+    },
+    {
       path: 'organization/:page?',
       lazy: async () => ({ Component: (await import('../OrgSettingsRoute')).default }),
     },
