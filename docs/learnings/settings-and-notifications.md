@@ -21,9 +21,20 @@
 - **Moving a section into another keeps its anchor working** as long as the `id` moves with the
   card: `#mac-app` is on the Mac app card inside Install, and the e2e checks it lands in view.
 
+## Settings as pages (2026-11-15, docs/PLAN-settings-pages.md)
+
+- **Crowding was weight, not count.** The first pass counted sections and proposed ten pages. Reading every screen showed two blocks (the Mac app's install guide, the AI tools intro) took most of the height. Trim before regrouping, and judge a settings screen by what fills it.
+- **A layout route swallows the outlet context.** `KeyboardSettings` reads the shell from `useOutletContext`; once a `SettingsLayout` sat between it and `AppShell`, it got nothing. A layout that renders `<Outlet />` must pass the parent's context on (`<Outlet context={useOutletContext()} />`).
+- **`NavLink` needs `end` when one page's address is a prefix of another's** (`/settings` and `/settings/apps`, `/settings/organization` and `…/brand`), or two items show as current.
+- **One route component for sibling pages keeps shared state.** `organization/:page?` is one route, so React keeps `OrgSettingsRoute` mounted and the "apply to restart" banner survives moving between organization pages. Five separate routes would have dropped it.
+- **Splitting a form across pages means splitting its save.** "Your organization" sent every field on each save. Shown on three pages, each would have saved the other two pages' stale copies; `part` narrows both the fields and the payload. The server already merged partial patches.
+- **Settings is listed in two routers**: `router.tsx` and `test/renderApp.tsx`. They now share `routes/settings/routes.tsx`. A page added to only one passes tests and 404s in the app, or the reverse.
+- **Old hash addresses are an API.** The Mac app, Today, Dictate, emails and help pages all linked `/settings#mac-app`. `movedSection` redirects them; add a line there when a section changes page.
+- **Never `git checkout <file>` to undo a throwaway edit on uncommitted work.** Commit first, then experiment.
+
 ## Usage page (2026-11-16)
 
-- **Git already answers "who used what, when".** `git log --name-status -z --since` per clone is
+- **Git already answers "who used what, when".** `git log --name-status -z` per clone is
   enough; no event tracking needed. Use `--find-renames` or every move looks like a new item.
 - **Every new space seeds a README authored by the member**, not by Hotsauce, so filtering on the
   committer's address alone counts one Docs "creation" per person. Skip the
@@ -33,3 +44,7 @@
   the page instead of showing a zero that reads as "unused".
 - **fast-check isn't a dependency yet.** Adding it touches the lockfile, a shared file; the pure
   report got example tests instead.
+- **Don't use `git log --since`.** It stops walking at the first run of commits with older
+  committer dates, so old-dated commits on top (an import, an outside push) hide recent work.
+  Walk the history and filter by author date.
+

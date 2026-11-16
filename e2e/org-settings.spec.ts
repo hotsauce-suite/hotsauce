@@ -13,8 +13,9 @@ const ember = (page: import('@playwright/test').Page) =>
 
 test('members don’t see the organization settings', async ({ page, request }) => {
   await page.goto('/settings')
-  await expect(page.getByRole('heading', { name: /Connect an AI tool/ })).toBeVisible()
-  await expect(page.getByTestId('org-settings-link')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
+  await expect(page.getByTestId('settings-nav-general')).toBeVisible()
+  await expect(page.getByTestId('settings-nav-workspace')).toHaveCount(0)
   // Nor can they reach its API.
   const res = await request.get('/api/admin/org/state', {
     headers: { 'x-hearth-dev-user': 'someone@example.test' },
@@ -32,15 +33,21 @@ test.describe('as an admin', () => {
     const admin = { 'x-hearth-dev-user': ADMIN }
     await signIn(page, ADMIN)
     await page.goto('/settings')
-    await page.getByTestId('org-settings-link').click()
+    await page.getByTestId('settings-nav-workspace').click()
     await expect(page).toHaveURL(/\/settings\/organization$/)
     await expect(page.getByTestId('org-summary')).toBeVisible()
-    // Usage (docs/PLAN-app-usage.md): the admin sees every app counted, from history.
+    // Usage (docs/PLAN-app-usage.md): every app counted from history, one page.
+    await page.getByTestId('settings-nav-usage').click()
+    await expect(page).toHaveURL(/\/settings\/organization\/usage$/)
     await expect(page.getByTestId('usage-table')).toBeAttached()
+    await page.getByTestId('settings-nav-people').click()
+    await expect(page).toHaveURL(/\/settings\/organization\/people$/)
     // Env-configured values show as locked.
     await expect(page.getByTestId('allowed-domains')).toBeDisabled()
     // Invited people outside the domains are set here, not by env, so the admin can edit them.
     await expect(page.getByTestId('allowed-emails')).toBeEnabled()
+    await page.getByTestId('settings-nav-brand').click()
+    await expect(page).toHaveURL(/\/settings\/organization\/brand$/)
 
     try {
       await page.getByTestId('brand-primary').fill('#0f766e')

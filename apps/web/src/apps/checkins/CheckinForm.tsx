@@ -119,7 +119,7 @@ export function CheckinForm({
           </select>
           <span className="text-xs text-ink-faint">
             One summary once everyone has answered, or at 5 PM. Admins add rooms in Settings →
-            Organization.
+            Workspace.
           </span>
         </label>
       </div>

@@ -2,8 +2,8 @@
 
 ## Status
 
-- 2026-11-16: built in one PR (#113): the report, `GET /api/admin/usage`, and a Usage section at
-  the end of Settings → Organization. When Settings pages (#106) lands it becomes its own page.
+- 2026-11-16: built in one PR (#113): the report, `GET /api/admin/usage`, and the Usage page
+  under Organization in Settings (`/settings/organization/usage`).
 
 ## Why
 

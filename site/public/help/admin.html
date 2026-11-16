@@ -38,7 +38,15 @@
 <main id="main" class="article" data-page="admin">
 <p class="crumbs"><a href="/help/">Help</a> <span aria-hidden="true">/</span> For admins</p>
 <h1>Run Hotsauce for your team</h1>
-<p class="lede">Admins manage the whole workspace in <b>Settings → Organization</b>. Only admins see it. Changes take effect when you apply them.</p>
+<p class="lede">Admins manage the whole workspace from the <b>Organization</b> group in <b>Settings</b>. Only admins see it. Changes take effect when you apply them.</p>
+<div class="defs">
+<dl><dt>Workspace</dt><dd>A summary of what’s set up, the organization and workspace names, the default weather city, the team chat link and chat rooms.</dd></dl>
+<dl><dt>Brand</dt><dd>Logo, colors, fonts and how your organization writes.</dd></dl>
+<dl><dt>People and access</dt><dd>Who can sign in, the admins, the sign-in keys and read-only links.</dd></dl>
+<dl><dt>AI</dt><dd>The Anthropic and Deepgram keys, and the assistant’s model, monthly limit and use.</dd></dl>
+<dl><dt>Data and updates</dt><dd>Where your files live, backups and updates.</dd></dl>
+<dl><dt>Usage</dt><dd>Which apps your team uses, week by week, counted without tracking anyone.</dd></dl>
+</div>
 <h2 id="what-each-key-turns-on">What each key turns on</h2>
 <div class="tbl"><table>
 <tr><th>Key</th><th>Turns on</th><th>Where to get it</th></tr>
@@ -47,10 +55,10 @@
 <tr><td>OpenAI*</td><td>Reading the daily briefing aloud</td><td><a href="https://platform.openai.com/api-keys">platform.openai.com</a></td></tr>
 <tr><td>Cloudflare Turnstile*</td><td>Public forms and booking links, kept free of bots</td><td><a href="https://dash.cloudflare.com/?to=/:account/turnstile">Cloudflare dashboard</a></td></tr>
 </table></div>
-<p>Add the Anthropic and Deepgram keys in <b>Settings → Organization → AI and transcription</b>. Each has a <b>Test</b> button, and keys are stored encrypted and never shown again. *The OpenAI and Turnstile keys are set on the server itself (<code>OPENAI_API_KEY</code>, <code>TURNSTILE_SITE_KEY</code> and <code>TURNSTILE_SECRET_KEY</code>; see the <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md#configuring-by-environment-instead">self-hosting guide</a>). Without a key, the features that need it say so, and everything else keeps working.</p>
+<p>Add the Anthropic and Deepgram keys in <b>Settings → AI</b>. Each has a <b>Test</b> button, and keys are stored encrypted and never shown again. *The OpenAI and Turnstile keys are set on the server itself (<code>OPENAI_API_KEY</code>, <code>TURNSTILE_SITE_KEY</code> and <code>TURNSTILE_SECRET_KEY</code>; see the <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md#configuring-by-environment-instead">self-hosting guide</a>). Without a key, the features that need it say so, and everything else keeps working.</p>
 
 <h2 id="who-can-sign-in">Who can sign in</h2>
-<ul><li><b>Email domains that can sign in</b>: anyone with a Google account on these domains gets in.</li><li><b>Invited people</b>: exact email addresses outside those domains. They sign in with a code sent to their email, and see everything the team can.</li><li><b>Admins</b>: the people who can open Settings → Organization.</li></ul>
+<ul><li><b>Email domains that can sign in</b>: anyone with a Google account on these domains gets in.</li><li><b>Invited people</b>: exact email addresses outside those domains. They sign in with a code sent to their email, and see everything the team can.</li><li><b>Admins</b>: the people who see the Organization pages in Settings. All three are in <b>Settings → People and access</b>.</li></ul>
 
 <h2 id="your-brand">Your brand</h2>
 <p>Name the workspace, add a logo and icon, and pick colors, fonts and a default light or dark look. Every app follows, and agents can read the brand kit too. <b>How your organization writes</b> tells the AI how your team sounds.</p>
@@ -59,14 +67,14 @@
 <ul><li><b>Team chat link</b> puts your chat on everyone's left bar (it's pinned to start; each person can unpin it) and in the app grid.</li><li><b>Chat rooms</b>: add a Slack-compatible webhook so Forms and Check-ins can post to it.</li><li><b>Read-only links</b>: let anyone with a shared link read it without signing in. Off by default.</li><li><b>Weather</b>: a team city, so Today shows the weather there for everyone who hasn’t picked a place of their own. Empty by default.</li></ul>
 
 <h2 id="updates">Updates</h2>
-<p>On Fly.io with a Fly token, Hotsauce can update itself: <b>Settings → Organization → Updates</b> installs each new release within about an hour, never while a meeting is being recorded. Turn it off to update only when you press <b>Update</b>. With Docker, run <code>docker compose pull</code> then <code>docker compose up -d</code>. Copies made from GitHub get a weekly pull request with the newest release.</p>
+<p>On Fly.io with a Fly token, Hotsauce can update itself: <b>Settings → Data and updates</b> installs each new release within about an hour, never while a meeting is being recorded. Turn it off to update only when you press <b>Update</b>. With Docker, run <code>docker compose pull</code> then <code>docker compose up -d</code>. Copies made from GitHub get a weekly pull request with the newest release.</p>
 
 <h2 id="backups">Backups</h2>
-<p>With storage set up (Cloudflare R2 or any S3-compatible bucket), the server backs itself up every day to your own bucket. Recent backups are listed in Settings → Organization.</p>
+<p>With storage set up (Cloudflare R2 or any S3-compatible bucket), the server backs itself up every day to your own bucket. Recent backups are listed in <b>Settings → Data and updates</b>.</p>
 <p>To be told when a backup fails, point an uptime monitor such as Better Stack or UptimeRobot at <code>/api/health/backup</code> on your server's address. It turns red when the newest backup failed or none has worked for 26 hours.</p>
 
 <h2 id="usage">Which apps get used</h2>
-<p><b>Settings → Organization → Usage</b> shows, for each app, how many things people made or changed each week over the last 12 weeks, and how many different people did it. It counts from the history every document already keeps, in the team space and everyone's own space, so nothing new is tracked. It shows numbers only, never names or titles. Clips are counted from the clips list. Dictate keeps its history on each Mac, so the page only says how many Macs are connected and used lately.</p>
+<p><b>Settings → Usage</b> shows, for each app, how many things people made or changed each week over the last 12 weeks, and how many different people did it. It counts from the history every document already keeps, in the team space and everyone's own space, so nothing new is tracked. It shows numbers only, never names or titles. Clips are counted from the clips list. Dictate keeps its history on each Mac, so the page only says how many Macs are connected and used lately.</p>
 
 <p>Setting up a new server? See <a href="/help/install">Install Hotsauce</a> and the <a href="https://github.com/hotsauce-suite/hotsauce/blob/main/docs/self-host.md">self-hosting guide</a>.</p>
 <nav class="pager" id="pager" aria-label="Next and previous"></nav>
