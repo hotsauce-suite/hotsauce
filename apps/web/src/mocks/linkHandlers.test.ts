@@ -83,4 +83,19 @@ describe('mock links', () => {
       vi.useRealTimers()
     }
   })
+
+  it('R4: moving or deleting a link takes its PDF along, and saving again un-archives', async () => {
+    const pdfLink = (await linksApi.list({ view: 'all' })).links.find((l) => l.file && !l.paper)
+    if (!pdfLink?.file) throw new Error('missing')
+    const moved = await linksApi.move(pdfLink.space, pdfLink.id, 'team')
+    expect((await filesApi.get('team', pdfLink.file)).id).toBe(pdfLink.file)
+    await linksApi.remove(moved.space, moved.id)
+    await expect(filesApi.get('team', pdfLink.file)).rejects.toThrow()
+
+    const old = await byTitle('The two-pizza rule', 'archive')
+    if (!old) throw new Error('missing')
+    const again = await linksApi.save({ url: old.url })
+    expect(again.existing).toBe(true)
+    expect(again.archived).toBe(false)
+  })
 })

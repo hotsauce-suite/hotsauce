@@ -287,10 +287,14 @@ export function linkHandlers(deps: LinkHandlerDeps): AnyHandler[] {
         if (!found) return error(400, 'bad_request', 'There’s no web link in what was shared')
         const space = body.space ?? user.handle
         if (!canUse(user, space)) return error(403, 'forbidden', 'You can’t see this space')
-        const same = [...links.links.values()].find(
-          (l) => l.space === space && l.url.replace(/\/+$/, '') === found.replace(/\/+$/, ''),
-        )
-        if (same) return HttpResponse.json({ ...links.view(same, user.email), existing: true })
+        // An address already saved anywhere you can see comes back to Unread, as on the server.
+        const same = [...links.links.values()]
+          .filter(visible(user))
+          .find((l) => l.url.replace(/\/+$/, '') === found.replace(/\/+$/, ''))
+        if (same) {
+          same.archived = false
+          return HttpResponse.json({ ...links.view(same, user.email), existing: true })
+        }
         const id = links.nextId()
         let host = found
         try {
@@ -313,7 +317,7 @@ export function linkHandlers(deps: LinkHandlerDeps): AnyHandler[] {
           fetched: null,
           fetchError: null,
           words: null,
-          source: body.source ?? 'web',
+          source: body.source ?? null,
           status: 'fetching',
           file: null,
           paper: null,
@@ -377,6 +381,7 @@ export function linkHandlers(deps: LinkHandlerDeps): AnyHandler[] {
       '/api/links/:space/:id/pdf',
       linkRoute(async ({ user, request, link }) => {
         const { file: fileId } = (await request.json()) as { file: string }
+        if (link.file) return error(409, 'conflict', 'This link already has its PDF')
         const file = pdfFile(link.space, fileId)
         if (!file) return error(400, 'bad_request', 'That file isn’t a PDF')
         link.file = file.id
@@ -425,8 +430,8 @@ export function linkHandlers(deps: LinkHandlerDeps): AnyHandler[] {
     http.post(
       '/api/links/:space/:id/refetch',
       linkRoute(({ user, link }) => {
-        if (!link.url) return error(400, 'bad_request', 'This link has no address to fetch')
-        fetchLater(link, link.later || link.body || demoCopy(link.url))
+        const kept = link.file ? files.get(link.space, link.file)?.text : ''
+        fetchLater(link, link.later || link.body || kept || demoCopy(link.url))
         return HttpResponse.json(links.view(link, user.email))
       }),
     ),
@@ -436,6 +441,20 @@ export function linkHandlers(deps: LinkHandlerDeps): AnyHandler[] {
       linkRoute(async ({ user, request, link }) => {
         const { toSpace } = (await request.json()) as { toSpace: string }
         if (!canUse(user, toSpace)) return error(403, 'forbidden', 'You can’t see this space')
+        if (link.space === 'team' && toSpace !== 'team' && link.savedBy !== user.email) {
+          return error(
+            403,
+            'forbidden',
+            'Only the person who saved a team link can make it private',
+          )
+        }
+        // The link's PDF goes with it, as on the server.
+        const pdf = link.file ? files.get(link.space, link.file) : undefined
+        if (pdf) {
+          files.files.delete(files.key(pdf.space, pdf.id))
+          pdf.space = toSpace
+          files.files.set(files.key(pdf.space, pdf.id), pdf)
+        }
         links.links.delete(links.key(link.space, link.id))
         link.space = toSpace
         links.add(link)
@@ -489,10 +508,9 @@ export function linkHandlers(deps: LinkHandlerDeps): AnyHandler[] {
         if (!h) return error(404, 'not_found', 'This highlight isn’t there anymore')
         if (h.by !== user.email) return error(403, 'forbidden', 'Only its maker can change a note')
         const { note } = (await request.json()) as { note: string }
-        if (note.trim()) {
-          h.note = note
-          h.edited = now()
-        } else delete h.note
+        if (note.trim()) h.note = note
+        else delete h.note
+        h.edited = now()
         return HttpResponse.json({ ...h, name: nameOf(h.by) })
       }),
     ),
@@ -511,6 +529,8 @@ export function linkHandlers(deps: LinkHandlerDeps): AnyHandler[] {
     http.delete(
       '/api/links/:space/:id',
       linkRoute(({ link }) => {
+        // Deleting a link deletes its PDF too (help: Links).
+        if (link.file) files.files.delete(files.key(link.space, link.file))
         links.links.delete(links.key(link.space, link.id))
         return new HttpResponse(null, { status: 204 })
       }),
