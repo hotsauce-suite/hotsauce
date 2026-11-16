@@ -11,7 +11,9 @@ The narrated tour video and the Clips player video are re-cut from the new scree
 site; the copy on YouTube is the old cut until Morgan uploads the new file (his to-do list).
 The three leftovers from the round 3 review are done: the list is a tab panel named by its tab
 (`ListPanel`), and tests cover dragging being off while Tasks is searched and Meetings filters
-with a search. Round 4 (the page of one thing) is in progress: Morgan accepted Q1 to Q8 on Nov 16; slice 1 (the top bar) is being built.
+with a search. Round 4 (the page of one thing) is in progress: Morgan accepted Q1 to Q8 on Nov 16; slice 1
+(the top bar, requirements 20 to 23) shipped in 0.31.0 (PR #158); slice 2 (the side panel and
+the widths, 24 and 25) is in review.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
@@ -186,10 +188,11 @@ https://claude.ai/artifact/A9oePJA9Wedzbhb6gokgDM
     (once its tab) and a check-in's (once a button in the page). *(e2e forms, checkins)*
 24. **One side panel.** "More about this thing" is a panel on the right with a heading and ×,
     a sheet on a phone (`components/SidePanel.tsx`): a meeting's transcript, a clip's transcript
-    (open on arrival on a computer), a task.
+    (open on arrival on a computer), a task. *(e2e clips, clips-mobile)*
 25. **Three widths.** Reading column (the doc's measure): doc, meeting note, saved link, form,
     check-in, person, company. Video and panel: a clip. Full width: board, table, page. A
-    person's and a company's cards stack in one column.
+    person's and a company's cards stack in one column (`components/ItemColumn.ts`).
+    *(e2e consistency; unit PeoplePages)*
 26. **Quick things stay quick.** A task keeps its side panel, a note and a file their pop-ups;
     each has its name at the top, × at the top right, Delete in More. A note has no second
     "Close" button. *(e2e notes, tasks, drive)*

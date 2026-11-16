@@ -932,4 +932,35 @@ test.describe('the page of one thing', () => {
     await page.getByTestId('page-more').click()
     await expect(page.getByRole('menuitem', { name: 'Delete link' })).toBeVisible()
   })
+
+  test('a form and a saved link read at a doc’s width', async ({ page, user }) => {
+    const measure = await page.evaluate(() => {
+      const probe = document.createElement('div')
+      probe.style.width = 'var(--measure)'
+      document.body.append(probe)
+      const width = probe.getBoundingClientRect().width
+      probe.remove()
+      return width
+    })
+    expect(measure).toBeGreaterThan(600)
+    const widths = async () =>
+      page
+        .locator('[data-item-width="reading"]')
+        .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().width)))
+
+    await page.goto('/forms')
+    await newForm(page, `Width ${uid()}`)
+    await expect.poll(widths).toEqual(expect.arrayContaining([Math.round(measure)]))
+    expect((await widths()).every((w) => w === Math.round(measure))).toBe(true)
+
+    const res = await page.request.post('/api/links', {
+      data: { url: `https://journal.test/${uid()}/width` },
+      headers: { 'x-hearth-dev-user': user.email },
+    })
+    const { id, space } = (await res.json()) as { id: string; space: string }
+    await page.goto(`/links/${encodeURIComponent(space)}/${encodeURIComponent(id)}`)
+    await expect(page.getByTestId('link-share')).toBeVisible()
+    await expect.poll(widths).toEqual(expect.arrayContaining([Math.round(measure)]))
+    expect((await widths()).every((w) => w === Math.round(measure))).toBe(true)
+  })
 })

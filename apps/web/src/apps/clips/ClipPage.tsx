@@ -10,6 +10,9 @@ import { Icon } from '../../components/Icon'
 import { MenuItem, menuItemClass } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
+import { SidePanel } from '../../components/SidePanel'
+import { IconButton } from '../../components/TopBar'
+import { PANES_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { docUrl, meetingUrl } from '../../lib/paths'
 import { useSession } from '../../state/session'
@@ -69,6 +72,9 @@ export default function ClipPage() {
   const video = useRef<HTMLVideoElement>(null)
   const { notify } = useSession()
   const { compact } = useShell()
+  // Beside the video on a wide screen, as a meeting's transcript is; on a phone it opens on a tap.
+  const roomy = useMediaQuery(PANES_QUERY)
+  const [transcriptOpen, setTranscriptOpen] = useState(roomy)
 
   const load = useCallback(async () => {
     try {
@@ -365,6 +371,13 @@ export default function ClipPage() {
             ) : null}
           </>
         )}
+        <IconButton
+          icon="transcript"
+          label="Transcript"
+          testId="transcript-toggle"
+          pressed={transcriptOpen}
+          onClick={() => setTranscriptOpen((open) => !open)}
+        />
         {compact || clip.downloadUrl || clip.isOwner ? (
           <MoreMenu>
             {(close) => (
@@ -419,188 +432,201 @@ export default function ClipPage() {
         ) : null}
       </MeetingsPageHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden" data-testid="clip-page">
-        <div className="clip-layout">
-          <div className="clip-main">
-            {trimming ? (
-              <TrimEditor
-                clip={clip}
-                onSave={saveTrim}
-                onRevert={revertTrim}
-                onClose={() => setTrimming(false)}
-              />
-            ) : null}
-            <div className="clip-stage" hidden={trimming}>
-              {clip.status === 'ready' && videoSrc ? (
-                // biome-ignore lint/a11y/useMediaCaption: the transcript beside it is the text alternative.
-                <video
-                  ref={video}
-                  src={videoSrc}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  data-testid="clip-video"
-                  onLoadedMetadata={(e) => {
-                    e.currentTarget.playbackRate = speed
-                  }}
-                  onRateChange={(e) => {
-                    const rate = e.currentTarget.playbackRate
-                    if ((SPEEDS as readonly number[]).includes(rate) && rate !== speed) {
-                      changeSpeed(rate)
-                    }
-                  }}
-                  onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
-                  onSeeked={(e) => setTime(e.currentTarget.currentTime)}
+      <div className="flex min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="clip-page">
+          <div className="clip-layout">
+            <div className="clip-main">
+              {trimming ? (
+                <TrimEditor
+                  clip={clip}
+                  onSave={saveTrim}
+                  onRevert={revertTrim}
+                  onClose={() => setTrimming(false)}
                 />
-              ) : (
-                <div className="clip-stage__placeholder" data-testid="clip-processing">
-                  {clip.status === 'failed' ? (
-                    <>
-                      <p className="font-medium text-ink">{clip.error}</p>
-                      <p className="mt-1 text-sm text-ink-faint">
-                        The recording didn’t make it. Record it again?
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <span className="clip-spinner" aria-hidden="true" />
-                      <p className="mt-3 text-ink">Getting your video ready…</p>
-                      <p className="mt-1 text-sm text-ink-faint">
-                        It’s usually a few seconds. You can copy the link now.
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+              ) : null}
+              <div className="clip-stage" hidden={trimming}>
+                {clip.status === 'ready' && videoSrc ? (
+                  // biome-ignore lint/a11y/useMediaCaption: the transcript beside it is the text alternative.
+                  <video
+                    ref={video}
+                    src={videoSrc}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    data-testid="clip-video"
+                    onLoadedMetadata={(e) => {
+                      e.currentTarget.playbackRate = speed
+                    }}
+                    onRateChange={(e) => {
+                      const rate = e.currentTarget.playbackRate
+                      if ((SPEEDS as readonly number[]).includes(rate) && rate !== speed) {
+                        changeSpeed(rate)
+                      }
+                    }}
+                    onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+                    onSeeked={(e) => setTime(e.currentTarget.currentTime)}
+                  />
+                ) : (
+                  <div className="clip-stage__placeholder" data-testid="clip-processing">
+                    {clip.status === 'failed' ? (
+                      <>
+                        <p className="font-medium text-ink">{clip.error}</p>
+                        <p className="mt-1 text-sm text-ink-faint">
+                          The recording didn’t make it. Record it again?
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <span className="clip-spinner" aria-hidden="true" />
+                        <p className="mt-3 text-ink">Getting your video ready…</p>
+                        <p className="mt-1 text-sm text-ink-faint">
+                          It’s usually a few seconds. You can copy the link now.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2" hidden={trimming}>
-              <fieldset className="clip-speeds" aria-label="Playback speed">
-                {SPEEDS.map((s) => (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2" hidden={trimming}>
+                <fieldset className="clip-speeds" aria-label="Playback speed">
+                  {SPEEDS.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      aria-pressed={s === speed}
+                      data-testid={`clip-speed-${s}`}
+                      onClick={() => changeSpeed(s)}
+                    >
+                      {speedLabel(s)}
+                    </button>
+                  ))}
+                </fieldset>
+                <p className="text-xs text-ink-faint" data-testid="clip-meta">
+                  {clip.owner.name} · {formatWhen(clip.createdAt)}
+                  {clip.durationMs ? ` · ${formatDuration(clip.durationMs)}` : ''}
+                </p>
+              </div>
+
+              {clip.status === 'ready' &&
+              (clip.compositeStatus === 'pending' || clip.compositeStatus === 'processing') ? (
+                <p className="clip-note" data-testid="composite-status">
+                  <span className="clip-spinner clip-spinner--small" aria-hidden="true" />
+                  Adding the camera to the video. This is the screen alone until then; it can take a
+                  few minutes for a long clip.
+                </p>
+              ) : null}
+              {clip.compositeStatus === 'failed' && clip.isOwner ? (
+                <p className="clip-note" data-testid="composite-status">
+                  The camera couldn’t be added to this video, so it’s the screen alone.{' '}
                   <button
-                    key={s}
                     type="button"
-                    aria-pressed={s === speed}
-                    data-testid={`clip-speed-${s}`}
-                    onClick={() => changeSpeed(s)}
+                    className="underline"
+                    onClick={() => void retryCamera()}
+                    data-testid="composite-retry"
                   >
-                    {speedLabel(s)}
+                    Try again
                   </button>
-                ))}
-              </fieldset>
-              <p className="text-xs text-ink-faint" data-testid="clip-meta">
-                {clip.owner.name} · {formatWhen(clip.createdAt)}
-                {clip.durationMs ? ` · ${formatDuration(clip.durationMs)}` : ''}
+                </p>
+              ) : null}
+              {clip.editStatus === 'pending' || clip.editStatus === 'processing' ? (
+                <p className="clip-note" data-testid="trim-status">
+                  <span className="clip-spinner clip-spinner--small" aria-hidden="true" />
+                  Applying your trim. {clip.edited ? 'The previous version' : 'The full recording'}{' '}
+                  plays until it’s ready.
+                </p>
+              ) : null}
+              {clip.editStatus === 'failed' && clip.isOwner ? (
+                <p className="clip-note" data-testid="trim-status">
+                  Your trim couldn’t be applied, so the{' '}
+                  {clip.edited ? 'previous version' : 'full recording'} still plays.{' '}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() =>
+                      void saveTrim(clip.cuts).catch((err: unknown) =>
+                        setError(err instanceof Error ? err.message : 'Couldn’t save the trim'),
+                      )
+                    }
+                    data-testid="trim-retry"
+                  >
+                    Try again
+                  </button>
+                </p>
+              ) : null}
+              {clip.edited && clip.isOwner && !trimming && clip.editStatus === 'ready' ? (
+                <p className="clip-note" data-testid="trim-note">
+                  <Icon name="scissors" className="size-3.5" />
+                  Trimmed from {formatDuration(clip.sourceDurationMs)}.{' '}
+                  <button type="button" className="underline" onClick={() => setTrimming(true)}>
+                    Change the trim
+                  </button>
+                </p>
+              ) : null}
+              {videoSrc && videoIdentity(videoSrc) !== videoIdentity(clip.videoUrl) && !trimming ? (
+                <p className="clip-note" data-testid="clip-switch">
+                  {clip.edited
+                    ? 'The trimmed version is ready.'
+                    : clip.compositeStatus === 'ready'
+                      ? 'The version with your camera is ready.'
+                      : 'A newer version of this video is ready.'}{' '}
+                  <button
+                    type="button"
+                    className="underline decoration-ember/50 underline-offset-2 hover:text-ember"
+                    onClick={() => setVideoSrc(clip.videoUrl)}
+                  >
+                    Switch to it
+                  </button>
+                </p>
+              ) : null}
+              {clip.summary ? (
+                <p className="clip-summary" data-testid="clip-summary">
+                  {clip.summary}
+                </p>
+              ) : null}
+              <ClipNotes
+                clip={clip}
+                onChange={(updated) => setData((d) => (d ? { ...d, clip: updated } : d))}
+              />
+              <p className="mt-4 hidden text-xs text-ink-faint lg:block">
+                <Kbd>Space</Kbd> play or pause · <Kbd>←</Kbd> <Kbd>→</Kbd> 5 s · <Kbd>&lt;</Kbd>{' '}
+                <Kbd>&gt;</Kbd> speed
               </p>
+              {error ? (
+                <p role="alert" className="mt-3 text-sm text-ember">
+                  {error}
+                </p>
+              ) : null}
             </div>
-
-            {clip.status === 'ready' &&
-            (clip.compositeStatus === 'pending' || clip.compositeStatus === 'processing') ? (
-              <p className="clip-note" data-testid="composite-status">
-                <span className="clip-spinner clip-spinner--small" aria-hidden="true" />
-                Adding the camera to the video. This is the screen alone until then; it can take a
-                few minutes for a long clip.
-              </p>
-            ) : null}
-            {clip.compositeStatus === 'failed' && clip.isOwner ? (
-              <p className="clip-note" data-testid="composite-status">
-                The camera couldn’t be added to this video, so it’s the screen alone.{' '}
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() => void retryCamera()}
-                  data-testid="composite-retry"
-                >
-                  Try again
-                </button>
-              </p>
-            ) : null}
-            {clip.editStatus === 'pending' || clip.editStatus === 'processing' ? (
-              <p className="clip-note" data-testid="trim-status">
-                <span className="clip-spinner clip-spinner--small" aria-hidden="true" />
-                Applying your trim. {clip.edited ? 'The previous version' : 'The full recording'}{' '}
-                plays until it’s ready.
-              </p>
-            ) : null}
-            {clip.editStatus === 'failed' && clip.isOwner ? (
-              <p className="clip-note" data-testid="trim-status">
-                Your trim couldn’t be applied, so the{' '}
-                {clip.edited ? 'previous version' : 'full recording'} still plays.{' '}
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() =>
-                    void saveTrim(clip.cuts).catch((err: unknown) =>
-                      setError(err instanceof Error ? err.message : 'Couldn’t save the trim'),
-                    )
-                  }
-                  data-testid="trim-retry"
-                >
-                  Try again
-                </button>
-              </p>
-            ) : null}
-            {clip.edited && clip.isOwner && !trimming && clip.editStatus === 'ready' ? (
-              <p className="clip-note" data-testid="trim-note">
-                <Icon name="scissors" className="size-3.5" />
-                Trimmed from {formatDuration(clip.sourceDurationMs)}.{' '}
-                <button type="button" className="underline" onClick={() => setTrimming(true)}>
-                  Change the trim
-                </button>
-              </p>
-            ) : null}
-            {videoSrc && videoIdentity(videoSrc) !== videoIdentity(clip.videoUrl) && !trimming ? (
-              <p className="clip-note" data-testid="clip-switch">
-                {clip.edited
-                  ? 'The trimmed version is ready.'
-                  : clip.compositeStatus === 'ready'
-                    ? 'The version with your camera is ready.'
-                    : 'A newer version of this video is ready.'}{' '}
-                <button
-                  type="button"
-                  className="underline decoration-ember/50 underline-offset-2 hover:text-ember"
-                  onClick={() => setVideoSrc(clip.videoUrl)}
-                >
-                  Switch to it
-                </button>
-              </p>
-            ) : null}
-            {clip.summary ? (
-              <p className="clip-summary" data-testid="clip-summary">
-                {clip.summary}
-              </p>
-            ) : null}
-            <ClipNotes
-              clip={clip}
-              onChange={(updated) => setData((d) => (d ? { ...d, clip: updated } : d))}
-            />
-            <p className="mt-4 hidden text-xs text-ink-faint lg:block">
-              <Kbd>Space</Kbd> play or pause · <Kbd>←</Kbd> <Kbd>→</Kbd> 5 s · <Kbd>&lt;</Kbd>{' '}
-              <Kbd>&gt;</Kbd> speed
-            </p>
-            {error ? (
-              <p role="alert" className="mt-3 text-sm text-ember">
-                {error}
-              </p>
-            ) : null}
           </div>
-
-          <TranscriptPanel
-            onRenameSpeaker={async (speaker, name) => {
-              try {
-                const updated = await clipsApi.setSpeakers(clip.id, { [String(speaker)]: name })
-                setData((d) => (d ? { ...d, clip: updated } : d))
-              } catch (err) {
-                setError(err instanceof Error ? err.message : 'Couldn’t rename the speaker')
-              }
-            }}
-            clip={clip}
-            transcript={data?.transcript ?? []}
-            time={time}
-            onSeek={(s) => seek(s, true)}
-            onRetry={() => void retryTranscript()}
-          />
         </div>
+        {transcriptOpen ? (
+          <SidePanel
+            title="Transcript"
+            onClose={() => setTranscriptOpen(false)}
+            testId="clip-transcript-panel"
+          >
+            <TranscriptPanel
+              onRenameSpeaker={async (speaker, name) => {
+                try {
+                  const updated = await clipsApi.setSpeakers(clip.id, { [String(speaker)]: name })
+                  setData((d) => (d ? { ...d, clip: updated } : d))
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Couldn’t rename the speaker')
+                }
+              }}
+              clip={clip}
+              transcript={data?.transcript ?? []}
+              time={time}
+              onSeek={(s) => {
+                seek(s, true)
+                // On a phone the transcript covers the video: close it to watch from there.
+                if (compact) setTranscriptOpen(false)
+              }}
+              onRetry={() => void retryTranscript()}
+            />
+          </SidePanel>
+        ) : null}
       </div>
 
       {confirmDelete ? (
@@ -775,15 +801,7 @@ function TranscriptPanel({
     )
   }
 
-  return (
-    <aside className="clip-side" aria-label="Transcript">
-      <h2 className="flex items-center gap-2 border-b border-ash/70 px-4 py-3 text-sm font-semibold text-ink">
-        <Icon name="transcript" className="size-4 text-ink-faint" />
-        Transcript
-      </h2>
-      {body}
-    </aside>
-  )
+  return <div className="clip-side">{body}</div>
 }
 
 /** The clip's speakers; the owner clicks a name to change it on every line. */

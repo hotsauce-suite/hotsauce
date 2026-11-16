@@ -14,6 +14,7 @@ import {
 import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
+import { readingColumn } from '../../components/ItemColumn'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
@@ -167,7 +168,7 @@ export default function LinkReader() {
     return (
       <>
         <MeetingsPageHeader title="Links" menu={false} />
-        <div className="mx-auto w-full max-w-2xl px-4 pt-6 md:px-8">
+        <div data-item-width="reading" className={`${readingColumn} pt-6`}>
           <p role="alert" className="text-sm text-ember-strong">
             {error}
           </p>
@@ -391,7 +392,7 @@ export default function LinkReader() {
       </MeetingsPageHeader>
       {resumed ? (
         <p
-          className="mx-auto mt-2 flex w-full max-w-2xl flex-wrap items-center gap-x-2 rounded-lg bg-ash/50 px-4 py-2 text-sm text-ink-soft md:px-8"
+          className={`${readingColumn} mt-2 flex flex-wrap items-center gap-x-2 rounded-lg bg-ash/50 py-2 text-sm text-ink-soft`}
           data-testid="link-resumed"
         >
           Picked up where you left off.
@@ -406,7 +407,7 @@ export default function LinkReader() {
         </p>
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto" ref={scroller} data-testid="link-scroller">
-        <article className="mx-auto w-full max-w-2xl px-4 pt-6 pb-24 md:px-8">
+        <article data-item-width="reading" className={`${readingColumn} pt-6 pb-24`}>
           <h1
             className="font-display text-2xl font-semibold tracking-tight text-ink"
             data-testid="link-reader-title"
