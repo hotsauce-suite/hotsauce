@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { fetchLatestRelease, RELEASES_PAGE_URL, RELEASES_URL } from './releases.js'
+import {
+  fetchImageDigest,
+  fetchLatestRelease,
+  imageDigestUrl,
+  RELEASES_PAGE_URL,
+  RELEASES_URL,
+} from './releases.js'
 
 // docs/PLAN-releases-and-updates.md R10, R12.
 type Answer = Response | Error
@@ -102,5 +108,33 @@ describe('fetchLatestRelease', () => {
     await expect(fetchLatestRelease(fn)).rejects.toThrow(
       /releases page: redirected to https:\/\/github.com\/login/,
     )
+  })
+})
+
+// docs/PLAN-pinned-images.md R2, R3.
+describe('fetchImageDigest', () => {
+  const DIGEST = `sha256:${'a1'.repeat(32)}`
+  const url = imageDigestUrl('0.17.0')
+
+  it('reads the digest the release recorded, from its download (no API limit)', async () => {
+    expect(url).toBe(
+      'https://github.com/hotsauce-suite/hotsauce/releases/download/v0.17.0/image-digest.txt',
+    )
+    const { fn, calls } = fakeFetch({ [url]: new Response(`${DIGEST}\n`, { status: 200 }) })
+    expect(await fetchImageDigest('0.17.0', fn)).toBe(DIGEST)
+    // GitHub answers a download with a redirect to its file host, which must be followed.
+    expect(calls[0]?.init?.redirect ?? 'follow').toBe('follow')
+  })
+
+  it('fails when the release recorded none, so nothing is installed', async () => {
+    const { fn } = fakeFetch({ [url]: new Response('Not Found', { status: 404 }) })
+    await expect(fetchImageDigest('0.17.0', fn)).rejects.toThrow(/recorded no image.*404/)
+  })
+
+  it('fails on anything but one sha256 digest', async () => {
+    for (const body of ['latest', `${DIGEST} extra`, 'sha256:XYZ', `sha512:${'a'.repeat(128)}`]) {
+      const { fn } = fakeFetch({ [url]: new Response(body, { status: 200 }) })
+      await expect(fetchImageDigest('0.17.0', fn)).rejects.toThrow(/isn’t an image digest/)
+    }
   })
 })

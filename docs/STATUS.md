@@ -80,7 +80,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
-- **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`).
+- **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
 - **Usage** (Settings → Usage, admins): each app's items made or changed and people per week for 12 weeks, counted from Git history, Clips' list and Dictate's connected Macs. Nothing is tracked; numbers only. Needs nothing extra.
 

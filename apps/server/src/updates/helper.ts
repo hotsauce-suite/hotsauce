@@ -2,7 +2,7 @@ import { type FlyApi, type FlyMachine, HELPER_ROLE } from './fly.js'
 
 export interface HelperInput {
   fly: FlyApi
-  /** The image to move to, e.g. ghcr.io/hotsauce-suite/hotsauce:0.3.0. */
+  /** The image to move to, the digest its release recorded: ghcr.io/hotsauce-suite/hotsauce@sha256:… */
   target: string
   targetVersion: string
   /** The image the app ran before; this helper runs it too. */

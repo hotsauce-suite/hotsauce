@@ -1,5 +1,5 @@
 import { type FlyApi, HELPER_ROLE } from './fly.js'
-import type { Release } from './releases.js'
+import { assertImageDigest, type Release } from './releases.js'
 import type { UpdateState, UpdateStore } from './store.js'
 import { isNewer } from './version.js'
 
@@ -40,6 +40,11 @@ export interface UpdaterOptions {
   store: UpdateStore
   /** The newest release, null when there is none; throws when it can't be found out. */
   latestRelease: () => Promise<Release | null>
+  /**
+   * The exact image digest a release recorded (`sha256:…`); throws when it has none. Only that
+   * image is ever installed, never whatever the version's tag points at.
+   */
+  imageDigest: (version: string) => Promise<string>
   /** Set on Fly with FLY_API_TOKEN; null elsewhere. */
   fly: FlyApi | null
   /** Fly's own variables when running there: FLY_APP_NAME, FLY_REGION, FLY_IMAGE_REF. */
@@ -183,8 +188,12 @@ export class Updater {
     })
   }
 
-  /** Starts an update to the newest release (an admin's Update button, or the timer). */
-  async start(): Promise<UpdateStatus> {
+  /**
+   * Starts an update to the newest release (an admin's Update button, or the timer). The button
+   * asks GitHub afresh; the timer uses the hourly answer, so a release it can't install (no
+   * recorded image) doesn't turn into an ask every ten minutes.
+   */
+  async start(fresh = true): Promise<UpdateStatus> {
     const fly = this.#o.fly
     const { app, region, imageRef } = this.#o.flyEnv
     if (this.mode() !== 'fly' || !fly || !app || !imageRef) {
@@ -200,7 +209,7 @@ export class Updater {
     }
     this.#starting = true
     try {
-      return await this.#start(fly, { app, region, imageRef })
+      return await this.#start(fly, { app, region, imageRef }, fresh)
     } finally {
       this.#starting = false
     }
@@ -209,12 +218,16 @@ export class Updater {
   async #start(
     fly: FlyApi,
     env: { app: string; region: string | undefined; imageRef: string },
+    fresh: boolean,
   ): Promise<UpdateStatus> {
     const { app, region, imageRef } = env
-    const latest = await this.check(true)
+    const latest = await this.check(fresh)
     if (!latest || !isNewer(latest.version, this.#o.current)) {
       throw new Error('Already on the newest release')
     }
+    // Before anything is saved: a release with no recorded image is never installed, and isn't
+    // a failed update either, so a fixed release can still go in.
+    const digest = assertImageDigest(await this.#o.imageDigest(latest.version), latest.version)
     const pending = { from: this.#o.current, to: latest.version, at: this.#now.toISOString() }
     this.#o.store.set({ pending })
     try {
@@ -229,7 +242,7 @@ export class Updater {
           metadata: { role: HELPER_ROLE },
           init: { cmd: ['node', 'apps/server/dist/updates/helper-main.js'] },
           env: {
-            HOTSAUCE_UPDATE_TARGET: `${this.#o.image}:${latest.version}`,
+            HOTSAUCE_UPDATE_TARGET: `${this.#o.image}@${digest}`,
             HOTSAUCE_UPDATE_VERSION: latest.version,
             HOTSAUCE_UPDATE_PREVIOUS: imageRef,
             PUBLIC_URL: this.#o.publicUrl,
@@ -280,7 +293,7 @@ export class Updater {
       return
     }
     try {
-      await this.start()
+      await this.start(false)
     } catch (err) {
       this.#log(`automatic update failed to start: ${err instanceof Error ? err.message : err}`)
     }
