@@ -23,6 +23,7 @@ async function serveDemo(request, env, url) {
   headers.set('x-content-type-options', 'nosniff')
   headers.set('referrer-policy', 'strict-origin-when-cross-origin')
   headers.set('content-security-policy', FRAMERS)
+  if (env.SITE_VERSION) headers.set('x-site-version', env.SITE_VERSION)
   if (url.protocol === 'https:') headers.set('strict-transport-security', 'max-age=31536000')
   if (url.pathname.startsWith('/assets/')) {
     headers.set('cache-control', 'public, max-age=31536000, immutable')
@@ -50,6 +51,8 @@ export default {
     headers.set('x-content-type-options', 'nosniff')
     headers.set('referrer-policy', 'strict-origin-when-cross-origin')
     headers.set('x-frame-options', 'DENY')
+    // The commit GitHub deployed (docs/PLAN-site-deploy.md), so the deploy can check it went live.
+    if (env.SITE_VERSION) headers.set('x-site-version', env.SITE_VERSION)
     if (url.protocol === 'https:') headers.set('strict-transport-security', 'max-age=31536000')
     if (res.ok && PLAIN[url.pathname]) {
       headers.set('content-type', PLAIN[url.pathname])

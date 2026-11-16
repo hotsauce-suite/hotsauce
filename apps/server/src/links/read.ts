@@ -37,6 +37,7 @@ export function readPage(text: string, url: string, contentType: string): Readab
 function readHtml(text: string, url: string): ReadablePage {
   const { document } = parseHTML(text) as unknown as { document: Document }
   revealStreamedParts(document)
+  flattenMath(document)
   const meta = (names: string[]): string => {
     for (const name of names) {
       const el = document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)
@@ -231,4 +232,19 @@ export function toMarkdown(html: string, base: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
     .slice(0, MAX_LINK_BODY)
+}
+
+/**
+ * Formulas (MathML, as arXiv's web papers and Wikipedia write them) as their own plain text: the
+ * TeX they were written in when the page gives it, else their symbols. Left as MathML, the
+ * symbols and the TeX both end up in the copy, run together ("hth_{t}").
+ */
+function flattenMath(document: Document): void {
+  for (const math of Array.from(document.querySelectorAll('math'))) {
+    const tex = math.getAttribute('alttext')?.trim()
+    for (const note of Array.from(math.querySelectorAll('annotation, annotation-xml')))
+      note.remove()
+    const text = tex || (math.textContent ?? '').replace(/\s+/g, ' ').trim()
+    math.replaceWith(document.createTextNode(text))
+  }
 }

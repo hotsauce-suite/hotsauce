@@ -419,7 +419,15 @@ export class Files {
    */
   async storeFormFile(
     author: Pick<Principal, 'name' | 'email'>,
-    input: { space: string; folder: string; name: string; mime?: string; bytes: Uint8Array },
+    input: {
+      space: string
+      folder: string
+      name: string
+      mime?: string
+      bytes: Uint8Array
+      /** The text already read from it (Links reads a PDF itself); else Files reads it. */
+      extracted?: Extracted
+    },
     via?: string,
   ): Promise<FileView> {
     this.#store()
@@ -433,7 +441,7 @@ export class Files {
       await writeFile(whole, input.bytes)
       const size = input.bytes.length
       const sha256 = createHash('sha256').update(input.bytes).digest('hex')
-      const extracted: Extracted = await extractText(whole, name, mime, size)
+      const extracted: Extracted = input.extracted ?? (await extractText(whole, name, mime, size))
       const pointer = newFilePointer({
         name,
         folder: cleanFolder(input.folder),
@@ -534,20 +542,33 @@ export class Files {
     id: string,
     to: string,
     via?: string,
+    opts: {
+      /** The folder it lands in; the top folder by default. */
+      folder?: string
+      /** A saved link's PDF goes wherever its link goes, whoever stored it (Links checks). */
+      withLink?: boolean
+    } = {},
   ): Promise<FileView> {
     this.#assertAccess(principal, space)
     this.#assertAccess(principal, to)
     if (to === space) return this.get(principal, space, id)
     const file = await this.#read(space, id)
     const target = (await this.#deps.spaces.visibleSpaces(principal)).find((s) => s.name === to)
-    if (target?.kind === 'personal' && file.view.createdBy !== principal.email.toLowerCase()) {
+    if (
+      !opts.withLink &&
+      target?.kind === 'personal' &&
+      file.view.createdBy !== principal.email.toLowerCase()
+    ) {
       throw new HotsauceError(
         'forbidden',
         'Only the person who uploaded a team file can make it private',
       )
     }
-    // Lands in the target's top folder; the share link stays with the file.
-    const text = patchFrontmatter(file.content, { folder: '', updated: isoNow(this.#now()) })
+    // Lands in the target's top folder (or the one asked for); the share link stays with the file.
+    const text = patchFrontmatter(file.content, {
+      folder: cleanFolder(opts.folder ?? ''),
+      updated: isoNow(this.#now()),
+    })
     await this.#commit(principal, to, {
       changes: [{ path: file.view.path, content: text }],
       verb: 'move in',
@@ -573,6 +594,31 @@ export class Files {
       throw err
     }
     return (await this.#read(to, id)).view
+  }
+
+  /**
+   * A stored file's bytes, for a saved link's PDF read again (docs/PLAN-links-pdfs.md R8). No
+   * access check: Links has checked the link's space. Null when it's gone or over `max` bytes.
+   */
+  async bytes(space: string, id: string, max: number): Promise<Uint8Array | null> {
+    const file = await this.#read(space, id).catch(() => null)
+    if (!file || file.view.size > max) return null
+    const got = await this.#store().get(fileStoreKey(id))
+    if (!got || got.size > max) return null
+    const chunks: Uint8Array[] = []
+    let total = 0
+    const reader = got.body.getReader()
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.length
+      if (total > max) {
+        await reader.cancel()
+        return null
+      }
+      chunks.push(value)
+    }
+    return new Uint8Array(Buffer.concat(chunks))
   }
 
   /** Moves the pointer to `.trash/`. The bytes stay in the store for now (see §18.5). */

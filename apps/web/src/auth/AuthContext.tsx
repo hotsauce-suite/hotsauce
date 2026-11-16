@@ -5,6 +5,8 @@ export interface AuthState {
   mode: AuthMode
   status: 'loading' | 'signed-in' | 'signed-out'
   signOut: () => void
+  /** Started with no connection, as the last member this device remembers (offlineAuth.tsx). */
+  offline?: boolean
   /** Dev mode only: the server trusts the email header, after its domain check. */
   signInWithEmail?: (email: string) => Promise<void>
   /** Signs in with a one-time ticket from `POST /api/desktop/ticket` (the Mac app's window). */

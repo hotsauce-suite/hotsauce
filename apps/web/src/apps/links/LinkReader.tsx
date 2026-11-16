@@ -2,12 +2,21 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import Markdown, { type Components } from 'react-markdown'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import remarkGfm from 'remark-gfm'
-import { highlightLabel, type LinkWithBody, linksApi, readingTime, webUrl } from '../../api/links'
+import {
+  authorLine,
+  highlightLabel,
+  type LinkWithBody,
+  linkKindLabel,
+  linksApi,
+  readingTime,
+  webUrl,
+} from '../../api/links'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { attachPdf, pdfProblem } from './pdfUpload'
 import { useHighlights } from './useHighlights'
 import { errorMessage, savedDay, useLinksChanged, usePollWhile } from './useLinks'
 import { useReadingPlace } from './useReadingPlace'
@@ -49,6 +58,7 @@ export default function LinkReader() {
   const [tagText, setTagText] = useState('')
   const scroller = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
+  const pdfInput = useRef<HTMLInputElement>(null)
 
   const load = useCallback(() => {
     linksApi.get(space, id).then(
@@ -210,18 +220,47 @@ export default function LinkReader() {
             className="font-display text-2xl font-semibold tracking-tight text-ink"
             data-testid="link-reader-title"
           >
-            {link.title || link.url}
+            {link.title || link.url || 'Untitled PDF'}
           </h1>
+          {link.paper ? (
+            <p className="mt-1 text-sm text-ink-soft" data-testid="link-paper">
+              {[
+                authorLine(link.paper.authors),
+                link.paper.published,
+                `${linkKindLabel(link)}${link.paper.version ? ` v${link.paper.version}` : ''}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              {link.paper.doi ? (
+                <>
+                  {' · '}
+                  <a
+                    href={`https://doi.org/${link.paper.doi}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    doi:{link.paper.doi}
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : null}
           <p className="mt-1 text-sm text-ink-faint">
-            <a
-              href={webUrl(link.url) ?? undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-ember-strong hover:underline"
-              data-testid="link-original"
-            >
-              {link.site || 'Open the original'} <Icon name="external" className="inline size-3" />
-            </a>
+            {link.url ? (
+              <a
+                href={webUrl(link.url) ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ember-strong hover:underline"
+                data-testid="link-original"
+              >
+                {link.site || 'Open the original'}{' '}
+                <Icon name="external" className="inline size-3" />
+              </a>
+            ) : (
+              'A PDF from your computer'
+            )}
             {' · '}
             {[readingTime(link.words), `saved ${savedDay(link.saved)}`, spaceLabel(link.space)]
               .filter(Boolean)
@@ -247,6 +286,51 @@ export default function LinkReader() {
 
           <div className="mt-4 flex flex-wrap gap-2">
             {doneButton('link-reader-done')}
+            {link.file ? (
+              <Link
+                to={`/files/${encodeURIComponent(link.space)}/${encodeURIComponent(link.file)}`}
+                className={secondaryButton}
+                data-testid="link-open-pdf"
+              >
+                <Icon name="file" />
+                Open PDF
+              </Link>
+            ) : link.paper && link.status === 'ready' ? (
+              <>
+                <button
+                  type="button"
+                  className={secondaryButton}
+                  data-testid="link-add-pdf"
+                  disabled={busy}
+                  title={`${linkKindLabel(link)} only gives its PDF to a browser: download it there, then add it here`}
+                  onClick={() => pdfInput.current?.click()}
+                >
+                  <Icon name="upload" />
+                  Add the PDF
+                </button>
+                <input
+                  ref={pdfInput}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  hidden
+                  data-testid="link-pdf-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!file) return
+                    const problem = pdfProblem(file)
+                    if (problem) {
+                      notify(problem)
+                      return
+                    }
+                    void act(async () => {
+                      await attachPdf(file, link)
+                      load()
+                    }, 'PDF added')
+                  }}
+                />
+              </>
+            ) : null}
             {link.space !== 'team' ? (
               <button
                 type="button"
@@ -348,7 +432,14 @@ export default function LinkReader() {
             )}
           </div>
 
-          {link.summary ? (
+          {link.paper?.abstract ? (
+            <section className="mt-5 border-l-2 border-ember/50 pl-3" data-testid="link-abstract">
+              <h2 className="text-xs font-semibold tracking-wide text-ink-faint uppercase">
+                Abstract
+              </h2>
+              <p className="mt-1 text-sm text-ink-soft">{link.paper.abstract}</p>
+            </section>
+          ) : link.summary ? (
             <p className="mt-5 border-l-2 border-ember/50 pl-3 text-sm text-ink-soft italic">
               {link.summary}
             </p>
@@ -410,7 +501,10 @@ export default function LinkReader() {
                     Select words in the page to highlight them or add a note.
                   </p>
                 ) : null}
-                {link.words != null && link.words < SHORT_COPY_WORDS ? (
+                {link.words != null &&
+                link.words < SHORT_COPY_WORDS &&
+                !link.file &&
+                !link.paper ? (
                   <p className="mt-6 text-sm text-ink-soft" data-testid="link-short">
                     Only part of the page may have come through.{' '}
                     <button
@@ -432,6 +526,30 @@ export default function LinkReader() {
                   {doneButton('link-end-done')}
                 </div>
               </>
+            ) : link.file ? (
+              <p className="text-sm text-ink-soft" data-testid="link-no-text">
+                This PDF has no text to read (it may be scanned).{' '}
+                <Link
+                  to={`/files/${encodeURIComponent(link.space)}/${encodeURIComponent(link.file)}`}
+                  className="text-ember-strong underline"
+                >
+                  Open PDF
+                </Link>
+                .
+              </p>
+            ) : link.paper ? (
+              <p className="text-sm text-ink-soft" data-testid="link-details-only">
+                Only the paper’s details came through, not its text.{' '}
+                <a
+                  href={webUrl(link.url) ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ember-strong underline"
+                >
+                  Open it on {linkKindLabel(link)}
+                </a>
+                , or add its PDF.
+              </p>
             ) : (
               <p className="text-sm text-ink-soft">
                 There’s no readable copy of this page.{' '}

@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
+import { type DictationDevice, dictationApi } from '../api/dictation'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
 import { product } from '../brand/product'
+import {
+  installedMacAppVersion,
+  type MacAppLatest,
+  type MacAppUpdateState,
+  macAppUpdateState,
+  macVersionLabel,
+  useMacAppLatest,
+} from '../lib/macAppVersion'
 import { hasMacNotifications } from '../lib/macNotifications'
 import { Icon } from './Icon'
 
@@ -16,6 +25,8 @@ export const MAC_APP_SOURCE =
   'https://github.com/hotsauce-suite/hotsauce/blob/main/apps/dictate-mac/README.md'
 /** Where the download lives. */
 export const MAC_APP_SETTINGS = '/settings/apps#mac-app'
+/** The release notes, Mac app changes marked (docs/PLAN-mac-version-and-whats-new.md, N5). */
+export const WHATS_NEW = '/settings/whats-new'
 const PRIVACY_SETTINGS = 'x-apple.systempreferences:com.apple.preference.security'
 
 /**
@@ -60,9 +71,12 @@ export function MacAppCard() {
   // A Mac app new enough to answer its bridge; an older one still sees the download.
   const inMacApp = hasMacNotifications()
   const hasBuild = useMacAppBuild()
+  const latest = useMacAppLatest()
   // Someone sent here by a “Get the Mac app” link is about to install it: show them the steps.
   const sentHere = useLocation().hash === '#mac-app'
   if (inMacApp) {
+    const installed = installedMacAppVersion()
+    const state = macAppUpdateState(installed, latest ?? null)
     return (
       <section
         id="mac-app"
@@ -76,9 +90,30 @@ export function MacAppCard() {
             Mac app
           </h3>
           <span className="block text-sm text-ink-soft">
-            You’re using it on this Mac.
-            {/* The app doesn't update itself: a newer build is fetched from here. */}
-            {hasBuild ? (
+            You’re using it on this Mac
+            {installed ? (
+              <>
+                , version <span data-testid="mac-app-version">{macVersionLabel(installed)}</span>
+              </>
+            ) : state === 'outdated' ? (
+              <>, an older version</>
+            ) : null}
+            .{/* The app doesn't update itself: a newer build is fetched from here. */}
+            {state === 'outdated' && latest ? (
+              <>
+                {' '}
+                <span data-testid="mac-app-update-available" className="font-medium text-ink">
+                  Update available: {latest.version}.
+                </span>{' '}
+                <Link
+                  to={WHATS_NEW}
+                  data-testid="mac-app-whats-new"
+                  className="underline decoration-ash-strong underline-offset-2 hover:text-ink"
+                >
+                  What’s new
+                </Link>
+              </>
+            ) : state === 'unknown' && hasBuild ? (
               <>
                 {' '}
                 <a
@@ -93,13 +128,27 @@ export function MacAppCard() {
             ) : null}
           </span>
         </span>
-        <span
-          data-testid="mac-app-in-use"
-          className="flex shrink-0 items-center gap-1 text-sm font-medium text-moss"
-        >
-          <Icon name="check" className="size-4" />
-          Installed
-        </span>
+        {state === 'outdated' ? (
+          hasBuild ? (
+            <a
+              href={MAC_APP_DOWNLOAD}
+              download
+              data-testid="mac-app-update"
+              className={primaryButton}
+            >
+              <Icon name="download" />
+              Download the update
+            </a>
+          ) : null
+        ) : (
+          <span
+            data-testid="mac-app-in-use"
+            className="flex shrink-0 items-center gap-1 text-sm font-medium text-moss"
+          >
+            <Icon name="check" className="size-4" />
+            {state === 'current' ? 'Up to date' : 'Installed'}
+          </span>
+        )}
       </section>
     )
   }
@@ -211,10 +260,86 @@ export function MacAppCard() {
           </div>
         </details>
       ) : null}
+      <YourMacs latest={latest ?? null} />
       <p className="mt-3 text-xs text-ink-faint">
         Already installed? It’s {product()} in your Dock and Applications. Audio you dictate is sent
         to {product()} to be transcribed and is never saved.
       </p>
     </section>
+  )
+}
+
+const STATE_LABEL: Record<MacAppUpdateState, string> = {
+  current: 'Up to date',
+  outdated: 'Update available',
+  unknown: '',
+}
+
+/**
+ * In a browser, the member's connected Macs and the version each last reported, so they can tell
+ * from anywhere whether one needs the update (M6). Nothing when they have none.
+ */
+function YourMacs({ latest }: { latest: MacAppLatest | null }) {
+  const [devices, setDevices] = useState<DictationDevice[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    dictationApi.devices().then(
+      (list) => {
+        if (!cancelled) setDevices(list)
+      },
+      () => {
+        if (!cancelled) setDevices([])
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  if (!devices || devices.length === 0) return null
+  const anyOutdated = devices.some(
+    (d) => macAppUpdateState(d.appVersion ?? null, latest) === 'outdated',
+  )
+  return (
+    <div data-testid="mac-app-your-macs" className="mt-4 border-t border-ash/70 pt-3">
+      <h4 className="text-sm font-medium text-ink">Your Macs</h4>
+      <ul className="mt-1 space-y-1">
+        {devices.map((d) => {
+          const state = macAppUpdateState(d.appVersion ?? null, latest)
+          return (
+            <li
+              key={d.id}
+              data-testid="mac-app-device"
+              className="flex flex-wrap items-baseline gap-x-2 text-sm text-ink-soft"
+            >
+              <span className="text-ink">{d.name}</span>
+              <span data-testid="mac-app-device-version">
+                {d.appVersion
+                  ? `version ${macVersionLabel(d.appVersion)}`
+                  : state === 'outdated'
+                    ? 'an older version'
+                    : 'version not reported yet'}
+              </span>
+              {STATE_LABEL[state] ? (
+                <span
+                  data-testid="mac-app-device-state"
+                  className={state === 'outdated' ? 'font-medium text-ember-strong' : 'text-moss'}
+                >
+                  {STATE_LABEL[state]}
+                </span>
+              ) : null}
+            </li>
+          )
+        })}
+      </ul>
+      {anyOutdated && latest ? (
+        <p className="mt-1 text-xs text-ink-faint">
+          Version {latest.version} is out: download it above on that Mac and drag it into
+          Applications.{' '}
+          <Link to={WHATS_NEW} className="underline decoration-ash-strong underline-offset-2">
+            What’s new
+          </Link>
+        </p>
+      ) : null}
+    </div>
   )
 }

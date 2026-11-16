@@ -243,7 +243,7 @@ describe('saving', () => {
     })
     const slow = createServices(config, {
       llm,
-      linkFetch: async (url) => {
+      linkFetch: async (url: string) => {
         await gate
         throw new LinkFetchError(`nope ${url}`)
       },

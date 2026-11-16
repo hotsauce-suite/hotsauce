@@ -18,6 +18,7 @@ function label({ state, isNew, lastCommittedAt, compact }: SaveStateProps, now: 
     case 'saving':
       return 'Saving…'
     case 'saved':
+    case 'offline':
       return compact ? 'On device' : 'Saved on this device'
     case 'conflict':
       return 'Conflict'
@@ -32,6 +33,7 @@ const titles = (): Record<SaveStateValue, string> => ({
   dirty: `Unsaved edits. ${product()} commits them after a pause, when you leave, or on Save version.`,
   saving: 'Committing to Git…',
   saved: `Kept on this device; ${product()} will retry the commit.`,
+  offline: `You’re offline. This is kept on this device and sent when you’re back online.`,
   committed: 'Everything here is committed to Git.',
   conflict: 'Someone else changed the same lines. Resolve to save.',
 })

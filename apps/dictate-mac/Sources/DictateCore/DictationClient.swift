@@ -89,6 +89,7 @@ public struct DictationClient: Sendable {
         var urlRequest = URLRequest(url: components.url!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AppVersion.tag(&urlRequest)
         urlRequest.setValue(request.contentType, forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
         urlRequest.httpBody = request.audio
@@ -124,6 +125,7 @@ public struct DictationClient: Sendable {
     public func account(session: URLSession = .shared) async throws -> String {
         var request = URLRequest(url: server.appendingPathComponent("api/dictation/words"), timeoutInterval: 20)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AppVersion.tag(&request)
         let (body, response): (Data, URLResponse)
         do {
             (body, response) = try await session.data(for: request)
@@ -154,6 +156,7 @@ public struct DictationClient: Sendable {
     public func words(session: URLSession = .shared) async throws -> Words {
         var request = URLRequest(url: server.appendingPathComponent("api/dictation/words"), timeoutInterval: 20)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AppVersion.tag(&request)
         let (body, status) = try await send(request, session: session)
         if status == 401 { throw DictationError.notConnected }
         guard (200..<300).contains(status), let words = try? JSONDecoder().decode(Words.self, from: body) else {
@@ -177,6 +180,7 @@ public struct DictationClient: Sendable {
         var request = URLRequest(url: server.appendingPathComponent("api/dictation/words"), timeoutInterval: 20)
         request.httpMethod = "PUT"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AppVersion.tag(&request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (body, status) = try await send(request, session: session)
@@ -203,6 +207,7 @@ public struct DictationClient: Sendable {
         var request = URLRequest(url: server.appendingPathComponent("api/dictation/devices/self"), timeoutInterval: 15)
         request.httpMethod = "DELETE"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AppVersion.tag(&request)
         _ = try? await session.data(for: request)
     }
 

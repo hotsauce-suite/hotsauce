@@ -70,7 +70,7 @@ Trackers with spreadsheet formulas, kept as CSV in Git.
 Needs nothing extra.
 
 ### Links
-A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read. Highlights and notes on a page (kept in the link's file, read by search, Ask, Briefcast and AI tools), a Highlights tab, and Copy highlights to a Doc. Links an AI tool saves wait for the member to press Get the page.
+A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. PDFs (from an address, or added from your computer) are kept in Files with a readable copy of their text; arXiv, bioRxiv and medRxiv papers get their authors, abstract, version and DOI. Remembers where each person stopped reading and shows how much they've read. Highlights and notes on a page (kept in the link's file, read by search, Ask, Briefcast and AI tools), a Highlights tab, and Copy highlights to a Doc. Links an AI tool saves wait for the member to press Get the page.
 Needs nothing extra; the AI summary needs the AI key.
 
 ### Briefcast
@@ -81,17 +81,19 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 
 - **Ask** (⌘J): the assistant on every page, with the same tools as the MCP server, as the member. Needs the AI key; admins set the model and a monthly limit.
 - **Comments and @mentions**: a conversation under every team doc, meeting note and task; `@` and a name sends that teammate one notification that opens on the comment. Needs nothing extra; notifications must be on for the push. Not yet: a "For you" list, replies and comments from AI tools (the next steps in `docs/PLAN-comments.md`), and sending a comment written offline.
+- **Offline (step A)**: once opened on a device, the app opens there with no connection, as the last member signed in, with an Offline bar; what needs the server is greyed out or says "Not available offline yet". Doc edits made offline are kept on the device ("Saved on this device") and sent when back, even after a reload; text the server refuses (the doc moved) is kept in Docs → Kept on this device. Sign out works offline. Needs nothing extra. Not yet: reading docs, tasks and notes not edited offline (step B in `docs/PLAN-offline.md`), new docs made offline.
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
 - **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
+- **What's new** (Settings → What's new, from the version under the Settings menu): plain release notes, newest first, from `WHATS_NEW.json`, which the Release workflow fills from each pull request's "What's new" section. Also at hotsauce.work/changes. Needs nothing extra.
 - **Usage** (Settings → Usage, admins): each app's items made or changed and people per week for 12 weeks, counted from Git history, Clips' list and Dictate's connected Macs. Nothing is tracked; numbers only. Needs nothing extra.
 
 ## Outside the web app
 
-- **Mac app** (`apps/dictate-mac`), 0.14.4 on the `mac-app` GitHub release: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it.
+- **Mac app** (`apps/dictate-mac`), 0.14.4 on the `mac-app` GitHub release: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the release); the app's menu says "Update available" too. Updating is download and drag.
 - **Chrome extension** (`apps/extension`), 0.7.0: records Meet tabs, saves links in one click, connects in one click. In Chrome Web Store review; installed by hand until approved.
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
 - **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool that sends a token header can search, read and write as the member. ChatGPT and Grok need OAuth, which is in flight.
@@ -114,11 +116,10 @@ production refuses the test stand-ins, so nothing pretends to work.
 
 Open pull requests on `main` at the date above (release numbers are taken at merge, not here):
 
-- **#102** Offline mode, step A: opens offline and never loses a save.
 - **#110** GitHub publishes hotsauce.work and the demo on merge.
 - **#112** Releases number themselves.
 - **#108** Sign in to the MCP server from claude.ai, ChatGPT and Grok (OAuth).
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 
-Next on the Links roadmap: PDFs and papers (highlights and notes shipped).
+Next on the Links roadmap: newsletters by email (PDFs and papers shipped).

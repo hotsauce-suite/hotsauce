@@ -2,6 +2,12 @@
 
 <!-- One or two sentences, and the issue it closes if there is one: "Closes #12". -->
 
+## What's new
+
+<!-- What people will notice, in plain words, one line each starting "- ". Start a line
+"- Mac app:" for a change in the Mac app. Write None if nobody will notice (docs, tests, CI).
+These lines become the release notes (CONTRIBUTING.md, Release notes). -->
+
 ## How you checked it
 
 - [ ] `pnpm lint` and `pnpm typecheck` pass

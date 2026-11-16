@@ -50,6 +50,7 @@ import { QuoteButton } from './comments/QuoteButton'
 import { useComments } from './comments/useComments'
 import { FilePicker } from './FilePicker'
 import { type EditorBridge, type EditorSelectionJSON, MarkdownEditor } from './MarkdownEditor'
+import { OfflineEmpty } from './Offline'
 import { PropertiesPanel } from './PropertiesPanel'
 import { TaskQueryList } from './TaskQueryList'
 import { type PanelToggle, type SidePanel, TopBar } from './TopBar'
@@ -607,7 +608,8 @@ export function DocumentView({
           {header?.(doc)}
           <div className="relative min-h-0 flex-1">
             {state.status === 'loading' ? <EditorSkeleton /> : null}
-            {state.status === 'error' ? (
+            {state.status === 'error' && state.error?.code === 'network' ? <OfflineEmpty /> : null}
+            {state.status === 'error' && state.error?.code !== 'network' ? (
               <div className="mx-auto max-w-[var(--measure)] px-6 py-16">
                 <h1 className="font-display text-2xl font-semibold">
                   {state.error?.status === 404 ? 'This doc isn’t here' : 'This doc didn’t load'}
@@ -617,6 +619,15 @@ export function DocumentView({
                     ? 'It may have been moved, renamed, or deleted. Its history is still in Git.'
                     : state.error?.message}
                 </p>
+                {state.draft ? (
+                  <p data-testid="doc-kept-text" className="mt-3 text-ink-soft">
+                    Your edits to it are kept on this device.{' '}
+                    <Link to="/docs/kept" className="text-ember-strong underline">
+                      Copy them from Kept on this device
+                    </Link>
+                    .
+                  </p>
+                ) : null}
                 <Link to={app.route} className="mt-4 inline-block text-ember-strong underline">
                   Back to {app.label.toLowerCase()}
                 </Link>

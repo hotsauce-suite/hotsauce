@@ -18,12 +18,14 @@ import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
 import { feedbackLink, onFeedbackClick, openFeedback } from '../feedback/pageShot'
 import { GO_KEYS } from '../keyboard/catalog'
+import { useOnline } from '../lib/connection'
 import { useSession } from '../state/session'
 import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
 import { Icon, type IconName } from './Icon'
 import { LauncherButton } from './Launcher'
 import { Menu, type MenuAnchor, MenuItem } from './Menu'
+import { NEEDS_CONNECTION } from './Offline'
 
 /** Where each app was last open, so switching back lands where you left it. */
 const lastLocation = new Map<AppId, string>()
@@ -357,11 +359,7 @@ function RailItem({
     className: itemClass(orientation, current),
   }
   if (href) {
-    return (
-      <a {...common} href={href} target="_blank" rel="noopener noreferrer">
-        {body}
-      </a>
-    )
+    return <ExternalRailItem common={common} href={href} name={name} body={body} />
   }
   return (
     <Link
@@ -474,5 +472,40 @@ export function AccountHeader({
         {email ?? ' '}
       </p>
     </div>
+  )
+}
+
+/** A link that leaves the app (the team chat): greyed out offline, where it can't open. */
+function ExternalRailItem({
+  common,
+  href,
+  name,
+  body,
+}: {
+  common: { 'aria-label': string; title: string; 'data-testid': string; className: string }
+  href: string
+  name: string
+  body: ReactNode
+}) {
+  const online = useOnline()
+  if (!online) {
+    return (
+      <span
+        data-testid={common['data-testid']}
+        data-offline=""
+        title={`${name}: ${NEEDS_CONNECTION}`}
+        className={`${common.className} opacity-50`}
+      >
+        <span className="sr-only">{`${name}: ${NEEDS_CONNECTION}`}</span>
+        <span aria-hidden="true" className="contents">
+          {body}
+        </span>
+      </span>
+    )
+  }
+  return (
+    <a {...common} href={href} target="_blank" rel="noopener noreferrer">
+      {body}
+    </a>
   )
 }

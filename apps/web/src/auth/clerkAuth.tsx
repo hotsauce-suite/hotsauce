@@ -13,6 +13,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useRouteLoaderData } from 'react-router'
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import type { Health } from '../api/types'
+import { forgetMember, setSignOutPending, signOutPending } from '../lib/offlineStart'
 import { AuthContext, type AuthState } from './AuthContext'
 
 // A key baked into the build wins (VITE_CLERK_PUBLISHABLE_KEY); otherwise the server says which
@@ -52,12 +53,34 @@ function ClerkBridge({ children }: { children: ReactNode }) {
   })
   // Clerk says signed in but the server refuses the session (it expired, or it belongs to another
   // address of this site): sign out, which lands on the sign-in page, instead of showing errors.
+  // Sign out was pressed while offline: end the session before anything opens as them.
+  const [owedSignOut, setOwedSignOut] = useState(signOutPending)
+  useEffect(() => {
+    if (!isLoaded || !owedSignOut) return
+    if (!isSignedIn) {
+      setSignOutPending(false)
+      setOwedSignOut(false)
+      return
+    }
+    void signOut().then(
+      () => {
+        setSignOutPending(false)
+        setOwedSignOut(false)
+      },
+      () => {}, // Still owed: tried again next time sign-in loads.
+    )
+  }, [isLoaded, isSignedIn, owedSignOut, signOut])
+  // Signed out (here, elsewhere, or the session ended): an offline start mustn't open as them.
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) forgetMember()
+  }, [isLoaded, isSignedIn])
   useEffect(() => {
     if (!isSignedIn) return
     let done = false
     setUnauthorizedHandler(() => {
       if (done) return
       done = true
+      forgetMember()
       void signOut()
     })
     return () => setUnauthorizedHandler(null)
@@ -65,8 +88,16 @@ function ClerkBridge({ children }: { children: ReactNode }) {
   const value = useMemo<AuthState>(
     () => ({
       mode: 'clerk',
-      status: !isLoaded ? 'loading' : isSignedIn ? 'signed-in' : 'signed-out',
-      signOut: () => void signOut(),
+      status:
+        !isLoaded || (owedSignOut && isSignedIn)
+          ? 'loading'
+          : isSignedIn
+            ? 'signed-in'
+            : 'signed-out',
+      signOut: () => {
+        forgetMember()
+        void signOut()
+      },
       signInWithTicket: async (ticket: string) => {
         if (!signIn || !setActive) throw new Error('Sign-in is still loading. Try again.')
         const attempt = await signIn.create({ strategy: 'ticket', ticket })
@@ -76,7 +107,7 @@ function ClerkBridge({ children }: { children: ReactNode }) {
         await setActive({ session: attempt.createdSessionId })
       },
     }),
-    [isLoaded, isSignedIn, signOut, signIn, setActive],
+    [isLoaded, isSignedIn, owedSignOut, signOut, signIn, setActive],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

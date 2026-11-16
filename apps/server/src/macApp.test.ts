@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { MacAppDownloads, releaseAsset } from './macApp.js'
+import { assetType, MacAppDownloads, releaseAsset } from './macApp.js'
 
 function setup(responses: Array<Response | Error>) {
   const calls: string[] = []
@@ -29,6 +29,14 @@ describe('releaseAsset', () => {
     expect(releaseAsset('Hearth.dmg')).toBe('Hotsauce.dmg')
     expect(releaseAsset('../secret')).toBeNull()
   })
+
+  it('also offers what the newest build is, as JSON', () => {
+    expect(releaseAsset('mac-app.json')).toBe('mac-app.json')
+    expect(releaseAsset('other.json')).toBeNull()
+    expect(assetType('mac-app.json')).toBe('application/json')
+    expect(assetType('Hotsauce.dmg')).toBe('application/x-apple-diskimage')
+    expect(assetType('Hotsauce.zip')).toBe('application/zip')
+  })
 })
 
 describe('MacAppDownloads', () => {
@@ -51,6 +59,29 @@ describe('MacAppDownloads', () => {
     expect(kept && readFileSync(kept, 'utf8')).toBe('dmg-1')
     const none = setup([new Response('gone', { status: 404 })])
     expect(await none.downloads.file('Hotsauce.zip')).toBeNull()
+  })
+
+  it('fetches the app again when a newer version file arrived after it (M2)', async () => {
+    const { downloads, calls } = setup([
+      new Response('dmg-1'),
+      new Response('{"version":"0.27.0"}'),
+      new Response('dmg-2'),
+    ])
+    await downloads.file('Hotsauce.dmg')
+    await new Promise((r) => setTimeout(r, 30))
+    await downloads.file('mac-app.json')
+    const again = await downloads.file('Hotsauce.dmg')
+    expect(again && readFileSync(again, 'utf8')).toBe('dmg-2')
+    expect(calls).toHaveLength(3)
+  })
+
+  it('waits the usual time before asking again after a failed refresh', async () => {
+    const { downloads, calls, advance } = setup([new Response('dmg-1'), new Error('offline')])
+    await downloads.file('Hotsauce.dmg')
+    advance(2000)
+    await downloads.file('Hotsauce.dmg')
+    await downloads.file('Hotsauce.dmg')
+    expect(calls).toHaveLength(2)
   })
 
   it('asks GitHub once for two requests at the same time', async () => {

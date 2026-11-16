@@ -86,37 +86,45 @@ export default function SettingsLayout() {
     <>
       <MeetingsPageHeader title="Settings" />
       <div ref={pane} className="min-h-0 flex-1 overflow-y-auto" data-testid="settings-scroll">
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-x-10 px-4 pt-4 pb-24 md:grid-cols-[13rem_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:px-6 md:pt-10">
-          <nav
-            aria-label="Settings"
-            data-testid="settings-nav"
-            className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-3 md:col-start-1 md:row-start-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0"
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-x-10 px-4 pt-4 pb-24 md:grid-cols-[13rem_minmax(0,1fr)] md:px-6 md:pt-10">
+          {/* Beside the page, the menu and the help strip are one column that stays put while the
+              page scrolls (and scrolls by itself in a window too short for it). On a phone they
+              are the tabs above the page and the strip below it. */}
+          <div
+            data-testid="settings-side"
+            className="contents md:sticky md:top-10 md:col-start-1 md:row-start-1 md:block md:max-h-[calc(100dvh-7rem)] md:self-start md:overflow-y-auto"
           >
-            <Group pages={YOUR_PAGES} />
-            {isAdmin ? (
-              <>
-                <span
-                  className="hidden px-2.5 pt-5 pb-1 text-xs font-semibold tracking-wide text-ink-faint uppercase md:block"
-                  data-testid="settings-nav-org"
-                >
-                  Organization
-                </span>
-                <span aria-hidden="true" className="mx-1 w-px shrink-0 bg-ash md:hidden" />
-                {/* The heading is hidden on phones; the group still says what these are. */}
-                {/* biome-ignore lint/a11y/useSemanticElements: links in a nav, not form fields */}
-                <div role="group" aria-label="Organization" className="contents">
-                  <Group pages={ORG_PAGES} />
-                </div>
-              </>
-            ) : null}
-          </nav>
+            <nav
+              aria-label="Settings"
+              data-testid="settings-nav"
+              className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-3 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0"
+            >
+              <Group pages={YOUR_PAGES} />
+              {isAdmin ? (
+                <>
+                  <span
+                    className="hidden px-2.5 pt-5 pb-1 text-xs font-semibold tracking-wide text-ink-faint uppercase md:block"
+                    data-testid="settings-nav-org"
+                  >
+                    Organization
+                  </span>
+                  <span aria-hidden="true" className="mx-1 w-px shrink-0 bg-ash md:hidden" />
+                  {/* The heading is hidden on phones; the group still says what these are. */}
+                  {/* biome-ignore lint/a11y/useSemanticElements: links in a nav, not form fields */}
+                  <div role="group" aria-label="Organization" className="contents">
+                    <Group pages={ORG_PAGES} />
+                  </div>
+                </>
+              ) : null}
+            </nav>
+            <HelpStrip />
+          </div>
           <div
             data-testid="settings-page"
-            className="min-w-0 pt-4 md:col-start-2 md:row-span-2 md:row-start-1 md:pt-0"
+            className="order-1 min-w-0 pt-4 md:order-none md:col-start-2 md:row-start-1 md:pt-0"
           >
             <Outlet context={shell} />
           </div>
-          <HelpStrip />
         </div>
       </div>
     </>
@@ -176,7 +184,7 @@ function HelpStrip() {
     <aside
       aria-label="Help and version"
       data-testid="settings-help"
-      className="mt-12 flex flex-col gap-0.5 border-t border-ash/70 pt-4 md:col-start-1 md:row-start-2 md:mt-6 md:self-start"
+      className="order-2 mt-12 flex flex-col gap-0.5 border-t border-ash/70 pt-4 md:order-none md:mt-6"
     >
       <a
         href={HELP_DOCS}
@@ -212,15 +220,31 @@ function HelpStrip() {
           Send feedback
         </Link>
       ) : null}
+      {/* The release notes (docs/PLAN-mac-version-and-whats-new.md, N5). */}
+      <NavLink
+        to="/settings/whats-new"
+        data-testid="settings-whats-new-link"
+        className={({ isActive }) =>
+          `${stripLink} ${isActive ? 'bg-paper-sunk font-medium text-ink' : ''}`
+        }
+      >
+        What’s new
+      </NavLink>
       <p
         data-testid="settings-about"
         className="mt-2 px-2.5 text-xs text-ink-faint"
         title="New versions install themselves; reload to get one now."
       >
         {product()}{' '}
-        <span data-testid="settings-version" className="font-mono">
-          {health?.version ? `version ${health.version}` : ''}
-        </span>
+        {health?.version ? (
+          <Link
+            to="/settings/whats-new"
+            data-testid="settings-version"
+            className="font-mono hover:text-ink hover:underline"
+          >
+            version {health.version}
+          </Link>
+        ) : null}
         <button
           type="button"
           data-testid="settings-reload"

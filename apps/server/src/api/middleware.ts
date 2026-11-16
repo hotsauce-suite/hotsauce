@@ -1,6 +1,11 @@
 import { bodyLimit } from 'hono/body-limit'
 import { createMiddleware } from 'hono/factory'
-import { authenticateDevice, deviceTokenFrom, MAX_DICTATION_BYTES } from '../dictation/index.js'
+import {
+  authenticateDevice,
+  deviceTokenFrom,
+  MAX_DICTATION_BYTES,
+  macAppVersionFrom,
+} from '../dictation/index.js'
 import { type ErrorCode, HotsauceError } from '../errors.js'
 import { FILE_MEDIA_PREFIX } from '../files/index.js'
 import { PUBLIC_BOOKING_PREFIX } from './booking.js'
@@ -83,6 +88,7 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
         deps.auth,
         deps.dictation.store,
         deviceToken,
+        macAppVersionFrom(c.req.header('hotsauce-app')),
       )
       c.set('principal', principal)
       c.set('deviceId', deviceId)

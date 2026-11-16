@@ -1,15 +1,18 @@
 import { newDoc, parseFrontmatter } from '@hotsauce/format'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { HttpResponse, http } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api/client'
 import type { ServerEvent } from '../api/types'
 import { hotsauceSocket } from '../api/ws'
 import type { EditorBridge } from '../components/MarkdownEditor'
-import { draftKey, saveDraft } from '../lib/drafts'
+import { reportReachable } from '../lib/connection'
+import { draftKey, findDraft, saveDraft } from '../lib/drafts'
+import { forgetMember, rememberMember, setOfflineSession } from '../lib/offlineStart'
+import { sendWaitingDrafts } from '../lib/sendWaiting'
 import { PRIYA } from '../mocks/seed'
 import { mockApi, server } from '../test/mockServer'
-import { GONE_WHILE_EDITING, type SaveState, useDocument } from './useDocument'
+import { GONE_WHILE_EDITING, NOT_KEPT, type SaveState, useDocument } from './useDocument'
 
 const SPACE = 'team'
 const Q4 = 'docs/plans/q4-plan.md'
@@ -70,7 +73,18 @@ async function broadcastUntil(event: ServerEvent, check: () => void) {
   })
 }
 
+// The member typing: drafts are kept per member (lib/drafts).
+const ME = 'u-me'
+function signInAs(userId: string) {
+  rememberMember(
+    { userId, email: `${userId}@example.test`, name: userId, handle: userId, isAdmin: false },
+    'Acme',
+  )
+}
+
 describe('useDocument', () => {
+  beforeEach(() => signInAs(ME))
+
   it('stops retrying and says so when the doc was moved or deleted elsewhere', async () => {
     const { result } = renderDocument(Q4)
     await loaded(result)
@@ -222,9 +236,10 @@ describe('useDocument', () => {
     await loaded(first.result)
     const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
     act(() => first.result.current.edit('# Q4 plan\n\nUnsaved thought.\n'))
-    await waitFor(() => expect(localStorage.getItem(draftKey(SPACE, Q4, blob))).not.toBeNull())
-    // Simulate a crash: drop the hook without its unmount flush reaching the server.
-    server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+    await waitFor(() => expect(localStorage.getItem(draftKey(ME, SPACE, Q4, blob))).not.toBeNull())
+    // Simulate a crash: drop the hook without its unmount flush reaching the server. (A flush
+    // that fails to connect is the offline case instead: that draft is sent by itself, below.)
+    server.use(http.put('/api/spaces/:space/file', () => new Promise<Response>(() => {})))
     first.unmount()
 
     const second = renderDocument(Q4)
@@ -242,7 +257,7 @@ describe('useDocument', () => {
       '- Move the whole team onto Hotsauce',
       '- Move the whole team onto Hotsauce (all of it)',
     )
-    saveDraft(SPACE, Q4, before.blobOid, draft)
+    saveDraft(ME, SPACE, Q4, before.blobOid, draft)
     mockApi().repo.outsideEdit(SPACE, Q4, {
       author: PRIYA,
       apply: (c) => c.replace('- Reagent lead times', '- Supplier lead times'),
@@ -258,15 +273,215 @@ describe('useDocument', () => {
   })
 
   it('shows "saved" (kept on this device) when the save fails, and keeps the draft', async () => {
-    server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+    server.use(
+      http.put('/api/spaces/:space/file', () =>
+        HttpResponse.json({ error: { code: 'internal', message: 'Disk full' } }, { status: 500 }),
+      ),
+    )
     const { result } = renderDocument(Q4)
     await loaded(result)
-    act(() => result.current.edit('# Q4 plan\n\nOffline edit.\n'))
+    act(() => result.current.edit('# Q4 plan\n\nUnsaved edit.\n'))
     await waitFor(() => expect(result.current.state.saveState).toBe('saved'))
-    expect(result.current.state.saveError).toMatch(/reach/)
+    expect(result.current.state.saveError).toMatch(/Disk full/)
     const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
-    expect(localStorage.getItem(draftKey(SPACE, Q4, blob))).toContain('Offline edit.')
+    expect(localStorage.getItem(draftKey(ME, SPACE, Q4, blob))).toContain('Unsaved edit.')
     await settle(result)
+  })
+
+  describe('offline (docs/PLAN-offline.md, A4)', () => {
+    const offlineEdit = '# Q4 plan\n\nOffline edit.\n'
+
+    it('a save that can’t reach the server waits on this device, marked as waiting (A4.1)', async () => {
+      server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      act(() => result.current.edit(offlineEdit))
+      await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+      expect(result.current.state.saveError).toBeNull()
+      expect(findDraft(SPACE, Q4, ME)).toMatchObject({ content: offlineEdit, state: 'waiting' })
+      server.resetHandlers(...mockApi().handlers)
+      act(() => reportReachable())
+      await settle(result)
+    })
+
+    it('sends it with its base version as soon as the connection is back (A4.2)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      act(() => result.current.edit(offlineEdit))
+      await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+      // Someone else changes the doc meanwhile; the server merges our save forward.
+      mockApi().repo.outsideEdit(SPACE, Q4, { author: PRIYA, apply: (c) => `${c}\nTheirs.\n` })
+      server.resetHandlers(...mockApi().handlers)
+      const puts: unknown[] = []
+      server.events.on('request:start', ({ request }) => {
+        if (request.method === 'PUT')
+          void request
+            .clone()
+            .json()
+            .then((b) => puts.push(b))
+      })
+      act(() => reportReachable())
+      await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
+      expect(puts[0]).toMatchObject({ baseBlobOid: blob })
+      expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
+      expect(findDraft(SPACE, Q4, ME)).toBeNull()
+      server.events.removeAllListeners()
+    })
+
+    it('opens from the waiting save when offline, and sends it when back (A4.3)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      saveDraft(ME, SPACE, Q4, blob, offlineEdit, 'waiting')
+      server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      expect(result.current.state.initialText).toBe(offlineEdit)
+      expect(result.current.state.saveState).toBe('offline')
+      expect(result.current.state.draft).toBeNull()
+      server.resetHandlers(...mockApi().handlers)
+      act(() => reportReachable())
+      await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
+      expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
+    })
+
+    it('a waiting save is sent by itself when the doc opens online, not offered (A4.3)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      saveDraft(ME, SPACE, Q4, blob, offlineEdit, 'waiting')
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      expect(result.current.state.draft).toBeNull()
+      await waitFor(() => expect(result.current.state.saveState).toBe('committed'))
+      expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
+      expect(findDraft(SPACE, Q4, ME)).toBeNull()
+    })
+
+    it('a waiting save that clashes stops waiting: it’s settled in the resolver, not re-sent', async () => {
+      const before = mockApi().repo.read(SPACE, Q4)
+      saveDraft(
+        ME,
+        SPACE,
+        Q4,
+        before?.blobOid ?? '',
+        (before?.content ?? '').replace('# Q4 plan', '# Q4 plan (mine)'),
+        'waiting',
+      )
+      mockApi().repo.outsideEdit(SPACE, Q4, {
+        author: PRIYA,
+        apply: (c) => c.replace('# Q4 plan', '# Q4 plan (theirs)'),
+      })
+      const { result } = renderDocument(Q4)
+      await waitFor(() => expect(result.current.state.saveState).toBe('conflict'))
+      expect(findDraft(SPACE, Q4, ME)).toMatchObject({ state: 'editing' })
+    })
+
+    it('started offline with no sign-in yet, nothing is sent: it waits for the reload', async () => {
+      setOfflineSession(true)
+      try {
+        const puts = vi.fn()
+        server.use(http.put('/api/spaces/:space/file', puts))
+        const { result } = renderDocument(Q4)
+        await loaded(result)
+        act(() => result.current.edit(offlineEdit))
+        await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+        await act(() => result.current.commit())
+        expect(puts).not.toHaveBeenCalled()
+        expect(findDraft(SPACE, Q4, ME)).toMatchObject({ content: offlineEdit, state: 'waiting' })
+      } finally {
+        setOfflineSession(false)
+      }
+    })
+
+    it('a sign-in that expired while offline never loses the waiting text (audit 1)', async () => {
+      server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result, unmount } = renderDocument(Q4)
+      await loaded(result)
+      act(() => result.current.edit(offlineEdit))
+      await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+      // Back online, the session has expired: the save is refused and sign-out forgets the member.
+      server.use(
+        http.put('/api/spaces/:space/file', () => {
+          forgetMember()
+          return HttpResponse.json(
+            { error: { code: 'unauthorized', message: 'Sign in again' } },
+            { status: 401 },
+          )
+        }),
+      )
+      act(() => reportReachable())
+      await waitFor(() => expect(result.current.state.saveState).toBe('saved'))
+      unmount()
+      // Let the unmount's last try reach the (still refusing) server.
+      await new Promise((r) => setTimeout(r, 50))
+      // Still theirs, still waiting; sent once they've signed in again.
+      expect(findDraft(SPACE, Q4, ME)).toMatchObject({ content: offlineEdit, state: 'waiting' })
+      server.resetHandlers(...mockApi().handlers)
+      signInAs(ME)
+      expect((await sendWaitingDrafts(ME)).sent).toBe(1)
+      expect(mockApi().repo.read(SPACE, Q4)?.content).toContain('Offline edit.')
+    })
+
+    it('says so when the device can’t keep it, and keeps the last good copy (audit 3)', async () => {
+      server.use(http.put('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await loaded(result)
+      act(() => result.current.edit('# Q4 plan\n\nFirst.\n'))
+      await waitFor(() => expect(result.current.state.saveState).toBe('offline'))
+      const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('full', 'QuotaExceededError')
+      })
+      act(() => result.current.edit('# Q4 plan\n\nSecond.\n'))
+      await waitFor(() => expect(result.current.state.saveState).toBe('saved'))
+      expect(result.current.state.saveError).toBe(NOT_KEPT)
+      setItem.mockRestore()
+      expect(findDraft(SPACE, Q4, ME)?.content).toBe('# Q4 plan\n\nFirst.\n')
+      server.resetHandlers(...mockApi().handlers)
+      act(() => reportReachable())
+      await settle(result)
+    })
+
+    it('another member on this device is never offered, shown or able to erase it (audit 4)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      saveDraft(ME, SPACE, Q4, blob, offlineEdit, 'waiting')
+      signInAs('u-other')
+      // Online: no restore offer, and their own save leaves it.
+      const online = renderDocument(Q4)
+      await loaded(online.result)
+      expect(online.result.current.state.draft).toBeNull()
+      expect(online.result.current.getText()).not.toContain('Offline edit.')
+      online.unmount()
+      // Offline: not opened from it.
+      server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
+      const offline = renderDocument(Q4)
+      await waitFor(() => expect(offline.result.current.state.status).toBe('error'))
+      expect(offline.result.current.state.error?.code).toBe('network')
+      expect(findDraft(SPACE, Q4, ME)).toMatchObject({ content: offlineEdit, state: 'waiting' })
+    })
+
+    it('a doc moved or deleted meanwhile still offers this member’s text to copy (audit 2)', async () => {
+      saveDraft(ME, SPACE, 'docs/gone.md', 'oldblob', 'Words to keep', 'stranded')
+      const { result } = renderDocument('docs/gone.md')
+      await waitFor(() => expect(result.current.state.status).toBe('error'))
+      expect(result.current.state.error?.status).toBe(404)
+      expect(result.current.state.draft?.content).toBe('Words to keep')
+    })
+
+    it('offline, an old copy from a closed tab is not reopened or sent: only a waiting save (A4.3)', async () => {
+      const blob = mockApi().repo.read(SPACE, Q4)?.blobOid ?? ''
+      saveDraft(ME, SPACE, Q4, blob, 'Left when a tab closed', 'editing')
+      server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await waitFor(() => expect(result.current.state.status).toBe('error'))
+      expect(result.current.state.error?.code).toBe('network')
+      expect(findDraft(SPACE, Q4, ME)).toMatchObject({ state: 'editing' })
+    })
+
+    it('offline with nothing on this device: an offline error, not a raw one', async () => {
+      server.use(http.get('/api/spaces/:space/file', () => HttpResponse.error()))
+      const { result } = renderDocument(Q4)
+      await waitFor(() => expect(result.current.state.status).toBe('error'))
+      expect(result.current.state.error?.code).toBe('network')
+    })
   })
 
   it('a new doc is not created until the first save, then exactly one commit', async () => {

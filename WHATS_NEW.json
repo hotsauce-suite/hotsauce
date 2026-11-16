@@ -1,0 +1,247 @@
+{
+  "releases": [
+    {
+      "version": "0.28.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Settings → Apps shows which Mac app version you have, and whether a newer one is out, with a Download button."
+        },
+        {
+          "text": "Settings → What's new lists what changed in each release, in plain words."
+        },
+        {
+          "text": "An \"Update available\" item in the menu bar menu when a newer Mac app is out.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.27.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Links keeps PDFs: save a PDF's address, press Add a PDF, or drop PDFs on Links, and you get a readable copy you can search and highlight, with the PDF itself in Files."
+        },
+        {
+          "text": "Papers from arXiv, bioRxiv and medRxiv show their authors, date, version, DOI and abstract, and every address of one paper is one link."
+        }
+      ]
+    },
+    {
+      "version": "0.26.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Hotsauce opens with no connection, as the last person signed in, with an Offline bar; actions that need the internet are greyed out."
+        },
+        {
+          "text": "Docs you type in while offline are kept on this device (\"Saved on this device\") and sent when you're back online, even after a reload."
+        },
+        {
+          "text": "Text that couldn't be sent (for example, the doc was moved meanwhile) is listed under \"Kept on this device\" in Docs."
+        },
+        {
+          "text": "Sign out works offline and takes effect when you reconnect."
+        },
+        {
+          "text": "On a shared computer, the next person never sees what the last one typed offline, in docs or comments."
+        }
+      ]
+    },
+    {
+      "version": "0.25.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "The menu in Settings stays in place while you scroll the page."
+        }
+      ]
+    },
+    {
+      "version": "0.25.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Links: highlight passages on a saved page and add notes to them. A Highlights tab collects them, and Copy highlights to a Doc turns them into a document."
+        }
+      ]
+    },
+    {
+      "version": "0.24.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Every app shows its plain name as its title, and Whiteboard is now called Boards everywhere."
+        }
+      ]
+    },
+    {
+      "version": "0.24.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Comment on any team doc, meeting note or task. Type @ and a name to notify a teammate."
+        }
+      ]
+    },
+    {
+      "version": "0.23.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Getting started: an admin can choose which doc its last step opens."
+        }
+      ]
+    },
+    {
+      "version": "0.22.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Links uses the same screens as the other apps, and buttons use the same words everywhere (New task, New doc, Personal and Team)."
+        }
+      ]
+    },
+    {
+      "version": "0.22.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "A new member's Today starts with a Getting started tile: connect the calendar, get the Mac app, see the docs."
+        }
+      ]
+    },
+    {
+      "version": "0.21.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Links an AI tool saves wait for you to press Get the page."
+        }
+      ]
+    },
+    {
+      "version": "0.20.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Updates install exactly the release that was published, never a look-alike."
+        }
+      ]
+    },
+    {
+      "version": "0.20.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Clips: trim the start, the end or parts in the middle of a recording."
+        }
+      ]
+    },
+    {
+      "version": "0.19.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Connect Claude, ChatGPT or Grok by signing in, with no token to copy."
+        }
+      ]
+    },
+    {
+      "version": "0.18.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Your stars, rail pins and recent items are now part of the nightly backup."
+        }
+      ]
+    },
+    {
+      "version": "0.18.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Every app shows the same message when something couldn't load, with Try again, and the same empty screen."
+        }
+      ]
+    },
+    {
+      "version": "0.17.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Share links are made only from Share, and AI tools must read a file's latest version before changing it."
+        }
+      ]
+    },
+    {
+      "version": "0.17.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Links remembers where you stopped reading and shows how much you've read."
+        },
+        {
+          "text": "Settings → Usage shows admins which apps the team uses, week by week."
+        }
+      ]
+    },
+    {
+      "version": "0.16.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Settings is a few small pages (General, Connections, Apps, and Organization for admins) instead of one long scroll."
+        }
+      ]
+    },
+    {
+      "version": "0.15.0",
+      "date": "2026-11-15",
+      "notes": [
+        {
+          "text": "Settings is grouped by topic, and Run setup again walks through every setup step without signing you out.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.14.4",
+      "date": "2026-11-15",
+      "notes": [
+        {
+          "text": "One click on the Chrome extension saves the page you're on to Links."
+        }
+      ]
+    },
+    {
+      "version": "0.14.3",
+      "date": "2026-11-15",
+      "notes": [
+        {
+          "text": "Pin as many apps to the rail as you like."
+        }
+      ]
+    },
+    {
+      "version": "0.14.1",
+      "date": "2026-11-15",
+      "notes": [
+        {
+          "text": "While you dictate, a warm glow hugs the edges of the window you're typing into.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.14.0",
+      "date": "2026-11-15",
+      "notes": [
+        {
+          "text": "Links keeps a copy of the page as you saw it when you save it from Chrome."
+        }
+      ]
+    }
+  ]
+}

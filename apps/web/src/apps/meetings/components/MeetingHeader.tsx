@@ -3,7 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { HotsauceApiError } from '../../../api/client'
 import { type AudioTrack, meetingsApi } from '../../../api/meetings'
 import { Icon } from '../../../components/Icon'
+import { NEEDS_CONNECTION } from '../../../components/Offline'
 import type { DocumentHandle } from '../../../hooks/useDocument'
+import { useOnline } from '../../../lib/connection'
 import { emailOf, PersonLinks } from '../../people/PersonLinks'
 import { attendeeName, dayLabel, timeLabel } from '../format'
 import { TemplateSelect, useTemplates } from './common'
@@ -65,6 +67,7 @@ export function MeetingHeader({
   onEnhancing: (running: boolean) => void
 }) {
   const { state } = doc
+  const online = useOnline()
   const templates = useTemplates()
   // biome-ignore lint/correctness/useExhaustiveDependencies: frontmatter can only change on these.
   const meta = useMemo(
@@ -151,7 +154,8 @@ export function MeetingHeader({
             <button
               type="button"
               data-testid="enhance"
-              disabled={enhancing}
+              disabled={enhancing || !online}
+              {...(online ? {} : { title: NEEDS_CONNECTION })}
               onClick={() => void enhance(false)}
               className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-ember px-3 text-sm font-medium text-paper-raised hover:bg-ember-strong disabled:opacity-60"
             >

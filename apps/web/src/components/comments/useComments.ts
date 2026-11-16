@@ -4,6 +4,8 @@ import { HotsauceApiError } from '../../api/client'
 import { type Comment, type CommentMember, commentsApi } from '../../api/comments'
 import { hotsauceSocket } from '../../api/ws'
 import { openedForYouItem } from '../../apps/for-you/store'
+import { isOnline, onConnectionChange } from '../../lib/connection'
+import { rememberedMember } from '../../lib/offlineStart'
 
 const DRAFT_PREFIX = 'hotsauce.comment-draft:'
 
@@ -76,7 +78,7 @@ export function resetCommentMembers(): void {
   membersOnce = null
 }
 
-const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false
+const isOffline = () => !isOnline()
 
 /**
  * The conversation under one item (docs/PLAN-comments.md R1 to R11). It loads on its own, after
@@ -84,7 +86,10 @@ const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine ===
  * the draft survives a reload, a lost connection and a failed send.
  */
 export function useComments(space: string, path: string, enabled = true): Conversation {
-  const key = `${DRAFT_PREFIX}${space}:${path}`
+  // Each member's own: on a shared computer the next member never sees what the last one typed.
+  // Before the app knows who is signed in (a first visit), the owner is blank.
+  const owner = rememberedMember()?.userId ?? ''
+  const key = `${DRAFT_PREFIX}${encodeURIComponent(owner)}/${space}:${path}`
   const [status, setStatus] = useState<Conversation['status']>('loading')
   const [canComment, setCanComment] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
@@ -101,10 +106,17 @@ export function useComments(space: string, path: string, enabled = true): Conver
   const keyRef = useRef(key)
   keyRef.current = key
 
-  // A different item (the task panel moves from task to task): start clean, with its own draft.
-  const [shownKey, setShownKey] = useState(key)
-  if (shownKey !== key) {
-    setShownKey(key)
+  // The app learned who is signed in while the box was open: what's typed so far is theirs.
+  const [shown, setShown] = useState({ key, owner, item: `${space}:${path}` })
+  if (shown.key !== key && shown.owner === '' && shown.item === `${space}:${path}`) {
+    setShown({ key, owner, item: shown.item })
+    writeDraft(key, draft)
+    writeDraft(shown.key, { text: '', quote: null })
+  }
+  // A different item (the task panel moves from task to task), or a different member: start
+  // clean, with its own draft.
+  else if (shown.key !== key) {
+    setShown({ key, owner, item: `${space}:${path}` })
     setStatus('loading')
     setCanComment(false)
     setComments([])
@@ -146,15 +158,7 @@ export function useComments(space: string, path: string, enabled = true): Conver
     }
   }, [enabled, load, space])
 
-  useEffect(() => {
-    const update = () => setOffline(isOffline())
-    window.addEventListener('online', update)
-    window.addEventListener('offline', update)
-    return () => {
-      window.removeEventListener('online', update)
-      window.removeEventListener('offline', update)
-    }
-  }, [])
+  useEffect(() => onConnectionChange(() => setOffline(isOffline())), [])
 
   const setDraft = useCallback(
     (next: CommentDraft) => {

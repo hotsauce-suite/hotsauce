@@ -22,3 +22,15 @@
   flagged. A partly shipped feature needs its help page checked against the code
   (`apps/web/src/keyboard/catalog.ts` is the one list of keys) at each release, not only when the
   last slice lands.
+
+## GitHub publishes the site (2026-11-16)
+
+- **Deploys come from `.github/workflows/deploy-site.yml`, not a laptop.** Don't run
+  `wrangler deploy` for hotsauce.work by hand; merge to main, or use "Run workflow" on the
+  Actions page. Two deploy paths mean one can silently overwrite the other with an older build.
+- **`x-site-version` says which commit is live.** `curl -sI https://hotsauce.work | grep x-site`
+  answers "is my merge out yet?" in one line. A deploy without `--var SITE_VERSION:…` drops it.
+- **`wrangler deploy --dry-run` runs the build and lists bindings without any Cloudflare login,**
+  so the whole deploy path can be checked from a cloud session.
+- **The demo build is reproducible:** a fresh build's `demo/index.html` matched the live one byte
+  for byte, so comparing it is a real check that the demo went out.

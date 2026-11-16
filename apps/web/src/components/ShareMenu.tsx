@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../api/client'
+import { useOnline } from '../lib/connection'
 import { copyAsMarkdown, copyAsRichText } from '../lib/copyNote'
 import { DOCS_ROOT, docUrl } from '../lib/paths'
 import { useSession } from '../state/session'
 import { FolderPicker } from './FolderPicker'
 import { Icon } from './Icon'
 import { below, Menu, type MenuAnchor, MenuItem } from './Menu'
+import { needsConnection } from './Offline'
 import { ReadOnlyLinkItems, useReadOnlyLink } from './ReadOnlyLink'
 
 interface ShareMenuProps {
@@ -21,6 +23,7 @@ interface ShareMenuProps {
 
 export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false }: ShareMenuProps) {
   const { spaces, notify, tree } = useSession()
+  const online = useOnline()
   const navigate = useNavigate()
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const [picking, setPicking] = useState(false)
@@ -65,11 +68,12 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
         aria-haspopup="menu"
         aria-expanded={anchor !== null}
         aria-label={iconOnly ? 'Share' : undefined}
+        {...needsConnection(online)}
         onClick={(event) => {
           if (!anchor) readOnly.refresh()
           setAnchor(anchor ? null : below(event.currentTarget))
         }}
-        className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink"
+        className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink disabled:opacity-50"
       >
         <Icon name="share" />
         {iconOnly ? null : 'Share'}

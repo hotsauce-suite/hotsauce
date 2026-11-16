@@ -13,6 +13,8 @@ export interface DictationDevice {
   name: string
   createdAt: string
   lastUsedAt: string | null
+  /** The Mac app version this device last reported (`Hotsauce-App: mac/<version>`), or null. */
+  appVersion: string | null
 }
 
 export const DEVICE_TOKEN_PREFIX = 'hdt_'
@@ -70,7 +72,19 @@ const MIGRATIONS = [
     PRIMARY KEY (scope, word)
   );
   `,
+  // The app version each device reports (docs/PLAN-mac-version-and-whats-new.md, M3).
+  `ALTER TABLE dictation_devices ADD COLUMN app_version TEXT;`,
 ]
+
+/**
+ * The version in a `Hotsauce-App: mac/<version>[+<build>]` header (`mac/0.26.0+1400`), or null
+ * for anything else. Only a plain dotted number and a numeric build are kept, so nothing odd is
+ * ever stored or shown. The build tells two Mac builds of one release apart.
+ */
+export function macAppVersionFrom(header: string | null | undefined): string | null {
+  const match = /^mac\/(\d{1,4}\.\d{1,4}\.\d{1,4}(?:\+\d{1,9})?)$/.exec((header ?? '').trim())
+  return match ? (match[1] ?? null) : null
+}
 
 interface DeviceRow {
   id: string
@@ -79,6 +93,7 @@ interface DeviceRow {
   name: string
   created_at: string
   last_used_at: string | null
+  app_version: string | null
 }
 
 /**
@@ -141,6 +156,7 @@ export class DictationStore {
       name,
       createdAt: new Date().toISOString(),
       lastUsedAt: null,
+      appVersion: null,
     }
     this.#db
       .prepare(
@@ -174,17 +190,25 @@ export class DictationStore {
       .all() as Array<{ lastUsedAt: string | null }>
   }
 
-  /** The live device a token belongs to, marking it used; null for an unknown or revoked token. */
-  useToken(token: string, now = new Date()): DictationDevice | null {
+  /**
+   * The live device a token belongs to, marking it used and keeping the app version it reports
+   * (a request without one leaves the last one); null for an unknown or revoked token.
+   */
+  useToken(
+    token: string,
+    now = new Date(),
+    appVersion: string | null = null,
+  ): DictationDevice | null {
     const row = this.#db
       .prepare('SELECT * FROM dictation_devices WHERE token_hash = ? AND revoked_at IS NULL')
       .get(hashDeviceToken(token)) as DeviceRow | undefined
     if (!row) return null
     const lastUsedAt = now.toISOString()
+    const version = appVersion ?? row.app_version
     this.#db
-      .prepare('UPDATE dictation_devices SET last_used_at = ? WHERE id = ?')
-      .run(lastUsedAt, row.id)
-    return { ...toDevice(row), lastUsedAt }
+      .prepare('UPDATE dictation_devices SET last_used_at = ?, app_version = ? WHERE id = ?')
+      .run(lastUsedAt, version, row.id)
+    return { ...toDevice(row), lastUsedAt, appVersion: version }
   }
 
   /** Revokes one of the member's own devices; not_found for anyone else's. */
@@ -258,5 +282,6 @@ function toDevice(row: DeviceRow): DictationDevice {
     name: row.name,
     createdAt: row.created_at,
     lastUsedAt: row.last_used_at,
+    appVersion: row.app_version ?? null,
   }
 }

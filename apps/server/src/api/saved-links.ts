@@ -16,6 +16,7 @@ import { valid } from './validate.js'
 /** A page copy past this is refused outright; the service sets aside any over 2 MB. */
 const MAX_PAGE_CHARS = 4 * 1024 * 1024
 const Tag = z.string().trim().min(1).max(100)
+const FileId = z.string().regex(/^[0-9A-Z]{26}$/)
 const Params = z.object({ space: z.string().min(1), id: z.string().min(1) })
 const HighlightParams = Params.extend({ hid: z.string().min(1).max(40) })
 const HighlightBody = z.object({
@@ -98,6 +99,27 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
       )
       return c.json(saved, saved.existing ? 200 : 201)
     })
+    .post(
+      '/pdf',
+      valid('json', z.object({ space: z.string().min(1), file: FileId })),
+      async (c) => {
+        // A PDF from the member's computer, uploaded to Files first (docs/PLAN-links-pdfs.md R6).
+        const principal = sessionOnly(c.get('principal'))
+        const saved = await service.savePdf(principal, c.req.valid('json'), viaFor(principal))
+        return c.json(saved, saved.existing ? 200 : 201)
+      },
+    )
+    .post(
+      '/:space/:id/pdf',
+      valid('param', Params),
+      valid('json', z.object({ file: FileId })),
+      async (c) => {
+        const principal = sessionOnly(c.get('principal'))
+        const { space, id } = c.req.valid('param')
+        const { file } = c.req.valid('json')
+        return c.json(await service.attachPdf(principal, space, id, file, viaFor(principal)))
+      },
+    )
     .get('/:space/:id', valid('param', Params), async (c) => {
       const { space, id } = c.req.valid('param')
       return c.json(await service.get(c.get('principal'), space, id))

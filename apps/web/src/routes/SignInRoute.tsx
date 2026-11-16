@@ -43,7 +43,16 @@ export default function SignInRoute() {
             ? `Sign in with your ${domain} account to open the team’s workspace.`
             : 'Sign in with your work account to open the team’s workspace.'}
         </p>
-        {desktop ? (
+        {auth.offline ? (
+          <p
+            role="status"
+            data-testid="signin-offline"
+            className="rounded-lg border border-ash bg-paper-sunk px-4 py-3 text-ink-soft"
+          >
+            You’re offline. Signing in needs a connection; this page signs you in once you’re back
+            online.
+          </p>
+        ) : desktop ? (
           <DesktopSignIn start={() => desktop.postMessage('start')} />
         ) : auth.mode === 'dev' ? (
           <DevSignInForm from={from} domain={domain} />

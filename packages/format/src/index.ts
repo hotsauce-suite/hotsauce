@@ -220,6 +220,18 @@ export {
   toggleChecklistItem,
 } from './notes.js'
 export {
+  authorLine,
+  PAPER_SERVERS,
+  type PaperRef,
+  type PaperServer,
+  paperKey,
+  paperOf,
+  paperPageUrl,
+  paperPdfUrl,
+  paperServerLabel,
+  parsePaperKey,
+} from './papers.js'
+export {
   docPath,
   extractTitle,
   newDoc,
@@ -236,9 +248,12 @@ export {
   type LinkSource,
   linkBodyText,
   linkIdOf,
+  linkKey,
   linkPath,
   linkTextOf,
   linkUrlProblem,
+  MAX_ABSTRACT,
+  MAX_AUTHORS,
   MAX_LINK_BODY,
   MAX_LINK_URL,
   type NewLink,

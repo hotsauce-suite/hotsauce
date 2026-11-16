@@ -1,4 +1,12 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs'
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  utimesSync,
+} from 'node:fs'
 import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -12,10 +20,24 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 export const MAC_APP_RELEASE =
   'https://github.com/hotsauce-suite/hotsauce/releases/download/mac-app'
 
+/**
+ * What the newest Mac app is, published beside it (apps/dictate-mac/scripts/build-app.sh):
+ * `{ "version", "build", "reportsVersion" }`. Settings and the app itself compare against it
+ * (docs/PLAN-mac-version-and-whats-new.md, M1, M2).
+ */
+export const MAC_APP_INFO = 'mac-app.json'
+
 /** The names the app is offered under, including old ones in links already shared. */
 export function releaseAsset(name: string): string | null {
+  if (name === MAC_APP_INFO) return MAC_APP_INFO
   const m = /^(Hotsauce|Hearth|HearthDictate)\.(dmg|zip)$/.exec(name)
   return m ? `Hotsauce.${m[2]}` : null
+}
+
+/** The Content-Type a release asset is served with. */
+export function assetType(asset: string): string {
+  if (asset.endsWith('.json')) return 'application/json'
+  return asset.endsWith('.dmg') ? 'application/x-apple-diskimage' : 'application/zip'
 }
 
 const MAX_BYTES = 400 * 1024 * 1024
@@ -42,10 +64,22 @@ export class MacAppDownloads {
     this.#maxAgeMs = opts.maxAgeMs ?? 6 * 60 * 60_000
   }
 
-  /** A local copy of `Hotsauce.dmg` or `.zip`, fetched when missing or older than six hours. */
+  /**
+   * A local copy of `Hotsauce.dmg`, `.zip` or `mac-app.json`, fetched when missing or older than
+   * six hours.
+   */
   async file(asset: string): Promise<string | null> {
     const local = path.join(this.#dir, asset)
-    const fresh = existsSync(local) && this.#now() - statSync(local).mtimeMs < this.#maxAgeMs
+    // A download older than the version file we have may be the build before it: Settings would
+    // offer an update and hand out the old app. Fetch it again.
+    const info = path.join(this.#dir, MAC_APP_INFO)
+    const behindInfo =
+      asset !== MAC_APP_INFO &&
+      existsSync(local) &&
+      existsSync(info) &&
+      statSync(info).mtimeMs > statSync(local).mtimeMs
+    const fresh =
+      !behindInfo && existsSync(local) && this.#now() - statSync(local).mtimeMs < this.#maxAgeMs
     if (fresh) return local
     let pending = this.#inFlight.get(asset)
     if (!pending) {
@@ -56,17 +90,24 @@ export class MacAppDownloads {
   }
 
   async #download(asset: string, local: string): Promise<string | null> {
-    // A failed fetch keeps serving the copy we have.
+    // A failed fetch keeps serving the copy we have, and waits the usual time before asking again.
     const fallback = existsSync(local) ? local : null
+    const keep = () => {
+      if (fallback) {
+        const t = new Date(this.#now())
+        utimesSync(fallback, t, t)
+      }
+      return fallback
+    }
     const tmp = `${local}.part`
     try {
       const res = await this.#fetch(`${this.#base}/${asset}`, {
         redirect: 'follow',
         signal: AbortSignal.timeout(5 * 60_000),
       })
-      if (!res.ok || !res.body) return fallback
+      if (!res.ok || !res.body) return keep()
       const length = Number(res.headers.get('content-length') ?? 0)
-      if (length > MAX_BYTES) return fallback
+      if (length > MAX_BYTES) return keep()
       mkdirSync(this.#dir, { recursive: true })
       let seen = 0
       const limited = Readable.fromWeb(res.body as WebReadableStream).on(
@@ -85,7 +126,7 @@ export class MacAppDownloads {
         err instanceof Error ? err.message : err,
       )
       rmSync(tmp, { force: true })
-      return fallback
+      return keep()
     }
   }
 }

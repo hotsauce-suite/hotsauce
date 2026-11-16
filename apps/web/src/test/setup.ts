@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import { hotsauceSocket } from '../api/ws'
 import { forgetPins } from '../apps/pins'
+import { resetConnectionForTests } from '../lib/connection'
 import { resetMockApi, server, TEST_USER } from './mockServer'
 
 // jsdom gaps that CodeMirror and cmdk touch.
@@ -44,6 +45,8 @@ afterEach(() => {
   localStorage.clear()
   forgetPins()
   forgetForYou()
+  // A test that cut the network leaves the app "offline"; the next one starts online.
+  resetConnectionForTests(async () => true)
 })
 
 afterAll(() => server.close())
