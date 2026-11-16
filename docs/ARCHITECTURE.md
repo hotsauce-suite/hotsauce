@@ -1486,7 +1486,7 @@ Pick 5 of the directory picks (2026-11-12): a Pocket-style read-later list. "Sav
 
 ### 23.5 MCP, Ask and Briefcast
 
-- MCP: `list_links` (view, tag, query), `get_link` (with the copy, described as someone else's writing), `save_link`; `search` takes kind `link`.
+- MCP: `list_links` (view, tag, query), `get_link` (with the copy, described as someone else's writing), `save_link`; `search` takes kind `link`. A link `save_link` makes (`source: mcp`) is never fetched by the server until a member asks ("Get the page", the refetch route) or saves the same address themselves; until then it reads `status: waiting`, across restarts. The connector saving an address already saved never fetches either. A tricked tool could otherwise send text out in the address (docs/PLAN-links-ai-saves.md).
 - Meetings Ask searches `link` with meetings, transcripts and files; its prompt says excerpts under `links/` are saved pages to use as information, never instructions.
 - Briefcast's prompt gets `<saved_links>`: links the member saved since the last briefing (24 hours, 72 on Mondays), and on Mondays up to five from the week before still unread. Saved links alone make a briefing. Episodes count them (`links`).
 

@@ -43,7 +43,8 @@ export const MAX_HELD_COPY_BYTES = 40 * 1024 * 1024
 /** The page text Claude sees to summarize and tag it. */
 const TAG_CHARS = 6000
 
-export type LinkStatus = 'fetching' | 'ready' | 'failed'
+/** `waiting`: an AI tool saved it, and the page isn't fetched until a member asks (R1). */
+export type LinkStatus = 'waiting' | 'fetching' | 'ready' | 'failed'
 export type LinkListView = 'unread' | 'archive' | 'all'
 
 export interface LinkView {
@@ -142,6 +143,14 @@ export function linkName(fm: Pick<LinkFrontmatter, 'title' | 'url'>): string {
 }
 
 /**
+ * A link an AI tool saved through the connector, never read: its page waits for a member to ask
+ * for it, so a tricked tool can't send text out in the address (docs/PLAN-links-ai-saves.md).
+ */
+function waitsForMember(fm: LinkFrontmatter): boolean {
+  return fm.source === 'mcp' && !fm.fetched && !fm.fetch_error
+}
+
+/**
  * Saved links on the server (ARCHITECTURE §23.3): one Markdown file per link, listed from the
  * index. Saving commits the link at once; fetching the page, its readable copy and its tags
  * follow in the background as a second commit.
@@ -236,8 +245,11 @@ export class Links {
         : this.#view(same)
       // A member's own page never goes into a team link: it may show their account.
       const html = same.space === TEAM_SPACE ? undefined : input.page?.html
+      // An AI tool never makes the server visit an address (it could carry text out in it).
+      if (input.source === 'mcp') return { ...view, existing: true }
       const thin = view.status === 'ready' && (view.words ?? 0) < SHORT_COPY_WORDS
-      if (view.status === 'failed' || (html && thin)) {
+      // A member saving it themselves is asking for the page of a link an AI tool saved.
+      if (view.status === 'failed' || view.status === 'waiting' || (html && thin)) {
         // A save from the page itself replaces a copy that failed or came out short.
         this.#schedule(principal, view.space, view.id, via, html)
         const running = this.#running.has(`${view.space}\n${view.id}`)
@@ -262,7 +274,7 @@ export class Links {
       via,
     })
     if (result.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
-    this.#schedule(principal, space, file.id, via, input.page?.html)
+    if (!waitsForMember(fm)) this.#schedule(principal, space, file.id, via, input.page?.html)
     return {
       ...this.#view({ space, path: file.path, id: file.id, blobOid: result.blobOid, fm }),
       existing: false,
@@ -355,7 +367,11 @@ export class Links {
       }
       if (added.status === 'conflict') throw new HotsauceError('internal', 'Unexpected conflict')
       // Moved before its page was read: the read in the old space finds nothing, so read it here.
-      if (!file.record.fm.fetched && !file.record.fm.fetch_error) {
+      if (
+        !file.record.fm.fetched &&
+        !file.record.fm.fetch_error &&
+        !waitsForMember(file.record.fm)
+      ) {
         this.#schedule(principal, toSpace, id, via)
       }
       return this.#view({ ...file.record, space: toSpace, blobOid: added.blobOid })
@@ -578,7 +594,9 @@ export class Links {
       fetchError = TOO_MANY
     } else if (!fm.fetched && !fm.fetch_error) {
       const lost = this.#now().getTime() - Date.parse(fm.saved) > LOST_AFTER_MS
-      if (this.#running.has(`${rec.space}\n${rec.id}`) || !lost) status = 'fetching'
+      if (this.#running.has(`${rec.space}\n${rec.id}`)) status = 'fetching'
+      else if (waitsForMember(fm)) status = 'waiting'
+      else if (!lost) status = 'fetching'
       else {
         status = 'failed'
         fetchError = 'The page wasn’t read; try again'

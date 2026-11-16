@@ -33,3 +33,6 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   self-reported name, in what the person agrees to.
 
 - One-click save (extension 0.7.0): keeping the popup and having it save on open was simpler than removing `default_popup` for `action.onClicked`, which would have lost the popup's Connect and Take notes screens and needed `setPopup` juggling per tab. Opening the popup still grants `activeTab`, so the page copy keeps working. To test a popup's messages in Playwright, the popup is opened as a tab, so the worker's `!sender.tab` check rejects it: patch that check in a scratch copy only.
+
+- **An address is an outbound channel.** Any server-side fetch of an address an AI tool chose can carry private text out in the query string, so "the agent saved it" must never mean "the server visits it". Key the rule on what is stored in the file (`source: mcp`, never fetched), not on the request, so it survives restarts and moves; and make every other path that schedules a read (re-save, move to team, the "lost after 3 minutes" fallback) check it too. The re-save path was the one that leaked first in the tests.
+- **Fake only `Date` to test time-based states.** `vi.useFakeTimers({ toFake: ['Date'] })` plus `vi.setSystemTime` moves `new Date()` without freezing the git and fetch timers the integration tests need.

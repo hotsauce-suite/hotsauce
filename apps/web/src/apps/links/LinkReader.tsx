@@ -287,7 +287,33 @@ export default function LinkReader() {
           ) : null}
 
           <div className="mt-6">
-            {link.status === 'fetching' ? (
+            {link.status === 'waiting' ? (
+              <div
+                className="rounded-xl border border-ash-strong p-4 text-sm text-ink-soft"
+                data-testid="link-waiting"
+              >
+                <p className="font-medium text-ink">An AI tool saved this link.</p>
+                <p className="mt-1">
+                  {product()} hasn’t visited it yet, so a tool can’t use the address to send your
+                  text somewhere. Check the address first:
+                </p>
+                <p className="mt-2 font-mono text-xs break-all text-ink" data-testid="link-address">
+                  {link.url}
+                </p>
+                <button
+                  type="button"
+                  className="mt-3 rounded-lg bg-ember px-3.5 py-2 text-sm font-medium text-paper-raised hover:bg-ember-strong"
+                  onClick={() =>
+                    act(async () => {
+                      const next = await linksApi.refetch(link.space, link.id)
+                      setLink({ ...link, ...next })
+                    })
+                  }
+                >
+                  Get the page
+                </button>
+              </div>
+            ) : link.status === 'fetching' ? (
               <p className="text-sm text-ink-soft" data-testid="link-fetching">
                 Getting the page…
               </p>

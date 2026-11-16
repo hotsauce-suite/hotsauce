@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
 import { runGit } from '../../src/git/index.js'
@@ -504,6 +504,14 @@ describe('MCP tools', () => {
       source: 'mcp',
       appUrl: expect.stringMatching(/^https:\/\/hearth\.example\.test\/links\/alice\/\w+$/),
     })
+    expect(saved.value.status).toBe('waiting')
+    // R7: the tool is told the page waits for the member.
+    const tools = (await client.listTools()).tools
+    expect(tools.find((t) => t.name === 'save_link')?.description).toMatch(/waiting.*do not retry/)
+    await services.links.idle()
+    expect(fetched).toEqual([])
+    // A member asks for the page in the app (R2).
+    await api('POST', `/api/links/alice/${saved.value.id}/refetch`)
     await services.links.idle()
     const log2 = await runGit(bare('alice'), ['log', '-2', '--format=%B', 'main'])
     expect(log2).toContain('Hotsauce-Via: mcp')
@@ -515,6 +523,76 @@ describe('MCP tools', () => {
     expect(got.value.body).toContain('Biosecurity primer is the subject')
     const found = await tool(client, 'search', { query: 'biosecurity primer', kind: 'link' })
     expect(found.value).toEqual([expect.objectContaining({ space: 'alice' })])
+  })
+})
+
+describe('links an AI tool saves', () => {
+  /** Saves through the API as the connector would (source mcp), then waits for any read. */
+  const aiSave = (url: string) => save({ url, source: 'mcp' })
+
+  it('keeps the link but never visits the address until a member asks (R1, R2)', async () => {
+    const link = await aiSave('https://attacker.test/collect?q=secret-plans')
+    expect(link).toMatchObject({ status: 'waiting', fetchError: null, source: 'mcp' })
+    expect(fetched).toEqual([])
+    // Still waiting long after the 3 minutes that make an unread link "lost".
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(Date.now() + 60 * 60_000)
+    try {
+      expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({
+        status: 'waiting',
+        fetchError: null,
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+    expect((await api('GET', '/api/links')).links).toEqual([
+      expect.objectContaining({ id: link.id, status: 'waiting' }),
+    ])
+    expect(fetched).toEqual([])
+
+    const asked = await api('POST', `/api/links/alice/${link.id}/refetch`)
+    expect(asked.status).toBe('fetching')
+    await services.links.idle()
+    expect(fetched).toEqual(['https://attacker.test/collect?q=secret-plans'])
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({ status: 'ready' })
+  })
+
+  it('reads a waiting link when the member saves the same address themselves (R3)', async () => {
+    const link = await aiSave('https://a.test/ai-found-it')
+    const mine = await api('POST', '/api/links', {
+      json: { url: 'https://a.test/ai-found-it', source: 'extension' },
+    })
+    await services.links.idle()
+    expect(mine).toMatchObject({ id: link.id, existing: true })
+    expect(fetched).toEqual(['https://a.test/ai-found-it'])
+    expect(await api('GET', `/api/links/alice/${link.id}`)).toMatchObject({ status: 'ready' })
+  })
+
+  it('never fetches when the AI tool saves an address that is already saved (R4)', async () => {
+    fail = true
+    const link = await save({ url: 'https://down.fail.test/known' })
+    expect(fetched).toHaveLength(1)
+    fail = false
+    const resave = (url: string) => api('POST', '/api/links', { json: { url, source: 'mcp' } })
+    const again = await resave('https://down.fail.test/known')
+    await services.links.idle()
+    expect(again).toMatchObject({ id: link.id, existing: true, status: 'failed' })
+    const waiting = await aiSave('https://a.test/waits')
+    await resave('https://a.test/waits')
+    await services.links.idle()
+    expect(waiting.status).toBe('waiting')
+    expect(fetched).toHaveLength(1)
+  })
+
+  it('stays waiting when shared with the team and back (R5)', async () => {
+    const link = await aiSave('https://a.test/shared-waiting')
+    const shared = await api('POST', `/api/links/alice/${link.id}/move`, {
+      json: { toSpace: 'team' },
+    })
+    expect(shared.status).toBe('waiting')
+    await services.links.idle()
+    expect(fetched).toEqual([])
+    expect(await api('GET', `/api/links/team/${link.id}`)).toMatchObject({ status: 'waiting' })
   })
 })
 
