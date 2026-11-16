@@ -21,6 +21,8 @@ L2. Members never see the Organization group, and an organization page says only
     it. [settingsPages.test, e2e/org-settings.spec.ts]
 L3. Help center, FAQ, Send feedback, the version and Reload are one strip that shows on every
     Settings page, not sections of one page. [settingsPages.test]
+L4. Beside the page, the menu and the help strip stay where they are while the page scrolls; in a
+    window too short for them they scroll on their own. [e2e/org-settings.spec.ts]
 
 Your pages
 G1. `/settings` is General: Account (with Sign out), then Appearance, Notifications, Keyboard and
