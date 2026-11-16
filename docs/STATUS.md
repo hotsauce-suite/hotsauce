@@ -66,7 +66,7 @@ Trackers with spreadsheet formulas, kept as CSV in Git.
 Needs nothing extra.
 
 ### Links
-A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read. Links an AI tool saves wait for the member to press Get the page.
+A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read. Highlights and notes on a page (kept in the link's file, read by search, Ask, Briefcast and AI tools), a Highlights tab, and Copy highlights to a Doc. Links an AI tool saves wait for the member to press Get the page.
 Needs nothing extra; the AI summary needs the AI key.
 
 ### Briefcast
@@ -117,4 +117,4 @@ Open pull requests on `main` at the date above (release numbers are taken at mer
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 
-Next on the Links roadmap: highlights and notes inside the link's file, then PDFs and papers.
+Next on the Links roadmap: PDFs and papers (highlights and notes shipped).

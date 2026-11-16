@@ -40,6 +40,8 @@ export interface CastLink {
   summary: string
   /** `saved`: saved since the last briefing; `unread`: from last week and still unread (Mondays). */
   status: 'saved' | 'unread'
+  /** The listener's own highlights on the page, each with their note (docs/PLAN-links-highlights.md R9). */
+  highlights?: Array<{ quote: string; note?: string | undefined }>
 }
 
 /** A teammate's answer to a check-in (§24): what they said they're doing or stuck on. */
@@ -85,7 +87,7 @@ Running order:
 2. What changed: decisions and action items from recent meetings, and documents others changed.
 3. What's due: tasks overdue or due today, most important first. Mention what was finished only briefly.
 4. Anything that looks stuck: a task overdue for a while, an action item with no task, a question raised twice. Say "seems" when it's a guess.
-5. Saved to read: one sentence each on the pages the listener saved recently (status "saved"), then, if any, a short line on the ones from last week still unread (status "unread"). Name them by title or site; never read out a web address.
+5. Saved to read: one sentence each on the pages the listener saved recently (status "saved"), then, if any, a short line on the ones from last week still unread (status "unread"). Name them by title or site; never read out a web address. When a link has the listener's <highlight> entries, let what they marked (and their notes) shape that sentence; don't read the highlights out.
 6. Team check-ins: in a few sentences, what teammates said in their check-in answers, leading with anything stuck or waiting on the listener. Name people by first name.
 Leave out any section with nothing in it, without saying it's empty.
 
@@ -142,7 +144,14 @@ export function buildBriefcastPrompt(input: CastInput): { system: string; user: 
   const links = input.links
     .map(
       (l) =>
-        `<link status="${l.status}" title="${attr(l.title)}" site="${attr(l.site)}">${text(l.summary)}</link>`,
+        `<link status="${l.status}" title="${attr(l.title)}" site="${attr(l.site)}">${text(l.summary)}${(
+          l.highlights ?? []
+        )
+          .map(
+            (h) =>
+              `\n<highlight${h.note ? ` note="${attr(h.note)}"` : ''}>${text(h.quote)}</highlight>`,
+          )
+          .join('')}</link>`,
     )
     .join('\n')
   const checkins = input.checkins
