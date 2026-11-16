@@ -173,7 +173,7 @@ describe('discovery (R1, R2)', () => {
     const anon = await call('POST', '/mcp', { json: {} })
     expect(anon.status).toBe(401)
     expect(anon.headers.get('www-authenticate')).toBe(
-      `Bearer resource_metadata="${BASE}/.well-known/oauth-protected-resource"`,
+      `Bearer resource_metadata="${BASE}/.well-known/oauth-protected-resource/mcp"`,
     )
     const bad = await call('POST', '/mcp', { token: 'hto_nope', json: {} })
     expect(bad.status).toBe(401)
@@ -201,7 +201,31 @@ describe('client registration (R3)', () => {
     const confidential = await call('POST', '/oauth/register', {
       json: { redirect_uris: [REDIRECT], token_endpoint_auth_method: 'client_secret_basic' },
     })
-    expect(confidential.status).toBe(400)
+    // Asked for a secret: registered as a public client anyway, and told so.
+    expect(confidential.status).toBe(201)
+    expect(await confidential.json()).toMatchObject({ token_endpoint_auth_method: 'none' })
+    const long = await call('POST', '/oauth/register', {
+      json: { redirect_uris: [`https://a.example/${'x'.repeat(2100)}`] },
+    })
+    expect(long.status).toBe(400)
+    const huge = await call('POST', '/oauth/register', {
+      json: { redirect_uris: [REDIRECT], client_name: 'x'.repeat(20_000) },
+    })
+    expect(huge.status).toBe(413)
+  })
+
+  it('limits registrations from one address', async () => {
+    const statuses: number[] = []
+    for (let i = 0; i < 31; i++) {
+      const res = await app.request(`${BASE}/oauth/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'fly-client-ip': '203.0.113.9' },
+        body: JSON.stringify({ redirect_uris: [REDIRECT] }),
+      })
+      statuses.push(res.status)
+    }
+    expect(statuses.slice(0, 30).every((st) => st === 201)).toBe(true)
+    expect(statuses[30]).toBe(429)
   })
 })
 
@@ -276,41 +300,50 @@ describe('tokens (R6, R7)', () => {
     expect((await call('GET', '/api/me', { token: tokens.access_token })).status).toBe(401)
   })
 
-  it('refuses a wrong verifier, another client, a reused code, and revokes on reuse', async () => {
+  it('a failed check uses the code up; a reused code revokes what it made', async () => {
     const { client_id } = await register()
     const other = await register()
-    const { verifier, challenge } = pkce()
-    const allow = await call('POST', '/api/oauth/authorize', {
-      as: ALICE,
-      json: authorizeParams(client_id, challenge),
-    })
-    const code =
-      new URL(((await allow.json()) as { redirect: string }).redirect).searchParams.get('code') ??
-      ''
-    const exchange = (form: Record<string, string>) =>
+    const codeFor = async (challenge: string) => {
+      const allow = await call('POST', '/api/oauth/authorize', {
+        as: ALICE,
+        json: authorizeParams(client_id, challenge),
+      })
+      return (
+        new URL(((await allow.json()) as { redirect: string }).redirect).searchParams.get('code') ??
+        ''
+      )
+    }
+    const exchange = (code: string, form: Record<string, string>) =>
       call('POST', '/oauth/token', {
         form: { grant_type: 'authorization_code', code, client_id, ...form },
       })
-    const wrong = await exchange({ code_verifier: pkce().verifier })
-    expect(wrong.status).toBe(400)
-    expect(((await wrong.json()) as { error: string }).error).toBe('invalid_grant')
-    expect((await exchange({ code_verifier: verifier, client_id: other.client_id })).status).toBe(
-      400,
-    )
-    expect(
-      (await exchange({ code_verifier: verifier, redirect_uri: 'https://x.example' })).status,
-    ).toBe(400)
-    const good = await exchange({ code_verifier: verifier })
+    for (const bad of [
+      (v: string) => ({ code_verifier: pkce().verifier, _: v }),
+      (v: string) => ({ code_verifier: v, client_id: other.client_id }),
+      (v: string) => ({ code_verifier: v, redirect_uri: 'https://x.example' }),
+    ]) {
+      const { verifier, challenge } = pkce()
+      const code = await codeFor(challenge)
+      const { _, ...form } = { _: '', ...bad(verifier) }
+      const res = await exchange(code, form)
+      expect(res.status).toBe(400)
+      expect(((await res.json()) as { error: string }).error).toBe('invalid_grant')
+      // The right verifier afterwards is too late.
+      expect((await exchange(code, { code_verifier: verifier })).status).toBe(400)
+    }
+    const { verifier, challenge } = pkce()
+    const code = await codeFor(challenge)
+    const good = await exchange(code, { code_verifier: verifier })
     expect(good.status).toBe(200)
     expect(good.headers.get('cache-control')).toBe('no-store')
     const { access_token } = (await good.json()) as { access_token: string }
     expect((await call('POST', '/mcp', { token: access_token, json: {} })).status).not.toBe(401)
     // The code again: refused, and the connection it made is gone.
-    expect((await exchange({ code_verifier: verifier })).status).toBe(400)
+    expect((await exchange(code, { code_verifier: verifier })).status).toBe(400)
     expect((await call('POST', '/mcp', { token: access_token, json: {} })).status).toBe(401)
   })
 
-  it('refresh rotates the pair; an old refresh token again ends the connection', async () => {
+  it('refresh rotates the pair; a retry of the old token is refused but keeps the connection', async () => {
     const { client_id, tokens } = await connectApp()
     const refresh = (refresh_token: string, id = client_id) =>
       call('POST', '/oauth/token', {
@@ -322,14 +355,18 @@ describe('tokens (R6, R7)', () => {
     expect(next.refresh_token).not.toBe(tokens.refresh_token)
     // The old access token is replaced; the new one works.
     expect((await call('POST', '/mcp', { token: tokens.access_token, json: {} })).status).toBe(401)
+    expect((await refresh(next.refresh_token, 'someone-else')).status).toBe(400)
+    // Two refreshes at once: the loser is refused, and the winner's tokens still work.
+    expect((await refresh(tokens.refresh_token)).status).toBe(400)
     expect((await call('POST', '/mcp', { token: next.access_token, json: {} })).status).not.toBe(
       401,
     )
-    expect((await refresh(next.refresh_token, 'someone-else')).status).toBe(400)
-    // Replaying the first refresh token revokes the whole connection.
-    expect((await refresh(tokens.refresh_token)).status).toBe(400)
-    expect((await call('POST', '/mcp', { token: next.access_token, json: {} })).status).toBe(401)
-    expect((await refresh(next.refresh_token)).status).toBe(400)
+    expect((await refresh(next.refresh_token)).status).toBe(200)
+  })
+
+  it('a token request without grant_type is invalid_request', async () => {
+    const res = await call('POST', '/oauth/token', { form: { client_id: 'x' } })
+    expect(((await res.json()) as { error: string }).error).toBe('invalid_request')
   })
 
   it('refuses unknown grants and a token for another resource', async () => {

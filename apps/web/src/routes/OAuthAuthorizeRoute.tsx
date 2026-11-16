@@ -81,7 +81,7 @@ export default function OAuthAuthorizeRoute() {
       </p>
       <p className="mt-3 text-sm text-ink-faint">
         It returns to <span className="font-medium text-ink-soft">{check.redirectHost}</span>. You
-        can disconnect it any time in Settings → Connections.
+        can disconnect it any time in Settings → Connected apps.
       </p>
       <button
         type="button"

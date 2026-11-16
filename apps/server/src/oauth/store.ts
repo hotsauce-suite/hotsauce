@@ -16,6 +16,12 @@ export const MAX_CONNECTIONS_PER_MEMBER = 20
 export const MAX_CLIENTS = 500
 export const MAX_CLIENT_NAME = 80
 export const MAX_REDIRECT_URIS = 10
+export const MAX_REDIRECT_URI_LENGTH = 2000
+/**
+ * A refresh token replaced this recently and presented again is a client's retry or two parallel
+ * refreshes, not a theft: refused, but the connection is kept.
+ */
+export const REFRESH_GRACE_MS = 30 * 1000
 // Old refresh tokens kept per connection, so presenting one again is caught as a replay.
 const OLD_REFRESH_KEPT = 5
 const LAST_USED_WRITE_MS = 60 * 60 * 1000
@@ -53,6 +59,8 @@ const StoredConnection = z.object({
   accessExpiresAt: z.string(),
   refreshHash: z.string(),
   oldRefreshHashes: z.array(z.string()).default([]),
+  /** When the refresh token was last rotated (the grace window for retries). */
+  rotatedAt: z.string().nullable().default(null),
 })
 type StoredConnection = z.infer<typeof StoredConnection>
 
@@ -124,6 +132,7 @@ export function pkceMatches(verifier: string, challenge: string): boolean {
  * absolute, with no fragment and no credentials.
  */
 export function validRedirectUri(raw: string): boolean {
+  if (raw.length > MAX_REDIRECT_URI_LENGTH) return false
   let url: URL
   try {
     url = new URL(raw)
@@ -194,12 +203,16 @@ export class OAuthStore {
     await this.#update((s) => {
       s.clients.push(client)
       if (s.clients.length > MAX_CLIENTS) {
-        // Drop the clients nobody has connected with first, oldest first, then the oldest used.
-        const order = [...s.clients].sort(
-          (a, b) =>
-            Number(a.lastConnectedAt !== null) - Number(b.lastConnectedAt !== null) ||
-            (a.lastConnectedAt ?? a.createdAt).localeCompare(b.lastConnectedAt ?? b.createdAt),
-        )
+        // Never the client just registered. Clients with no live connection go first, then the
+        // one connected (or registered) longest ago.
+        const live = new Set(s.connections.map((c) => c.clientId))
+        const order = s.clients
+          .filter((c) => c.id !== client.id)
+          .sort(
+            (a, b) =>
+              Number(live.has(a.id)) - Number(live.has(b.id)) ||
+              (a.lastConnectedAt ?? a.createdAt).localeCompare(b.lastConnectedAt ?? b.createdAt),
+          )
         const drop = new Set(order.slice(0, s.clients.length - MAX_CLIENTS).map((c) => c.id))
         s.clients = s.clients.filter((c) => !drop.has(c.id))
       }
@@ -255,13 +268,17 @@ export class OAuthStore {
       if (pending.connectionId) await this.#remove(pending.connectionId)
       throw new OAuthError('invalid_grant', 'The code was already used')
     }
+    // A failed check uses the code up too (OAuth 2.1 §4.1.3): the client starts again.
     if (pending.clientId !== input.clientId) {
+      this.#codes.delete(key)
       throw new OAuthError('invalid_grant', 'The code was issued to another client')
     }
     if (input.redirectUri !== undefined && pending.redirectUri !== input.redirectUri) {
+      this.#codes.delete(key)
       throw new OAuthError('invalid_grant', 'redirect_uri does not match the authorization request')
     }
     if (!pkceMatches(input.verifier, pending.challenge)) {
+      this.#codes.delete(key)
       throw new OAuthError('invalid_grant', 'The PKCE code_verifier does not match')
     }
     pending.used = true
@@ -281,6 +298,7 @@ export class OAuthStore {
       accessExpiresAt: new Date(this.#now() + ACCESS_TTL_S * 1000).toISOString(),
       refreshHash: hashSecret(refresh),
       oldRefreshHashes: [],
+      rotatedAt: null,
     }
     pending.connectionId = connection.id
     await this.#update((s) => {
@@ -304,15 +322,22 @@ export class OAuthStore {
     const hash = hashSecret(input.refreshToken)
     const access = mint(ACCESS_PREFIX)
     const refresh = mint(REFRESH_PREFIX)
-    let outcome = 'unknown' as 'ok' | 'replay' | 'unknown' | 'client'
+    let outcome = 'unknown' as 'ok' | 'replay' | 'retry' | 'unknown' | 'client'
     await this.#update((s) => {
       const current = s.connections.find((c) => c.refreshHash === hash)
       if (!current) {
         const replayed = s.connections.find((c) => c.oldRefreshHashes.includes(hash))
-        if (replayed) {
-          s.connections = s.connections.filter((c) => c.id !== replayed.id)
-          outcome = 'replay'
+        if (!replayed) return
+        const justRotated =
+          replayed.oldRefreshHashes[0] === hash &&
+          replayed.rotatedAt !== null &&
+          this.#now() - Date.parse(replayed.rotatedAt) < REFRESH_GRACE_MS
+        if (justRotated) {
+          outcome = 'retry'
+          return
         }
+        s.connections = s.connections.filter((c) => c.id !== replayed.id)
+        outcome = 'replay'
         return
       }
       if (current.clientId !== input.clientId) {
@@ -327,11 +352,18 @@ export class OAuthStore {
       current.accessHash = hashSecret(access)
       current.accessExpiresAt = new Date(this.#now() + ACCESS_TTL_S * 1000).toISOString()
       current.lastUsedAt = new Date(this.#now()).toISOString()
+      current.rotatedAt = current.lastUsedAt
       outcome = 'ok'
     })
     if (outcome === 'ok') return pair(access, refresh)
     if (outcome === 'client') {
       throw new OAuthError('invalid_grant', 'The refresh token was issued to another client')
+    }
+    if (outcome === 'retry') {
+      throw new OAuthError(
+        'invalid_grant',
+        'That refresh token was just replaced by another request; use the newer tokens',
+      )
     }
     if (outcome === 'replay') {
       throw new OAuthError(

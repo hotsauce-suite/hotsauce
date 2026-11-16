@@ -3,6 +3,7 @@ export {
   mcpChallenge,
   type OAuthDeps,
   oauthApiRoutes,
+  oauthBodyLimit,
   oauthServerRoutes,
   oauthWellKnownRoutes,
   resourceMetadataUrl,

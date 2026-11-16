@@ -1,7 +1,9 @@
 import type { Context } from 'hono'
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import { createMiddleware } from 'hono/factory'
+import { clientIp } from '../api/booking.js'
 import type { AppEnv } from '../api/env.js'
 import { sessionOnly } from '../api/tokens.js'
 import type { Config } from '../config.js'
@@ -26,7 +28,21 @@ export function resourceOf(config: Pick<Config, 'PUBLIC_URL'>): string {
 }
 
 export function resourceMetadataUrl(config: Pick<Config, 'PUBLIC_URL'>): string {
-  return `${issuerOf(config)}/.well-known/oauth-protected-resource`
+  // RFC 9728 §3.1: the well-known path with the resource's own path (`/mcp`) after it.
+  return `${issuerOf(config)}/.well-known/oauth-protected-resource/mcp`
+}
+
+/** Registrations from one address per hour: enough for any real tool, not enough to flood. */
+export const REGISTRATIONS_PER_HOUR = 30
+const OAUTH_MAX_BODY = 16 * 1024
+
+/** Client metadata and token requests are small; nothing larger is read (§8.4). */
+export function oauthBodyLimit() {
+  return bodyLimit({
+    maxSize: OAUTH_MAX_BODY,
+    onError: (c) =>
+      c.json({ error: 'invalid_request', error_description: 'The request is too large' }, 413),
+  })
 }
 
 const anyOrigin = cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'], maxAge: 86400 })
@@ -69,9 +85,25 @@ export function oauthWellKnownRoutes(deps: OAuthDeps) {
 /** The parts a client talks to without a session: registration, tokens, revocation. */
 export function oauthServerRoutes(deps: OAuthDeps) {
   const { oauth } = deps
+  const registrations = new Map<string, number[]>()
+  const tooMany = (ip: string): boolean => {
+    const now = Date.now()
+    const recent = (registrations.get(ip) ?? []).filter((t) => now - t < 3_600_000)
+    if (registrations.size > 10_000) registrations.clear()
+    if (recent.length >= REGISTRATIONS_PER_HOUR) return true
+    registrations.set(ip, [...recent, now])
+    return false
+  }
   return new Hono<AppEnv>()
     .use('*', anyOrigin)
     .post('/register', async (c) => {
+      if (tooMany(clientIp((n) => c.req.header(n)) ?? 'unknown')) {
+        c.header('Retry-After', '3600')
+        return c.json(
+          { error: 'too_many_requests', error_description: 'Too many registrations; try later' },
+          429,
+        )
+      }
       const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
       if (!body || typeof body !== 'object') {
         return oauthError(c, new OAuthError('invalid_client_metadata', 'Send JSON client metadata'))
@@ -80,13 +112,8 @@ export function oauthServerRoutes(deps: OAuthDeps) {
       if (!Array.isArray(uris) || !uris.every((u) => typeof u === 'string')) {
         return oauthError(c, new OAuthError('invalid_redirect_uri', 'redirect_uris is required'))
       }
-      const method = body.token_endpoint_auth_method
-      if (method !== undefined && method !== 'none') {
-        return oauthError(
-          c,
-          new OAuthError('invalid_client_metadata', 'Only public clients (none) are supported'),
-        )
-      }
+      // A client asking for a client secret is registered as public anyway, and the answer says
+      // so (RFC 7591 §3.2.1 lets the server replace requested values).
       try {
         const client = await oauth.registerClient({ redirectUris: uris, name: body.client_name })
         c.header('Cache-Control', 'no-store')
@@ -133,6 +160,7 @@ export function oauthServerRoutes(deps: OAuthDeps) {
             }),
           )
         }
+        if (!p.grant_type) throw new OAuthError('invalid_request', 'grant_type is required')
         if (p.grant_type === 'refresh_token') {
           if (!p.refresh_token) throw new OAuthError('invalid_request', 'refresh_token is required')
           return c.json(await oauth.refresh({ refreshToken: p.refresh_token, clientId }))

@@ -48,6 +48,7 @@ import { mcpRoutes } from './mcp/index.js'
 import {
   mcpChallenge,
   oauthApiRoutes,
+  oauthBodyLimit,
   oauthServerRoutes,
   oauthWellKnownRoutes,
 } from './oauth/index.js'
@@ -108,7 +109,10 @@ export function createApp(deps: AppDeps) {
     .use('/mcp', limitBody())
     .route('/mcp', mcpRoutes(deps))
   // Signing an app in to /mcp (§8.4): discovery, client registration and the token endpoint.
-  app.route('/.well-known', oauthWellKnownRoutes(deps)).route('/oauth', oauthServerRoutes(deps))
+  app
+    .route('/.well-known', oauthWellKnownRoutes(deps))
+    .use('/oauth/*', oauthBodyLimit())
+    .route('/oauth', oauthServerRoutes(deps))
   // Unknown API paths get a JSON 404, never the web app's index.html.
   app.all('/api/*', () => {
     throw new HotsauceError('not_found', 'No such API route')
