@@ -24,21 +24,22 @@ function label({ state, isNew, lastCommittedAt, compact }: SaveStateProps, now: 
       return 'Conflict'
     case 'committed':
       if (isNew) return 'New doc'
-      if (compact || !lastCommittedAt) return 'Committed'
-      return `Committed · ${relativeTime(lastCommittedAt, now)}`
+      if (compact || !lastCommittedAt) return 'Saved'
+      return `Saved · ${relativeTime(lastCommittedAt, now)}`
   }
 }
 
 const titles = (): Record<SaveStateValue, string> => ({
-  dirty: `Unsaved edits. ${product()} commits them after a pause, when you leave, or on Save version.`,
-  saving: 'Committing to Git…',
-  saved: `Kept on this device; ${product()} will retry the commit.`,
+  dirty: `Unsaved edits. ${product()} saves them after a pause, when you leave, or on Save version.`,
+  saving: 'Saving your edits…',
+  saved: `Kept on this device; ${product()} will try saving again.`,
   offline: `You’re offline. This is kept on this device and sent when you’re back online.`,
-  committed: 'Everything here is committed to Git.',
+  committed: 'Everything here is saved, with its history kept.',
   conflict: 'Someone else changed the same lines. Resolve to save.',
 })
 
-/** The save chip: an ember that glows while edits are unsaved and settles once committed. */
+/** The save chip: an ember that glows while edits are unsaved and settles once saved. The state is still
+ * named `committed` in code and test ids; people read "Saved". */
 export function SaveState(props: SaveStateProps) {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {

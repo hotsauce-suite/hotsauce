@@ -16,7 +16,7 @@ describe('SaveState', () => {
 
     rerender(<SaveState {...base} state="committed" lastCommittedAt={Date.now() - 120_000} />)
     expect(chip).toHaveAttribute('data-state', 'committed')
-    expect(chip).toHaveTextContent('Committed · 2 min ago')
+    expect(chip).toHaveTextContent('Saved · 2 min ago')
 
     rerender(<SaveState {...base} state="saved" error="Could not reach the Hotsauce server" />)
     expect(chip).toHaveTextContent('Saved on this device')
