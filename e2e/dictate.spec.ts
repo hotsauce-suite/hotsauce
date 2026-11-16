@@ -113,9 +113,9 @@ test('the Mac app: Today links to its download in Settings', async ({ page }) =>
   // Settings points to the source instead of a download that isn't there.
   await page.goto('/dictate')
   await page.getByTestId('dictate-get-app-link').click()
-  await expect(page).toHaveURL(/\/settings#mac-app$/)
+  await expect(page).toHaveURL(/\/settings\/apps#mac-app$/)
   await expect(page.getByRole('heading', { name: 'Mac app' })).toBeInViewport()
-  // The Mac app's card is in Settings' one Install section, with the web app and the extension.
+  // The Mac app's card is on Settings' Apps page, with the web app and the extension.
   await expect(page.getByTestId('settings-install').getByTestId('mac-app')).toBeVisible()
   await expect(page.getByTestId('settings-install').getByTestId('settings-extension')).toBeVisible()
   await expect(page.getByTestId('mac-app-build-from-source')).toBeVisible()
@@ -131,11 +131,12 @@ test('the Mac app: with a build, Today offers it until closed', async ({ page })
   const card = page.getByTestId('today-mac-app')
   await expect(card).toBeVisible()
   await card.getByTestId('today-mac-app-link').click()
-  await expect(page).toHaveURL(/\/settings#mac-app$/)
+  await expect(page).toHaveURL(/\/settings\/apps#mac-app$/)
   await expect(page.getByTestId('mac-app-download')).toHaveAttribute(
     'href',
     '/downloads/Hotsauce.dmg',
   )
+  await expect(page.getByTestId('mac-app-install-steps')).toBeVisible()
   await expect(page.getByTestId('mac-app-install-steps')).toContainText('Open Anyway')
 
   await page.goto('/today')

@@ -15,13 +15,16 @@ describe('Hotsauce Dictate page', () => {
   it('connects this Mac and the word lists, and sends the download to Settings', async () => {
     renderApp('/dictate')
     expect(await screen.findByTestId('dictate-connect')).toHaveTextContent('Connect this Mac')
-    expect(screen.getByTestId('dictate-get-app-link')).toHaveAttribute('href', '/settings#mac-app')
+    expect(screen.getByTestId('dictate-get-app-link')).toHaveAttribute(
+      'href',
+      '/settings/apps#mac-app',
+    )
     // The download and the install steps live in Settings now.
     expect(screen.queryByTestId('mac-app-download')).toBeNull()
     expect(screen.queryByTestId('mac-app-install-steps')).toBeNull()
     expect(screen.getByRole('link', { name: 'Get the Mac app' })).toHaveAttribute(
       'href',
-      '/settings#mac-app',
+      '/settings/apps#mac-app',
     )
     expect(screen.getByText(/Double-tap/)).toBeInTheDocument()
     expect(await screen.findByTestId('dictate-no-devices')).toBeInTheDocument()

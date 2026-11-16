@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { OrgWeatherSection, WeatherSettingsSection } from './WeatherSettings'
 import { WEATHER_PLACE_KEY } from './weatherPlace'
 
-// W4, W6: Settings → Weather (this device) and Settings → Organization → Weather (the team).
+// W4, W6: Settings → General → Weather (this device) and Settings → Workspace (the team).
 
 afterEach(() => localStorage.removeItem(WEATHER_PLACE_KEY))
 
@@ -14,7 +14,7 @@ async function pickCity(testId: string, typed: string) {
   await userEvent.click(first as HTMLElement)
 }
 
-describe('Settings → Weather', () => {
+describe('Settings → General → Weather', () => {
   it('picks a city for this device and can hide the weather', async () => {
     render(<WeatherSettingsSection />)
     expect(await screen.findByTestId('settings-weather-now')).toHaveTextContent('Off.')
@@ -39,7 +39,7 @@ describe('Settings → Weather', () => {
   })
 })
 
-describe('Settings → Organization → Weather', () => {
+describe('Settings → Workspace → Default weather city', () => {
   it('sets the team city, which a device without its own place then uses', async () => {
     render(<OrgWeatherSection />)
     expect(await screen.findByText(/No team city\./)).toBeInTheDocument()

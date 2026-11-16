@@ -6,6 +6,7 @@ Thanks for helping. A few things keep the project easy to work on.
 
 - For anything bigger than a small fix, open an issue first so we can agree on the shape.
 - Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the area you're changing.
+- [docs/STATUS.md](docs/STATUS.md) says what each app does and needs today. Adding or changing an app means updating its entry there; a test fails when an app has none.
 
 ## Rules the code follows
 
