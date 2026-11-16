@@ -1,8 +1,10 @@
+import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
 import { runGit } from '../../src/git/index.js'
+import { indexPath } from '../../src/index/index.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
@@ -20,11 +22,12 @@ let root: string
 let services: Services
 let app: ReturnType<typeof createApp>
 let shift = 0
+let config: ReturnType<typeof loadConfig>
 
 beforeEach(async () => {
   shift = 0
   root = await makeTempDir('hotsauce-for-you-')
-  const config = loadConfig({
+  config = loadConfig({
     NODE_ENV: 'test',
     AUTH_MODE: 'dev',
     HOST_KIND: 'local',
@@ -33,23 +36,31 @@ beforeEach(async () => {
     ALLOWED_EMAIL_DOMAINS: 'example.test',
     PUBLIC_URL: 'https://hotsauce.example.test',
   })
-  services = createServices(config, { forYouNow: () => new Date(Date.now() + shift) })
-  await services.spaces.ensureTeamSpace()
-  app = createApp(services)
+  await start()
   for (const who of [ALICE, BOB, CAROL]) await api('GET', '/api/me', { as: who })
   await write('team', DOC, '# Pilot plan\n\nThe budget is in section two.\n')
   await write('team', OTHER, '# Budget\n')
 })
 
 afterEach(async () => {
+  await stop()
+  await removeDir(root)
+})
+
+async function start(): Promise<void> {
+  services = createServices(config, { forYouNow: () => new Date(Date.now() + shift) })
+  await services.spaces.ensureTeamSpace()
+  app = createApp(services)
+}
+
+async function stop(): Promise<void> {
   await services.comments.idle()
   await services.checkinScheduler.close()
   await services.meetings.sessions.close()
   services.meetings.calendarSync?.cache.close()
   services.index.close()
   services.dictation.store.close()
-  await removeDir(root)
-})
+}
 
 // biome-ignore lint/suspicious/noExplicitAny: response shapes are checked by the assertions
 async function api<T = any>(
@@ -175,6 +186,25 @@ describe('seen, Done and Later (R14, R15, R16)', () => {
     expect(back.unseen).toBe(2)
   })
 
+  it('an edit that names me counts from the edit, and brings a Done item back', async () => {
+    const a = await comment(DOC, 'Who can check the numbers?')
+    const b = await comment(OTHER, '@Bob second')
+    expect((await forYou()).items.map((i: { item: string }) => i.item)).toEqual([b.item])
+    await new Promise((r) => setTimeout(r, 5))
+    await api('PATCH', `/api/comments/${a.item}/${a.id}`, {
+      json: { text: '@Bob can you check the numbers?' },
+    })
+    const view = await forYou()
+    expect(view.items.map((i: { item: string }) => i.item)).toEqual([a.item, b.item])
+    expect(view.items[0].at > b.created).toBe(true)
+    // Done, then an edit that keeps naming me doesn't bring it back.
+    await mark(a.item, { action: 'done' })
+    await api('PATCH', `/api/comments/${a.item}/${a.id}`, {
+      json: { text: '@Bob can you check the numbers today?' },
+    })
+    expect((await forYou()).items.map((i: { item: string }) => i.item)).toEqual([b.item])
+  })
+
   it('refuses a zone it does not know, and an id that cannot be an item', async () => {
     const a = await comment(DOC, '@Bob first')
     await api('POST', `/api/for-you/${a.item}`, {
@@ -195,8 +225,12 @@ describe('my marks are mine, kept in Git (R17, R18)', () => {
     expect(await runGit(join(root, 'data', 'repos', 'team'), ['ls-files'])).not.toContain('for-you')
     expect((await bobLog())[0]).toBe('Bob <bob@example.test>|for you: done "Pilot plan"')
 
-    services.index.reindexSpace('team', [])
-    services.index.reindexSpace('bob', [])
+    // A restart with the index deleted: the marks come back from Git.
+    await stop()
+    for (const end of ['', '-wal', '-shm']) {
+      await rm(indexPath(join(root, 'data')) + end, { force: true })
+    }
+    await start()
     await services.indexer.full('team')
     await services.indexer.full('bob')
     expect((await forYou()).items).toEqual([])

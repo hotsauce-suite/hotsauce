@@ -1,5 +1,10 @@
 import { join } from 'node:path'
-import { defaultTodayLayout, offerGettingStarted, TODAY_LAYOUT_PATH } from '@hotsauce/format'
+import {
+  defaultTodayLayout,
+  offerForYou,
+  offerGettingStarted,
+  TODAY_LAYOUT_PATH,
+} from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { loadConfig } from '../../src/config.js'
@@ -69,7 +74,10 @@ const mine = {
 describe('Today layout', () => {
   it('is the default until saved, then the saved one, per member', async () => {
     const before = await (await call('GET', '/api/today/layout')).json()
-    expect(before).toEqual({ layout: offerGettingStarted(defaultTodayLayout()), saved: false })
+    expect(before).toEqual({
+      layout: offerGettingStarted(offerForYou(defaultTodayLayout())),
+      saved: false,
+    })
 
     const put = await call('PUT', '/api/today/layout', ALICE, { layout: mine })
     expect(put.status).toBe(200)
@@ -136,13 +144,18 @@ describe('Today layout', () => {
     })
     const got = await (await call('GET', '/api/today/layout', BOB)).json()
     expect(got.saved).toBe(true)
-    expect(got.layout.columns[0].map((t: { kind: string }) => t.kind)).toEqual(['start', 'tasks'])
+    expect(got.layout.columns[0].map((t: { kind: string }) => t.kind)).toEqual([
+      'start',
+      'for-you',
+      'tasks',
+    ])
   })
 
   it('is not offered to a member with nowhere to save it', async () => {
     vi.spyOn(services.spaces, 'visibleSpaces').mockResolvedValue([])
     const got = await (await call('GET', '/api/today/layout')).json()
-    expect(got).toEqual({ layout: defaultTodayLayout(), saved: false })
+    // Getting started is not; For you still is, since it needs nothing saved.
+    expect(got).toEqual({ layout: offerForYou(defaultTodayLayout()), saved: false })
   })
 
   it('refuses something that is not a layout', async () => {

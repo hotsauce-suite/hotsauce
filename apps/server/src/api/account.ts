@@ -81,13 +81,7 @@ export function accountRoutes(deps: AppDeps) {
     )
     .put('/pins', valid('json', Pins), (c) => {
       const { pins } = c.req.valid('json')
-      const email = c.get('principal').email
-      // They arranged the rail with these on offer: never add them again.
-      account.markOffered(
-        email,
-        PIN_OFFERS.map((o) => o.app),
-      )
-      account.setPins(email, pins)
+      account.setPins(c.get('principal').email, pins)
       return c.json({ pins })
     })
 }

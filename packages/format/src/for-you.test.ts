@@ -104,6 +104,15 @@ describe('what shows and what counts (R14, R15, R16)', () => {
       shown: true,
       unseen: true,
     })
+    // Once they open it, the Later is over: it doesn't come round again at 9 AM.
+    const opened = markForYou(state, ITEM, { action: 'seen' }, t('2026-11-16T16:00:00Z')).items[
+      ITEM
+    ]
+    expect(forYouStanding(opened, '2026-11-16T15:00:00Z', t('2026-11-17T14:30:00Z'))).toEqual({
+      shown: true,
+      at: '2026-11-16T15:00:00.000Z',
+      unseen: false,
+    })
   })
 
   it('Done after Later drops the Later', () => {

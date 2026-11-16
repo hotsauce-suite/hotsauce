@@ -149,11 +149,11 @@ export function forYouStanding(
   const act = t(activity)
   if (act <= t(mark?.done)) return { shown: false }
   let at = act
-  if (mark?.later) {
+  // A mention after Later was chosen ends the Later: it doesn't come round again at 9 AM.
+  if (mark?.later && act <= t(mark.laterAt)) {
     const until = t(mark.later)
-    const newSince = act > t(mark.laterAt)
-    if (until > now.getTime() && !newSince) return { shown: false }
-    if (until <= now.getTime() && until > at) at = until
+    if (until > now.getTime()) return { shown: false }
+    if (until > at) at = until
   }
   return { shown: true, at: new Date(at).toISOString(), unseen: at > t(mark?.seen) }
 }

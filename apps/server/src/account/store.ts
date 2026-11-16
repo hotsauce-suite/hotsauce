@@ -196,11 +196,6 @@ export class AccountStore {
       })
       .immediate()
   }
-
-  /** Records `apps` as offered to `user`: they arranged their rail with these on offer. */
-  markOffered(user: string, apps: readonly string[]): void {
-    for (const app of apps) this.#q.addOffer.run(user, app)
-  }
 }
 
 function prepare(db: Database.Database) {

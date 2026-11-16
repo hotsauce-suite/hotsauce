@@ -13,8 +13,9 @@ by the owner on 2026-11-15. This file is where that map ends: the spec the build
   meeting notes and tasks"); how it works is ARCHITECTURE §27. Requirement 10 is half done on
   purpose: with no connection the box says so and keeps the draft; sending it on reconnect waits on
   offline mode (#102). What the build changed from the design below is under "Design, as built".
-- Slice 2 (requirements 12 to 18): building, claimed by the draft PR "For you: one list of every
-  mention" (2026-11-16). Choices it made are under "Design, as built (slice 2)".
+- Slice 2 (requirements 12 to 18): built in #134 ("For you: one list of every mention",
+  2026-11-16), ships in the release after it merges; how it works is ARCHITECTURE §27.5. Choices it
+  made are under "Design, as built (slice 2)". The Mac app's Go menu entry ships with its next build.
 - Slice 3: not started.
 - Slice 4: not started.
 - Slice 5: not started.

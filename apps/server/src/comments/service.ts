@@ -226,10 +226,19 @@ export class Comments {
       if (!sameMember(prior.fm.author, principal.email)) {
         throw new HotsauceError('forbidden', 'Only its author can edit a comment')
       }
+      const edited = this.#iso()
+      const mentions = mentionedEmails(text, members)
+      const was = new Set(prior.fm.mentions.map((m) => m.toLowerCase()))
+      const named: Record<string, string> = {}
+      for (const [email, at] of Object.entries(prior.fm.named ?? {})) {
+        if (mentions.includes(email)) named[email] = at
+      }
+      for (const email of mentions) if (!was.has(email) && !named[email]) named[email] = edited
       const fm = CommentFrontmatter.parse({
         ...prior.fm,
-        edited: this.#iso(),
-        mentions: mentionedEmails(text, members),
+        edited,
+        mentions,
+        named: Object.keys(named).length > 0 ? named : undefined,
       })
       const result = await this.#commit({
         changes: [{ path: prior.path, content: commentFile(fm, text) }],

@@ -26,13 +26,16 @@ test('a mention lands in For you, opening it clears the count, Done takes it off
   await expect(entries.nth(1)).toHaveAttribute('data-testid', 'app-switch-for-you')
   const entry = rail.getByTestId('app-switch-for-you')
   await expect(entry.getByTestId('rail-count')).toHaveCount(0)
-  const mateName = (await (await theirs.request.get('/api/me')).json()) as {
-    principal: { name: string }
-  }
+  const res = await theirs.request.get('/api/me', { headers: { 'x-hearth-dev-user': mate } })
+  const me = (await res.json()) as { principal: { name: string; handle: string } }
 
-  // I mention them under the doc.
+  // I mention them under the doc, picking them from the list.
   await page.goto(docUrl(user.team, file))
-  await page.getByTestId('comment-input').fill(`@${mateName.principal.name} can you own this? ${id}`)
+  const box = page.getByTestId('comment-input')
+  await box.click()
+  await box.pressSequentially(`@${me.principal.handle}`)
+  await page.getByTestId('mention-option').filter({ hasText: me.principal.name }).click()
+  await box.pressSequentially(`can you own this? ${id}`)
   await page.getByTestId('comment-send').click()
   await expect(page.getByTestId('comment').filter({ hasText: id })).toBeVisible()
 

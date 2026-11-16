@@ -138,7 +138,9 @@ describe('For you joins every rail once (comments plan R13)', () => {
     expect(await call('GET', '/api/pins')).toEqual({ pins: ['docs', 'today', 'tasks'] })
   })
 
-  it('a member who arranges the rail after this release is never offered it again', async () => {
+  it('a member who saw the defaults and then arranged the rail is not offered it again', async () => {
+    // The app reads the pins first, so the offer is made while they are still on the defaults.
+    expect(await call('GET', '/api/pins')).toEqual({ pins: null })
     await call('PUT', '/api/pins', { pins: ['docs'] })
     expect(await call('GET', '/api/pins')).toEqual({ pins: ['docs'] })
   })

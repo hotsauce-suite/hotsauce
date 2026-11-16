@@ -197,7 +197,7 @@ export function commentHandlers(deps: CommentHandlerDeps): AnyHandler[] {
         unseen: standing.unseen,
       })
     }
-    out.sort((a, b) => b.at.localeCompare(a.at))
+    out.sort((a, b) => b.at.localeCompare(a.at) || b.item.localeCompare(a.item))
     return { items: out, unseen: out.filter((i) => i.unseen).length, canMark: true }
   }
 

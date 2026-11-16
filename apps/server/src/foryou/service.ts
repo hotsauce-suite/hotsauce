@@ -81,14 +81,20 @@ export class ForYou {
     const state = space ? await this.#state(space) : { schema: 1 as const, items: {} }
     const names = await this.#d.names()
     const now = this.#now()
-    const byItem = new Map<string, Array<{ fm: CommentFrontmatter; body: string }>>()
+    const me = principal.email.toLowerCase()
+    const byItem = new Map<string, Array<{ fm: CommentFrontmatter; body: string; when: string }>>()
     for (const row of this.#d.index.commentsMentioning(TEAM_SPACE, principal.email)) {
       const fm = CommentFrontmatter.safeParse(row.frontmatter ?? {})
       if (!fm.success) continue
       // Naming yourself isn't asking for your own attention.
       if (fm.data.author.toLowerCase() === principal.email.toLowerCase()) continue
       const list = byItem.get(fm.data.item) ?? []
-      list.push({ fm: fm.data, body: row.body.trim() })
+      // An edit that named them later counts from the edit, as its push did.
+      list.push({
+        fm: fm.data,
+        body: row.body.trim(),
+        when: fm.data.named?.[me] ?? fm.data.created,
+      })
       byItem.set(fm.data.item, list)
     }
     const items: ForYouItem[] = []
@@ -96,9 +102,9 @@ export class ForYou {
       const row = this.#item(itemId)
       if (!row) continue
       const latest = comments.reduce((a, b) =>
-        b.fm.created > a.fm.created || (b.fm.created === a.fm.created && b.fm.id > a.fm.id) ? b : a,
+        b.when > a.when || (b.when === a.when && b.fm.id > a.fm.id) ? b : a,
       )
-      const standing = forYouStanding(state.items[itemId], latest.fm.created, now)
+      const standing = forYouStanding(state.items[itemId], latest.when, now)
       if (!standing.shown) continue
       items.push({
         item: itemId,
@@ -155,20 +161,22 @@ export class ForYou {
       const before = parseForYouState(file?.content ?? '')
       const content = serializeForYouState(markForYou(before, itemId, act, now))
       if (content === file?.content) break
+      let oid: string | null = null
       try {
-        await this.#d.git.commit(space, {
+        const result = await this.#d.git.commit(space, {
           changes: [{ path: FOR_YOU_STATE_PATH, content }],
           author: { name: principal.name, email: principal.email },
           message: formatCommitMessage({ app: 'for you', verb: verbOf(req), title }),
           unchanged: { path: FOR_YOU_STATE_PATH, blobOid: file?.blobOid ?? null },
         })
+        oid = result.status === 'committed' ? result.oid : null
       } catch (err) {
         if (err instanceof HotsauceError && err.code === 'conflict' && attempt < WRITE_ATTEMPTS)
           continue
         throw err
       }
       await this.#d.syncer.afterHeadChanged(space)
-      this.#remember(space, parseForYouState(content))
+      this.#remember(space, oid, parseForYouState(content))
       break
     }
     return this.list(principal)
@@ -200,9 +208,11 @@ export class ForYou {
     return state
   }
 
-  #remember(space: string, state: ForYouState): void {
+  /** Keeps what this commit wrote, but only when the index is at that commit; else reads again. */
+  #remember(space: string, oid: string | null, state: ForYouState): void {
     const head = this.#d.index.getSyncState(space)?.headOid
-    if (head) this.#cache.set(space, { head, state })
+    if (oid && head === oid) this.#cache.set(space, { head, state })
+    else this.#cache.delete(space)
   }
 
   async #personalSpace(principal: Principal): Promise<string | null> {
