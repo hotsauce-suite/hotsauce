@@ -1,8 +1,9 @@
 # Plan: releases number themselves
 
-Status (2026-11-16): built in one slice (`scripts/next-release.mjs`, `.github/workflows/release.yml`,
-the lint guard in `ci.yml`). Proof run: the first two app changes merged back to back after it
-lands must come out as two releases with consecutive numbers.
+Status (2026-11-16): shipped (PR #112). Proven live: #112 merged and came out as 0.17.1
+(patch, carrying #115) with no number picked by anyone; the robot's own version commit released
+nothing; #117 (labelled feature) merged next and came out as 0.18.0. The install test ran for the
+release and skipped the robot's commit.
 
 Why: every pull request raised `HOTSAUCE_VERSION`, so parallel work kept claiming the same next
 number and someone had to hand numbers out. Now nobody picks a number.
