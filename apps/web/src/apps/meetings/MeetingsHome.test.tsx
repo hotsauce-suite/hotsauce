@@ -53,6 +53,35 @@ describe('Meetings home', () => {
     await waitFor(() => expect(within(list).getAllByTestId('meeting-item')).toHaveLength(1))
     expect(within(list).getByText('Acme kickoff')).toBeInTheDocument()
   })
+
+  it('a search looks past the filters, and the filter is back when the search is cleared', {
+    timeout: 15_000,
+  }, async () => {
+    renderApp('/meetings')
+    const list = await screen.findByTestId('meeting-list')
+    await waitFor(() => expect(within(list).getAllByTestId('meeting-item')).toHaveLength(3))
+    await userEvent.selectOptions(screen.getByLabelText('Company'), 'acme.com')
+    await waitFor(() => expect(within(list).getAllByTestId('meeting-item')).toHaveLength(1))
+
+    // Priya 1:1 is outside the Company filter; the filters are out of sight while searching.
+    await userEvent.type(screen.getByTestId('meetings-search'), 'priya')
+    await waitFor(() => {
+      const found = within(screen.getByTestId('meeting-list')).getAllByTestId('meeting-item')
+      // By name and by who was there, so more than one; the one the filter hid is among them.
+      expect(found.map((el) => el.querySelector('.font-medium')?.textContent)).toContain(
+        'Priya 1:1',
+      )
+    })
+    expect(screen.queryByLabelText('Company')).toBeNull()
+
+    await userEvent.clear(screen.getByTestId('meetings-search'))
+    expect(await screen.findByLabelText('Company')).toHaveValue('acme.com')
+    await waitFor(() => {
+      const kept = within(screen.getByTestId('meeting-list')).getAllByTestId('meeting-item')
+      expect(kept).toHaveLength(1)
+      expect(kept[0]).toHaveTextContent('Acme kickoff')
+    })
+  })
 })
 
 describe('unsaved meetings on Home', () => {

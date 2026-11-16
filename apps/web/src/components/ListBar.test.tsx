@@ -2,7 +2,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
-import { inScope, ListBar, matchesName, scopeTabs, useScope } from './ListBar'
+import {
+  inScope,
+  ListBar,
+  ListColumn,
+  ListPanel,
+  matchesName,
+  scopeTabs,
+  useScope,
+} from './ListBar'
 
 describe('matchesName', () => {
   it('wants every word typed, in any order and any case', () => {
@@ -109,5 +117,52 @@ describe('ListBar', () => {
       </MemoryRouter>,
     )
     expect(screen.getByRole('tab', { name: 'Today' })).toHaveAttribute('href', '/tasks/today')
+  })
+})
+
+describe('ListPanel', () => {
+  it('ties every tab to the list under it, and names the list by the chosen tab', () => {
+    render(
+      <MemoryRouter>
+        <ListColumn width="reading">
+          <ListBar tabs={scopeTabs(['all', 'mine', 'team'], 'things')} tab="team" />
+          <ListPanel tab="team">The team's things</ListPanel>
+        </ListColumn>
+      </MemoryRouter>,
+    )
+    const panel = screen.getByRole('tabpanel', { name: 'Team' })
+    expect(panel).toHaveTextContent("The team's things")
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toHaveAttribute('aria-controls', panel.id)
+    }
+  })
+
+  it('has no name when the list on screen belongs to no tab', () => {
+    render(
+      <MemoryRouter>
+        <ListColumn width="reading">
+          <ListBar tabs={scopeTabs(['all', 'mine'], 'things')} tab={null} />
+          <ListPanel tab={null}>A project</ListPanel>
+        </ListColumn>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('tabpanel')).not.toHaveAttribute('aria-labelledby')
+  })
+
+  it('two lists on one page keep their own ids', () => {
+    render(
+      <MemoryRouter>
+        <ListColumn width="reading">
+          <ListBar tabs={scopeTabs(['all'], 'a')} tab="all" />
+          <ListPanel tab="all">One</ListPanel>
+        </ListColumn>
+        <ListColumn width="reading">
+          <ListBar tabs={scopeTabs(['all'], 'b')} tab="all" />
+          <ListPanel tab="all">Two</ListPanel>
+        </ListColumn>
+      </MemoryRouter>,
+    )
+    const [one, two] = screen.getAllByRole('tabpanel')
+    expect(one?.id).not.toBe(two?.id)
   })
 })

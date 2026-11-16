@@ -5,7 +5,7 @@ import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
-import { ListBar, ListColumn, scopeTabs, useScope } from '../../components/ListBar'
+import { ListBar, ListColumn, ListPanel, scopeTabs, useScope } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { useShortcut } from '../../keyboard/shortcuts'
@@ -94,76 +94,77 @@ export default function BoardsPage() {
             }}
             className=""
           />
+          <ListPanel tab={scope}>
+            {newBoard.error ? (
+              <p role="alert" className="mt-6 text-sm text-ember">
+                {newBoard.error}
+              </p>
+            ) : null}
+            {failed ? (
+              <LoadError things="boards" onRetry={() => setTick((n) => n + 1)} className="mt-6" />
+            ) : null}
 
-          {newBoard.error ? (
-            <p role="alert" className="mt-6 text-sm text-ember">
-              {newBoard.error}
-            </p>
-          ) : null}
-          {failed ? (
-            <LoadError things="boards" onRetry={() => setTick((n) => n + 1)} className="mt-6" />
-          ) : null}
+            {!failed && shown?.length === 0 ? (
+              <EmptyState
+                icon="board"
+                className="mt-4"
+                title={
+                  query.trim()
+                    ? 'No boards match that'
+                    : scope === 'team'
+                      ? 'No team boards yet'
+                      : 'No boards yet'
+                }
+                action={
+                  query.trim() ? null : (
+                    <button
+                      type="button"
+                      className={primaryButton}
+                      disabled={newBoard.busy}
+                      onClick={() => void newBoard.create(scope === 'team')}
+                    >
+                      <Icon name="plus" />
+                      New board
+                    </button>
+                  )
+                }
+              >
+                {query.trim()
+                  ? 'Search looks at board titles and the words written on them.'
+                  : 'Sketch a flow, map an idea or draw a diagram. Boards save themselves as you draw.'}
+              </EmptyState>
+            ) : null}
 
-          {!failed && shown?.length === 0 ? (
-            <EmptyState
-              icon="board"
-              className="mt-4"
-              title={
-                query.trim()
-                  ? 'No boards match that'
-                  : scope === 'team'
-                    ? 'No team boards yet'
-                    : 'No boards yet'
-              }
-              action={
-                query.trim() ? null : (
-                  <button
-                    type="button"
-                    className={primaryButton}
-                    disabled={newBoard.busy}
-                    onClick={() => void newBoard.create(scope === 'team')}
-                  >
-                    <Icon name="plus" />
-                    New board
-                  </button>
-                )
-              }
-            >
-              {query.trim()
-                ? 'Search looks at board titles and the words written on them.'
-                : 'Sketch a flow, map an idea or draw a diagram. Boards save themselves as you draw.'}
-            </EmptyState>
-          ) : null}
-
-          {shown && shown.length > 0 ? (
-            <ul className="boards-grid mt-6">
-              {shown.map((b) => (
-                <li key={`${b.space}/${b.id}`}>
-                  <Link
-                    to={boardUrl(b.space, b.path)}
-                    className="board-card group"
-                    data-testid="board-card"
-                  >
-                    <div className="board-card__art" aria-hidden="true">
-                      <Icon name="board" className="size-8" />
-                    </div>
-                    <div className="min-w-0 px-0.5">
-                      <p
-                        className="truncate font-medium text-ink group-hover:text-ember"
-                        data-testid="board-card-title"
-                      >
-                        {b.title || 'Untitled board'}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-ink-faint">
-                        {b.space === 'team' ? 'Team · ' : ''}
-                        {formatWhen(b.updated)}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+            {shown && shown.length > 0 ? (
+              <ul className="boards-grid mt-6">
+                {shown.map((b) => (
+                  <li key={`${b.space}/${b.id}`}>
+                    <Link
+                      to={boardUrl(b.space, b.path)}
+                      className="board-card group"
+                      data-testid="board-card"
+                    >
+                      <div className="board-card__art" aria-hidden="true">
+                        <Icon name="board" className="size-8" />
+                      </div>
+                      <div className="min-w-0 px-0.5">
+                        <p
+                          className="truncate font-medium text-ink group-hover:text-ember"
+                          data-testid="board-card-title"
+                        >
+                          {b.title || 'Untitled board'}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-ink-faint">
+                          {b.space === 'team' ? 'Team · ' : ''}
+                          {formatWhen(b.updated)}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </ListPanel>
         </ListColumn>
       </div>
     </>

@@ -14,7 +14,7 @@ import {
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
-import { ListBar, ListColumn } from '../../components/ListBar'
+import { ListBar, ListColumn, ListPanel } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton, PageHeader } from '../../components/PageHeader'
 import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
@@ -227,92 +227,94 @@ export default function LinksPage() {
             }}
             className="mb-4"
           />
-          <form onSubmit={save} className="mb-4 flex gap-2">
-            <input
-              data-testid="links-paste"
-              className={inputClass}
-              type="url"
-              inputMode="url"
-              placeholder="Paste a link to save"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              aria-label="Link to save"
-            />
-            <button type="submit" className={secondaryButton} disabled={saving || !url.trim()}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button"
-              data-testid="links-add-pdf"
-              className={`${secondaryButton} shrink-0 whitespace-nowrap`}
-              disabled={adding > 0}
-              onClick={() => pdfInput.current?.click()}
-              title="Add a PDF from your computer (or drop it on this page)"
-            >
-              <Icon name="upload" />
-              <span className="hidden sm:inline">{adding > 0 ? 'Adding…' : 'Add a PDF'}</span>
-              <span className="sr-only sm:hidden">Add a PDF</span>
-            </button>
-            <input
-              ref={pdfInput}
-              type="file"
-              accept="application/pdf,.pdf"
-              multiple
-              hidden
-              data-testid="links-pdf-input"
-              onChange={(e) => {
-                const files = e.target.files ? [...e.target.files] : []
-                e.target.value = ''
-                void addPdfs(files)
-              }}
-            />
-          </form>
-          {saveError ? (
-            <p role="alert" className="mb-2 text-sm text-ember-strong">
-              {saveError}
-            </p>
-          ) : null}
+          <ListPanel tab={view}>
+            <form onSubmit={save} className="mb-4 flex gap-2">
+              <input
+                data-testid="links-paste"
+                className={inputClass}
+                type="url"
+                inputMode="url"
+                placeholder="Paste a link to save"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                aria-label="Link to save"
+              />
+              <button type="submit" className={secondaryButton} disabled={saving || !url.trim()}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                data-testid="links-add-pdf"
+                className={`${secondaryButton} shrink-0 whitespace-nowrap`}
+                disabled={adding > 0}
+                onClick={() => pdfInput.current?.click()}
+                title="Add a PDF from your computer (or drop it on this page)"
+              >
+                <Icon name="upload" />
+                <span className="hidden sm:inline">{adding > 0 ? 'Adding…' : 'Add a PDF'}</span>
+                <span className="sr-only sm:hidden">Add a PDF</span>
+              </button>
+              <input
+                ref={pdfInput}
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                hidden
+                data-testid="links-pdf-input"
+                onChange={(e) => {
+                  const files = e.target.files ? [...e.target.files] : []
+                  e.target.value = ''
+                  void addPdfs(files)
+                }}
+              />
+            </form>
+            {saveError ? (
+              <p role="alert" className="mb-2 text-sm text-ember-strong">
+                {saveError}
+              </p>
+            ) : null}
 
-          {tags.length > 0 && view !== 'highlights' ? (
-            <fieldset className="mb-4 flex flex-wrap gap-1.5">
-              <legend className="sr-only">Tags</legend>
-              {tags.map((t) => (
-                <button
-                  key={t.name}
-                  type="button"
-                  data-testid="links-tag"
-                  aria-pressed={tag === t.name}
-                  onClick={() => set('tag', tag === t.name ? '' : t.name)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs ${tag === t.name ? 'border-ember bg-ember/10 text-ink' : 'border-ash-strong text-ink-soft hover:text-ink'}`}
-                >
-                  {t.name} <span className="text-ink-faint">{t.count}</span>
-                </button>
-              ))}
-            </fieldset>
-          ) : null}
+            {tags.length > 0 && view !== 'highlights' ? (
+              <fieldset className="mb-4 flex flex-wrap gap-1.5">
+                <legend className="sr-only">Tags</legend>
+                {tags.map((t) => (
+                  <button
+                    key={t.name}
+                    type="button"
+                    data-testid="links-tag"
+                    aria-pressed={tag === t.name}
+                    onClick={() => set('tag', tag === t.name ? '' : t.name)}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs ${tag === t.name ? 'border-ember bg-ember/10 text-ink' : 'border-ash-strong text-ink-soft hover:text-ink'}`}
+                  >
+                    {t.name} <span className="text-ink-faint">{t.count}</span>
+                  </button>
+                ))}
+              </fieldset>
+            ) : null}
 
-          {failed ? <LoadError things="links" onRetry={load} className="mb-4" /> : null}
-          {view === 'highlights' ? (
-            <HighlightList marks={marks} failed={failed} filtered={!!params.get('q')} />
-          ) : links === null ? (
-            failed ? null : (
-              <p className="text-sm text-ink-soft">Loading…</p>
-            )
-          ) : links.length === 0 && failed ? null : links.length === 0 ? (
-            <EmptyList view={view} filtered={!!tag || !!params.get('q')} />
-          ) : (
-            <ul className="divide-y divide-ash/70" data-testid="links-list">
-              {links.map((l) => (
-                <LinkRow
-                  key={`${l.space}/${l.id}`}
-                  link={l}
-                  onDone={() => toggleDone(l)}
-                  onRetry={() => retry(l)}
-                  onTag={(t) => set('tag', t)}
-                />
-              ))}
-            </ul>
-          )}
+            {failed ? <LoadError things="links" onRetry={load} className="mb-4" /> : null}
+            {view === 'highlights' ? (
+              <HighlightList marks={marks} failed={failed} filtered={!!params.get('q')} />
+            ) : links === null ? (
+              failed ? null : (
+                <p className="text-sm text-ink-soft">Loading…</p>
+              )
+            ) : links.length === 0 && failed ? null : links.length === 0 ? (
+              <EmptyList view={view} filtered={!!tag || !!params.get('q')} />
+            ) : (
+              <ul className="divide-y divide-ash/70" data-testid="links-list">
+                {links.map((l) => (
+                  <LinkRow
+                    key={`${l.space}/${l.id}`}
+                    link={l}
+                    onDone={() => toggleDone(l)}
+                    onRetry={() => retry(l)}
+                    onTag={(t) => set('tag', t)}
+                  />
+                ))}
+              </ul>
+            )}
+          </ListPanel>
         </ListColumn>
       </div>
     </>

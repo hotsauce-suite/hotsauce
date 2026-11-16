@@ -12,6 +12,7 @@ import {
   inScope,
   ListBar,
   ListColumn,
+  ListPanel,
   listHeading,
   scopeTabs,
   useScope,
@@ -305,73 +306,77 @@ export default function NotesPage() {
             tabsLabel="Whose notes"
             search={{ value: q, onChange: setQ, label: 'Search notes', testId: 'notes-search' }}
           />
-          {/* The top bar already says "Notes"; only another view (a label, Archive, Trash) is named. */}
-          {title !== 'Notes' ? (
-            <div className="mb-4 flex items-baseline gap-3 px-1">
-              <h2 data-testid="notes-title" className={`min-w-0 truncate ${listHeading}`}>
-                {title}
-              </h2>
-              {listView === 'trash' && notes && notes.length > 0 ? (
-                <span className="text-sm text-ink-faint">Notes here are deleted after 30 days</span>
-              ) : null}
-            </div>
-          ) : null}
+          <ListPanel tab={scope}>
+            {/* The top bar already says "Notes"; only another view (a label, Archive, Trash) is named. */}
+            {title !== 'Notes' ? (
+              <div className="mb-4 flex items-baseline gap-3 px-1">
+                <h2 data-testid="notes-title" className={`min-w-0 truncate ${listHeading}`}>
+                  {title}
+                </h2>
+                {listView === 'trash' && notes && notes.length > 0 ? (
+                  <span className="text-sm text-ink-faint">
+                    Notes here are deleted after 30 days
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
 
-          {listView === 'board' && !q ? (
-            <div className="mb-7">
-              <Composer
-                open={composerOpen}
-                onOpenChange={setComposerOpen}
-                defaultLabels={label ? [label] : []}
-                labelSuggestions={labelNames}
-                onCreate={(n) => void create(n)}
-              />
-            </div>
-          ) : null}
+            {listView === 'board' && !q ? (
+              <div className="mb-7">
+                <Composer
+                  open={composerOpen}
+                  onOpenChange={setComposerOpen}
+                  defaultLabels={label ? [label] : []}
+                  labelSuggestions={labelNames}
+                  onCreate={(n) => void create(n)}
+                />
+              </div>
+            ) : null}
 
-          {list.error && list.notes?.length === 0 ? (
-            <LoadError things="notes" onRetry={list.reload} />
-          ) : notes === null ? (
-            <div aria-hidden="true" data-testid="notes-loading" className="notes-board">
-              {[0, 1, 2].map((n) => (
-                <div key={n} className="notes-col">
-                  <div className="h-28 rounded-xl bg-paper-sunk/60" />
-                </div>
-              ))}
-            </div>
-          ) : notes.length === 0 ? (
-            q ? (
-              <EmptyState icon="notes" title="No notes match that" testId="notes-empty">
-                Search looks at titles, text and list items.
-              </EmptyState>
-            ) : list.notes && list.notes.length > 0 ? (
-              <EmptyState
-                icon="notes"
-                title={scope === 'team' ? 'No team notes here' : 'No personal notes here'}
-                testId="notes-empty"
-              >
-                {scope === 'team'
-                  ? 'Notes shared with the team show under this tab.'
-                  : 'Notes only you can see show under this tab.'}
-              </EmptyState>
+            {list.error && list.notes?.length === 0 ? (
+              <LoadError things="notes" onRetry={list.reload} />
+            ) : notes === null ? (
+              <div aria-hidden="true" data-testid="notes-loading" className="notes-board">
+                {[0, 1, 2].map((n) => (
+                  <div key={n} className="notes-col">
+                    <div className="h-28 rounded-xl bg-paper-sunk/60" />
+                  </div>
+                ))}
+              </div>
+            ) : notes.length === 0 ? (
+              q ? (
+                <EmptyState icon="notes" title="No notes match that" testId="notes-empty">
+                  Search looks at titles, text and list items.
+                </EmptyState>
+              ) : list.notes && list.notes.length > 0 ? (
+                <EmptyState
+                  icon="notes"
+                  title={scope === 'team' ? 'No team notes here' : 'No personal notes here'}
+                  testId="notes-empty"
+                >
+                  {scope === 'team'
+                    ? 'Notes shared with the team show under this tab.'
+                    : 'Notes only you can see show under this tab.'}
+                </EmptyState>
+              ) : (
+                <EmptyState icon="notes" title={EMPTY[listView][0]} testId="notes-empty">
+                  {EMPTY[listView][1]}
+                </EmptyState>
+              )
             ) : (
-              <EmptyState icon="notes" title={EMPTY[listView][0]} testId="notes-empty">
-                {EMPTY[listView][1]}
-              </EmptyState>
-            )
-          ) : (
-            <div className="space-y-6">
-              {pinned.length > 0 && listView !== 'trash' ? (
-                <Section title="Pinned" notes={pinned} teamSpace={teamSpace} actions={actions} />
-              ) : null}
-              <Section
-                title={pinned.length > 0 && listView !== 'trash' ? 'Others' : ''}
-                notes={listView === 'trash' ? notes : others}
-                teamSpace={teamSpace}
-                actions={actions}
-              />
-            </div>
-          )}
+              <div className="space-y-6">
+                {pinned.length > 0 && listView !== 'trash' ? (
+                  <Section title="Pinned" notes={pinned} teamSpace={teamSpace} actions={actions} />
+                ) : null}
+                <Section
+                  title={pinned.length > 0 && listView !== 'trash' ? 'Others' : ''}
+                  notes={listView === 'trash' ? notes : others}
+                  teamSpace={teamSpace}
+                  actions={actions}
+                />
+              </div>
+            )}
+          </ListPanel>
         </ListColumn>
       </div>
 
