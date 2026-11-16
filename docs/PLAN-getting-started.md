@@ -68,7 +68,9 @@ Each maps to a test, named in brackets.
 - T4. With every step done the tile says "You're set", saves the layout without the tile once, and
   stays for this visit. A later save in that visit doesn't put it back. A calendar that is
   connected but failed to load just now is not known either way: it is neither ticked nor
-  offered, and the tile doesn't finish on it. [StartTile.test]
+  offered, and the tile doesn't finish on it. When "Open Docs" is the last step, the tile isn't
+  saved away as the member leaves: "You're set" shows the next time Today opens. [StartTile.test,
+  e2e getting-started.spec]
 - T5. While the tile shows, the separate "Get the Mac app" card at the bottom of Today doesn't.
   [StartTile.test]
 - T6. The Meetings tile, with no calendar connected, says what connecting gives you and has a

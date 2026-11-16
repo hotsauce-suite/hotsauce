@@ -58,8 +58,13 @@ test('J1: Getting started leads Today, hides for good, and comes back from Setti
   await expect(tile.locator('[data-step="docs"]')).toHaveAttribute('data-done', 'false')
 
   // Open Docs ticks the last open step that only a click can show.
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith('/api/today/layout') && r.request().method() === 'PUT',
+  )
   await page.getByTestId('today-start-docs').click()
   await expect(page).toHaveURL(/\/docs/)
+  // The step is saved as Docs opens; a reload before that lands would cut it off.
+  expect((await saved).status()).toBe(200)
   await page.goto('/today')
   await expect(tile.locator('[data-step="docs"]')).toHaveAttribute('data-done', 'true')
 

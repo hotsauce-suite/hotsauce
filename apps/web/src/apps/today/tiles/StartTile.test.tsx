@@ -183,6 +183,21 @@ describe('Getting started on Today', () => {
     expect(saves[0]?.columns[0][0]).toEqual({ id: 'start', kind: 'start', openedDocs: true })
   })
 
+  it('T2/T4: when Open Docs is the last step, the tile is kept for the next time Today opens', async () => {
+    await dictationApi.connect('My Mac')
+    const saves = watchSaves()
+    const { router } = renderApp('/today')
+    await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('mac')?.dataset.done).toBe('true'))
+    await userEvent.click(screen.getByTestId('today-start-docs'))
+    await waitFor(() => expect(router.state.location.pathname.startsWith('/docs')).toBe(true))
+    await waitFor(() => expect(saves).toHaveLength(1))
+    await new Promise((r) => setTimeout(r, 50))
+    // Saved with the step ticked, not saved away: "You're set" is still to be seen.
+    expect(saves).toHaveLength(1)
+    expect(saves[0]?.columns[0][0]).toEqual({ id: 'start', kind: 'start', openedDocs: true })
+  })
+
   it('T3/T5: Hide removes it at once and saves; the Mac app card takes over', async () => {
     const saves = watchSaves()
     renderApp('/today')

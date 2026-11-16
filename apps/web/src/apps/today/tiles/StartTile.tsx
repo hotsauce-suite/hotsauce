@@ -3,7 +3,7 @@
 // a click, except "see the docs", which nothing else can show.
 
 import { removeTile, type TodayLayout, type TodayTile, updateTile } from '@hotsauce/format'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { dictationApi } from '../../../api/dictation'
 import type { TodayView } from '../../../api/today'
@@ -85,6 +85,9 @@ export function StartTile({
   // A server without a Mac build has nothing to download: no Mac step there.
   const hasBuild = useMacAppBuild(!touch && !inApp)
   const hasMac = useHasMac(!touch)
+  // Set as "Open Docs" leaves Today: if that was the last step, "You're set" waits for the next
+  // time Today opens, where it can be read, instead of saving the tile away unseen.
+  const leaving = useRef(false)
 
   const steps: Step[] = [
     {
@@ -137,6 +140,7 @@ export function StartTile({
         className={stepButton}
         data-testid="today-start-docs"
         onClick={() => {
+          leaving.current = true
           onChange(updateTile(layout, { ...tile, openedDocs: true }))
           void navigate('/docs')
         }}
@@ -152,7 +156,7 @@ export function StartTile({
   // Finished: it stays for this visit and is saved away, so it's gone the next time Today opens.
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the last step ticks; the page ignores a repeat
   useEffect(() => {
-    if (finished && !editing) onFinished(tile)
+    if (finished && !editing && !leaving.current) onFinished(tile)
   }, [finished, editing])
 
   return (
