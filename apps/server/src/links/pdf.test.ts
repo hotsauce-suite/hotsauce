@@ -5,11 +5,12 @@ import { makeTestPdf } from './test-pdf.js'
 // A PDF's readable copy (docs/PLAN-links-pdfs.md R3).
 
 /** Lines down a page, 14 units apart, at size 10 unless given. */
-function page(lines: Array<string | (Partial<PdfLine> & { text: string })>): PdfLine[] {
+type At = Partial<PdfLine> & { text: string; gap?: number }
+function page(lines: Array<string | At>): PdfLine[] {
   let y = 800
   return lines.map((l) => {
-    const line = typeof l === 'string' ? { text: l } : l
-    y -= 14 + ((line as { gap?: number }).gap ?? 0)
+    const { gap = 0, ...line }: At = typeof l === 'string' ? { text: l } : l
+    y -= 14 + gap
     return { x: 72, size: 10, y, ...line }
   })
 }
