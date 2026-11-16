@@ -14,7 +14,7 @@ async function bytesAt(url: string): Promise<{ type: string; bytes: Uint8Array }
 describe('mock files', () => {
   it('lists the seeded team folders and files', async () => {
     const root = await filesApi.list('team')
-    expect(root.folders).toEqual(['Brand', 'Pilot launch', 'Research'])
+    expect(root.folders).toEqual(['Brand', 'Links', 'Pilot launch', 'Research'])
     expect(root.files.map((f) => f.name)).toEqual(['Hotsauce logo.svg'])
     expect(root.files.every((f) => isId(f.id))).toBe(true)
     const launch = await filesApi.list('team', 'Pilot launch')
@@ -94,6 +94,6 @@ describe('mock files', () => {
     expect(moved.folders).toEqual(['Launch/Week 1'])
     expect(moved.files).toHaveLength(3)
     await filesApi.removeFolder('team', 'Launch')
-    expect((await filesApi.list('team')).folders).toEqual(['Brand', 'Research'])
+    expect((await filesApi.list('team')).folders).toEqual(['Brand', 'Links', 'Research'])
   })
 })
