@@ -2,10 +2,11 @@
 
 ## Status
 
-2026-11-16: building, slice 1 (the tile, the calendar button, the replay link). Decisions settled
-with the owner on 2026-11-15 (options page: https://claude.ai/artifact/7aHzYDrEhJwGqT3dBKPgfY; he
-accepted every recommendation). Slice 2 (a "start here" doc an admin picks) follows in its own
-pull request.
+2026-11-16: slice 1 built (the tile, the Connect calendar button, the replay link, help pages, the
+demo and the Today loop). Every requirement below has a passing test. Decisions settled with the
+owner on 2026-11-15 (options page: https://claude.ai/artifact/7aHzYDrEhJwGqT3dBKPgfY; he accepted
+every recommendation). Not built yet: slice 2, a "start here" doc an admin picks for step 3, in
+its own pull request.
 
 Why: a new member signed in and landed on a nearly empty Today with no hint of what to do. The
 one step that fills Today (the calendar) read like an error, and the Mac app card was the last
