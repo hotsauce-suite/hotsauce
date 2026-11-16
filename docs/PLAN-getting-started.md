@@ -1,0 +1,100 @@
+# Plan: a new member's first ten minutes ("Getting started" on Today)
+
+## Status
+
+2026-11-16: building, slice 1 (the tile, the calendar button, the replay link). Decisions settled
+with the owner on 2026-11-15 (options page: https://claude.ai/artifact/7aHzYDrEhJwGqT3dBKPgfY; he
+accepted every recommendation). Slice 2 (a "start here" doc an admin picks) follows in its own
+pull request.
+
+Why: a new member signed in and landed on a nearly empty Today with no hint of what to do. The
+one step that fills Today (the calendar) read like an error, and the Mac app card was the last
+thing on the page.
+
+## Decisions
+
+- A **Getting started** tile at the top of Today, not a welcome pop-up and not only better empty
+  screens. The grey "calendar isn't connected" sentence becomes a proper button in the same change.
+- Three steps: **Connect your calendar**, **Get the Mac app** (on a phone or tablet: **Add
+  Hotsauce to your Home Screen**), **See where the team's work lives** (opens Docs; slice 2 lets
+  an admin point it at one doc).
+- Everyone sees it once, including members who joined before it existed. Steps already done arrive
+  ticked.
+- **Hide** removes it at once, on every device, with no confirmation. When every step is done it
+  says "You're set" and is gone the next time Today opens.
+- Replay: a **Getting started** link in the help strip under the Settings menu, and the tile is in
+  Today's "+ Add tile" list.
+- No new storage: the tile is a tile. Whether it has been dealt with lives in the member's Today
+  layout file, in Git.
+
+A fact found while building: a calendar is connected by signing in with Google and allowing
+calendar access; there is no separate connect button. A member who signs in with an emailed code
+can't connect one, so for them step 1 stays open until they hide the tile.
+
+## Requirements
+
+Each maps to a test, named in brackets.
+
+**Format and server**
+
+- F1. `start` is a tile kind, single-use. A `start` tile may carry `openedDocs: true`; other kinds
+  drop it. [format today.test]
+- F2. A saved layout with no `start` tile is written with `gettingStarted: "dismissed"`; one with
+  the tile is written without it. Parsing reads the mark back. [format today.test]
+- F3. `offerGettingStarted(layout)` puts a fresh `start` tile first in the left column unless the
+  layout already has one, is marked dismissed, or is full. `showGettingStarted(layout)` does the
+  same regardless of the mark (replay), and leaves a layout that has the tile alone.
+  [format today.test]
+- F4. `GET /api/today/layout` offers the tile on the default layout and on a saved layout from
+  before this feature; a layout saved without the tile afterwards doesn't get it back.
+  [integration today-layout.test]
+- F5. `GET /api/today` says `meetings.connected: false` when the member has no calendar grant, and
+  `true` otherwise (including a calendar that failed to load just now). [server today service test]
+
+**The tile**
+
+- T1. The tile lists its steps with a count ("1 of 3"). Calendar is done when the calendar is
+  connected. Mac app is done inside the Mac app or once a Mac is connected; on a touch device the
+  step is "Add Hotsauce to your Home Screen", done in the installed app. A server with no Mac
+  build has no Mac step on a computer. Docs is done once "Open Docs" was clicked. [StartTile.test]
+- T2. "Open Docs" records the step in the layout and opens Docs. [StartTile.test]
+- T3. "Hide" saves the layout without the tile; it disappears at once. [StartTile.test,
+  e2e getting-started.spec]
+- T4. With every step done the tile says "You're set", saves the layout without the tile once, and
+  stays for this visit. [StartTile.test]
+- T5. While the tile shows, the separate "Get the Mac app" card at the bottom of Today doesn't.
+  [TodayPage.test]
+- T6. The Meetings tile, with no calendar connected, says what connecting gives you and has a
+  "Connect calendar" button to Settings → Connections. Another calendar error keeps its sentence
+  and its Settings link. [DayTiles test in TodayPage.test]
+
+**Replay**
+
+- R1. The help strip under the Settings menu has "Getting started", linking to `/today?start=1`.
+  [settingsPages.test]
+- R2. Opening `/today?start=1` puts the tile back at the top (fresh, nothing recorded) if it isn't
+  showing, saves that, and drops `?start=1` from the address. [TodayPage.test,
+  e2e getting-started.spec]
+
+**Journey**
+
+- J1. In a real browser: a new member opens Today and sees Getting started first; hides it; it
+  stays gone after a reload; Settings → Getting started brings it back. [e2e getting-started.spec]
+
+**Support materials**
+
+- S1. The demo's sample data shows the tile; help pages (Today, Settings, Get started), the
+  landing page's Today window and ARCHITECTURE §16 describe it. [grep, real-browser check]
+
+## Shared files touched
+
+`packages/format/src/today.ts`, `apps/server/src/today/{layout,service}.ts`,
+`apps/web/src/apps/today/*`, `apps/web/src/routes/settings/SettingsLayout.tsx` (one link),
+`apps/web/src/mocks/todayHandlers.ts`, `site/public/help/*`. Not `HOTSAUCE_VERSION`.
+
+## Slices
+
+1. Format and server (F1 to F5).
+2. The tile, the Meetings button, the Mac card rule (T1 to T6).
+3. Replay (R1, R2), the journey, mocks and support materials.
+4. Later pull request: the admin's "start here" doc.
