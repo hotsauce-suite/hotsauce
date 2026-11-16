@@ -59,6 +59,7 @@ const APPS: AppList[] = [
     says: 'the team files',
     empty: none('files', 'folders'),
   },
+  { name: 'Links', url: '/links', api: '/api/links', says: 'your links', empty: none('links') },
   { name: 'Forms', url: '/forms', api: '/api/forms', says: 'your forms', empty: none('forms') },
   {
     name: 'Check-ins',

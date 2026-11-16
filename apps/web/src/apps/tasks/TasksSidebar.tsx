@@ -22,7 +22,7 @@ function useTodayCount(): number | null {
   return count
 }
 
-/** Hotsauce Tasks' sidebar: Add task, the lists, the projects of each space, import. */
+/** Hotsauce Tasks' sidebar: New task, the lists, the projects of each space, import. */
 export function TasksSidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
@@ -62,7 +62,7 @@ export function TasksSidebar() {
           className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-ember text-sm font-medium text-paper-raised hover:bg-ember-strong"
         >
           <Icon name="plus" />
-          Add task
+          New task
           <kbd className="ml-1 rounded border border-paper-raised/40 px-1 font-mono text-[0.65rem] text-paper-raised/85">
             q
           </kbd>

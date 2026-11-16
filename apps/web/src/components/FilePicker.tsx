@@ -8,7 +8,7 @@ import { Icon } from './Icon'
 
 /**
  * One picker for attaching a Hotsauce file to a Doc, a meeting note, a Note or a Task (§18.4):
- * browse Team files and My files, search, or upload a new one. Resolves with the link to put in.
+ * browse Team files and Personal files, search, or upload a new one. Resolves with the link to put in.
  */
 export function FilePicker({
   targetSpace,
@@ -92,7 +92,7 @@ export function FilePicker({
           >
             {[
               { name: 'team', label: 'Team files' },
-              ...(personal ? [{ name: personal, label: 'My files' }] : []),
+              ...(personal ? [{ name: personal, label: 'Personal files' }] : []),
             ].map((s) => (
               <button
                 key={s.name}

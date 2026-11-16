@@ -48,7 +48,7 @@ type Dialogs =
   | { kind: 'delete-folder'; folder: string }
   | null
 
-/** `/files`: one folder of Team files or My files, Recent, and a file open on top. */
+/** `/files`: one folder of Team files or Personal files, Recent, and a file open on top. */
 export default function FilesPage() {
   const kind = useKind()
   const params = useParams()
@@ -77,7 +77,7 @@ export default function FilesPage() {
   } | null>(null)
   const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
-  const spaceLabel = space === personal ? 'My files' : space === 'team' ? 'Team files' : space
+  const spaceLabel = space === personal ? 'Personal files' : space === 'team' ? 'Team files' : space
 
   useEffect(() => {
     document.title = `${product()} Files`
@@ -381,7 +381,7 @@ export default function FilesPage() {
                     <span className="block truncate text-sm text-ink">{f.name}</span>
                     <span className="block truncate text-xs text-ink-faint">
                       {kind === 'recent' || q
-                        ? `${f.space === personal ? 'My files' : 'Team files'}${f.folder ? ` / ${f.folder}` : ''} · `
+                        ? `${f.space === personal ? 'Personal files' : 'Team files'}${f.folder ? ` / ${f.folder}` : ''} · `
                         : ''}
                       {f.createdBy.split('@')[0]} · {DATE.format(new Date(f.updatedAt))}
                       {f.shareToken ? ' · Shared' : ''}
@@ -419,7 +419,7 @@ export default function FilesPage() {
             onMoveSpace={(file, to) =>
               act(
                 () => filesApi.move(file.space, file.id, to),
-                `Moved to ${to === personal ? 'My files' : 'Team files'}`,
+                `Moved to ${to === personal ? 'Personal files' : 'Team files'}`,
               )
             }
           />
@@ -630,7 +630,7 @@ function FileMenuItems({
       </MenuItem>
       {other ? (
         <MenuItem icon="share" onSelect={run(() => onMoveSpace(file, other))}>
-          {other === 'team' ? 'Move to Team files' : 'Move to My files'}
+          {other === 'team' ? 'Move to Team files' : 'Move to Personal files'}
         </MenuItem>
       ) : null}
       <MenuItem icon="trash" danger testId="files-delete" onSelect={run(() => onDelete(file))}>
@@ -667,7 +667,7 @@ function FileDialog({
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-ink-soft">
             <dt className="text-ink-faint">Where</dt>
             <dd className="truncate">
-              {file.space === personal ? 'My files' : 'Team files'}
+              {file.space === personal ? 'Personal files' : 'Team files'}
               {file.folder ? ` / ${file.folder}` : ''}
             </dd>
             <dt className="text-ink-faint">Size</dt>

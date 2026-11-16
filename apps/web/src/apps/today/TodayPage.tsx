@@ -176,22 +176,33 @@ function useLayout() {
     }
   }, [])
 
-  const save = async (next: TodayLayout): Promise<boolean> => {
+  // Saves go out one at a time, in the order they were made, and only the newest one's answer is
+  // shown: an older answer landing late would put back what a newer change replaced.
+  const newest = useRef(0)
+  const queue = useRef<Promise<unknown>>(Promise.resolve())
+  const save = (next: TodayLayout): Promise<boolean> => {
+    const mine = ++newest.current
     setSaving(true)
     setError(null)
-    try {
-      setLayout((await todayApi.saveLayout(next)).layout)
-      return true
-    } catch (err) {
-      setError(
-        err instanceof HotsauceApiError
-          ? `Your Today layout didn’t save: ${err.message}`
-          : 'Your Today layout didn’t save. Try again.',
-      )
-      return false
-    } finally {
-      setSaving(false)
-    }
+    const run = queue.current.then(async () => {
+      try {
+        const saved = (await todayApi.saveLayout(next)).layout
+        if (mine === newest.current) setLayout(saved)
+        return true
+      } catch (err) {
+        if (mine === newest.current)
+          setError(
+            err instanceof HotsauceApiError
+              ? `Your Today layout didn’t save: ${err.message}`
+              : 'Your Today layout didn’t save. Try again.',
+          )
+        return false
+      } finally {
+        if (mine === newest.current) setSaving(false)
+      }
+    })
+    queue.current = run
+    return run
   }
 
   // Settings' "Getting started" link opens `/today?start=1`: put the tile back, fresh, and save.

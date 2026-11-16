@@ -86,7 +86,7 @@ test('upload, preview, organize, search and share files', async ({ page, member,
   await page.getByTestId('files-name-submit').click()
   await expect(page).toHaveURL(/folder=Legal/)
   await page
-    .getByRole('button', { name: member.personal === 'team' ? 'Team files' : 'My files' })
+    .getByRole('button', { name: member.personal === 'team' ? 'Team files' : 'Personal files' })
     .first()
     .click()
   await row(page, `nda-${id}.pdf`).getByTestId('files-row-menu').click()
@@ -158,7 +158,7 @@ test('attach a file to a doc, a note and a task', async ({ page, member }) => {
     .filter({ hasText: `Note ${id}` })
     .click()
   await page.getByTestId('note-editor-attach').click()
-  // A personal note opens the picker on My files; the brief is in Team files.
+  // A personal note opens the picker on Personal files; the brief is in Team files.
   await page.getByTestId('file-picker').getByRole('tab', { name: 'Team files' }).click()
   await page.getByTestId('file-picker-search').fill(id)
   await page.getByTestId('file-picker-item').filter({ hasText: name }).click()

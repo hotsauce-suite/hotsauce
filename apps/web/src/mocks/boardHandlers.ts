@@ -127,7 +127,7 @@ export function seedBoards(fake: FakeBoards, now = Date.now()): void {
   })
 }
 
-/** One board in the member's own space, so "My boards" isn't empty. */
+/** One board in the member's own space, so "Personal boards" isn't empty. */
 function seedPersonalBoard(fake: FakeBoards, user: FakeUser): void {
   fake.add({
     space: user.handle,
