@@ -35,3 +35,16 @@ and Docs keep saves on the device.
   in its first minute may not have it yet. A small Swift harness (WKWebView with a persistent
   `WKWebsiteDataStore(forIdentifier:)`, `callAsyncJavaScript` to read
   `navigator.serviceWorker.getRegistrations()`) answers this in a minute without building the app.
+- **"Saved on this device" is a promise; make the store keep it.** Two audits found four ways to
+  lose text in the first version: an owner downgraded to nobody when an expired session signed the
+  member out mid-save; a save refused for good (doc moved) turned silently into an ordinary draft
+  nobody would see; `clearDrafts` then `setItem` in one try, so a full storage lost the old copy
+  too; and one draft slot per doc, so another member or another tab erased it. The fixes are all
+  in the key and the write order: owner and tab in the key, write new before removing old, a
+  `stranded` state with a place to see it, and an owner captured once and never cleared.
+- **Offline needs a way to sign out.** Settings first showed "Not available offline yet", so Sign
+  out was unreachable; and signing out offline only forgot the name, so the still-valid session
+  came back on reconnect. A sign-out owed on the device, honoured before sign-in renders, fixes
+  both. An e2e that actually presses Sign out offline found the first one.
+- **In tests, wait until the app knows who's signed in** before cutting the network: the member
+  is remembered after `/api/me` answers, and a test that goes offline sooner starts signed out.

@@ -82,6 +82,22 @@ doesn't, record it here as a step B item and leave the Mac app as it is.
 - Result: it does (see Status). The window's own "can't reach" page appears only when a load
   fails, and a load the service worker answers doesn't fail, so nothing changes in the app.
 
+**Hardening from two audits (2026-11-16).** Each has a test:
+- A4.6 Drafts belong to one member and one tab (`hotsauce.draft:<owner>/<tab>/<space>/<path>/
+  <blobOid>`). Another member on the same browser is never offered, shown, sent or able to erase
+  them; two tabs never erase each other's. Drafts saved before this (`hearth.draft:`) are still
+  read and offered for restore online, never opened offline or sent by themselves.
+- A4.7 A draft's owner is never downgraded: a sign-in that expired offline (a 401 that signs the
+  member out) leaves the text waiting as theirs, sent once they sign in again.
+- A4.8 A write the device's storage refuses keeps the last good copy, says "Couldn't keep this on
+  the device" instead of "Saved on this device", and keeps the leave-page warning.
+- A4.9 A waiting save the server refuses for good (the doc was moved, renamed or deleted, or
+  access changed) is kept as "stranded", named in a message with the reason, and listed in Docs →
+  Kept on this device (copy or discard there); the doc's "isn't here" page points to it. Not
+  followed to a moved doc's new place: there's no id lookup on the server yet (step C).
+- A2.6 Sign out pressed offline is owed on the device and done as soon as sign-in loads again,
+  before anything opens as that member. Settings (where Sign out is) opens offline.
+
 Not in step A: an organization switch to turn offline off (step B, when real data is stored),
 reading docs never opened on this device, new docs made offline.
 

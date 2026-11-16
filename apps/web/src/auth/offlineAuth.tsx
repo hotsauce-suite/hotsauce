@@ -8,7 +8,12 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import type { AuthMode } from '../api/types'
 import { isOnline, onBackOnline } from '../lib/connection'
-import { forgetMember, rememberedMember, setOfflineSession } from '../lib/offlineStart'
+import {
+  forgetMember,
+  rememberedMember,
+  setOfflineSession,
+  setSignOutPending,
+} from '../lib/offlineStart'
 import { AuthContext, type AuthState } from './AuthContext'
 
 const reloadPage = () => window.location.reload()
@@ -69,7 +74,9 @@ export function OfflineAuthProvider({
     }
   }, [reload])
 
+  // The real session can't be ended offline: it's ended as soon as sign-in loads again.
   const signOut = useCallback(() => {
+    setSignOutPending(true)
     forgetMember()
     setMember(null)
   }, [])

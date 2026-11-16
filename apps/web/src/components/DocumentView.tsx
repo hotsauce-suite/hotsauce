@@ -561,6 +561,15 @@ export function DocumentView({
                     ? 'It may have been moved, renamed, or deleted. Its history is still in Git.'
                     : state.error?.message}
                 </p>
+                {state.draft ? (
+                  <p data-testid="doc-kept-text" className="mt-3 text-ink-soft">
+                    Your edits to it are kept on this device.{' '}
+                    <Link to="/docs/kept" className="text-ember-strong underline">
+                      Copy them from Kept on this device
+                    </Link>
+                    .
+                  </p>
+                ) : null}
                 <Link to={app.route} className="mt-4 inline-block text-ember-strong underline">
                   Back to {app.label.toLowerCase()}
                 </Link>

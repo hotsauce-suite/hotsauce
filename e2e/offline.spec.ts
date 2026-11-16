@@ -62,3 +62,60 @@ test('a screen never opened before still opens offline (A1.2, A3.4)', async ({ p
   await expect(page.getByTestId('offline-empty')).toContainText('Not available offline yet')
   await expect(page.getByTestId('offline-bar')).toBeVisible()
 })
+
+test('Sign out pressed offline signs out for real once the connection is back (S6)', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/docs')
+  await offlineReady(page)
+  await context.setOffline(true)
+  await page.reload()
+  await expect(page.getByTestId('offline-bar')).toBeVisible()
+  await page.goto('/settings')
+  await page.getByTestId('settings-sign-out').click()
+  await expect(page).toHaveURL(/\/sign-in/)
+  await context.setOffline(false)
+  // Back online: still signed out, and the server agrees.
+  await page.goto('/docs')
+  await expect(page).toHaveURL(/\/sign-in/, { timeout: 20_000 })
+  const me = await page.evaluate(async () => (await fetch('/api/me')).status)
+  expect(me).toBe(401)
+})
+
+test('another member on the same browser never sees what the last one typed offline (S7)', async ({
+  page,
+  context,
+  api,
+  user,
+}) => {
+  const file = `docs/shared-${uid()}.md`
+  const secret = `Private words ${uid()}`
+  await api.writeFile(user.team, file, '# Shared\n\nStart.\n')
+  await page.goto(docUrl(user.team, file))
+  await expect(docText(page)).toContainText('Start.')
+  await offlineReady(page)
+  await context.setOffline(true)
+  await page.getByTestId('editor-content').click()
+  await typeAtEnd(page, secret)
+  await expect(page.getByTestId('save-state')).toHaveAttribute('data-state', 'offline')
+  await page.goto('/settings')
+  await page.getByTestId('settings-sign-out').click()
+  await expect(page).toHaveURL(/\/sign-in/)
+
+  // Someone else signs in on this browser, then goes offline and opens the same doc.
+  await context.setOffline(false)
+  const other = `e2e-other-${uid()}@example.test`
+  // Still on the sign-in page from the sign-out.
+  await page.getByTestId('dev-signin-email').fill(other)
+  await page.getByTestId('dev-signin-submit').click()
+  await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'))
+  // Once the app knows who they are (what an offline start opens as).
+  await expect(page.getByTestId('account-menu')).toHaveAttribute('aria-label', `Account: ${other}`)
+  await context.setOffline(true)
+  await page.goto(docUrl(user.team, file))
+  await expect(page.getByTestId('offline-empty')).toBeVisible()
+  await expect(page.getByText(secret)).toHaveCount(0)
+  await page.goto('/docs/kept')
+  await expect(page.getByTestId('kept-empty')).toBeVisible()
+})

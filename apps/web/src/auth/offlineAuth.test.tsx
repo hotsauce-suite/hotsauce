@@ -2,7 +2,12 @@ import { act, render, screen } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { reportReachable, reportUnreachable, resetConnectionForTests } from '../lib/connection'
-import { rememberedMember, rememberMember } from '../lib/offlineStart'
+import {
+  rememberedMember,
+  rememberMember,
+  setSignOutPending,
+  signOutPending,
+} from '../lib/offlineStart'
 import SignInRoute from '../routes/SignInRoute'
 import { AuthContext, useAuthState } from './AuthContext'
 import { DevAuthProvider } from './devAuth'
@@ -98,6 +103,9 @@ describe('starting offline (A2)', () => {
     act(() => screen.getByRole('button', { name: 'Sign out' }).click())
     expect(rememberedMember()).toBeNull()
     expect(screen.getByTestId('status')).toHaveTextContent('signed-out')
+    // The real session is ended once sign-in loads again (S6).
+    expect(signOutPending()).toBe(true)
+    setSignOutPending(false)
     unmount()
 
     rememberMember(ada, 'Acme')
@@ -110,6 +118,19 @@ describe('starting offline (A2)', () => {
     act(() => screen.getByRole('button', { name: 'Sign out' }).click())
     expect(rememberedMember()).toBeNull()
   })
+})
+
+it('a sign-out pressed offline happens as soon as sign-in loads again (S6)', () => {
+  localStorage.setItem('hearth.devUser', 'ada@example.test')
+  setSignOutPending(true)
+  render(
+    <DevAuthProvider>
+      <Status />
+    </DevAuthProvider>,
+  )
+  expect(screen.getByTestId('status')).toHaveTextContent('signed-out')
+  expect(localStorage.getItem('hearth.devUser')).toBeNull()
+  expect(signOutPending()).toBe(false)
 })
 
 it('offline with nobody remembered, the sign-in page says it needs a connection (A2.3)', async () => {

@@ -66,6 +66,11 @@ export function OfflineEmpty() {
           </ul>
         </section>
       ) : null}
+      <p className="mt-6 text-sm">
+        <Link to="/docs/kept" className="text-ember-strong underline">
+          Everything kept on this device
+        </Link>
+      </p>
     </div>
   )
 }

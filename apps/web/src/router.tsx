@@ -86,6 +86,11 @@ export const createAppRouter = () =>
                   lazy: async () => ({ Component: (await import('./routes/DocsIndex')).default }),
                 },
                 {
+                  // Doc edits made offline that are still only on this device (PLAN-offline A4).
+                  path: 'kept',
+                  lazy: async () => ({ Component: (await import('./routes/KeptRoute')).default }),
+                },
+                {
                   path: ':space/*',
                   lazy: async () => ({ Component: (await import('./routes/DocRoute')).default }),
                 },

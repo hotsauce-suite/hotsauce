@@ -49,6 +49,10 @@ export function renderApp(
                 lazy: async () => ({ Component: (await import('../routes/DocsIndex')).default }),
               },
               {
+                path: 'kept',
+                lazy: async () => ({ Component: (await import('../routes/KeptRoute')).default }),
+              },
+              {
                 path: ':space/*',
                 lazy: async () => ({ Component: (await import('../routes/DocRoute')).default }),
               },

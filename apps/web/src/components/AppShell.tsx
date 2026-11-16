@@ -67,11 +67,18 @@ export default function AppShell() {
 
 /**
  * Screens that open offline with what's on the device (docs/PLAN-offline.md): a doc (from its
- * waiting save) and voice notes (kept and sent later). Any other screen opened offline says
+ * waiting save), what's kept on the device, Settings (to sign out) and voice notes (kept and
+ * sent later). Any other screen opened offline says
  * "Not available offline yet"; one already open when the connection drops keeps what it shows.
  */
 function opensOffline(pathname: string): boolean {
-  return /^\/docs\/[^/]+\/.+/.test(pathname) || pathname === '/dictate/voice'
+  return (
+    /^\/docs\/[^/]+\/.+/.test(pathname) ||
+    pathname === '/docs/kept' ||
+    // Your account (Sign out works offline: it's finished when the connection is back).
+    pathname === '/settings' ||
+    pathname === '/dictate/voice'
+  )
 }
 
 /** Whether this screen was opened while offline (and the app is still offline). */

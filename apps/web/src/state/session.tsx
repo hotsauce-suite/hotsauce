@@ -114,7 +114,7 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
     // Only as the member the server says is signed in: not the offline stand-in.
     if (!userId || !meFromServer.current) return
     const send = () =>
-      void sendWaitingDrafts(userId).then(({ sent, conflicts }) => {
+      void sendWaitingDrafts(userId).then(({ sent, conflicts, failed }) => {
         if (sent > 0)
           notify(
             sent === 1
@@ -124,6 +124,10 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
         for (const path of conflicts)
           notify(
             `${displayName(path)} changed elsewhere while you were offline. Open it to choose what to keep.`,
+          )
+        for (const { path, reason } of failed)
+          notify(
+            `Your offline edits to ${displayName(path)} couldn’t be saved: ${reason}. They’re kept on this device in Docs → Kept on this device.`,
           )
       })
     if (isOnline()) send()

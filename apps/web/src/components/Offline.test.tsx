@@ -1,6 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
+import { api } from '../api/client'
 import { reportReachable, reportUnreachable, resetConnectionForTests } from '../lib/connection'
 import { saveDraft } from '../lib/drafts'
 import { rememberMember } from '../lib/offlineStart'
@@ -38,11 +39,16 @@ describe('offline in the app (A3)', { timeout: 20_000 }, () => {
   it('a screen opened offline says "Not available offline yet", with docs kept here (A3.4)', async () => {
     const { router } = renderApp('/docs')
     await screen.findByTestId('assistant-open')
-    saveDraft('team', 'docs/plans/q4-plan.md', 'abc', 'Kept text', { waiting: true })
+    const me = (await api.me()).principal.userId
+    // The shell has learned who's signed in (what an offline screen lists drafts for).
+    await waitFor(() => expect(localStorage.getItem('hotsauce.offline.member')).toContain(me))
+    saveDraft(me, 'team', 'docs/plans/q4-plan.md', 'abc', 'Kept text', 'waiting')
+    saveDraft('u-other', 'team', 'docs/other.md', 'abc', 'Not mine', 'waiting')
     goOffline()
     await act(() => router.navigate('/tasks'))
     const empty = await screen.findByTestId('offline-empty')
     expect(empty).toHaveTextContent('Not available offline yet')
+    expect(screen.queryByRole('link', { name: 'other' })).toBeNull()
     expect(screen.getByRole('link', { name: 'q4-plan' })).toHaveAttribute(
       'href',
       '/docs/team/docs/plans/q4-plan.md',

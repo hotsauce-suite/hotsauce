@@ -100,3 +100,23 @@ export function setOfflineSession(on: boolean): void {
 export function inOfflineSession(): boolean {
   return offlineSession
 }
+
+const SIGN_OUT_KEY = 'hotsauce.offline.signOutPending'
+
+/** Sign out was pressed while offline: the real session is ended as soon as sign-in loads. */
+export function setSignOutPending(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(SIGN_OUT_KEY, '1')
+    else localStorage.removeItem(SIGN_OUT_KEY)
+  } catch {
+    // No storage: the sign-out happens only on this page.
+  }
+}
+
+export function signOutPending(): boolean {
+  try {
+    return localStorage.getItem(SIGN_OUT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
