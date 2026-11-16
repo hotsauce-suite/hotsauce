@@ -189,15 +189,7 @@ export default function LinkReader() {
 
   return (
     <>
-      <MeetingsPageHeader
-        title={
-          <Link to="/links" className="inline-flex items-center gap-1 hover:text-ember-strong">
-            <Icon name="back" />
-            Links
-          </Link>
-        }
-        menu={false}
-      />
+      <MeetingsPageHeader back={{ to: '/links', label: 'Links' }} menu={false} />
       {resumed ? (
         <p
           className="mx-auto mt-2 flex w-full max-w-2xl flex-wrap items-center gap-x-2 rounded-lg bg-ash/50 px-4 py-2 text-sm text-ink-soft md:px-8"

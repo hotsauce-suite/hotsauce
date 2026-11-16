@@ -13,11 +13,18 @@ export function PageHeader({
   title,
   children,
   menu = true,
+  back,
 }: {
-  title: ReactNode
+  /** What the page is. A page of one thing (a form, a clip) shows that thing's name. */
+  title?: ReactNode
   children?: ReactNode
   /** False for a page whose app has no sidebar to open. */
   menu?: boolean
+  /**
+   * On the page of one thing: the way back to the list it came from, shown as "‹ Forms" at the
+   * top left. On a phone it takes the menu's place (the list has the menu).
+   */
+  back?: { to: string; label: string }
 }) {
   const { compact, openDrawer } = useShell()
   return (
@@ -25,12 +32,25 @@ export function PageHeader({
       data-testid="page-header"
       className="flex h-[var(--topbar-height)] shrink-0 items-center gap-2 border-b border-ash/70 bg-paper/80 px-2 backdrop-blur-sm md:px-4"
     >
-      {compact && menu ? (
+      {back ? (
+        <Link
+          to={back.to}
+          data-testid="page-back"
+          className="-ml-1 flex h-8 shrink-0 items-center gap-0.5 rounded-lg pr-2 pl-1 text-sm font-medium text-ink-soft hover:bg-paper-sunk hover:text-ink md:ml-0"
+        >
+          <Icon name="back" className="size-4" />
+          {back.label}
+        </Link>
+      ) : compact && menu ? (
         <IconButton icon="menu" label="Open sidebar" onClick={openDrawer} />
       ) : null}
-      <h1 className="min-w-0 flex-1 truncate font-display text-lg font-semibold tracking-tight text-ink">
-        {title}
-      </h1>
+      {title === undefined ? (
+        <span className="flex-1" />
+      ) : (
+        <h1 className="min-w-0 flex-1 truncate font-display text-lg font-semibold tracking-tight text-ink">
+          {title}
+        </h1>
+      )}
       {children}
     </header>
   )
@@ -211,4 +231,40 @@ export function useNameWhenFresh(
     input.focus()
     input.select()
   }, [fresh, ready, selector, untitled])
+}
+
+/**
+ * "More": on a phone, the page's other controls behind one button, so the top bar keeps room for
+ * the title. `children` gets `close`, to shut the menu when an item is picked.
+ */
+export function MoreMenu({
+  children,
+  testId = 'page-more',
+}: {
+  children: (close: () => void) => ReactNode
+  testId?: string
+}) {
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
+  const close = () => setAnchor(null)
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="More"
+        title="More"
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        data-testid={testId}
+        onClick={(event) => setAnchor(anchor ? null : below(event.currentTarget))}
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-paper-sunk hover:text-ink"
+      >
+        <Icon name="more" className="size-4" />
+      </button>
+      {anchor ? (
+        <Menu anchor={anchor} label="More" onClose={close}>
+          {children(close)}
+        </Menu>
+      ) : null}
+    </>
+  )
 }

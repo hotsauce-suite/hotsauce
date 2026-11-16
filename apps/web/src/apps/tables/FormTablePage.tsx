@@ -46,7 +46,11 @@ function FormTablePage() {
   const formUrl = `/forms/${encodeURIComponent(space)}/${id}/answers`
   return (
     <>
-      <MeetingsPageHeader menu={false} title={data ? `${data.title}: answers` : 'Form answers'}>
+      <MeetingsPageHeader
+        menu={false}
+        back={{ to: '/tables', label: 'Tables' }}
+        title={data ? `${data.title}: answers` : 'Form answers'}
+      >
         <Link to={formUrl} className={`${secondaryButton} h-8 px-3`}>
           Open the form
         </Link>

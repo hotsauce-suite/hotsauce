@@ -20,6 +20,7 @@ test('save a link, read it, tag it, share it and mark it done', async ({ page })
 
   await row.getByTestId('link-title').click()
   await expect(page.getByTestId('link-reader-title')).toHaveText('Mirror life')
+  await expect(page.getByTestId('page-back')).toHaveText('Links')
   await expect(page.getByTestId('link-body')).toContainText(
     'Mirror life is the subject of this page.',
   )

@@ -34,6 +34,7 @@ test('P7: attendee → person page → About survives a reload', async ({ page, 
   await expect(page).toHaveURL(new RegExp(`/people/${encodeURIComponent(email)}$`))
 
   const person = page.getByTestId('person-page')
+  await expect(page.getByTestId('page-back')).toHaveText('People')
   await expect(person.getByText('Gia Guest').first()).toBeVisible()
   await expect(person.getByTestId('person-meeting').filter({ hasText: title })).toBeVisible()
 

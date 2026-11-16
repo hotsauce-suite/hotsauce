@@ -27,6 +27,7 @@ test.describe('as an admin', () => {
     await dialog.getByTestId('checkin-time').fill(soon)
     await dialog.getByTestId('checkin-save').click()
     await expect(page.getByTestId('checkin-title')).toHaveText(question)
+    await expect(page.getByTestId('page-back')).toHaveText('Check-ins')
     const at = page.url()
 
     // When the minute comes, Today asks.

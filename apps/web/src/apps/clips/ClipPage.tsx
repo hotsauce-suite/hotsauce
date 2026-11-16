@@ -300,6 +300,7 @@ export default function ClipPage() {
   return (
     <>
       <MeetingsPageHeader
+        back={{ to: '/clips', label: 'Clips' }}
         title={
           editing ? (
             <TitleEditor initial={clip.title} onDone={rename} />

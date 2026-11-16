@@ -4,6 +4,9 @@ import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { MainButton, NewInSpaceButton, useNameWhenFresh } from './PageHeader'
 
+// A phone: the top bar shows the menu, or the way back in its place.
+vi.mock('./AppShell', () => ({ useShell: () => ({ compact: true, openDrawer: () => {} }) }))
+
 const BOTH = [
   { name: 'p-ada', label: 'Personal' },
   { name: 'team', label: 'Team' },
@@ -98,5 +101,33 @@ describe('useNameWhenFresh', () => {
     unmount()
     render(<Name fresh={false} value="Untitled form" />)
     expect(screen.getByTestId('name')).not.toHaveFocus()
+  })
+})
+
+describe('PageHeader', () => {
+  it('shows the menu on a list page on a phone', async () => {
+    const { PageHeader } = await import('./PageHeader')
+    render(
+      <MemoryRouter>
+        <PageHeader title="Forms" />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('heading', { name: 'Forms' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open sidebar' })).toBeInTheDocument()
+    expect(screen.queryByTestId('page-back')).toBeNull()
+  })
+
+  it('shows the way back to the list on the page of one thing, in the menu’s place', async () => {
+    const { PageHeader } = await import('./PageHeader')
+    render(
+      <MemoryRouter>
+        <PageHeader title="Equipment request" back={{ to: '/forms', label: 'Forms' }} />
+      </MemoryRouter>,
+    )
+    const back = screen.getByTestId('page-back')
+    expect(back).toHaveTextContent('Forms')
+    expect(back).toHaveAttribute('href', '/forms')
+    expect(screen.queryByRole('button', { name: 'Open sidebar' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Equipment request' })).toBeInTheDocument()
   })
 })

@@ -75,7 +75,10 @@ export default function BriefcastPage() {
 
   return (
     <>
-      <MeetingsPageHeader title="Briefcast">
+      <MeetingsPageHeader
+        title={date ? 'Past briefing' : 'Briefcast'}
+        {...(date ? { back: { to: '/briefcast', label: 'Briefcast' } } : {})}
+      >
         <MainButton
           icon="sparkle"
           onClick={make}

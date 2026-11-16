@@ -5,8 +5,10 @@ import { HotsauceApiError } from '../../api/client'
 import { peopleApi } from '../../api/people'
 import { type TableView, tablesApi } from '../../api/tables'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
-import { useNameWhenFresh } from '../../components/PageHeader'
+import { MenuItem } from '../../components/Menu'
+import { MoreMenu, useNameWhenFresh } from '../../components/PageHeader'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { type Change, Grid, type Structure } from './Grid'
@@ -47,6 +49,7 @@ function TableEditor() {
   const { spaceLabel } = useSession()
   const [table, setTable] = useState<TableView | null>(null)
   const location = useLocation()
+  const { compact } = useShell()
   const [sheet, setSheet] = useState<Sheet | null>(null)
   useNameWhenFresh(
     (location.state as { fresh?: boolean } | null)?.fresh === true,
@@ -239,7 +242,7 @@ function TableEditor() {
   if (loadError) {
     return (
       <>
-        <MeetingsPageHeader title="Tables" menu={false} />
+        <MeetingsPageHeader back={{ to: '/tables', label: 'Tables' }} menu={false} />
         <p role="alert" className="m-6 text-sm text-ink">
           {loadError}
         </p>
@@ -263,10 +266,16 @@ function TableEditor() {
     conflict: 'Not saved',
   }
 
+  const downloadCsv = async () =>
+    download(await tablesApi.csv(space, id), `${fileTitle(title)}.csv`)
+  const downloadXlsx = async () =>
+    download(await tablesApi.xlsx(space, id), `${fileTitle(title)}.xlsx`)
+
   return (
     <>
       <MeetingsPageHeader
         menu={false}
+        back={{ to: '/tables', label: 'Tables' }}
         title={
           <input
             aria-label="Table name"
@@ -289,30 +298,68 @@ function TableEditor() {
         >
           {statusText[status]}
         </span>
-        <button
-          type="button"
-          className={`${secondaryButton} h-8 px-3`}
-          onClick={async () => download(await tablesApi.csv(space, id), `${fileTitle(title)}.csv`)}
-        >
-          CSV
-        </button>
-        <button
-          type="button"
-          className={`${secondaryButton} h-8 px-3`}
-          data-testid="download-xlsx"
-          onClick={async () =>
-            download(await tablesApi.xlsx(space, id), `${fileTitle(title)}.xlsx`)
-          }
-        >
-          Excel
-        </button>
-        <button
-          type="button"
-          className={`${secondaryButton} h-8 px-3`}
-          onClick={() => setConfirmDelete(true)}
-        >
-          Delete
-        </button>
+        {compact ? (
+          <MoreMenu>
+            {(close) => (
+              <>
+                <MenuItem
+                  icon="download"
+                  onSelect={() => {
+                    close()
+                    void downloadCsv()
+                  }}
+                >
+                  Download CSV
+                </MenuItem>
+                <MenuItem
+                  icon="download"
+                  testId="download-xlsx"
+                  onSelect={() => {
+                    close()
+                    void downloadXlsx()
+                  }}
+                >
+                  Download Excel
+                </MenuItem>
+                <MenuItem
+                  icon="trash"
+                  danger
+                  onSelect={() => {
+                    close()
+                    setConfirmDelete(true)
+                  }}
+                >
+                  Delete
+                </MenuItem>
+              </>
+            )}
+          </MoreMenu>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={`${secondaryButton} h-8 px-3`}
+              onClick={() => void downloadCsv()}
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              className={`${secondaryButton} h-8 px-3`}
+              data-testid="download-xlsx"
+              onClick={() => void downloadXlsx()}
+            >
+              Excel
+            </button>
+            <button
+              type="button"
+              className={`${secondaryButton} h-8 px-3`}
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </button>
+          </>
+        )}
       </MeetingsPageHeader>
       {status === 'conflict' ? (
         <div

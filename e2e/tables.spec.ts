@@ -13,6 +13,7 @@ test('make a table with a formula, sort it, and find it saved after a reload', a
   // A new table is untitled, with the cursor in its name.
   await expect(page.getByTestId('table-title')).toHaveValue('Untitled table')
   await expect(page.getByTestId('table-title')).toBeFocused()
+  await expect(page.getByTestId('page-back')).toHaveText('Tables')
   await page.keyboard.type(title)
   await expect(page.getByTestId('table-title')).toHaveValue(title)
   // Named now: coming back to it never selects the name again.
@@ -108,4 +109,29 @@ test('Import asks whose the table is, and a file becomes a table there', async (
   await expect(page.locator('[data-cell="A2"]')).toHaveText('Acme')
   // An imported table has its name already; the cursor stays out of it.
   await expect(page.getByTestId('table-title')).not.toBeFocused()
+})
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('a table keeps room for its name: the downloads and Delete are behind More', async ({
+    page,
+  }) => {
+    await page.goto('/tables')
+    await page.getByTestId('new-table').click()
+    await page.getByTestId('new-table-in-team').click()
+    const name = page.getByTestId('table-title')
+    await expect(name).toHaveValue('Untitled table')
+    await expect(page.getByTestId('page-back')).toHaveText('Tables')
+    expect((await name.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(110)
+    await page.getByTestId('page-more').click()
+    const download = page.waitForEvent('download')
+    await page.getByRole('menuitem', { name: 'Download Excel' }).click()
+    expect((await download).suggestedFilename()).toBe('Untitled table.xlsx')
+    await page.getByTestId('page-more').click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await expect(page.getByRole('dialog')).toContainText('Delete this table?')
+    await page.getByTestId('dialog-x').click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
 })

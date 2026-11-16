@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useNavigate, useParams, useSearchParams } from 'react-router'
 import {
   type CheckinAnswer,
   type CheckinInput,
@@ -93,16 +93,13 @@ export default function CheckinPage() {
 
   return (
     <>
-      <MeetingsPageHeader title="Check-ins" menu={false} />
+      <MeetingsPageHeader
+        back={{ to: '/checkins', label: 'Check-ins' }}
+        menu={false}
+        {...(view ? {} : { title: 'Check-in' })}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
-          <Link
-            to="/checkins"
-            className="mb-3 inline-flex items-center gap-1 text-sm text-ink-soft"
-          >
-            <Icon name="back" className="size-3.5" />
-            All check-ins
-          </Link>
           {error ? (
             <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
               {error}

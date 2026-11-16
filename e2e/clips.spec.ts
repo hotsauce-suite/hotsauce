@@ -250,6 +250,7 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
     await expect(lines.nth(1)).toHaveAttribute('aria-current', 'true')
     // The suggested title (FakeLLM names it after the first line) and the summary.
     await expect(page.getByTestId('clip-title')).toHaveText('About clip segment 1')
+    await expect(page.getByTestId('page-back')).toHaveText('Clips')
     await expect(page.getByTestId('clip-summary')).toContainText('clip segment 1')
   })
 

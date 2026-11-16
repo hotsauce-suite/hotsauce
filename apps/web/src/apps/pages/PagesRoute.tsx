@@ -107,7 +107,7 @@ export function PageRoute() {
 
   return (
     <>
-      <MeetingsPageHeader title={page?.title ?? 'Page'}>
+      <MeetingsPageHeader title={page?.title ?? 'Page'} back={{ to: '/pages', label: 'Pages' }}>
         {page && page.versions.length > 1 ? (
           <select
             aria-label="Version"

@@ -72,6 +72,7 @@ export function ConflictResolver({
     <Dialog
       title={`Resolve changes to “${displayName(path)}”`}
       onClose={onCancel ?? (() => {})}
+      closable={onCancel !== undefined}
       wide
       testId="conflict-resolver"
     >
