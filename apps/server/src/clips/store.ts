@@ -365,6 +365,15 @@ export class ClipStore {
     return rows.map(toRecord)
   }
 
+  /** Every clip created at or after `from` (any owner, any status), for the usage report. */
+  createdSince(from: string): Array<{ id: string; ownerEmail: string; createdAt: string }> {
+    return this.#db
+      .prepare(
+        'SELECT id, owner_email AS ownerEmail, created_at AS createdAt FROM clips WHERE created_at >= ?',
+      )
+      .all(from) as Array<{ id: string; ownerEmail: string; createdAt: string }>
+  }
+
   /** Clips in one of `statuses`, oldest first (startup recovery and the abandoned-upload sweep). */
   withStatus(statuses: ClipStatus[]): ClipRecord[] {
     const rows = this.#db

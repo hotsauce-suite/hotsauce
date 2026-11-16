@@ -130,6 +130,7 @@ import {
   Updater,
   UpdateStore,
 } from './updates/index.js'
+import { Usage } from './usage/index.js'
 
 // Same depth from src/ and dist/: apps/server/{src,dist}/services.{ts,js} → the repo root.
 const ENV_FILE = fileURLToPath(new URL('../../../.env.local', import.meta.url))
@@ -498,6 +499,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     backups: createBackups(config, overrides.backupStore, (space, fn) =>
       git.withSpaceLocked(space, fn),
     ),
+    // Which apps get used, counted from history already kept (docs/PLAN-app-usage.md).
+    usage: new Usage({
+      listSpaces: () => git.listClones(),
+      activity: (space, since) => git.activity(space, since),
+      clipsSince: (from) => clips.store.createdSince(from),
+      dictateDevices: () => dictation.store.deviceLastUses(),
+      committerEmail: committer.email,
+    }),
   }
   // The built-in assistant (docs/PLAN-assistant.md): the member's own MCP tools, in-process.
   const assistant = new Assistant({

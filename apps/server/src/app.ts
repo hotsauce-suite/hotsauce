@@ -42,6 +42,7 @@ import {
   testRoutes,
   todayRoutes,
   tokenRoutes,
+  usageRoutes,
 } from './api/index.js'
 import { HotsauceError } from './errors.js'
 import { mcpRoutes } from './mcp/index.js'
@@ -61,6 +62,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', setupRoutes(deps))
     .route('/api', publicBookingRoutes(deps))
     .route('/api', adminOrgRoutes(deps))
+    .route('/api', usageRoutes(deps))
     .route('/api', accountRoutes(deps))
     .route('/api', searchRoutes(deps))
     .route('/api', fileRoutes(deps))

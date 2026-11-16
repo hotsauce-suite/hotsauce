@@ -20,3 +20,16 @@
   so the card would otherwise stay stale until a reload.
 - **Moving a section into another keeps its anchor working** as long as the `id` moves with the
   card: `#mac-app` is on the Mac app card inside Install, and the e2e checks it lands in view.
+
+## Usage page (2026-11-16)
+
+- **Git already answers "who used what, when".** `git log --name-status -z --since` per clone is
+  enough; no event tracking needed. Use `--find-renames` or every move looks like a new item.
+- **Every new space seeds a README authored by the member**, not by Hotsauce, so filtering on the
+  committer's address alone counts one Docs "creation" per person. Skip the
+  `hotsauce: create space` commit by its subject.
+- **Not every app writes to Git.** Clips live in SQLite (count `created_at`), Dictate's history
+  never leaves the Mac (only `last_used_at` per device exists), Today writes nothing. Say so on
+  the page instead of showing a zero that reads as "unused".
+- **fast-check isn't a dependency yet.** Adding it touches the lockfile, a shared file; the pure
+  report got example tests instead.
