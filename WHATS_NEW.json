@@ -1,6 +1,29 @@
 {
   "releases": [
     {
+      "version": "0.30.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Pages for one thing (a form, a table, a clip, a board, a saved link, a check-in, a person) now show \"‹ Forms\", \"‹ Tables\" and so on at the top left to go back to the list."
+        },
+        {
+          "text": "Every pop-up has an × at its top right."
+        },
+        {
+          "text": "On a phone, a table's downloads and Delete are behind a \"More\" button so the table's name has room."
+        },
+        {
+          "text": "Dictation works with no connection, using speech recognition on your Mac; the pill says \"Offline: on-device\".",
+          "area": "Mac app"
+        },
+        {
+          "text": "If Hotsauce can't be reached mid-dictation, what you said is written up on your Mac instead of waiting for Retry.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.29.2",
       "date": "2026-11-16",
       "notes": [
