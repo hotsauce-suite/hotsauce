@@ -33,6 +33,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // A token's last-use write can still be running; let it finish before the folder goes.
+  await services.tokens.idle()
   services.index.close()
   await removeDir(root)
 })
