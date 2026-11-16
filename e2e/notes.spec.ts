@@ -71,7 +71,13 @@ test('take a note and a checklist, edit, color, pin and label them, and they sur
   await editor.getByTestId('note-label-input').press('Enter')
   await expect(editor.getByText(`Home${id}`).first()).toBeVisible()
   await page.keyboard.press('Escape') // closes the label popover
-  await editor.getByTestId('note-editor-close').click()
+  // One way out, the × at the top right; Delete is in More beside it (requirement 26).
+  await expect(editor.getByRole('button', { name: 'Close', exact: true })).toHaveCount(0)
+  await editor.getByTestId('note-editor-more').click()
+  await expect(page.getByRole('menuitem', { name: 'Delete note' })).toBeVisible()
+  await page.keyboard.press('Escape') // closes the menu, not the note
+  await expect(editor).toBeVisible()
+  await editor.getByTestId('note-editor-x').click()
   await expect(editor).toBeHidden()
 
   await page.reload()
@@ -136,7 +142,7 @@ test('a note moved to Team is visible to a teammate; a personal one is not', asy
   await page.getByTestId('note-editor-link').click()
   await page.getByTestId('note-move-team').click()
   await expect(page.getByTestId('notes-toast')).toContainText('Moved to Team')
-  await page.getByTestId('note-editor-close').click()
+  await page.getByTestId('note-editor-x').click()
   await expect(card(page, `Shared ${id}`)).toContainText('Team')
 
   const theirs = (await notes(other)).map((n) => n.title)
@@ -270,9 +276,9 @@ test('the tabs sort Personal from Team and survive opening a note', async ({ pag
   // Opening and closing a note keeps the tab.
   await page.getByTestId('notes-scope-mine').click()
   await mine.click()
-  await expect(page.getByTestId('note-editor-close')).toBeVisible()
+  await expect(page.getByTestId('note-editor-x')).toBeVisible()
   await expect(page).toHaveURL(/scope=mine/)
-  await page.getByTestId('note-editor-close').click()
+  await page.getByTestId('note-editor-x').click()
   await expect(page).toHaveURL(/\/notes\?scope=mine$/)
   await expect(page.getByTestId('notes-scope-mine')).toHaveAttribute('aria-selected', 'true')
   await expect(mine).toHaveCount(1)

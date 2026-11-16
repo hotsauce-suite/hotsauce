@@ -10,6 +10,8 @@ interface DialogProps {
   wide?: boolean
   /** False where there is nothing to close to: the pop-up ends only by its own buttons. */
   closable?: boolean
+  /** Beside the × at the top right: a thing's ⋯ More (a file's Rename and Delete). */
+  actions?: ReactNode
 }
 
 /** A modal with a title; Escape and the backdrop close it. */
@@ -20,6 +22,7 @@ export function Dialog({
   testId,
   wide = false,
   closable = true,
+  actions,
 }: DialogProps) {
   const titleId = useId()
   const panel = useRef<HTMLDivElement>(null)
@@ -69,6 +72,7 @@ export function Dialog({
           >
             {title}
           </h2>
+          {actions}
           {/* Every pop-up closes from its top right (docs/PLAN-consistency.md, requirement 9). */}
           {closable ? (
             <button

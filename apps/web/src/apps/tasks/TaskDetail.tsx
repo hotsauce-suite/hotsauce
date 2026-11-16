@@ -8,6 +8,8 @@ import { useComments } from '../../components/comments/useComments'
 import { DatePicker } from '../../components/DatePicker'
 import { AttachmentChips, FilePicker } from '../../components/FilePicker'
 import { Icon } from '../../components/Icon'
+import { MenuItem } from '../../components/Menu'
+import { MoreMenu } from '../../components/PageHeader'
 import { meetingUrl } from '../../lib/paths'
 import { dueWords } from './logic'
 
@@ -201,6 +203,22 @@ export function TaskDetail(props: TaskDetailProps) {
           }}
           className={`min-w-0 flex-1 rounded-md bg-transparent py-1.5 font-display text-[1.25rem] leading-snug font-semibold tracking-tight text-ink focus:outline-none ${done ? 'line-through decoration-ash-strong' : ''}`}
         />
+        {/* Delete is in More, the same on every page of one thing (requirement 26). */}
+        <MoreMenu testId="task-more">
+          {(close) => (
+            <MenuItem
+              icon="trash"
+              danger
+              testId="detail-delete"
+              onSelect={() => {
+                close()
+                props.onDelete()
+              }}
+            >
+              Delete task
+            </MenuItem>
+          )}
+        </MoreMenu>
         <button
           type="button"
           aria-label="Close"
@@ -477,16 +495,6 @@ export function TaskDetail(props: TaskDetailProps) {
             ? ` · Done ${new Date(task.completed).toLocaleDateString(undefined, { dateStyle: 'medium' })}`
             : ''}
         </p>
-
-        <button
-          type="button"
-          data-testid="detail-delete"
-          onClick={props.onDelete}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-ash px-3 text-sm text-ember-strong hover:border-ember"
-        >
-          <Icon name="trash" className="size-4" />
-          Delete task
-        </button>
       </div>
     </div>
   )

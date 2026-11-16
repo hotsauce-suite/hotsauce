@@ -142,7 +142,7 @@ describe('the editor', () => {
     await waitFor(() => expect(stored('Board meeting ideas').color).toBe('pink'))
     await user.click(within(editor).getByTestId('note-editor-pin'))
     await waitFor(() => expect(stored('Board meeting ideas').pinned).toBe(true))
-    await user.click(within(editor).getByTestId('note-editor-close'))
+    await user.click(within(editor).getByTestId('note-editor-x'))
     await waitFor(() => expect(screen.queryByTestId('note-editor')).toBeNull())
     expect(stored('Board meeting ideas').body).toBe(
       'Open with the pilot results.\nAsk about the second lab.\nBring the deck.',
@@ -156,7 +156,7 @@ describe('the editor', () => {
     const editor = await screen.findByTestId('note-editor')
     await user.click(within(editor).getByTestId('note-editor-toggle-list'))
     expect(within(editor).getAllByTestId('checklist-item')).toHaveLength(2)
-    await user.click(within(editor).getByTestId('note-editor-close'))
+    await user.click(within(editor).getByTestId('note-editor-x'))
     await waitFor(() =>
       expect(stored('Board meeting ideas').body).toBe(
         '- [ ] Open with the pilot results.\n- [ ] Ask about the second lab.',
@@ -203,7 +203,7 @@ describe('the editor', () => {
     await user.type(within(editor).getByTestId('note-editor-body'), ' mine')
     expect(await within(editor).findByRole('alert')).toHaveTextContent(/Someone else changed/)
     // Closing doesn't throw the unsaved typing away: the editor stays open the first time.
-    await user.click(within(editor).getByTestId('note-editor-close'))
+    await user.click(within(editor).getByTestId('note-editor-x'))
     await waitFor(() => expect(screen.getByTestId('note-editor')).toBeInTheDocument())
     await user.click(within(editor).getByTestId('note-keep-mine'))
     await waitFor(() => expect(stored('Board meeting ideas').body).toMatch(/ mine$/))

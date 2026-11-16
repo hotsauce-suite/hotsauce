@@ -11,6 +11,7 @@ import { HotsauceApiError } from '../../api/client'
 import { type NoteInput, type NoteView, notesApi } from '../../api/notes'
 import { AttachmentChips, FilePicker } from '../../components/FilePicker'
 import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
+import { MoreMenu } from '../../components/PageHeader'
 import { ReadOnlyLinkItems, useReadOnlyLink } from '../../components/ReadOnlyLink'
 import { ChecklistEditor } from './ChecklistEditor'
 import { editedLabel } from './logic'
@@ -263,6 +264,23 @@ export function NoteEditor({
             testId="note-editor-pin"
             onClick={() => void write({ pinned: !note.pinned }).catch(() => {})}
           />
+          {/* Delete is in More, the same on every page of one thing (requirement 26). */}
+          <MoreMenu testId="note-editor-more">
+            {(closeMenu) => (
+              <MenuItem
+                icon="trash"
+                danger
+                testId="note-editor-trash"
+                onSelect={async () => {
+                  closeMenu()
+                  await flush()
+                  onTrash(note)
+                }}
+              >
+                Delete note
+              </MenuItem>
+            )}
+          </MoreMenu>
           <ToolButton
             icon="close"
             label="Close note"
@@ -351,23 +369,6 @@ export function NoteEditor({
               onArchive(note)
             }}
           />
-          <ToolButton
-            icon="trash"
-            label="Delete"
-            testId="note-editor-trash"
-            onClick={async () => {
-              await flush()
-              onTrash(note)
-            }}
-          />
-          <button
-            type="button"
-            data-testid="note-editor-close"
-            onClick={() => void close()}
-            className="ml-auto rounded-md px-4 py-1.5 text-sm font-medium text-ink hover:bg-ink/10"
-          >
-            Close
-          </button>
         </div>
       </div>
       {picking ? (

@@ -683,7 +683,42 @@ function FileDialog({
   onDelete: (f: DriveFile) => void
 }) {
   return (
-    <Dialog title={file.name} onClose={onClose} testId="file-dialog" wide>
+    <Dialog
+      title={file.name}
+      onClose={onClose}
+      testId="file-dialog"
+      wide
+      // Rename and Delete are in More, the same on every page of one thing (requirement 26).
+      actions={
+        <MoreMenu testId="file-more">
+          {(close) => (
+            <>
+              <MenuItem
+                icon="pencil"
+                testId="file-rename"
+                onSelect={() => {
+                  close()
+                  onRename(file)
+                }}
+              >
+                Rename
+              </MenuItem>
+              <MenuItem
+                icon="trash"
+                danger
+                testId="file-delete"
+                onSelect={() => {
+                  close()
+                  onDelete(file)
+                }}
+              >
+                Delete file
+              </MenuItem>
+            </>
+          )}
+        </MoreMenu>
+      }
+    >
       <div className="flex flex-col gap-4 md:flex-row">
         <div className="flex min-h-[40vh] min-w-0 flex-1 items-center justify-center">
           <FilePreview file={file} space={file.space} />
@@ -747,23 +782,6 @@ function FileDialog({
               Anyone signed in to {product()} with the link can open this file.
             </p>
           ) : null}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={`${secondaryButton} h-9 flex-1`}
-              onClick={() => onRename(file)}
-            >
-              Rename
-            </button>
-            <button
-              type="button"
-              className={`${secondaryButton} h-9 flex-1`}
-              onClick={() => onDelete(file)}
-              data-testid="file-delete"
-            >
-              Delete
-            </button>
-          </div>
         </aside>
       </div>
     </Dialog>

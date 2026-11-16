@@ -13,7 +13,8 @@ The three leftovers from the round 3 review are done: the list is a tab panel na
 (`ListPanel`), and tests cover dragging being off while Tasks is searched and Meetings filters
 with a search. Round 4 (the page of one thing) is in progress: Morgan accepted Q1 to Q8 on Nov 16; slice 1
 (the top bar, requirements 20 to 23) shipped in 0.31.0 (PR #158); slice 2 (the side panel and
-the widths, 24 and 25) is in review.
+the widths, 24 and 25) shipped (PR #159); slice 3 (task, note, file and the Briefcast episode,
+26 and 27) is in review.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
@@ -196,8 +197,10 @@ https://claude.ai/artifact/A9oePJA9Wedzbhb6gokgDM
     *(e2e consistency; unit PeoplePages)*
 26. **Quick things stay quick.** A task keeps its side panel, a note and a file their pop-ups;
     each has its name at the top, × at the top right, Delete in More. A note has no second
-    "Close" button. *(e2e notes, tasks, drive)*
-27. A Briefcast episode follows 20 to 22. Voice notes, the Mac app and the Chrome extension have
+    "Close" button. A file's Rename sits in More with Delete; Download and Share stay beside the
+    preview. *(e2e notes, tasks, drive; unit TasksPage)*
+27. A Briefcast episode follows 20 to 22: a past one is named in the top bar, not again in the
+    page, and it reads at a doc's width. *(unit BriefcastPage)* Voice notes, the Mac app and the Chrome extension have
     no page of one thing and are left out.
 28. The app videos, README screenshots and help pages show the new pages.
 
