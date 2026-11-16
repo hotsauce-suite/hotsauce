@@ -39,3 +39,36 @@ Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadEr
   headless in a cloud session in about ten minutes (`scripts/tour-video/README.md`, with
   `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium`); `clipsPlayer` needs a prepared `DEMO_CLIP`
   and the narrated tour needs a voice key, so those two are separate jobs.
+
+## Round 2: the top bar (Nov 16)
+
+- **One shared piece per pattern, then move pages one at a time.** `PageHeader` (with `MainButton`,
+  `MoreMenu`, `back`), `ShareButton` and the × in `Dialog` each landed in their own small PR with
+  an e2e check that loops over every app. The loop is what found the stragglers; reading the code
+  did not.
+- **The "mobile" Playwright project runs only `mobile.spec.ts`.** Every other spec runs at
+  computer width, so a control that moves behind More on a phone breaks no existing test and is
+  covered by none. Phone behaviour needs its own tests with `test.use({ viewport })`
+  (`e2e/consistency.spec.ts`, "a phone’s top bar").
+- **A menu inside a pop-up: Escape must close one thing.** `Menu` and `Dialog` both listened for
+  Escape on `document`, so a Share menu in the file pop-up closed both. `Menu` now takes Escape on
+  the way down (capture) and stops it there. The same goes for a press on the button that opened
+  the menu: the menu closes on pointerdown and the click reopens it unless the button remembers
+  the menu was open when the press began (`openAtPress` in `ShareButton` and `MoreMenu`).
+- **A menu unmounts what is inside it.** Anything that must outlive the menu (a dialog, a hidden
+  file input, a confirm state) lives outside and the item only opens it. `SaveVersion` got
+  `asked`/`onAsked` so the doc's More can open its dialog.
+- **A toast that says who can open a link has to ask the server's rules.** The first Forms
+  wording said "anyone with it" for team-only and closed forms; the independent review caught
+  it by reading `forms/service.ts`. Write the wording from the access rule, and test it.
+- **New spaces arrive after the page does.** Until `me` loads, `spaces` is a one-item stand-in, so
+  a "New … in Team/Personal" button pressed early creates in the wrong place. Keep it disabled
+  until `me` is there.
+- **Titles on a phone: use the doc's heading.** `extractTitle` prefers the frontmatter title,
+  which for a new doc is "Untitled" long after the heading changed. `DocumentView` already keeps
+  the heading (`heading`, `openedHeading`) for the rename offer; the top bar reuses it.
+- **Re-recording after a top-bar change** took about ten minutes for the fourteen loops, plus the
+  eight README screenshots (`docs/learnings/website.md` has that recipe). `rec.mjs` needs
+  `PLAYWRIGHT_CHROMIUM` even for a single shot, and a shot that presses a button by its old
+  place or name fails loudly (Forms did), which is the reminder to update `shots.mjs`.
+

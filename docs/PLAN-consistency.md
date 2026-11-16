@@ -2,10 +2,10 @@
 
 **Status:** (Nov 16, 2026) Round 1 is shipped in full: requirements 1 to 5 (0.18.0, PR #117),
 Links and the words (PR #128), plain titles with "Boards" (PR #130), the re-recorded app videos
-(PR #133), and now "Saved" for "Committed" on a doc's save chip. Round 2 (the top bar) is being
-built in steps: the red main button (PR #145) and "‹ App name" with × on pop-ups (PR #148) are
-merged, as is one "Share" button (PR #150), and the phone top bar is in its PR. The videos and screenshots
-are re-recorded once, after the last step. Round 3 not started.
+(PR #133), and now "Saved" for "Committed" on a doc's save chip. Round 2 (the top bar) is shipped:
+the red main button (PR #145), "‹ App name" with × on pop-ups (PR #148), one "Share" button
+(PR #150) and the phone top bar (PR #152), with the app videos and README screenshots re-recorded
+after the last step. Still old: the Clips player video and the narrated tour video. Round 3 not started.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
