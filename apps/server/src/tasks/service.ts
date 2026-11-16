@@ -20,6 +20,7 @@ import {
 } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
 import { nameFromEmail } from '../auth/principal.js'
+import { commentRemovals } from '../comments/index.js'
 import { HotsauceError } from '../errors.js'
 import { type CommitResult, formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
@@ -118,7 +119,10 @@ interface TaskRecord {
 }
 
 type TasksGit = Pick<GitStore, 'readFile' | 'commit' | 'readBlobText'>
-type TasksIndex = Pick<Index, 'listFiles' | 'search' | 'listSpaces' | 'bodies' | 'bodyAt'>
+type TasksIndex = Pick<
+  Index,
+  'listFiles' | 'search' | 'listSpaces' | 'bodies' | 'bodyAt' | 'getFile'
+>
 
 export interface TasksDeps {
   git: TasksGit
@@ -925,6 +929,9 @@ export class Tasks {
           changes: [
             { path: trashPath, content: file.content },
             { path: file.record.path, content: null },
+            // Its conversation goes with it (ARCHITECTURE §27.1); a team task moved to a personal
+            // space leaves it behind too, since only team items have one.
+            ...commentRemovals(this.#index, space, [file.record.path]),
           ],
           verb,
           title: file.record.fm.title,

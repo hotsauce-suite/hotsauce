@@ -28,6 +28,7 @@ import {
   UnconfiguredSpeaker,
 } from './briefcast/index.js'
 import { CheckinMembers, CheckinScheduler, Checkins } from './checkins/index.js'
+import { Comments } from './comments/index.js'
 import {
   ClipStore,
   Clips,
@@ -305,17 +306,30 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
       : {}),
   })
+  // Members' names and zones as their browsers last said them.
+  const checkinMembers = new CheckinMembers(config.DATA_DIR)
   // Check-ins (§24): scheduled team questions in the team space; summaries go to a chat room.
   const checkins = new Checkins({
     git,
     index,
     syncer,
     rooms: chatRooms,
-    members: new CheckinMembers(config.DATA_DIR),
+    members: checkinMembers,
     llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
     model: config.ENHANCE_MODEL,
     publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
     ...(overrides.checkinsNow ? { now: overrides.checkinsNow } : {}),
+  })
+  // Comments (§27): a conversation under a team doc, meeting note or task; a mention pushes.
+  const comments = new Comments({
+    git,
+    index,
+    syncer,
+    people: (p) => taskService.people(p),
+    names: () => checkinMembers.all(),
+    push: meetings.pushSender
+      ? { store: meetings.reminderStore, sender: meetings.pushSender }
+      : null,
   })
   const checkinScheduler = new CheckinScheduler({
     checkins,
@@ -494,6 +508,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     links,
     checkins,
     checkinScheduler,
+    comments,
     org,
     brand,
     backups: createBackups(config, overrides.backupStore, (space, fn) =>

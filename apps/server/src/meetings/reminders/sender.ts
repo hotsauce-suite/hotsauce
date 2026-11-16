@@ -10,9 +10,18 @@ export interface ReminderPayload {
   tag: string
 }
 
+export interface PushOptions {
+  /** How long the push service keeps trying a device that is offline. Default: two minutes. */
+  ttlSeconds?: number
+}
+
 export interface PushSender {
   /** 'gone' when the browser has dropped the subscription; it should be forgotten. */
-  send(subscription: PushSubscription, payload: ReminderPayload): Promise<'sent' | 'gone'>
+  send(
+    subscription: PushSubscription,
+    payload: ReminderPayload,
+    opts?: PushOptions,
+  ): Promise<'sent' | 'gone'>
 }
 
 /** Web Push with VAPID keys (`npx web-push generate-vapid-keys`). */
@@ -23,12 +32,16 @@ export class WebPushSender implements PushSender {
     this.#vapid = vapid
   }
 
-  async send(subscription: PushSubscription, payload: ReminderPayload): Promise<'sent' | 'gone'> {
+  async send(
+    subscription: PushSubscription,
+    payload: ReminderPayload,
+    opts: PushOptions = {},
+  ): Promise<'sent' | 'gone'> {
     try {
       await webpush.sendNotification(subscription, JSON.stringify(payload), {
         vapidDetails: this.#vapid,
-        // Worthless once the meeting has started.
-        TTL: 120,
+        // A reminder is worthless once the meeting has started; a mention asks for longer.
+        TTL: opts.ttlSeconds ?? 120,
         urgency: 'high',
         // A stalled push service mustn't hold up every other member's reminders.
         timeout: 10_000,
@@ -44,15 +57,23 @@ export class WebPushSender implements PushSender {
 
 /** Records what would have been sent. For tests and development without VAPID keys. */
 export class FakePushSender implements PushSender {
-  readonly sent: Array<{ endpoint: string; payload: ReminderPayload }> = []
+  readonly sent: Array<{ endpoint: string; payload: ReminderPayload; ttlSeconds?: number }> = []
   readonly gone = new Set<string>()
   /** Endpoints whose push service is failing: send throws, as web-push does on a 5xx. */
   readonly failing = new Set<string>()
 
-  async send(subscription: PushSubscription, payload: ReminderPayload): Promise<'sent' | 'gone'> {
+  async send(
+    subscription: PushSubscription,
+    payload: ReminderPayload,
+    opts: PushOptions = {},
+  ): Promise<'sent' | 'gone'> {
     if (this.gone.has(subscription.endpoint)) return 'gone'
     if (this.failing.has(subscription.endpoint)) throw new Error('push service unavailable')
-    this.sent.push({ endpoint: subscription.endpoint, payload })
+    this.sent.push({
+      endpoint: subscription.endpoint,
+      payload,
+      ...(opts.ttlSeconds === undefined ? {} : { ttlSeconds: opts.ttlSeconds }),
+    })
     return 'sent'
   }
 }

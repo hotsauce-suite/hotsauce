@@ -6,6 +6,7 @@ import type { AgentBriefs } from '../brief/index.js'
 import type { Briefcasts } from '../briefcast/index.js'
 import type { CheckinScheduler, Checkins } from '../checkins/index.js'
 import type { Clips } from '../clips/index.js'
+import type { Comments } from '../comments/index.js'
 import type { Config } from '../config.js'
 import type { Dictation } from '../dictation/index.js'
 import type { Feedback } from '../feedback/index.js'
@@ -62,6 +63,8 @@ export interface AppDeps {
   links: Links
   checkins: Checkins
   checkinScheduler: CheckinScheduler
+  /** The conversation under a team item (ARCHITECTURE §27). */
+  comments: Comments
   org: OrgStore
   brand: BrandStore
   updates: Updater

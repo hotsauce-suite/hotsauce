@@ -14,6 +14,7 @@ import {
   briefRoutes,
   calendarRoutes,
   checkinRoutes,
+  commentRoutes,
   clipRoutes,
   conflictRoutes,
   desktopRoutes,
@@ -92,6 +93,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', tableRoutes(deps))
     .route('/api', linkRoutes(deps))
     .route('/api', checkinRoutes(deps))
+    .route('/api', commentRoutes(deps))
     .route('/api', assistantRoutes(deps))
   // e2e hooks (ARCHITECTURE §7.8); never mounted outside NODE_ENV=test.
   if (deps.config.NODE_ENV === 'test') app.route('/api', testRoutes(deps))

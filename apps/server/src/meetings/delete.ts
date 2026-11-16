@@ -22,6 +22,8 @@ export interface DeleteMeetingDeps {
   /** Refuses a path Hotsauce must never change (`.hearth/space.yaml`); returns it normalized. */
   writablePath: (path: string) => string
   afterCommit: (space: string, path: string, result: CommitResult) => Promise<void>
+  /** The conversation under the note, as deletions for the same commit (ARCHITECTURE §27.1). */
+  commentRemovals?: (space: string, path: string) => Change[]
   log?: (message: string) => void
 }
 
@@ -90,6 +92,8 @@ export async function deleteMeeting(
         }
       }
     }
+
+    changes.push(...(deps.commentRemovals?.(space, path) ?? []))
 
     const result = await git.commit(space, {
       changes,

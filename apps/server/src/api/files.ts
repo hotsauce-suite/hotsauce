@@ -1,9 +1,16 @@
-import { newId, parseFrontmatter, SPACE_LAYOUT, transcriptPathFor } from '@hotsauce/format'
+import {
+  isCommentPath,
+  newId,
+  parseFrontmatter,
+  SPACE_LAYOUT,
+  transcriptPathFor,
+} from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
 import type { Change, GitStore } from '../git/index.js'
-import { isIndexable } from '../index/index.js'
+import { commentRemovals } from '../comments/index.js'
+import { type Index, isIndexable } from '../index/index.js'
 import { TEAM_SPACE } from '../spaces/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
 import { rewriteLinksToMoved } from './links.js'
@@ -66,7 +73,9 @@ export function fileRoutes(deps: AppDeps) {
       if (isAtOrUnder(path, SPACE_LAYOUT.trash)) {
         throw new HotsauceError('bad_request', `${path} is already in the trash`)
       }
-      const oid = await moveToTrash(git, space, path, authorOf(c.get('principal')))
+      const oid = await moveToTrash(git, space, path, authorOf(c.get('principal')), {
+        index: deps.index,
+      })
       await syncer.afterHeadChanged(space)
       return c.json({ oid })
     })
@@ -129,14 +138,19 @@ export function fileRoutes(deps: AppDeps) {
 /**
  * Deleting moves to `.trash/<YYYY-MM-DD>/<path>`. A second delete of that path that day goes to
  * `.trash/<YYYY-MM-DD>-<id8>/<path>`: the suffix is on the folder, so the file keeps its name and
- * a meeting note's transcript, named in its frontmatter, still sits beside it.
+ * a meeting note's transcript, named in its frontmatter, still sits beside it. The conversation
+ * under a deleted item is deleted with it (history keeps both).
  */
 export async function moveToTrash(
   git: GitStore,
   space: string,
   path: string,
   author: ReturnType<typeof authorOf>,
-  via?: string,
+  opts: {
+    via?: string | undefined
+    /** With the index, the conversations under what is deleted go in the same commit (§27.1). */
+    index?: Pick<Index, 'getFile' | 'listFiles'>
+  } = {},
 ): Promise<string> {
   const day = new Date().toISOString().slice(0, 10)
   const target = `${SPACE_LAYOUT.trash}/${day}/${path}`
@@ -147,8 +161,11 @@ export async function moveToTrash(
         path,
         to,
         author,
-        (headOid) => transcriptFollows(git, space, path, to, headOid),
-        { via },
+        async (headOid) => [
+          ...(await transcriptFollows(git, space, path, to, headOid)),
+          ...(opts.index ? commentRemovals(opts.index, space, [path]) : []),
+        ],
+        { via: opts.via },
       )
     ).oid
   try {
@@ -171,7 +188,8 @@ export async function linksInto(
 ): Promise<Change[]> {
   const candidates = (await git.listAll(space))
     .map((e) => e.path)
-    .filter((path) => isIndexable(path) && !isAtOrUnder(path, from))
+    // Comments are written only by the Comments service, so their text is never rewritten.
+    .filter((path) => isIndexable(path) && !isCommentPath(path) && !isAtOrUnder(path, from))
   const changes: Change[] = []
   for (let i = 0; i < candidates.length; i += READ_CONCURRENCY) {
     await Promise.all(
