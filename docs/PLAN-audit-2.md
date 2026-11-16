@@ -30,8 +30,8 @@ branches' authors.
 
 - The page copy the Chrome extension sends is held in memory until its background read commits;
   a restart in between loses it and the retry fetches signed out. Keep it on disk until read.
-- `save_link` through the connector fetches any public address, so a tool that was told to can
-  send what it read out in the address. Don't fetch for connector saves until a member opens the link.
+- ~~`save_link` through the connector fetches any public address.~~ Fixed in 0.21.0 (#123): links an
+  AI tool saves wait for a member to press Get the page (docs/PLAN-links-ai-saves.md).
 - The updater installs whatever image the release tag points at. Install by digest, taken from
   the release.
 - ~~Stars, pins and recents live only in `index.sqlite`, which backups leave out.~~ Fixed: they
