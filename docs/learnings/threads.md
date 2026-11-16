@@ -13,3 +13,15 @@
   chat when a hardcoded name was scrubbed. Before deleting such a value, look for a setting to
   derive it from (here the org name plus CHAT_URL, the same pair the app rail uses for
   "<org> Chat").
+
+## Keeping the status page honest
+
+- A status page written by hand goes stale within days: the old one still described October.
+  `docs/STATUS.md` now has a test (`apps/web/src/apps/statusDoc.test.ts`) that fails when an app
+  on the rail, a folder under `apps/web/src/apps/` or a folder under `apps/` has no entry. Extend
+  that test, not the prose, when a new kind of app appears.
+- Read "what does it need" from `apps/server/src/services.ts`, not from the docs: it is the one
+  place that decides fake, real or off for each provider. Docs claimed push reminders needed keys;
+  the server has generated its own pair in production since setup mode shipped.
+- Instance-specific status (what is live, which keys are missing) belongs in the instance's
+  private ops repo, never in the public repo's status page.
