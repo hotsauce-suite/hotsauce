@@ -1,6 +1,6 @@
 # Status
 
-What Hotsauce is today, read from the code on `main` at release 0.16.0 (2026-11-16). Each app is
+What Hotsauce is today, read from the code on `main` at release 0.28.0 (2026-11-16). Each app is
 two lines: what it does, and what it needs beyond the base install. Keep this file current in the
 same PR as any change to an app; `apps/web/src/apps/statusDoc.test.ts` fails when an app exists in
 the code but has no entry here.
@@ -96,7 +96,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Mac app** (`apps/dictate-mac`), 0.14.4 on the `mac-app` GitHub release: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the release); the app's menu says "Update available" too. Updating is download and drag.
 - **Chrome extension** (`apps/extension`), 0.7.0: records Meet tabs, saves links in one click, connects in one click. In Chrome Web Store review; installed by hand until approved.
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
-- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool that sends a token header can search, read and write as the member. ChatGPT and Grok need OAuth, which is in flight.
+- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool can search, read and write as the member, either by signing in (OAuth, used by claude.ai, ChatGPT and Grok) or by sending a token header.
 - **Site** (`site/`): hotsauce.work, the help center, install guide and the live demo at demo.hotsauce.work.
 
 ## Built but switched off by default
@@ -116,9 +116,7 @@ production refuses the test stand-ins, so nothing pretends to work.
 
 Open pull requests on `main` at the date above (release numbers are taken at merge, not here):
 
-- **#110** GitHub publishes hotsauce.work and the demo on merge.
-- **#112** Releases number themselves.
-- **#108** Sign in to the MCP server from claude.ai, ChatGPT and Grok (OAuth).
+- **#134** For you: one list of every mention.
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 
