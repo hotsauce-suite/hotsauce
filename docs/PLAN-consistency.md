@@ -1,6 +1,8 @@
 # Plan: the apps look and act the same
 
-**Status:** round 1 in progress (Nov 16, 2026). Nothing shipped yet. Report with screenshots:
+**Status:** round 1, requirements 1 to 5, built and in PR #117 (Nov 16, 2026); requirements 6
+and 7 (words, titles) follow in their own PR. Links is not converted yet (waits for its open
+work). Rounds 2 and 3 not started. Report with screenshots:
 `/consistency/consistency-report.html` in the project files. Morgan accepted all seven patterns
 on Nov 15 ("yes" to Q1 to Q7).
 
@@ -21,7 +23,9 @@ It ships in rounds; round 1 moves no control.
    when its open work has merged. *(e2e consistency, one case per app)*
 3. Try again loads the list without reloading the page. *(e2e consistency)*
 4. While a list has failed, its empty message is not shown, and the page's own buttons stay
-   where they were. *(e2e consistency: Tasks, Notes, Voice notes, Check-ins)*
+   where they were. (Check-ins is the exception: who may make a check-in comes with the list,
+   so its buttons return with it.) *(e2e consistency: every failed-list case checks that no
+   empty screen shows)*
 5. **One empty screen.** A list with nothing in it shows, centred in the list area, the app's
    icon, a headline ("No forms yet"), one sentence, and where the app has one, its main button.
    Lists that are meant to reach empty keep their own headline ("Your inbox is clear").
