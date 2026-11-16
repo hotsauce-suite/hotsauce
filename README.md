@@ -133,6 +133,7 @@ tools can all read what you saved. [More in the help center](https://hotsauce.wo
 | **Files** | Upload and share files and folders, with previews and search across what's inside them. |
 | **Tables** | Trackers with spreadsheet formulas, kept as CSV files in git. |
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
+| **Sign** | Sign a PDF from Files by typing or drawing. The signed copy is sealed so any later change shows, and an audit certificate is saved beside it. |
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note or meeting, or publish a page. |
 | **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, trimming, one-click Summarize and Action items, speed control and a shared library. |

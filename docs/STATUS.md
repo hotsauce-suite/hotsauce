@@ -61,6 +61,10 @@ Needs nothing extra on the server's volume; R2/S3 when configured.
 Surveys, sign-ups and requests for the team or anyone with the link; answers land in Git.
 Needs nothing extra for members; forms open to outside people need Turnstile.
 
+### Sign
+Send a PDF from Files for signature: place the fields, sign it, and a sealed copy (a PAdES seal any PDF reader can check) and its audit certificate land in Files beside the original. For now the sender is the one signer; emailed links for other people come next (docs/PLAN-sign.md).
+Needs nothing extra: the server makes its own seal key on first use. Emailing outside signers will need a Resend key.
+
 ### Check-ins
 A question the team answers on a schedule, with replies and one AI summary posted to a chat room.
 Needs nothing extra; the summary needs the AI key, posting it needs a chat room's webhook.

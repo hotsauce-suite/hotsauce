@@ -17,6 +17,7 @@ import { linksApp } from './links/manifest'
 import { meetingsApp } from './meetings/manifest'
 import { notesApp } from './notes/manifest'
 import { peopleApp } from './people/manifest'
+import { signApp } from './sign/manifest'
 import { tablesApp } from './tables/manifest'
 import { tasksApp } from './tasks/manifest'
 import { todayApp } from './today/manifest'
@@ -34,6 +35,7 @@ export type AppId =
   | 'people'
   | 'files'
   | 'forms'
+  | 'sign'
   | 'tables'
   | 'links'
   | 'briefcast'
@@ -96,6 +98,7 @@ export const APPS: readonly AppManifest[] = [
   peopleApp,
   filesApp,
   formsApp,
+  signApp,
   checkinsApp,
   tablesApp,
   linksApp,

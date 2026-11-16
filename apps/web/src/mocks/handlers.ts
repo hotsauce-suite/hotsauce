@@ -18,6 +18,7 @@ import { meetingHandlers } from './meetingHandlers'
 import { FakeNotes, noteHandlers } from './noteHandlers'
 import { peopleHandlers } from './peopleHandlers'
 import { seed, seedPersonal } from './seed'
+import { FakeSign, seedSign, signHandlers } from './signHandlers'
 import { FakeTasks, seedTasksOnce, taskHandlers } from './taskHandlers'
 import { todayHandlers } from './todayHandlers'
 
@@ -528,6 +529,9 @@ function createHandlers(
   handlers.push(...boardHandlers({ boards: work.boards, latencyMs, principal, seeded }))
   handlers.push(...fileHandlers({ files: work.files, latencyMs, principal }))
   handlers.push(...formHandlers({ forms: work.forms, files: work.files, latencyMs, principal }))
+  const sign = new FakeSign()
+  if (seeded) seedSign(sign, work.files)
+  handlers.push(...signHandlers({ sign, files: work.files, latencyMs, principal }))
   handlers.push(
     ...linkHandlers({ links: work.links, files: work.files, repo, latencyMs, principal }),
   )
