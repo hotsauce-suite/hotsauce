@@ -34,3 +34,8 @@ Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadEr
 - **Renaming an app is mostly outside the app.** "Whiteboard" to "Boards" touched the landing
   page card, the FAQ (twice, once in its search-engine data), llms.txt, four help pages, README
   and STATUS. The help page keeps its address (`/help/whiteboard`) so old links work.
+- **A heading or button change means re-recording the site's app loops.** The loops in
+  `site/public/video/apps/` show every app's sidebar heading and main button. They re-record
+  headless in a cloud session in about ten minutes (`scripts/tour-video/README.md`, with
+  `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium`); `clipsPlayer` needs a prepared `DEMO_CLIP`
+  and the narrated tour needs a voice key, so those two are separate jobs.
