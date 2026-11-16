@@ -10,7 +10,8 @@
       "!**/.data",
       "!**/playwright-report",
       "!**/test-results",
-      "!WHATS_NEW.json"
+      "!WHATS_NEW.json",
+      "!packages/sign/src/vendor"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
