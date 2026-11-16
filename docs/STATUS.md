@@ -76,6 +76,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 ## Built into every app
 
 - **Ask** (⌘J): the assistant on every page, with the same tools as the MCP server, as the member. Needs the AI key; admins set the model and a monthly limit.
+- **Comments and @mentions**: a conversation under every team doc, meeting note and task; `@` and a name sends that teammate one notification that opens on the comment. Needs nothing extra; notifications must be on for the push. Not yet: a "For you" list, replies and comments from AI tools (the next steps in `docs/PLAN-comments.md`), and sending a comment written offline.
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.

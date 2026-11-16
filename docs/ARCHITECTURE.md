@@ -1604,3 +1604,41 @@ Plan `docs/PLAN-app-usage.md`. Settings → Usage (`/settings/organization/usage
 - `usage/report.ts` (pure): a file's app is its top folder, the same rule as the web's `appForFile` (any other visible file is Docs; `.hearth/briefcast/` is Briefcast; other hidden paths count for nothing). Per app and Monday-to-Sunday UTC week: distinct items created, distinct items created or changed, distinct authors. Hotsauce's committer address and each space's seed commit (`hotsauce: create space …`) are left out. Clips come from `ClipStore.createdSince`; Dictate gives only connected Macs and those used in 7 days (`DictationStore.deviceLastUses`), since its history stays on the Mac.
 - `Usage` (`usage/service.ts`) reads every clone, one space at a time, and keeps the report in memory for 10 minutes.
 - `GET /api/admin/usage` (admin, never via a token; outside `/admin/org/*`, whose middleware says "change the organization") → `{ generatedAt, weeks, apps: [{ id, weeks: [{ week, created, changed, people }], total, peopleLast4Weeks }], dictate }`. No paths, titles, spaces or addresses ever leave the server.
+
+## 27. Comments and @mentions
+
+Plan `docs/PLAN-comments.md` (slice 1 of 5). A conversation under a team doc, meeting note or task; `@` names a member, who gets one push. Pure parts: `packages/format/src/comments.ts`; server: `apps/server/src/comments/` and `api/comments.ts`; web: `apps/web/src/components/comments/` and `editor/commentsSlot.ts`.
+
+### 27.1 Files (team space only)
+
+- One comment is one file, `.hearth/comments/<item id>/<comment id>.md`: `id, type: comment, item, author (email), name (as written then), created, edited?, mentions (lowercase emails the server resolved), quote? (≤ 1,000), via?`; unknown keys are kept. The body is the comment, plain text (≤ 10,000). A new comment is a new file, so two people commenting at once never conflict. At most 2,000 per item.
+- Keyed to the item's `id` (a task's is its file name), never its path, so a move or rename needs no work. An item with no `id` gets one on its first comment, in the same commit, as a frontmatter patch that leaves every other byte alone; an `id` that isn't a plain name (`isCommentableId`) is refused.
+- Commentable: Markdown files of kind `docs`, `other`, `meeting` or `task` in the team space (`isCommentable`). Other kinds come in slice 5. A personal space has no comments; the API refuses and the web shows no box.
+- Only the Comments service writes under `.hearth/comments` (`writablePath` refuses the folder, anything in it and anything that would replace it). Commits are `comments: add to|edit on|delete from "<item title>"`, authored by the member; a write retries three times on a concurrent commit.
+- Deleting an item deletes its comment files in the same commit (`commentRemovals`), on all three paths: the file API and MCP delete (`moveToTrash`), deleting a meeting, and trashing a task. Deleting a folder does it for every item inside.
+
+### 27.2 Index, mentions and the push
+
+- Comment paths are the one hidden folder the index reads (`isIndexable`), as kind `comment`, so every read comes from the index and a reindex from an empty SQLite file brings conversations back. Search leaves the kind out unless `kinds` asks for it (until slice 4), and `linksInto` skips it. `Index.fileById(space, id)` finds the item a conversation belongs to.
+- `findMentions(text, members)`: `@` then a member's full name, handle, email local part or (when nobody else has it) first name, longest first, case-insensitive; not after a letter, digit or one of `._%+-` (an email), not when a word character follows. A name two members share names neither. The members are the people Tasks can assign, with the names Check-ins keeps. The stored `mentions` is what the server resolved; the web's picker only writes the text.
+- Each mentioned member except the author gets one push through the meeting reminder store and sender (§7, §12.2): `{ title: "<author> mentioned you", body: "<item title>: <comment, one line>", url: <item url>#comment-<id>, tag }`, kept 24 hours by the push service (`PushOptions.ttlSeconds`). Sent after the commit, in the background (`Comments.idle()` waits for it in tests); `markSent("mention <email> <comment id>")` makes it once per member per comment, so an edit that adds a name pushes only the newly named.
+
+### 27.3 API
+
+```
+GET    /api/comments?space&path     → { canComment, comments: [CommentView] }   (oldest first)
+GET    /api/comments/members        → { members: [{ email, name, handle }] }
+POST   /api/comments                { space, path, text, quote? } → 201 CommentView
+PATCH  /api/comments/:item/:id      { text } → CommentView          (the author only)
+DELETE /api/comments/:item/:id      → 204                            (the author; an admin, not through a token)
+```
+
+`CommentView`: `{ id, item, author, name, created, edited, text, quote, mentions: [{ email, name }], via, mine, canEdit, canDelete }`. A comment on something not saved yet is a 404 ("Save this before commenting on it").
+
+### 27.4 Web
+
+- `useComments(space, path, enabled)` loads the conversation in its own request after the item, follows `changed` events whose paths start with `.hearth/comments/`, and keeps the draft (text and quote) in `localStorage` per item, so it survives a reload, a lost connection and a failed send. Offline (`navigator.onLine`, or a send that fails with code `network`) the box says comments need a connection and sending waits; sending from the offline queue is the plan's R10 and depends on offline mode.
+- In a doc or meeting note the conversation sits under the text: in the editor, `commentsSlot` places one host element as a block widget after the last line (inside CodeMirror's own scroll), `DocumentView` fills it through a React portal, and a `ResizeObserver` asks the editor to measure again; in the reading view it follows the article. The top bar's speech-bubble button (with the count) and Command-K's "Add a comment" go to the box. A team task shows it at the foot of the task panel.
+- `Composer`: plain text, `@` opens up to six members (arrows, Enter or Tab picks, Escape closes), inserting the full name, or the handle when two members share a name; Command-Enter sends. `CommentText` renders the words as written (line breaks kept, URLs linked, no Markdown) and marks only the mentions the server stored.
+- Quoting: a non-empty selection in the editor shows a "Comment" tooltip (`showTooltip`), and the reading view a floating button; either puts the passage above the box as the quote.
+- `#comment-<id>` on a doc, meeting note or task URL scrolls to that comment and marks it; the editor first scrolls its end into view (`EditorBridge.revealEnd`), since the slot is only drawn when near the viewport. A long conversation shows its latest 20 with "Show earlier comments"; a link to an earlier one opens them all.

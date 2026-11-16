@@ -9,8 +9,10 @@ by the owner on 2026-11-15. This file is where that map ends: the spec the build
 
 - 2026-11-15: planned. Nothing is built. Each slice below is one thread and one release; a thread
   claims a slice by opening its draft PR and adding a line here.
-- Slice 1 (requirements 1 to 11): being built, 2026-11-16, in the PR "Comments and @mentions on docs,
-  meeting notes and tasks" (branch `claude/project-thread-9omzow`).
+- Slice 1 (requirements 1 to 11): built 2026-11-16 in #121 ("Comments and @mentions on docs,
+  meeting notes and tasks"); how it works is ARCHITECTURE §27. Requirement 10 is half done on
+  purpose: with no connection the box says so and keeps the draft; sending it on reconnect waits on
+  offline mode (#102). What the build changed from the design below is under "Design, as built".
 - Slice 2: not started.
 - Slice 3: not started.
 - Slice 4: not started.
@@ -82,6 +84,29 @@ Starting points for the build threads. Change them if the code argues otherwise,
   Settings reorganisation.
 - **Budgets:** the For you read uses the index only (no Git reads, no model calls) and stays under
   200 ms on 5,000 indexed files, the bar Today holds. Loading an item must not wait on its comments.
+
+### Design, as built (slice 1)
+
+- **The body is plain text, not Markdown.** Line breaks are kept and URLs open; nothing else is
+  formatted. A comment box that half-renders Markdown surprises people, and plain text keeps the
+  mention offsets exact. Slice 4 can revisit it when Claude writes comments.
+- **A `name` field** sits beside `author`, the member's name when they wrote it, so a conversation
+  reads the same after someone leaves or is renamed.
+- **Commentable kinds** are `docs`, `other`, `meeting` and `task` (Markdown only): a doc can live in
+  any folder, so `other` is in.
+- **Who can be mentioned** is the list Tasks assigns to, with the names Check-ins keeps, rather than
+  a second walk of the registry.
+- **In a doc the conversation is inside the editor's scroll**, in a slot after the last line (and
+  after the article in the reading view), not a panel or dock: it matches "at the bottom of the
+  item" and costs no screen space. The top bar has a button with the count that jumps to it.
+- **Comments are indexed but left out of search** unless a search asks for the kind, so they don't
+  reach search or Ask before slice 4 decides how.
+- **A team task moved to a personal space** keeps its comment files in the team space under its
+  `id` but shows none; moved back, they show again.
+- **The push is kept for 24 hours** by the push service (a phone that is off overnight still gets
+  it) and is sent after the commit, so a slow push service never delays the comment.
+- **The help page** is "Comments and mentions" (`site/public/help/comments.html`); slice 2 adds For
+  you to it.
 
 ## Requirements
 

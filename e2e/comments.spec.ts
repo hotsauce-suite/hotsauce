@@ -27,7 +27,7 @@ test('comment on a team doc, and a teammate sees it', async ({ page, api, user, 
   await expect(page.getByTestId('editor-content').locator('.cm-line')).not.toContainText([
     `Looks right to me ${id}`,
   ])
-  expect((await api.readFile(user.team, file)).content).not.toContain('Looks right to me')
+  expect((await api.readFile(user.team, file))?.content).not.toContain('Looks right to me')
   await page.reload()
   await expect(mine).toBeVisible()
 
