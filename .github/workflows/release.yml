@@ -32,12 +32,15 @@ permissions:
 
 # One release at a time. A run waiting here is replaced by a newer one, which is fine: every
 # run releases main as it is when it starts, so the newer run carries the older one's changes.
+# A waiting hand-run's "feature" or "force" can be dropped that way; run it again.
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
   release:
+    # Copies of Hotsauce update from its releases (update-hotsauce.yml) and don't release.
+    if: github.repository == 'hotsauce-suite/hotsauce'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -85,7 +88,8 @@ jobs:
             feature="$FORCE_FEATURE"
             if [ "$feature" != true ]; then
               for sha in $(git log --format=%H "v$last..HEAD"); do
-                labels="$(gh api "repos/$REPO/commits/$sha/pulls" --jq '[.[].labels[].name] | join(",")' || true)"
+                # A failed lookup fails the run (rerun it) rather than quietly making a patch.
+                labels="$(gh api "repos/$REPO/commits/$sha/pulls" --jq '[.[].labels[].name] | join(",")')"
                 case ",$labels," in *,feature,*) feature=true; echo "$sha is a feature"; break ;; esac
               done
             fi

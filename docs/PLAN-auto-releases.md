@@ -23,7 +23,10 @@ R4. The workflow writes the number to `main` as a `Release X.Y.Z` commit, builds
 R5. One release runs at a time. A merge that lands while main is being written is retried; one
     that lands during the build starts the next release.
 R6. A release that fails after writing its number is finished by the next run with the same
-    number (the number comes from tags, not the file).
+    number: when main's HOTSAUCE_VERSION is higher than the newest tag and untagged, that number
+    is released as it is (even for a feature or forced hand-run).
+R9. Copies of Hotsauce don't run the release or the version guard. Install tests run only after
+    a run that published a release.
 R7. The workflow's own version commit never starts another release.
 R8. A hand-run from the Actions tab can force a release (even docs-only) and can make it a
     feature release.

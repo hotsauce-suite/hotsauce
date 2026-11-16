@@ -91,9 +91,12 @@ describe('next-release', () => {
     expect(next('--force').out).toMatchObject({ release: true, version: '0.15.1' })
   })
 
-  it('ignores its own version commit, so a release never triggers another', async () => {
+  it('makes no second release after its own version commit', async () => {
+    // The robot's push starts the Release workflow again; that run waits for this one, which tags.
+    await commit({ 'apps/server/src/a.ts': 'two\n' })
     await commit({ HOTSAUCE_VERSION: '0.15.1\n' }, 'Release 0.15.1')
-    expect(next().out).toMatchObject({ release: false })
+    git('tag', 'v0.15.1')
+    expect(next().out).toMatchObject({ release: false, last: '0.15.1' })
   })
 
   it('picks the same number again when the last release wrote its number but never tagged', async () => {
@@ -101,6 +104,27 @@ describe('next-release', () => {
     await commit({ HOTSAUCE_VERSION: '0.15.1\n' }, 'Release 0.15.1') // image build failed: no tag
     await commit({ 'apps/server/src/a.ts': 'three\n' })
     expect(next().out).toMatchObject({ release: true, version: '0.15.1' })
+  })
+
+  it('finishes an unfinished feature release with its own number', async () => {
+    await commit({ 'apps/server/src/a.ts': 'two\n' })
+    await commit({ HOTSAUCE_VERSION: '0.16.0\n' }, 'Release 0.16.0') // hand-run feature, build failed
+    expect(next().out).toMatchObject({ release: true, version: '0.16.0', bump: 'unfinished' })
+  })
+
+  it('finishes an unfinished forced docs-only release', async () => {
+    await commit({ 'docs/a.md': 'x\n' })
+    await commit({ HOTSAUCE_VERSION: '0.15.1\n' }, 'Release 0.15.1')
+    expect(next().out).toMatchObject({ release: true, version: '0.15.1' })
+  })
+
+  it('releases nothing for test files and scripts outside the image', async () => {
+    await commit({
+      'apps/server/test/integration/x.test.ts': 'x\n',
+      'apps/web/src/a.test.tsx': 'x\n',
+      'scripts/next-release.mjs': 'x\n',
+    })
+    expect(next().out).toMatchObject({ release: false })
   })
 
   it('numbers two releases back to back', async () => {

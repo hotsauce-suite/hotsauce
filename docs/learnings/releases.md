@@ -80,7 +80,10 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   (ETag) asks don't help here: a 304 is free only for authenticated requests.
 - **A squash merge copies every commit message, and GitHub reads the skip-ci marker anywhere in
   it.** A feature commit that only *described* the marker (feedback screenshots are committed with
-  it) carried it into the squash commit, so the push that raised `HOTSAUCE_VERSION` started no
-  workflow and the release silently didn't happen. Keep the marker out of commit messages and PR
-  titles (write "the skip-ci marker"); after a release merge, check the Release run started, and
-  if it didn't, run the Release workflow by hand on `main`.
+  it) carried it into the squash commit, so the push started no workflow and the release silently
+  didn't happen. Keep the marker out of commit messages and PR titles (write "the skip-ci
+  marker"). Since releases number themselves, a skipped run only delays the change to the next
+  merge's release; run the Release workflow by hand on `main` if it can't wait.
+- **"Release succeeded" no longer means "a release happened".** The Release workflow runs and
+  succeeds after every merge, mostly releasing nothing, so anything chained on it with
+  `workflow_run` (install-test.yml) must check that a release was created during that run.

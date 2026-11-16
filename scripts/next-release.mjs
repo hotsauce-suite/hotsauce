@@ -7,8 +7,9 @@
 //   {"release":true,"last":"0.15.0","version":"0.15.1","bump":"patch"}
 //   {"release":false,"last":"0.15.0","reason":"only docs, site, CI or Mac app sources changed"}
 //
-// The version comes from the tags, never from HOTSAUCE_VERSION, so a release that failed half way
-// (number written, image never built) is picked up again by the next run with the same number.
+// The version comes from the tags. One exception: when HOTSAUCE_VERSION on main is higher than the
+// newest tag, a release wrote its number and then failed (say the image build broke), so that
+// number is released as it is, whatever changed since.
 //
 // Flags: --feature makes it a minor release (the workflow passes it when a pull request in the
 // batch has the "feature" label). --force releases even when only docs changed (a hand-run).
@@ -24,6 +25,9 @@ const NO_RELEASE = [
   /^\.claude\//,
   /^e2e\//,
   /^scripts\/tour-video\//,
+  /^scripts\/(next-release\.mjs|check-install\.sh|deploy-fly\.sh)$/,
+  /\.test\.[cm]?[jt]sx?$/,
+  /^apps\/[^/]+\/test\//,
   // The Mac app ships on its own download; only its built release/ goes into the image.
   /^apps\/dictate-mac\/(?!release\/)/,
 ]
@@ -61,9 +65,13 @@ export function needsRelease(changed) {
   return changed.some((f) => f && f !== 'HOTSAUCE_VERSION' && !NO_RELEASE.some((re) => re.test(f)))
 }
 
-export function plan({ tags, changed, feature = false, force = false }) {
+export function plan({ tags, changed, written = null, feature = false, force = false }) {
   const last = newestVersion(tags)
   if (!last) throw new Error('no release tag (vX.Y.Z) is behind this commit')
+  const w = written ? parseVersion(written) : null
+  if (w && compare(w, parseVersion(last)) > 0 && !tags.includes(`v${w.join('.')}`)) {
+    return { release: true, last, version: w.join('.'), bump: 'unfinished' }
+  }
   if (changed.length === 0)
     return { release: false, last, reason: 'nothing changed since the last release' }
   if (!force && !needsRelease(changed)) {
@@ -84,9 +92,14 @@ function main(argv) {
   const changed = last
     ? git('diff', '--name-only', `v${last}`, ref).split('\n').filter(Boolean)
     : []
+  let written = null
+  try {
+    written = git('show', `${ref}:HOTSAUCE_VERSION`)
+  } catch {}
   const result = plan({
     tags,
     changed,
+    written,
     feature: argv.includes('--feature'),
     force: argv.includes('--force'),
   })
