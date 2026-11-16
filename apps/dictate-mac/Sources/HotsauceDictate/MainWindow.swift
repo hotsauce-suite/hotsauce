@@ -436,7 +436,12 @@ private struct RecordRow: View {
                 HStack(spacing: 6) {
                     Text(record.appName ?? "Unknown app").font(.system(size: 12, weight: .semibold)).foregroundStyle(Hotsauce.ink)
                     Text(record.date.formatted(.relative(presentation: .named))).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-                    if !record.cleaned {
+                    if record.onDevice == true {
+                        Text("on this Mac").font(.system(size: 10, weight: .medium)).foregroundStyle(Hotsauce.inkFaint)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Capsule().fill(Hotsauce.sunk))
+                            .help("Written up by this Mac’s own speech recognition, with no connection")
+                    } else if !record.cleaned {
                         Text("as spoken").font(.system(size: 10, weight: .medium)).foregroundStyle(Hotsauce.inkFaint)
                             .padding(.horizontal, 6).padding(.vertical, 1)
                             .background(Capsule().fill(Hotsauce.sunk))
@@ -581,7 +586,7 @@ private struct SettingsPage: View {
     // comes first, the workspace and setup sit together near the end, history last.
     var body: some View {
         Form {
-            Section("Dictation") {
+            Section {
                 Picker("Hotkey", selection: Binding(get: { model.hotkey }, set: model.setHotkey)) {
                     ForEach(Hotkey.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
@@ -594,6 +599,11 @@ private struct SettingsPage: View {
                 Described("A warm glow around the window you’re talking into, with flames that follow your voice. Still, with no flames, when Reduce motion is on.") {
                     Toggle("Edge glow while dictating", isOn: Binding(get: { model.edgeGlow }, set: model.setEdgeGlow))
                 }
+            } header: {
+                Text("Dictation")
+            } footer: {
+                Text("With no connection, dictation still works with this Mac’s own speech recognition, as spoken and in your Mac’s language. The audio stays on this Mac.")
+                    .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
             }
             Section("Meetings") {
                 Toggle("Meeting reminders", isOn: Binding(get: { model.meetingReminders }, set: model.setMeetingReminders))

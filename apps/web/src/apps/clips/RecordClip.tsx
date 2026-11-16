@@ -225,7 +225,7 @@ export default function RecordClip() {
 
   return (
     <>
-      <MeetingsPageHeader title="Record a clip" />
+      <MeetingsPageHeader title="Record a clip" back={{ to: '/clips', label: 'Clips' }} />
       <div
         className="min-h-0 flex-1 overflow-y-auto"
         data-testid="clip-recorder"

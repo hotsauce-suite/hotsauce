@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { assetType, MacAppDownloads, releaseAsset } from './macApp.js'
+import { assetType, MacAppDownloads, newestMacRelease, releaseAsset } from './macApp.js'
 
 function setup(responses: Array<Response | Error>) {
   const calls: string[] = []
@@ -92,5 +92,65 @@ describe('MacAppDownloads', () => {
     ])
     expect(a).toBe(b)
     expect(calls).toHaveLength(1)
+  })
+})
+
+describe('the newest Mac app build (one immutable release per build)', () => {
+  it('picks the highest build, never a draft, else the old shared release', () => {
+    const releases = [
+      { tag_name: 'v0.29.2' },
+      { tag_name: 'mac-app-111' },
+      { tag_name: 'mac-app-112', draft: true },
+      { tag_name: 'mac-app-99' },
+      { tag_name: 'mac-app' },
+    ]
+    expect(newestMacRelease(releases)).toBe('mac-app-111')
+    expect(newestMacRelease([{ tag_name: 'mac-app' }, { tag_name: 'v1.0.0' }])).toBe('mac-app')
+    expect(newestMacRelease({ message: 'rate limited' })).toBe('mac-app')
+  })
+
+  it('looks the release up once, and fetches every file from it', async () => {
+    const calls: string[] = []
+    const responses = [
+      Response.json([{ tag_name: 'mac-app-111' }, { tag_name: 'mac-app' }]),
+      new Response('dmg-111'),
+      new Response('{"build":"111"}'),
+    ]
+    const downloads = new MacAppDownloads({
+      cacheDir: path.join(mkdtempSync(path.join(tmpdir(), 'hs-mac-')), 'cache'),
+      releasesApi: 'https://api.example.test/releases',
+      fetchFn: (async (url: string) => {
+        calls.push(url)
+        return responses.shift() ?? new Response('', { status: 500 })
+      }) as unknown as typeof fetch,
+    })
+    const dmg = await downloads.file('Hotsauce.dmg')
+    expect(dmg && readFileSync(dmg, 'utf8')).toBe('dmg-111')
+    await downloads.file('mac-app.json')
+    expect(calls).toEqual([
+      'https://api.example.test/releases',
+      'https://github.com/hotsauce-suite/hotsauce/releases/download/mac-app-111/Hotsauce.dmg',
+      'https://github.com/hotsauce-suite/hotsauce/releases/download/mac-app-111/mac-app.json',
+    ])
+  })
+
+  it('falls back to the old shared release when GitHub can’t be asked', async () => {
+    const calls: string[] = []
+    const responses: Array<Response | Error> = [new Error('offline'), new Response('dmg-old')]
+    const downloads = new MacAppDownloads({
+      cacheDir: path.join(mkdtempSync(path.join(tmpdir(), 'hs-mac-')), 'cache'),
+      releasesApi: 'https://api.example.test/releases',
+      fetchFn: (async (url: string) => {
+        calls.push(url)
+        const next = responses.shift() ?? new Error('done')
+        if (next instanceof Error) throw next
+        return next
+      }) as unknown as typeof fetch,
+    })
+    const dmg = await downloads.file('Hotsauce.dmg')
+    expect(dmg && readFileSync(dmg, 'utf8')).toBe('dmg-old')
+    expect(calls[1]).toBe(
+      'https://github.com/hotsauce-suite/hotsauce/releases/download/mac-app/Hotsauce.dmg',
+    )
   })
 })

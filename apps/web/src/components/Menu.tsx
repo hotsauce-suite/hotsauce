@@ -44,7 +44,12 @@ export function Menu({
       if (!ref.current?.contains(event.target as Node)) onCloseRef.current()
     }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current()
+      if (event.key === 'Escape') {
+        // Only the menu closes: the pop-up or page it sits in stays open.
+        event.stopPropagation()
+        event.preventDefault()
+        onCloseRef.current()
+      }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         const items = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
         const index = items.indexOf(document.activeElement as HTMLElement)
@@ -54,10 +59,11 @@ export function Menu({
       }
     }
     document.addEventListener('pointerdown', onPointer)
-    document.addEventListener('keydown', onKey)
+    // On the way down, so the menu hears Escape before whatever it sits in.
+    document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('pointerdown', onPointer)
-      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('keydown', onKey, true)
     }
   }, [])
 

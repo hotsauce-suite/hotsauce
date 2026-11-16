@@ -1,33 +1,9 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { meetingsApi } from '../../../api/meetings'
 import type { MeetingTemplate } from '../../../api/types'
-import { useShell } from '../../../components/AppShell'
-import { IconButton } from '../../../components/TopBar'
 
-/** The top bar of a Meetings page that isn't a document. */
-export function MeetingsPageHeader({
-  title,
-  children,
-  menu = true,
-}: {
-  title: ReactNode
-  children?: ReactNode
-  /** False for a page whose app has no sidebar to open. */
-  menu?: boolean
-}) {
-  const { compact, openDrawer } = useShell()
-  return (
-    <header className="flex h-[var(--topbar-height)] shrink-0 items-center gap-2 border-b border-ash/70 bg-paper/80 px-2 backdrop-blur-sm md:px-4">
-      {compact && menu ? (
-        <IconButton icon="menu" label="Open sidebar" onClick={openDrawer} />
-      ) : null}
-      <h1 className="min-w-0 flex-1 truncate font-display text-lg font-semibold tracking-tight text-ink">
-        {title}
-      </h1>
-      {children}
-    </header>
-  )
-}
+/** The shared top bar under its first name; new code imports `PageHeader`. */
+export { PageHeader as MeetingsPageHeader } from '../../../components/PageHeader'
 
 /** Built-in templates plus the team's and the member's own (`GET /api/meetings/templates`). */
 export function useTemplates(): MeetingTemplate[] {

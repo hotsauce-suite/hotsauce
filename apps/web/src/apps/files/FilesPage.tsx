@@ -8,6 +8,8 @@ import { Icon, type IconName } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { needsConnection } from '../../components/Offline'
+import { MainButton } from '../../components/PageHeader'
+import { ShareButton } from '../../components/ShareButton'
 import { useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useOnline } from '../../lib/connection'
@@ -228,16 +230,14 @@ export default function FilesPage() {
             <span className="hidden sm:inline">New folder</span>
           </button>
         ) : null}
-        <button
-          type="button"
-          className={`${primaryButton} h-9`}
+        <MainButton
+          icon="upload"
           onClick={() => input.current?.click()}
           {...needsConnection(online)}
-          data-testid="files-upload"
+          testId="files-upload"
         >
-          <Icon name="upload" />
-          <span className="hidden sm:inline">Upload</span>
-        </button>
+          Upload
+        </MainButton>
         <input
           ref={input}
           type="file"
@@ -624,7 +624,7 @@ function FileMenuItems({
         Download
       </MenuItem>
       <MenuItem icon="link" testId="files-copy-link" onSelect={run(() => onShare(file))}>
-        Copy share link
+        Copy link
       </MenuItem>
       <MenuItem icon="pencil" onSelect={run(() => onRename(file))}>
         Rename
@@ -693,26 +693,37 @@ function FileDialog({
             <Icon name="download" />
             Download
           </a>
-          <button
-            type="button"
-            className={`${secondaryButton} h-9`}
-            onClick={() => onShare(file)}
-            data-testid="file-share"
-          >
-            <Icon name="link" />
-            {file.shareUrl ? 'Copy share link' : 'Get share link'}
-          </button>
+          <ShareButton testId="file-share-menu" className={`${secondaryButton} h-9`}>
+            {(close) => (
+              <>
+                <MenuItem
+                  icon="link"
+                  testId="file-share"
+                  onSelect={() => {
+                    close()
+                    onShare(file)
+                  }}
+                >
+                  Copy link
+                </MenuItem>
+                {file.shareUrl ? (
+                  <MenuItem
+                    icon="close"
+                    testId="file-unshare"
+                    onSelect={() => {
+                      close()
+                      onUnshare(file)
+                    }}
+                  >
+                    Turn off link
+                  </MenuItem>
+                ) : null}
+              </>
+            )}
+          </ShareButton>
           {file.shareUrl ? (
-            <p className="text-xs text-ink-faint">
-              Anyone signed in to {product()} with the link can open this file.{' '}
-              <button
-                type="button"
-                className="underline hover:text-ink"
-                onClick={() => onUnshare(file)}
-                data-testid="file-unshare"
-              >
-                Turn off link
-              </button>
+            <p className="text-xs text-ink-faint" data-testid="file-shared-note">
+              Anyone signed in to {product()} with the link can open this file.
             </p>
           ) : null}
           <div className="flex gap-2">

@@ -269,7 +269,10 @@ function StartForm() {
 
   return (
     <>
-      <MeetingsPageHeader title={event ? 'Take notes' : 'New meeting'} />
+      <MeetingsPageHeader
+        title={event ? 'Take notes' : 'New meeting'}
+        back={{ to: '/meetings', label: 'Meetings' }}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-2xl px-4 pt-6 pb-32 md:px-6 md:pt-10">
           {event ? (

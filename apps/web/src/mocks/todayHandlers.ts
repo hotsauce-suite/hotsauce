@@ -5,6 +5,7 @@ import {
   addTile,
   defaultTodayLayout,
   moveTile,
+  offerForYou,
   offerGettingStarted,
   parseTodayLayout,
   serializeTodayLayout,
@@ -76,7 +77,7 @@ export function todayHandlers(): AnyHandler[] {
       const saved = layouts.get(who(request)) ?? startingLayout()
       // As the server does: Getting started is offered until a layout is saved without it.
       return HttpResponse.json({
-        layout: offerGettingStarted(saved ?? defaultTodayLayout()),
+        layout: offerGettingStarted(offerForYou(saved ?? defaultTodayLayout())),
         saved: saved !== null,
       })
     }),

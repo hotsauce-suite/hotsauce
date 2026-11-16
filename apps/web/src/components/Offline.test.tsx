@@ -8,8 +8,23 @@ import { rememberMember } from '../lib/offlineStart'
 import { mockApi, server } from '../test/mockServer'
 import { renderApp } from '../test/renderApp'
 
+// Requests the app has sent and not yet had answered. An answer that lands after the network
+// "goes" would bring the app back online, as it should, so each test cuts it once things are quiet.
+const inFlight = new Set<string>()
+server.events.on('request:start', ({ requestId }) => inFlight.add(requestId))
+server.events.on('request:end', ({ requestId }) => inFlight.delete(requestId))
+// A request no handler answers has no end event (it fails at once).
+server.events.on('request:unhandled', ({ requestId }) => inFlight.delete(requestId))
+
+async function quiet(): Promise<void> {
+  await waitFor(() => expect(inFlight.size).toBe(0))
+  // The last answers reach the app's code a tick after the mock sends them.
+  await act(() => new Promise((r) => setTimeout(r, 0)))
+}
+
 /** No answers from the server at all, as when the network is gone. */
-function goOffline() {
+async function goOffline() {
+  await quiet()
   server.use(http.all('*', () => HttpResponse.error()))
   resetConnectionForTests(async () => false)
   act(() => reportUnreachable())
@@ -27,7 +42,7 @@ describe('offline in the app (A3)', { timeout: 20_000 }, () => {
     const ask = await screen.findByTestId('assistant-open')
     expect(screen.queryByTestId('offline-bar')).toBeNull()
     expect(ask).toBeEnabled()
-    goOffline()
+    await goOffline()
     expect(screen.getByTestId('offline-bar')).toHaveTextContent('Offline')
     expect(ask).toBeDisabled()
     expect(ask).toHaveAttribute('title', 'Needs a connection')
@@ -44,7 +59,7 @@ describe('offline in the app (A3)', { timeout: 20_000 }, () => {
     await waitFor(() => expect(localStorage.getItem('hotsauce.offline.member')).toContain(me))
     saveDraft(me, 'team', 'docs/plans/q4-plan.md', 'abc', 'Kept text', 'waiting')
     saveDraft('u-other', 'team', 'docs/other.md', 'abc', 'Not mine', 'waiting')
-    goOffline()
+    await goOffline()
     await act(() => router.navigate('/tasks'))
     const empty = await screen.findByTestId('offline-empty')
     expect(empty).toHaveTextContent('Not available offline yet')
@@ -63,7 +78,7 @@ describe('offline in the app (A3)', { timeout: 20_000 }, () => {
     await screen.findByTestId('assistant-open')
     await act(() => router.navigate('/tasks'))
     await waitFor(() => expect(router.state.location.pathname).toBe('/tasks'))
-    goOffline()
+    await goOffline()
     expect(screen.queryByTestId('offline-empty')).toBeNull()
   })
 

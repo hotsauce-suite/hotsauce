@@ -1,6 +1,81 @@
 {
   "releases": [
     {
+      "version": "0.30.2",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Sharing looks the same everywhere: a Share button with Copy link inside, in Clips, Forms, Files, Links, Notes and Boards"
+        },
+        {
+          "text": "Boards have a Copy link of their own"
+        },
+        {
+          "text": "Pressing Escape with a menu open closes just the menu"
+        }
+      ]
+    },
+    {
+      "version": "0.30.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Pages for one thing (a form, a table, a clip, a board, a saved link, a check-in, a person) now show \"‹ Forms\", \"‹ Tables\" and so on at the top left to go back to the list."
+        },
+        {
+          "text": "Every pop-up has an × at its top right."
+        },
+        {
+          "text": "On a phone, a table's downloads and Delete are behind a \"More\" button so the table's name has room."
+        },
+        {
+          "text": "Dictation works with no connection, using speech recognition on your Mac; the pill says \"Offline: on-device\".",
+          "area": "Mac app"
+        },
+        {
+          "text": "If Hotsauce can't be reached mid-dictation, what you said is written up on your Mac instead of waiting for Retry.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.29.2",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Every app now has its main button in the same place, at the top right: New doc, New note, New form, New table, New check-in, Save a link, Record a voice note."
+        },
+        {
+          "text": "New form and New table make it straight away and put the cursor in its name, so you type the name on the form or table itself."
+        },
+        {
+          "text": "On a phone, main buttons show their words instead of only an icon."
+        }
+      ]
+    },
+    {
+      "version": "0.29.1",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "A doc's status now reads \"Saved\" instead of \"Committed\"."
+        }
+      ]
+    },
+    {
+      "version": "0.29.0",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "For you: one list of every comment that mentions you, with a count on the rail and a Today tile. Opening an item marks it read; Done takes it off (with Undo); Later brings it back at 9 AM tomorrow or next Monday."
+        },
+        {
+          "text": "For you in the Go menu.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.28.0",
       "date": "2026-11-16",
       "notes": [

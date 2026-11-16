@@ -31,6 +31,7 @@ import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { Card } from './tiles/Card'
 import { CheckinsTile } from './tiles/CheckinsTile'
 import { ActionItemsCard, DocsCard, MeetingsCard, NotesCard, TasksCard } from './tiles/DayTiles'
+import { ForYouTile } from './tiles/ForYouTile'
 import {
   BoardTile,
   BriefTile,
@@ -45,6 +46,11 @@ import { StartTile } from './tiles/StartTile'
 
 export const TILE_CATALOG: Record<TodayTileKind, { label: string; icon: IconName; about: string }> =
   {
+    'for-you': {
+      label: 'For you',
+      icon: 'at',
+      about: 'Comments where someone @mentioned you',
+    },
     checkins: {
       label: 'Check-in',
       icon: 'checklist',
@@ -360,6 +366,8 @@ function TileBody({
   onTaskAdded,
 }: TodayTilesProps & { tile: TodayTile }): ReactNode {
   switch (tile.kind) {
+    case 'for-you':
+      return <ForYouTile />
     case 'checkins':
       return <CheckinsTile editing={editing} />
     case 'meetings':

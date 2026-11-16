@@ -14,8 +14,11 @@ public struct DictationRecord: Codable, Equatable, Identifiable, Sendable {
     public var words: Int
     /// Key-up to text, server ASR and LLM, network: milliseconds.
     public var timings: [String: Int]
+    /// Written up by the Mac's own speech recognition, with no connection (docs/PLAN-offline.md,
+    /// A2.9). Nil on records from before, which all came from the server.
+    public var onDevice: Bool?
 
-    public init(id: UUID = UUID(), date: Date, text: String, cleaned: Bool, appName: String?, appBundle: String?, audioMs: Int, timings: [String: Int] = [:]) {
+    public init(id: UUID = UUID(), date: Date, text: String, cleaned: Bool, appName: String?, appBundle: String?, audioMs: Int, timings: [String: Int] = [:], onDevice: Bool? = nil) {
         self.id = id
         self.date = date
         self.text = text
@@ -25,6 +28,7 @@ public struct DictationRecord: Codable, Equatable, Identifiable, Sendable {
         self.audioMs = audioMs
         self.words = Self.wordCount(text)
         self.timings = timings
+        self.onDevice = onDevice
     }
 
     /// Words as a person would count them: runs of letters or digits. Chinese and Japanese text,

@@ -383,6 +383,7 @@ describe('reading position', () => {
     ;(store[0] as LinkWithBody).reading = place(60, 5)
     renderApp('/links/ada/01JC0000000000000000000001')
     await screen.findByTestId('link-resumed')
+    await user.click(screen.getByTestId('link-share'))
     await user.click(screen.getByTestId('link-share-team'))
     await waitFor(() => expect(store[0]?.space).toBe('team'))
     window.dispatchEvent(new Event('pagehide'))
@@ -546,6 +547,7 @@ describe('highlights and notes (docs/PLAN-links-highlights.md)', () => {
   it('R13: Share with team says your highlights go with it', async () => {
     store[0] = { ...(store[0] as LinkWithBody), highlights: [{ ...mine }], highlightCount: 1 }
     renderApp('/links/ada/01JC0000000000000000000001')
+    await userEvent.click(await screen.findByTestId('link-share'))
     await waitFor(() =>
       expect(screen.getByTestId('link-share-team')).toHaveTextContent(
         'Share with team (with your 1 highlight)',

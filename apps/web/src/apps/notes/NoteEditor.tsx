@@ -10,7 +10,7 @@ import { createPortal } from 'react-dom'
 import { HotsauceApiError } from '../../api/client'
 import { type NoteInput, type NoteView, notesApi } from '../../api/notes'
 import { AttachmentChips, FilePicker } from '../../components/FilePicker'
-import { below, Menu, type MenuAnchor } from '../../components/Menu'
+import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { ReadOnlyLinkItems, useReadOnlyLink } from '../../components/ReadOnlyLink'
 import { ChecklistEditor } from './ChecklistEditor'
 import { editedLabel } from './logic'
@@ -204,7 +204,7 @@ export function NoteEditor({
     >
       <button
         type="button"
-        aria-label="Close note"
+        aria-hidden="true"
         tabIndex={-1}
         className="fixed inset-0 cursor-default bg-paper-sunk/60 backdrop-blur-[2px]"
         onClick={() => void close()}
@@ -262,6 +262,12 @@ export function NoteEditor({
             active={note.pinned}
             testId="note-editor-pin"
             onClick={() => void write({ pinned: !note.pinned }).catch(() => {})}
+          />
+          <ToolButton
+            icon="close"
+            label="Close note"
+            testId="note-editor-x"
+            onClick={() => void close()}
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
@@ -330,7 +336,12 @@ export function NoteEditor({
               onClick={() => setPicking(true)}
             />
           )}
-          <NoteLinkButton space={note.space} path={note.path} before={flush} />
+          <NoteShareButton
+            space={note.space}
+            path={note.path}
+            before={flush}
+            onMoveToTeam={teamSpace && note.space !== teamSpace ? moveToTeam : undefined}
+          />
           <ToolButton
             icon="archive"
             label={note.archived ? 'Unarchive' : 'Archive'}
@@ -349,16 +360,6 @@ export function NoteEditor({
               onTrash(note)
             }}
           />
-          {teamSpace && note.space !== teamSpace ? (
-            <button
-              type="button"
-              data-testid="note-move-team"
-              onClick={() => void moveToTeam()}
-              className="rounded-md px-2 py-1 text-xs text-ink-soft hover:bg-ink/10 hover:text-ink"
-            >
-              Move to Team
-            </button>
-          ) : null}
           <button
             type="button"
             data-testid="note-editor-close"
@@ -385,15 +386,17 @@ export function NoteEditor({
   )
 }
 
-/** The note's read-only link (ARCHITECTURE §20): make one, copy it, or turn it off. */
-function NoteLinkButton({
+/** Share, in the note's row of tools: its read-only link and, for a personal note, Move to Team. */
+function NoteShareButton({
   space,
   path,
   before,
+  onMoveToTeam,
 }: {
   space: string
   path: string
   before: () => Promise<unknown>
+  onMoveToTeam: (() => Promise<void>) | undefined
 }) {
   const link = useReadOnlyLink(space, path)
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
@@ -403,7 +406,7 @@ function NoteLinkButton({
       <span ref={ref} className="inline-flex">
         <ToolButton
           icon="share"
-          label="Read-only link"
+          label="Share"
           testId="note-editor-link"
           onClick={() => {
             if (!anchor) link.refresh()
@@ -412,8 +415,20 @@ function NoteLinkButton({
         />
       </span>
       {anchor ? (
-        <Menu anchor={anchor} label="Read-only link" onClose={() => setAnchor(null)}>
+        <Menu anchor={anchor} label="Share" onClose={() => setAnchor(null)}>
           <ReadOnlyLinkItems link={link} close={() => setAnchor(null)} before={before} />
+          {onMoveToTeam ? (
+            <MenuItem
+              icon="share"
+              testId="note-move-team"
+              onSelect={() => {
+                setAnchor(null)
+                void onMoveToTeam()
+              }}
+            >
+              Move to Team
+            </MenuItem>
+          ) : null}
         </Menu>
       ) : null}
     </>

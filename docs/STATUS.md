@@ -1,6 +1,6 @@
 # Status
 
-What Hotsauce is today, read from the code on `main` at release 0.16.0 (2026-11-16). Each app is
+What Hotsauce is today, read from the code on `main` at release 0.28.0 (2026-11-16). Each app is
 two lines: what it does, and what it needs beyond the base install. Keep this file current in the
 same PR as any change to an app; `apps/web/src/apps/statusDoc.test.ts` fails when an app exists in
 the code but has no entry here.
@@ -17,6 +17,10 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
+### For you
+One list of every comment where someone @mentioned you on a doc, meeting note or task, newest first, with a count on the rail (on the phone, on the Today button) and a Today tile. Opening one marks it read; Done takes it off until you're mentioned there again; Later hides it until 9 AM tomorrow or next Monday. Replies, assigned tasks and the Mac dock count come next.
+Needs nothing extra; Done and Later are kept in your personal space.
+
 ### Docs
 Markdown documents with a source-first editor, live co-editing, history from Git, links that survive renames, search, and imports (Markdown, Word, HTML).
 Needs nothing extra.
@@ -26,7 +30,7 @@ Notes for calls: live transcript with speaker names, your own notes, AI-written 
 Needs the speech and AI keys; the calendar needs Google sign-in through Clerk with `calendar.readonly`; booking links need Turnstile. Reminders work out of the box (the server makes its own push keys). Keeping a meeting's audio is a per-meeting choice (`KEEP_AUDIO=true` makes it the default); re-transcribing it after the call needs the speech key.
 
 ### Dictate
-Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app.
+Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app. With no connection, the Mac app writes up dictation with the Mac's own speech recognition (as spoken, the Mac's language, audio never leaves the Mac; `docs/PLAN-offline.md` step A2).
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
@@ -89,10 +93,10 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 
 ## Outside the web app
 
-- **Mac app** (`apps/dictate-mac`), 0.14.4 on the `mac-app` GitHub release: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the release); the app's menu says "Update available" too. Updating is download and drag.
+- **Mac app** (`apps/dictate-mac`), published as one GitHub prerelease per build (`mac-app-<build>`; servers take the highest): Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the newest release); the app's menu says "Update available" too. Updating is download and drag.
 - **Chrome extension** (`apps/extension`), 0.7.0: records Meet tabs, saves links in one click, connects in one click. In Chrome Web Store review; installed by hand until approved.
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
-- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool that sends a token header can search, read and write as the member. ChatGPT and Grok need OAuth, which is in flight.
+- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool can search, read and write as the member, either by signing in (OAuth, used by claude.ai, ChatGPT and Grok) or by sending a token header.
 - **Site** (`site/`): hotsauce.work, the help center, install guide and the live demo at demo.hotsauce.work.
 
 ## Built but switched off by default
@@ -112,9 +116,7 @@ production refuses the test stand-ins, so nothing pretends to work.
 
 Open pull requests on `main` at the date above (release numbers are taken at merge, not here):
 
-- **#110** GitHub publishes hotsauce.work and the demo on merge.
-- **#112** Releases number themselves.
-- **#108** Sign in to the MCP server from claude.ai, ChatGPT and Grok (OAuth).
+- **#134** For you: one list of every mention.
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 

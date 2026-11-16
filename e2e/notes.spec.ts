@@ -130,6 +130,8 @@ test('a note moved to Team is visible to a teammate; a personal one is not', asy
   await member.request.post('/api/notes', { data: { title: `Shared ${id}`, body: 'hello' } })
   await page.goto('/notes')
   await card(page, `Shared ${id}`).getByTestId('note-card-open').click()
+  await expect(page.getByTestId('note-editor-link')).toHaveAccessibleName('Share')
+  await page.getByTestId('note-editor-link').click()
   await page.getByTestId('note-move-team').click()
   await expect(page.getByTestId('notes-toast')).toContainText('Moved to Team')
   await page.getByTestId('note-editor-close').click()

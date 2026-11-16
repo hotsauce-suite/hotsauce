@@ -18,7 +18,7 @@ import { meetingHandlers } from './meetingHandlers'
 import { FakeNotes, noteHandlers } from './noteHandlers'
 import { peopleHandlers } from './peopleHandlers'
 import { seed, seedPersonal } from './seed'
-import { FakeTasks, taskHandlers } from './taskHandlers'
+import { FakeTasks, seedTasksOnce, taskHandlers } from './taskHandlers'
 import { todayHandlers } from './todayHandlers'
 
 const ALLOWED_DOMAIN = 'example.test'
@@ -543,6 +543,12 @@ function createHandlers(
       taskTitle: (path) =>
         tasks.tasks.get(tasks.key('team', path.slice('tasks/'.length, -'.md'.length)))?.title ??
         null,
+      teamTaskPaths: (user) => {
+        seedTasksOnce(tasks, user)
+        return [...tasks.tasks.values()]
+          .filter((t) => t.space === 'team')
+          .map((t) => `tasks/${t.id}.md`)
+      },
     }),
   )
   handlers.push(...assistantHandlers({ repo, principal, latencyMs }))

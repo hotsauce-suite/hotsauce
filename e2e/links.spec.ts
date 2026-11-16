@@ -1,5 +1,5 @@
 import { makeTestPdf } from '../apps/server/src/links/test-pdf'
-import { expect, test, uid } from './fixtures'
+import { expect, expectShareWithCopyLink, test, uid } from './fixtures'
 
 // Saved links (ARCHITECTURE §23): a member pastes a link,
 // sees the readable copy arrive, tags it, shares it with the team, marks it done; then the save
@@ -11,7 +11,7 @@ test('save a link, read it, tag it, share it and mark it done', async ({ page })
   const url = `https://journal.test/${id}/mirror-life`
   await page.goto('/links')
   await page.getByTestId('links-paste').fill(url)
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
 
   const row = page.getByTestId('link-row').filter({ hasText: 'Mirror life' })
   await expect(row).toBeVisible()
@@ -20,6 +20,7 @@ test('save a link, read it, tag it, share it and mark it done', async ({ page })
 
   await row.getByTestId('link-title').click()
   await expect(page.getByTestId('link-reader-title')).toHaveText('Mirror life')
+  await expect(page.getByTestId('page-back')).toHaveText('Links')
   await expect(page.getByTestId('link-body')).toContainText(
     'Mirror life is the subject of this page.',
   )
@@ -31,9 +32,14 @@ test('save a link, read it, tag it, share it and mark it done', async ({ page })
   await page.getByTestId('link-tags-input').press('Enter')
   await expect(page.getByRole('link', { name: `e2e ${id}` })).toBeVisible()
 
+  await expectShareWithCopyLink(page, 'link-share')
+  await page.getByTestId('link-share').click()
   await page.getByTestId('link-share-team').click()
   await expect(page).toHaveURL(/\/links\/team\//)
+  await page.getByTestId('link-share').click()
+  await expect(page.getByTestId('link-make-private')).toBeVisible()
   await expect(page.getByTestId('link-share-team')).toHaveCount(0)
+  await page.keyboard.press('Escape')
 
   await page.getByTestId('link-reader-done').click()
   await expect(page).toHaveURL(/\/links$/)
@@ -310,7 +316,7 @@ test('an arXiv paper shows its authors, version and abstract, and one paper is o
   const paperId = `2401.${n.slice(0, 4)}1` // ends in 1: the stand-in has a web version
   await page.goto('/links')
   await page.getByTestId('links-paste').fill(`https://arxiv.org/abs/${paperId}`)
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   const row = page.getByTestId('link-row').filter({ hasText: `A stand-in paper ${paperId}` })
   await expect(row).toBeVisible()
   await expect(row).toContainText('arXiv')
@@ -318,7 +324,7 @@ test('an arXiv paper shows its authors, version and abstract, and one paper is o
 
   // The PDF address of the same paper finds the same link.
   await page.getByTestId('links-paste').fill(`https://arxiv.org/pdf/${paperId}v1`)
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(
     page.getByTestId('link-row').filter({ hasText: `A stand-in paper ${paperId}` }),
   ).toHaveCount(1)

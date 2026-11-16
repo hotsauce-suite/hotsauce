@@ -9,6 +9,11 @@
   hotsauce.havenbiosec.com: registered, installed, controlling; with the server stopped, the
   window opened the cached app with the Offline bar, not the retry page). No Mac app change
   needed.
+- **Step A2 (Dictate on the Mac with no connection): shipped (PR #143), Mac app 0.29.2 (build
+  111), published as release `mac-app-111` (PR #149: one release per build, since releases are
+  immutable).** On-device speech checked on the owner's Mac on 2026-11-16 (a recorded sentence,
+  en-US, right text in 153 ms), and the owner checked it with Wi-Fi off the same day: "offline
+  works".
 - Step B (read recently used things offline): not started.
 - Step C (edit offline, sync when back): not started.
 - Approved by the owner on 2026-11-15 from the scope page (three steps, A then B then C; skip a
@@ -111,6 +116,42 @@ doesn't, record it here as a step B item and leave the Mac app as it is.
 
 Not in step A: an organization switch to turn offline off (step B, when real data is stored),
 reading docs never opened on this device, new docs made offline.
+
+## Step A2: Dictate on the Mac with no connection
+
+Approved by the owner on 2026-11-15 as a small extra after step A. When the Hotsauce server
+can't be reached, the Mac app's dictation key still types, using Apple's on-device speech
+recognition (`SFSpeechRecognizer` with `requiresOnDeviceRecognition`; it runs on every macOS the
+app supports, so there is one path, not two). When the server is reachable, nothing changes.
+
+- A2.1 The app picks on-device speech at the key press when the Mac has no network, or when the
+  server failed to answer in the last minute (`SpeechRoute.choose`, pure, in DictateCore).
+- A2.2 A dictation sent to the server that can't reach it (the stream and the upload both fail
+  with a network error) is written up on the device from the same recording instead of waiting
+  for Retry; it is still kept for Retry if on-device speech can't write it up either.
+- A2.3 The hotkey never waits on a dead connection: the key press starts recording at once in
+  every case, and a stream that never got the server's "ready" gives up within 3 seconds of
+  key-up (not 25), so the upload or the device takes over quickly.
+- A2.4 While recording on the device, the pill says "Offline: on-device".
+- A2.5 Speech Recognition permission is asked for only the first time on-device speech is needed,
+  with a plain explanation (`NSSpeechRecognitionUsageDescription`). If it's refused, the pill says
+  where to turn it on.
+- A2.6 On-device dictation never sends audio anywhere: no stream, no upload, and the recognizer
+  is told to stay on the device.
+- A2.7 The language is the Mac's own (the app has no dictation language setting; the server
+  picks one), falling back to English (US) when the Mac's language has no on-device model. Only
+  languages whose model is on this Mac count; a language without its region picks the Mac's
+  region, else the same one every time; Chinese picks by script (Simplified: zh-CN).
+- A2.8 When no language the Mac could use has an on-device model, the pill says so and where to
+  get one (System Settings → Keyboard → Dictation).
+- A2.10 (from review) A server that's on the network but not answering costs seconds, not
+  minutes: after a stream that never got "ready" the upload gives up after 10 s of silence; a
+  "ready" that arrives after key-up gets the full 25 s (a short dictation is never sent twice).
+  On-device recognition gets 30 s, or 1.5 times the dictation's length if longer. A recording
+  kept for Retry stays kept until it is itself sent, and one the server couldn't take but this
+  Mac heard nothing in is kept for Retry too.
+- A2.9 On-device dictations are typed and kept in history like any other, marked "on this Mac",
+  without the server's clean-up (that needs the connection) and without the word list.
 
 ## Step B: read anything you've used recently
 

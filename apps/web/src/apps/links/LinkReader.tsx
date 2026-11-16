@@ -13,6 +13,8 @@ import {
 } from '../../api/links'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { MenuItem } from '../../components/Menu'
+import { ShareButton } from '../../components/ShareButton'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
@@ -76,6 +78,23 @@ export default function LinkReader() {
   }, [link])
   useLinksChanged(load)
   usePollWhile(link?.status === 'fetching', load)
+
+  const copyText = async (text: string, done: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      notify(done)
+    } catch {
+      notify('Couldn’t copy it. Your browser blocked the clipboard.')
+    }
+  }
+  const copyLink = () =>
+    copyText(
+      window.location.href,
+      link?.space === 'team'
+        ? 'Link copied. Anyone on the team can open it.'
+        : 'Link copied. Only you can open it until you share it with the team.',
+    )
+  const copyAddress = () => copyText(link?.url ?? '', 'Web address copied.')
 
   const act = async (work: () => Promise<unknown>, done?: string) => {
     setBusy(true)
@@ -189,15 +208,7 @@ export default function LinkReader() {
 
   return (
     <>
-      <MeetingsPageHeader
-        title={
-          <Link to="/links" className="inline-flex items-center gap-1 hover:text-ember-strong">
-            <Icon name="back" />
-            Links
-          </Link>
-        }
-        menu={false}
-      />
+      <MeetingsPageHeader back={{ to: '/links', label: 'Links' }} menu={false} />
       {resumed ? (
         <p
           className="mx-auto mt-2 flex w-full max-w-2xl flex-wrap items-center gap-x-2 rounded-lg bg-ash/50 px-4 py-2 text-sm text-ink-soft md:px-8"
@@ -331,47 +342,73 @@ export default function LinkReader() {
                 />
               </>
             ) : null}
-            {link.space !== 'team' ? (
-              <button
-                type="button"
-                data-testid="link-share-team"
-                className={secondaryButton}
-                disabled={busy}
-                onClick={() =>
-                  act(
-                    async () => {
-                      const moved = await linksApi.move(link.space, link.id, 'team')
-                      navigate(`/links/team/${encodeURIComponent(moved.id)}`, { replace: true })
-                    },
-                    `Shared with ${spaceLabel('team')}`,
-                  )
-                }
-              >
-                <Icon name="share" />
-                {myHighlights > 0
-                  ? `Share with team (with your ${highlightLabel(myHighlights)})`
-                  : 'Share with team'}
-              </button>
-            ) : mine && personal ? (
-              <button
-                type="button"
-                className={secondaryButton}
-                disabled={busy}
-                onClick={() =>
-                  act(async () => {
-                    const moved = await linksApi.move(link.space, link.id, personal)
-                    navigate(
-                      `/links/${encodeURIComponent(personal)}/${encodeURIComponent(moved.id)}`,
-                      {
-                        replace: true,
-                      },
-                    )
-                  }, 'Only you can see it now')
-                }
-              >
-                Make private
-              </button>
-            ) : null}
+            <ShareButton testId="link-share" className={secondaryButton} disabled={busy}>
+              {(close) => (
+                <>
+                  <MenuItem
+                    icon="link"
+                    testId="link-copy-link"
+                    onSelect={() => {
+                      close()
+                      void copyLink()
+                    }}
+                  >
+                    Copy link
+                  </MenuItem>
+                  {link.url ? (
+                    <MenuItem
+                      icon="copy"
+                      testId="link-copy-address"
+                      onSelect={() => {
+                        close()
+                        void copyAddress()
+                      }}
+                    >
+                      Copy the page’s web address
+                    </MenuItem>
+                  ) : null}
+                  {link.space !== 'team' ? (
+                    <MenuItem
+                      icon="share"
+                      testId="link-share-team"
+                      onSelect={() => {
+                        close()
+                        void act(
+                          async () => {
+                            const moved = await linksApi.move(link.space, link.id, 'team')
+                            navigate(`/links/team/${encodeURIComponent(moved.id)}`, {
+                              replace: true,
+                            })
+                          },
+                          `Shared with ${spaceLabel('team')}`,
+                        )
+                      }}
+                    >
+                      {myHighlights > 0
+                        ? `Share with team (with your ${highlightLabel(myHighlights)})`
+                        : 'Share with team'}
+                    </MenuItem>
+                  ) : mine && personal ? (
+                    <MenuItem
+                      icon="close"
+                      testId="link-make-private"
+                      onSelect={() => {
+                        close()
+                        void act(async () => {
+                          const moved = await linksApi.move(link.space, link.id, personal)
+                          navigate(
+                            `/links/${encodeURIComponent(personal)}/${encodeURIComponent(moved.id)}`,
+                            { replace: true },
+                          )
+                        }, 'Only you can see it now')
+                      }}
+                    >
+                      Make private
+                    </MenuItem>
+                  ) : null}
+                </>
+              )}
+            </ShareButton>
             <button
               type="button"
               data-testid="link-delete"

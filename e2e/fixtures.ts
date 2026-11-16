@@ -395,3 +395,33 @@ export async function openApp(page: Page, id: string): Promise<void> {
   await page.getByTestId('launcher-button').click()
   await page.getByTestId(`launcher-app-${id}`).click()
 }
+
+/**
+ * On `/forms`: makes a team form the way a member does. "New form" makes an untitled one with
+ * the cursor in its title; typing names it, and Save keeps the name.
+ */
+export async function newForm(page: Page, title: string): Promise<void> {
+  await page.getByTestId('new-form').click()
+  await page.getByTestId('new-form-in-team').click()
+  const name = page.getByTestId('form-title')
+  await expect(name).toHaveValue('Untitled form')
+  await expect(name).toBeFocused()
+  await expect(page.getByTestId('page-back')).toHaveText('Forms')
+  await page.keyboard.type(title)
+  await expect(name).toHaveValue(title)
+  await page.getByTestId('form-save').click()
+  await expect(page.getByTestId('form-save')).toHaveText('Saved')
+}
+
+/**
+ * Sharing is one button that says "Share", with "Copy link" inside it (docs/PLAN-consistency.md,
+ * requirement 10). Leaves the menu closed.
+ */
+export async function expectShareWithCopyLink(page: Page, testId: string): Promise<void> {
+  const share = page.getByTestId(testId)
+  await expect(share).toHaveAccessibleName('Share')
+  await share.click()
+  await expect(page.getByRole('menuitem', { name: 'Copy link', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu')).toHaveCount(0)
+}
