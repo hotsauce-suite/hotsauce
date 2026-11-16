@@ -57,7 +57,7 @@ import { ChatRooms, Forms } from './forms/index.js'
 import { GitStore } from './git/index.js'
 import { createHostAdapter } from './hosts/index.js'
 import { Index, Indexer, indexPath } from './index/index.js'
-import { fakePageFetcher, fetchPage, Links, type PageFetcher } from './links/index.js'
+import { fakePageFetcher, fetchPage, Links, type PageFetcher, ReadingStore } from './links/index.js'
 import {
   DeepgramRetranscriber,
   type MeetingRetranscriber,
@@ -114,7 +114,7 @@ import {
   type RobotCheck,
   Turnstile,
 } from './scheduling/index.js'
-import { Shares } from './shares/index.js'
+import { assertOwnShare, Shares } from './shares/index.js'
 import { SpaceService } from './spaces/index.js'
 import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
@@ -131,6 +131,7 @@ import {
   Updater,
   UpdateStore,
 } from './updates/index.js'
+import { Usage } from './usage/index.js'
 
 // Same depth from src/ and dist/: apps/server/{src,dist}/services.{ts,js} → the repo root.
 const ENV_FILE = fileURLToPath(new URL('../../../.env.local', import.meta.url))
@@ -193,6 +194,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     dataDir: config.DATA_DIR,
     committer,
     rewriteLinks: rewriteLinksForMove,
+    guardMarkdown: assertOwnShare,
   })
   const host = createHostAdapter(config)
   const index = new Index(indexPath(config.DATA_DIR))
@@ -365,6 +367,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     fetchPage:
       overrides.linkFetch ??
       (config.LINK_FETCH === 'live' ? (url) => fetchPage(url) : fakePageFetcher),
+    reading: new ReadingStore(path.join(config.DATA_DIR, 'links-reading.sqlite')),
     llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
     model: config.LINKS_MODEL,
   })
@@ -504,6 +507,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     backups: createBackups(config, overrides.backupStore, (space, fn) =>
       git.withSpaceLocked(space, fn),
     ),
+    // Which apps get used, counted from history already kept (docs/PLAN-app-usage.md).
+    usage: new Usage({
+      listSpaces: () => git.listClones(),
+      activity: (space, since) => git.activity(space, since),
+      clipsSince: (from) => clips.store.createdSince(from),
+      dictateDevices: () => dictation.store.deviceLastUses(),
+      committerEmail: committer.email,
+    }),
   }
   // The built-in assistant (docs/PLAN-assistant.md): the member's own MCP tools, in-process.
   const assistant = new Assistant({

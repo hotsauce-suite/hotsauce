@@ -120,6 +120,7 @@ export class Shares {
           author: { name: principal.name, email: principal.email },
           message,
           unchanged: { path, blobOid },
+          trusted: true,
         })
       } catch (err) {
         if (err instanceof HotsauceError && err.code === 'conflict' && attempt < WRITE_ATTEMPTS) {
@@ -201,6 +202,22 @@ export class Shares {
     const file = await this.#deps.git.readFile(space, path)
     return { path, content: file.content, blobOid: file.blobOid, ...target }
   }
+}
+
+/**
+ * The rule every markdown write passes through (GitStore `guardMarkdown`): a file may carry a
+ * read-only link only if it is the one the path already has. Share is the one writer that makes
+ * a new link, and its commit is `trusted`. Whatever way the text came in (a save, a merge, a
+ * conflict resolve, an upload, a rename into `.md`, an AI tool), a link someone chose is refused.
+ */
+export function assertOwnShare(path: string, text: string, previous: string | null): void {
+  const sent = tokenOf(text)
+  if (sent === null) return
+  if (previous !== null && tokenOf(previous) === sent) return
+  throw new HotsauceError(
+    'bad_request',
+    `${path} has a "share" line in its header that Hotsauce didn't write. Remove that line; read-only links are made with Share.`,
+  )
 }
 
 function tokenOf(content: string): string | null {

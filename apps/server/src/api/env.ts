@@ -30,6 +30,7 @@ import type { Tables } from '../tables/index.js'
 import type { TaskServices } from '../tasks/index.js'
 import type { TokenStore } from '../tokens/index.js'
 import type { Updater } from '../updates/index.js'
+import type { Usage } from '../usage/index.js'
 
 /** Everything the API is built from; tests pass a temp data dir, LocalHost and DevAuth. */
 export interface AppDeps {
@@ -67,6 +68,8 @@ export interface AppDeps {
   org: OrgStore
   brand: BrandStore
   updates: Updater
+  /** The admin Usage page's numbers (docs/PLAN-app-usage.md). */
+  usage: Usage
   /** Daily backups; null when there's no bucket or BACKUP=off. */
   backups: BackupService | null
   /** Stops gracefully and exits so the process manager starts us with the new settings. */

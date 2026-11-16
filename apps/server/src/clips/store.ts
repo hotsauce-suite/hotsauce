@@ -257,7 +257,11 @@ export class ClipStore {
         const current = row?.version ?? 0
         if (!row) this.#db.prepare('INSERT INTO schema_version (version) VALUES (0)').run()
         for (const sql of MIGRATIONS.slice(current)) this.#db.exec(sql)
-        this.#db.prepare('UPDATE schema_version SET version = ?').run(MIGRATIONS.length)
+        // Never lowered: a newer release may have migrated this file before a rollback, and
+        // it must not run those migrations again when it returns.
+        this.#db
+          .prepare('UPDATE schema_version SET version = ?')
+          .run(Math.max(current, MIGRATIONS.length))
       })
       .immediate()
   }
@@ -363,6 +367,15 @@ export class ClipStore {
       )
       .all(values) as Row[]
     return rows.map(toRecord)
+  }
+
+  /** Every clip created at or after `from` (any owner, any status), for the usage report. */
+  createdSince(from: string): Array<{ id: string; ownerEmail: string; createdAt: string }> {
+    return this.#db
+      .prepare(
+        'SELECT id, owner_email AS ownerEmail, created_at AS createdAt FROM clips WHERE created_at >= ?',
+      )
+      .all(from) as Array<{ id: string; ownerEmail: string; createdAt: string }>
   }
 
   /** Clips in one of `statuses`, oldest first (startup recovery and the abandoned-upload sweep). */

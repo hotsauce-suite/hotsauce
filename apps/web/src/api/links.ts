@@ -25,6 +25,19 @@ export interface LinkView {
   words: number | null
   source: LinkSource | null
   status: LinkStatus
+  /** Your own place in the copy; null before you open it. */
+  reading: ReadingPlace | null
+}
+
+/** Where you are in a saved link (docs/PLAN-links-reading-position.md). */
+export interface ReadingPlace {
+  /** The block of the copy at the top of the screen, from 0. */
+  anchor: number
+  /** How far through the copy the bottom of the screen is, 0 to 100. */
+  percent: number
+  /** The most of the copy ever reached, 0 to 100. */
+  furthest: number
+  updated: string
 }
 
 export interface LinkWithBody extends LinkView {
@@ -59,6 +72,17 @@ export const linksApi = {
     id: string,
     patch: { title?: string; tags?: string[]; archived?: boolean },
   ) => request<LinkView>(at(space, id), { method: 'PATCH', json: patch }),
+  setReading: (
+    space: string,
+    id: string,
+    place: { anchor: number; percent: number },
+    opts: { keepalive?: boolean } = {},
+  ) =>
+    request<void>(`${at(space, id)}/reading`, {
+      method: 'PUT',
+      json: place,
+      keepalive: opts.keepalive ?? false,
+    }),
   refetch: (space: string, id: string) =>
     request<LinkView>(`${at(space, id)}/refetch`, { method: 'POST' }),
   move: (space: string, id: string, toSpace: string) =>
@@ -72,6 +96,17 @@ export const linksApi = {
  */
 export function webUrl(url: string): string | null {
   return /^https?:\/\//i.test(url.trim()) ? url.trim() : null
+}
+
+/** At or past this much of the copy, a link reads as "Read". */
+export const READ_TO_END = 95
+
+/** "40% read", "Read", or '' for a link not started. */
+export function readProgress(reading: ReadingPlace | null): string {
+  const furthest = reading?.furthest ?? 0
+  if (furthest <= 0) return ''
+  if (furthest >= READ_TO_END) return 'Read'
+  return `${Math.max(1, Math.floor(furthest))}% read`
 }
 
 /** "5 min read", from a word count. */
