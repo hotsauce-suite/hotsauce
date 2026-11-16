@@ -6,6 +6,7 @@ import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
 import { NEEDS_CONNECTION } from '../../components/Offline'
+import { MainButton } from '../../components/PageHeader'
 import { useOnline } from '../../lib/connection'
 import { loadSpeed, SPEEDS, saveSpeed, speedLabel } from '../clips/speed'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
@@ -75,17 +76,15 @@ export default function BriefcastPage() {
   return (
     <>
       <MeetingsPageHeader title="Briefcast">
-        <button
-          type="button"
-          className={`${primaryButton} h-9`}
+        <MainButton
+          icon="sparkle"
           onClick={make}
           disabled={making || load.status === 'loading' || !online}
           {...(online ? {} : { title: NEEDS_CONNECTION })}
-          data-testid="briefcast-make"
+          testId="briefcast-make"
         >
-          <Icon name="sparkle" className="size-4" />
           {making ? 'Making your briefing…' : 'Make today’s briefing'}
-        </button>
+        </MainButton>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="briefcast-page">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">

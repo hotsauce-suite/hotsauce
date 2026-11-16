@@ -16,6 +16,7 @@ import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
+import { MainButton } from '../../components/PageHeader'
 import { useListKeys } from '../../keyboard/listKeys'
 import { meetingUrl } from '../../lib/paths'
 import { useSession } from '../../state/session'
@@ -164,14 +165,9 @@ export default function MeetingsHome() {
   return (
     <>
       <MeetingsPageHeader title="Meetings">
-        <Link
-          to="/meetings/start"
-          data-testid="new-meeting"
-          className={`${primaryButton} h-9 px-3`}
-        >
-          <Icon name="mic" />
+        <MainButton icon="mic" to="/meetings/start" testId="new-meeting">
           New meeting
-        </Link>
+        </MainButton>
       </MeetingsPageHeader>
       <div data-testid="meetings-home" className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8 md:pt-10">

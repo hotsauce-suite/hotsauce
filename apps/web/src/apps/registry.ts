@@ -11,6 +11,7 @@ import { clipsApp } from './clips/manifest'
 import { dictateApp } from './dictate/manifest'
 import { docsApp } from './docs/manifest'
 import { filesApp } from './files/manifest'
+import { forYouApp } from './for-you/manifest'
 import { formsApp } from './forms/manifest'
 import { linksApp } from './links/manifest'
 import { meetingsApp } from './meetings/manifest'
@@ -22,6 +23,7 @@ import { todayApp } from './today/manifest'
 
 export type AppId =
   | 'today'
+  | 'for-you'
   | 'docs'
   | 'meetings'
   | 'dictate'
@@ -83,6 +85,7 @@ export function railLinks(): readonly RailLink[] {
 
 export const APPS: readonly AppManifest[] = [
   todayApp,
+  forYouApp,
   docsApp,
   meetingsApp,
   dictateApp,

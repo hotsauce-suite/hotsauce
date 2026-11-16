@@ -15,11 +15,12 @@ import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
+import { MainButton, PageHeader } from '../../components/PageHeader'
 import { focusedRow, holdListPlace, useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
-import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { secondaryButton } from '../meetings/components/common'
 import { addPdf, pdfProblem } from './pdfUpload'
 import { errorMessage, savedDay, useLinksChanged, usePollWhile } from './useLinks'
 import { withRecentPlace } from './useReadingPlace'
@@ -183,7 +184,19 @@ export default function LinksPage() {
 
   return (
     <>
-      <MeetingsPageHeader title="Links" menu={false} />
+      <PageHeader title="Links" menu={false}>
+        <MainButton
+          icon="plus"
+          testId="links-save-main"
+          onClick={() => {
+            const field = document.querySelector<HTMLInputElement>('[data-testid="links-paste"]')
+            field?.scrollIntoView({ block: 'center' })
+            field?.focus()
+          }}
+        >
+          Save a link
+        </MainButton>
+      </PageHeader>
       <div
         className={`min-h-0 flex-1 overflow-y-auto ${dragging ? 'bg-ember/5 outline-2 -outline-offset-4 outline-ember outline-dashed' : ''}`}
         data-testid="links-drop"
@@ -205,13 +218,13 @@ export default function LinksPage() {
               onChange={(e) => setUrl(e.target.value)}
               aria-label="Link to save"
             />
-            <button type="submit" className={primaryButton} disabled={saving || !url.trim()}>
+            <button type="submit" className={secondaryButton} disabled={saving || !url.trim()}>
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               data-testid="links-add-pdf"
-              className={secondaryButton}
+              className={`${secondaryButton} shrink-0 whitespace-nowrap`}
               disabled={adding > 0}
               onClick={() => pdfInput.current?.click()}
               title="Add a PDF from your computer (or drop it on this page)"

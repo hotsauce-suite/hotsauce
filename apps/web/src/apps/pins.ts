@@ -7,7 +7,14 @@ import { api } from '../api/client'
 import { APPS, type AppManifest, type RailLink, railLinks } from './registry'
 
 /** What a new member's rail shows. Chat shows only where the organization added a chat link. */
-export const DEFAULT_PINS: readonly string[] = ['today', 'docs', 'tasks', 'meetings', 'chat']
+export const DEFAULT_PINS: readonly string[] = [
+  'today',
+  'for-you',
+  'docs',
+  'tasks',
+  'meetings',
+  'chat',
+]
 
 const CACHE_KEY = 'hearth.pins'
 

@@ -395,3 +395,19 @@ export async function openApp(page: Page, id: string): Promise<void> {
   await page.getByTestId('launcher-button').click()
   await page.getByTestId(`launcher-app-${id}`).click()
 }
+
+/**
+ * On `/forms`: makes a team form the way a member does. "New form" makes an untitled one with
+ * the cursor in its title; typing names it, and Save keeps the name.
+ */
+export async function newForm(page: Page, title: string): Promise<void> {
+  await page.getByTestId('new-form').click()
+  await page.getByTestId('new-form-in-team').click()
+  const name = page.getByTestId('form-title')
+  await expect(name).toHaveValue('Untitled form')
+  await expect(name).toBeFocused()
+  await page.keyboard.type(title)
+  await expect(name).toHaveValue(title)
+  await page.getByTestId('form-save').click()
+  await expect(page.getByTestId('form-save')).toHaveText('Saved')
+}

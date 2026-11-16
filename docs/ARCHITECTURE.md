@@ -1695,3 +1695,22 @@ DELETE /api/comments/:item/:id      → 204                            (the auth
 - `Composer`: plain text, `@` opens up to six members (arrows, Enter or Tab picks, Escape closes), inserting the full name, or the handle when two members share a name; Command-Enter sends. `CommentText` renders the words as written (line breaks kept, URLs linked, no Markdown) and marks only the mentions the server stored.
 - Quoting: a non-empty selection in the editor shows a "Comment" tooltip (`showTooltip`), and the reading view a floating button; either puts the passage above the box as the quote.
 - `#comment-<id>` on a doc, meeting note or task URL scrolls to that comment and marks it; the editor first scrolls its end into view (`EditorBridge.revealEnd`), since the slot is only drawn when near the viewport. A long conversation shows its latest 20 with "Show earlier comments"; a link to an earlier one opens them all.
+
+### 27.5 For you
+
+Plan slice 2 (R12 to R18). One list of what is waiting on a member; so far, every comment that @mentions them. Server: `apps/server/src/foryou/` and `api/for-you.ts`; pure rules and the state file: `packages/format/src/for-you.ts`; web: `apps/web/src/apps/for-you/`.
+
+- **Derived, not stored.** `Index.commentsMentioning(team, email)` (one query, `json_each` over each comment's `mentions`) gives the comments; they are grouped by `item`, the member's own comments are dropped, and each group's item is found in the index (a task by `tasks/<id>.md`, anything else by `fileById`). An item that is gone drops out. One entry per item: the newest comment that names them, how many do, and `at`, when it last moved for them.
+- **Only the member's marks are written**: `.hearth/for-you.json` in their personal space, `{ schema: 1, items: { <item id>: { seen?, done?, later?, laterAt? } } }`, at most 1,000 entries (the most recently touched kept); anything it doesn't understand reads as empty or is dropped. Commits are `for you: open|done|undo done|later until tomorrow|later until Monday "<item title>"`, authored by the member.
+- **Rules** (`forYouStanding`): Done hides an item until a mention newer than Done; Later hides it until its time (9 AM in the zone the browser sends, `laterUntil`) or a mention after Later was chosen, then `at` is the Later time so it returns at the top; an item counts (`unseen`) when it moved after `seen`. Opening an item is a `seen` mark only when it is listed and unseen, so opening a doc commits nothing otherwise.
+- **Budget (R18).** The marks are parsed once per head of the personal space (from `sync_state`) and kept in memory; the list is index reads only, under 200 ms on 5,000 files (an integration test holds it).
+- **Offered once.** The web's default pins put `for-you` after Today; a member who had saved pins gets it once, after Today (`AccountStore.pinsWithOffers`, table `pin_offers` in `account.sqlite`; saving pins records the offer). Today offers the tile once (`offerForYou`, first on the left after Getting started; a layout saved without it carries `forYou: "dismissed"`).
+
+```
+GET  /api/for-you         → { items: [ForYouItem], unseen, canMark }
+POST /api/for-you/:item   { action: seen|done|undone } | { action: later, when: tomorrow|monday, zone } → same
+```
+
+`ForYouItem`: `{ item, space, path, title, kind, url (…#comment-<id>), comment: { id, author, name, text, created }, mentions, at, unseen }`. `canMark` is false without a personal space.
+
+- **Web.** One store (`apps/for-you/store.ts`) serves the rail count, the page, Today's tile and item pages; it refetches on `changed` events for comment paths or the state file, on reconnect and every ten minutes (a Later coming due changes nothing on the server). `useComments` calls `openedForYouItem` after each load. The desktop rail's For you entry shows the count; the phone bar shows it on Today. `g y` goes there.

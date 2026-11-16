@@ -7,7 +7,8 @@ import { Dialog } from '../../components/Dialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
-import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { MainButton, PageHeader } from '../../components/PageHeader'
+import { secondaryButton } from '../meetings/components/common'
 import { CheckinForm } from './CheckinForm'
 import { DEFAULTS } from './format'
 
@@ -64,7 +65,13 @@ export default function CheckinsPage() {
 
   return (
     <>
-      <MeetingsPageHeader title="Check-ins" menu={false} />
+      <PageHeader title="Check-ins" menu={false}>
+        {canManage ? (
+          <MainButton icon="plus" testId="new-checkin" onClick={() => setDraft(BLANK)}>
+            New check-in
+          </MainButton>
+        ) : null}
+      </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
           <p className="mb-5 text-sm text-ink-soft">
@@ -80,7 +87,7 @@ export default function CheckinsPage() {
           {loadFailed ? (
             <LoadError things="check-ins" whose="the" onRetry={load} className="mb-4" />
           ) : null}
-          {canManage ? (
+          {canManage && missingDefaults.length > 0 ? (
             <div className="mb-6 flex flex-wrap gap-2" data-testid="checkin-presets">
               {missingDefaults.map((d) => (
                 <button
@@ -94,20 +101,13 @@ export default function CheckinsPage() {
                   {d.title}
                 </button>
               ))}
-              <button
-                type="button"
-                className={primaryButton}
-                data-testid="new-checkin"
-                onClick={() => setDraft(BLANK)}
-              >
-                <Icon name="plus" />
-                New check-in
-              </button>
             </div>
           ) : null}
           {!loadFailed && items && items.length === 0 ? (
             <EmptyState icon="checklist" title="No check-ins yet" testId="checkins-empty">
-              {canManage ? 'Start with one of the two above.' : 'An admin sets them up.'}
+              {canManage
+                ? 'Start with one of the two above, or press New check-in.'
+                : 'An admin sets them up.'}
             </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="checkins-list">

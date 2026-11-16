@@ -151,6 +151,13 @@ export class FakeTasks {
 }
 
 /** Seeds a realistic list for the member around today (in their zone). */
+/** A member's sample tasks, made the first time anything asks for them. */
+export function seedTasksOnce(fake: FakeTasks, user: FakeUser): void {
+  if (fake.seeded.has(user.email)) return
+  fake.seeded.add(user.email)
+  seedTasks(fake, user, localNow(new Date(), memberTimeZone()).date)
+}
+
 export function seedTasks(fake: FakeTasks, user: FakeUser, today: string): void {
   const me = user.email
   const personal = user.handle
@@ -310,10 +317,7 @@ export function taskHandlers(deps: TaskHandlerDeps): AnyHandler[] {
       await wait()
       const user = principal(request)
       if (user instanceof Response) return user
-      if (deps.seeded && !fake.seeded.has(user.email)) {
-        fake.seeded.add(user.email)
-        seedTasks(fake, user, localNow(new Date(), memberTimeZone()).date)
-      }
+      if (deps.seeded) seedTasksOnce(fake, user)
       return fn({ request, user, params, url: new URL(request.url) })
     }
 

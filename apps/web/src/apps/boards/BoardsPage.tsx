@@ -6,6 +6,7 @@ import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
+import { MainButton } from '../../components/PageHeader'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { boardUrl } from '../../lib/paths'
 import { formatWhen } from '../clips/format'
@@ -77,16 +78,14 @@ export default function BoardsPage() {
   return (
     <>
       <MeetingsPageHeader title="Boards">
-        <button
-          type="button"
-          className={`${primaryButton} h-9`}
+        <MainButton
+          icon="plus"
           onClick={() => void newBoard.create(scope === 'team')}
           disabled={newBoard.busy}
-          data-testid="boards-new-page"
+          testId="boards-new-page"
         >
-          <Icon name="plus" className="size-4" />
-          <span>{scope === 'team' ? 'New team board' : 'New board'}</span>
-        </button>
+          {scope === 'team' ? 'New team board' : 'New board'}
+        </MainButton>
       </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" data-testid="boards-list">
         <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">

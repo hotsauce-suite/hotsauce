@@ -13,6 +13,7 @@ import { type ChatRoom, type FormInput, type FormView, formsApi } from '../../ap
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { useNameWhenFresh } from '../../components/PageHeader'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
@@ -92,6 +93,13 @@ export default function FormEditor() {
   useEffect(() => {
     if (form) document.title = `${form.title} · Forms · ${product()}`
   }, [form])
+
+  useNameWhenFresh(
+    (location.state as { fresh?: boolean } | null)?.fresh === true,
+    draft !== null && tab === 'questions',
+    '[data-testid="form-title"]',
+    'Untitled form',
+  )
 
   const change = (patch: Partial<FormInput>) => {
     setDraft((d) => (d ? { ...d, ...patch } : d))

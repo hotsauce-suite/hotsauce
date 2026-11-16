@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>The open sauce office suite.</b><br>
-  Docs, AI meeting notes, tasks, notes, whiteboards, dictation and screen recordings for a small team,<br>
+  Docs, AI meeting notes, tasks, notes, boards, a read-later list, dictation and screen recordings for a small team,<br>
   on a server you run, with every file kept as plain Markdown in git.
 </p>
 
@@ -28,7 +28,7 @@
 
 ## Why Hotsauce
 
-**Your files stay yours.** Every doc, meeting note, task and note is a Markdown file in a git
+**Your files stay yours.** Every doc, meeting note, task, note and saved link is a Markdown file in a git
 repository, on your server or in your GitHub organization. Open it in any editor, grep it, back it up,
 walk away with it. The database is only a search cache: delete it and Hotsauce rebuilds it from git.
 
@@ -40,8 +40,8 @@ screen recording and more share one sign-in, one search, one brand and one place
 lives.
 
 **Agents are first-class.** A built-in MCP server lets any AI tool (Claude, ChatGPT, Grok, Cursor, Codex or a
-script; sign in or use a token) search, read and write your docs, meetings, tasks, clips
-and files as you, with the same permissions you have. History shows which tool made each change.
+script; sign in or use a token) search, read and write your docs, meetings, tasks, clips,
+saved links and files as you, with the same permissions you have. History shows which tool made each change.
 
 ## What's in the box
 
@@ -51,11 +51,12 @@ The home page: a live clock, what's next and (if you turn it on) the weather up 
 arrange yourself. Out of the box they're your meetings for the day with one click to take notes, tasks
 due and overdue, to-dos from your meeting notes that aren't tasks yet, docs that changed since
 yesterday, and your agent brief. Edit Today adds starred docs, Dictate and clip shortcuts, people,
-recent files, a whiteboard and a week view, and moves or removes any tile.
+recent files, a board and a week view, and moves or removes any tile. A new teammate's Today starts
+with a short Getting started list: connect the calendar, get the Mac app, find the team's docs.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.webp">
-  <img src="docs/screenshots/today-light.webp" alt="The Today page with the clock and weather, meetings, tasks and a week view">
+  <img src="docs/screenshots/today-light.webp" alt="The Today page with Getting started, a check-in, the day's meetings and tasks">
 </picture>
 
 ### Meetings
@@ -100,12 +101,23 @@ commit with a readable history, links survive renames, and search covers every s
 Import Markdown, Word and HTML files, and drop live task lists into a page.
 
 Every team doc, meeting note and task has a conversation under it: comment where the work is, quote
-a passage, and @mention a teammate to send them a notification that opens on your comment.
+a passage, and @mention a teammate to send them a notification that opens on your comment. Every
+mention also waits in the teammate's For you list (on the rail and on Today) until they mark it Done
+or put it off until tomorrow or next Monday.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/default-docs-dark.webp">
-  <img src="docs/screenshots/default-docs-light.webp" alt="A doc in Hotsauce Docs, with the file tree and outline">
+  <img src="docs/screenshots/default-docs-light.webp" alt="A doc in Hotsauce Docs, with the file tree and the comments under it">
 </picture>
+
+### Links
+
+A read-later list for the team. Save a page from the Chrome extension, your phone or the app, and
+Hotsauce keeps a clean copy to read and the page as you saw it. PDFs and papers work too: paste an
+address or add the file, and arXiv, bioRxiv and medRxiv papers come with their authors, abstract and
+DOI. Hotsauce remembers where you stopped reading and shows how much you've read. Highlight passages,
+add notes, see every highlight on one tab, and copy them into a doc. Search, Ask, Briefcast and your AI
+tools can all read what you saved. [More in the help center](https://hotsauce.work/help/links).
 
 ### Everything else
 
@@ -114,6 +126,7 @@ a passage, and @mention a teammate to send them a notification that opens on you
 | **People** | Everyone you meet with, from your calendar and meeting notes: past and next meetings, open to-dos, and a short note about each person. |
 | **Boards** | Hand-drawn boards the whole team can draw on at once, saved as files you can search. |
 | **Files** | Upload and share files and folders, with previews and search across what's inside them. |
+| **Tables** | Trackers with spreadsheet formulas, kept as CSV files in git. |
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note or meeting, or publish a page. |
@@ -137,6 +150,12 @@ the same tools as [the MCP server](docs/mcp.md), as you, so it sees only what yo
 Conversations are private to each person. Admins pick the model (Claude Sonnet or Opus), see each
 person’s use this month, and can set a monthly limit, in Settings → AI.
 
+### Works offline
+
+Once you've opened Hotsauce on a device, it opens there without a connection too. Edits you make to
+docs while offline are kept on the device, even through a reload, and sent when you're back online.
+Anything that needs the server says so instead of failing quietly.
+
 ### Keyboard first
 
 Press ⌘K (Ctrl+K) to search everything, jump anywhere, add a task (`task: call Sam tomorrow`) or hand a
@@ -148,7 +167,8 @@ app you’re in, and `?` shows every shortcut for the page you’re on. The full
 
 Name the workspace after your company, add your logo, and pick colors, fonts and a default light or
 dark look. Every app follows, and agents can read the brand kit too, so what they write sounds like
-you. Invite people from outside your company by email.
+you. Invite people from outside your company by email. Admins get a **Usage** page that shows how
+much each app is used week by week, counted from history: nothing is tracked.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/branded-docs-dark.webp">
@@ -238,7 +258,12 @@ Or run [`deploy/docker-compose.yml`](deploy/docker-compose.yml) yourself. The
 
 ### Stay up to date
 
-Each copy has an **Update Hotsauce** workflow that checks every Monday for a new release and opens a
+On Fly.io, Hotsauce can update itself: with a Fly deploy token set, **Settings → Data and updates**
+installs each new release within about an hour and rolls back if it fails its health check.
+**Settings → What's new** lists what changed in each release, in plain words (also at
+[hotsauce.work/changes](https://hotsauce.work/changes)).
+
+Each copy also has an **Update Hotsauce** workflow that checks every Monday for a new release and opens a
 pull request with it, keeping your own changes. Merging deploys it: Cloudflare redeploys on every push,
 and on Fly a workflow does it once you add a deploy token. See
 [Staying up to date](docs/self-host.md#staying-up-to-date).
@@ -281,6 +306,9 @@ pnpm lint && pnpm typecheck
 pnpm test                    # unit + integration (Vitest)
 pnpm build && pnpm test:e2e  # Playwright, against the built app
 ```
+
+Releases number themselves: after each merge to `main` a workflow picks the next version, writes the
+release notes from the pull request, and publishes the image. See [CONTRIBUTING.md](CONTRIBUTING.md#releases).
 
 Hotsauce started as an internal tool called Hearth. A few saved names still say "hearth" on purpose,
 so files, links and apps from older versions keep working: each space's `.hearth/` folder, `hearth:`

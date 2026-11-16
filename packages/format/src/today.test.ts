@@ -9,6 +9,7 @@ import {
   moveTileNextTo,
   nudgeTile,
   nudgeTileStacked,
+  offerForYou,
   offerGettingStarted,
   parseTodayLayout,
   removeTile,
@@ -28,7 +29,12 @@ describe('Today layout file (L1)', () => {
     const text = serializeTodayLayout(defaultTodayLayout())
     expect(text.endsWith('\n')).toBe(true)
     // Saved without the Getting started tile, so it is marked as dealt with (F2).
-    expect(parseTodayLayout(text)).toEqual({ ...defaultTodayLayout(), gettingStarted: 'dismissed' })
+    // …and without For you, so it is not offered again (comments plan R13).
+    expect(parseTodayLayout(text)).toEqual({
+      ...defaultTodayLayout(),
+      gettingStarted: 'dismissed',
+      forYou: 'dismissed',
+    })
   })
 
   it('throws on text that is not a layout', () => {
@@ -122,7 +128,11 @@ describe('Today layout edits (E1, E2)', () => {
     expect(ids(l)[1]).toEqual(['notes', 'tasks'])
     l = addTile(l, 'board')
     l = updateTile(l, { id: 'board', kind: 'board', board: { space: 'team', id: 'b1' } })
-    expect(parseTodayLayout(serializeTodayLayout(l))).toEqual({ ...l, gettingStarted: 'dismissed' })
+    expect(parseTodayLayout(serializeTodayLayout(l))).toEqual({
+      ...l,
+      gettingStarted: 'dismissed',
+      forYou: 'dismissed',
+    })
   })
 
   it('moving or removing a missing tile changes nothing', () => {
@@ -291,5 +301,44 @@ describe('Getting started tile (PLAN-getting-started F1–F3)', () => {
     expect(layoutTiles(offerGettingStarted(reread)).some((t) => t.kind === 'start')).toBe(false)
     // It can still be added back by hand.
     expect(addableTiles(reread)).toContain('start')
+  })
+})
+
+describe('the For you tile is offered once (comments plan R13)', () => {
+  it('goes first on the left, after Getting started, until the member removes it', () => {
+    const offered = offerForYou(defaultTodayLayout())
+    expect(offered.columns[0].map((t) => t.kind)).toEqual([
+      'for-you',
+      'checkins',
+      'meetings',
+      'tasks',
+      'action-items',
+    ])
+    expect(
+      offerGettingStarted(offered)
+        .columns[0].slice(0, 2)
+        .map((t) => t.kind),
+    ).toEqual(['start', 'for-you'])
+    expect(offerForYou(offerGettingStarted(defaultTodayLayout())).columns[0][1]?.kind).toBe(
+      'for-you',
+    )
+    // Saved with it, it stays where the member put it.
+    const moved = moveTile(offered, 'for-you', { column: 1, index: 9 })
+    const kept = parseTodayLayout(serializeTodayLayout(moved))
+    expect(offerForYou(kept)).toEqual(kept)
+    // Saved without it, it doesn't come back.
+    const removed = parseTodayLayout(serializeTodayLayout(removeTile(offered, 'for-you')))
+    expect(removed.forYou).toBe('dismissed')
+    expect(offerForYou(removed)).toEqual(removed)
+  })
+
+  it('a layout saved before the tile existed is offered it', () => {
+    const old = parseTodayLayout({
+      schema: 1,
+      columns: [[{ id: 'tasks', kind: 'tasks' }], []],
+      gettingStarted: 'dismissed',
+    })
+    expect(old.forYou).toBeUndefined()
+    expect(offerForYou(old).columns[0].map((t) => t.kind)).toEqual(['for-you', 'tasks'])
   })
 })

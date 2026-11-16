@@ -49,6 +49,11 @@ export const CommentFrontmatter = z.looseObject({
   edited: z.string().optional(),
   /** Lowercase emails of the members the text names, as the server resolved them. */
   mentions: z.array(z.string()).default([]),
+  /**
+   * When an edit first named a member (lowercase email → instant). A member named when the comment
+   * was written has no entry: `created` is when. For you sorts by it.
+   */
+  named: z.record(z.string(), z.string()).optional(),
   /** The passage of the doc the comment is about. */
   quote: z.string().optional(),
   /** The agent channel it was written through ("via Claude"). */

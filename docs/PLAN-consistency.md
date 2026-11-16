@@ -1,11 +1,11 @@
 # Plan: the apps look and act the same
 
-**Status:** (Nov 16, 2026) Round 1 is shipped: requirements 1 to 5 (0.18.0, PR #117), Links
-and the words of requirement 6 (PR #128), and plain titles with "Boards" (requirement 7, this
-PR). Two pieces of round 1 are left for later rounds: "Saved" for "Committed" waits for the
-offline work to merge (it rewrites `SaveState.tsx`), and "shown once" (the page's top bar naming
-where you are instead of repeating the app's name) comes with round 2's shared top bar. Rounds 2
-and 3 not started. Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
+**Status:** (Nov 16, 2026) Round 1 is shipped in full: requirements 1 to 5 (0.18.0, PR #117),
+Links and the words (PR #128), plain titles with "Boards" (PR #130), the re-recorded app videos
+(PR #133), and now "Saved" for "Committed" on a doc's save chip. Round 2 (the top bar) is being
+built: its first step is a map of every app's top bar as it is. "Shown once" (the page's top bar
+naming where you are instead of repeating the app's name) ships with it. Round 3 not started.
+Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
 reads differently from app to app. This plan gives them shared pieces and one set of words.
@@ -48,13 +48,32 @@ It ships in rounds; round 1 moves no control.
 
 ## Round 2: the top bar (after offline step A and Links reading position merge)
 
-8. The one red button is at the top right of every app, on computer and phone. Forms and Tables
-   make an untitled item named on the next screen.
+8. **The one red button** is the last control at the top right of every app's page, on computer
+   and phone, and always shows its words: New doc, New meeting, Record a voice note, Record a
+   clip, New task, New note, New board, Upload, Save a link, New form, New check-in (admins),
+   New table, Make today's briefing. Today, People, Pages and Dictate make nothing, so they have
+   none. Forms and Tables make an untitled item with the cursor in its name.
+   *(e2e consistency: "the main button", one case per app at both widths; PageHeader.test;
+   e2e forms and tables)*
 9. A full-page item shows "‹ App name" at the left of the top bar; every pop-up and side panel
    has an × at its top right (Tables, Clips and the Files preview have neither today).
 10. One "Share" button with "Copy link" inside it.
 11. Phone top bar: menu, title, the one main button with its words; the rest behind "More". The
     assistant button never covers a control. A doc's title is its name, not its file name.
+
+### Decisions taken in round 2
+
+- The top bar is `components/PageHeader.tsx` (`PageHeader`, `MainButton`); the old name
+  `MeetingsPageHeader` still points at it so pages move over one at a time.
+- With more than one space, "New form", "New table" and "Import" first ask whose it is
+  (Personal or Team) in a small menu; with one space a press makes it. Until the member's spaces
+  have loaded the button waits, so it can't make a team item by mistake.
+- Where a page keeps a quick-add row (Tasks, Notes, Links), the top-right button opens or
+  focuses that row. Links' own "Save" beside the paste field is no longer red: one red button.
+- Docs' start page has the top bar on a computer too, and the sidebar's "New doc" is the same
+  red button as in the other sidebars.
+- The app videos and screenshots are re-recorded once, at the end of round 2, because each step
+  of the round changes the same top bars.
 
 ## Round 3
 
