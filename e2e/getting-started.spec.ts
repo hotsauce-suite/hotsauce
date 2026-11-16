@@ -60,7 +60,11 @@ test('J1: Getting started leads Today, hides for good, and comes back from Setti
 
   // Open Docs ticks the last open step that only a click can show.
   const saved = page.waitForResponse(
-    (r) => r.url().endsWith('/api/today/layout') && r.request().method() === 'PUT',
+    (r) =>
+      r.url().endsWith('/api/today/layout') &&
+      r.request().method() === 'PUT' &&
+      // Not the save that put the tile back a moment ago, which can still be on its way.
+      (r.request().postData() ?? '').includes('openedDocs'),
   )
   await page.getByTestId('today-start-docs').click()
   await expect(page).toHaveURL(/\/docs/)
