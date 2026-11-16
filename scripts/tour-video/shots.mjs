@@ -473,9 +473,14 @@ export const shots = {
     await wait(1500)
     await startCapture()
     await moveTo(900, 450, 10)
-    await click(page.getByPlaceholder(/New form title/))
+    await click(page.getByTestId('new-form'), { after: 600 })
+    const inTeam = page.getByTestId('new-form-in-team')
+    if (await inTeam.isVisible().catch(() => false)) await click(inTeam, { after: 1500 })
+    // The new form opens with its name selected, ready to type over.
+    await page.getByTestId('form-title').waitFor()
+    await wait(600)
     await type('Site visit sign-up', 40)
-    await click(page.getByRole('button', { name: 'New form' }), { after: 1800 })
+    await wait(600)
     await click(page.getByRole('button', { name: 'Add question' }), { after: 1500 })
   },
 
