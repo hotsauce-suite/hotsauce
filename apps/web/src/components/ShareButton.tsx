@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { Icon } from './Icon'
 import { below, Menu, type MenuAnchor } from './Menu'
 import { needsConnection } from './Offline'
@@ -36,10 +36,19 @@ export function ShareButton({
   className?: string
 }) {
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
-  const close = () => setAnchor(null)
+  const button = useRef<HTMLButtonElement>(null)
+  // The menu closes itself on a press outside it, which this button is: a press that began with
+  // the menu open closes it and stops there.
+  const openAtPress = useRef(false)
+  const close = () => {
+    setAnchor(null)
+    // Back to the button, so the keyboard carries on from where it was.
+    button.current?.focus()
+  }
   return (
     <>
       <button
+        ref={button}
         type="button"
         data-testid={testId}
         aria-haspopup="menu"
@@ -47,9 +56,15 @@ export function ShareButton({
         aria-label={iconOnly ? 'Share' : undefined}
         disabled={disabled}
         {...needsConnection(online, title)}
+        onPointerDownCapture={() => {
+          openAtPress.current = anchor !== null
+        }}
         onClick={(event) => {
-          if (!anchor) onOpen?.()
-          setAnchor(anchor ? null : below(event.currentTarget))
+          const wasOpen = openAtPress.current || anchor !== null
+          openAtPress.current = false
+          if (wasOpen) return setAnchor(null)
+          onOpen?.()
+          setAnchor(below(event.currentTarget))
         }}
         className={className}
       >

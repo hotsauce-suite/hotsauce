@@ -65,9 +65,11 @@ It ships in rounds; round 1 moves no control.
 10. **One "Share" button.** Wherever a thing can be sent to someone, the button says **Share**
     and opens a menu; **Copy link** is the first item, and the app's other ways of sharing (read-only
     link, Share with team, Make private, Move to Team, the copy to paste into a doc) are inside
-    it. Docs, Meetings, Clips, Forms, Files, Links, Boards; Notes has the share icon named Share
-    in its row of tools; Pages keeps its read-only link there. Escape closes the menu only, not
-    the pop-up it sits in.
+    it. Docs, Meetings, Clips, Forms, Files, Links, Boards and Pages. Escape closes the menu only,
+    not the pop-up it sits in, and the keyboard goes back to the button.
+    Exceptions: a note has no address of its own (it opens over the board), so its share icon,
+    named Share, holds the read-only link and Move to Team without Copy link; a booking link's
+    row keeps its own "Copy link" button, because copying is all that row is for.
     *(ShareButton.test; e2e `expectShareWithCopyLink` in drive, links, boards, clips, forms;
     notes.spec)*
 11. Phone top bar: menu, title, the one main button with its words; the rest behind "More". The
@@ -78,6 +80,10 @@ It ships in rounds; round 1 moves no control.
 - Share is `components/ShareButton.tsx`; a copied link is confirmed by the toast at the bottom
   (`notify`), not by the button changing its word. In Links, "Copy link" copies the address of
   the saved copy here (like everywhere else) and "Copy the page’s web address" copies the original.
+- In Files, "Copy link" turns the file's link on if it was off, as "Copy share link" in the row's
+  menu always did; the toast and the line under the button say who can open it, and "Turn off
+  link" sits next to it in Share.
+- Pages: "Delete page" left the Share menu and is its own button.
 - The top bar is `components/PageHeader.tsx` (`PageHeader`, `MainButton`); the old name
   `MeetingsPageHeader` still points at it so pages move over one at a time.
 - With more than one space, "New form", "New table" and "Import" first ask whose it is

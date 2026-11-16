@@ -101,6 +101,10 @@ test('build a public form, answer it signed out with a file, and read the answer
 test('a team form asks people who are signed out to sign in', async ({ page, browser }) => {
   await page.goto('/forms')
   await newForm(page, `Team only ${uid()}`)
+  // Copying its link says who can use it.
+  await page.getByTestId('form-share').click()
+  await page.getByTestId('form-copy-link').click()
+  await expect(page.getByText('Signed-in team members can fill in the form.')).toBeVisible()
   const link = await page.getByTestId('form-open-link').getAttribute('href')
   const outside = await browser.newContext()
   const stranger = await outside.newPage()

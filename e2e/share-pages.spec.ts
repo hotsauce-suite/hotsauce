@@ -1,7 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { docUrl, expect, signIn, test, uid } from './fixtures'
+import { docUrl, expect, expectShareWithCopyLink, signIn, test, uid } from './fixtures'
 
 // Share pages (docs/plans/2026-11-12-share-pages.md): a read-only link opened by a teammate and
 // refused signed out, then turned off; and a page Claude publishes over MCP, read in Pages.
@@ -92,6 +92,8 @@ test('a page Claude publishes over MCP shows in Pages, walled off, with its vers
   await page.getByRole('link', { name: new RegExp(`Report ${id}`) }).click()
   const frame = page.frameLocator('[data-testid="page-frame"]')
   await expect(frame.getByRole('heading', { name: 'Final' })).toBeVisible()
+  await expectShareWithCopyLink(page, 'page-share')
+  await expect(page.getByRole('button', { name: 'Delete page' })).toBeVisible()
   await page.getByTestId('page-version').selectOption({ index: 1 })
   await expect(frame.getByRole('heading', { name: 'First draft' })).toBeVisible()
 })

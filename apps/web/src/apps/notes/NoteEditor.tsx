@@ -386,7 +386,6 @@ export function NoteEditor({
   )
 }
 
-/** The note's read-only link (ARCHITECTURE §20): make one, copy it, or turn it off. */
 /** Share, in the note's row of tools: its read-only link and, for a personal note, Move to Team. */
 function NoteShareButton({
   space,

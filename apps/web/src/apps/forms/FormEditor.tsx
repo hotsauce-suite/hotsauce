@@ -183,7 +183,13 @@ export default function FormEditor() {
   const copy = () => {
     // Started before anything else and not awaited: it can hang without the permission.
     void navigator.clipboard?.writeText(form.url).catch(() => {})
-    notify('Link copied. Anyone with it can fill in the form.')
+    notify(
+      !form.open
+        ? 'Link copied. The form is closed, so it takes no answers for now.'
+        : form.access === 'team'
+          ? 'Link copied. Signed-in team members can fill in the form.'
+          : 'Link copied. Anyone with it can fill in the form.',
+    )
   }
 
   return (

@@ -5,6 +5,7 @@ import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
+import { MenuItem } from '../../components/Menu'
 import { PageFrame } from '../../components/PageFrame'
 import { ReadOnlyLinkItems, useReadOnlyLink } from '../../components/ReadOnlyLink'
 import { ShareButton } from '../../components/ShareButton'
@@ -92,6 +93,15 @@ export function PageRoute() {
     }
   }, [space, id, version])
 
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      notify('Link copied. Anyone who can see this space can open it.')
+    } catch {
+      notify('Couldn’t copy the link. Copy it from the address bar instead.')
+    }
+  }
+
   const remove = async () => {
     if (!window.confirm('Delete this page? It moves to the trash with all its versions.')) return
     try {
@@ -124,23 +134,30 @@ export function PageRoute() {
         <ShareButton testId="page-share" onOpen={() => link.refresh()}>
           {(close) => (
             <>
-              <ReadOnlyLinkItems link={link} close={close} />
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="page-delete"
-                onClick={() => {
+              <MenuItem
+                icon="link"
+                testId="page-copy-link"
+                onSelect={() => {
                   close()
-                  void remove()
+                  void copyLink()
                 }}
-                className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm text-ember-strong hover:bg-ember-wash"
               >
-                <Icon name="trash" />
-                Delete page
-              </button>
+                Copy link
+              </MenuItem>
+              <ReadOnlyLinkItems link={link} close={close} />
             </>
           )}
         </ShareButton>
+        <button
+          type="button"
+          data-testid="page-delete"
+          aria-label="Delete page"
+          title="Delete page"
+          onClick={() => void remove()}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-ember-wash hover:text-ember-strong"
+        >
+          <Icon name="trash" />
+        </button>
       </MeetingsPageHeader>
       <div className="flex min-h-0 flex-1 flex-col">
         {error ? (

@@ -51,4 +51,17 @@ describe('ShareButton', () => {
     await userEvent.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  it('closes on a second press, and hands the keyboard back to the button', async () => {
+    render(<ShareButton>{() => <MenuItem onSelect={() => {}}>Copy link</MenuItem>}</ShareButton>)
+    const share = screen.getByRole('button', { name: 'Share' })
+    await userEvent.click(share)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    await userEvent.click(share)
+    expect(screen.queryByRole('menu')).toBeNull()
+    await userEvent.click(share)
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(share).toHaveFocus()
+  })
 })
