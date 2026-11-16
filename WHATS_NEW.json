@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "version": "0.30.2",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Sharing looks the same everywhere: a Share button with Copy link inside, in Clips, Forms, Files, Links, Notes and Boards"
+        },
+        {
+          "text": "Boards have a Copy link of their own"
+        },
+        {
+          "text": "Pressing Escape with a menu open closes just the menu"
+        }
+      ]
+    },
+    {
       "version": "0.30.0",
       "date": "2026-11-16",
       "notes": [
