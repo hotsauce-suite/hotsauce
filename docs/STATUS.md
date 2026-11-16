@@ -77,6 +77,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 
 - **Ask** (⌘J): the assistant on every page, with the same tools as the MCP server, as the member. Needs the AI key; admins set the model and a monthly limit.
 - **Comments and @mentions**: a conversation under every team doc, meeting note and task; `@` and a name sends that teammate one notification that opens on the comment. Needs nothing extra; notifications must be on for the push. Not yet: a "For you" list, replies and comments from AI tools (the next steps in `docs/PLAN-comments.md`), and sending a comment written offline.
+- **Offline (step A)**: once opened on a device, the app opens there with no connection, as the last member signed in, with an Offline bar; what needs the server is greyed out or says "Not available offline yet". Doc edits made offline are kept on the device ("Saved on this device") and sent when back, even after a reload; text the server refuses (the doc moved) is kept in Docs → Kept on this device. Sign out works offline. Needs nothing extra. Not yet: reading docs, tasks and notes not edited offline (step B in `docs/PLAN-offline.md`), new docs made offline.
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
@@ -111,7 +112,6 @@ production refuses the test stand-ins, so nothing pretends to work.
 
 Open pull requests on `main` at the date above (release numbers are taken at merge, not here):
 
-- **#102** Offline mode, step A: opens offline and never loses a save.
 - **#110** GitHub publishes hotsauce.work and the demo on merge.
 - **#112** Releases number themselves.
 - **#108** Sign in to the MCP server from claude.ai, ChatGPT and Grok (OAuth).

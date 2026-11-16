@@ -4,6 +4,7 @@ import type { Health } from '../api/types'
 import { BOOT_RETRY_KEY, ServerUnreachable } from '../brand/boot'
 import { product } from '../brand/product'
 import { DevAuthProvider } from './devAuth'
+import { OfflineAuthProvider } from './offlineAuth'
 
 const ClerkAuthProvider = lazy(() =>
   import('./clerkAuth').then((m) => ({ default: m.ClerkAuthProvider })),
@@ -19,6 +20,14 @@ export function AuthRoot() {
       return <Navigate to={{ pathname: '/setup', hash: location.hash }} replace />
     }
     return <Outlet />
+  }
+  // No connection at start: run as the last signed-in member until the server answers again.
+  if (health.offlineStart) {
+    return (
+      <OfflineAuthProvider mode={health.authMode}>
+        <Outlet />
+      </OfflineAuthProvider>
+    )
   }
   if (health.authMode === 'clerk') {
     return (

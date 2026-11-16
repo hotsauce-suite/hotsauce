@@ -1,4 +1,5 @@
 import { product } from '../brand/product'
+import { reportReachable, reportUnreachable } from '../lib/connection'
 import type {
   ApiErrorBody,
   Commit,
@@ -68,6 +69,10 @@ export function apiUrl(path: string, query?: Query): string {
   return url.toString()
 }
 
+function isJson(res: Response): boolean {
+  return (res.headers.get('content-type') ?? '').includes('application/json')
+}
+
 function isErrorBody(body: unknown): body is ApiErrorBody {
   if (typeof body !== 'object' || body === null || !('error' in body)) return false
   const error = (body as { error: unknown }).error
@@ -114,8 +119,19 @@ interface RequestOptions {
   contentType?: string
 }
 
+/** What a proxy in front of the server answers while it's down or restarting. */
+const GATEWAY_STATUSES = new Set([502, 503, 504, 530])
+
 async function send(path: string, opts: RequestOptions): Promise<Response> {
-  const headers: Record<string, string> = { ...(await authHeaders()), ...opts.headers }
+  let signed: Record<string, string>
+  try {
+    signed = await authHeaders()
+  } catch (err) {
+    // The sign-in service couldn't give a token (it can't be reached): as good as offline.
+    reportUnreachable()
+    throw new HotsauceApiError('network', `Could not reach the ${product()} server`, 0, err)
+  }
+  const headers: Record<string, string> = { ...signed, ...opts.headers }
   const init: RequestInit = { method: opts.method ?? 'GET', headers }
   if (opts.json !== undefined) {
     headers['content-type'] = 'application/json'
@@ -127,11 +143,18 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
     init.body = opts.body
   }
   if (opts.keepalive) init.keepalive = true
+  let res: Response
   try {
-    return await fetch(apiUrl(path, opts.query), init)
+    res = await fetch(apiUrl(path, opts.query), init)
   } catch (err) {
+    // No answer at all: the app is offline until the server answers again (lib/connection).
+    reportUnreachable()
     throw new HotsauceApiError('network', `Could not reach the ${product()} server`, 0, err)
   }
+  // A gateway error without our own error body: the server itself didn't answer.
+  if (GATEWAY_STATUSES.has(res.status) && !isJson(res)) reportUnreachable()
+  else reportReachable()
+  return res
 }
 
 /** One authenticated call whose answer is a file, not JSON. */

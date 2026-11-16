@@ -91,3 +91,16 @@ describe('hotsauce.work', () => {
     expect(res.headers.get('location')).toBe('https://hotsauce.work/x')
   })
 })
+
+describe('which version is live', () => {
+  it('names the deployed commit on every host, so a deploy can check it went live', async () => {
+    const e = { ...env(), SITE_VERSION: 'abc123' }
+    for (const url of ['https://hotsauce.work/', 'https://demo.hotsauce.work/tasks']) {
+      expect((await get(url, e)).headers.get('x-site-version')).toBe('abc123')
+    }
+  })
+
+  it('says nothing when the deploy gave no version', async () => {
+    expect((await get('https://hotsauce.work/', env())).headers.has('x-site-version')).toBe(false)
+  })
+})

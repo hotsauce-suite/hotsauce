@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, setAuthHeaders, setUnauthorizedHandler } from '../api/client'
+import { forgetMember, setSignOutPending, signOutPending } from '../lib/offlineStart'
 import { AuthContext, type AuthState } from './AuthContext'
 
 // Dev auth (AUTH_MODE=dev): the server trusts `x-hearth-dev-user`. The email survives
@@ -31,11 +32,20 @@ function signRequestsAs(email: string | null) {
 }
 
 export function DevAuthProvider({ children }: { children: ReactNode }) {
-  const [email, setEmail] = useState(() => readDevUser() ?? DEMO_USER)
+  const [email, setEmail] = useState(() => {
+    // Sign out was pressed while offline: it happens now, before anything opens as them.
+    if (signOutPending()) {
+      persistDevUser(null)
+      setSignOutPending(false)
+      return DEMO_USER
+    }
+    return readDevUser() ?? DEMO_USER
+  })
   // Set synchronously during render so the first API calls of children are signed.
   signRequestsAs(email)
 
   const signOut = useCallback(() => {
+    forgetMember()
     persistDevUser(null)
     setEmail(null)
   }, [])

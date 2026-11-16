@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router'
 import type { AppManifest } from '../apps/registry'
 import { displayName, docUrl } from '../lib/paths'
+import { keptCount, keptOwner } from '../routes/KeptRoute'
 import { useSession } from '../state/session'
 import { FileTree } from './FileTree'
 import { Icon } from './Icon'
@@ -48,6 +49,8 @@ export function Sidebar({ activeSpace, activePath, onOpenSearch }: SidebarProps)
   const recents = session.recents.slice(0, 6)
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
 
+  // Doc edits made offline that are still only on this device (routes/KeptRoute).
+  const kept = keptCount(keptOwner(session.me?.principal.userId))
   return (
     <>
       <SpaceSwitcher spaces={session.spaces} current={session.space} onChange={session.setSpace} />
@@ -73,6 +76,20 @@ export function Sidebar({ activeSpace, activePath, onOpenSearch }: SidebarProps)
         Pages
         <span className="ml-auto text-[0.7rem] text-ink-faint">from AI tools</span>
       </NavLink>
+
+      {kept > 0 ? (
+        <NavLink
+          to="/docs/kept"
+          data-testid="sidebar-kept"
+          className={({ isActive }) =>
+            `mx-3 mb-1 flex h-8 items-center gap-2 rounded-lg px-2 text-sm hover:bg-paper/70 hover:text-ink ${isActive ? 'bg-paper/70 text-ink' : 'text-ink-soft'}`
+          }
+        >
+          <Icon name="upload" className="size-4" />
+          Kept on this device
+          <span className="ml-auto text-[0.7rem] text-ink-faint">{kept}</span>
+        </NavLink>
+      ) : null}
 
       <FileTree
         key={session.space}
