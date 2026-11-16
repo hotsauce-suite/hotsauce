@@ -149,6 +149,8 @@ describe('the newest Mac app build (one immutable release per build)', () => {
     })
     const dmg = await downloads.file('Hotsauce.dmg')
     expect(dmg && readFileSync(dmg, 'utf8')).toBe('dmg-old')
-    expect(calls[1]).toBe('https://github.com/hotsauce-suite/hotsauce/releases/download/mac-app/Hotsauce.dmg')
+    expect(calls[1]).toBe(
+      'https://github.com/hotsauce-suite/hotsauce/releases/download/mac-app/Hotsauce.dmg',
+    )
   })
 })

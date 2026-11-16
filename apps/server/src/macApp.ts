@@ -176,5 +176,4 @@ export class MacAppDownloads {
     }
     return `${MAC_APP_RELEASES}/${this.#tag.name}`
   }
-
 }
