@@ -4,7 +4,7 @@ import { type Clip, clipsApi } from '../../api/clips'
 import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
-import { ListBar, ListColumn, scopeTabs, useScope } from '../../components/ListBar'
+import { ListBar, ListColumn, ListPanel, scopeTabs, useScope } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
@@ -89,35 +89,36 @@ export default function ClipsLibrary() {
             }}
             className=""
           />
+          <ListPanel tab={scope}>
+            {failed ? (
+              <LoadError things="clips" onRetry={() => setTick((n) => n + 1)} className="mt-6" />
+            ) : null}
 
-          {failed ? (
-            <LoadError things="clips" onRetry={() => setTick((n) => n + 1)} className="mt-6" />
-          ) : null}
+            {clips === null && !failed ? (
+              <div className="clips-grid mt-6" aria-hidden="true">
+                {[0, 1, 2].map((n) => (
+                  <div key={n} className="clip-card clip-card--loading">
+                    <div className="clip-thumb" />
+                    <div className="h-4 w-2/3 rounded bg-paper-sunk" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-          {clips === null && !failed ? (
-            <div className="clips-grid mt-6" aria-hidden="true">
-              {[0, 1, 2].map((n) => (
-                <div key={n} className="clip-card clip-card--loading">
-                  <div className="clip-thumb" />
-                  <div className="h-4 w-2/3 rounded bg-paper-sunk" />
-                </div>
-              ))}
-            </div>
-          ) : null}
+            {!failed && clips?.length === 0 ? (
+              <Empty searching={query.trim() !== ''} scope={scope} />
+            ) : null}
 
-          {!failed && clips?.length === 0 ? (
-            <Empty searching={query.trim() !== ''} scope={scope} />
-          ) : null}
-
-          {clips && clips.length > 0 ? (
-            <ul className="clips-grid mt-6">
-              {clips.map((clip) => (
-                <li key={clip.id}>
-                  <ClipCard clip={clip} showOwner={scope === 'team'} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
+            {clips && clips.length > 0 ? (
+              <ul className="clips-grid mt-6">
+                {clips.map((clip) => (
+                  <li key={clip.id}>
+                    <ClipCard clip={clip} showOwner={scope === 'team'} />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </ListPanel>
         </ListColumn>
       </div>
     </>

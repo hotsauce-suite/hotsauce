@@ -9,6 +9,7 @@ import {
   inScope,
   ListBar,
   ListColumn,
+  ListPanel,
   matchesName,
   scopeTabs,
   useScope,
@@ -134,55 +135,57 @@ export default function TablesPage() {
             tabsLabel="Whose tables"
             search={{ value: q, onChange: setQ, label: 'Search tables', testId: 'tables-search' }}
           />
-          {error ? (
-            <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
-              {error}
-            </p>
-          ) : null}
-          {list.failed ? (
-            <LoadError things="tables" onRetry={list.reload} className="mb-4" />
-          ) : null}
-          {!list.failed && tables && tables.length === 0 ? (
-            <EmptyState icon="table" title="No tables yet" testId="tables-empty">
-              Trackers and lists with spreadsheet formulas, kept in {product()} so search and your
-              AI tools can read them. Press New table, or import a .csv or Excel file.
-            </EmptyState>
-          ) : null}
-          {!list.failed && tables && tables.length > 0 && shown?.length === 0 ? (
-            <EmptyState
-              icon="table"
-              title={
-                q.trim()
-                  ? 'No tables match that'
+          <ListPanel tab={scope}>
+            {error ? (
+              <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
+                {error}
+              </p>
+            ) : null}
+            {list.failed ? (
+              <LoadError things="tables" onRetry={list.reload} className="mb-4" />
+            ) : null}
+            {!list.failed && tables && tables.length === 0 ? (
+              <EmptyState icon="table" title="No tables yet" testId="tables-empty">
+                Trackers and lists with spreadsheet formulas, kept in {product()} so search and your
+                AI tools can read them. Press New table, or import a .csv or Excel file.
+              </EmptyState>
+            ) : null}
+            {!list.failed && tables && tables.length > 0 && shown?.length === 0 ? (
+              <EmptyState
+                icon="table"
+                title={
+                  q.trim()
+                    ? 'No tables match that'
+                    : scope === 'team'
+                      ? 'No team tables yet'
+                      : 'No personal tables yet'
+                }
+                testId="tables-no-match"
+              >
+                {q.trim()
+                  ? 'Search looks at table names.'
                   : scope === 'team'
-                    ? 'No team tables yet'
-                    : 'No personal tables yet'
-              }
-              testId="tables-no-match"
-            >
-              {q.trim()
-                ? 'Search looks at table names.'
-                : scope === 'team'
-                  ? 'Tables shared with the team show here.'
-                  : 'Tables only you can see show here.'}
-            </EmptyState>
-          ) : null}
-          <ul className="divide-y divide-ash/70" data-testid="tables-list">
-            {(shown ?? []).map((t) => (
-              <li key={`${t.space}/${t.id}`}>
-                <Link
-                  to={`/tables/${encodeURIComponent(t.space)}/${t.id}`}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-3 hover:bg-paper-sunk"
-                >
-                  <Icon name="table" className="size-4 shrink-0 text-ink-faint" />
-                  <span className="min-w-0 flex-1 truncate font-medium text-ink">{t.title}</span>
-                  <span className="text-xs text-ink-faint">
-                    {spaceLabel(t.space)} · {day(t.updated)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    ? 'Tables shared with the team show here.'
+                    : 'Tables only you can see show here.'}
+              </EmptyState>
+            ) : null}
+            <ul className="divide-y divide-ash/70" data-testid="tables-list">
+              {(shown ?? []).map((t) => (
+                <li key={`${t.space}/${t.id}`}>
+                  <Link
+                    to={`/tables/${encodeURIComponent(t.space)}/${t.id}`}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-3 hover:bg-paper-sunk"
+                  >
+                    <Icon name="table" className="size-4 shrink-0 text-ink-faint" />
+                    <span className="min-w-0 flex-1 truncate font-medium text-ink">{t.title}</span>
+                    <span className="text-xs text-ink-faint">
+                      {spaceLabel(t.space)} · {day(t.updated)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </ListPanel>
         </ListColumn>
       </div>
     </>

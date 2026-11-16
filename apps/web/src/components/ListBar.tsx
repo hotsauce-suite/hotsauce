@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactNode } from 'react'
+import { createContext, type KeyboardEvent, type ReactNode, useContext, useId } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Icon } from './Icon'
 
@@ -39,6 +39,11 @@ interface ListBarProps<T extends string> {
   className?: string
 }
 
+/** The id a page's tabs and its list share, so a screen reader can tie one to the other. */
+const ListIds = createContext<string | null>(null)
+const tabDomId = (base: string | null, tab: string) => (base ? `${base}-tab-${tab}` : undefined)
+const panelDomId = (base: string | null) => (base ? `${base}-panel` : undefined)
+
 /** Left and right arrows move between the tabs and choose the one they land on. */
 function arrowKeys(e: KeyboardEvent<HTMLDivElement>) {
   if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
@@ -61,6 +66,7 @@ export function ListBar<T extends string>({
   children,
   className = 'mb-5',
 }: ListBarProps<T>) {
+  const ids = useContext(ListIds)
   return (
     <div data-testid="list-bar" className={`flex flex-wrap items-center gap-3 ${className}`}>
       {tabs ? (
@@ -78,6 +84,8 @@ export function ListBar<T extends string>({
                 to={t.to}
                 role="tab"
                 aria-selected={tab === t.id}
+                id={tabDomId(ids, t.id)}
+                aria-controls={panelDomId(ids)}
                 tabIndex={tab === t.id || (tab == null && t === tabs[0]) ? 0 : -1}
                 data-testid={t.testId}
               >
@@ -89,6 +97,8 @@ export function ListBar<T extends string>({
                 type="button"
                 role="tab"
                 aria-selected={tab === t.id}
+                id={tabDomId(ids, t.id)}
+                aria-controls={panelDomId(ids)}
                 tabIndex={tab === t.id || (tab == null && t === tabs[0]) ? 0 : -1}
                 data-testid={t.testId}
                 onClick={() => onTab?.(t.id)}
@@ -143,10 +153,31 @@ export function ListColumn({
   children: ReactNode
   className?: string
 }) {
+  const ids = useId()
+  return (
+    <ListIds.Provider value={ids}>
+      <div
+        data-list-width={width}
+        className={`mx-auto w-full ${WIDTHS[width]} px-4 pt-5 pb-24 md:px-8 ${className}`}
+      >
+        {children}
+      </div>
+    </ListIds.Provider>
+  )
+}
+
+/**
+ * What the chosen tab shows: everything under the row, named for a screen reader by its tab.
+ * `tab` is null when the list on screen belongs to none of them (a Tasks project).
+ */
+export function ListPanel({ tab, children }: { tab: string | null; children: ReactNode }) {
+  const ids = useContext(ListIds)
   return (
     <div
-      data-list-width={width}
-      className={`mx-auto w-full ${WIDTHS[width]} px-4 pt-5 pb-24 md:px-8 ${className}`}
+      role="tabpanel"
+      id={panelDomId(ids)}
+      aria-labelledby={tab ? tabDomId(ids, tab) : undefined}
+      data-testid="list-panel"
     >
       {children}
     </div>

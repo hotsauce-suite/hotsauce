@@ -9,8 +9,9 @@ after the last step. Round 3 (one row above every list) is shipped: ten apps on 
 Meetings (PR #155), and the app videos, README screenshots and help pages re-done after it.
 The narrated tour video and the Clips player video are re-cut from the new screens and on the
 site; the copy on YouTube is the old cut until Morgan uploads the new file (his to-do list).
-Left as nice-to-have from the round 3 review: a tab panel role for screen readers, a test that
-dragging is off while Tasks is being searched, and a test for Meetings filters with a search.
+The three leftovers from the round 3 review are done: the list is a tab panel named by its tab
+(`ListPanel`), and tests cover dragging being off while Tasks is searched and Meetings filters
+with a search. Round 4 (the pages inside things) starts in its own thread.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and

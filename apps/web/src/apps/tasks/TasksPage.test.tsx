@@ -569,6 +569,17 @@ describe('time zones', () => {
 })
 
 describe('drag to reorder', () => {
+  it('is off while the list is being searched, and back when the search is cleared', async () => {
+    await openList('/tasks')
+    expect(screen.getAllByTestId('task-handle').length).toBeGreaterThan(0)
+    await userEvent.type(screen.getByTestId('tasks-search'), 'the')
+    // Rows are still listed, with nothing to drag them by.
+    await waitFor(() => expect(screen.queryAllByTestId('task-handle')).toHaveLength(0))
+    expect(screen.getAllByTestId('task-row').length).toBeGreaterThan(0)
+    await userEvent.clear(screen.getByTestId('tasks-search'))
+    await waitFor(() => expect(screen.getAllByTestId('task-handle').length).toBeGreaterThan(0))
+  })
+
   it('drops a row between its new neighbors and saves only its order', async () => {
     await openList('/tasks')
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (

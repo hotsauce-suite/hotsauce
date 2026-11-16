@@ -460,6 +460,13 @@ for (const width of [
           if (!first) throw new Error('no tabs')
           // The tabs start at the row's left edge.
           expect(first.x - rowBox.x).toBeLessThanOrEqual(8)
+          // A screen reader hears the list as the chosen tab's (one panel, named by that tab).
+          const panel = page.getByRole('tabpanel', { name: app.tabs[0] as string })
+          await expect(panel).toHaveCount(1)
+          const panelId = await panel.getAttribute('id')
+          for (const tab of await tabs.all()) {
+            await expect(tab).toHaveAttribute('aria-controls', panelId as string)
+          }
           if (phone) {
             // On a phone the search is under the tabs.
             expect(searchBox.y).toBeGreaterThan(first.y + first.height - 1)

@@ -8,6 +8,7 @@ import {
   inScope,
   ListBar,
   ListColumn,
+  ListPanel,
   matchesName,
   scopeTabs,
   useScope,
@@ -76,64 +77,68 @@ export default function FormsPage() {
             tabsLabel="Whose forms"
             search={{ value: q, onChange: setQ, label: 'Search forms', testId: 'forms-search' }}
           />
-          {error ? (
-            <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
-              {error}
-            </p>
-          ) : null}
-          {list.failed ? <LoadError things="forms" onRetry={list.reload} className="mb-4" /> : null}
-          {!list.failed && forms && forms.length === 0 ? (
-            <EmptyState icon="form" title="No forms yet" testId="forms-empty">
-              Surveys, sign-ups and requests whose answers land in {product()}. Press New form to
-              start; share it with the team, or with anyone who has the link.
-            </EmptyState>
-          ) : null}
-          {!list.failed && forms && forms.length > 0 && shown?.length === 0 ? (
-            <EmptyState
-              icon="form"
-              title={
-                q.trim()
-                  ? 'No forms match that'
+          <ListPanel tab={scope}>
+            {error ? (
+              <p role="alert" className="mb-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
+                {error}
+              </p>
+            ) : null}
+            {list.failed ? (
+              <LoadError things="forms" onRetry={list.reload} className="mb-4" />
+            ) : null}
+            {!list.failed && forms && forms.length === 0 ? (
+              <EmptyState icon="form" title="No forms yet" testId="forms-empty">
+                Surveys, sign-ups and requests whose answers land in {product()}. Press New form to
+                start; share it with the team, or with anyone who has the link.
+              </EmptyState>
+            ) : null}
+            {!list.failed && forms && forms.length > 0 && shown?.length === 0 ? (
+              <EmptyState
+                icon="form"
+                title={
+                  q.trim()
+                    ? 'No forms match that'
+                    : scope === 'team'
+                      ? 'No team forms yet'
+                      : 'No personal forms yet'
+                }
+                testId="forms-no-match"
+              >
+                {q.trim()
+                  ? 'Search looks at form names.'
                   : scope === 'team'
-                    ? 'No team forms yet'
-                    : 'No personal forms yet'
-              }
-              testId="forms-no-match"
-            >
-              {q.trim()
-                ? 'Search looks at form names.'
-                : scope === 'team'
-                  ? 'Forms shared with the team show here.'
-                  : 'Forms only you can see show here.'}
-            </EmptyState>
-          ) : null}
-          <ul className="divide-y divide-ash/70" data-testid="forms-list">
-            {(shown ?? []).map((f) => (
-              <li key={`${f.space}/${f.id}`}>
-                <Link
-                  to={`/forms/${encodeURIComponent(f.space)}/${f.id}`}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-3 hover:bg-paper-sunk"
-                >
-                  <Icon name="form" className="size-4 shrink-0 text-ink-faint" />
-                  <span className="min-w-0 flex-1 truncate font-medium text-ink">{f.title}</span>
-                  <span className="flex items-center gap-2 text-xs text-ink-faint">
-                    <span className="rounded-full bg-paper-sunk px-2 py-0.5">
-                      {f.access === 'public' ? 'Anyone with the link' : 'Team'}
+                    ? 'Forms shared with the team show here.'
+                    : 'Forms only you can see show here.'}
+              </EmptyState>
+            ) : null}
+            <ul className="divide-y divide-ash/70" data-testid="forms-list">
+              {(shown ?? []).map((f) => (
+                <li key={`${f.space}/${f.id}`}>
+                  <Link
+                    to={`/forms/${encodeURIComponent(f.space)}/${f.id}`}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-3 hover:bg-paper-sunk"
+                  >
+                    <Icon name="form" className="size-4 shrink-0 text-ink-faint" />
+                    <span className="min-w-0 flex-1 truncate font-medium text-ink">{f.title}</span>
+                    <span className="flex items-center gap-2 text-xs text-ink-faint">
+                      <span className="rounded-full bg-paper-sunk px-2 py-0.5">
+                        {f.access === 'public' ? 'Anyone with the link' : 'Team'}
+                      </span>
+                      {f.open ? null : (
+                        <span className="rounded-full bg-paper-sunk px-2 py-0.5">Closed</span>
+                      )}
+                      <span data-testid="form-answer-count">
+                        {f.answerCount} {f.answerCount === 1 ? 'answer' : 'answers'}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {spaceLabel(f.space)} · {day(f.updated)}
+                      </span>
                     </span>
-                    {f.open ? null : (
-                      <span className="rounded-full bg-paper-sunk px-2 py-0.5">Closed</span>
-                    )}
-                    <span data-testid="form-answer-count">
-                      {f.answerCount} {f.answerCount === 1 ? 'answer' : 'answers'}
-                    </span>
-                    <span className="hidden sm:inline">
-                      {spaceLabel(f.space)} · {day(f.updated)}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </ListPanel>
         </ListColumn>
       </div>
     </>

@@ -9,6 +9,7 @@ import {
   inScope,
   ListBar,
   ListColumn,
+  ListPanel,
   matchesName,
   scopeTabs,
   useScope,
@@ -56,49 +57,51 @@ export function PagesList() {
             tabsLabel="Whose pages"
             search={{ value: q, onChange: setQ, label: 'Search pages', testId: 'pages-search' }}
           />
-          {list.failed ? <LoadError things="pages" whose="the" onRetry={list.reload} /> : null}
-          {!list.failed && pages && pages.length === 0 ? (
-            <EmptyState icon="tab" title="No pages yet" testId="pages-empty">
-              Plans and reports your AI tools published for the team. Ask yours to “publish this as
-              a page” and it appears here, with every version kept.
-            </EmptyState>
-          ) : null}
-          {!list.failed && pages && pages.length > 0 && shown?.length === 0 ? (
-            <EmptyState
-              icon="tab"
-              title={
-                q.trim()
-                  ? 'No pages match that'
+          <ListPanel tab={scope}>
+            {list.failed ? <LoadError things="pages" whose="the" onRetry={list.reload} /> : null}
+            {!list.failed && pages && pages.length === 0 ? (
+              <EmptyState icon="tab" title="No pages yet" testId="pages-empty">
+                Plans and reports your AI tools published for the team. Ask yours to “publish this
+                as a page” and it appears here, with every version kept.
+              </EmptyState>
+            ) : null}
+            {!list.failed && pages && pages.length > 0 && shown?.length === 0 ? (
+              <EmptyState
+                icon="tab"
+                title={
+                  q.trim()
+                    ? 'No pages match that'
+                    : scope === 'team'
+                      ? 'No team pages yet'
+                      : 'No personal pages yet'
+                }
+                testId="pages-no-match"
+              >
+                {q.trim()
+                  ? 'Search looks at page names.'
                   : scope === 'team'
-                    ? 'No team pages yet'
-                    : 'No personal pages yet'
-              }
-              testId="pages-no-match"
-            >
-              {q.trim()
-                ? 'Search looks at page names.'
-                : scope === 'team'
-                  ? 'Pages shared with the team show here.'
-                  : 'Pages only you can see show here.'}
-            </EmptyState>
-          ) : null}
-          <ul className="divide-y divide-ash/70" data-testid="pages-list">
-            {(shown ?? []).map((p) => (
-              <li key={`${p.space}/${p.id}`}>
-                <Link
-                  to={`/pages/${encodeURIComponent(p.space)}/${p.id}`}
-                  className="flex items-baseline gap-3 rounded-md px-2 py-3 hover:bg-paper-sunk"
-                >
-                  <Icon name="docs" className="size-4 shrink-0 self-center text-ink-faint" />
-                  <span className="min-w-0 flex-1 truncate font-medium text-ink">{p.title}</span>
-                  {p.shared ? <Icon name="link" className="size-3.5 text-ink-faint" /> : null}
-                  <span className="shrink-0 text-xs text-ink-faint">
-                    {spaceLabel(p.space)} · {day(p.updated)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    ? 'Pages shared with the team show here.'
+                    : 'Pages only you can see show here.'}
+              </EmptyState>
+            ) : null}
+            <ul className="divide-y divide-ash/70" data-testid="pages-list">
+              {(shown ?? []).map((p) => (
+                <li key={`${p.space}/${p.id}`}>
+                  <Link
+                    to={`/pages/${encodeURIComponent(p.space)}/${p.id}`}
+                    className="flex items-baseline gap-3 rounded-md px-2 py-3 hover:bg-paper-sunk"
+                  >
+                    <Icon name="docs" className="size-4 shrink-0 self-center text-ink-faint" />
+                    <span className="min-w-0 flex-1 truncate font-medium text-ink">{p.title}</span>
+                    {p.shared ? <Icon name="link" className="size-3.5 text-ink-faint" /> : null}
+                    <span className="shrink-0 text-xs text-ink-faint">
+                      {spaceLabel(p.space)} · {day(p.updated)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </ListPanel>
         </ListColumn>
       </div>
     </>

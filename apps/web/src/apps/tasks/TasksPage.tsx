@@ -18,6 +18,7 @@ import { Icon } from '../../components/Icon'
 import {
   ListBar,
   ListColumn,
+  ListPanel,
   type ListTab,
   listHeading,
   matchesName,
@@ -524,129 +525,131 @@ export default function TasksPage() {
               search={{ value: q, onChange: setQ, label: 'Search tasks', testId: 'tasks-search' }}
               className="mb-4"
             />
-            {/* A list's name is its tab; only a project, which has no tab, is named here. */}
-            {view.id === 'project' || countLine ? (
-              <div className="mb-4 flex items-baseline gap-3 px-1">
-                {view.id === 'project' ? (
-                  <h2 data-testid="tasks-title" className={`min-w-0 truncate ${listHeading}`}>
-                    <span className="mr-1 text-ink-faint">#</span>
-                    {title}
-                  </h2>
-                ) : null}
-                <span data-testid="tasks-count" className="shrink-0 text-sm text-ink-faint">
-                  {countLine}
-                </span>
-              </div>
-            ) : null}
+            <ListPanel tab={view.id === 'project' ? null : view.id}>
+              {/* A list's name is its tab; only a project, which has no tab, is named here. */}
+              {view.id === 'project' || countLine ? (
+                <div className="mb-4 flex items-baseline gap-3 px-1">
+                  {view.id === 'project' ? (
+                    <h2 data-testid="tasks-title" className={`min-w-0 truncate ${listHeading}`}>
+                      <span className="mr-1 text-ink-faint">#</span>
+                      {title}
+                    </h2>
+                  ) : null}
+                  <span data-testid="tasks-count" className="shrink-0 text-sm text-ink-faint">
+                    {countLine}
+                  </span>
+                </div>
+              ) : null}
 
-            {view.id !== 'done' ? (
-              <div className="mb-5">
-                <QuickAdd
-                  key={viewUrl(view)}
+              {view.id !== 'done' ? (
+                <div className="mb-5">
+                  <QuickAdd
+                    key={viewUrl(view)}
+                    today={today}
+                    tz={tz}
+                    me={me}
+                    people={people}
+                    spaces={spaces}
+                    defaultSpace={defaultSpace}
+                    defaultProject={view.id === 'project' ? view.project : undefined}
+                    dueTodayByDefault={view.id === 'today'}
+                    open={quickOpen}
+                    onOpenChange={setQuickOpen}
+                    onAdded={added}
+                    onError={notify}
+                  />
+                </div>
+              ) : null}
+
+              {list.error && list.tasks?.length === 0 ? (
+                <LoadError things="tasks" onRetry={list.reload} />
+              ) : tasks === null ? (
+                <div aria-hidden="true" className="space-y-2" data-testid="tasks-loading">
+                  {[0, 1, 2].map((n) => (
+                    <div key={n} className="h-12 rounded-xl bg-paper-sunk/60" />
+                  ))}
+                </div>
+              ) : tasks.length === 0 ? (
+                missing ? (
+                  <EmptyState
+                    icon="tasks"
+                    title="That task isn’t here any more"
+                    testId="tasks-empty"
+                  />
+                ) : q.trim() ? (
+                  <EmptyState icon="tasks" title="No tasks match that" testId="tasks-no-match">
+                    Search looks at the names of the tasks in this list.
+                  </EmptyState>
+                ) : (
+                  <EmptyState icon="tasks" title={EMPTY[view.id][0]} testId="tasks-empty">
+                    {EMPTY[view.id][1]}
+                  </EmptyState>
+                )
+              ) : (
+                <div className="space-y-6">
+                  {groups.map((group) =>
+                    group.tasks.length === 0 && group.key === 'today' ? null : (
+                      <section
+                        key={group.key}
+                        aria-label={group.title || title}
+                        data-testid="task-group"
+                        data-group={group.key}
+                      >
+                        {group.title ? (
+                          <h2
+                            className={`mb-1.5 flex items-baseline gap-2 px-1 text-xs font-semibold tracking-wide uppercase ${group.overdue ? 'text-ember-strong' : 'text-ink-faint'}`}
+                          >
+                            {group.title}
+                            {group.detail ? (
+                              <span className="font-normal tracking-normal normal-case">
+                                {group.detail}
+                              </span>
+                            ) : null}
+                            <span className="ml-auto font-normal tracking-normal">
+                              {group.tasks.length}
+                            </span>
+                          </h2>
+                        ) : null}
+                        <TaskList
+                          label={group.title || title}
+                          tasks={group.tasks}
+                          today={today}
+                          now={now}
+                          selectedKey={selectedKey}
+                          leaving={leaving}
+                          showProject={view.id !== 'project'}
+                          people={people}
+                          onToggle={toggle}
+                          onOpen={openTask}
+                          onSelect={(t) => setSelectedKey(taskKey(t))}
+                          onReorder={reorderable ? reorder : undefined}
+                        />
+                      </section>
+                    ),
+                  )}
+                </div>
+              )}
+
+              {view.id === 'today' && !searching ? (
+                <FromMeetings today={today} tz={tz} onAdded={added} onError={notify} />
+              ) : null}
+
+              {view.id === 'project' && !searching ? (
+                <ProjectDone
+                  space={view.space}
+                  project={view.project}
                   today={today}
-                  tz={tz}
-                  me={me}
-                  people={people}
-                  spaces={spaces}
-                  defaultSpace={defaultSpace}
-                  defaultProject={view.id === 'project' ? view.project : undefined}
-                  dueTodayByDefault={view.id === 'today'}
-                  open={quickOpen}
-                  onOpenChange={setQuickOpen}
-                  onAdded={added}
+                  now={now}
+                  onOpen={openTask}
                   onError={notify}
                 />
-              </div>
-            ) : null}
+              ) : null}
 
-            {list.error && list.tasks?.length === 0 ? (
-              <LoadError things="tasks" onRetry={list.reload} />
-            ) : tasks === null ? (
-              <div aria-hidden="true" className="space-y-2" data-testid="tasks-loading">
-                {[0, 1, 2].map((n) => (
-                  <div key={n} className="h-12 rounded-xl bg-paper-sunk/60" />
-                ))}
-              </div>
-            ) : tasks.length === 0 ? (
-              missing ? (
-                <EmptyState
-                  icon="tasks"
-                  title="That task isn’t here any more"
-                  testId="tasks-empty"
-                />
-              ) : q.trim() ? (
-                <EmptyState icon="tasks" title="No tasks match that" testId="tasks-no-match">
-                  Search looks at the names of the tasks in this list.
-                </EmptyState>
-              ) : (
-                <EmptyState icon="tasks" title={EMPTY[view.id][0]} testId="tasks-empty">
-                  {EMPTY[view.id][1]}
-                </EmptyState>
-              )
-            ) : (
-              <div className="space-y-6">
-                {groups.map((group) =>
-                  group.tasks.length === 0 && group.key === 'today' ? null : (
-                    <section
-                      key={group.key}
-                      aria-label={group.title || title}
-                      data-testid="task-group"
-                      data-group={group.key}
-                    >
-                      {group.title ? (
-                        <h2
-                          className={`mb-1.5 flex items-baseline gap-2 px-1 text-xs font-semibold tracking-wide uppercase ${group.overdue ? 'text-ember-strong' : 'text-ink-faint'}`}
-                        >
-                          {group.title}
-                          {group.detail ? (
-                            <span className="font-normal tracking-normal normal-case">
-                              {group.detail}
-                            </span>
-                          ) : null}
-                          <span className="ml-auto font-normal tracking-normal">
-                            {group.tasks.length}
-                          </span>
-                        </h2>
-                      ) : null}
-                      <TaskList
-                        label={group.title || title}
-                        tasks={group.tasks}
-                        today={today}
-                        now={now}
-                        selectedKey={selectedKey}
-                        leaving={leaving}
-                        showProject={view.id !== 'project'}
-                        people={people}
-                        onToggle={toggle}
-                        onOpen={openTask}
-                        onSelect={(t) => setSelectedKey(taskKey(t))}
-                        onReorder={reorderable ? reorder : undefined}
-                      />
-                    </section>
-                  ),
-                )}
-              </div>
-            )}
-
-            {view.id === 'today' && !searching ? (
-              <FromMeetings today={today} tz={tz} onAdded={added} onError={notify} />
-            ) : null}
-
-            {view.id === 'project' && !searching ? (
-              <ProjectDone
-                space={view.space}
-                project={view.project}
-                today={today}
-                now={now}
-                onOpen={openTask}
-                onError={notify}
-              />
-            ) : null}
-
-            <p className="mt-10 hidden text-[0.72rem] text-ink-faint md:block">
-              q add · j/k move · x complete · Enter open · e edit · 1–4 priority · t today · m
-              tomorrow · Delete
-            </p>
+              <p className="mt-10 hidden text-[0.72rem] text-ink-faint md:block">
+                q add · j/k move · x complete · Enter open · e edit · 1–4 priority · t today · m
+                tomorrow · Delete
+              </p>
+            </ListPanel>
           </ListColumn>
         </div>
 
