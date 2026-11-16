@@ -5,7 +5,9 @@ import { type DictationWords, dictationApi } from '../../api/dictation'
 import { meetingsApi } from '../../api/meetings'
 import type { MeetingSession, MeetingSummary, TranscriptSegment } from '../../api/types'
 import { org, product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { meetingUrl } from '../../lib/paths'
@@ -47,6 +49,7 @@ export default function VoiceNotes() {
   const otherMeeting = live !== null && !recordingHere ? live : null
   const [phase, setPhase] = useState<Phase>({ name: 'idle' })
   const [notes, setNotes] = useState<MeetingSummary[] | null>(null)
+  const [notesFailed, setNotesFailed] = useState(false)
   const [unsaved, setUnsaved] = useState<MeetingSession[]>([])
   // The voice note last recorded here, so a stop from another device can be explained.
   const lastHere = useRef<LiveMeeting | null>(null)
@@ -59,8 +62,11 @@ export default function VoiceNotes() {
 
   const refresh = useCallback(() => {
     meetingsApi.list().then(
-      (list) => setNotes(list.filter((m) => m.template === VOICE_NOTE_TEMPLATE).slice(0, RECENT)),
-      () => setNotes([]),
+      (list) => {
+        setNotes(list.filter((m) => m.template === VOICE_NOTE_TEMPLATE).slice(0, RECENT))
+        setNotesFailed(false)
+      },
+      () => setNotesFailed(true),
     )
     meetingsApi.unsavedSessions().then(
       (list) => setUnsaved(list.filter((s) => isVoiceNote(s))),
@@ -215,7 +221,7 @@ export default function VoiceNotes() {
               </div>
             ))}
 
-          <RecentNotes notes={notes} />
+          <RecentNotes notes={notes} failed={notesFailed} onRetry={refresh} />
           <Words />
 
           <p className="mt-12 border-t border-ash/70 pt-4 text-center text-xs leading-relaxed text-ink-faint">
@@ -477,18 +483,29 @@ function Wave({ level, flat }: { level: { current: number }; flat: boolean }) {
   )
 }
 
-function RecentNotes({ notes }: { notes: MeetingSummary[] | null }) {
+function RecentNotes({
+  notes,
+  failed,
+  onRetry,
+}: {
+  notes: MeetingSummary[] | null
+  failed: boolean
+  onRetry: () => void
+}) {
   return (
     <section aria-labelledby="voice-recent" className="mt-12">
       <h3 id="voice-recent" className="font-display text-lg font-semibold tracking-tight text-ink">
         Recent voice notes
       </h3>
+      {failed ? <LoadError things="voice notes" onRetry={onRetry} className="mt-3" /> : null}
       {notes === null ? (
-        <p className="mt-3 text-sm text-ink-faint">Loading…</p>
+        failed ? null : (
+          <p className="mt-3 text-sm text-ink-faint">Loading…</p>
+        )
       ) : notes.length === 0 ? (
-        <p data-testid="voice-none" className="mt-3 text-sm text-ink-faint">
-          Nothing yet. Your voice notes show up here, and in Meetings.
-        </p>
+        <EmptyState icon="mic" title="No voice notes yet" testId="voice-none" className="mt-3">
+          Your voice notes show up here, and in Meetings.
+        </EmptyState>
       ) : (
         <ul
           data-testid="voice-notes"

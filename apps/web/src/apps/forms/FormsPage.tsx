@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { type FormSummary, formsApi } from '../../api/forms'
 import { product } from '../../brand/product'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
+import { useLoad } from '../../hooks/useLoad'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton } from '../meetings/components/common'
@@ -20,7 +23,8 @@ export const day = (iso: string | null) =>
 export default function FormsPage() {
   const { spaces, spaceLabel } = useSession()
   const navigate = useNavigate()
-  const [forms, setForms] = useState<FormSummary[] | null>(null)
+  const list = useLoad(() => formsApi.list().then((r) => r.forms))
+  const forms: FormSummary[] | null = list.data
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [space, setSpace] = useState('team')
@@ -28,10 +32,6 @@ export default function FormsPage() {
 
   useEffect(() => {
     document.title = `Forms · ${product()}`
-    formsApi.list().then(
-      (r) => setForms(r.forms),
-      (e: unknown) => setError(e instanceof Error ? e.message : 'Couldn’t load forms'),
-    )
   }, [])
 
   const create = async () => {
@@ -101,10 +101,11 @@ export default function FormsPage() {
               {error}
             </p>
           ) : null}
-          {forms && forms.length === 0 ? (
-            <p className="text-sm text-ink-faint" data-testid="forms-empty">
-              No forms yet.
-            </p>
+          {list.failed ? <LoadError things="forms" onRetry={list.reload} className="mb-4" /> : null}
+          {!list.failed && forms && forms.length === 0 ? (
+            <EmptyState icon="form" title="No forms yet" testId="forms-empty">
+              Name one above to start. Answers land here, and can open as a table.
+            </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="forms-list">
             {(forms ?? []).map((f) => (

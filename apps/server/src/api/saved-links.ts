@@ -2,7 +2,7 @@ import { findLinkUrl, LINK_SOURCES, MAX_LINK_URL } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
-import { MAX_LINK_LIST } from '../links/index.js'
+import { MAX_ANCHOR, MAX_LINK_LIST } from '../links/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { sessionOnly, viaFor } from './tokens.js'
 import { valid } from './validate.js'
@@ -89,6 +89,22 @@ export function linkRoutes(deps: Pick<AppDeps, 'links'>) {
         return c.json(
           await service.update(principal, space, id, c.req.valid('json'), viaFor(principal)),
         )
+      },
+    )
+    .put(
+      '/:space/:id/reading',
+      valid('param', Params),
+      valid(
+        'json',
+        z.object({
+          anchor: z.number().int().min(0).max(MAX_ANCHOR),
+          percent: z.number().min(0).max(100),
+        }),
+      ),
+      async (c) => {
+        const { space, id } = c.req.valid('param')
+        await service.setReading(c.get('principal'), space, id, c.req.valid('json'))
+        return c.body(null, 204)
       },
     )
     .post('/:space/:id/refetch', valid('param', Params), async (c) => {

@@ -110,3 +110,60 @@ test('a link an AI tool saved waits for the member to press Get the page', async
   await page.getByRole('button', { name: 'Get the page' }).click()
   await expect(page.getByTestId('link-body')).toContainText('Ai pick is the subject of this page.')
 })
+
+test('a long read picks up where you left off, and the list shows how far you got', async ({
+  page,
+}) => {
+  const id = uid()
+  await page.goto(
+    `/links/save?url=${encodeURIComponent(`https://essay.long.test/${id}/slow-read`)}`,
+  )
+  await page.getByTestId('link-save-confirm').click()
+  await expect(page.getByTestId('link-saved')).toHaveText('Saved')
+  await page.getByRole('link', { name: 'Open it' }).click()
+  await expect(page.getByTestId('link-body')).toContainText('Part 40')
+  await expect(page.getByTestId('link-resumed')).toHaveCount(0)
+
+  // Read to Part 20 and stop: the place is saved a moment after scrolling stops.
+  const saved = page.waitForRequest(
+    (r) => r.method() === 'PUT' && r.url().endsWith('/reading') && r.postDataJSON().anchor > 10,
+  )
+  await page.getByRole('heading', { name: 'Part 20', exact: true }).evaluate((el) => {
+    el.scrollIntoView({ block: 'start' })
+  })
+  const place = (await saved).postDataJSON() as { anchor: number; percent: number }
+  expect(place.percent).toBeGreaterThan(30)
+  expect(place.percent).toBeLessThan(80)
+
+  await page.getByRole('link', { name: 'Links' }).first().click()
+  const row = page.getByTestId('link-row').filter({ hasText: 'Slow read' })
+  await expect(row).toContainText(/\d+% read/)
+  await expect(row.getByTestId('link-progress-bar')).toBeVisible()
+  await page.screenshot({ path: 'test-results/link-progress.png' })
+
+  await row.getByTestId('link-title').click()
+  await expect(page.getByTestId('link-resumed')).toContainText('Picked up where you left off')
+  await expect(page.getByRole('heading', { name: 'Part 20', exact: true })).toBeInViewport()
+  await expect(page.getByTestId('link-reader-title')).not.toBeInViewport()
+  await page.screenshot({ path: 'test-results/link-resumed.png' })
+
+  await page.getByTestId('link-start-over').click()
+  await expect(page.getByTestId('link-reader-title')).toBeInViewport()
+  await expect(page.getByTestId('link-resumed')).toHaveCount(0)
+
+  // Leaving straight after scrolling still shows the new place in the list.
+  await page.getByRole('heading', { name: 'Part 30', exact: true }).evaluate((el) => {
+    el.scrollIntoView({ block: 'start' })
+  })
+  await page.getByRole('link', { name: 'Links' }).first().click()
+  const shown = Number((await row.textContent())?.match(/(\d+)% read/)?.[1])
+  expect(shown).toBeGreaterThan(place.percent)
+
+  // The end of the article has its own Done.
+  await row.getByTestId('link-title').click()
+  await expect(page.getByTestId('link-resumed')).toBeVisible()
+  await page.getByTestId('link-end-done').scrollIntoViewIfNeeded()
+  await page.getByTestId('link-end-done').click()
+  await expect(page).toHaveURL(/\/links$/)
+  await expect(page.getByTestId('link-row').filter({ hasText: 'Slow read' })).toHaveCount(0)
+})

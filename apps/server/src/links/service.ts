@@ -24,6 +24,7 @@ import { type Space, type SpaceService, TEAM_SPACE } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import { LinkFetchError, MAX_PAGE_BYTES, type PageFetcher } from './fetch.js'
 import { type ReadablePage, readPage } from './read.js'
+import type { ReadingPlace, ReadingStore } from './reading.js'
 
 export const MAX_LINK_LIST = 1000
 const WRITE_ATTEMPTS = 3
@@ -66,6 +67,8 @@ export interface LinkView {
   words: number | null
   source: LinkSource | null
   status: LinkStatus
+  /** The calling member's place in the copy; null before they open it. Never anyone else's. */
+  reading: ReadingPlace | null
 }
 
 export interface LinkWithBody extends LinkView {
@@ -120,6 +123,8 @@ export interface LinksDeps {
   spaces: Pick<SpaceService, 'visibleSpaces' | 'canAccess'>
   syncer: Pick<Syncer, 'afterHeadChanged'>
   fetchPage: PageFetcher
+  /** Members' places in links (docs/PLAN-links-reading-position.md). */
+  reading: Pick<ReadingStore, 'get' | 'set' | 'allFor' | 'forget'>
   /** Summaries and tags; null leaves links untagged. */
   llm: LLM | null
   model: string
@@ -189,13 +194,14 @@ export class Links {
     const matching = filter.q?.trim() ? this.#searchPaths(filter.q, scope) : null
     const tag = filter.tag?.trim().toLowerCase()
     const by = filter.savedBy?.toLowerCase()
+    const places = this.#d.reading.allFor(principal.userId)
     return this.#records(scope)
       .filter((r) => matching === null || matching.has(`${r.space}\n${r.path}`))
       .filter((r) => view === 'all' || (r.fm.archived === true) === (view === 'archive'))
       .filter((r) => !tag || (r.fm.tags ?? []).some((t) => t.toLowerCase() === tag))
       .filter((r) => !by || r.fm.saved_by.toLowerCase() === by)
       .filter((r) => !filter.savedSince || r.fm.saved >= filter.savedSince)
-      .map((r) => this.#view(r))
+      .map((r) => ({ ...this.#view(r), reading: places.get(r.id) ?? null }))
       .sort((a, b) => b.saved.localeCompare(a.saved) || b.id.localeCompare(a.id))
       .slice(0, limit)
   }
@@ -203,7 +209,19 @@ export class Links {
   async get(principal: Principal, space: string, id: string): Promise<LinkWithBody> {
     this.#assertAccess(principal, space)
     const file = await this.#read(space, id)
-    return { ...this.#view(file.record), body: file.body }
+    return { ...this.#placed(principal, this.#view(file.record)), body: file.body }
+  }
+
+  /** Saves the member's place in a link they can see (R1). */
+  async setReading(
+    principal: Principal,
+    space: string,
+    id: string,
+    place: { anchor: number; percent: number },
+  ): Promise<ReadingPlace> {
+    this.#assertAccess(principal, space)
+    await this.#read(space, id)
+    return this.#d.reading.set(principal.userId, id, place, this.#now())
   }
 
   /** Every tag on the member's links, with how many links carry it. */
@@ -260,9 +278,13 @@ export class Links {
         // A save from the page itself replaces a copy that failed or came out short.
         this.#schedule(principal, view.space, view.id, via, html)
         const running = this.#running.has(`${view.space}\n${view.id}`)
-        return { ...view, existing: true, ...(running ? { status: 'fetching' as const } : {}) }
+        return {
+          ...this.#placed(principal, view),
+          existing: true,
+          ...(running ? { status: 'fetching' as const } : {}),
+        }
       }
-      return { ...view, existing: true }
+      return { ...this.#placed(principal, view), existing: true }
     }
 
     const file = newLinkFile({
@@ -296,7 +318,7 @@ export class Links {
     via?: string,
   ): Promise<LinkView> {
     this.#assertAccess(principal, space)
-    return this.#edit(principal, space, id, verbFor(patch), via, (cur) => {
+    const view = await this.#edit(principal, space, id, verbFor(patch), via, (cur) => {
       const fields: Record<string, unknown> = {}
       if (patch.title !== undefined) {
         const title = oneLine(patch.title).slice(0, 300)
@@ -311,6 +333,7 @@ export class Links {
       const text = patchFrontmatter(cur.content, fields)
       return text === cur.content ? null : text
     })
+    return this.#placed(principal, view)
   }
 
   /** Fetches the page again, in the background. */
@@ -318,7 +341,7 @@ export class Links {
     this.#assertAccess(principal, space)
     const file = await this.#read(space, id)
     this.#schedule(principal, space, id, via)
-    return { ...this.#view(file.record), status: 'fetching' }
+    return { ...this.#placed(principal, this.#view(file.record)), status: 'fetching' }
   }
 
   /** "Share with team" and back: one commit per space, the copy first. */
@@ -332,7 +355,9 @@ export class Links {
     this.#assertAccess(principal, space)
     this.#assertAccess(principal, toSpace)
     const path = linkPath(id)
-    if (toSpace === space) return this.#view((await this.#read(space, id)).record)
+    if (toSpace === space) {
+      return this.#placed(principal, this.#view((await this.#read(space, id)).record))
+    }
     if (await this.#exists(toSpace, path)) {
       throw new HotsauceError('conflict', `A link with id ${id} is already in ${toSpace}`)
     }
@@ -381,7 +406,10 @@ export class Links {
       ) {
         this.#schedule(principal, toSpace, id, via)
       }
-      return this.#view({ ...file.record, space: toSpace, blobOid: added.blobOid })
+      return this.#placed(
+        principal,
+        this.#view({ ...file.record, space: toSpace, blobOid: added.blobOid }),
+      )
     }
   }
 
@@ -406,6 +434,7 @@ export class Links {
           via,
           unchanged: { path: file.record.path, blobOid: file.record.blobOid },
         })
+        this.#d.reading.forget(id)
         return
       } catch (err) {
         if (
@@ -629,7 +658,13 @@ export class Links {
       words: fm.words ?? null,
       source: fm.source ?? null,
       status,
+      reading: null,
     }
+  }
+
+  /** The view with the member's own place in it. */
+  #placed<T extends LinkView>(principal: Principal, view: T): T {
+    return { ...view, reading: this.#d.reading.get(principal.userId, view.id) }
   }
 
   #assertAccess(principal: Principal, space: string): void {
