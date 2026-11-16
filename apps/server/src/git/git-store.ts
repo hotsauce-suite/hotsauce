@@ -7,7 +7,15 @@ import { type ErrorCode, HotsauceError } from '../errors.js'
 import { parseCommitMessage, withVia } from './message.js'
 import { KeyedMutex } from './mutex.js'
 import { GitError, runGit, runGitBuffer } from './run-git.js'
-import type { Author, Change, Commit, CommitResult, ConflictInfo, Entry } from './types.js'
+import type {
+  ActivityCommit,
+  Author,
+  Change,
+  Commit,
+  CommitResult,
+  ConflictInfo,
+  Entry,
+} from './types.js'
 import {
   assertConflictRef,
   assertRepoPath,
@@ -218,6 +226,64 @@ export class GitStore {
       const commit: Commit = { oid, author: { name, email }, date, message }
       if (label !== undefined) commit.label = label
       commits.push(commit)
+    }
+    return commits
+  }
+
+  /**
+   * Commits on main whose author date is at or after `since` (ISO 8601), with the files each one
+   * added or changed, for the usage report. Reads history only; never names more than paths.
+   */
+  async activity(space: string, since: string): Promise<ActivityCommit[]> {
+    if (Number.isNaN(Date.parse(since)))
+      throw new HotsauceError('bad_request', `Invalid date: ${since}`)
+    const dir = this.requireClone(space)
+    if ((await this.revParse(dir, 'HEAD')) === null) return []
+    // No --since: it stops walking at the first run of commits with older committer dates, and
+    // commits pushed from outside (or imported) can carry any date. The author date decides below.
+    // Merge commits list no files here; their side's commits are walked and counted on their own.
+    const out = await this.git(dir, [
+      'log',
+      '--find-renames',
+      '--name-status',
+      '-z',
+      '--format=%x1e%ae%x1f%aI%x1f%s',
+      'HEAD',
+    ])
+    const from = Date.parse(since)
+    const commits: ActivityCommit[] = []
+    for (const record of out.split('\x1e')) {
+      if (record === '') continue
+      const headerEnd = record.indexOf('\0')
+      const header = headerEnd === -1 ? record : record.slice(0, headerEnd)
+      const [email = '', date = '', ...subject] = header.split('\x1f')
+      if (!(Date.parse(date) >= from)) continue
+      const tokens =
+        headerEnd === -1
+          ? []
+          : record
+              .slice(headerEnd + 1)
+              .replace(/^\n/, '')
+              .split('\0')
+      const files: ActivityCommit['files'] = []
+      for (let i = 0; i < tokens.length; ) {
+        const status = tokens[i] ?? ''
+        if (status === '') {
+          i++
+          continue
+        }
+        if (status.startsWith('R') || status.startsWith('C')) {
+          const to = tokens[i + 2]
+          if (to) files.push({ path: to, change: status.startsWith('R') ? 'changed' : 'added' })
+          i += 3
+          continue
+        }
+        const path = tokens[i + 1]
+        if (path && status === 'A') files.push({ path, change: 'added' })
+        else if (path && status !== 'D') files.push({ path, change: 'changed' })
+        i += 2
+      }
+      commits.push({ email: email.toLowerCase(), date, subject: subject.join('\x1f'), files })
     }
     return commits
   }

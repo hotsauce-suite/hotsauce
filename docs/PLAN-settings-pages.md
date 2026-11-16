@@ -53,6 +53,8 @@ O4. `/settings/organization/ai` is AI: the Anthropic and Deepgram keys, then the
     [settingsPages.test, e2e/assistant.spec.ts]
 O5. `/settings/organization/data` is Data and updates: where files live, backups, updates.
     [settingsPages.test]
+O5a. `/settings/organization/usage` is Usage: which apps get used (docs/PLAN-app-usage.md).
+    [settingsPages.test, e2e/org-settings.spec.ts]
 O6. Saving names, people or the chat link sends only that page's fields, and the "saved, apply to
     restart" banner follows the admin across organization pages until applied. [settingsPages.test]
 O7. The setup wizard keeps its steps and its one "Your organization" form. [e2e/setup.spec.ts]

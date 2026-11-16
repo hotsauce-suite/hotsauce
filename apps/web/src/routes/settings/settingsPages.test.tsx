@@ -158,7 +158,7 @@ describe('Settings: the menu', () => {
       within(menu.getByRole('group', { name: 'Organization' }))
         .getAllByRole('link')
         .map((a) => a.textContent),
-    ).toEqual(['Workspace', 'Brand', 'People and access', 'AI', 'Data and updates'])
+    ).toEqual(['Workspace', 'Brand', 'People and access', 'AI', 'Data and updates', 'Usage'])
     expect(menu.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
       ['General', '/settings'],
       ['Connections', '/settings/connections'],
@@ -168,6 +168,7 @@ describe('Settings: the menu', () => {
       ['People and access', '/settings/organization/people'],
       ['AI', '/settings/organization/ai'],
       ['Data and updates', '/settings/organization/data'],
+      ['Usage', '/settings/organization/usage'],
     ])
   })
 

@@ -1,4 +1,5 @@
-// The pages of Settings (docs/PLAN-settings-pages.md, L1): three for everyone, five more for admins.
+// The pages of Settings (docs/PLAN-settings-pages.md, L1): three for everyone, six more for admins
+// (Usage: docs/PLAN-app-usage.md).
 
 export interface SettingsPage {
   id: string
@@ -12,7 +13,7 @@ export const YOUR_PAGES: SettingsPage[] = [
   { id: 'apps', label: 'Apps', to: '/settings/apps' },
 ]
 
-export type OrgPageId = 'workspace' | 'brand' | 'people' | 'ai' | 'data'
+export type OrgPageId = 'workspace' | 'brand' | 'people' | 'ai' | 'data' | 'usage'
 
 export const ORG_PAGES: (SettingsPage & { id: OrgPageId })[] = [
   { id: 'workspace', label: 'Workspace', to: '/settings/organization' },
@@ -20,6 +21,7 @@ export const ORG_PAGES: (SettingsPage & { id: OrgPageId })[] = [
   { id: 'people', label: 'People and access', to: '/settings/organization/people' },
   { id: 'ai', label: 'AI', to: '/settings/organization/ai' },
   { id: 'data', label: 'Data and updates', to: '/settings/organization/data' },
+  { id: 'usage', label: 'Usage', to: '/settings/organization/usage' },
 ]
 
 /** The organization page a `/settings/organization/:page?` address names; null for an unknown one. */
