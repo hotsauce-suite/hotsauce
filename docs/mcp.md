@@ -211,7 +211,8 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | `get_clip` | A clip's summary, link and timestamped transcript (never the video itself) |
 | `list_drive_files` | Files uploaded to Hotsauce Files in a space, by folder or words (names, sizes, links) |
 | `get_drive_file` | One uploaded file's details, link and the text pulled out of it (PDF, Word, PowerPoint, Excel, text); never the file itself |
-| `list_links`, `get_link` | Your saved links and a link's readable copy |
+| `list_links`, `get_link` | Your saved links and a link's readable copy, with its highlights and notes |
+| `list_highlights` | Passages you and teammates highlighted in saved links, with notes, newest first (read only: highlights are made in the app) |
 | `save_link` | Saves a link. Hotsauce doesn't visit the page until you press **Get the page** in Links, so a tool can't send your text out in an address. A link saved over the HTTP API with a token waits the same way |
 
 Every write is a commit authored by you with `Hotsauce-Via: mcp (client "<tool>", token "<name>")`. Commits from before the tool was recorded read `Hotsauce-Via: mcp (token "<name>")`, and commits from before 0.15 spell the trailer `Hearth-Via`.

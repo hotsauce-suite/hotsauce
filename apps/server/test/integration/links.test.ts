@@ -568,6 +568,160 @@ describe('reading position', () => {
   })
 })
 
+describe('highlights and notes (docs/PLAN-links-highlights.md)', () => {
+  const quote = 'Highlight me is the subject of this page.'
+  const add = (space: string, id: string, json: Record<string, unknown>, opts: Options = {}) =>
+    api('POST', `/api/links/${space}/${id}/highlights`, { status: 201, json, ...opts })
+
+  it('R1 R2 R5: adds a highlight in the link file, with a commit, and returns it', async () => {
+    const link = await save({ url: 'https://a.test/highlight-me' })
+    const h = await add('alice', link.id, {
+      quote,
+      prefix: '',
+      suffix: ' Highlight',
+      block: 1,
+      note: 'Worth it',
+    })
+    expect(h).toMatchObject({ by: ALICE, quote, block: 1, note: 'Worth it' })
+    expect(await log('alice')).toBe(`Alice <${ALICE}>|links: highlight "Highlight me"`)
+    const file = await catFile(bare('alice'), 'main', `links/${link.id}.md`)
+    expect(file).toMatch(/highlights:\n\s+- id: \w+/)
+    expect(file).toContain('Worth it')
+    const got = await api('GET', `/api/links/alice/${link.id}`)
+    expect(got.highlights).toEqual([expect.objectContaining({ id: h.id, quote })])
+    expect(got.highlightCount).toBe(1)
+    const [listed] = (await api('GET', '/api/links')).links
+    expect(listed.highlightCount).toBe(1)
+  })
+
+  it('R2: refuses spaces the member can’t see, missing links and empty passages', async () => {
+    const link = await save({ url: 'https://a.test/guarded' })
+    await add('alice', link.id, { quote }, { as: BOB, status: 403 } as Options)
+    await api('POST', `/api/links/alice/01JC0000000000000000000000/highlights`, {
+      status: 404,
+      json: { quote },
+    })
+    await api('POST', `/api/links/alice/${link.id}/highlights`, {
+      status: 400,
+      json: { quote: '   ' },
+    })
+  })
+
+  it('R3: only the maker changes the note or deletes it', async () => {
+    const link = await save({ url: 'https://a.test/shared-marks' })
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    const h = await add('team', link.id, { quote })
+    const at = `/api/links/team/${link.id}/highlights/${h.id}`
+    await api('PATCH', at, { as: BOB, status: 403, json: { note: 'mine now' } })
+    await api('DELETE', at, { as: BOB, status: 403 })
+    const noted = await api('PATCH', at, { json: { note: 'A note' } })
+    expect(noted).toMatchObject({ note: 'A note', edited: expect.any(String) })
+    expect(await log('team')).toBe(`Alice <${ALICE}>|links: note "Shared marks"`)
+    await api('DELETE', at, { status: 204 })
+    expect(await log('team')).toBe(`Alice <${ALICE}>|links: unhighlight "Shared marks"`)
+    expect((await api('GET', `/api/links/team/${link.id}`)).highlights).toEqual([])
+    await api('DELETE', at, { status: 404 })
+  })
+
+  it('R4 R5: keeps highlights through a fresh read and Share with team', async () => {
+    const link = await save({ url: 'https://a.test/keep-marks' })
+    await add('alice', link.id, { quote: 'Keep marks is the subject' })
+    await api('POST', `/api/links/alice/${link.id}/refetch`)
+    await services.links.idle()
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    const got = await api('GET', `/api/links/team/${link.id}`, { as: BOB })
+    expect(got.highlights).toEqual([expect.objectContaining({ by: ALICE })])
+  })
+
+  it('R6 R7: lists highlights across links, and search finds a link by its notes', async () => {
+    const one = await save({ url: 'https://a.test/first-read' })
+    const two = await save({ url: 'https://a.test/second-read' })
+    await add('alice', one.id, { quote: 'First read is the subject', note: 'zebra crossing' })
+    await add('alice', two.id, { quote: 'Second read is the subject' })
+    const all = (await api('GET', '/api/links/highlights')).highlights
+    expect(all.map((h: { link: { id: string } }) => h.link.id)).toEqual([two.id, one.id])
+    expect(all[0].link).toMatchObject({ space: 'alice', title: 'Second read' })
+    const zebra = (await api('GET', '/api/links/highlights?q=zebra')).highlights
+    expect(zebra).toHaveLength(1)
+    const found = (await api('GET', '/api/links?view=all&q=zebra')).links
+    expect(found.map((l: LinkView) => l.id)).toEqual([one.id])
+    expect((await api('GET', '/api/links/highlights', { as: BOB })).highlights).toEqual([])
+  })
+
+  it('R10: copies highlights to a new private doc, in page order, with teammates named', async () => {
+    const link = await save({ url: 'https://a.test/copy-me' })
+    await api('POST', `/api/links/alice/${link.id}/highlights/doc`, { status: 409 })
+    await api('POST', `/api/links/alice/${link.id}/move`, { json: { toSpace: 'team' } })
+    await add('team', link.id, { quote: 'Later passage', block: 3 }, { as: BOB } as Options)
+    await add('team', link.id, { quote: 'Copy me is the subject', block: 1, note: 'My note' })
+    const doc = await api('POST', `/api/links/team/${link.id}/highlights/doc`, { status: 201 })
+    expect(doc).toEqual({
+      space: 'alice',
+      path: 'docs/highlights-copy-me.md',
+      title: 'Highlights: Copy me',
+    })
+    const text = await catFile(bare('alice'), 'main', 'docs/highlights-copy-me.md')
+    expect(text).toMatch(/^---\nid: \w+\ntitle: "?Highlights: Copy me"?\n/)
+    expect(text).toContain(`[the saved copy](<https://hearth.example.test/links/team/${link.id}>)`)
+    expect(text.indexOf('> Copy me is the subject')).toBeLessThan(text.indexOf('> Later passage'))
+    expect(text).toContain('My note')
+    expect(text).toContain('> — Bob')
+    const again = await api('POST', `/api/links/team/${link.id}/highlights/doc`, { status: 201 })
+    expect(again.path).toBe('docs/highlights-copy-me-2.md')
+  })
+
+  it('R3 R8: an access token can’t write highlights or copy them; $ survives the copy', async () => {
+    const link = await save({ url: 'https://a.test/token-marks' })
+    const h = await add('alice', link.id, {
+      quote: 'Token marks is the subject',
+      note: 'pay $$10 $& now',
+    })
+    const made = await call('POST', '/api/tokens', { as: ALICE, json: { name: 'script' } })
+    const { token } = (await made.json()) as { token: string }
+    const base = `/api/links/alice/${link.id}/highlights`
+    for (const [method, url, json] of [
+      ['POST', base, { quote: 'Token marks' }],
+      ['PATCH', `${base}/${h.id}`, { note: 'x' }],
+      ['DELETE', `${base}/${h.id}`, undefined],
+      ['POST', `${base}/doc`, undefined],
+    ] as const) {
+      const res = await call(method, url, { token, ...(json ? { json } : {}) })
+      expect(res.status, `${method} ${url}`).toBe(403)
+    }
+    await api('POST', base, { status: 400, json: { quote: 'x'.repeat(2500) } })
+    const doc = await api('POST', `${base}/doc`, { status: 201 })
+    const text = await catFile(bare('alice'), 'main', doc.path)
+    expect(text).toContain('pay $$10 $& now')
+  })
+
+  it('R8: MCP reads highlights and can’t make them', async () => {
+    const link = await save({ url: 'https://a.test/mcp-marks' })
+    await add('alice', link.id, { quote: 'Mcp marks is the subject', note: 'for Claude' })
+    const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {
+      requestInit: { headers: { 'x-hearth-dev-user': ALICE } },
+      fetch: async (input, init) => app.request(new Request(input, init)),
+    })
+    const client = new Client({ name: 'test', version: '1.0.0' })
+    await client.connect(transport)
+    const call = async (name: string, args: Record<string, unknown>) => {
+      const r = (await client.callTool({ name, arguments: args })) as CallToolResult
+      const first = r.content[0]
+      return JSON.parse(first?.type === 'text' ? first.text : 'null')
+    }
+    const got = await call('get_link', { space: 'alice', id: link.id })
+    expect(got.highlights).toEqual([expect.objectContaining({ note: 'for Claude' })])
+    const listed = await call('list_highlights', { q: 'claude' })
+    expect(listed).toEqual([
+      expect.objectContaining({
+        quote: 'Mcp marks is the subject',
+        appUrl: `https://hearth.example.test/links/alice/${link.id}`,
+      }),
+    ])
+    const names = (await client.listTools()).tools.map((t) => t.name)
+    expect(names.filter((n) => /highlight/.test(n))).toEqual(['list_highlights'])
+  })
+})
+
 describe('MCP tools', () => {
   async function connect(): Promise<Client> {
     const transport = new StreamableHTTPClientTransport(new URL('http://hearth.test/mcp'), {

@@ -394,6 +394,11 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     reading: new ReadingStore(path.join(config.DATA_DIR, 'links-reading.sqlite')),
     llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
     model: config.LINKS_MODEL,
+    publicUrl: config.PUBLIC_URL,
+    memberName: (email) =>
+      meetings.calendarSync?.cache
+        .members()
+        .find((m) => m.email.toLowerCase() === email.toLowerCase())?.name ?? null,
   })
   const briefcasts = new Briefcasts({
     git,

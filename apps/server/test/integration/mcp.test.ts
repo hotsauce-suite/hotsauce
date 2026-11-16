@@ -249,6 +249,7 @@ describe('the /mcp endpoint', () => {
       'list_drive_files',
       'list_events',
       'list_files',
+      'list_highlights',
       'list_links',
       'list_meetings',
       'list_notes',

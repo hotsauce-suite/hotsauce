@@ -57,3 +57,21 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
 
 - **An address is an outbound channel.** Any server-side fetch of an address an AI tool chose can carry private text out in the query string, so "the agent saved it" must never mean "the server visits it". Key the rule on what is stored in the file (`source: mcp`, never fetched), not on the request, so it survives restarts and moves; and make every other path that schedules a read (re-save, move to team, the "lost after 3 minutes" fallback) check it too. The re-save path was the one that leaked first in the tests.
 - **Fake only `Date` to test time-based states.** `vi.useFakeTimers({ toFake: ['Date'] })` plus `vi.setSystemTime` moves `new Date()` without freezing the git and fetch timers the integration tests need.
+
+- **Draw highlights with the CSS Custom Highlight API, not `<mark>`.** The readable copy is React's
+  DOM (react-markdown); splitting its text nodes into marks makes the next render throw or drop
+  them. `CSS.highlights` paints live `Range`s with no DOM change, and a click is matched against
+  `range.getClientRects()`. jsdom has neither `CSS.highlights` nor range boxes, so guard both and
+  check the drawing in Playwright (`CSS.highlights.has(...)`).
+- **Anchor a highlight by its words plus context, with the block as a tie-break.** The fake page
+  repeats one sentence dozens of times; prefix/suffix alone can't tell copies apart at a
+  paragraph start, the block index can. Text offsets come from `Range.toString()` lengths, which
+  match a TreeWalker over text nodes exactly.
+- **A new panel above the text moves the text.** Putting the Highlights list above the article
+  pushed the page down the moment the first highlight saved, so a second click landed on the
+  wrong line. It lives under the article now, with a jump link at the top.
+- **`?? []` in a hook's dependency is a new array each render.** With a `setState(new Map())` in
+  the effect it looped forever while the link loaded; use a module-level empty array and return
+  the same state when nothing changed.
+- **Playwright here needs `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium`** in a cloud session:
+  the repo pins a newer Playwright than the preinstalled browser.
