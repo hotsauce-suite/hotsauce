@@ -47,7 +47,11 @@ export function ChatRoomsSection() {
   }
   const chatHome = chat()
   return (
-    <section data-testid="org-chat-rooms" className="flex flex-col gap-4">
+    <section
+      id="chat-rooms"
+      data-testid="org-chat-rooms"
+      className="flex scroll-mt-6 flex-col gap-4"
+    >
       <div>
         <h2 className="font-display text-[1.6rem] leading-tight font-semibold tracking-tight text-ink">
           Chat rooms for form answers

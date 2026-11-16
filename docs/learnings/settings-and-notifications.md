@@ -20,3 +20,15 @@
   so the card would otherwise stay stale until a reload.
 - **Moving a section into another keeps its anchor working** as long as the `id` moves with the
   card: `#mac-app` is on the Mac app card inside Install, and the e2e checks it lands in view.
+
+## Settings as pages (2026-11-15, docs/PLAN-settings-pages.md)
+
+- **Crowding was weight, not count.** The first pass counted sections and proposed ten pages. Reading every screen showed two blocks (the Mac app's install guide, the AI tools intro) took most of the height. Trim before regrouping, and judge a settings screen by what fills it.
+- **A layout route swallows the outlet context.** `KeyboardSettings` reads the shell from `useOutletContext`; once a `SettingsLayout` sat between it and `AppShell`, it got nothing. A layout that renders `<Outlet />` must pass the parent's context on (`<Outlet context={useOutletContext()} />`).
+- **`NavLink` needs `end` when one page's address is a prefix of another's** (`/settings` and `/settings/apps`, `/settings/organization` and `…/brand`), or two items show as current.
+- **One route component for sibling pages keeps shared state.** `organization/:page?` is one route, so React keeps `OrgSettingsRoute` mounted and the "apply to restart" banner survives moving between organization pages. Five separate routes would have dropped it.
+- **Splitting a form across pages means splitting its save.** "Your organization" sent every field on each save. Shown on three pages, each would have saved the other two pages' stale copies; `part` narrows both the fields and the payload. The server already merged partial patches.
+- **Settings is listed in two routers**: `router.tsx` and `test/renderApp.tsx`. They now share `routes/settings/routes.tsx`. A page added to only one passes tests and 404s in the app, or the reverse.
+- **Old hash addresses are an API.** The Mac app, Today, Dictate, emails and help pages all linked `/settings#mac-app`. `movedSection` redirects them; add a line there when a section changes page.
+- **Never `git checkout <file>` to undo a throwaway edit on uncommitted work.** Commit first, then experiment.
+
