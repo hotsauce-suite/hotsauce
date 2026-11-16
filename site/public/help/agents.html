@@ -38,10 +38,12 @@
 <main id="main" class="article" data-page="agents">
 <p class="crumbs"><a href="/help/">Help</a> <span aria-hidden="true">/</span> Other devices and agents</p>
 <h1>Connect an AI tool</h1>
-<p class="lede">Hotsauce has a built-in MCP server, so AI tools such as Claude, Cursor and Codex can search, read and write your docs, meetings, tasks, tables, clips and files, with exactly the access you have.</p>
-<h2 id="connect-claude">Connect your AI tool</h2>
+<p class="lede">Hotsauce has a built-in MCP server, so AI tools such as Claude, ChatGPT, Grok, Cursor and Codex can search, read and write your docs, meetings, tasks, tables, clips and files, with exactly the access you have.</p>
+<h2 id="sign-in">Claude, ChatGPT and Grok: connect by signing in</h2>
+<ol class="steps"><li>In Hotsauce, open <b>Settings → Connections</b> and copy the address under <b>Connect by signing in</b>. It ends in <code>/mcp</code>.</li><li>In your AI tool, add a custom connector with that address. <b>Claude</b> (web, desktop and phone): Settings → Connectors → Add custom connector. <b>ChatGPT</b>: Settings → Apps &amp; Connectors → Create (turn on Developer mode under Advanced if Create isn’t there), and choose OAuth. <b>Grok</b>: add a remote MCP connector.</li><li>Press <b>Connect</b>. A Hotsauce page asks “Let Claude use your Hotsauce?”. Check the name, then press <b>Allow</b>.</li></ol>
+<p>No token to copy. The tool gets your access, and it stays connected until you press <b>Disconnect</b> under <b>Settings → Connections</b>.</p>
+<h2 id="connect-claude">Claude Code, Cursor, Codex and scripts: connect with a token</h2>
 <ol class="steps"><li>In Hotsauce, open <b>Settings → Connections</b>, find <b>Connect an AI tool</b>, name a token (say “Cursor on my laptop”) and press <b>Create token</b>. The token is shown only once.</li><li>Pick your tool: <b>Claude Code</b>, <b>Claude desktop</b>, <b>Cursor</b>, <b>Codex</b> or <b>Other</b>. Hotsauce shows only that tool’s steps, with the address and token filled in.</li><li>Copy the command or config into the tool. In Claude it shows up as <b>hotsauce</b> (or your workspace’s own name).</li></ol>
-<p><b>ChatGPT and Grok</b> connect only through a browser sign-in, not a token. Hotsauce is adding that sign-in; until then Settings shows them as “Needs sign-in, coming soon”.</p>
 <p>Make one token for each tool, so history can tell them apart. A token is a password for your account: don’t paste it into a chat or a shared file. Revoke it on the same page when you stop using it.</p>
 <p>Connected an older version and it still says <b>hearth</b>? Rename it: in Claude Code run <code>claude mcp remove hearth --scope user</code> and paste the new command; in Claude desktop rename the <code>"hearth"</code> entry in its config file to <code>"hotsauce"</code> and restart. The same token keeps working.</p>
 <h2 id="things-to-try">Things to try</h2>

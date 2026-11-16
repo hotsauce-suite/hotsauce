@@ -4,7 +4,9 @@ import { type CheckinInput, type CheckinItem, checkinsApi } from '../../api/chec
 import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { CheckinForm } from './CheckinForm'
 import { DEFAULTS } from './format'
@@ -24,6 +26,7 @@ export default function CheckinsPage() {
   const [items, setItems] = useState<CheckinItem[] | null>(null)
   const [canManage, setCanManage] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [draft, setDraft] = useState<CheckinInput | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -32,8 +35,9 @@ export default function CheckinsPage() {
       (r) => {
         setItems(r.checkins)
         setCanManage(r.canManage)
+        setLoadFailed(false)
       },
-      (e: unknown) => setError(e instanceof Error ? e.message : 'Couldn’t load check-ins'),
+      () => setLoadFailed(true),
     )
   }, [])
 
@@ -73,6 +77,9 @@ export default function CheckinsPage() {
               {error}
             </p>
           ) : null}
+          {loadFailed ? (
+            <LoadError things="check-ins" whose="the" onRetry={load} className="mb-4" />
+          ) : null}
           {canManage ? (
             <div className="mb-6 flex flex-wrap gap-2" data-testid="checkin-presets">
               {missingDefaults.map((d) => (
@@ -98,12 +105,10 @@ export default function CheckinsPage() {
               </button>
             </div>
           ) : null}
-          {items && items.length === 0 ? (
-            <p className="text-sm text-ink-faint" data-testid="checkins-empty">
-              {canManage
-                ? 'No check-ins yet. Start with one of the two above.'
-                : 'No check-ins yet. An admin sets them up.'}
-            </p>
+          {!loadFailed && items && items.length === 0 ? (
+            <EmptyState icon="checklist" title="No check-ins yet" testId="checkins-empty">
+              {canManage ? 'Start with one of the two above.' : 'An admin sets them up.'}
+            </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="checkins-list">
             {(items ?? []).map((c) => (

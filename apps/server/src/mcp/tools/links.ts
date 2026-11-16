@@ -71,7 +71,7 @@ export function registerLinkTools(
     {
       title: 'Save a link',
       description:
-        'Saves a web page to the member\'s read-later list (their personal space unless space is "team"). The page is fetched, kept as a readable copy and tagged in the background. Saving a link that is already saved returns it.',
+        'Saves a web page to the member\'s read-later list (their personal space unless space is "team"). Hotsauce does not visit the page until the member asks for it in the app, so the link comes back with status "waiting" and no readable copy; do not retry. Saving a link that is already saved returns it.',
       inputSchema: {
         url: z.string().min(1).max(2000).describe("The page's http or https address"),
         title: z.string().max(300).optional(),

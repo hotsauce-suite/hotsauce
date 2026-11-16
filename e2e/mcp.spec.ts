@@ -188,15 +188,20 @@ test('list_clips and get_clip read a recorded clip, with its transcript', async 
   await owner.dispose()
 })
 
-test('/mcp refuses calls without a token, and there is no OAuth to discover', async ({
+test('/mcp refuses calls without a token and says where to sign in', async ({
   request,
+  baseURL,
 }) => {
   const res = await request.post('/mcp', {
     headers: { accept: 'application/json, text/event-stream' },
     data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
   })
   expect(res.status()).toBe(401)
-  // A client that then looks for OAuth gets a 404, not the web app's index.html.
+  expect(res.headers()['www-authenticate']).toContain('resource_metadata=')
+  // A client that then looks for OAuth gets JSON, not the web app's index.html.
   const discovery = await request.get('/.well-known/oauth-protected-resource')
-  expect(discovery.status()).toBe(404)
+  expect(discovery.status()).toBe(200)
+  expect((await discovery.json()).resource).toBe(`${baseURL}/mcp`)
+  // Other well-known paths still 404 rather than serving the app.
+  expect((await request.get('/.well-known/openid-configuration')).status()).toBe(404)
 })

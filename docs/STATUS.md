@@ -30,7 +30,7 @@ Hold a key on the Mac, talk, and clean text lands at the cursor, with team word 
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
-Screen and camera recordings with a transcript, Summarize and Action items, speed control and a shared library.
+Screen and camera recordings with a transcript, trimming, Summarize and Action items, speed control and a shared library.
 Needs the speech and AI keys and `ffmpeg` on the server; video lives on the volume or in R2/S3.
 
 ### Tasks
@@ -66,7 +66,7 @@ Trackers with spreadsheet formulas, kept as CSV in Git.
 Needs nothing extra.
 
 ### Links
-A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read.
+A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read. Links an AI tool saves wait for the member to press Get the page.
 Needs nothing extra; the AI summary needs the AI key.
 
 ### Briefcast
@@ -80,7 +80,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
-- **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`).
+- **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
 - **Usage** (Settings → Usage, admins): each app's items made or changed and people per week for 12 weeks, counted from Git history, Clips' list and Dictate's connected Macs. Nothing is tracked; numbers only. Needs nothing extra.
 

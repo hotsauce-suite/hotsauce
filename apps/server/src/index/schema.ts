@@ -147,7 +147,10 @@ export function migrate(db: Database.Database, migrations: readonly string[] = M
   }).immediate()
 }
 
-/** What the index holds that Git can't give back, or that nothing refills on its own. */
+/**
+ * What the index holds that Git can't give back, or that nothing refills on its own. Stars, pins
+ * and recents moved to account.sqlite; the index keeps an older release's copy (AccountStore.syncFromIndex).
+ */
 const KEPT = ['spaces', 'recents', 'stars', 'pins', 'conflicts']
 
 /**

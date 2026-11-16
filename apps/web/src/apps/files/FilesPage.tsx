@@ -3,7 +3,9 @@ import { useMatches, useNavigate, useParams, useSearchParams } from 'react-route
 import { type DriveFile, type FolderListing, filesApi, formatBytes } from '../../api/files'
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
+import { EmptyState } from '../../components/EmptyState'
 import { Icon, type IconName } from '../../components/Icon'
+import { LoadError } from '../../components/LoadError'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
@@ -66,6 +68,7 @@ export default function FilesPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [dialog, setDialog] = useState<Dialogs>(null)
   const [menu, setMenu] = useState<{
     anchor: MenuAnchor
@@ -102,8 +105,9 @@ export default function FilesPage() {
           if (cancelled) return
           setRecent(r)
           setError(null)
+          setLoadFailed(false)
         },
-        (e: unknown) => !cancelled && setError(message(e)),
+        () => !cancelled && setLoadFailed(true),
       )
       return () => {
         cancelled = true
@@ -117,8 +121,9 @@ export default function FilesPage() {
             if (cancelled) return
             setListing(l)
             setError(null)
+            setLoadFailed(false)
           },
-          (e: unknown) => !cancelled && setError(message(e)),
+          () => !cancelled && setLoadFailed(true),
         ),
       q ? 200 : 0,
     )
@@ -304,15 +309,33 @@ export default function FilesPage() {
               {error}
             </p>
           ) : null}
-          {loading && !error ? <p className="text-sm text-ink-faint">Loading…</p> : null}
-          {!loading && files.length === 0 && folders.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-ash-strong p-10 text-center text-sm text-ink-soft">
+          {loadFailed ? (
+            <LoadError
+              things={
+                kind === 'recent' ? 'recent files' : space === 'team' ? 'team files' : 'files'
+              }
+              whose={space === 'team' && kind !== 'recent' ? 'the' : 'your'}
+              onRetry={() => setTick((n) => n + 1)}
+              className="mb-4"
+            />
+          ) : null}
+          {loading && !error && !loadFailed ? (
+            <p className="text-sm text-ink-faint">Loading…</p>
+          ) : null}
+          {!loadFailed && !loading && files.length === 0 && folders.length === 0 ? (
+            <EmptyState
+              icon="drive"
+              title={
+                q ? 'No files match' : kind === 'recent' ? 'No recent files' : 'No files here yet'
+              }
+              className="rounded-xl border border-dashed border-ash-strong"
+            >
               {q
-                ? 'No files match.'
+                ? 'Search looks at file names and the text inside PDFs and documents.'
                 : kind === 'recent'
                   ? 'Files you and your team upload appear here.'
                   : 'Drag files here, or choose Upload. PDFs, images, video and audio open right in the browser.'}
-            </div>
+            </EmptyState>
           ) : null}
           <ul className="divide-y divide-ash/70" data-testid="files-list">
             {folders.map((f) => (

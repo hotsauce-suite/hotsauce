@@ -13,14 +13,15 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))
 
 describe('the index after a rollback', () => {
   // A release that added a migration ran, then the updater put the previous release back.
-  it('is made again for this build, keeping stars, pins and the spaces', () => {
+  // Stars and pins now live in account.sqlite; the index keeps an older release's copy of them
+  // (docs/PLAN-member-lists.md), so a rollback must not lose those either.
+  it('is made again for this build, keeping the old stars, pins and the spaces', () => {
     const file = path.join(dir, 'index.sqlite')
-    const first = new Index(file)
-    first.setStarred('u_alice', 'team', 'docs/plan.md', true)
-    first.setPins('u_alice', ['docs', 'tasks'])
-    first.close()
+    new Index(file).close()
 
     const raw = new Database(file)
+    raw.prepare('INSERT INTO stars VALUES (?, ?, ?)').run('u_alice', 'team', 'docs/plan.md')
+    raw.prepare('INSERT INTO pins VALUES (?, ?)').run('u_alice', '["docs","tasks"]')
     const { version } = raw.prepare('SELECT version FROM schema_version').get() as {
       version: number
     }
@@ -36,8 +37,9 @@ describe('the index after a rollback', () => {
     raw.close()
 
     const older = new Index(file)
-    expect(older.listStars('u_alice').map((s) => s.path)).toEqual(['docs/plan.md'])
-    expect(older.getPins('u_alice')).toEqual(['docs', 'tasks'])
+    const lists = older.legacyMemberLists()
+    expect(lists.stars).toEqual([{ user: 'u_alice', space: 'team', path: 'docs/plan.md' }])
+    expect(lists.pins).toEqual([{ user: 'u_alice', apps: '["docs","tasks"]' }])
     expect(older.listSpaces().map((s) => s.name)).toEqual(['alice'])
     // Nothing is marked as indexed, so every space is indexed again on start.
     expect(older.getSyncState('team')).toBeNull()

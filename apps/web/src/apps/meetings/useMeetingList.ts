@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import type { MeetingFilters, MeetingSummary } from '../../api/types'
@@ -8,11 +8,17 @@ export interface MeetingList {
   status: 'loading' | 'ready' | 'error'
   meetings: MeetingSummary[]
   error: string | null
+  /** Asks again, for "Try again". */
+  reload: () => void
 }
 
 /** `GET /api/meetings`, refetched when a commit touches `meetings/` (a stop, an enhance, a push). */
 export function useMeetingList(filters: MeetingFilters): MeetingList {
-  const [list, setList] = useState<MeetingList>({ status: 'loading', meetings: [], error: null })
+  const [list, setList] = useState<Omit<MeetingList, 'reload'>>({
+    status: 'loading',
+    meetings: [],
+    error: null,
+  })
   const [version, setVersion] = useState(0)
   const key = JSON.stringify(filters)
 
@@ -43,5 +49,6 @@ export function useMeetingList(filters: MeetingFilters): MeetingList {
     }
   }, [])
 
-  return list
+  const reload = useCallback(() => setVersion((v) => v + 1), [])
+  return { ...list, reload }
 }

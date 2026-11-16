@@ -3,7 +3,14 @@ import { Readable } from 'node:stream'
 import { patchFrontmatter } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { clipNote, freePath, MAX_CHUNKS, MAX_TITLE_LENGTH, speakersOf } from '../clips/index.js'
+import {
+  clipNote,
+  freePath,
+  MAX_CHUNKS,
+  MAX_CUTS,
+  MAX_TITLE_LENGTH,
+  speakersOf,
+} from '../clips/index.js'
 import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, withVia } from '../git/index.js'
 import { contentDisposition } from '../meetings/audio/index.js'
@@ -289,6 +296,35 @@ export function clipRoutes(deps: AppDeps) {
             return c.json({ space, path }, 201)
           })
         },
+      )
+      /** The owner's trim: the parts of the whole recording to leave out, in ms. */
+      .put(
+        '/:id/edit',
+        valid('param', z.object({ id: ClipId })),
+        valid(
+          'json',
+          z.object({
+            cuts: z
+              .array(
+                z.object({
+                  startMs: z.number().min(0).max(1e8),
+                  endMs: z.number().min(0).max(1e8),
+                }),
+              )
+              .max(MAX_CUTS),
+          }),
+        ),
+        async (c) =>
+          c.json(
+            await clips.setCuts(
+              c.get('principal'),
+              c.req.valid('param').id,
+              c.req.valid('json').cuts,
+            ),
+          ),
+      )
+      .delete('/:id/edit', valid('param', z.object({ id: ClipId })), async (c) =>
+        c.json(await clips.revertEdit(c.get('principal'), c.req.valid('param').id)),
       )
       .post('/:id/transcript/retry', valid('param', z.object({ id: ClipId })), async (c) =>
         c.json(await clips.retryTranscript(c.get('principal'), c.req.valid('param').id)),

@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hotsauce/format'
 import dotenv from 'dotenv'
+import { AccountStore, accountPath } from './account/index.js'
 import {
   AnthropicAssistantModel,
   Assistant,
@@ -96,6 +97,7 @@ import {
   WebPushSender,
 } from './meetings/reminders/index.js'
 import { Notes } from './notes/index.js'
+import { ClientMetadataResolver, OAuthStore } from './oauth/index.js'
 import { BrandStore } from './org/brand.js'
 import { OrgStore } from './org/store.js'
 import {
@@ -122,6 +124,7 @@ import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from '
 import { TokenAuth, TokenStore } from './tokens/index.js'
 import {
   type FlyApi,
+  fetchImageDigest,
   fetchLatestRelease,
   flyApi,
   RELEASE_IMAGE,
@@ -175,6 +178,7 @@ export interface ServiceOverrides {
   diskFreeBytes?: () => Promise<number>
   /** The updater's view of the newest release and of Fly (docs/PLAN-releases-and-updates.md). */
   latestRelease?: () => Promise<Release | null>
+  imageDigest?: (version: string) => Promise<string>
   fly?: FlyApi | null
   flyEnv?: { app?: string; region?: string; imageRef?: string }
   version?: string
@@ -197,9 +201,16 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   })
   const host = createHostAdapter(config)
   const index = new Index(indexPath(config.DATA_DIR))
+  // Recents, stars and rail pins: their own backed-up file, brought over from
+  // the index's old tables on first start, and again after a rollback changed them.
+  const account = new AccountStore(accountPath(config.DATA_DIR))
+  account.syncFromIndex(() => index.legacyMemberLists())
   const indexer = new Indexer(git, index)
   // Personal access tokens in front of Clerk (or dev) auth, everywhere a request is authenticated.
   const tokens = new TokenStore(config.DATA_DIR)
+  // Apps connected through sign-in (claude.ai, ChatGPT): their tokens work on /mcp only.
+  const oauth = new OAuthStore(config.DATA_DIR)
+  const clientMetadata = new ClientMetadataResolver()
   // The organization's settings, keys and brand kit (ARCHITECTURE §11).
   const org =
     overrides.org ??
@@ -208,7 +219,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ...(config.HOTSAUCE_MASTER_KEY ? { masterKey: config.HOTSAUCE_MASTER_KEY } : {}),
     })
   const brand = new BrandStore(org.dir)
-  const auth = new TokenAuth(createAuthenticator(config), tokens)
+  const auth = new TokenAuth(createAuthenticator(config), tokens, oauth)
   const spaces = new SpaceService({
     git,
     host,
@@ -427,6 +438,13 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     latestRelease:
       overrides.latestRelease ??
       (config.NODE_ENV === 'test' ? async () => null : () => fetchLatestRelease()),
+    imageDigest:
+      overrides.imageDigest ??
+      (config.NODE_ENV === 'test'
+        ? async () => {
+            throw new Error('No releases in tests')
+          }
+        : (version) => fetchImageDigest(version)),
     fly:
       overrides.fly !== undefined
         ? overrides.fly
@@ -445,8 +463,11 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     host,
     index,
     indexer,
+    account,
     auth,
     tokens,
+    oauth,
+    clientMetadata,
     spaces,
     broadcaster,
     syncer,
