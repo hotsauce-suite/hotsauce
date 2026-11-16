@@ -6,23 +6,23 @@ import {
   HighlightError,
   highlightsDoc,
   highlightsOf,
-  type LinkHighlight,
-  newDoc,
-  removeHighlight,
-  setHighlightNote,
   LinkFrontmatter,
+  type LinkHighlight,
   type LinkSource,
   linkBodyText,
   linkIdOf,
   linkPath,
   linkTextOf,
   linkUrlProblem,
+  newDoc,
   newLinkFile,
   normalizeLinkUrl,
   oneLine,
   parseFrontmatter,
   patchFrontmatter,
+  removeHighlight,
   SPACE_LAYOUT,
+  setHighlightNote,
 } from '@hotsauce/format'
 import type { Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
@@ -86,11 +86,14 @@ export interface LinkWithBody extends LinkView {
   /** The readable copy, in Markdown. */
   body: string
   /** Every highlight in the file, oldest first. */
-  highlights: LinkHighlight[]
+  highlights: NamedHighlight[]
 }
 
+/** A highlight with its maker's name (not stored: names change). */
+export type NamedHighlight = LinkHighlight & { name: string }
+
 /** One highlight with the link it is in, for the Highlights list (R6). */
-export interface HighlightView extends LinkHighlight {
+export interface HighlightView extends NamedHighlight {
   link: { space: string; id: string; title: string; site: string; url: string }
 }
 
@@ -244,8 +247,12 @@ export class Links {
     return {
       ...this.#placed(principal, this.#view(file.record)),
       body: file.body,
-      highlights: highlightsOf(file.record.fm),
+      highlights: highlightsOf(file.record.fm).map((h) => this.#named(h)),
     }
+  }
+
+  #named(h: LinkHighlight): NamedHighlight {
+    return { ...h, name: this.#d.memberName?.(h.by) || nameFromEmail(h.by) }
   }
 
   /** Highlights across every link the member can see, newest first (R6). */
@@ -258,10 +265,7 @@ export class Links {
       Math.max(Math.trunc(filter.limit ?? MAX_HIGHLIGHT_LIST), 1),
       MAX_HIGHLIGHT_LIST,
     )
-    const words = (filter.q ?? '')
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean)
+    const words = (filter.q ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     const out: HighlightView[] = []
     for (const r of this.#records(visible)) {
       const link = {
@@ -276,12 +280,10 @@ export class Links {
           const hay = `${h.quote}\n${h.note ?? ''}\n${link.title}`.toLowerCase()
           if (!words.every((w) => hay.includes(w))) continue
         }
-        out.push({ ...h, link })
+        out.push({ ...this.#named(h), link })
       }
     }
-    return out
-      .sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))
-      .slice(0, limit)
+    return out.sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id)).slice(0, limit)
   }
 
   /** Adds a highlight as the member (R2). */
@@ -291,7 +293,7 @@ export class Links {
     id: string,
     input: HighlightInput,
     via?: string,
-  ): Promise<LinkHighlight> {
+  ): Promise<NamedHighlight> {
     this.#assertAccess(principal, space)
     let made: LinkHighlight | null = null
     await this.#edit(principal, space, id, 'highlight', via, (cur) => {
@@ -302,7 +304,7 @@ export class Links {
       return patchFrontmatter(cur.content, { highlights })
     })
     if (!made) throw new HotsauceError('internal', 'The highlight wasn’t saved')
-    return made
+    return this.#named(made)
   }
 
   /** Changes the note on the member's own highlight; an empty note removes it (R3). */
@@ -313,7 +315,7 @@ export class Links {
     highlightId: string,
     note: string,
     via?: string,
-  ): Promise<LinkHighlight> {
+  ): Promise<NamedHighlight> {
     this.#assertAccess(principal, space)
     let made: LinkHighlight | null = null
     await this.#edit(principal, space, id, 'note', via, (cur) => {
@@ -326,7 +328,7 @@ export class Links {
       return patchFrontmatter(cur.content, { highlights })
     })
     if (!made) throw new HotsauceError('internal', 'The note wasn’t saved')
-    return made
+    return this.#named(made)
   }
 
   /** Removes the member's own highlight (R3). */
@@ -370,7 +372,7 @@ export class Links {
       appUrl: `${base}/links/${encodeURIComponent(space)}/${encodeURIComponent(id)}`,
       highlights,
       me: principal.email,
-      nameOf: (email) => this.#d.memberName?.(email) || nameFromEmail(email),
+      nameOf: (email) => this.#named({ by: email } as LinkHighlight).name,
     })
     const fresh = newDoc(doc.title)
     // newDoc writes "# title" as the body; the highlights doc brings its own heading.

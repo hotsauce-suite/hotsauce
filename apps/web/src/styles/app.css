@@ -4,6 +4,7 @@
 @import "./tasks.css";
 @import "./notes.css";
 @import "./boards.css";
+@import "./links.css";
 
 @theme inline {
   --color-paper: var(--paper);

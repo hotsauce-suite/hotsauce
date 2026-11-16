@@ -1,6 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import {
+  type HighlightView,
+  highlightLabel,
   type LinkView,
   linksApi,
   READ_TO_END,
@@ -27,7 +29,8 @@ const linkTo = (l: Pick<LinkView, 'space' | 'id'>) =>
 export default function LinksPage() {
   const { notify } = useSession()
   const [params, setParams] = useSearchParams()
-  const view = params.get('view') === 'archive' ? 'archive' : 'unread'
+  const viewParam = params.get('view')
+  const view = viewParam === 'archive' || viewParam === 'highlights' ? viewParam : 'unread'
   const tag = params.get('tag') ?? ''
   const [q, setQ] = useState(params.get('q') ?? '')
   const [links, setLinks] = useState<LinkView[] | null>(null)
@@ -37,8 +40,20 @@ export default function LinksPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  const [marks, setMarks] = useState<HighlightView[] | null>(null)
+
   const load = useCallback(() => {
     const query = params.get('q') ?? ''
+    if (view === 'highlights') {
+      linksApi.highlights(query ? { q: query } : {}).then(
+        (r) => {
+          setMarks(r.highlights)
+          setFailed(false)
+        },
+        () => setFailed(true),
+      )
+      return
+    }
     linksApi.list({ view, ...(tag ? { tag } : {}), ...(query ? { q: query } : {}) }).then(
       (r) => {
         setLinks(r.links.map(withRecentPlace))
@@ -150,7 +165,7 @@ export default function LinksPage() {
 
           <div className="mt-5 mb-3 flex flex-wrap items-center gap-2">
             <div className="flex rounded-lg border border-ash-strong p-0.5" role="tablist">
-              {(['unread', 'archive'] as const).map((v) => (
+              {(['unread', 'archive', 'highlights'] as const).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -160,7 +175,7 @@ export default function LinksPage() {
                   onClick={() => set('view', v === 'unread' ? '' : v)}
                   className={`h-8 rounded-md px-3 text-sm ${view === v ? 'bg-ash text-ink' : 'text-ink-soft hover:text-ink'}`}
                 >
-                  {v === 'unread' ? 'Unread' : 'Archive'}
+                  {v === 'unread' ? 'Unread' : v === 'archive' ? 'Archive' : 'Highlights'}
                 </button>
               ))}
             </div>
@@ -175,7 +190,9 @@ export default function LinksPage() {
                 data-testid="links-search"
                 className={`${inputClass} h-9`}
                 type="search"
-                placeholder="Search saved pages"
+                placeholder={
+                  view === 'highlights' ? 'Search highlights and notes' : 'Search saved pages'
+                }
                 value={q}
                 onChange={(e) => {
                   setQ(e.target.value)
@@ -185,7 +202,7 @@ export default function LinksPage() {
               />
             </form>
           </div>
-          {tags.length > 0 ? (
+          {tags.length > 0 && view !== 'highlights' ? (
             <fieldset className="mb-4 flex flex-wrap gap-1.5">
               <legend className="sr-only">Tags</legend>
               {tags.map((t) => (
@@ -204,7 +221,9 @@ export default function LinksPage() {
           ) : null}
 
           {failed ? <LoadError things="links" onRetry={load} className="mb-4" /> : null}
-          {links === null ? (
+          {view === 'highlights' ? (
+            <HighlightList marks={marks} failed={failed} filtered={!!params.get('q')} />
+          ) : links === null ? (
             failed ? null : (
               <p className="text-sm text-ink-soft">Loading…</p>
             )
@@ -226,6 +245,55 @@ export default function LinksPage() {
         </div>
       </div>
     </>
+  )
+}
+
+function HighlightList({
+  marks,
+  failed,
+  filtered,
+}: {
+  marks: HighlightView[] | null
+  failed: boolean
+  filtered: boolean
+}) {
+  const { me } = useSession()
+  const mine = me?.principal.email.toLowerCase()
+  if (marks === null) return failed ? null : <p className="text-sm text-ink-soft">Loading…</p>
+  if (marks.length === 0) {
+    if (failed) return null
+    if (filtered) return <EmptyState icon="bookmark" title="No highlights match" />
+    return (
+      <EmptyState icon="bookmark" title="No highlights yet" testId="links-highlights-empty">
+        Open a saved page and select words to highlight them or add a note.
+      </EmptyState>
+    )
+  }
+  return (
+    <ul className="divide-y divide-ash/70" data-testid="links-highlight-list">
+      {marks.map((h) => (
+        <li
+          key={`${h.link.space}/${h.link.id}/${h.id}`}
+          className="py-4"
+          data-testid="highlight-row"
+        >
+          <Link
+            to={`${linkTo(h.link)}?highlight=${encodeURIComponent(h.id)}`}
+            className={`block border-l-2 pl-3 text-sm text-ink hover:text-ember-strong ${h.by === mine ? 'border-ember' : 'border-ash-strong'}`}
+          >
+            <span className="line-clamp-4">{h.quote}</span>
+          </Link>
+          {h.note ? (
+            <p className="mt-1 pl-3.5 text-sm whitespace-pre-wrap text-ink-soft">{h.note}</p>
+          ) : null}
+          <p className="mt-1 truncate pl-3.5 text-xs text-ink-faint">
+            {[h.link.title || h.link.site, h.by === mine ? '' : h.name, `${savedDay(h.at)}`]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -278,7 +346,13 @@ function LinkRow({
           {l.title || l.url}
         </Link>
         <p className="mt-0.5 truncate text-xs text-ink-faint">
-          {[l.site, readingTime(l.words), progress, `saved ${savedDay(l.saved)}`]
+          {[
+            l.site,
+            readingTime(l.words),
+            progress,
+            highlightLabel(l.highlightCount),
+            `saved ${savedDay(l.saved)}`,
+          ]
             .filter(Boolean)
             .join(' · ')}
           {l.space === 'team' ? ` · ${spaceLabel('team')}` : ''}

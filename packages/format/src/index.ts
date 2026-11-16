@@ -127,6 +127,24 @@ export {
   patchFrontmatter,
 } from './frontmatter.js'
 export { isId, newId } from './ids.js'
+export {
+  addHighlight,
+  findQuote,
+  HIGHLIGHT_CONTEXT,
+  HighlightError,
+  type HighlightsDocInput,
+  highlightsDoc,
+  highlightsOf,
+  highlightsSearchText,
+  inPageOrder,
+  LinkHighlight,
+  MAX_HIGHLIGHT_NOTE,
+  MAX_HIGHLIGHT_QUOTE,
+  MAX_HIGHLIGHTS,
+  type NewHighlight,
+  removeHighlight,
+  setHighlightNote,
+} from './link-highlights.js'
 export { extractLinks, type Link, rewriteLinksForMove } from './links.js'
 export {
   cleanSpeakerName,
@@ -197,24 +215,6 @@ export {
   siteOf,
   wordCount,
 } from './saved-links.js'
-export {
-  addHighlight,
-  findQuote,
-  HIGHLIGHT_CONTEXT,
-  HighlightError,
-  type HighlightsDocInput,
-  highlightsDoc,
-  highlightsOf,
-  highlightsSearchText,
-  inPageOrder,
-  LinkHighlight,
-  MAX_HIGHLIGHT_NOTE,
-  MAX_HIGHLIGHT_QUOTE,
-  MAX_HIGHLIGHTS,
-  type NewHighlight,
-  removeHighlight,
-  setHighlightNote,
-} from './link-highlights.js'
 export { DocFrontmatter, MeetingFrontmatter, SpaceConfig } from './schemas.js'
 export {
   initialSpaceFiles,

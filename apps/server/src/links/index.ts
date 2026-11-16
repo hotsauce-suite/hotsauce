@@ -16,6 +16,7 @@ export {
   linkName,
   MAX_HIGHLIGHT_LIST,
   MAX_LINK_LIST,
+  type NamedHighlight,
   parseTagAnswer,
   type SaveInput,
 } from './service.js'

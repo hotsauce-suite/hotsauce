@@ -28,6 +28,38 @@ export interface LinkView {
   status: LinkStatus
   /** Your own place in the copy; null before you open it. */
   reading: ReadingPlace | null
+  /** How many highlights it has, everyone's. */
+  highlightCount: number
+}
+
+/** A highlighted passage and its note (docs/PLAN-links-highlights.md). */
+export interface LinkHighlight {
+  id: string
+  /** Who made it, lower case email. */
+  by: string
+  at: string
+  quote: string
+  prefix?: string
+  suffix?: string
+  /** The top-level block of the copy it starts in. */
+  block?: number
+  note?: string
+  edited?: string
+  /** The maker's name. */
+  name: string
+}
+
+export interface HighlightInput {
+  quote: string
+  prefix?: string
+  suffix?: string
+  block?: number
+  note?: string
+}
+
+/** A highlight with the link it is in, for the Highlights tab. */
+export interface HighlightView extends LinkHighlight {
+  link: { space: string; id: string; title: string; site: string; url: string }
 }
 
 /** Where you are in a saved link (docs/PLAN-links-reading-position.md). */
@@ -43,6 +75,7 @@ export interface ReadingPlace {
 
 export interface LinkWithBody extends LinkView {
   body: string
+  highlights: LinkHighlight[]
 }
 
 export interface SaveLinkInput {
@@ -89,6 +122,28 @@ export const linksApi = {
   move: (space: string, id: string, toSpace: string) =>
     request<LinkView>(`${at(space, id)}/move`, { method: 'POST', json: { toSpace } }),
   remove: (space: string, id: string) => request<void>(at(space, id), { method: 'DELETE' }),
+  highlights: (q: { q?: string } = {}) =>
+    request<{ highlights: HighlightView[] }>('/api/links/highlights', {
+      query: { q: q.q?.trim() || undefined },
+    }),
+  addHighlight: (space: string, id: string, input: HighlightInput) =>
+    request<LinkHighlight>(`${at(space, id)}/highlights`, { method: 'POST', json: input }),
+  noteHighlight: (space: string, id: string, hid: string, note: string) =>
+    request<LinkHighlight>(`${at(space, id)}/highlights/${enc(hid)}`, {
+      method: 'PATCH',
+      json: { note },
+    }),
+  removeHighlight: (space: string, id: string, hid: string) =>
+    request<void>(`${at(space, id)}/highlights/${enc(hid)}`, { method: 'DELETE' }),
+  copyHighlights: (space: string, id: string) =>
+    request<{ space: string; path: string; title: string }>(`${at(space, id)}/highlights/doc`, {
+      method: 'POST',
+    }),
+}
+
+/** "3 highlights", "1 highlight", or ''. */
+export function highlightLabel(n: number): string {
+  return n > 0 ? `${n} highlight${n === 1 ? '' : 's'}` : ''
 }
 
 /**

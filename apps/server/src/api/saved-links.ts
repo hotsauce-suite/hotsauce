@@ -1,8 +1,13 @@
-import { findLinkUrl, LINK_SOURCES, MAX_LINK_URL } from '@hotsauce/format'
+import {
+  findLinkUrl,
+  LINK_SOURCES,
+  MAX_HIGHLIGHT_NOTE,
+  MAX_HIGHLIGHT_QUOTE,
+  MAX_LINK_URL,
+} from '@hotsauce/format'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
-import { MAX_HIGHLIGHT_NOTE, MAX_HIGHLIGHT_QUOTE } from '@hotsauce/format'
 import { MAX_ANCHOR, MAX_HIGHLIGHT_LIST, MAX_LINK_LIST } from '../links/index.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { sessionOnly, viaFor } from './tokens.js'

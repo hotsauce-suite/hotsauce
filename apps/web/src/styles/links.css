@@ -1,0 +1,34 @@
+/* Links highlights (docs/PLAN-links-highlights.md): drawn with the CSS Custom Highlight API, so
+   the readable copy's DOM (React's) is never split into marks. Yours bright, teammates' softer. */
+
+:root {
+  --link-hl-mine: rgb(250 214 90 / 0.6);
+  --link-hl-theirs: rgb(250 214 90 / 0.28);
+  --link-hl-active: rgb(246 170 60 / 0.65);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --link-hl-mine: rgb(200 160 40 / 0.5);
+    --link-hl-theirs: rgb(200 160 40 / 0.24);
+    --link-hl-active: rgb(230 140 40 / 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  --link-hl-mine: rgb(200 160 40 / 0.5);
+  --link-hl-theirs: rgb(200 160 40 / 0.24);
+  --link-hl-active: rgb(230 140 40 / 0.6);
+}
+
+::highlight(link-mine) {
+  background-color: var(--link-hl-mine);
+}
+
+::highlight(link-theirs) {
+  background-color: var(--link-hl-theirs);
+}
+
+::highlight(link-active) {
+  background-color: var(--link-hl-active);
+}
