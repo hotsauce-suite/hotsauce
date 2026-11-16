@@ -48,3 +48,9 @@
   committer dates, so old-dated commits on top (an import, an outside push) hide recent work.
   Walk the history and filter by author date.
 
+- **A side menu inside a scrolling page must be made to stay.** The first Settings layout put the
+  menu and the page in one scrolling grid, so the menu left with the page. Wrapping the menu and
+  the help strip in one sticky box fixes it; on phones the same box is `display: contents` and
+  `order` puts the help strip after the page, so one set of elements serves both layouts. When
+  testing it, measure the menu against the scrolling area and poll: the page's entrance and late
+  fonts move things a few pixels for the first moments.

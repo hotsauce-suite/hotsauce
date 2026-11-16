@@ -23,6 +23,35 @@ test('members don’t see the organization settings', async ({ page, request }) 
   expect(res.status()).toBe(403)
 })
 
+test('the Settings menu stays put while the page scrolls', async ({ page }) => {
+  for (const size of [
+    { width: 1280, height: 800 },
+    // An iPad held upright: the narrowest window that still has the menu beside the page.
+    { width: 820, height: 1180 },
+  ]) {
+    await page.setViewportSize(size)
+    await page.goto('/settings')
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
+    const top = async (id: string) => (await page.getByTestId(id).boundingBox())?.y
+    await page.getByRole('heading', { name: 'Weather' }).waitFor()
+    const pane = page.getByTestId('settings-scroll')
+    // How far the menu sits below the top of the scrolling area. The help strip is in the same
+    // box, so it is checked by still being on screen.
+    const below = (id: string) => async () =>
+      Math.round(((await top(id)) ?? 0) - ((await top('settings-scroll')) ?? 0))
+    // Wait out the page's entrance; the menu rests 40px down, wherever the page is scrolled to.
+    await expect.poll(below('settings-nav-general')).toBe(40)
+    await pane.evaluate((el) => el.scrollTo({ top: 300 }))
+    await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBe(300)
+    await expect.poll(below('settings-nav-general')).toBe(40)
+    await pane.evaluate((el) => el.scrollTo({ top: 700 }))
+    await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBeGreaterThan(400)
+    await expect.poll(below('settings-nav-general')).toBe(40)
+    await expect(page.getByTestId('settings-nav-general')).toBeInViewport()
+    await expect(page.getByTestId('settings-reload')).toBeInViewport()
+  }
+})
+
 test.describe('as an admin', () => {
   test.use({ signedIn: false })
 
