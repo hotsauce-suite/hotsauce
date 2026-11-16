@@ -410,7 +410,8 @@ export async function newForm(page: Page, title: string): Promise<void> {
   await page.keyboard.type(title)
   await expect(name).toHaveValue(title)
   await page.getByTestId('form-save').click()
-  await expect(page.getByTestId('form-save')).toHaveText('Saved')
+  await expect(page.getByTestId('form-status')).toHaveText('Saved')
+  await expect(page.getByTestId('form-save')).toHaveCount(0)
 }
 
 /**

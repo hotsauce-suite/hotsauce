@@ -11,7 +11,7 @@ The narrated tour video and the Clips player video are re-cut from the new scree
 site; the copy on YouTube is the old cut until Morgan uploads the new file (his to-do list).
 The three leftovers from the round 3 review are done: the list is a tab panel named by its tab
 (`ListPanel`), and tests cover dragging being off while Tasks is searched and Meetings filters
-with a search. Round 4 (the pages inside things) starts in its own thread.
+with a search. Round 4 (the page of one thing) is in progress: Morgan accepted Q1 to Q8 on Nov 16; slice 1 (the top bar) is being built.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
@@ -162,10 +162,54 @@ Voice notes and Briefcast keep their own layouts (Morgan, Q7 note).
   It empties when you change list or add a task, so nothing new is hidden.
   The "3 open" count and today's date sit under the row in small type.
 
+## Round 4: the page of one thing
+
+Morgan accepted all eight round 4 answers on Nov 16 ("yes" to Q1 to Q8). The before page:
+https://claude.ai/artifact/A9oePJA9Wedzbhb6gokgDM
+
+### Requirements (each maps to a test in `e2e/consistency.spec.ts` unless it names another)
+
+20. **The name, once, in the top bar.** The page of one thing names it after "‹ App name":
+    a form, table, board, clip, page, check-in (its question), saved link, person, company and a
+    Briefcast episode. The page under it does not repeat the name as a big heading. Docs, meeting
+    notes and saved links keep their heading in the page, where it starts what you read.
+21. **The buttons, in the top bar, in one order:** the status, Share, the thing's own buttons,
+    then **More** (⋯). Delete, Download, "Download CSV" and "Download Excel" are in More at every
+    width, never a bin icon or a word button of their own. A saved link's Done, Share and Delete
+    move up from the page.
+22. **One status** (`components/ItemStatus.tsx`): "Personal" or "Team" in small words, then the
+    doc's save chip ("Saved", "Editing", "Saving…", "Not saved") on every thing that saves:
+    boards, tables, forms. A board says "Personal", never "Private". A form's Save is a quiet
+    button that shows only while there are changes; the main red button is never a status.
+23. **Views and settings.** A form's Questions and Answers are the lists' tabs, in a row under
+    the top bar. Settings is always a pop-up from a **Settings** button in the top bar: a form's
+    (once its tab) and a check-in's (once a button in the page). *(e2e forms, checkins)*
+24. **One side panel.** "More about this thing" is a panel on the right with a heading and ×,
+    a sheet on a phone (`components/SidePanel.tsx`): a meeting's transcript, a clip's transcript
+    (open on arrival on a computer), a task.
+25. **Three widths.** Reading column (the doc's measure): doc, meeting note, saved link, form,
+    check-in, person, company. Video and panel: a clip. Full width: board, table, page. A
+    person's and a company's cards stack in one column.
+26. **Quick things stay quick.** A task keeps its side panel, a note and a file their pop-ups;
+    each has its name at the top, × at the top right, Delete in More. A note has no second
+    "Close" button. *(e2e notes, tasks, drive)*
+27. A Briefcast episode follows 20 to 22. Voice notes, the Mac app and the Chrome extension have
+    no page of one thing and are left out.
+28. The app videos, README screenshots and help pages show the new pages.
+
+### Slices
+
+1. The top bar: requirements 20 to 23 for forms, check-ins, links, tables, boards, clips, pages,
+   people.
+2. The side panel and the widths (24, 25).
+3. Task, note, file and the Briefcast episode (26, 27).
+4. Requirement 28.
+
 ## Shared files this touches
 
 Round 1: new `apps/web/src/components/LoadError.tsx` and `EmptyState.tsx`; a few lines in each
 app's list page; `components/FileTree.tsx`, `state/treeStore.ts`. `SaveState.tsx` waits for requirement 6 (after
 offline step A).
 Round 2: `components/AppShell.tsx`, `TopBar.tsx`, `Sidebar.tsx`, every app's page header.
+Round 4: new `components/ItemStatus.tsx`; the top bar of every page of one thing.
 Round 3: new `components/ListBar.tsx`; the top of every app's list page; `styles/clips.css` (the tabs).

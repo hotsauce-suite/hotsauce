@@ -4,7 +4,7 @@ import { type BoardView, boardsApi } from '../../api/boards'
 import { HotsauceApiError } from '../../api/client'
 import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
-import { Icon } from '../../components/Icon'
+import { ItemStatus } from '../../components/ItemStatus'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
@@ -13,13 +13,6 @@ import { MeetingsPageHeader } from '../meetings/components/common'
 import { BoardCanvas, type BoardCanvasHandle } from './BoardCanvas'
 import { type Peer, peerColor } from './collab'
 import type { SaveStatus } from './session'
-
-const STATUS_TEXT: Record<SaveStatus, string> = {
-  saved: 'Saved',
-  saving: 'Saving…',
-  unsaved: 'Editing',
-  error: 'Not saved',
-}
 
 /** `/boards/:space/:id`: one board, drawn in Excalidraw, saved as you go. */
 export default function BoardRoute() {
@@ -223,22 +216,38 @@ export default function BoardRoute() {
                 ) : null}
               </span>
             ) : null}
-            <span className="hidden text-xs text-ink-faint sm:inline">
-              {board.space === 'team' ? 'Team' : 'Private'}
-            </span>
-            <span
-              className={`text-xs ${status.s === 'error' ? 'text-ember' : 'text-ink-faint'}`}
-              data-testid="board-status"
-              role="status"
-              title={status.error}
-            >
-              {STATUS_TEXT[status.s]}
-            </span>
-            {compact && !confirmDelete ? (
+            <ItemStatus
+              whose={board.space === 'team' ? 'Team' : 'Personal'}
+              save={status.s}
+              error={status.error}
+              testId="board-status"
+            />
+            {compact ? null : <ShareButton testId="board-share">{shareItems}</ShareButton>}
+            {confirmDelete ? (
+              <span className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => void remove()}
+                  className="h-8 rounded-md bg-ember px-2 text-sm text-paper-raised"
+                  data-testid="board-delete-confirm"
+                  // biome-ignore lint/a11y/noAutofocus: chosen from More, which closes as this appears
+                  autoFocus
+                >
+                  Delete board
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="h-8 rounded-md px-2 text-sm text-ink-soft hover:text-ink"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
               <MoreMenu>
                 {(close) => (
                   <>
-                    {shareItems(close)}
+                    {compact ? shareItems(close) : null}
                     <MenuItem
                       icon="trash"
                       danger
@@ -253,36 +262,6 @@ export default function BoardRoute() {
                   </>
                 )}
               </MoreMenu>
-            ) : null}
-            {compact ? null : <ShareButton testId="board-share">{shareItems}</ShareButton>}
-            {confirmDelete ? (
-              <span className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => void remove()}
-                  className="h-8 rounded-md bg-ember px-2 text-sm text-paper-raised"
-                  data-testid="board-delete-confirm"
-                >
-                  Delete board
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  className="h-8 rounded-md px-2 text-sm text-ink-soft hover:text-ink"
-                >
-                  Cancel
-                </button>
-              </span>
-            ) : compact ? null : (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                aria-label="Delete board"
-                className="inline-flex size-8 items-center justify-center rounded-md text-ink-soft hover:bg-paper-sunk hover:text-ember"
-                data-testid="board-delete"
-              >
-                <Icon name="trash" className="size-4" />
-              </button>
             )}
           </>
         ) : null}

@@ -271,7 +271,7 @@ test.describe('a phone’s top bar', () => {
     })
   }
 
-  test('a form: Save keeps its words, Copy link and Open are behind More', async ({
+  test('a form: its status shows, Copy link, Open and Settings are behind More', async ({
     page,
     user,
   }) => {
@@ -279,8 +279,10 @@ test.describe('a phone’s top bar', () => {
     await page.goto('/forms')
     await newForm(page, `Phone ${uid()}`)
     expect(await strays(page)).toEqual([])
-    await expect(page.getByTestId('form-save')).toHaveText(/Save/)
+    await expect(page.getByTestId('form-status')).toHaveText('Saved')
     await page.getByTestId('page-more').click()
+    await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Delete form' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Copy link' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Open the form' })).toHaveAttribute(
       'href',
@@ -801,5 +803,133 @@ test.describe('the row above a list', () => {
         page.getByTestId('list-bar').getByRole('navigation', { name: 'Folder' }),
       ).toBeVisible()
     })
+  })
+})
+
+// Round 4, requirements 20 to 23: the page of one thing names it once, in the top bar; its
+// buttons sit there in one order (status, Share, its own, More); Delete and downloads are in
+// More; one status ("Personal"/"Team" and the save chip); Settings is a pop-up.
+
+/** The buttons in the top bar, by their words, left to right. */
+async function headerButtons(page: Page): Promise<string[]> {
+  return page
+    .getByTestId('page-header')
+    .locator('button:visible, a:visible')
+    .evaluateAll((els) =>
+      els
+        .filter((el) => el.getAttribute('data-testid') !== 'page-back')
+        .map((el) => (el.getAttribute('aria-label') || el.textContent || '').trim()),
+    )
+}
+
+/** No Delete, Download, CSV or Excel button outside More. */
+async function expectNothingLoose(page: Page) {
+  const words = await headerButtons(page)
+  expect(words.filter((w) => /^(Delete|Download|CSV|Excel)\b/.test(w))).toEqual([])
+  await expect(page.locator('main button:visible', { hasText: /^Delete/ })).toHaveCount(0)
+}
+
+/** The top bar's controls sit left to right in this order, each one present. */
+async function expectOrder(page: Page, testIds: string[]) {
+  const bar = page.getByTestId('page-header')
+  const xs: number[] = []
+  for (const id of testIds) {
+    const box = await bar.getByTestId(id).first().boundingBox()
+    expect(box, `${id} is in the top bar`).not.toBeNull()
+    xs.push(box?.x ?? 0)
+  }
+  expect(xs).toEqual([...xs].sort((a, b) => a - b))
+}
+
+test.describe('the page of one thing', () => {
+  test('a board: its name and status in the top bar, Delete in More', async ({ page }) => {
+    await page.goto('/boards')
+    await page.locator('[data-main-button]').click()
+    await expect(page).toHaveURL(/\/boards\/[^/]+\/.+/)
+    const bar = page.getByTestId('page-header')
+    await expect(bar.getByTestId('board-title')).toBeVisible()
+    await expect(bar.getByTestId('item-whose')).toHaveText(/^(Personal|Team)$/)
+    await expect(bar.getByTestId('board-status')).toHaveText('Saved', { timeout: 8_000 })
+    await expectNothingLoose(page)
+    await expectOrder(page, ['item-status', 'board-share', 'page-more'])
+    await page.getByTestId('page-more').click()
+    await expect(page.getByRole('menuitem', { name: 'Delete board' })).toBeVisible()
+  })
+
+  test('a table: status first, downloads and Delete in More', async ({ page }) => {
+    await page.goto('/tables')
+    await page.getByTestId('new-table').click()
+    await page.getByTestId('new-table-in-team').click()
+    const bar = page.getByTestId('page-header')
+    await expect(bar.getByTestId('table-title')).toHaveValue('Untitled table')
+    await expect(bar.getByTestId('item-whose')).toHaveText('Team')
+    await expect(bar.getByTestId('save-status')).toHaveText('Saved', { timeout: 10_000 })
+    await expectOrder(page, ['item-status', 'page-more'])
+    await expectNothingLoose(page)
+    await page.getByTestId('page-more').click()
+    for (const name of ['Download CSV', 'Download Excel', 'Delete table'])
+      await expect(page.getByRole('menuitem', { name })).toBeVisible()
+  })
+
+  test('a form: named once, the lists’ tabs, Settings as a pop-up, Delete in More', async ({
+    page,
+  }) => {
+    await page.goto('/forms')
+    const title = `One thing ${uid()}`
+    await newForm(page, title)
+    const bar = page.getByTestId('page-header')
+    await expect(bar.getByTestId('form-title')).toHaveValue(title)
+    // The name isn't repeated in the page under the top bar.
+    await expect(page.locator('main input[aria-label="Form title"]')).toHaveCount(1)
+    await expect(bar.getByTestId('item-whose')).toHaveText('Team')
+    await expectOrder(page, [
+      'item-status',
+      'form-share',
+      'form-open-link',
+      'form-settings',
+      'page-more',
+    ])
+    await expect(page.getByRole('tabpanel')).toBeVisible()
+    await expect(page.getByTestId('list-tabs').getByRole('tab')).toHaveText([
+      'Questions',
+      /^Answers/,
+    ])
+    await expectNothingLoose(page)
+    // A change shows in the status and brings a quiet Save; the red button is never a status.
+    await page.getByTestId('form-description').fill('What we learned')
+    await expect(bar.getByTestId('form-status')).toHaveText('Unsaved changes')
+    await expect(bar.locator('[data-main-button]')).toHaveCount(0)
+    await bar.getByTestId('form-save').click()
+    await expect(bar.getByTestId('form-status')).toHaveText('Saved')
+    await bar.getByTestId('form-settings').click()
+    const dialog = page.getByTestId('form-settings-dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByTestId('form-access-team')).toBeVisible()
+    await page.getByTestId('dialog-x').click()
+    await expect(dialog).toHaveCount(0)
+    await page.getByTestId('page-more').click()
+    await expect(page.getByRole('menuitem', { name: 'Delete form' })).toBeVisible()
+  })
+
+  test('a saved link: its name, Done and Share in the top bar, Delete in More', async ({
+    page,
+    user,
+  }) => {
+    const url = `https://journal.test/${uid()}/one-thing`
+    const res = await page.request.post('/api/links', {
+      data: { url },
+      headers: { 'x-hearth-dev-user': user.email },
+    })
+    expect(res.status()).toBe(201)
+    const { id, space } = (await res.json()) as { id: string; space: string }
+    await page.goto(`/links/${encodeURIComponent(space)}/${encodeURIComponent(id)}`)
+    const bar = page.getByTestId('page-header')
+    await expect(bar.getByTestId('link-share')).toBeVisible()
+    await expect(bar.getByTestId('link-reader-done')).toBeVisible()
+    await expect(bar.locator('h1')).not.toBeEmpty()
+    await expectOrder(page, ['link-share', 'link-reader-done', 'page-more'])
+    await expectNothingLoose(page)
+    await page.getByTestId('page-more').click()
+    await expect(page.getByRole('menuitem', { name: 'Delete link' })).toBeVisible()
   })
 })

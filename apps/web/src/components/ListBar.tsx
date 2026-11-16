@@ -166,6 +166,12 @@ export function ListColumn({
   )
 }
 
+/** Ties a row's tabs to their panel where the page isn't a `ListColumn` (a form's tabs). */
+export function ListScope({ children }: { children: ReactNode }) {
+  const ids = useId()
+  return <ListIds.Provider value={ids}>{children}</ListIds.Provider>
+}
+
 /**
  * What the chosen tab shows: everything under the row, named for a screen reader by its tab.
  * `tab` is null when the list on screen belongs to none of them (a Tasks project).

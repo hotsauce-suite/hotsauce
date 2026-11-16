@@ -12,8 +12,10 @@ import {
   webUrl,
 } from '../../api/links'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { MenuItem } from '../../components/Menu'
+import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
@@ -61,6 +63,7 @@ export default function LinkReader() {
   const scroller = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const pdfInput = useRef<HTMLInputElement>(null)
+  const { compact } = useShell()
 
   const load = useCallback(() => {
     linksApi.get(space, id).then(
@@ -188,7 +191,13 @@ export default function LinkReader() {
     <button
       type="button"
       data-testid={testId}
-      className={link.archived ? secondaryButton : primaryButton}
+      className={
+        testId === 'link-reader-done'
+          ? `${secondaryButton} h-8 px-3`
+          : link.archived
+            ? secondaryButton
+            : primaryButton
+      }
       disabled={busy}
       onClick={() =>
         act(
@@ -206,9 +215,180 @@ export default function LinkReader() {
     </button>
   )
 
+  const headerButton = `${secondaryButton} h-8 px-3`
+  const pdfFile = link.file
+    ? `/files/${encodeURIComponent(link.space)}/${encodeURIComponent(link.file)}`
+    : null
+  const canAddPdf = !link.file && Boolean(link.paper) && link.status === 'ready'
+  const addPdfHint = `${linkKindLabel(link)} only gives its PDF to a browser: download it there, then add it here`
+
+  const shareItems = (close: () => void) => (
+    <>
+      <MenuItem
+        icon="link"
+        testId="link-copy-link"
+        onSelect={() => {
+          close()
+          void copyLink()
+        }}
+      >
+        Copy link
+      </MenuItem>
+      {link.url ? (
+        <MenuItem
+          icon="copy"
+          testId="link-copy-address"
+          onSelect={() => {
+            close()
+            void copyAddress()
+          }}
+        >
+          Copy the page’s web address
+        </MenuItem>
+      ) : null}
+      {link.space !== 'team' ? (
+        <MenuItem
+          icon="share"
+          testId="link-share-team"
+          onSelect={() => {
+            close()
+            void act(
+              async () => {
+                const moved = await linksApi.move(link.space, link.id, 'team')
+                navigate(`/links/team/${encodeURIComponent(moved.id)}`, {
+                  replace: true,
+                })
+              },
+              `Shared with ${spaceLabel('team')}`,
+            )
+          }}
+        >
+          {myHighlights > 0
+            ? `Share with team (with your ${highlightLabel(myHighlights)})`
+            : 'Share with team'}
+        </MenuItem>
+      ) : mine && personal ? (
+        <MenuItem
+          icon="close"
+          testId="link-make-private"
+          onSelect={() => {
+            close()
+            void act(async () => {
+              const moved = await linksApi.move(link.space, link.id, personal)
+              navigate(`/links/${encodeURIComponent(personal)}/${encodeURIComponent(moved.id)}`, {
+                replace: true,
+              })
+            }, 'Only you can see it now')
+          }}
+        >
+          Make private
+        </MenuItem>
+      ) : null}
+    </>
+  )
+
   return (
     <>
-      <MeetingsPageHeader back={{ to: '/links', label: 'Links' }} menu={false} />
+      <MeetingsPageHeader
+        back={{ to: '/links', label: 'Links' }}
+        menu={false}
+        title={link.title || link.url || 'Untitled PDF'}
+      >
+        <input
+          ref={pdfInput}
+          type="file"
+          accept="application/pdf,.pdf"
+          hidden
+          data-testid="link-pdf-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (!file) return
+            const problem = pdfProblem(file)
+            if (problem) {
+              notify(problem)
+              return
+            }
+            void act(async () => {
+              await attachPdf(file, link)
+              load()
+            }, 'PDF added')
+          }}
+        />
+        {compact ? null : (
+          <ShareButton testId="link-share" className={headerButton} disabled={busy}>
+            {shareItems}
+          </ShareButton>
+        )}
+        {doneButton('link-reader-done')}
+        {compact ? null : pdfFile ? (
+          <Link to={pdfFile} className={headerButton} data-testid="link-open-pdf">
+            <Icon name="file" />
+            Open PDF
+          </Link>
+        ) : canAddPdf ? (
+          <button
+            type="button"
+            className={headerButton}
+            data-testid="link-add-pdf"
+            disabled={busy}
+            title={addPdfHint}
+            onClick={() => pdfInput.current?.click()}
+          >
+            <Icon name="upload" />
+            Add the PDF
+          </button>
+        ) : null}
+        <MoreMenu>
+          {(close) => (
+            <>
+              {compact ? (
+                <>
+                  {shareItems(close)}
+                  {pdfFile ? (
+                    <MenuItem
+                      icon="file"
+                      testId="link-open-pdf"
+                      onSelect={() => {
+                        close()
+                        navigate(pdfFile)
+                      }}
+                    >
+                      Open PDF
+                    </MenuItem>
+                  ) : canAddPdf ? (
+                    <MenuItem
+                      icon="upload"
+                      testId="link-add-pdf"
+                      onSelect={() => {
+                        close()
+                        pdfInput.current?.click()
+                      }}
+                    >
+                      Add the PDF
+                    </MenuItem>
+                  ) : null}
+                </>
+              ) : null}
+              <MenuItem
+                icon="trash"
+                danger
+                testId="link-delete"
+                onSelect={() => {
+                  close()
+                  if (busy || !window.confirm('Delete this saved link?')) return
+                  void act(async () => {
+                    await linksApi.remove(link.space, link.id)
+                    navigate('/links')
+                  }, 'Deleted')
+                }}
+              >
+                Delete link
+              </MenuItem>
+            </>
+          )}
+        </MoreMenu>
+      </MeetingsPageHeader>
       {resumed ? (
         <p
           className="mx-auto mt-2 flex w-full max-w-2xl flex-wrap items-center gap-x-2 rounded-lg bg-ash/50 px-4 py-2 text-sm text-ink-soft md:px-8"
@@ -294,137 +474,6 @@ export default function LinkReader() {
               </>
             ) : null}
           </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {doneButton('link-reader-done')}
-            {link.file ? (
-              <Link
-                to={`/files/${encodeURIComponent(link.space)}/${encodeURIComponent(link.file)}`}
-                className={secondaryButton}
-                data-testid="link-open-pdf"
-              >
-                <Icon name="file" />
-                Open PDF
-              </Link>
-            ) : link.paper && link.status === 'ready' ? (
-              <>
-                <button
-                  type="button"
-                  className={secondaryButton}
-                  data-testid="link-add-pdf"
-                  disabled={busy}
-                  title={`${linkKindLabel(link)} only gives its PDF to a browser: download it there, then add it here`}
-                  onClick={() => pdfInput.current?.click()}
-                >
-                  <Icon name="upload" />
-                  Add the PDF
-                </button>
-                <input
-                  ref={pdfInput}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  hidden
-                  data-testid="link-pdf-input"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    e.target.value = ''
-                    if (!file) return
-                    const problem = pdfProblem(file)
-                    if (problem) {
-                      notify(problem)
-                      return
-                    }
-                    void act(async () => {
-                      await attachPdf(file, link)
-                      load()
-                    }, 'PDF added')
-                  }}
-                />
-              </>
-            ) : null}
-            <ShareButton testId="link-share" className={secondaryButton} disabled={busy}>
-              {(close) => (
-                <>
-                  <MenuItem
-                    icon="link"
-                    testId="link-copy-link"
-                    onSelect={() => {
-                      close()
-                      void copyLink()
-                    }}
-                  >
-                    Copy link
-                  </MenuItem>
-                  {link.url ? (
-                    <MenuItem
-                      icon="copy"
-                      testId="link-copy-address"
-                      onSelect={() => {
-                        close()
-                        void copyAddress()
-                      }}
-                    >
-                      Copy the page’s web address
-                    </MenuItem>
-                  ) : null}
-                  {link.space !== 'team' ? (
-                    <MenuItem
-                      icon="share"
-                      testId="link-share-team"
-                      onSelect={() => {
-                        close()
-                        void act(
-                          async () => {
-                            const moved = await linksApi.move(link.space, link.id, 'team')
-                            navigate(`/links/team/${encodeURIComponent(moved.id)}`, {
-                              replace: true,
-                            })
-                          },
-                          `Shared with ${spaceLabel('team')}`,
-                        )
-                      }}
-                    >
-                      {myHighlights > 0
-                        ? `Share with team (with your ${highlightLabel(myHighlights)})`
-                        : 'Share with team'}
-                    </MenuItem>
-                  ) : mine && personal ? (
-                    <MenuItem
-                      icon="close"
-                      testId="link-make-private"
-                      onSelect={() => {
-                        close()
-                        void act(async () => {
-                          const moved = await linksApi.move(link.space, link.id, personal)
-                          navigate(
-                            `/links/${encodeURIComponent(personal)}/${encodeURIComponent(moved.id)}`,
-                            { replace: true },
-                          )
-                        }, 'Only you can see it now')
-                      }}
-                    >
-                      Make private
-                    </MenuItem>
-                  ) : null}
-                </>
-              )}
-            </ShareButton>
-            <button
-              type="button"
-              data-testid="link-delete"
-              className={secondaryButton}
-              disabled={busy}
-              onClick={() => {
-                if (!window.confirm('Delete this saved link?')) return
-                void act(async () => {
-                  await linksApi.remove(link.space, link.id)
-                  navigate('/links')
-                }, 'Deleted')
-              }}
-            >
-              Delete
-            </button>
-          </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-1.5">
             {editingTags ? (

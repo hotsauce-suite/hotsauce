@@ -7,13 +7,15 @@ import {
   questionsProblem,
 } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { HotsauceApiError } from '../../api/client'
 import { type ChatRoom, type FormInput, type FormView, formsApi } from '../../api/forms'
 import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { ItemStatus } from '../../components/ItemStatus'
+import { ListBar, ListPanel, ListScope } from '../../components/ListBar'
 import { MenuItem, menuItemClass } from '../../components/Menu'
 import { MoreMenu, useNameWhenFresh } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
@@ -69,6 +71,7 @@ export default function FormEditor() {
   const [error, setError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [rooms, setRooms] = useState<ChatRoom[]>([])
+  const [deleting, setDeleting] = useState(false)
   const draftRef = useRef(draft)
   draftRef.current = draft
 
@@ -110,12 +113,16 @@ export default function FormEditor() {
     setError(null)
   }
 
-  const save = useCallback(async () => {
-    if (!draft || saving || !dirty) return
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!draft || saving) return false
+    if (!dirty) return true
     const problem = draft.title.trim()
       ? questionsProblem(draft.questions)
       : 'The form needs a title'
-    if (problem) return setError(problem)
+    if (problem) {
+      setError(problem)
+      return false
+    }
     const sent = draft
     setSaving(true)
     try {
@@ -126,6 +133,7 @@ export default function FormEditor() {
       setDraft((d) => (d ? { ...d, blobOid: saved.blobOid } : d))
       if (still) setDirty(false)
       setError(null)
+      return true
     } catch (e) {
       setError(
         e instanceof HotsauceApiError && e.status === 409
@@ -134,6 +142,7 @@ export default function FormEditor() {
             ? e.message
             : 'Couldn’t save',
       )
+      return false
     } finally {
       setSaving(false)
     }
@@ -207,9 +216,46 @@ export default function FormEditor() {
     </MenuItem>
   )
 
+  const settingsOpen = tab === 'settings'
+  const openTab: 'questions' | 'answers' = tab === 'answers' ? 'answers' : 'questions'
+  const status = saving ? 'saving' : dirty ? 'unsaved' : 'saved'
+
   return (
     <>
-      <MeetingsPageHeader back={{ to: '/forms', label: 'Forms' }} title={form.title} menu={false}>
+      <MeetingsPageHeader
+        back={{ to: '/forms', label: 'Forms' }}
+        menu={false}
+        title={
+          <input
+            aria-label="Form title"
+            data-testid="form-title"
+            className="w-full max-w-md rounded-md border border-transparent bg-transparent px-1 font-display text-lg font-semibold tracking-tight text-ink hover:border-ash focus:border-ember focus:outline-none"
+            value={draft.title}
+            maxLength={200}
+            onChange={(e) => change({ title: e.target.value })}
+          />
+        }
+      >
+        <ItemStatus
+          whose={spaceLabel(space)}
+          save={status}
+          words={status === 'unsaved' ? 'Unsaved changes' : undefined}
+          title={
+            status === 'unsaved' ? 'Press Save, or Ctrl or ⌘ S, to keep your changes.' : undefined
+          }
+          testId="form-status"
+        />
+        {dirty || saving ? (
+          <button
+            type="button"
+            className={`${secondaryButton} h-8 px-3`}
+            disabled={saving}
+            onClick={() => void save()}
+            data-testid="form-save"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        ) : null}
         {compact ? null : (
           <>
             <ShareButton testId="form-share">{shareItems}</ShareButton>
@@ -223,95 +269,133 @@ export default function FormEditor() {
               <Icon name="external" />
               Open
             </a>
+            <Link
+              to={`${base}/settings`}
+              replace
+              className={`${secondaryButton} h-8 px-3`}
+              data-testid="form-settings"
+            >
+              <Icon name="gear" />
+              Settings
+            </Link>
           </>
         )}
-        {compact ? (
-          <MoreMenu>
-            {(close) => (
-              <>
-                {shareItems(close)}
-                <a
-                  role="menuitem"
-                  href={form.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid="form-open-link"
-                  onClick={close}
-                  className={menuItemClass}
-                >
-                  <Icon name="external" className="size-4 text-ink-faint" />
-                  Open the form
-                </a>
-              </>
-            )}
-          </MoreMenu>
-        ) : null}
-        {tab === 'answers' ? null : (
-          <button
-            type="button"
-            className={`${primaryButton} h-8 px-3`}
-            disabled={!dirty || saving}
-            onClick={() => void save()}
-            data-testid="form-save"
-            data-main-button=""
-          >
-            {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
-          </button>
-        )}
+        <MoreMenu>
+          {(close) => (
+            <>
+              {compact ? (
+                <>
+                  {shareItems(close)}
+                  <a
+                    role="menuitem"
+                    href={form.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="form-open-link"
+                    onClick={close}
+                    className={menuItemClass}
+                  >
+                    <Icon name="external" className="size-4 text-ink-faint" />
+                    Open the form
+                  </a>
+                  <MenuItem
+                    icon="gear"
+                    testId="form-settings"
+                    onSelect={() => {
+                      close()
+                      navigate(`${base}/settings`, { replace: true })
+                    }}
+                  >
+                    Settings
+                  </MenuItem>
+                </>
+              ) : null}
+              <MenuItem
+                icon="trash"
+                danger
+                testId="form-delete"
+                onSelect={() => {
+                  close()
+                  setDeleting(true)
+                }}
+              >
+                Delete form
+              </MenuItem>
+            </>
+          )}
+        </MoreMenu>
       </MeetingsPageHeader>
-      <nav className="flex shrink-0 gap-1 border-b border-ash/70 px-2 md:px-6" aria-label="Form">
-        {(
-          [
-            ['questions', 'Questions', base],
-            ['answers', `Answers (${form.answerCount})`, `${base}/answers`],
-            ['settings', 'Settings', `${base}/settings`],
-          ] as const
-        ).map(([key, label, to]) => (
-          <NavLink
-            key={key}
-            to={to}
-            end
-            data-testid={`form-tab-${key}`}
-            className={`-mb-px border-b-2 px-3 py-2.5 text-sm ${
-              tab === key
-                ? 'border-ember font-medium text-ink'
-                : 'border-transparent text-ink-soft hover:text-ink'
-            }`}
-          >
-            {label}
-          </NavLink>
-        ))}
-      </nav>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {error ? (
-          <div className="mx-auto max-w-3xl px-4 pt-4 md:px-8">
-            <p
-              role="alert"
-              className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink"
-              data-testid="form-save-error"
-            >
-              {error}
-            </p>
+        <ListScope>
+          <div className="mx-auto w-full max-w-3xl px-4 pt-5 md:px-8">
+            <ListBar
+              className=""
+              tabsLabel="Form"
+              tab={openTab}
+              tabs={[
+                { id: 'questions', label: 'Questions', to: base, testId: 'form-tab-questions' },
+                {
+                  id: 'answers',
+                  label: `Answers (${form.answerCount})`,
+                  to: `${base}/answers`,
+                  testId: 'form-tab-answers',
+                },
+              ]}
+            />
+            {error ? (
+              <p
+                role="alert"
+                className="mt-4 rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink"
+                data-testid="form-save-error"
+              >
+                {error}
+              </p>
+            ) : null}
           </div>
-        ) : null}
-        {tab === 'answers' ? (
-          <FormAnswers
-            form={form}
-            onCount={(n) => setForm((f) => (f ? { ...f, answerCount: n } : f))}
-          />
-        ) : tab === 'settings' ? (
-          <Settings
-            form={form}
-            draft={draft}
-            rooms={rooms}
-            spaceLabel={spaceLabel(space)}
-            onChange={change}
-            onDeleted={() => navigate('/forms')}
-          />
-        ) : (
-          <Builder draft={draft} onChange={change} />
-        )}
+          <ListPanel tab={openTab}>
+            {openTab === 'answers' ? (
+              <FormAnswers
+                form={form}
+                onCount={(n) => setForm((f) => (f ? { ...f, answerCount: n } : f))}
+              />
+            ) : (
+              <Builder draft={draft} onChange={change} />
+            )}
+          </ListPanel>
+        </ListScope>
       </div>
+      {settingsOpen ? (
+        <Dialog
+          title="Form settings"
+          onClose={() => navigate(base, { replace: true })}
+          testId="form-settings-dialog"
+        >
+          <Settings draft={draft} rooms={rooms} spaceLabel={spaceLabel(space)} onChange={change} />
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              className={primaryButton}
+              data-testid="form-settings-done"
+              disabled={saving}
+              onClick={() => {
+                // Closes once saved; a refused save keeps the pop-up open with its reason.
+                void save().then((saved) => {
+                  if (saved) navigate(base, { replace: true })
+                })
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
+      {deleting ? (
+        <DeleteForm
+          form={form}
+          onClose={() => setDeleting(false)}
+          onDeleted={() => navigate('/forms')}
+        />
+      ) : null}
     </>
   )
 }
@@ -375,16 +459,8 @@ function Builder({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
+    <div className="mx-auto w-full max-w-3xl px-4 pt-4 pb-24 md:px-8">
       <div className="flex flex-col gap-3 rounded-xl border border-ash bg-paper-raised p-4">
-        <input
-          aria-label="Form title"
-          className="w-full bg-transparent font-display text-2xl font-semibold text-ink focus:outline-none"
-          value={draft.title}
-          maxLength={200}
-          data-testid="form-title"
-          onChange={(e) => onChange({ title: e.target.value })}
-        />
         <textarea
           aria-label="Description"
           placeholder="What this form is for (shown at the top)"
@@ -689,27 +765,21 @@ function CardButton({
 }
 
 function Settings({
-  form,
   draft,
   rooms,
   spaceLabel,
   onChange,
-  onDeleted,
 }: {
-  form: FormView
   draft: FormInput
   rooms: ChatRoom[]
   spaceLabel: string
   onChange: (p: Partial<FormInput>) => void
-  onDeleted: () => void
 }) {
-  const [confirming, setConfirming] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const roomGone = draft.room !== null && !rooms.some((r) => r.id === draft.room)
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 pt-6 pb-24 md:px-8">
+    <div className="flex flex-col gap-6">
       <section>
-        <h2 className="font-display text-lg font-semibold text-ink">Who can answer</h2>
+        <h3 className="font-display text-base font-semibold text-ink">Who can answer</h3>
         <div className="mt-3 flex flex-col gap-2">
           {(
             [
@@ -745,7 +815,7 @@ function Settings({
         </p>
       </section>
       <section>
-        <h2 className="font-display text-lg font-semibold text-ink">Taking answers</h2>
+        <h3 className="font-display text-base font-semibold text-ink">Taking answers</h3>
         <label className="mt-3 flex items-center gap-2 text-ink">
           <input
             type="checkbox"
@@ -761,7 +831,7 @@ function Settings({
         </p>
       </section>
       <section>
-        <h2 className="font-display text-lg font-semibold text-ink">Post new answers to chat</h2>
+        <h3 className="font-display text-base font-semibold text-ink">Post new answers to chat</h3>
         {rooms.length === 0 && !draft.room ? (
           <p className="mt-2 text-sm text-ink-faint" data-testid="form-no-rooms">
             No chat rooms yet. An admin adds them in{' '}
@@ -788,49 +858,47 @@ function Settings({
           </select>
         )}
       </section>
-      <section className="border-t border-ash/70 pt-6">
+    </div>
+  )
+}
+
+/** "Delete form" in the top bar's More: asks first, then the form goes to the space's trash. */
+function DeleteForm({
+  form,
+  onClose,
+  onDeleted,
+}: {
+  form: FormView
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <Dialog title="Delete this form?" onClose={onClose} testId="form-delete-dialog">
+      <p className="text-sm text-ink-soft">
+        “{form.title}” and its {form.answerCount} {form.answerCount === 1 ? 'answer' : 'answers'}{' '}
+        move to the space’s trash, and the link stops working.
+      </p>
+      {error ? <p className="mt-2 text-sm text-ember-strong">{error}</p> : null}
+      <div className="mt-4 flex justify-end gap-2">
+        <button type="button" className={secondaryButton} onClick={onClose}>
+          Cancel
+        </button>
         <button
           type="button"
-          className={`${secondaryButton} text-ember-strong`}
-          data-testid="form-delete"
-          onClick={() => setConfirming(true)}
+          className={primaryButton}
+          data-testid="form-delete-confirm"
+          onClick={() =>
+            formsApi
+              .remove(form.space, form.id)
+              .then(onDeleted, (e: unknown) =>
+                setError(e instanceof Error ? e.message : 'Couldn’t delete'),
+              )
+          }
         >
-          <Icon name="trash" />
-          Delete form
+          Delete
         </button>
-        {error ? <p className="mt-2 text-sm text-ember-strong">{error}</p> : null}
-      </section>
-      {confirming ? (
-        <Dialog
-          title="Delete this form?"
-          onClose={() => setConfirming(false)}
-          testId="form-delete-dialog"
-        >
-          <p className="text-sm text-ink-soft">
-            “{form.title}” and its {form.answerCount}{' '}
-            {form.answerCount === 1 ? 'answer' : 'answers'} move to the space’s trash, and the link
-            stops working.
-          </p>
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" className={secondaryButton} onClick={() => setConfirming(false)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={primaryButton}
-              data-testid="form-delete-confirm"
-              onClick={() =>
-                formsApi.remove(form.space, form.id).then(onDeleted, (e: unknown) => {
-                  setConfirming(false)
-                  setError(e instanceof Error ? e.message : 'Couldn’t delete')
-                })
-              }
-            >
-              Delete
-            </button>
-          </div>
-        </Dialog>
-      ) : null}
-    </div>
+      </div>
+    </Dialog>
   )
 }

@@ -303,11 +303,8 @@ export function PersonPage() {
       ) : (
         <div className="flex flex-col gap-5" data-testid="person-page">
           <div className="flex items-center gap-4">
-            <Avatar person={person} size="size-14 text-base" />
+            <Avatar person={person} size="size-10 text-sm" />
             <div className="min-w-0">
-              <p className="truncate font-display text-xl font-semibold text-ink">
-                {displayName(person)}
-              </p>
               <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-soft">
                 <a href={`mailto:${person.email}`} className="truncate hover:underline">
                   {person.email}

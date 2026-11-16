@@ -9,9 +9,12 @@ import {
 import { HotsauceApiError } from '../../api/client'
 import { hotsauceSocket } from '../../api/ws'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
 import { DictateButton } from '../../components/DictateButton'
 import { Icon } from '../../components/Icon'
+import { MenuItem } from '../../components/Menu'
+import { MoreMenu } from '../../components/PageHeader'
 import { inputClass } from '../../routes/org/fields'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { CheckinForm } from './CheckinForm'
@@ -29,6 +32,7 @@ export default function CheckinPage() {
   const [error, setError] = useState<string | null>(null)
   const [settings, setSettings] = useState(false)
   const [busy, setBusy] = useState(false)
+  const { compact } = useShell()
 
   const asked = useRef(0)
   const load = useCallback(async () => {
@@ -96,8 +100,53 @@ export default function CheckinPage() {
       <MeetingsPageHeader
         back={{ to: '/checkins', label: 'Check-ins' }}
         menu={false}
-        {...(view ? {} : { title: 'Check-in' })}
-      />
+        title={view ? <span data-testid="checkin-title">{view.title}</span> : 'Check-in'}
+      >
+        {view?.canManage ? (
+          <>
+            {compact ? null : (
+              <button
+                type="button"
+                className={`${secondaryButton} h-8 px-3`}
+                data-testid="checkin-settings"
+                onClick={() => setSettings(true)}
+              >
+                <Icon name="gear" />
+                Settings
+              </button>
+            )}
+            <MoreMenu>
+              {(close) => (
+                <>
+                  {compact ? (
+                    <MenuItem
+                      icon="gear"
+                      testId="checkin-settings"
+                      onSelect={() => {
+                        close()
+                        setSettings(true)
+                      }}
+                    >
+                      Settings
+                    </MenuItem>
+                  ) : null}
+                  <MenuItem
+                    icon="trash"
+                    danger
+                    testId="checkin-delete"
+                    onSelect={() => {
+                      close()
+                      void remove()
+                    }}
+                  >
+                    Delete check-in
+                  </MenuItem>
+                </>
+              )}
+            </MoreMenu>
+          </>
+        ) : null}
+      </MeetingsPageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8">
           {error ? (
@@ -107,29 +156,11 @@ export default function CheckinPage() {
           ) : null}
           {view ? (
             <>
-              <div className="mb-6 flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <h1 className="font-display text-2xl text-ink" data-testid="checkin-title">
-                    {view.title}
-                  </h1>
-                  <p className="mt-1 text-sm text-ink-soft">
-                    {view.schedule}, in each person’s time zone
-                    {view.paused ? ' · Paused' : ''} · asks {view.asked.length}{' '}
-                    {view.asked.length === 1 ? 'person' : 'people'}
-                  </p>
-                </div>
-                {view.canManage ? (
-                  <button
-                    type="button"
-                    className={secondaryButton}
-                    data-testid="checkin-settings"
-                    onClick={() => setSettings(true)}
-                  >
-                    <Icon name="gear" />
-                    Settings
-                  </button>
-                ) : null}
-              </div>
+              <p className="mb-6 text-sm text-ink-soft" data-testid="checkin-schedule">
+                {view.schedule}, in each person’s time zone
+                {view.paused ? ' · Paused' : ''} · asks {view.asked.length}{' '}
+                {view.asked.length === 1 ? 'person' : 'people'}
+              </p>
               {current && !view.paused ? (
                 <AnswerBox
                   key={`${current.date}-${mine?.id ?? 'new'}`}
@@ -208,17 +239,6 @@ export default function CheckinPage() {
             busy={busy}
             onSubmit={(input) => void save(input)}
             onCancel={() => setSettings(false)}
-            extra={
-              <button
-                type="button"
-                className="ml-auto inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink"
-                data-testid="checkin-delete"
-                onClick={() => void remove()}
-              >
-                <Icon name="trash" className="size-3.5" />
-                Delete
-              </button>
-            }
           />
         </Dialog>
       ) : null}

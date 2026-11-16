@@ -13,7 +13,6 @@ export function CheckinForm({
   busy,
   onSubmit,
   onCancel,
-  extra,
 }: {
   initial: CheckinInput
   /** Everyone a saved check-in could ask; absent while creating. */
@@ -22,7 +21,6 @@ export function CheckinForm({
   busy: boolean
   onSubmit: (input: CheckinInput) => void
   onCancel: () => void
-  extra?: React.ReactNode
 }) {
   const [input, setInput] = useState<CheckinInput>(initial)
   const [rooms, setRooms] = useState<ChatRoom[]>([])
@@ -167,7 +165,6 @@ export function CheckinForm({
         <button type="button" className={secondaryButton} onClick={onCancel}>
           Cancel
         </button>
-        {extra}
       </div>
     </form>
   )

@@ -35,7 +35,7 @@ test('P7: attendee → person page → About survives a reload', async ({ page, 
 
   const person = page.getByTestId('person-page')
   await expect(page.getByTestId('page-back')).toHaveText('People')
-  await expect(person.getByText('Gia Guest').first()).toBeVisible()
+  await expect(page.getByTestId('page-header')).toContainText('Gia Guest')
   await expect(person.getByTestId('person-meeting').filter({ hasText: title })).toBeVisible()
 
   const about = `Leads partnerships ${id}.`
