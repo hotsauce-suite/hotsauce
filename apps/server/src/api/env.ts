@@ -1,3 +1,4 @@
+import type { AccountStore } from '../account/index.js'
 import type { Assistant } from '../assistant/index.js'
 import type { Authenticator, Principal } from '../auth/index.js'
 import type { BackupService } from '../backup/index.js'
@@ -37,6 +38,7 @@ export interface AppDeps {
   git: GitStore
   host: HostAdapter
   index: Index
+  account: AccountStore
   auth: Authenticator
   tokens: TokenStore
   spaces: SpaceService

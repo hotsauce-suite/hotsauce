@@ -27,8 +27,8 @@ launcher with every app.
    never scrolls, and the launcher, Settings and account stay in place below. The server refuses
    only an absurd list (over 100). *(AppRail.test launcher test; server api.test "rail pins"; e2e
    app-rail: "every app can be pinned")*
-7. Pins are saved per member on the server (`GET/PUT /api/pins`, the index's `pins` table, kept by
-   reindex like stars) and survive a reload and a new device. The browser keeps a copy so the rail
+7. Pins are saved per member on the server (`GET/PUT /api/pins`, kept in `account.sqlite` with stars
+   and recents since docs/PLAN-member-lists.md) and survive a reload and a new device. The browser keeps a copy so the rail
    draws without waiting, and forgets it at sign-out. *(api.test "rail pins"; e2e reload)*
 8. Command-K lists the pinned apps first, in rail order. *(AppRail.test: Cmd-K test)*
 9. Desktop rail icons are 25px (a quarter bigger than the phone bar's 20px; they were 30px), the

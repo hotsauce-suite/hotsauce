@@ -34,7 +34,8 @@ branches' authors.
   send what it read out in the address. Don't fetch for connector saves until a member opens the link.
 - The updater installs whatever image the release tag points at. Install by digest, taken from
   the release.
-- Stars, pins and recents live only in `index.sqlite`, which backups leave out.
+- ~~Stars, pins and recents live only in `index.sqlite`, which backups leave out.~~ Fixed: they
+  moved to `account.sqlite` (docs/PLAN-member-lists.md).
 - After a rollback nothing checks that the previous release came up.
 - Per-address limits on public forms and booking trust `fly-client-ip` on hosts other than Fly.
 - State-changing requests don't check `Origin`; this rests on the sign-in cookie being same-site.

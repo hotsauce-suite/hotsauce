@@ -16,7 +16,7 @@ Thanks for helping. A few things keep the project easy to work on.
 4. **Plain labels in the UI** ("Docs", "Meetings"), written for the people using it.
 5. **No secrets in the repository**, ever. Keys live in the host's secret store or in the instance's encrypted settings.
 6. **Small, focused changes.** Keep refactors apart from behavior changes.
-7. **Database changes only add.** The updater puts the previous release back when a new one fails, and that release then runs on the databases the new one already migrated. In the stores that hold real data (Clips, Dictate, the assistant) a migration adds tables, or columns that are nullable or have a default, which the older code can ignore; it never renames or drops what the previous release reads, and a store never lowers a saved schema version. The search index is different: an older release makes it again for itself and keeps only the spaces, stars, pins, recents and conflicts, by the columns it knows.
+7. **Database changes only add.** The updater puts the previous release back when a new one fails, and that release then runs on the databases the new one already migrated. In the stores that hold real data (Clips, Dictate, the assistant, members' stars, pins and recents in `account.sqlite`) a migration adds tables, or columns that are nullable or have a default, which the older code can ignore; it never renames or drops what the previous release reads, and a store never lowers a saved schema version. The search index is different: an older release makes it again for itself and keeps only the spaces, conflicts, and the stars, pins and recents older releases kept there, by the columns it knows.
 
 ## Checks
 

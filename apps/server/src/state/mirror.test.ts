@@ -34,6 +34,7 @@ describe('isDurable (R4)', () => {
     'brief/members.json',
     'dictation.sqlite',
     'clips.sqlite',
+    'account.sqlite',
     'calendar/cache.sqlite',
     'sessions/01ABC/meta.json',
     'sessions/01ABC/segments.jsonl',

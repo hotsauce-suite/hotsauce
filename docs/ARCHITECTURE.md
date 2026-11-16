@@ -119,7 +119,7 @@ src/
 ```
 PORT=3000
 PUBLIC_URL=http://localhost:3000
-DATA_DIR=./.data                 # repos/, index.sqlite, uploads tmp
+DATA_DIR=./.data                 # repos/, index.sqlite, account.sqlite, uploads tmp
 AUTH_MODE=clerk|dev                          # default clerk (fail closed); dev is only accepted when NODE_ENV is development or test
 CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY      # when AUTH_MODE=clerk
 ALLOWED_EMAIL_DOMAINS=acme.example        # comma list; enforced server-side in both modes
@@ -223,13 +223,13 @@ files_fts USING fts5(title, body, content='files', tokenize='porter unicode61') 
 sync_state(space PRIMARY KEY, head_oid, synced_at)
 conflicts(space, ref, path, created_at, PRIMARY KEY(space, ref))
 spaces(name PRIMARY KEY, kind CHECK(kind IN ('team','personal')), owner_email NULL, created_at)   -- personal spaces are bound to the owner's email, never to the derived handle alone
-recents(user, space, path, opened_at, PRIMARY KEY(user,space,path))
-stars(user, space, path, PRIMARY KEY(user,space,path))
 ```
+
+Each member's recents, stars and rail pins are **not** in the index: they live in `DATA_DIR/account.sqlite` (`AccountStore`, `account/`), which is backed up and mirrored; their titles are looked up in the index per row. Releases before it kept them in the index's `recents`, `stars` and `pins` tables; the first start with the store copies them over, and those tables stay, so a rollback still finds them. Each start compares a fingerprint of them with the one saved in the store's `meta` table: changed (an older release ran after a rollback and members used it) means the older release's lists replace the store's; empty (a rebuilt index) is ignored (docs/PLAN-member-lists.md).
 
 Only `.md` files are indexed, and nothing under hidden folders (`.hearth/`, `.trash/`). `search()` returns `score` as negated bm25 (higher is better; title weighted 4x) and `snippet` with matches wrapped in `SNIPPET_OPEN` (`\u0002`) / `SNIPPET_CLOSE` (`\u0003`), which the web client splits on; snippets never carry HTML. Timestamps are ISO strings.
 
-**The `spaces` table is a cache too.** Ownership is recorded in Git in each repo's `.hearth/space.yaml` (`kind`, `owner`); on startup and on `hotsauce reindex`, the table is rebuilt from the clones' `space.yaml` files, so deleting `index.sqlite` loses nothing. `hotsauce reindex` rebuilds `files` and `spaces`; it leaves `recents`, `stars`, `pins`, `conflicts` and `sync_state` alone.
+**The `spaces` table is a cache too.** Ownership is recorded in Git in each repo's `.hearth/space.yaml` (`kind`, `owner`); on startup and on `hotsauce reindex`, the table is rebuilt from the clones' `space.yaml` files, so deleting `index.sqlite` loses nothing. `hotsauce reindex` rebuilds `files` and `spaces`; it leaves `conflicts` and `sync_state` alone.
 
 ```ts
 export class Index {
@@ -239,7 +239,7 @@ export class Index {
   removeFiles(space: string, paths: string[]): void
   search(q: string, opts: { spaces: string[]; limit?: number }): Array<{ space: string; path: string; title: string; snippet: string; score: number }>
   getSpace(name) / upsertSpace(...) / listSpaces()          // SpaceRegistry
-  // recents/stars/sync_state/conflicts accessors; getFile; close
+  // sync_state/conflicts accessors; getFile; titleOf; legacyMemberLists (the one-time copy); close
 }
 export class Indexer { constructor(git: GitReader, index: Index); full(space): Promise<void>; incremental(space, paths): Promise<void> }
 // full() on a repo with no commits yet indexes the space as empty.
@@ -328,7 +328,7 @@ WS   /ws                                      (see §3.7)
 - `SaveResult` is `CommitResult`, except that `committed` also carries `content` when Hotsauce changed what the client sent; the client adopts it as it adopts `merged` content.
 - Saves of `.md` files run `ensureId` (every doc Hotsauce saves has an `id`); if the sent text has no `id` but the file at HEAD has one, that id is kept instead of minting a new one. Frontmatter that can't be patched in place is 400 `bad_request`. The commit message is `docs: create "<title>"` or `docs: edit "<title>"` (title from `extractTitle`, else the file name), or the client's `message`; `label` adds the `Hearth-Label:` trailer to either.
 - `raw` sends `ETag: "<blobOid>"`, `Cache-Control: private, no-cache` (the URL names a path, whose bytes can change, so the browser revalidates each time; an unchanged file is a cheap 304), `nosniff`, and a sandboxing CSP, and answers `If-None-Match` with 304. Images, PDF and text are served inline by extension; anything else as `application/octet-stream` with `Content-Disposition: attachment`. In dev mode an `<img>` can't send the dev header, so the client fetches with it and uses a blob URL; with Clerk the session cookie authenticates it.
-- Recents and stars are keyed by the member's email and filtered to spaces they can still access.
+- Recents and stars are keyed by the member's email (in `account.sqlite`, §3.4) and filtered to spaces they can still access.
 
 Authorization: every `/api/spaces/:space/*` route checks `spaces.canAccess` (403 `forbidden`). Personal spaces are visible only to their owner; there is no admin override for reading personal spaces. Search silently drops spaces the member can't access.
 
