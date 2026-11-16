@@ -71,3 +71,11 @@
   keeps "all done" from firing on a guess, and a failed lookup counts as not done, never as done.
 - **`src/routes/FeedbackScreenshots.test.tsx` (S7) times out in the cloud sandbox on unchanged
   main.** It passes in CI.
+- **A setting that points at a doc should be resolved when read, not when saved.** The start-here
+  doc is stored as a path and looked up on each read, so its title is always current and a doc
+  that was deleted or moved reads as "none" (the step falls back to Docs) instead of a dead link.
+  It doesn't follow a rename; the admin picks it again.
+- **Pasting the doc's address beats building a doc picker** for a field one admin fills once. The
+  server takes a full link or a bare address and says how to get one when it isn't a doc.
+- **The Docs page opens in the editor**, so a browser test that opens a doc should look for the
+  doc's text, not a heading role.

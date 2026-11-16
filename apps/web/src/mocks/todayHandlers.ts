@@ -12,7 +12,13 @@ import {
 } from '@hotsauce/format'
 import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { TaskView } from '../api/tasks'
-import type { TodayMeeting, TodayView, TodayWeather, WeatherPlace } from '../api/today'
+import type {
+  StartHereDoc,
+  TodayMeeting,
+  TodayView,
+  TodayWeather,
+  WeatherPlace,
+} from '../api/today'
 import type { CalendarEvent, MeetingActionItems } from '../api/types'
 
 const DAY_MS = 86_400_000
@@ -51,6 +57,7 @@ export function todayHandlers(): AnyHandler[] {
   const layouts = new Map<string, TodayLayout>()
   // The team's default weather place (Settings → Workspace); none to start.
   let teamPlace: WeatherPlace | null = null
+  let startHere: StartHereDoc | null = null
   const who = (request: Request) => request.headers.get('x-hearth-dev-user') ?? 'me'
   return [
     http.get('/api/today/layout', ({ request }) => {
@@ -86,6 +93,30 @@ export function todayHandlers(): AnyHandler[] {
       const places =
         q.length < 2 ? [] : SAMPLE_PLACES.filter((p) => p.name.toLowerCase().startsWith(q))
       return HttpResponse.json({ places })
+    }),
+    http.get('/api/today/start-here', () => HttpResponse.json({ doc: startHere })),
+    http.put('/api/today/start-here', async ({ request }) => {
+      const { link } = (await request.json()) as { link: string | null }
+      if (!link) startHere = null
+      else {
+        // Like the server: a doc's address in the Team space.
+        const m = /\/docs\/team\/(.+\.md)$/i.exec(new URL(link, 'http://x').pathname)
+        if (!m?.[1])
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'bad_request',
+                message:
+                  'That isn’t a doc in the Team space. Open the doc, copy its address from the browser, and paste it here.',
+              },
+            },
+            { status: 400 },
+          )
+        const path = m[1].split('/').map(decodeURIComponent).join('/')
+        const name = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+        startHere = { path, title: name }
+      }
+      return HttpResponse.json({ doc: startHere })
     }),
     http.get('/api/today/default-place', () => HttpResponse.json({ place: teamPlace })),
     http.put('/api/today/default-place', async ({ request }) => {
