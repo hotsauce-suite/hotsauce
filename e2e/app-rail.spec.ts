@@ -18,7 +18,7 @@ test('switches apps from the rail and returns to where each was', async ({ page,
   await expect(page).toHaveURL(/\/meetings$/)
   await expect(page.getByTestId('meetings-home')).toBeVisible()
   await expect(rail.getByTestId('app-switch-meetings')).toHaveAttribute('aria-current', 'page')
-  await expect(page.getByTestId('sidebar-app-name')).toHaveText('Hotsauce Meetings')
+  await expect(page.getByTestId('sidebar-app-name')).toHaveText('Meetings')
 
   // Back goes to the doc; the rail follows.
   await page.goBack()

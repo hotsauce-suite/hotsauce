@@ -1,10 +1,11 @@
 # Plan: the apps look and act the same
 
-**Status:** (Nov 16, 2026) Round 1 requirements 1 to 5 shipped in 0.18.0 (PR #117), Links
-included from the follow-up. Requirement 6 (words) shipped except "Saved" for "Committed", which
-waits for the offline work to merge (it rewrites `SaveState.tsx`), and Briefcast's short phone
-label, which needs the shorter title. Requirement 7 (plain titles) is next, in its own PR.
-Rounds 2 and 3 not started. Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
+**Status:** (Nov 16, 2026) Round 1 is shipped: requirements 1 to 5 (0.18.0, PR #117), Links
+and the words of requirement 6 (PR #128), and plain titles with "Boards" (requirement 7, this
+PR). Two pieces of round 1 are left for later rounds: "Saved" for "Committed" waits for the
+offline work to merge (it rewrites `SaveState.tsx`), and "shown once" (the page's top bar naming
+where you are instead of repeating the app's name) comes with round 2's shared top bar. Rounds 2
+and 3 not started. Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and
 reads differently from app to app. This plan gives them shared pieces and one set of words.

@@ -59,7 +59,7 @@ test('a phone switches apps from the bottom tab bar, and nothing scrolls sideway
 
   // The app's own sidebar is still in the drawer.
   await page.getByRole('button', { name: 'Open sidebar' }).first().tap()
-  await expect(page.getByTestId('sidebar-app-name')).toHaveText('Hotsauce Meetings')
+  await expect(page.getByTestId('sidebar-app-name')).toHaveText('Meetings')
 })
 
 test('a phone reaches every app from the Apps sheet', async ({ page }) => {

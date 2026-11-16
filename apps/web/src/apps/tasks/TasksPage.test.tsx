@@ -38,7 +38,7 @@ async function openList(path: string) {
 describe('views', () => {
   it('Inbox shows my open tasks without a project, oldest first', async () => {
     await openList('/tasks')
-    expect(screen.getByTestId('sidebar-app-name')).toHaveTextContent('Hotsauce Tasks')
+    expect(screen.getByTestId('sidebar-app-name')).toHaveTextContent('Tasks')
     expect(titles()).toEqual([
       'Renew the lab safety certificate',
       'Call Sam about the pilot budget',

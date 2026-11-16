@@ -258,7 +258,7 @@ export default function NotesPage() {
 
   return (
     <>
-      <MeetingsPageHeader title={`${product()} Notes`}>
+      <MeetingsPageHeader title="Notes">
         <label className="relative flex min-w-0 items-center">
           <span className="sr-only">Search notes</span>
           <Icon

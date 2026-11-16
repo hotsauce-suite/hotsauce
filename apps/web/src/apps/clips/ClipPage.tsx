@@ -280,7 +280,7 @@ export default function ClipPage() {
   if (!clip) {
     return (
       <>
-        <MeetingsPageHeader title={`${product()} Clips`} />
+        <MeetingsPageHeader title="Clips" />
         <div className="flex flex-1 items-center justify-center p-8 text-sm text-ink-faint">
           {error ? (
             <div className="text-center">

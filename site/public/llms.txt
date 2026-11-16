@@ -1,6 +1,6 @@
 # Hotsauce
 
-> Hotsauce is a free, open-source (AGPL-3.0) office suite that one organization runs on one small server it owns: Docs, AI meeting notes, Tasks, Files, Whiteboards, Dictate and Clips. Every doc and note is a Markdown file in git.
+> Hotsauce is a free, open-source (AGPL-3.0) office suite that one organization runs on one small server it owns: Docs, AI meeting notes, Tasks, Files, Boards, Dictate and Clips. Every doc and note is a Markdown file in git.
 
 To install Hotsauce for someone, follow the install guide step by step. It covers Cloudflare, Fly.io and Docker, marks the steps only a person can do, and ends with checks that prove the install worked.
 
