@@ -8,6 +8,7 @@ import {
   type MacAppLatest,
   type MacAppUpdateState,
   macAppUpdateState,
+  macVersionLabel,
   useMacAppLatest,
 } from '../lib/macAppVersion'
 import { hasMacNotifications } from '../lib/macNotifications'
@@ -92,14 +93,18 @@ export function MacAppCard() {
             You’re using it on this Mac
             {installed ? (
               <>
-                , version <span data-testid="mac-app-version">{installed}</span>
+                , version <span data-testid="mac-app-version">{macVersionLabel(installed)}</span>
               </>
+            ) : state === 'outdated' ? (
+              <>, an older version</>
             ) : null}
             .{/* The app doesn't update itself: a newer build is fetched from here. */}
             {state === 'outdated' && latest ? (
               <>
                 {' '}
-                Version {latest.version} is out.{' '}
+                <span data-testid="mac-app-update-available" className="font-medium text-ink">
+                  Update available: {latest.version}.
+                </span>{' '}
                 <Link
                   to={WHATS_NEW}
                   data-testid="mac-app-whats-new"
@@ -123,16 +128,18 @@ export function MacAppCard() {
             ) : null}
           </span>
         </span>
-        {state === 'outdated' && hasBuild ? (
-          <a
-            href={MAC_APP_DOWNLOAD}
-            download
-            data-testid="mac-app-update"
-            className={primaryButton}
-          >
-            <Icon name="download" />
-            Download the update
-          </a>
+        {state === 'outdated' ? (
+          hasBuild ? (
+            <a
+              href={MAC_APP_DOWNLOAD}
+              download
+              data-testid="mac-app-update"
+              className={primaryButton}
+            >
+              <Icon name="download" />
+              Download the update
+            </a>
+          ) : null
         ) : (
           <span
             data-testid="mac-app-in-use"
@@ -307,7 +314,7 @@ function YourMacs({ latest }: { latest: MacAppLatest | null }) {
               <span className="text-ink">{d.name}</span>
               <span data-testid="mac-app-device-version">
                 {d.appVersion
-                  ? `version ${d.appVersion}`
+                  ? `version ${macVersionLabel(d.appVersion)}`
                   : state === 'outdated'
                     ? 'an older version'
                     : 'version not reported yet'}

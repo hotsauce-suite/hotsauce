@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { compareVersions, installedMacAppVersion, macAppUpdateState } from './macAppVersion'
+import {
+  compareVersions,
+  installedMacAppVersion,
+  macAppUpdateState,
+  macVersionLabel,
+} from './macAppVersion'
 
 describe('compareVersions', () => {
   it('compares each number, not the text', () => {
@@ -21,6 +26,13 @@ describe('macAppUpdateState (M5, M6)', () => {
     expect(macAppUpdateState(null, latest)).toBe('outdated')
     expect(macAppUpdateState(null, { version: '0.14.4' })).toBe('unknown')
   })
+  it('tells two builds of one release apart by their build number', () => {
+    const newest = { version: '0.26.0', build: '1400', reportsVersion: true }
+    expect(macAppUpdateState('0.26.0+1300', newest)).toBe('outdated')
+    expect(macAppUpdateState('0.26.0+1400', newest)).toBe('current')
+    expect(macAppUpdateState('0.26.0', newest)).toBe('current')
+  })
+
   it('is unknown without a newest build to compare with', () => {
     expect(macAppUpdateState('0.26.0', null)).toBe('unknown')
   })
@@ -31,6 +43,9 @@ describe('installedMacAppVersion (M4)', () => {
     expect(installedMacAppVersion()).toBeNull()
     Object.assign(window, { hotsauceMacApp: { version: '0.26.0' } })
     expect(installedMacAppVersion()).toBe('0.26.0')
+    Object.assign(window, { hotsauceMacApp: { version: '0.26.0', build: '1400' } })
+    expect(installedMacAppVersion()).toBe('0.26.0+1400')
+    expect(macVersionLabel('0.26.0+1400')).toBe('0.26.0 (build 1400)')
     Object.assign(window, { hotsauceMacApp: { version: '<b>1</b>' } })
     expect(installedMacAppVersion()).toBeNull()
     Reflect.deleteProperty(window, 'hotsauceMacApp')

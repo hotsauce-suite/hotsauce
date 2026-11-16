@@ -32,6 +32,8 @@ describe('device tokens', () => {
   it('read a Mac app version only from a plain mac/X.Y.Z header', () => {
     expect(macAppVersionFrom('mac/0.26.0')).toBe('0.26.0')
     expect(macAppVersionFrom(' mac/1.2.3 ')).toBe('1.2.3')
+    expect(macAppVersionFrom('mac/0.26.0+1400')).toBe('0.26.0+1400')
+    expect(macAppVersionFrom('mac/0.26.0+x')).toBeNull()
     expect(macAppVersionFrom('mac/0.26')).toBeNull()
     expect(macAppVersionFrom('mac/0.26.0<script>')).toBeNull()
     expect(macAppVersionFrom('windows/0.26.0')).toBeNull()

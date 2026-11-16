@@ -49,7 +49,8 @@ export function parseWhatsNew(body) {
       none = true
       continue
     }
-    if (!bullet || !content) continue
+    // A checklist line ("- [x] tests pass") isn't a note.
+    if (!bullet || !content || /^\[[ xX]\]/.test(content)) continue
     const mac = /^Mac app\s*[:–—-]\s*(.+)$/i.exec(content)
     const textOf = (s) => s.charAt(0).toUpperCase() + s.slice(1)
     notes.push(mac ? { text: textOf(mac[1].trim()), area: MAC_AREA } : { text: textOf(content) })

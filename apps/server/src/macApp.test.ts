@@ -61,6 +61,29 @@ describe('MacAppDownloads', () => {
     expect(await none.downloads.file('Hotsauce.zip')).toBeNull()
   })
 
+  it('fetches the app again when a newer version file arrived after it (M2)', async () => {
+    const { downloads, calls } = setup([
+      new Response('dmg-1'),
+      new Response('{"version":"0.27.0"}'),
+      new Response('dmg-2'),
+    ])
+    await downloads.file('Hotsauce.dmg')
+    await new Promise((r) => setTimeout(r, 30))
+    await downloads.file('mac-app.json')
+    const again = await downloads.file('Hotsauce.dmg')
+    expect(again && readFileSync(again, 'utf8')).toBe('dmg-2')
+    expect(calls).toHaveLength(3)
+  })
+
+  it('waits the usual time before asking again after a failed refresh', async () => {
+    const { downloads, calls, advance } = setup([new Response('dmg-1'), new Error('offline')])
+    await downloads.file('Hotsauce.dmg')
+    advance(2000)
+    await downloads.file('Hotsauce.dmg')
+    await downloads.file('Hotsauce.dmg')
+    expect(calls).toHaveLength(2)
+  })
+
   it('asks GitHub once for two requests at the same time', async () => {
     const { downloads, calls } = setup([new Response('dmg-1')])
     const [a, b] = await Promise.all([

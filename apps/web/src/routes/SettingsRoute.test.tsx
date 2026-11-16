@@ -392,7 +392,9 @@ describe('Settings: General, Apps, and the help strip', () => {
         'href',
         '/downloads/Hotsauce.dmg',
       )
-      expect(card).toHaveTextContent('Version 0.26.0 is out.')
+      expect(within(card).getByTestId('mac-app-update-available')).toHaveTextContent(
+        'Update available: 0.26.0.',
+      )
       expect(within(card).getByTestId('mac-app-whats-new')).toHaveAttribute(
         'href',
         '/settings/whats-new',
@@ -409,6 +411,7 @@ describe('Settings: General, Apps, and the help strip', () => {
       renderApp('/settings/apps')
       const card = await screen.findByTestId('mac-app')
       expect(await within(card).findByTestId('mac-app-update')).toBeInTheDocument()
+      expect(card).toHaveTextContent('You’re using it on this Mac, an older version.')
     } finally {
       leave()
     }

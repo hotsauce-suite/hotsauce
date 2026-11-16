@@ -50,6 +50,13 @@ describe('parseWhatsNew (N2)', () => {
     expect(notes.checkMessage(body('None'))).toBeNull()
   })
 
+  it('skips checklist lines inside the section', () => {
+    expect(notes.parseWhatsNew(body('- [x] tests pass\n- A real change'))).toEqual({
+      status: 'notes',
+      notes: [{ text: 'A real change' }],
+    })
+  })
+
   it('accepts the curly apostrophe and a level-3 heading', () => {
     expect(notes.parseWhatsNew('### What’s new\n- A thing')).toMatchObject({ status: 'notes' })
   })

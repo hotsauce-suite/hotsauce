@@ -25,7 +25,7 @@ const NO_RELEASE = [
   /^\.claude\//,
   /^e2e\//,
   /^scripts\/tour-video\//,
-  /^scripts\/(next-release\.mjs|check-install\.sh|deploy-fly\.sh)$/,
+  /^scripts\/(next-release\.mjs|release-notes\.mjs|check-install\.sh|deploy-fly\.sh)$/,
   /\.test\.[cm]?[jt]sx?$/,
   /^apps\/[^/]+\/test\//,
   // The Mac app ships on its own download; only its built release/ goes into the image.

@@ -62,8 +62,9 @@ export function WhatsNewPage({ releases = RELEASES }: { releases?: ReleaseNotes[
                 ) : null}
               </h3>
               <ul className="mt-2 list-disc space-y-1.5 pl-5 text-ink-soft marker:text-ash-strong">
-                {release.notes.map((note) => (
-                  <li key={note.text} data-testid="whats-new-note">
+                {release.notes.map((note, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: a fixed list; two notes may read the same
+                  <li key={i} data-testid="whats-new-note">
                     {note.area ? (
                       <span
                         data-testid="whats-new-area"

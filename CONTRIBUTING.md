@@ -55,4 +55,4 @@ Every pull request's description has a `## What's new` section, and a check (`.g
 - Mac app: an Update available item in the menu bar menu when there's a newer version.
 ```
 
-The Release workflow collects these lines into `WHATS_NEW.json` in its `Release X.Y.Z` commit (`scripts/release-notes.mjs`), puts them at the top of the GitHub release, and Settings → What's new and hotsauce.work/changes show them. A merge that releases nothing (a Mac-app-only change, say) has its lines in the next release. To fix a note after it's released, edit `WHATS_NEW.json` in a pull request.
+The Release workflow collects these lines into `WHATS_NEW.json` in its `Release X.Y.Z` commit (`scripts/release-notes.mjs`), puts them at the top of the GitHub release, and Settings → What's new and hotsauce.work/changes show them. A merge that releases nothing (a Mac-app-only change, say) has its lines in the next release. To fix a note after it's released, edit `WHATS_NEW.json` in a pull request: hotsauce.work/changes shows it at once, and Settings → What's new with the next release (the file alone starts no release).

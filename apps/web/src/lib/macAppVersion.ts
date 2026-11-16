@@ -37,19 +37,46 @@ export function compareVersions(a: string, b: string): number {
  */
 export type MacAppUpdateState = 'current' | 'outdated' | 'unknown'
 
+/**
+ * An installed app's version as a Mac reports it: `0.26.0`, or `0.26.0+1400` with its build. A
+ * Mac-only change makes a new build of the same release, so the build breaks a tie.
+ */
+export function splitMacVersion(reported: string): { version: string; build: string | null } {
+  const [version = '', build] = reported.split('+')
+  return { version, build: build && /^\d+$/.test(build) ? build : null }
+}
+
 export function macAppUpdateState(
   installed: string | null,
   latest: MacAppLatest | null,
 ): MacAppUpdateState {
   if (!latest) return 'unknown'
   if (!installed) return latest.reportsVersion ? 'outdated' : 'unknown'
-  return compareVersions(installed, latest.version) < 0 ? 'outdated' : 'current'
+  const mine = splitMacVersion(installed)
+  const order = compareVersions(mine.version, latest.version)
+  if (order !== 0) return order < 0 ? 'outdated' : 'current'
+  if (mine.build && latest.build && /^\d+$/.test(latest.build)) {
+    return Number(mine.build) < Number(latest.build) ? 'outdated' : 'current'
+  }
+  return 'current'
 }
 
-/** The version of the Mac app this page runs in (its window says it, M4); null in a browser. */
+/** How a reported version reads in Settings: `0.26.0`, or `0.26.0 (build 1400)`. */
+export function macVersionLabel(reported: string): string {
+  const { version, build } = splitMacVersion(reported)
+  return build ? `${version} (build ${build})` : version
+}
+
+/**
+ * The version of the Mac app this page runs in (its window says it, M4), as `0.26.0+1400` when it
+ * gives its build too; null in a browser.
+ */
 export function installedMacAppVersion(): string | null {
-  const v = (window as { hotsauceMacApp?: { version?: unknown } }).hotsauceMacApp?.version
-  return typeof v === 'string' && /^\d+\.\d+\.\d+$/.test(v) ? v : null
+  const app = (window as { hotsauceMacApp?: { version?: unknown; build?: unknown } }).hotsauceMacApp
+  const v = app?.version
+  if (typeof v !== 'string' || !/^\d+\.\d+\.\d+$/.test(v)) return null
+  const b = app?.build
+  return typeof b === 'string' && /^\d{1,9}$/.test(b) ? `${v}+${b}` : v
 }
 
 function parseLatest(body: unknown): MacAppLatest | null {

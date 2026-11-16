@@ -48,7 +48,10 @@ RUN for ext in dmg zip; do \
         && cp "apps/dictate-mac/release/Hotsauce.$ext" "apps/web/dist/downloads/Hearth.$ext" \
         && cp "apps/dictate-mac/release/Hotsauce.$ext" "apps/web/dist/downloads/HearthDictate.$ext"; \
       fi; \
-    done
+    done \
+ && if [ -f apps/dictate-mac/release/mac-app.json ]; then \
+      cp apps/dictate-mac/release/mac-app.json apps/web/dist/downloads/; \
+    fi
 # The server's production dependencies, with workspace packages copied in, not
 # linked. pnpm 10's deploy reads the shared lockfile only when workspace
 # packages are injected; setting that here alone leaves dev symlinks alone.

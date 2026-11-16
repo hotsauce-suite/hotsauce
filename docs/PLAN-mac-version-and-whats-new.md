@@ -25,11 +25,13 @@ GitHub's list of pull request titles, internal ones included.
 Latest Mac app
 M1. The `mac-app` GitHub release carries `mac-app.json`: `{ "version", "build", "reportsVersion" }`,
     written by `apps/dictate-mac/scripts/build-app.sh` beside the DMG. [build script]
-M2. A server serves it at `/downloads/mac-app.json` (cached like the DMG, last good copy kept);
+M2. A server serves it at `/downloads/mac-app.json` (cached like the DMG, last good copy kept; a
+    DMG older than the version file is fetched again, so the update offered is the one handed out);
     without one it is a 404 and Settings shows no update state. [macApp.test]
 
 What a Mac reports
-M3. The Mac app sends `Hotsauce-App: mac/<version>` with its device-token requests; the server
+M3. The Mac app sends `Hotsauce-App: mac/<version>+<build>` with its device-token requests (the
+    build tells apart two builds of one release, since Mac-only changes make no release); the server
     keeps the newest such value on the device, and `GET /api/dictation/devices` returns it as
     `appVersion` (null until reported). A malformed value is ignored. [store.test, dictation
     integration test]

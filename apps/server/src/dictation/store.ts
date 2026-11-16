@@ -77,11 +77,12 @@ const MIGRATIONS = [
 ]
 
 /**
- * The version in a `Hotsauce-App: mac/<version>` header, or null for anything else. Only a plain
- * dotted number is kept, so nothing odd is ever stored or shown.
+ * The version in a `Hotsauce-App: mac/<version>[+<build>]` header (`mac/0.26.0+1400`), or null
+ * for anything else. Only a plain dotted number and a numeric build are kept, so nothing odd is
+ * ever stored or shown. The build tells two Mac builds of one release apart.
  */
 export function macAppVersionFrom(header: string | null | undefined): string | null {
-  const match = /^mac\/(\d{1,4}\.\d{1,4}\.\d{1,4})$/.exec((header ?? '').trim())
+  const match = /^mac\/(\d{1,4}\.\d{1,4}\.\d{1,4}(?:\+\d{1,9})?)$/.exec((header ?? '').trim())
   return match ? (match[1] ?? null) : null
 }
 

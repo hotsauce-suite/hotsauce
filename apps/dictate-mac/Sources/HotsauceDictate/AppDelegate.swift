@@ -331,6 +331,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if self.settings.suiteServer != server { self.settings.appSignedIn = false }
             self.settings.suiteServer = server
             self.suite.setServer(server)
+            self.availableUpdate = nil
+            self.checkForUpdate()
             model.reload()
             return nil
         }
@@ -712,7 +714,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             guard let (data, response) = try? await URLSession.shared.data(for: request),
                   (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-            let update = AppVersion.update(installed: installed, latest: AppVersion.latest(fromJSON: data))
+            let update = AppVersion.update(installed: installed, installedBuild: AppVersion.build, latest: AppVersion.latest(fromJSON: data))
             await MainActor.run { self?.availableUpdate = update }
         }
     }
@@ -749,6 +751,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if settings.suiteServer != server { settings.appSignedIn = false }
         settings.suiteServer = server
         if suite.recordingMeetingSession == nil { suite.setServer(server) }
+        // A different workspace may offer a different Mac app (M7).
+        availableUpdate = nil
+        checkForUpdate()
         mainWindow.model.reload()
     }
 
