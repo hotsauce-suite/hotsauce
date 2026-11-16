@@ -212,7 +212,7 @@ final class DictationController {
         status = .processing
         overlay.showProcessing()
         glow.think()
-        let client = DictationClient(server: connection.server, token: connection.token)
+        var client = DictationClient(server: connection.server, token: connection.token)
         let sentAt = Date()
         inFlight = Task { @MainActor [weak self] in
             do {
@@ -221,8 +221,11 @@ final class DictationController {
                 if let streamed {
                     result = streamed
                 } else {
+                    // A stream the server never answered: don't wait 90 s for the upload (A2.3).
+                    client.timeout = SpeechRouting.uploadTimeout(streamReady: stream?.wasReady)
                     result = try await client.transcribe(request)
                 }
+                self?.serverFailedAt = nil
                 var timings = self?.record(result, sentAt: sentAt, answeredAt: Date()) ?? [:]
                 timings["streamed"] = streamed == nil ? 0 : 1
                 self?.deliver(result, request: request, timings: timings, to: target)
@@ -234,17 +237,26 @@ final class DictationController {
                 }
                 // Couldn't reach the server: write it up on this Mac rather than wait (A2.2).
                 self?.serverFailedAt = Date()
-                await self?.writeUpOnDevice(samples, request: request, to: target)
+                await self?.writeUpOnDevice(samples, request: request, to: target, afterServer: true)
             }
         }
     }
 
     /// The Mac's own speech recognition (A2.6 to A2.9). If it can't write it up either, the
     /// recording is kept for Retry, which sends it to the server once the connection is back.
-    private func writeUpOnDevice(_ samples: [Int16], request: DictationRequest, to target: NSRunningApplication?) async {
+    private func writeUpOnDevice(_ samples: [Int16], request: DictationRequest, to target: NSRunningApplication?, afterServer: Bool = false) async {
         let started = Date()
         do {
             let text = try await OnDeviceSpeech.transcribe(samples)
+            if afterServer, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // The server might have heard what this Mac didn't: keep it for Retry.
+                inFlight = nil
+                glow.finish()
+                failed = (request, target, samples)
+                status = .error("Couldn’t send the last dictation")
+                overlay.showMessage("Couldn’t reach \(Brand.name) — Retry is in the menu", seconds: 3.5)
+                return
+            }
             let ms = { (from: Date?) in from.map { Int(Date().timeIntervalSince($0) * 1000) } ?? -1 }
             let timings = ["audioMs": samples.count / 16, "onDeviceMs": ms(started), "keyUpToTextMs": ms(keyUpAt)]
             let result = DictationResult(text: text, raw: text, cleaned: false, durationMs: samples.count / 16, ms: .init(asr: 0, llm: 0))
@@ -297,7 +309,8 @@ final class DictationController {
 
     private func deliver(_ result: DictationResult, request: DictationRequest, timings: [String: Int], to target: NSRunningApplication?, onDevice: Bool = false) {
         inFlight = nil
-        failed = nil
+        // Only the dictation that was kept for Retry is done with; another one still waits.
+        if failed?.request.audio == request.audio { failed = nil }
         status = .idle
         // The paste follows straight away; the fade overlaps it.
         glow.finish()

@@ -135,9 +135,17 @@ app supports, so there is one path, not two). When the server is reachable, noth
 - A2.6 On-device dictation never sends audio anywhere: no stream, no upload, and the recognizer
   is told to stay on the device.
 - A2.7 The language is the Mac's own (the app has no dictation language setting; the server
-  picks one), falling back to English (US) when the Mac's language has no on-device model.
-- A2.8 When the language's on-device model isn't on the Mac, the pill says so and where to get
-  it (System Settings → Keyboard → Dictation).
+  picks one), falling back to English (US) when the Mac's language has no on-device model. Only
+  languages whose model is on this Mac count; a language without its region picks the Mac's
+  region, else the same one every time; Chinese picks by script (Simplified: zh-CN).
+- A2.8 When no language the Mac could use has an on-device model, the pill says so and where to
+  get one (System Settings → Keyboard → Dictation).
+- A2.10 (from review) A server that's on the network but not answering costs seconds, not
+  minutes: after a stream that never got "ready" the upload gives up after 10 s of silence; a
+  "ready" that arrives after key-up gets the full 25 s (a short dictation is never sent twice).
+  On-device recognition gets 30 s, or 1.5 times the dictation's length if longer. A recording
+  kept for Retry stays kept until it is itself sent, and one the server couldn't take but this
+  Mac heard nothing in is kept for Retry too.
 - A2.9 On-device dictations are typed and kept in history like any other, marked "on this Mac",
   without the server's clean-up (that needs the connection) and without the word list.
 

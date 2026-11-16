@@ -33,18 +33,41 @@ import Testing
         #expect(SpeechRouting.finishTimeout(streamReady: true) == 25)
     }
 
+    @Test func anUploadAfterAStreamThatNeverGotReadyGivesUpQuickly() {
+        #expect(SpeechRouting.uploadTimeout(streamReady: false) <= 10)
+        #expect(SpeechRouting.uploadTimeout(streamReady: true) == 90)
+        // No stream at all (a Retry): the usual timeout.
+        #expect(SpeechRouting.uploadTimeout(streamReady: nil) == 90)
+    }
+
+    @Test func onDeviceRecognitionHasTimeForLongDictations() {
+        #expect(SpeechRouting.onDeviceTimeout(seconds: 5) == 30)
+        #expect(SpeechRouting.onDeviceTimeout(seconds: 450) >= 450)
+    }
+
     @Test func speaksTheMacsLanguageWhenItHasAnOnDeviceModel() {
-        let supported = ["en-US", "en-GB", "fr-FR", "de-DE"]
-        #expect(SpeechRouting.locale(preferred: ["fr-FR", "en-US"], supported: supported) == "fr-FR")
-        #expect(SpeechRouting.locale(preferred: ["en_GB"], supported: supported) == "en-GB")
-        // A language without the region the Mac names: the first one for that language.
-        #expect(SpeechRouting.locale(preferred: ["de-CH"], supported: supported) == "de-DE")
-        #expect(SpeechRouting.locale(preferred: ["fr"], supported: supported) == "fr-FR")
+        let onDevice = ["en-US", "en-GB", "fr-FR", "fr-CA", "de-DE"]
+        #expect(SpeechRouting.locale(preferred: ["fr-FR", "en-US"], onDevice: onDevice, region: nil) == "fr-FR")
+        #expect(SpeechRouting.locale(preferred: ["en_GB"], onDevice: onDevice, region: nil) == "en-GB")
+        // A language without the region the Mac names: the Mac's region if there is one…
+        #expect(SpeechRouting.locale(preferred: ["fr"], onDevice: onDevice, region: "CA") == "fr-CA")
+        // …else always the same one, whatever order the system lists them in.
+        #expect(SpeechRouting.locale(preferred: ["fr"], onDevice: onDevice, region: "JP") == "fr-CA")
+        #expect(SpeechRouting.locale(preferred: ["fr"], onDevice: onDevice.reversed(), region: "JP") == "fr-CA")
+        #expect(SpeechRouting.locale(preferred: ["de-CH"], onDevice: onDevice, region: "CH") == "de-DE")
+    }
+
+    @Test func chineseScriptsPickTheirOwnRegion() {
+        let onDevice = ["zh-CN", "zh-HK", "zh-TW", "en-US"]
+        #expect(SpeechRouting.locale(preferred: ["zh-Hans-CN"], onDevice: onDevice, region: "CN") == "zh-CN")
+        #expect(SpeechRouting.locale(preferred: ["zh-Hans"], onDevice: onDevice, region: "US") == "zh-CN")
+        #expect(SpeechRouting.locale(preferred: ["zh-Hant-TW"], onDevice: onDevice, region: "TW") == "zh-TW")
     }
 
     @Test func fallsBackToUSEnglishThenToNothing() {
-        #expect(SpeechRouting.locale(preferred: ["ja-JP"], supported: ["en-US", "fr-FR"]) == "en-US")
-        #expect(SpeechRouting.locale(preferred: ["ja-JP"], supported: ["fr-FR"]) == nil)
+        // The Mac's language has no on-device model here: English, which does.
+        #expect(SpeechRouting.locale(preferred: ["da-DK"], onDevice: ["en-US", "fr-FR"], region: "DK") == "en-US")
+        #expect(SpeechRouting.locale(preferred: ["ja-JP"], onDevice: ["fr-FR"], region: nil) == nil)
     }
 
     @Test func anOnDeviceDictationIsKeptInHistoryMarkedAsSuch() throws {

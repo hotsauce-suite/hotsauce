@@ -10,6 +10,12 @@ final class DictationStream {
     private var failed = false
     /// The server said "ready": something is listening (on `queue`).
     private var ready = false
+    /// Which deadline is current: a late "ready" replaces the short one with the full one.
+    private var deadline = 0
+
+    /// Whether the server ever said "ready" (A2.3: a stream that didn't means a server that isn't
+    /// answering, so the upload after it gets a short timeout).
+    var wasReady: Bool { queue.sync { ready } }
     private var result: DictationResult?
     private var waiter: CheckedContinuation<DictationResult?, Never>?
 
@@ -50,8 +56,7 @@ final class DictationStream {
                 self.task.send(.string(StreamProtocol.finish)) { [weak self] error in
                     if error != nil { self?.fail() }
                 }
-                let wait = timeout ?? SpeechRouting.finishTimeout(streamReady: self.ready)
-                self.queue.asyncAfter(deadline: .now() + wait) { [weak self] in self?.fail() }
+                self.arm(timeout ?? SpeechRouting.finishTimeout(streamReady: self.ready))
             }
         }
     }
@@ -82,7 +87,11 @@ final class DictationStream {
                     self.fail()
                     return
                 case .ready:
-                    self.queue.async { self.ready = true }
+                    self.queue.async {
+                        self.ready = true
+                        // Key-up came first and armed the short deadline: give it the full one.
+                        if self.waiter != nil { self.arm(SpeechRouting.finishTimeout(streamReady: true)) }
+                    }
                 case .unknown:
                     break
                 }
@@ -101,6 +110,16 @@ final class DictationStream {
             self.failed = true
             self.task.cancel(with: .goingAway, reason: nil)
             self.resolve(nil)
+        }
+    }
+
+    /// On `queue`: fails the stream after `seconds` unless a later deadline replaces this one.
+    private func arm(_ seconds: TimeInterval) {
+        deadline += 1
+        let mine = deadline
+        queue.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard let self, self.deadline == mine else { return }
+            self.fail()
         }
     }
 

@@ -27,25 +27,61 @@ public enum SpeechRouting {
     }
 
     /// How long after key-up the stream waits for the server's text (A2.3). One that never heard
-    /// "ready" is almost certainly talking to nobody: give up fast so the device takes over.
+    /// "ready" is almost certainly talking to nobody: give up fast so the device takes over. (When
+    /// "ready" arrives late, the stream moves its deadline to the full 25 seconds.)
     public static func finishTimeout(streamReady: Bool) -> TimeInterval {
         streamReady ? 25 : 3
     }
 
-    /// The on-device language (A2.7): the first of the Mac's languages with a model, matched
-    /// exactly or by language alone, else US English, else none.
-    public static func locale(preferred: [String], supported: [String]) -> String? {
-        let normal = { (id: String) in id.replacingOccurrences(of: "_", with: "-") }
-        let available = supported.map(normal)
-        let language = { (id: String) in id.split(separator: "-").first.map(String.init)?.lowercased() ?? "" }
-        for wanted in preferred.map(normal) {
+    /// The upload's timeout after the stream gave up (A2.3): short when the stream never heard
+    /// "ready", since the server isn't answering. It's an idle timeout, so a slow upload that is
+    /// moving still finishes. Nil: no stream (a Retry).
+    public static func uploadTimeout(streamReady: Bool?) -> TimeInterval {
+        streamReady == false ? 10 : 90
+    }
+
+    /// How long on-device recognition may take: half a minute, or longer for a long dictation.
+    public static func onDeviceTimeout(seconds: TimeInterval) -> TimeInterval {
+        max(30, seconds * 1.5)
+    }
+
+    /// The on-device language (A2.7): the first of the Mac's languages that has an on-device
+    /// model (`onDevice`), matched exactly, else by language (the Mac's region first, then the
+    /// first in order, so it's the same every time); else US English; else none.
+    public static func locale(preferred: [String], onDevice: [String], region: String?) -> String? {
+        let available = onDevice.map(normal).sorted()
+        for wanted in preferred.map(normal).map(scriptToRegion) {
             if let exact = available.first(where: { $0.caseInsensitiveCompare(wanted) == .orderedSame }) {
                 return exact
             }
-            if let sameLanguage = available.first(where: { language($0) == language(wanted) }) {
-                return sameLanguage
-            }
+            let sameLanguage = available.filter { language($0) == language(wanted) }
+            let wantedRegion = regionOf(wanted) ?? region?.uppercased()
+            if let regional = sameLanguage.first(where: { regionOf($0) == wantedRegion }) { return regional }
+            if let any = sameLanguage.first { return any }
         }
         return available.first { $0 == "en-US" }
+    }
+
+    private static func normal(_ id: String) -> String { id.replacingOccurrences(of: "_", with: "-") }
+
+    private static func language(_ id: String) -> String {
+        id.split(separator: "-").first.map(String.init)?.lowercased() ?? ""
+    }
+
+    private static func regionOf(_ id: String) -> String? {
+        id.split(separator: "-").dropFirst().map(String.init).first { $0.count == 2 }?.uppercased()
+    }
+
+    /// Chinese names its script, not its region: Simplified is mainland, Traditional is Taiwan,
+    /// unless a region is named too.
+    private static func scriptToRegion(_ id: String) -> String {
+        let parts = id.split(separator: "-").map(String.init)
+        guard parts.first?.lowercased() == "zh", parts.count >= 2 else { return id }
+        if parts.count >= 3 { return "zh-\(parts[2])" }
+        switch parts[1].lowercased() {
+        case "hans": return "zh-CN"
+        case "hant": return "zh-TW"
+        default: return id
+        }
     }
 }

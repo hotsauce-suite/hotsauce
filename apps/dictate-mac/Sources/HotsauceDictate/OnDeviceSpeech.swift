@@ -37,19 +37,22 @@ enum OnDeviceSpeech {
         }
     }
 
-    /// The Mac's language with an on-device model, else US English (A2.7).
+    /// The Mac's language with an on-device model, else US English (A2.7). Only languages whose
+    /// model is on this Mac count: `supportedLocales()` also lists ones that need Apple's servers.
     static func localeIdentifier() -> String? {
-        let supported = SFSpeechRecognizer.supportedLocales().map(\.identifier)
-        return SpeechRouting.locale(preferred: Locale.preferredLanguages, supported: supported)
+        let onDevice = SFSpeechRecognizer.supportedLocales()
+            .filter { SFSpeechRecognizer(locale: $0)?.supportsOnDeviceRecognition == true }
+            .map(\.identifier)
+        return SpeechRouting.locale(preferred: Locale.preferredLanguages, onDevice: onDevice, region: Locale.current.region?.identifier)
     }
 
-    static func transcribe(_ samples: [Int16], timeout: TimeInterval = 30) async throws -> String {
+    static func transcribe(_ samples: [Int16]) async throws -> String {
         guard await authorize() else { throw Failure.notAllowed }
-        let id = localeIdentifier() ?? Locale.preferredLanguages.first ?? "en-US"
-        let language = Locale.current.localizedString(forIdentifier: id) ?? id
-        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: id)),
-              recognizer.supportsOnDeviceRecognition
-        else { throw Failure.noModel(language: language) }
+        guard let id = localeIdentifier(), let recognizer = SFSpeechRecognizer(locale: Locale(identifier: id)) else {
+            let mine = Locale.preferredLanguages.first ?? "en-US"
+            throw Failure.noModel(language: Locale.current.localizedString(forIdentifier: mine) ?? mine)
+        }
+        let timeout = SpeechRouting.onDeviceTimeout(seconds: Double(samples.count) / 16_000)
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         // Never Apple's servers either (A2.6).
@@ -77,7 +80,8 @@ enum OnDeviceSpeech {
                 }
             }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
-                task.cancel()
+                // Holds the recognizer until the task can't need it: the task doesn't keep it.
+                withExtendedLifetime(recognizer) { task.cancel() }
                 once.fire(.failure(Failure.failed("it took too long")))
             }
         }
@@ -143,6 +147,8 @@ enum OnDeviceProbe {
               let data = FileManager.default.contents(atPath: path),
               let samples = pcm16Samples(fromWAV: data)
         else { return 1 }
+        _ = NetworkWatch.shared
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5)) // the first network answer
         var report: [String: Any] = ["network": NetworkWatch.shared.isUp, "locale": OnDeviceSpeech.localeIdentifier() ?? NSNull()]
         let done = DispatchSemaphore(value: 0)
         Task.detached {
