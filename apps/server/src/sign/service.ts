@@ -4,6 +4,7 @@
 // When the last signer signs, the engine (@hotsauce/sign) stamps the fields, seals the PDF and makes
 // an audit certificate; both are saved into Files beside the original.
 
+import { createHash } from 'node:crypto'
 import {
   type AuditEntry,
   EnvelopeFrontmatter,
@@ -103,7 +104,7 @@ export interface SignDeps {
   index: Pick<Index, 'listFiles' | 'listSpaces'>
   spaces: Pick<SpaceService, 'canAccess' | 'visibleSpaces'>
   syncer: Pick<Syncer, 'afterHeadChanged'>
-  files: Pick<Files, 'get' | 'bytes' | 'storeFormFile' | 'available'>
+  files: Pick<Files, 'get' | 'bytes' | 'storeFormFile' | 'available' | 'remove'>
   /** The install's seal key, made on first use (state/seal-key.ts). */
   sealKey: () => SealIdentity
   /** Shown in a PDF reader's signature panel: the organization, else the product. */
@@ -118,6 +119,8 @@ export class Sign {
   readonly #deps: SignDeps
   readonly #now: () => Date
   #sealer: PdfSealer | null = null
+  /** The signing running for each envelope (`space/id`), so they run one after another. */
+  readonly #signing = new Map<string, Promise<void>>()
 
   constructor(deps: SignDeps) {
     this.#deps = deps
@@ -165,6 +168,12 @@ export class Sign {
         'This PDF can’t be opened for signing; it may be locked with a password or damaged',
       )
     })
+    if (pages.some((p) => !p.plain)) {
+      throw new HotsauceError(
+        'bad_request',
+        'This PDF has turned or cropped pages, which Sign can’t place fields on yet. Print it to a new PDF and try that.',
+      )
+    }
     if (pages.length === 0 || pages.length > MAX_SIGN_PAGES) {
       throw new HotsauceError(
         'bad_request',
@@ -242,6 +251,8 @@ export class Sign {
   async source(principal: Principal, space: string, id: string): Promise<Uint8Array> {
     this.#assertAccess(principal, space)
     const { fm } = await this.#read(space, id)
+    // The PDF can sit in another space than the envelope: whoever reads it needs both.
+    this.#assertAccess(principal, fm.source.space)
     return this.#sourceBytes(fm.source.space, fm.source.file, fm.source.sha256)
   }
 
@@ -300,9 +311,37 @@ export class Sign {
     via?: string,
   ): Promise<EnvelopeView> {
     this.#assertAccess(principal, space)
-    const { fm } = await this.#read(space, id)
+    // One signing at a time per envelope, so two presses of Finish can't both seal a copy.
+    const key = `${space}/${id}`
+    const before = this.#signing.get(key) ?? Promise.resolve()
+    const run = before.then(() => this.#signOnce(principal, space, id, input, meta, via))
+    const settled = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    this.#signing.set(key, settled)
+    try {
+      return await run
+    } finally {
+      if (this.#signing.get(key) === settled) this.#signing.delete(key)
+    }
+  }
+
+  async #signOnce(
+    principal: Principal,
+    space: string,
+    id: string,
+    input: { values: FilledValue[]; consent: boolean; blobOid: string },
+    meta: RequestMeta,
+    via?: string,
+  ): Promise<EnvelopeView> {
+    const { fm, blobOid } = await this.#read(space, id)
     if (fm.status !== 'draft' && fm.status !== 'sent') {
       throw new HotsauceError('conflict', 'This envelope is finished; nothing is left to sign')
+    }
+    // Checked before anything is sealed, so a stale page never leaves copies in Files.
+    if (blobOid !== input.blobOid) {
+      throw new HotsauceError('conflict', 'This envelope changed since you opened it; reload it')
     }
     const signer = fm.signers.find((s) => s.email === principal.email.toLowerCase())
     if (!signer) throw new HotsauceError('forbidden', 'You aren’t a signer of this envelope')
@@ -338,6 +377,8 @@ export class Sign {
           signerEmail: signer.email,
           // Members sign in to Hotsauce; that is how they were checked.
           method: 'Signed in to Hotsauce',
+          // What they filled in, so an edit to the fields afterwards breaks the audit check.
+          fieldsSha256: filledDigest(fields, signer.id),
         },
       },
     ])
@@ -356,18 +397,39 @@ export class Sign {
         },
       ])
       next = { ...next, audit, status: 'completed', completed: now }
-      next = { ...next, result: await this.#finish(principal, next) }
     }
-    const parsed = EnvelopeFrontmatter.safeParse(next)
-    if (!parsed.success) throw badInput(parsed.error.issues[0])
-    changes.push({ path: envelopePath(id), content: envelopeFile(parsed.data) })
-    await this.#commit(space, principal, {
-      changes,
-      verb: 'sign',
-      title: fm.title,
-      via,
-      unchanged: { path: envelopePath(id), blobOid: input.blobOid },
-    })
+    // Checked with a stand-in result before sealing, so a bad envelope leaves nothing in Files.
+    const placeholder = {
+      signed_file: ulid(),
+      certificate_file: ulid(),
+      signed_sha256: '0'.repeat(64),
+    }
+    const check = EnvelopeFrontmatter.safeParse(
+      next.status === 'completed' ? { ...next, result: placeholder } : next,
+    )
+    if (!check.success) throw badInput(check.error.issues[0])
+    const stored: string[] = []
+    try {
+      if (next.status === 'completed') {
+        next = { ...next, result: await this.#finish(principal, next, stored) }
+      }
+      const parsed = EnvelopeFrontmatter.safeParse(next)
+      if (!parsed.success) throw badInput(parsed.error.issues[0])
+      changes.push({ path: envelopePath(id), content: envelopeFile(parsed.data) })
+      await this.#commit(space, principal, {
+        changes,
+        verb: 'sign',
+        title: fm.title,
+        via,
+        unchanged: { path: envelopePath(id), blobOid: input.blobOid },
+      })
+    } catch (err) {
+      // Nothing points at copies sealed for a sign that didn't land: take them back out.
+      for (const fileId of stored) {
+        await this.#deps.files.remove(principal, fm.source.space, fileId).catch(() => undefined)
+      }
+      throw err
+    }
     return this.get(principal, space, id)
   }
 
@@ -394,6 +456,7 @@ export class Sign {
   async #finish(
     principal: Principal,
     fm: EnvelopeFrontmatter,
+    stored: string[],
   ): Promise<NonNullable<EnvelopeFrontmatter['result']>> {
     const original = await this.#deps.files
       .get(principal, fm.source.space, fm.source.file)
@@ -438,7 +501,9 @@ export class Sign {
         undefined,
       )
     const signedFile = await store(`${stem} (signed).pdf`, signed)
+    stored.push(signedFile.id)
     const certificateFile = await store(`${stem} (certificate).pdf`, certificate)
+    stored.push(certificateFile.id)
     return {
       signed_file: signedFile.id,
       certificate_file: certificateFile.id,
@@ -497,7 +562,8 @@ export class Sign {
       signerList: fm.signers,
       fields: fm.fields,
       audit: fm.audit,
-      auditIntact: verifyAuditChain(fm.audit.map((a) => toChained(fm.id, a))).ok,
+      auditIntact:
+        verifyAuditChain(fm.audit.map((a) => toChained(fm.id, a))).ok && fieldsMatchAudit(fm),
       result: fm.result
         ? {
             space: fm.source.space,
@@ -656,15 +722,23 @@ function fillFields(
     const v = byId.get(f.id)
     const label = FIELD_LABEL[f.type]
     if (f.type === 'checkbox') {
+      if (f.required && v?.checked !== true) {
+        throw new HotsauceError('bad_request', 'Tick every required box')
+      }
       return { ...f, checked: v?.checked === true, filled_at: now }
     }
     if (f.type === 'date') {
-      // The date signed, unless the signer typed one.
-      return { ...f, value: v?.value?.trim() || now.slice(0, 10), filled_at: now }
+      return { ...f, value: dateSigned(v?.value, now), filled_at: now }
     }
     if (f.type === 'signature' || f.type === 'initials') {
       if (v?.image) {
         if (!isPng(v.image)) throw new HotsauceError('bad_request', `Draw your ${label} again`)
+        if (!pngFits(v.image)) {
+          throw new HotsauceError(
+            'bad_request',
+            `Your drawn ${label} is too big; clear it and draw it again`,
+          )
+        }
         return { ...f, input: 'drawn', image: v.image, value: undefined, filled_at: now }
       }
       const typed = v?.value?.replace(/\s+/g, ' ').trim().slice(0, 200)
@@ -683,6 +757,61 @@ const FIELD_LABEL: Record<SignField['type'], string> = {
   date: 'date',
   text: 'text',
   checkbox: 'checkbox',
+}
+
+/**
+ * The date a date field shows: the signer's own calendar date (their device sends it), so an
+ * evening in New York isn't stamped with tomorrow's UTC date; anything else, or a date more than
+ * a day from the server's, gets the server's date. A signer can't backdate a signature.
+ */
+function dateSigned(sent: string | undefined, now: string): string {
+  const today = now.slice(0, 10)
+  const v = sent?.trim() ?? ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return today
+  const day = Date.parse(`${v}T00:00:00Z`)
+  if (Number.isNaN(day)) return today
+  return Math.abs(day - Date.parse(`${today}T00:00:00Z`)) <= 86_400_000 ? v : today
+}
+
+/** A digest of what one signer filled in: the fields' places and values, in id order. */
+function filledDigest(fields: readonly SignField[], signerId: string): string {
+  const mine = fields
+    .filter((f) => f.signer === signerId)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .map((f) => [
+      f.id,
+      f.type,
+      f.page,
+      f.x,
+      f.y,
+      f.width,
+      f.height,
+      f.value ?? null,
+      f.checked ?? null,
+      f.image ?? null,
+    ])
+  return createHash('sha256').update(JSON.stringify(mine)).digest('hex')
+}
+
+/** Whether each signer's fields are still what their signed event recorded. */
+function fieldsMatchAudit(fm: EnvelopeFrontmatter): boolean {
+  for (const a of fm.audit) {
+    if (a.event !== 'signed') continue
+    const m = (a.meta ?? {}) as Record<string, unknown>
+    if (typeof m.fieldsSha256 !== 'string' || typeof m.signerId !== 'string') continue
+    if (filledDigest(fm.fields, m.signerId) !== m.fieldsSha256) return false
+  }
+  return true
+}
+
+/** Drawn signatures are small: a PNG claiming more than 4000 by 2000 pixels is refused. */
+function pngFits(dataUrl: string): boolean {
+  const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1, dataUrl.indexOf(',') + 1 + 32)
+  const head = Buffer.from(b64, 'base64')
+  if (head.length < 24) return false
+  const width = head.readUInt32BE(16)
+  const height = head.readUInt32BE(20)
+  return width > 0 && height > 0 && width <= 4000 && height <= 2000
 }
 
 function isPng(dataUrl: string): boolean {

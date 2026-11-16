@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { createSealIdentity, type SealIdentity } from '@hotsauce/sign'
 
@@ -13,6 +21,8 @@ export function ensureSealKey(dataDir: string, commonName: string): SealIdentity
   if (existsSync(file)) {
     const saved = JSON.parse(readFileSync(file, 'utf8')) as Partial<SealIdentity>
     if (saved.privateKeyPem && saved.certificateChainPem?.length) {
+      // A restore from the state mirror or a backup may have left it readable by others.
+      chmodSync(file, 0o600)
       return { privateKeyPem: saved.privateKeyPem, certificateChainPem: saved.certificateChainPem }
     }
   }
@@ -21,9 +31,12 @@ export function ensureSealKey(dataDir: string, commonName: string): SealIdentity
     privateKeyPem: made.privateKeyPem,
     certificateChainPem: made.certificateChainPem,
   }
-  mkdirSync(path.dirname(file), { recursive: true })
+  mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
   const tmp = `${file}.tmp`
+  // A leftover temp file would keep its old mode, so start it afresh.
+  rmSync(tmp, { force: true })
   writeFileSync(tmp, JSON.stringify(identity), { mode: 0o600 })
   renameSync(tmp, file)
+  chmodSync(file, 0o600)
   return identity
 }

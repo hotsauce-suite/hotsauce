@@ -105,3 +105,39 @@ test('send a PDF for signature, sign it, and find the sealed copy in Files', asy
     page.getByTestId('sign-list').getByRole('link', { name: new RegExp(`offer-${id}`) }),
   ).toContainText('Signed')
 })
+
+test('places, moves, resizes and removes a field from the keyboard alone', async ({
+  page,
+  member,
+}) => {
+  const id = uid()
+  const name = `keys-${id}.pdf`
+  await page.goto(`/files?space=${encodeURIComponent(member.personal)}`)
+  await page
+    .getByTestId('files-input')
+    .setInputFiles([{ name, mimeType: 'application/pdf', buffer: pdf(`Keys ${id}`) }])
+  await expect(row(page, name)).toBeVisible({ timeout: 15_000 })
+  await row(page, name).getByTestId('files-open').click()
+  await page.getByTestId('file-send-for-signature').click()
+  await expect(page.getByTestId('sign-page-1')).toBeVisible()
+
+  // Enter on Signature puts one in the middle of page 1 and focuses it.
+  await page.getByTestId('sign-add-signature').focus()
+  await page.keyboard.press('Enter')
+  const field = page.locator('[data-field-type="signature"]')
+  await expect(field).toHaveCount(1)
+  await expect(page.locator('[data-field-focus="f1"]')).toBeFocused()
+
+  const box = async () => {
+    const b = await field.boundingBox()
+    if (!b) throw new Error('no field')
+    return b
+  }
+  const start = await box()
+  await page.keyboard.press('Shift+ArrowRight')
+  await expect.poll(async () => (await box()).x).toBeGreaterThan(start.x + 2)
+  await page.keyboard.press('Alt+Shift+ArrowRight')
+  await expect.poll(async () => (await box()).width).toBeGreaterThan(start.width + 2)
+  await page.keyboard.press('Delete')
+  await expect(field).toHaveCount(0)
+})

@@ -88,7 +88,18 @@ async function draft(as = ALICE) {
 const FIELDS = [
   { id: 'f1', signer: 's1', type: 'signature', page: 1, x: 0.1, y: 0.7, width: 0.3, height: 0.06 },
   { id: 'f2', signer: 's1', type: 'date', page: 1, x: 0.5, y: 0.7, width: 0.2, height: 0.04 },
-  { id: 'f3', signer: 's1', type: 'checkbox', page: 2, x: 0.1, y: 0.2, width: 0.04, height: 0.03 },
+  {
+    id: 'f3',
+    signer: 's1',
+    type: 'checkbox',
+    page: 2,
+    x: 0.1,
+    y: 0.2,
+    width: 0.04,
+    height: 0.03,
+    // As the app places a box: optional unless the sender says otherwise.
+    required: false,
+  },
   { id: 'f4', signer: 's1', type: 'text', page: 2, x: 0.1, y: 0.3, width: 0.5, height: 0.04 },
 ]
 
@@ -317,6 +328,123 @@ describe('signing it yourself (R9)', () => {
       },
       status: 400,
     })
+  })
+
+  const SIGNED = [
+    { field: 'f1', value: 'Alice' },
+    { field: 'f4', value: 'x' },
+  ]
+  const contracts = async () =>
+    (await api('GET', '/api/files?space=team&folder=Contracts')).files
+      .map((f: { name: string }) => f.name)
+      .sort()
+
+  it('refuses an old version before sealing, so no stray copies land in Files', async () => {
+    const { env } = await ready()
+    const stale = env.blobOid
+    await api('PUT', `/api/sign/alice/${env.id}`, {
+      json: { title: 'Renamed', fields: FIELDS, blobOid: env.blobOid },
+    })
+    await api('POST', `/api/sign/alice/${env.id}/sign`, {
+      json: { consent: true, blobOid: stale, values: SIGNED },
+      status: 409,
+    })
+    expect(await contracts()).toEqual(['offer.pdf'])
+  })
+
+  it('seals once when Finish is pressed twice at the same moment', async () => {
+    const { env } = await ready()
+    const press = () =>
+      app.request(`/api/sign/alice/${env.id}/sign`, {
+        method: 'POST',
+        headers: { 'x-hearth-dev-user': ALICE, 'content-type': 'application/json' },
+        body: JSON.stringify({ consent: true, blobOid: env.blobOid, values: SIGNED }),
+      })
+    const statuses = (await Promise.all([press(), press()])).map((r) => r.status).sort()
+    expect(statuses).toEqual([200, 409])
+    expect(await contracts()).toEqual([
+      'offer (certificate).pdf',
+      'offer (signed).pdf',
+      'offer.pdf',
+    ])
+  })
+
+  it('dates a date field with the signer’s own day, never more than a day off', async () => {
+    const { env } = await ready()
+    const done = await api('POST', `/api/sign/alice/${env.id}/sign`, {
+      json: {
+        consent: true,
+        blobOid: env.blobOid,
+        values: [...SIGNED, { field: 'f2', value: '1999-01-01' }],
+      },
+    })
+    const today = new Date().toISOString().slice(0, 10)
+    expect(done.fields.find((f: { id: string }) => f.id === 'f2').value).toBe(today)
+  })
+
+  it('needs a required box ticked', async () => {
+    const made = await draft()
+    const fields = FIELDS.map((f) => (f.id === 'f3' ? { ...f, required: true } : f))
+    const env = await api('PUT', `/api/sign/alice/${made.env.id}`, {
+      json: { title: 'Offer', fields, blobOid: made.env.blobOid },
+    })
+    const res = await api('POST', `/api/sign/alice/${env.id}/sign`, {
+      json: { consent: true, blobOid: env.blobOid, values: SIGNED },
+      status: 400,
+    })
+    expect(res.error.message).toMatch(/required box/)
+  })
+
+  it('refuses a drawn signature whose PNG claims to be huge', async () => {
+    const { env } = await ready()
+    const png = Buffer.from(DRAWN.split(',')[1] ?? '', 'base64')
+    png.writeUInt32BE(30_000, 16)
+    png.writeUInt32BE(30_000, 20)
+    const res = await api('POST', `/api/sign/alice/${env.id}/sign`, {
+      json: {
+        consent: true,
+        blobOid: env.blobOid,
+        values: [
+          { field: 'f1', image: `data:image/png;base64,${png.toString('base64')}` },
+          { field: 'f4', value: 'x' },
+        ],
+      },
+      status: 400,
+    })
+    expect(res.error.message).toMatch(/too big/)
+  })
+
+  it('keeps only a real IP address in the audit trail', async () => {
+    const { env } = await ready()
+    const res = await app.request(`/api/sign/alice/${env.id}/sign`, {
+      method: 'POST',
+      headers: {
+        'x-hearth-dev-user': ALICE,
+        'content-type': 'application/json',
+        'x-forwarded-for': `${'x'.repeat(150)}, 10.0.0.1`,
+      },
+      body: JSON.stringify({ consent: true, blobOid: env.blobOid, values: SIGNED }),
+    })
+    expect(res.status).toBe(200)
+    const done = await res.json()
+    expect(done.audit[2].ip).toBeNull()
+  })
+
+  it('says the audit doesn’t check out when a signed field is edited in Git', async () => {
+    const { env } = await ready()
+    const done = await api('POST', `/api/sign/alice/${env.id}/sign`, {
+      json: { consent: true, blobOid: env.blobOid, values: SIGNED },
+    })
+    expect(done.auditIntact).toBe(true)
+    const path = `sign/${env.id}.md`
+    const file = await services.git.readFile('alice', path)
+    await services.git.commit('alice', {
+      changes: [{ path, content: file.content.replace('value: Alice', 'value: Mallory') }],
+      message: 'edit by hand',
+      author: { name: 'x', email: 'x@example.test' },
+    })
+    const after = await api('GET', `/api/sign/alice/${env.id}`)
+    expect(after.auditIntact).toBe(false)
   })
 
   it('reuses the install’s seal key from the data folder', async () => {

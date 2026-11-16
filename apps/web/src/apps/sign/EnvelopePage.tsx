@@ -81,14 +81,27 @@ export default function EnvelopePage() {
     return <PageHeader title="Sign" menu={false} back={{ to: '/sign', label: 'Sign' }} />
   }
 
-  const draft = env.status === 'draft' && !signing
-  const signer =
-    env.signerList.find((s) => s.email === me?.principal.email.toLowerCase()) ?? env.signerList[0]
+  const meSigner = env.signerList.find((s) => s.email === me?.principal.email.toLowerCase())
+  // Only someone still to sign places fields and gets Sign it; anyone else who can open it sees
+  // it as it stands.
+  const canStart = meSigner?.status === 'pending'
+  const draft = env.status === 'draft' && !signing && canStart
+  const signer = meSigner ?? env.signerList[0]
   const mine = fields.filter((f) => f.signer === signer?.id)
 
   const update = (fieldId: string, fn: (f: SignField) => SignField) => {
     setFields((all) => all.map((f) => (f.id === fieldId ? fn(f) : f)))
     setDirty(true)
+  }
+  const place = (type: SignFieldType, page: number, at: { x: number; y: number }) => {
+    if (!signer) return
+    const size = env.source.pages[page - 1] ?? { width: 612, height: 792 }
+    const f = newField(type, signer.id, page, at, size, fields)
+    setFields((all) => [...all, f])
+    setSelected(f.id)
+    setPlacing(null)
+    setDirty(true)
+    focusField(f.id)
   }
   const removeField = (fieldId: string) => {
     setFields((all) => all.filter((f) => f.id !== fieldId))
@@ -131,8 +144,12 @@ export default function EnvelopePage() {
     setBusy(true)
     setError(null)
     try {
+      // A date field shows the signer's own day; the server keeps it within a day of its own.
+      const dates = mine
+        .filter((f) => f.type === 'date')
+        .map((f) => ({ field: f.id, value: localDay() }))
       const view = await signApi.sign(space, id, {
-        values: Object.values(values),
+        values: [...Object.values(values), ...dates],
         consent,
         blobOid: env.blobOid,
       })
@@ -162,6 +179,7 @@ export default function EnvelopePage() {
     const v = values[f.id]
     if (f.type === 'signature' || f.type === 'initials') return !v?.value && !v?.image
     if (f.type === 'text') return f.required && !v?.value?.trim()
+    if (f.type === 'checkbox') return f.required && v?.checked !== true
     return false
   })
 
@@ -250,7 +268,7 @@ export default function EnvelopePage() {
                   </label>
                   <p className="text-sm text-ink-soft">
                     Pick a field, then click where it goes on the page. Drag a field to move it, or
-                    select it and use the arrow keys; Delete removes it.
+                    use the arrow keys; Alt and the arrow keys resize it, and Delete removes it.
                   </p>
                   <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Add a field">
                     {FIELD_TYPES.map((type) => (
@@ -259,7 +277,15 @@ export default function EnvelopePage() {
                         type="button"
                         aria-pressed={placing === type}
                         className={`rounded-full px-3 py-1.5 text-sm ring-1 ${placing === type ? 'bg-ember text-paper-raised ring-ember' : 'bg-paper ring-ash-strong hover:ring-ember'}`}
-                        onClick={() => setPlacing(placing === type ? null : type)}
+                        onClick={(e) => {
+                          // From the keyboard (no pointer position), the field goes in the
+                          // middle of the first page, focused, ready for the arrow keys.
+                          if (e.detail === 0 && signer) {
+                            place(type, 1, { x: 0.5, y: 0.5 })
+                            return
+                          }
+                          setPlacing(placing === type ? null : type)
+                        }}
                         data-testid={`sign-add-${type}`}
                       >
                         {FIELD_LABEL[type]}
@@ -333,7 +359,7 @@ export default function EnvelopePage() {
               {pdf ? (
                 <div
                   role="application"
-                  aria-label="The PDF's pages. Tab to a field; arrow keys move it and Delete removes it."
+                  aria-label="The PDF's pages. Tab to a field; arrow keys move it, Alt with the arrow keys resizes it, and Delete removes it."
                   className={placing ? 'cursor-crosshair' : ''}
                   onKeyDown={(e) => {
                     if (!draft || !selected) return
@@ -345,7 +371,10 @@ export default function EnvelopePage() {
                       ArrowDown: [0, step],
                     }
                     const m = moves[e.key]
-                    if (m) {
+                    if (m && e.altKey) {
+                      e.preventDefault()
+                      update(selected, (f) => resizeField(f, m[0], m[1]))
+                    } else if (m) {
                       e.preventDefault()
                       update(selected, (f) => moveField(f, m[0], m[1]))
                     } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -361,12 +390,7 @@ export default function EnvelopePage() {
                     onPageClick={(page, at) => {
                       setSelected(null)
                       if (!draft || !placing || !signer) return
-                      const size = env.source.pages[page - 1] ?? { width: 612, height: 792 }
-                      const f = newField(placing, signer.id, page, at, size, fields)
-                      setFields((all) => [...all, f])
-                      setSelected(f.id)
-                      setPlacing(null)
-                      setDirty(true)
+                      place(placing, page, at)
                     }}
                   />
                 </div>
@@ -419,6 +443,20 @@ export default function EnvelopePage() {
   )
 }
 
+/** Today on this device's calendar, as YYYY-MM-DD. */
+function localDay(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/** Focuses a placed field's button once it is on the page, so the keyboard moves it. */
+function focusField(id: string) {
+  requestAnimationFrame(() => {
+    document.querySelector<HTMLElement>(`[data-field-focus="${CSS.escape(id)}"]`)?.focus()
+  })
+}
+
 /** One field on a page: a box to drag in a draft, or something to fill in while signing. */
 function FieldBox({
   field,
@@ -456,6 +494,8 @@ function FieldBox({
     e.stopPropagation()
     e.preventDefault()
     onSelect()
+    // preventDefault stops the browser focusing it, so the arrow keys would do nothing.
+    focusField(field.id)
     const page = (
       e.currentTarget.closest('[data-testid^="sign-page-"]') as HTMLElement | null
     )?.getBoundingClientRect()
@@ -498,7 +538,7 @@ function FieldBox({
           style={style}
           data-testid={`sign-field-${field.id}`}
         >
-          {new Date().toISOString().slice(0, 10)}
+          {localDay()}
         </span>
       )
     }
@@ -542,6 +582,7 @@ function FieldBox({
           type="button"
           className="size-full cursor-move truncate px-1 outline-none focus-visible:ring-2 focus-visible:ring-ember"
           onFocus={onSelect}
+          data-field-focus={field.id}
           aria-label={`${FIELD_LABEL[field.type]} field on page ${field.page}`}
         >
           {FIELD_LABEL[field.type]}

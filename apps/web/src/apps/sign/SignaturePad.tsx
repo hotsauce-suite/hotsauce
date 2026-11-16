@@ -1,3 +1,4 @@
+import { MAX_DRAWN_SIGNATURE_CHARS } from '@hotsauce/format'
 import { useEffect, useRef, useState } from 'react'
 import { Dialog } from '../../components/Dialog'
 import { inputClass } from '../../routes/org/fields'
@@ -26,6 +27,7 @@ export function SignatureDialog({
   const [typed, setTyped] = useState(kind === 'initials' ? initials : name)
   const canvas = useRef<HTMLCanvasElement>(null)
   const [drawn, setDrawn] = useState(false)
+  const [tooBig, setTooBig] = useState(false)
   const drawing = useRef(false)
 
   useEffect(() => {
@@ -123,12 +125,18 @@ export function SignatureDialog({
                 const el = canvas.current
                 el?.getContext('2d')?.clearRect(0, 0, el.width, el.height)
                 setDrawn(false)
+                setTooBig(false)
               }}
             >
               Clear
             </button>
           </div>
         )}
+        {tooBig ? (
+          <p role="alert" className="text-sm text-ink">
+            That drawing is too detailed to keep. Clear it and draw your {label} a little simpler.
+          </p>
+        ) : null}
         <p className="text-xs text-ink-faint">
           Your {label} goes on this document only and is kept with it.
         </p>
@@ -143,7 +151,11 @@ export function SignatureDialog({
             disabled={mode === 'type' ? !typed.trim() : !drawn}
             onClick={() => {
               if (mode === 'type') onDone({ value: typed.trim() })
-              else if (canvas.current) onDone({ image: canvas.current.toDataURL('image/png') })
+              else if (canvas.current) {
+                const image = canvas.current.toDataURL('image/png')
+                if (image.length > MAX_DRAWN_SIGNATURE_CHARS) setTooBig(true)
+                else onDone({ image })
+              }
             }}
           >
             Use this {label}

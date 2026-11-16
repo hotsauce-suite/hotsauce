@@ -1,9 +1,9 @@
+import { isIP } from 'node:net'
 import { MAX_DRAWN_SIGNATURE_CHARS, MAX_FIELDS } from '@hotsauce/format'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
-import { clientIp } from './booking.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'
@@ -81,7 +81,7 @@ export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
         const { space, id } = c.req.valid('param')
         const p = c.get('principal')
         const meta = {
-          ip: clientIp((n) => c.req.header(n)),
+          ip: signerIp((n) => c.req.header(n)),
           agent: c.req.header('user-agent')?.slice(0, 500) ?? null,
         }
         return c.json(await sign.sign(p, space, id, c.req.valid('json'), meta, viaFor(p)))
@@ -93,4 +93,16 @@ export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
       await sign.remove(p, space, id, viaFor(p))
       return c.body(null, 204)
     })
+}
+
+/**
+ * The address a signing came from, for the audit trail: Fly's client header, else the first
+ * forwarded address, kept only when it is a real IP address (anything else is left out).
+ */
+export function signerIp(header: (name: string) => string | undefined): string | null {
+  for (const raw of [header('fly-client-ip'), header('x-forwarded-for')?.split(',')[0]]) {
+    const ip = raw?.trim() ?? ''
+    if (ip && isIP(ip)) return ip
+  }
+  return null
 }

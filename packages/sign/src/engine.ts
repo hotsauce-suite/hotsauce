@@ -164,10 +164,24 @@ export const pdfFingerprint = sha256Hex
  */
 export async function readPdfPages(
   bytes: Uint8Array,
-): Promise<Array<{ width: number; height: number }>> {
+): Promise<Array<{ width: number; height: number; plain: boolean }>> {
   const doc = await PDFDocument.load(bytes, { updateMetadata: false })
   return doc.getPages().map((page) => {
     const { width, height } = page.getSize()
-    return { width, height }
+    // Fields are stamped in the MediaBox's own coordinates, from its corner at 0,0. A page that
+    // is turned, cropped or shifted shows differently in a reader, so a field would land
+    // somewhere other than where it was placed: `plain` is false for those.
+    const media = page.getMediaBox()
+    const crop = page.getCropBox()
+    const same = (a: number, b: number) => Math.abs(a - b) < 0.5
+    const plain =
+      page.getRotation().angle % 360 === 0 &&
+      same(media.x, 0) &&
+      same(media.y, 0) &&
+      same(crop.x, media.x) &&
+      same(crop.y, media.y) &&
+      same(crop.width, media.width) &&
+      same(crop.height, media.height)
+    return { width, height, plain }
   })
 }
