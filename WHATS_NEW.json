@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.30.6",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "Tasks: switch between Inbox, Today, Upcoming, All and Done from tabs above the list, and search the list by name."
+        },
+        {
+          "text": "Meetings: search your meetings by name or by person from the top of the page."
+        }
+      ]
+    },
+    {
       "version": "0.30.5",
       "date": "2026-11-16",
       "notes": [
