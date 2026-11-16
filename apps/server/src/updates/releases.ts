@@ -9,6 +9,48 @@ export const RELEASES_URL = 'https://api.github.com/repos/hotsauce-suite/hotsauc
 /** Redirects to the newest release's page. Not part of the API, so its rate limit doesn't apply. */
 export const RELEASES_PAGE_URL = 'https://github.com/hotsauce-suite/hotsauce/releases/latest'
 
+/**
+ * The file each release carries naming the exact image it built, `sha256:<64 hex>`
+ * (.github/workflows/release.yml). The updater installs that image and nothing else, so moving a
+ * version's tag in the registry can't change what an instance runs (docs/PLAN-pinned-images.md).
+ */
+export const IMAGE_DIGEST_ASSET = 'image-digest.txt'
+export const imageDigestUrl = (version: string): string =>
+  `https://github.com/hotsauce-suite/hotsauce/releases/download/v${version}/${IMAGE_DIGEST_ASSET}`
+const DIGEST = /^sha256:[0-9a-f]{64}$/
+
+/** Throws unless `digest` is one sha256 image digest. */
+export function assertImageDigest(digest: string, version: string): string {
+  if (!DIGEST.test(digest)) {
+    throw new Error(`What Hotsauce ${version} recorded isn’t an image digest`)
+  }
+  return digest
+}
+
+/**
+ * The image digest a release recorded. Read from the release's download, which the API's rate
+ * limit doesn't cover. Throws when there is none, so a release without one is never installed.
+ */
+export async function fetchImageDigest(
+  version: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<string> {
+  let res: Response
+  try {
+    res = await fetchFn(imageDigestUrl(version), {
+      headers: { 'user-agent': HEADERS['user-agent'] },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+  } catch (err) {
+    throw new Error(`Couldn’t read the image Hotsauce ${version} recorded: ${reason(err)}`)
+  }
+  if (!res.ok) {
+    await res.body?.cancel()
+    throw new Error(`Hotsauce ${version} recorded no image (answered ${res.status})`)
+  }
+  return assertImageDigest((await res.text()).slice(0, 200).trim(), version)
+}
+
 const HEADERS = { accept: 'application/vnd.github+json', 'user-agent': 'hotsauce-updater' }
 const TIMEOUT_MS = 15_000
 

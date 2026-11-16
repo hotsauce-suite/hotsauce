@@ -54,3 +54,6 @@ Learnings from the read-later list's readable copies (`apps/server/src/links/`).
   places this tab sent lately and lays them over the server's when they're newer.
 - **A pull request with a merge conflict runs no CI.** Pushes looked ignored; the PR was "dirty"
   because another release bumped `HOTSAUCE_VERSION`. Check `mergeable_state` before waiting on CI.
+
+- **An address is an outbound channel.** Any server-side fetch of an address an AI tool chose can carry private text out in the query string, so "the agent saved it" must never mean "the server visits it". Key the rule on what is stored in the file (`source: mcp`, never fetched), not on the request, so it survives restarts and moves; and make every other path that schedules a read (re-save, move to team, the "lost after 3 minutes" fallback) check it too. The re-save path was the one that leaked first in the tests.
+- **Fake only `Date` to test time-based states.** `vi.useFakeTimers({ toFake: ['Date'] })` plus `vi.setSystemTime` moves `new Date()` without freezing the git and fetch timers the integration tests need.

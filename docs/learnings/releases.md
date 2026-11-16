@@ -87,3 +87,13 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
 - **"Release succeeded" no longer means "a release happened".** The Release workflow runs and
   succeeds after every merge, mostly releasing nothing, so anything chained on it with
   `workflow_run` (install-test.yml) must check that a release was created during that run.
+- **Install by digest, and record it where the cheap path can read it.** A registry tag can be
+  moved after a release, so the updater installs the digest each release recorded
+  (`image-digest.txt`, attached in the same `gh release create` call, which keeps the release a
+  draft until the file is up). Reading it from `releases/download/v<version>/…` sidesteps the
+  API's per-address limit; that address always redirects to GitHub's file host, so don't fetch it
+  with `redirect: 'manual'`. Anything the timer retries must not force a fresh API ask each tick:
+  a release it can't install would otherwise cost six asks an hour.
+- **A change to the updater only takes effect one release later.** Instances install the release
+  that carries new updater code with the old updater; the first install that exercises it is the
+  release after. Check that second release lands on Haven before calling an updater change done.

@@ -2,7 +2,8 @@
 
 import { request } from './client'
 
-export type LinkStatus = 'fetching' | 'ready' | 'failed'
+/** `waiting`: an AI tool saved it; the page is fetched only when the member asks. */
+export type LinkStatus = 'waiting' | 'fetching' | 'ready' | 'failed'
 export type LinkListView = 'unread' | 'archive' | 'all'
 export type LinkSource = 'web' | 'extension' | 'share' | 'shortcut' | 'mcp'
 
