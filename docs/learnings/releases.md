@@ -2,9 +2,25 @@
 
 Learnings from building release images and the self-updater (`docs/PLAN-releases-and-updates.md`).
 
-- **A release is a version bump.** `release.yml` runs when `HOTSAUCE_VERSION` changes on main and
-  does nothing for a version that's already tagged. Two PRs that both bump from the same version
-  conflict on that one file; rebase and take the higher number.
+- **Releases number themselves (since 2026-11-16).** Until then every PR raised `HOTSAUCE_VERSION`
+  and parallel threads kept claiming the same next number (0.14.2, 0.14.4 and 0.16.0 were each
+  claimed twice in one day). Now no PR touches the file; `release.yml` runs after every merge,
+  numbers from the newest *tag* (not the file, so a half-finished release is redone with the same
+  number), writes the number to main as the workflow's own commit and tags last.
+- **Writing to a protected main from a workflow needs a ruleset bypass.** "Protect main" requires a
+  pull request and six checks, and a PR opened with the workflow's token starts no checks, so a
+  bot release PR would never merge. GitHub Actions (integration 15368) is on the ruleset's bypass
+  list instead. Its pushes start no workflows, which is also what stops a release loop.
+- **Don't rebase a release commit and build a different commit.** Each run checks out main as it
+  is, writes the number on top, and builds and tags exactly that commit. A merge that lands
+  mid-run is either in it or starts the next run; nothing is built from one commit and tagged on
+  another.
+- **A waiting concurrency run is replaced, not queued.** With `cancel-in-progress: false` GitHub
+  keeps one running and one pending run per group; a third cancels the second. That's safe only
+  because every run releases main as it is when it starts.
+- **Check a guard against the merge commit's first parent.** The "no version in pull requests"
+  lint compares `HEAD^1..HEAD` of the PR's merge commit, so a number main gained after the branch
+  started isn't blamed on the PR (a two-dot diff against main's tip would be).
 - **Tag only after the image exists.** The workflow pushes the ghcr image first and creates the
   GitHub release last, so an instance never sees a release it can't pull.
 - **A new ghcr package is private, even from a public repo.** Anonymous pulls (Fly, Docker, other

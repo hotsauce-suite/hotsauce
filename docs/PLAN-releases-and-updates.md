@@ -8,7 +8,8 @@ back on its own when the new version fails its health check.
 
 ## Requirements
 
-R1. Merging a change that raises `HOTSAUCE_VERSION` on `main` tags `v<version>`, publishes a
+R1. A merge to `main` that changes the app picks the next version itself (since 2026-11-16, see
+    `docs/PLAN-auto-releases.md`), tags `v<version>`, publishes a
     GitHub release with notes, and pushes `ghcr.io/hotsauce-suite/hotsauce:<version>` and
     `:latest`. A version that is already tagged publishes nothing.
 R2. The image holds nothing specific to one organization. Everything an instance needs is read
