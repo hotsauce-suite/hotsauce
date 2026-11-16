@@ -148,12 +148,14 @@ Voice notes and Briefcast keep their own layouts (Morgan, Q7 note).
 - Personal / Team is sorted in the browser from the list already loaded; no server change.
 - A person's or company's own page keeps its wider column; only the People list is a list.
 - Links keeps its "Paste a link to save" row, now under the row of tabs and search.
-- Meetings has no tabs. Its page is sections (Coming up, Recent meetings, Action items, Meetings),
-  not views, and putting the list of past meetings behind a tab would hide it on arrival. The
+- Meetings has no tabs. This changes the answer Morgan accepted in Q3 ("Tasks, Meetings and Saved
+  links keep their own views as the tabs"); he is told in the thread. Its page is sections (Coming
+  up, Recent meetings, Action items, All meetings), not views, and putting the list of past meetings behind a tab would hide it on arrival. The
   sections keep their names in the one list heading size. The row's search looks through
   meetings by name and by who was there; while it has words in it the matches are all the page
-  shows. The "Search meetings and docs" button left Meetings' side list (Ctrl/Cmd K still opens it).
+  shows, the filters don't apply, and a button under them opens the search of what was said. The "Search meetings and docs" button left Meetings' side list (Ctrl/Cmd K still opens it).
 - Tasks' search filters the list on screen by name; dragging to reorder is off while it has words.
+  It empties when you change list or add a task, so nothing new is hidden.
   The "3 open" count and today's date sit under the row in small type.
 
 ## Shared files this touches

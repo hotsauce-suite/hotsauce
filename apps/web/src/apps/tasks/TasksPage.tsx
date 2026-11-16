@@ -170,6 +170,10 @@ export default function TasksPage() {
   const listRef = useRef(list)
   listRef.current = list
   const [q, setQ] = useState('')
+  // Each list starts unsearched; opening a task from a list keeps what was typed.
+  const listUrl = viewUrl(view)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listUrl is the trigger.
+  useEffect(() => setQ(''), [listUrl])
   // The row's search filters the list on screen by name (PLAN-consistency, requirement 13).
   const tasks = useMemo(
     () => (q.trim() ? (list.tasks?.filter((t) => matchesName(t.title, q)) ?? null) : list.tasks),
@@ -312,6 +316,8 @@ export default function TasksPage() {
   }
 
   const added = (task: TaskView) => {
+    // A new task is never hidden by what's in the search.
+    setQ('')
     list.adopt(task)
     setSelectedKey(taskKey(task))
     tasksBus.emit({ type: 'changed' })
@@ -487,6 +493,15 @@ export default function TasksPage() {
   // Dragging a filtered list would reorder around rows that aren't shown.
   const reorderable = isReorderable(view) && !q.trim()
   const open = list.tasks?.length ?? 0
+  const searching = q.trim() !== ''
+  // Under the row: whose project it is, or how many are open. Not while searching, when the
+  // rows on screen are only the matches.
+  const countLine =
+    view.id === 'project'
+      ? session.spaceLabel(view.space)
+      : !searching && list.tasks && open > 0 && view.id !== 'done' && view.id !== 'today'
+        ? `${open} open`
+        : ''
 
   return (
     <>
@@ -510,23 +525,19 @@ export default function TasksPage() {
               className="mb-4"
             />
             {/* A list's name is its tab; only a project, which has no tab, is named here. */}
-            <div className="mb-4 flex min-h-5 items-baseline gap-3 px-1">
-              {view.id === 'project' ? (
-                <h2 data-testid="tasks-title" className={`min-w-0 truncate ${listHeading}`}>
-                  <span className="mr-1 text-ink-faint">#</span>
-                  {title}
-                </h2>
-              ) : null}
-              <span data-testid="tasks-count" className="shrink-0 text-sm text-ink-faint">
-                {view.id === 'today'
-                  ? dayDetail(today)
-                  : view.id === 'project'
-                    ? session.spaceLabel(view.space)
-                    : tasks && open > 0 && view.id !== 'done'
-                      ? `${open} open`
-                      : ''}
-              </span>
-            </div>
+            {view.id === 'project' || countLine ? (
+              <div className="mb-4 flex items-baseline gap-3 px-1">
+                {view.id === 'project' ? (
+                  <h2 data-testid="tasks-title" className={`min-w-0 truncate ${listHeading}`}>
+                    <span className="mr-1 text-ink-faint">#</span>
+                    {title}
+                  </h2>
+                ) : null}
+                <span data-testid="tasks-count" className="shrink-0 text-sm text-ink-faint">
+                  {countLine}
+                </span>
+              </div>
+            ) : null}
 
             {view.id !== 'done' ? (
               <div className="mb-5">
@@ -617,11 +628,11 @@ export default function TasksPage() {
               </div>
             )}
 
-            {view.id === 'today' ? (
+            {view.id === 'today' && !searching ? (
               <FromMeetings today={today} tz={tz} onAdded={added} onError={notify} />
             ) : null}
 
-            {view.id === 'project' ? (
+            {view.id === 'project' && !searching ? (
               <ProjectDone
                 space={view.space}
                 project={view.project}

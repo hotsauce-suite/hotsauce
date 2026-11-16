@@ -22,6 +22,13 @@
   font-size: 0.85rem;
   color: var(--ink-soft);
 }
+/* Five tabs (Tasks) still fit a small phone. */
+@media (max-width: 400px) {
+  .clips-tabs button,
+  .clips-tabs a {
+    padding: 0 0.6rem;
+  }
+}
 .clips-tabs button[aria-selected="true"],
 .clips-tabs a[aria-selected="true"] {
   background: var(--paper-raised);

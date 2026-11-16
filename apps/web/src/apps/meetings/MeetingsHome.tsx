@@ -13,6 +13,7 @@ import type {
   MeetingSummary,
 } from '../../api/types'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { ListBar, ListColumn, listHeading, matchesName } from '../../components/ListBar'
@@ -148,18 +149,22 @@ function groupByDay<T>(items: T[], dateOf: (item: T) => Date): Array<{ day: Date
   return [...groups.values()]
 }
 
+const NO_FILTERS: MeetingFilters = {}
+
 /** `/meetings`: what's coming up, then every meeting by day, with filters. */
 export default function MeetingsHome() {
   const { events, failed, status, refreshed } = useUpcoming()
   const coverage = useCoverage(refreshed)
   const unsaved = useUnsavedSessions()
   const [filters, setFilters] = useState<MeetingFilters>({})
-  const list = useMeetingList(filters)
   const now = useNow(30_000)
   // The row's search looks through the meetings by name and by who was there; while it has
   // words in it, the matches are all the page shows.
   const [q, setQ] = useState('')
   const searching = q.trim() !== ''
+  // The filters are out of sight while searching, so they don't apply then.
+  const list = useMeetingList(searching ? NO_FILTERS : filters)
+  const { openSearch } = useShell()
   const found = useMemo(
     () =>
       searching
@@ -195,13 +200,28 @@ export default function MeetingsHome() {
             }}
           />
           {searching ? (
-            <MeetingList
-              list={found}
-              status={list.status}
-              onRetry={list.reload}
-              now={now}
-              searching
-            />
+            <>
+              {list.status === 'loading' ? (
+                <p className="text-sm text-ink-faint">Loading meetings…</p>
+              ) : null}
+              <MeetingList
+                list={found}
+                status={list.status}
+                onRetry={list.reload}
+                now={now}
+                searching
+              />
+              {/* The row looks at names and people; this opens the search of what was said. */}
+              <button
+                type="button"
+                className={`${secondaryButton} mt-5`}
+                data-testid="meetings-search-inside"
+                onClick={openSearch}
+              >
+                <Icon name="search" />
+                Search inside notes and transcripts
+              </button>
+            </>
           ) : (
             <>
               {unsaved.length > 0 ? (
@@ -251,7 +271,7 @@ export default function MeetingsHome() {
               <section aria-labelledby="past-meetings" className="mt-12">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <h2 id="past-meetings" className={listHeading}>
-                    Meetings
+                    All meetings
                   </h2>
                   <Filters filters={filters} onChange={setFilters} />
                 </div>
