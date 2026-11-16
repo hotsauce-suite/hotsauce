@@ -5,7 +5,9 @@ import {
   addTile,
   defaultTodayLayout,
   moveTile,
+  offerGettingStarted,
   parseTodayLayout,
+  serializeTodayLayout,
   type TodayLayout,
 } from '@hotsauce/format'
 import { type AnyHandler, HttpResponse, http } from 'msw'
@@ -53,12 +55,17 @@ export function todayHandlers(): AnyHandler[] {
   return [
     http.get('/api/today/layout', ({ request }) => {
       const saved = layouts.get(who(request)) ?? startingLayout()
-      return HttpResponse.json({ layout: saved ?? defaultTodayLayout(), saved: saved !== null })
+      // As the server does: Getting started is offered until a layout is saved without it.
+      return HttpResponse.json({
+        layout: offerGettingStarted(saved ?? defaultTodayLayout()),
+        saved: saved !== null,
+      })
     }),
     http.put('/api/today/layout', async ({ request }) => {
       const body = (await request.json()) as { layout?: unknown }
       try {
-        const layout = parseTodayLayout(body.layout)
+        // Through the file's text, so the Getting started mark is set as the server sets it.
+        const layout = parseTodayLayout(serializeTodayLayout(parseTodayLayout(body.layout)))
         layouts.set(who(request), layout)
         return HttpResponse.json({ layout, saved: true })
       } catch (err) {
@@ -114,6 +121,7 @@ export function todayHandlers(): AnyHandler[] {
         meetings: Array.isArray(calendar.body)
           ? {
               error: null,
+              connected: true,
               events: calendar.body.map(
                 (e): TodayMeeting => ({
                   id: e.id,
@@ -127,7 +135,11 @@ export function todayHandlers(): AnyHandler[] {
                 }),
               ),
             }
-          : { events: [], error: calendar.body.error.message },
+          : {
+              events: [],
+              error: calendar.body.error.message,
+              connected: calendar.status !== 403,
+            },
         tasks: Array.isArray(tasks.body) ? tasks.body : tasks.body.tasks,
         actionItems: actionItems.ok ? actionItems.body : [],
         notes: noteList

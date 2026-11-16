@@ -198,6 +198,10 @@ function HelpStrip() {
         FAQ
         <Icon name="external" className="size-3 opacity-75" />
       </a>
+      {/* Replays the first-run tile on Today (docs/PLAN-getting-started.md R1). */}
+      <Link to="/today?start=1" data-testid="settings-getting-started" className={stripLink}>
+        Getting started
+      </Link>
       {feedbackOn ? (
         <Link
           to={feedbackLink(pathname)}

@@ -41,6 +41,7 @@ import {
   StarredTile,
   WeekTile,
 } from './tiles/MoreTiles'
+import { StartTile } from './tiles/StartTile'
 
 export const TILE_CATALOG: Record<TodayTileKind, { label: string; icon: IconName; about: string }> =
   {
@@ -70,6 +71,7 @@ export const TILE_CATALOG: Record<TodayTileKind, { label: string; icon: IconName
       icon: 'calendar',
       about: 'Monday to Sunday: meetings and due tasks',
     },
+    start: { label: 'Getting started', icon: 'flag', about: 'The first few things worth doing' },
   }
 
 /** Below Tailwind's `lg`, the two columns stack into one list: the left column, then the right. */
@@ -83,6 +85,8 @@ export interface TodayTilesProps {
   refresh: number
   editing: boolean
   onChange: (layout: TodayLayout) => void
+  /** Every Getting started step is done: save it away, keeping it on screen for this visit. */
+  onStartFinished: (tile: TodayTile) => void
   onTaskDone: (task: TaskView) => void
   onTaskAdded: (task: TaskView) => void
 }
@@ -351,6 +355,7 @@ function TileBody({
   editing,
   layout,
   onChange,
+  onStartFinished,
   onTaskDone,
   onTaskAdded,
 }: TodayTilesProps & { tile: TodayTile }): ReactNode {
@@ -392,6 +397,17 @@ function TileBody({
       )
     case 'week':
       return <WeekTile now={now} refresh={refresh} />
+    case 'start':
+      return (
+        <StartTile
+          tile={tile}
+          layout={layout}
+          view={view}
+          editing={editing}
+          onChange={onChange}
+          onFinished={onStartFinished}
+        />
+      )
   }
 }
 

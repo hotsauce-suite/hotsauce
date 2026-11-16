@@ -23,6 +23,7 @@ export const TODAY_TILE_KINDS = [
   'files',
   'board',
   'week',
+  'start',
 ] as const
 export type TodayTileKind = (typeof TODAY_TILE_KINDS)[number]
 
@@ -35,12 +36,20 @@ export interface TodayTile {
   kind: TodayTileKind
   /** Board tiles: the board shown, once chosen. */
   board?: { space: string; id: string }
+  /** Getting started tiles: the member has opened Docs from it (the one step nothing else shows). */
+  openedDocs?: true
 }
 
 export interface TodayLayout {
   schema: 1
   /** Left column, then right. A phone shows the left column first, then the right. */
   columns: [TodayTile[], TodayTile[]]
+  /**
+   * Set on a layout that was saved without the Getting started tile: the member hid it, finished
+   * it, or arranged Today without it. A saved layout with neither the tile nor this mark is from
+   * before the tile existed, and is offered it once (`offerGettingStarted`).
+   */
+  gettingStarted?: 'dismissed'
 }
 
 /** Today as it looked before tiles could be changed. */
@@ -63,11 +72,13 @@ const RawTile = z.looseObject({
   id: z.unknown(),
   kind: z.unknown(),
   board: z.unknown().optional(),
+  openedDocs: z.unknown().optional(),
 })
 const BoardRef = z.object({ space: z.string().min(1).max(200), id: z.string().min(1).max(100) })
 const RawLayout = z.looseObject({
   schema: z.literal(1),
   columns: z.tuple([z.array(z.unknown()), z.array(z.unknown())]),
+  gettingStarted: z.unknown().optional(),
 })
 
 export class TodayLayoutError extends Error {}
@@ -109,18 +120,52 @@ export function parseTodayLayout(input: string | unknown): TodayLayout {
       out.push(
         kind === 'board' && board.success
           ? { id: id.data, kind, board: board.data }
-          : { id: id.data, kind },
+          : kind === 'start' && t.data.openedDocs === true
+            ? { id: id.data, kind, openedDocs: true }
+            : { id: id.data, kind },
       )
     }
     return out
   }
-  return { schema: 1, columns: [column(raw.data.columns[0]), column(raw.data.columns[1])] }
+  const layout: TodayLayout = {
+    schema: 1,
+    columns: [column(raw.data.columns[0]), column(raw.data.columns[1])],
+  }
+  if (raw.data.gettingStarted === 'dismissed' && !hasStart(layout))
+    layout.gettingStarted = 'dismissed'
+  return layout
+}
+
+function hasStart(layout: TodayLayout): boolean {
+  return layoutTiles(layout).some((t) => t.kind === 'start')
 }
 
 /** The file's text: stable key order, two-space indent, a trailing newline. */
 export function serializeTodayLayout(layout: TodayLayout): string {
-  const clean = parseTodayLayout(layout)
+  const { schema, columns } = parseTodayLayout(layout)
+  // What the file says about Getting started follows from its tiles, not from the caller.
+  const clean: TodayLayout = hasStart({ schema, columns })
+    ? { schema, columns }
+    : { schema, columns, gettingStarted: 'dismissed' }
   return `${JSON.stringify(clean, null, 2)}\n`
+}
+
+/**
+ * The layout a member is shown: Getting started first on the left, unless it's already there,
+ * they've dealt with it, or Today is full. Nothing is saved until they act on it.
+ */
+export function offerGettingStarted(layout: TodayLayout): TodayLayout {
+  if (layout.gettingStarted === 'dismissed') return layout
+  return showGettingStarted(layout)
+}
+
+/** Puts a fresh Getting started tile first on the left (Settings' replay), whatever came before. */
+export function showGettingStarted(layout: TodayLayout): TodayLayout {
+  if (hasStart(layout) || layoutTiles(layout).length >= MAX_TODAY_TILES) return layout
+  return {
+    schema: 1,
+    columns: [[{ id: 'start', kind: 'start' }, ...layout.columns[0]], layout.columns[1]],
+  }
 }
 
 /** Every tile, left column first. */
