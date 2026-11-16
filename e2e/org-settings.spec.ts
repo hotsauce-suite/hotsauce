@@ -36,6 +36,10 @@ test.describe('as an admin', () => {
     await page.getByTestId('settings-nav-workspace').click()
     await expect(page).toHaveURL(/\/settings\/organization$/)
     await expect(page.getByTestId('org-summary')).toBeVisible()
+    // Usage (docs/PLAN-app-usage.md): every app counted from history, one page.
+    await page.getByTestId('settings-nav-usage').click()
+    await expect(page).toHaveURL(/\/settings\/organization\/usage$/)
+    await expect(page.getByTestId('usage-table')).toBeAttached()
     await page.getByTestId('settings-nav-people').click()
     await expect(page).toHaveURL(/\/settings\/organization\/people$/)
     // Env-configured values show as locked.
