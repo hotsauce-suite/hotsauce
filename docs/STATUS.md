@@ -1,6 +1,6 @@
 # Status
 
-What Hotsauce is today, read from the code on `main` at release 0.15.0 (2026-11-16). Each app is
+What Hotsauce is today, read from the code on `main` at release 0.16.0 (2026-11-16). Each app is
 two lines: what it does, and what it needs beyond the base install. Keep this file current in the
 same PR as any change to an app; `apps/web/src/apps/statusDoc.test.ts` fails when an app exists in
 the code but has no entry here.
@@ -15,7 +15,7 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 
 ### Today
 The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief).
-Needs nothing extra; the agent brief tile needs the AI key, the weather needs the member's location.
+Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
 ### Docs
 Markdown documents with a source-first editor, live co-editing, history from Git, links that survive renames, search, and imports (Markdown, Word, HTML).
@@ -23,11 +23,11 @@ Needs nothing extra.
 
 ### Meetings
 Notes for calls: live transcript with speaker names, your own notes, AI-written notes from templates, Ask across meetings, booking links, phone voice notes, Granola import.
-Needs the speech and AI keys; the calendar needs Google sign-in through Clerk with `calendar.readonly`; booking links need Turnstile. Reminders work out of the box (the server makes its own push keys).
+Needs the speech and AI keys; the calendar needs Google sign-in through Clerk with `calendar.readonly`; booking links need Turnstile. Reminders work out of the box (the server makes its own push keys). Keeping a meeting's audio is a per-meeting choice (`KEEP_AUDIO=true` makes it the default); re-transcribing it after the call needs the speech key.
 
 ### Dictate
 Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app.
-Needs the speech and AI keys and the Mac app (`apps/dictate-mac`).
+Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
 Screen and camera recordings with a transcript, Summarize and Action items, speed control and a shared library.
@@ -71,7 +71,7 @@ Needs nothing extra; the AI summary needs the AI key.
 
 ### Briefcast
 A five-minute spoken briefing each weekday morning, as a private podcast feed.
-Needs the AI key for the script and `OPENAI_API_KEY` with `TTS_PROVIDER=openai` for the voice.
+Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also needs an audio store, which every install has unless `AUDIO_STORE=none`).
 
 ## Built into every app
 
@@ -85,7 +85,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` with `TTS_PROVIDER=openai` 
 
 ## Outside the web app
 
-- **Mac app** (`apps/dictate-mac`), 0.14.4: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it.
+- **Mac app** (`apps/dictate-mac`), 0.14.4 on the `mac-app` GitHub release: Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it.
 - **Chrome extension** (`apps/extension`), 0.7.0: records Meet tabs, saves links in one click, connects in one click. In Chrome Web Store review; installed by hand until approved.
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
 - **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool that sends a token header can search, read and write as the member. ChatGPT and Grok need OAuth, which is in flight.
@@ -98,10 +98,9 @@ production refuses the test stand-ins, so nothing pretends to work.
 
 | What | Off until | Why it's off |
 | --- | --- | --- |
-| Briefcast's voice | `OPENAI_API_KEY` and `TTS_PROVIDER=openai` | The only paid voice; the script is still written without it. |
+| Briefcast's voice | `OPENAI_API_KEY` | The only paid voice; the script is still written without it. |
 | Booking links and public Forms | `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` | Pages open to anyone need a robot check; without it they say they can't take answers yet. |
 | Send feedback | `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN` | Needs a repo to file into. |
-| Kept meeting audio and the after-call re-transcription | `KEEP_AUDIO` with `AUDIO_STORE` | Audio is big and personal; the default keeps only the transcript. |
 | Self-update | `FLY_API_TOKEN` (Fly only) | Other hosts update by pulling the new image. |
 | Semantic search | not wired | `sqlite-vec` is loaded but unused; search and Ask use keyword search. |
 
@@ -111,7 +110,8 @@ Open pull requests on `main` at the date above (release numbers are taken at mer
 
 - **#98** Links remembers where you stopped reading (the second step of the Links roadmap).
 - **#102** Offline mode, step A: opens offline and never loses a save.
-- **#106** Settings as a few small pages.
+- **#110** GitHub publishes hotsauce.work and the demo on merge.
+- **#112** Releases number themselves.
 - **#108** Sign in to the MCP server from claude.ai, ChatGPT and Grok (OAuth).
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
