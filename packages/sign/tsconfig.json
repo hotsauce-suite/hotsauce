@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2023", "DOM"],
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    // The engine in src/vendor is SignuDoc's code, kept close to the original so later fixes can
+    // be merged by hand. SignuDoc builds without these two checks.
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["src", "test"]
+}

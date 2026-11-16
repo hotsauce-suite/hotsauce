@@ -1,0 +1,39 @@
+{
+  "name": "@hotsauce/sign",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "fonts",
+    "src/vendor/LICENSE-SignuDoc",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
+    "@signpdf/placeholder-pdf-lib": "3.3.0",
+    "@signpdf/signpdf": "3.3.0",
+    "@signpdf/utils": "3.3.0",
+    "harfbuzzjs": "1.6.4",
+    "node-forge": "1.4.2",
+    "pdf-lib": "1.17.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node-forge": "1.3.14",
+    "unpdf": "2.1.0"
+  },
+  "sideEffects": false
+}
