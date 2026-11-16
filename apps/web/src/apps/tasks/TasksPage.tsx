@@ -475,8 +475,7 @@ export default function TasksPage() {
           className={`${primaryButton} h-9 px-3`}
         >
           <Icon name="plus" />
-          <span className="hidden sm:inline">Add task</span>
-          <span className="sm:hidden">Add</span>
+          New task
         </button>
       </MeetingsPageHeader>
       <div className="flex min-h-0 flex-1">
