@@ -240,6 +240,6 @@ function stateNote(state: 'unsupported' | 'unavailable' | 'blocked'): string {
   }
   const { isIOS, isInstalled } = installContext()
   return isIOS && !isInstalled
-    ? `On iPhone and iPad, notifications work once ${product()} is on your Home Screen. Install it (above), open it from there, and switch notifications on.`
+    ? `On iPhone and iPad, notifications work once ${product()} is on your Home Screen. Install it from Settings → Apps, open it from there, and switch notifications on.`
     : 'This browser can’t show notifications. Try Chrome, Edge, Firefox or Safari.'
 }
