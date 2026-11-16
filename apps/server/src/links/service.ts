@@ -908,7 +908,11 @@ export class Links {
           })
       const paper = got.paper
       fields = {
-        title: paper?.title || fm.title || read.title || undefined,
+        // A PDF from the computer is named after its file until its first read finds its own title.
+        title:
+          paper?.title ||
+          (!fm.url.trim() && !fm.fetched ? read.title || fm.title : fm.title || read.title) ||
+          undefined,
         site: read.site || undefined,
         description: paper ? undefined : read.description || undefined,
         // A paper's abstract is its summary (Q3); Claude only tags it.

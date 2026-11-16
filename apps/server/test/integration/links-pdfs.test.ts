@@ -289,7 +289,8 @@ describe('a PDF from the computer (R6)', () => {
     expect(link).toMatchObject({ url: '', file: stored.id, title: 'Field notes' })
     await services.links.idle()
     const got = await api('GET', `/api/links/alice/${link.id}`)
-    expect(got).toMatchObject({ status: 'ready', title: 'Field notes' })
+    // Named after the file until the read finds the PDF's own title.
+    expect(got).toMatchObject({ status: 'ready', title: 'Field notes on mirrors' })
     expect(got.body).toContain('The abstract sentence 1')
     // Saving the same file again finds the link.
     const again = await api('POST', '/api/links/pdf', { json: { space: 'alice', file: stored.id } })
@@ -299,6 +300,11 @@ describe('a PDF from the computer (R6)', () => {
     await services.links.idle()
     expect((await api('GET', `/api/links/alice/${link.id}`)).status).toBe('ready')
     expect(fetched).toEqual([])
+    // A title the member gave it survives a later read.
+    await api('PATCH', `/api/links/alice/${link.id}`, { json: { title: 'My notes' } })
+    await api('POST', `/api/links/alice/${link.id}/refetch`)
+    await services.links.idle()
+    expect((await api('GET', `/api/links/alice/${link.id}`)).title).toBe('My notes')
   })
 
   it('refuses what isn’t a PDF, another member’s file, and access tokens', async () => {
