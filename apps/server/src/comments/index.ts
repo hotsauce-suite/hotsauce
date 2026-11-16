@@ -6,4 +6,5 @@ export {
   type CommentView,
   commentRemovals,
   isCommentable,
+  itemUrl,
 } from './service.js'

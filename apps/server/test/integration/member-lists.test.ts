@@ -97,7 +97,8 @@ describe('member lists survive', () => {
     await start()
     expect(await lists()).toEqual({
       stars: [{ space: 'team', path: 'docs/plan.md', title: 'Plan' }],
-      pins: { pins: ['chat', 'today'] },
+      // …with For you added once, under Today (comments plan R13).
+      pins: { pins: ['chat', 'today', 'for-you'] },
       recents: [{ space: 'team', path: 'docs/plan.md', title: 'Plan', openedAt: at }],
     })
 
@@ -117,6 +118,28 @@ describe('member lists survive', () => {
     raw.prepare('INSERT INTO pins VALUES (?, ?)').run(ALICE, '["notes"]')
     raw.close()
     await start()
-    expect(await call('GET', '/api/pins')).toEqual({ pins: ['notes'] })
+    expect(await call('GET', '/api/pins')).toEqual({ pins: ['for-you', 'notes'] })
+  })
+})
+
+describe('For you joins every rail once (comments plan R13)', () => {
+  it('a member on the defaults keeps them; one who arranged the rail gets it under Today, once', async () => {
+    expect(await call('GET', '/api/pins')).toEqual({ pins: null })
+    stop()
+    // Pins saved by a release from before For you, straight into the store.
+    const raw = new Database(join(config.DATA_DIR, 'account.sqlite'))
+    raw.prepare('INSERT INTO pins VALUES (?, ?)').run(ALICE, '["docs","today","tasks"]')
+    raw.prepare('DELETE FROM pin_offers').run()
+    raw.close()
+    await start()
+    expect(await call('GET', '/api/pins')).toEqual({ pins: ['docs', 'today', 'for-you', 'tasks'] })
+    // Unpinned, it stays unpinned.
+    await call('PUT', '/api/pins', { pins: ['docs', 'today', 'tasks'] })
+    expect(await call('GET', '/api/pins')).toEqual({ pins: ['docs', 'today', 'tasks'] })
+  })
+
+  it('a member who arranges the rail after this release is never offered it again', async () => {
+    await call('PUT', '/api/pins', { pins: ['docs'] })
+    expect(await call('GET', '/api/pins')).toEqual({ pins: ['docs'] })
   })
 })

@@ -170,6 +170,16 @@ export class Index {
   }
 
   /**
+   * Comment files in `space` whose frontmatter `mentions` holds `email` (any case), each with its
+   * body: what For you lists (ARCHITECTURE §27.5). One query over the index, no Git reads.
+   */
+  commentsMentioning(space: string, email: string): Array<FileRow & { body: string }> {
+    return this.#q.commentsMentioning
+      .all({ space, email: email.toLowerCase() })
+      .map((row) => ({ ...toFileRow(row), body: row.body }))
+  }
+
+  /**
    * The indexed body (the text after the frontmatter) of each of `paths` in `space` that is
    * indexed, keyed by path. One query, so a list of tasks shows its notes without a Git read each.
    */
@@ -350,6 +360,17 @@ function prepareStatements(db: Database.Database) {
       ORDER BY CASE WHEN @order = 'date_desc' THEN json_extract(frontmatter, '$.date') END DESC,
         path
       LIMIT @limit`),
+
+    commentsMentioning: db.prepare<
+      { space: string; email: string },
+      RawFileRow & { body: string }
+    >(`
+      SELECT ${FILE_COLUMNS}, body FROM files
+      WHERE space = @space AND kind = 'comment'
+        AND EXISTS (
+          SELECT 1 FROM json_each(files.frontmatter, '$.mentions') m
+          WHERE m.type = 'text' AND lower(m.value) = @email
+        )`),
 
     bodyAt: db.prepare<[string, string], { body: string; bodyLine: number }>(
       'SELECT body, body_line AS bodyLine FROM files WHERE space = ? AND path = ?',

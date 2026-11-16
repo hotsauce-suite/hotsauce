@@ -13,7 +13,8 @@ by the owner on 2026-11-15. This file is where that map ends: the spec the build
   meeting notes and tasks"); how it works is ARCHITECTURE §27. Requirement 10 is half done on
   purpose: with no connection the box says so and keeps the draft; sending it on reconnect waits on
   offline mode (#102). What the build changed from the design below is under "Design, as built".
-- Slice 2: not started. It can start now that slice 1 is released.
+- Slice 2 (requirements 12 to 18): building, claimed by the draft PR "For you: one list of every
+  mention" (2026-11-16). Choices it made are under "Design, as built (slice 2)".
 - Slice 3: not started.
 - Slice 4: not started.
 - Slice 5: not started.
@@ -107,6 +108,22 @@ Starting points for the build threads. Change them if the code argues otherwise,
   it) and is sent after the commit, so a slow push service never delays the comment.
 - **The help page** is "Comments and mentions" (`site/public/help/comments.html`); slice 2 adds For
   you to it.
+
+### Design, as built (slice 2)
+
+- **One entry per item, not per comment.** The marks (seen, Done, Later) are per item, so the
+  list is too: the entry shows the newest comment that names the member and how many do. Comments
+  a member writes that name themselves aren't listed.
+- **Later also ends early** when someone mentions the member again after they chose Later, like
+  Done. The browser sends its time zone with Later and the server works out 9 AM there
+  (`laterUntil`); the mark keeps both the time it ends and when it was chosen.
+- **Opening the item marks it seen** only when it is listed and unseen, so opening a doc writes
+  nothing to Git unless it changes the count.
+- **The marks are read from Git once per head** of the member's personal space and kept in memory
+  until that head moves, so the list itself is an index read (R18).
+- **For you is offered once** on two surfaces that a member may already have arranged: the rail
+  (`pin_offers` in `account.sqlite` records the offer; it goes right after Today) and Today
+  (a `forYou: 'dismissed'` mark, the same rule as Getting started). Removed, it stays removed.
 
 ## Requirements
 

@@ -1,5 +1,6 @@
 import {
   defaultTodayLayout,
+  offerForYou,
   layoutTiles,
   removeTile,
   showGettingStarted,
@@ -227,7 +228,7 @@ function useLayout() {
 
   // A finished Getting started tile: already saved away, but kept on screen for this visit.
   const [lingering, setLingering] = useState<TodayTile | null>(null)
-  const saved = layout ?? (loadFailed ? defaultTodayLayout() : null)
+  const saved = layout ?? (loadFailed ? offerForYou(defaultTodayLayout()) : null)
   const current: TodayLayout | null =
     saved && lingering
       ? { schema: 1, columns: [[lingering, ...saved.columns[0]], saved.columns[1]] }
@@ -250,7 +251,7 @@ function useLayout() {
       setError(null)
       setDraft(null)
     },
-    reset: () => setDraft(defaultTodayLayout()),
+    reset: () => setDraft(offerForYou(defaultTodayLayout())),
     done: async () => {
       if (draft && (await save(draft))) setDraft(null)
     },

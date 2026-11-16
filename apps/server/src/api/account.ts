@@ -22,6 +22,12 @@ const Pins = z.object({
 const RECENTS_LIMIT = 20
 
 /**
+ * Apps added once to the rail of members who arranged their pins before the app existed. New
+ * members have them in the web app's default pins.
+ */
+const PIN_OFFERS = [{ app: 'for-you', after: 'today' }] as const
+
+/**
  * Who the member is, and their per-user lists. Recents, stars and rail pins live in the account
  * store (backed up, keyed by email); titles come from the index, null when a file isn't indexed.
  * Pins are `null` until the member first changes them (the app shows defaults).
@@ -70,10 +76,18 @@ export function accountRoutes(deps: AppDeps) {
       account.setStarred(principal.email, space, path, starred)
       return c.json({ ok: true as const })
     })
-    .get('/pins', (c) => c.json({ pins: account.getPins(c.get('principal').email) }))
+    .get('/pins', (c) =>
+      c.json({ pins: account.pinsWithOffers(c.get('principal').email, PIN_OFFERS) }),
+    )
     .put('/pins', valid('json', Pins), (c) => {
       const { pins } = c.req.valid('json')
-      account.setPins(c.get('principal').email, pins)
+      const email = c.get('principal').email
+      // They arranged the rail with these on offer: never add them again.
+      account.markOffered(
+        email,
+        PIN_OFFERS.map((o) => o.app),
+      )
+      account.setPins(email, pins)
       return c.json({ pins })
     })
 }

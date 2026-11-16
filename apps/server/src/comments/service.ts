@@ -484,7 +484,7 @@ function idFor(path: string, content: string): { id: string; text: string; added
 }
 
 /** Where the item opens in the app, by what it is. */
-function itemUrl(path: string): string {
+export function itemUrl(path: string): string {
   const encoded = path.split('/').map(encodeURIComponent).join('/')
   const taskId = taskIdOf(path)
   if (taskId) return `/tasks/item/${TEAM_SPACE}/${taskId}`
