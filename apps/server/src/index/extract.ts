@@ -1,4 +1,4 @@
-import { boardSearchText } from '@hotsauce/format'
+import { boardSearchText, isCommentPath } from '@hotsauce/format'
 import { parse as parseYaml } from 'yaml'
 
 /**
@@ -8,7 +8,8 @@ import { parse as parseYaml } from 'yaml'
  * `file` a Hotsauce Files pointer under `files/` (§18.1), `page` a published page's pointer under
  * `pages/` (§20.2), `form` a form under `forms/` and `form-answer` one of its answers beside it
  * (§21.1), `table` a table under `tables/` (§22.1), `link` a saved link under `links/` (§23.1), `checkin` a check-in
- * question under `checkins/` and `checkin-answer` an answer or summary beside it (§24.1).
+ * question under `checkins/` and `checkin-answer` an answer or summary beside it (§24.1),
+ * `comment` one comment under `.hearth/comments/<item id>/` (§27.1).
  */
 export type FileKind =
   | 'docs'
@@ -26,6 +27,7 @@ export type FileKind =
   | 'link'
   | 'checkin'
   | 'checkin-answer'
+  | 'comment'
   | 'other'
 
 export interface ExtractedDoc {
@@ -44,12 +46,17 @@ const FRONTMATTER = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/
 const FENCE = /^ {0,3}(`{3,}|~{3,})/
 const ATX_H1 = /^ {0,3}#[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/
 
-/** Markdown files outside hidden folders (.hearth metadata, .trash, editor config). */
+/**
+ * Markdown files outside hidden folders (.hearth metadata, .trash, editor config), and comments,
+ * which live in a hidden folder but are read from the index like everything else.
+ */
 export function isIndexable(path: string): boolean {
+  if (isCommentPath(path)) return true
   return path.toLowerCase().endsWith('.md') && !path.split('/').some((s) => s.startsWith('.'))
 }
 
 export function kindOf(path: string): FileKind {
+  if (isCommentPath(path)) return 'comment'
   const top = path.split('/', 1)[0]
   if (top === 'docs') return 'docs'
   if (top === 'tasks') return 'task'

@@ -1,5 +1,6 @@
 import {
   CHECKINS_FOLDER,
+  COMMENTS_FOLDER,
   ensureId,
   extractTitle,
   FILES_FOLDER,
@@ -207,6 +208,10 @@ export function writablePath(rawPath: string): string {
       'forbidden',
       'Check-ins and their answers change only in the Check-ins app',
     )
+  }
+  // A comment changes only through the Comments service (ARCHITECTURE §27.1).
+  if (isAtOrUnder(path, COMMENTS_FOLDER) || isAtOrUnder(COMMENTS_FOLDER, path)) {
+    throw new HotsauceError('forbidden', 'Comments change only where they are written')
   }
   // A table's cells and columns change in the Tables app or its MCP tools (ARCHITECTURE §22.1).
   if (isAtOrUnder(path, TABLES_FOLDER) || isAtOrUnder(TABLES_FOLDER, path)) {

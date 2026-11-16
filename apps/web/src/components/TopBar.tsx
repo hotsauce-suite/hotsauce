@@ -41,6 +41,8 @@ interface TopBarProps {
   rename: { to: string; onRename: () => void; onKeep: () => void } | null
   /** Shows "Attach a file" (Hotsauce Files' picker). */
   onAttachFile?: () => void
+  /** A team item's conversation: how many comments, and the way down to it. */
+  comments?: { count: number; onOpen: () => void }
 }
 
 export function TopBar(props: TopBarProps) {
@@ -113,6 +115,23 @@ export function TopBar(props: TopBarProps) {
             onClick={() => props.onTogglePanel(toggle.id)}
           />
         ))}
+        {props.comments ? (
+          <button
+            type="button"
+            aria-label={
+              props.comments.count === 0 ? 'Comments' : `Comments (${props.comments.count})`
+            }
+            title="Comments"
+            data-testid="comments-toggle"
+            onClick={props.comments.onOpen}
+            className="flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-ink-soft transition-colors hover:bg-paper-sunk hover:text-ink"
+          >
+            <Icon name="chat" className="size-4" />
+            {props.comments.count > 0 ? (
+              <span className="text-xs font-medium tabular-nums">{props.comments.count}</span>
+            ) : null}
+          </button>
+        ) : null}
         {props.onAttachFile ? (
           <IconButton
             icon="paperclip"

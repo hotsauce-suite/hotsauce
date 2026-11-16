@@ -32,7 +32,7 @@ export interface FileRow {
 export interface SearchOptions {
   spaces: string[]
   limit?: number
-  /** Only files of these kinds. */
+  /** Only files of these kinds. Without it, every kind but comments (found only when asked for). */
   kinds?: FileKind[]
   /** Only paths starting with this string (give a folder with its trailing slash). */
   prefix?: string | undefined
@@ -135,6 +135,16 @@ export class Index {
   getFile(space: string, path: string): FileRow | null {
     const row = this.#q.getFile.get(space, path)
     return row ? toFileRow(row) : null
+  }
+
+  /** The file in `space` whose frontmatter `id` is this, comments aside; the first by path. */
+  fileById(space: string, id: string): FileRow | null {
+    return this.filesById(space, id)[0] ?? null
+  }
+
+  /** Every file in `space` carrying this frontmatter `id` (a copied doc shares one), by path. */
+  filesById(space: string, id: string): FileRow[] {
+    return this.#q.fileById.all(space, id).map(toFileRow)
   }
 
   /**
@@ -321,6 +331,10 @@ function prepareStatements(db: Database.Database) {
     getFile: db.prepare<[string, string], RawFileRow>(
       `SELECT ${FILE_COLUMNS} FROM files WHERE space = ? AND path = ?`,
     ),
+    fileById: db.prepare<[string, string], RawFileRow>(
+      `SELECT ${FILE_COLUMNS} FROM files
+       WHERE space = ? AND id = ? AND kind != 'comment' ORDER BY path LIMIT 20`,
+    ),
     byShareToken: db.prepare<[string], RawFileRow>(
       `SELECT ${FILE_COLUMNS} FROM files
        WHERE json_extract(frontmatter, '$.share') = ? AND kind != 'file' LIMIT 5`,
@@ -360,7 +374,8 @@ function prepareStatements(db: Database.Database) {
       FROM files_fts JOIN files f ON f.rowid = files_fts.rowid
       WHERE files_fts MATCH @match
         AND f.space IN (SELECT value FROM json_each(@spaces))
-        AND (@kinds IS NULL OR f.kind IN (SELECT value FROM json_each(@kinds)))
+        AND (CASE WHEN @kinds IS NULL THEN f.kind != 'comment'
+             ELSE f.kind IN (SELECT value FROM json_each(@kinds)) END)
         AND (@prefix IS NULL OR substr(f.path, 1, length(@prefix)) = @prefix)
       ORDER BY score DESC, f.space, f.path
       LIMIT @limit`),
