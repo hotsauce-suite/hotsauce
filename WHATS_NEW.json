@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "version": "0.30.4",
+      "date": "2026-11-16",
+      "notes": [
+        {
+          "text": "On a phone, every page's top bar is the same: menu, title, one main button, and More for everything else"
+        },
+        {
+          "text": "On a phone, a doc shows its name at the top instead of its file name"
+        },
+        {
+          "text": "The Ask button no longer covers a board's undo and redo on a phone"
+        }
+      ]
+    },
+    {
       "version": "0.30.3",
       "date": "2026-11-16",
       "notes": [
