@@ -412,3 +412,16 @@ export async function newForm(page: Page, title: string): Promise<void> {
   await page.getByTestId('form-save').click()
   await expect(page.getByTestId('form-save')).toHaveText('Saved')
 }
+
+/**
+ * Sharing is one button that says "Share", with "Copy link" inside it (docs/PLAN-consistency.md,
+ * requirement 10). Leaves the menu closed.
+ */
+export async function expectShareWithCopyLink(page: Page, testId: string): Promise<void> {
+  const share = page.getByTestId(testId)
+  await expect(share).toHaveAccessibleName('Share')
+  await share.click()
+  await expect(page.getByRole('menuitem', { name: 'Copy link', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu')).toHaveCount(0)
+}

@@ -6,10 +6,9 @@ import { copyAsMarkdown, copyAsRichText } from '../lib/copyNote'
 import { DOCS_ROOT, docUrl } from '../lib/paths'
 import { useSession } from '../state/session'
 import { FolderPicker } from './FolderPicker'
-import { Icon } from './Icon'
-import { below, Menu, type MenuAnchor, MenuItem } from './Menu'
-import { needsConnection } from './Offline'
+import { MenuItem } from './Menu'
 import { ReadOnlyLinkItems, useReadOnlyLink } from './ReadOnlyLink'
+import { ShareButton } from './ShareButton'
 
 interface ShareMenuProps {
   space: string
@@ -25,13 +24,11 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
   const { spaces, notify, tree } = useSession()
   const online = useOnline()
   const navigate = useNavigate()
-  const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const [picking, setPicking] = useState(false)
   const isPersonal = spaces.find((s) => s.name === space)?.kind === 'personal'
   const readOnly = useReadOnlyLink(space, path)
 
   const copyLink = async () => {
-    setAnchor(null)
     try {
       await navigator.clipboard.writeText(window.location.href)
       notify('Link copied. Anyone who can see this space can open it.')
@@ -41,7 +38,6 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
   }
 
   const copy = async (as: 'markdown' | 'rich text') => {
-    setAnchor(null)
     try {
       await (as === 'markdown' ? copyAsMarkdown : copyAsRichText)(getText())
       notify(`Copied as ${as}.`)
@@ -62,48 +58,54 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
 
   return (
     <>
-      <button
-        type="button"
-        data-testid="share-menu"
-        aria-haspopup="menu"
-        aria-expanded={anchor !== null}
-        aria-label={iconOnly ? 'Share' : undefined}
-        {...needsConnection(online)}
-        onClick={(event) => {
-          if (!anchor) readOnly.refresh()
-          setAnchor(anchor ? null : below(event.currentTarget))
-        }}
-        className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink disabled:opacity-50"
-      >
-        <Icon name="share" />
-        {iconOnly ? null : 'Share'}
-      </button>
-      {anchor ? (
-        <Menu anchor={anchor} label="Share" onClose={() => setAnchor(null)}>
-          <MenuItem icon="link" onSelect={() => void copyLink()}>
-            Copy link
-          </MenuItem>
-          <ReadOnlyLinkItems link={readOnly} close={() => setAnchor(null)} before={beforeShare} />
-          <MenuItem icon="copy" testId="copy-markdown" onSelect={() => void copy('markdown')}>
-            Copy as markdown
-          </MenuItem>
-          <MenuItem icon="copy" testId="copy-rich-text" onSelect={() => void copy('rich text')}>
-            Copy as rich text
-          </MenuItem>
-          {isPersonal ? (
+      <ShareButton iconOnly={iconOnly} online={online} onOpen={() => readOnly.refresh()}>
+        {(close) => (
+          <>
             <MenuItem
-              icon="share"
-              testId="share-to-team"
+              icon="link"
               onSelect={() => {
-                setAnchor(null)
-                setPicking(true)
+                close()
+                void copyLink()
               }}
             >
-              Share to team…
+              Copy link
             </MenuItem>
-          ) : null}
-        </Menu>
-      ) : null}
+            <ReadOnlyLinkItems link={readOnly} close={close} before={beforeShare} />
+            <MenuItem
+              icon="copy"
+              testId="copy-markdown"
+              onSelect={() => {
+                close()
+                void copy('markdown')
+              }}
+            >
+              Copy as markdown
+            </MenuItem>
+            <MenuItem
+              icon="copy"
+              testId="copy-rich-text"
+              onSelect={() => {
+                close()
+                void copy('rich text')
+              }}
+            >
+              Copy as rich text
+            </MenuItem>
+            {isPersonal ? (
+              <MenuItem
+                icon="share"
+                testId="share-to-team"
+                onSelect={() => {
+                  close()
+                  setPicking(true)
+                }}
+              >
+                Share to team…
+              </MenuItem>
+            ) : null}
+          </>
+        )}
+      </ShareButton>
       {picking ? (
         <FolderPicker
           space="team"

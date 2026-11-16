@@ -1,5 +1,5 @@
 import type { APIRequestContext, Page } from '@playwright/test'
-import { openApp, signIn, uid } from './fixtures'
+import { expectShareWithCopyLink, openApp, signIn, uid } from './fixtures'
 import { expect, test } from './meetings-fixtures'
 
 // Hotsauce Whiteboard (ARCHITECTURE §15), against the built server: draw, autosave, reload,
@@ -109,6 +109,12 @@ test('W9: new board → draw a box and a text → it saves itself → reload →
   })
 
   await test.step('the boards page finds it by the word written on it', async () => {
+    await expectShareWithCopyLink(page, 'board-share')
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.getByTestId('board-share').click()
+    await page.getByTestId('board-copy-embed').click()
+    await expect(page.getByText('Paste it into a doc to show this board there.')).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^\[!\[.*\]\(\/.+\)$/)
     await page.getByTestId('page-back').click()
     await expect(page).toHaveURL(/\/boards$/)
     await page.getByTestId('boards-search').fill(word)

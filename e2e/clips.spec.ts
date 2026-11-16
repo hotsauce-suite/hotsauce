@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import type { Page } from '@playwright/test'
-import { expect, openApp, test } from './fixtures'
+import { expect, expectShareWithCopyLink, openApp, test } from './fixtures'
 
 const run = promisify(execFile)
 
@@ -251,6 +251,7 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
     // The suggested title (FakeLLM names it after the first line) and the summary.
     await expect(page.getByTestId('clip-title')).toHaveText('About clip segment 1')
     await expect(page.getByTestId('page-back')).toHaveText('Clips')
+    await expectShareWithCopyLink(page, 'clip-share')
     await expect(page.getByTestId('clip-summary')).toContainText('clip segment 1')
   })
 

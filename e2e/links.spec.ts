@@ -1,5 +1,5 @@
 import { makeTestPdf } from '../apps/server/src/links/test-pdf'
-import { expect, test, uid } from './fixtures'
+import { expect, expectShareWithCopyLink, test, uid } from './fixtures'
 
 // Saved links (ARCHITECTURE §23): a member pastes a link,
 // sees the readable copy arrive, tags it, shares it with the team, marks it done; then the save
@@ -32,9 +32,14 @@ test('save a link, read it, tag it, share it and mark it done', async ({ page })
   await page.getByTestId('link-tags-input').press('Enter')
   await expect(page.getByRole('link', { name: `e2e ${id}` })).toBeVisible()
 
+  await expectShareWithCopyLink(page, 'link-share')
+  await page.getByTestId('link-share').click()
   await page.getByTestId('link-share-team').click()
   await expect(page).toHaveURL(/\/links\/team\//)
+  await page.getByTestId('link-share').click()
+  await expect(page.getByTestId('link-make-private')).toBeVisible()
   await expect(page.getByTestId('link-share-team')).toHaveCount(0)
+  await page.keyboard.press('Escape')
 
   await page.getByTestId('link-reader-done').click()
   await expect(page).toHaveURL(/\/links$/)

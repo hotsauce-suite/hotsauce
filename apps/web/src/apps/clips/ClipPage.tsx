@@ -6,9 +6,12 @@ import { type Clip, type ClipCut, clipsApi, type TranscriptSegment } from '../..
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { MenuItem } from '../../components/Menu'
+import { ShareButton } from '../../components/ShareButton'
 import { IconButton } from '../../components/TopBar'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { docUrl, meetingUrl } from '../../lib/paths'
+import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { activeLine, formatDuration, formatTimestamp, formatWhen } from './format'
 import { loadSpeed, SPEEDS, saveSpeed, speedLabel, stepSpeed } from './speed'
@@ -62,8 +65,8 @@ export default function ClipPage() {
   const [editing, setEditing] = useState(false)
   const [trimming, setTrimming] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [copied, setCopied] = useState(false)
   const video = useRef<HTMLVideoElement>(null)
+  const { notify } = useSession()
 
   const load = useCallback(async () => {
     try {
@@ -226,9 +229,12 @@ export default function ClipPage() {
   )
 
   const copyLink = async () => {
-    await navigator.clipboard?.writeText(`${window.location.origin}/clips/${id}`).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/clips/${id}`)
+      notify('Link copied. Anyone signed in with the link can watch it.')
+    } catch {
+      notify('Couldn’t copy the link. Copy it from the address bar instead.')
+    }
   }
 
   const rename = async (title: string) => {
@@ -325,15 +331,20 @@ export default function ClipPage() {
           )
         }
       >
-        <button
-          type="button"
-          onClick={() => void copyLink()}
-          data-testid="clip-copy-link"
-          className={`${secondaryButton} h-8 px-3`}
-        >
-          <Icon name={copied ? 'check' : 'link'} />
-          <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy link'}</span>
-        </button>
+        <ShareButton testId="clip-share">
+          {(close) => (
+            <MenuItem
+              icon="link"
+              testId="clip-copy-link"
+              onSelect={() => {
+                close()
+                void copyLink()
+              }}
+            >
+              Copy link
+            </MenuItem>
+          )}
+        </ShareButton>
         {canTrim && !trimming ? (
           <button
             type="button"

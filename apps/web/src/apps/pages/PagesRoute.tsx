@@ -5,9 +5,10 @@ import { product } from '../../brand/product'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
 import { LoadError } from '../../components/LoadError'
-import { below, Menu, type MenuAnchor } from '../../components/Menu'
+import { MenuItem } from '../../components/Menu'
 import { PageFrame } from '../../components/PageFrame'
 import { ReadOnlyLinkItems, useReadOnlyLink } from '../../components/ReadOnlyLink'
+import { ShareButton } from '../../components/ShareButton'
 import { useLoad } from '../../hooks/useLoad'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader } from '../meetings/components/common'
@@ -75,7 +76,6 @@ export function PageRoute() {
   const [version, setVersion] = useState<string | undefined>(undefined)
   const [page, setPage] = useState<PageView | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [anchor, setAnchor] = useState<MenuAnchor | null>(null)
   const link = useReadOnlyLink(space, `pages/${id}.md`)
 
   useEffect(() => {
@@ -93,8 +93,16 @@ export function PageRoute() {
     }
   }, [space, id, version])
 
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      notify('Link copied. Anyone who can see this space can open it.')
+    } catch {
+      notify('Couldn’t copy the link. Copy it from the address bar instead.')
+    }
+  }
+
   const remove = async () => {
-    setAnchor(null)
     if (!window.confirm('Delete this page? It moves to the trash with all its versions.')) return
     try {
       await pagesApi.remove(space, id)
@@ -123,34 +131,33 @@ export function PageRoute() {
             ))}
           </select>
         ) : null}
+        <ShareButton testId="page-share" onOpen={() => link.refresh()}>
+          {(close) => (
+            <>
+              <MenuItem
+                icon="link"
+                testId="page-copy-link"
+                onSelect={() => {
+                  close()
+                  void copyLink()
+                }}
+              >
+                Copy link
+              </MenuItem>
+              <ReadOnlyLinkItems link={link} close={close} />
+            </>
+          )}
+        </ShareButton>
         <button
           type="button"
-          data-testid="page-share"
-          aria-haspopup="menu"
-          onClick={(e) => {
-            if (!anchor) link.refresh()
-            setAnchor(anchor ? null : below(e.currentTarget))
-          }}
-          className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm text-ink-soft hover:bg-paper-sunk hover:text-ink"
+          data-testid="page-delete"
+          aria-label="Delete page"
+          title="Delete page"
+          onClick={() => void remove()}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-soft hover:bg-ember-wash hover:text-ember-strong"
         >
-          <Icon name="share" />
-          Share
+          <Icon name="trash" />
         </button>
-        {anchor ? (
-          <Menu anchor={anchor} label="Share" onClose={() => setAnchor(null)}>
-            <ReadOnlyLinkItems link={link} close={() => setAnchor(null)} />
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="page-delete"
-              onClick={() => void remove()}
-              className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm text-ember-strong hover:bg-ember-wash"
-            >
-              <Icon name="trash" />
-              Delete page
-            </button>
-          </Menu>
-        ) : null}
       </MeetingsPageHeader>
       <div className="flex min-h-0 flex-1 flex-col">
         {error ? (

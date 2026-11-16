@@ -13,7 +13,9 @@ import { type ChatRoom, type FormInput, type FormView, formsApi } from '../../ap
 import { product } from '../../brand/product'
 import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
+import { MenuItem } from '../../components/Menu'
 import { useNameWhenFresh } from '../../components/PageHeader'
+import { ShareButton } from '../../components/ShareButton'
 import { inputClass } from '../../routes/org/fields'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
@@ -52,7 +54,7 @@ export default function FormEditor() {
   const { space = '', id = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const { spaceLabel } = useSession()
+  const { spaceLabel, notify } = useSession()
   const tab: Tab = location.pathname.endsWith('/answers')
     ? 'answers'
     : location.pathname.endsWith('/settings')
@@ -64,7 +66,6 @@ export default function FormEditor() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [rooms, setRooms] = useState<ChatRoom[]>([])
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -182,23 +183,32 @@ export default function FormEditor() {
   const copy = () => {
     // Started before anything else and not awaited: it can hang without the permission.
     void navigator.clipboard?.writeText(form.url).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    notify(
+      !form.open
+        ? 'Link copied. The form is closed, so it takes no answers for now.'
+        : form.access === 'team'
+          ? 'Link copied. Signed-in team members can fill in the form.'
+          : 'Link copied. Anyone with it can fill in the form.',
+    )
   }
 
   return (
     <>
       <MeetingsPageHeader back={{ to: '/forms', label: 'Forms' }} title={form.title} menu={false}>
-        <button
-          type="button"
-          className={`${secondaryButton} h-8 px-3`}
-          onClick={copy}
-          data-testid="form-copy-link"
-          title={form.url}
-        >
-          <Icon name={copied ? 'check' : 'link'} />
-          <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy link'}</span>
-        </button>
+        <ShareButton testId="form-share">
+          {(close) => (
+            <MenuItem
+              icon="link"
+              testId="form-copy-link"
+              onSelect={() => {
+                close()
+                copy()
+              }}
+            >
+              Copy link
+            </MenuItem>
+          )}
+        </ShareButton>
         <a
           href={form.url}
           target="_blank"
