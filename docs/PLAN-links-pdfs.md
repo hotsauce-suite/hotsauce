@@ -1,8 +1,8 @@
 # Plan: PDFs and papers in saved links
 
-Status (2026-11-16): building. Step 4 of the Links roadmap Morgan accepted on 2026-11-15 (ideas
-drawn from Omnivore, AGPL, so ideas only: no code from it). Built on the recommendations in the
-thread (Q1 to Q8) while Morgan answers; change here if he picks otherwise.
+Status (2026-11-16): built, in review (PR #139). Step 4 of the Links roadmap Morgan accepted on
+2026-11-15 (ideas drawn from Omnivore, AGPL, so ideas only: no code from it). Morgan accepted all
+eight recommendations (Q1 to Q8) on 2026-11-16.
 
 Save a PDF or a paper and read it like any other link: the PDF itself is kept in Files, its text
 becomes the readable copy (so highlights, notes, the reading place, search, Ask and Briefcast all
@@ -45,12 +45,14 @@ R4. arXiv: the title, authors, abstract, date and DOI come from the arXiv API; t
 R5. bioRxiv and medRxiv: the details (newest version) from `api.biorxiv.org`, the copy from its
     JATS full text (sections as headings, paragraphs, lists, figure and table captions as text,
     references dropped). No PDF is kept unless one is added (R6).
-R6. `POST /api/links/pdf?name=&space=` with the PDF's bytes (≤ 50 MB, must start `%PDF`) saves a
-    link with no address and the PDF, read from the kept file. A signed-in member only (an access
-    token gets 403). 201 with the link. The Links page has "Add a PDF" next to the paste box, and
-    a PDF dropped on the page does the same. `POST /api/links/:space/:id/pdf` puts a PDF on an
-    existing link that has none (a bioRxiv paper: "Add the PDF" in the reader); its text becomes
-    the copy only when the link has none.
+R6. A PDF from the computer goes up through Files' chunked upload into the member's `Links`
+    folder (the API's body limit is 12 MB), then `POST /api/links/pdf {space, file}` saves a link
+    with no address for it, read from the kept file (200 with the existing link when one already
+    keeps that file). A signed-in member only (an access token gets 403). 201 with the link. The
+    Links page has "Add a PDF" next to the paste box, and PDFs dropped on the page do the same.
+    `POST /api/links/:space/:id/pdf {file}` puts a PDF on an existing link that has none (a
+    bioRxiv paper: "Add the PDF" in the reader); its text becomes the copy only when it has more
+    words than the copy already there.
 R7. Share with team and Make private move the PDF to the same space (still in `Links`); Delete
     moves its pointer to the trash with the link. A link whose PDF is missing still opens.
 R8. "Get the page again" on a link with no address reads its kept PDF again; on a web PDF it
@@ -64,8 +66,8 @@ R10. Reader: "Open PDF" opens the kept PDF in Hotsauce's preview; a paper shows 
 R11. The list marks a link with a PDF ("PDF") and a paper ("arXiv", "bioRxiv", "medRxiv").
 R12. MCP `get_link` and `list_links` carry the paper details and whether a PDF is kept; the PDF's
     text is the link's copy. Search finds a paper by its authors and abstract.
-R13. Support materials: the demo has a paper link with a PDF, the help page and landing page
-    describe PDFs and papers, STATUS and ARCHITECTURE §23 match.
+R13. Support materials: the help page describes PDFs and papers, STATUS and ARCHITECTURE §23
+    match. (The live demo and the landing page have no Links app, so nothing there changes.)
 
 ## Slices
 

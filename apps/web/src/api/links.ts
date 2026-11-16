@@ -30,7 +30,52 @@ export interface LinkView {
   reading: ReadingPlace | null
   /** How many highlights it has, everyone's. */
   highlightCount: number
+  /** The kept PDF's id in Files (same space), or null (docs/PLAN-links-pdfs.md). */
+  file: string | null
+  /** An arXiv, bioRxiv or medRxiv paper's details, or null. */
+  paper: LinkPaper | null
 }
+
+export type PaperServer = 'arxiv' | 'biorxiv' | 'medrxiv'
+
+export interface LinkPaper {
+  server: PaperServer
+  id: string
+  version: number | null
+  authors: string[]
+  /** YYYY-MM-DD, or ''. */
+  published: string
+  doi: string
+  abstract: string
+}
+
+const SERVER_LABELS: Record<PaperServer, string> = {
+  arxiv: 'arXiv',
+  biorxiv: 'bioRxiv',
+  medrxiv: 'medRxiv',
+}
+
+/** "arXiv", "bioRxiv", "medRxiv". */
+export function paperServerLabel(server: PaperServer): string {
+  return SERVER_LABELS[server] ?? server
+}
+
+/** "Ada Lovelace, Alan Turing and 4 more": the first three names. */
+export function authorLine(authors: readonly string[], shown = 3): string {
+  const names = authors.map((a) => a.trim()).filter(Boolean)
+  if (names.length <= 1) return names[0] ?? ''
+  if (names.length <= shown) return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+  return `${names.slice(0, shown).join(', ')} and ${names.length - shown} more`
+}
+
+/** What a list row and the reader call a link's kind: "arXiv", "PDF", or ''. */
+export function linkKindLabel(l: Pick<LinkView, 'paper' | 'file'>): string {
+  if (l.paper) return paperServerLabel(l.paper.server)
+  return l.file ? 'PDF' : ''
+}
+
+/** The folder in Files a link's PDF goes in. */
+export const LINKS_FILES_FOLDER = 'Links'
 
 /** A highlighted passage and its note (docs/PLAN-links-highlights.md). */
 export interface LinkHighlight {
@@ -122,6 +167,15 @@ export const linksApi = {
   move: (space: string, id: string, toSpace: string) =>
     request<LinkView>(`${at(space, id)}/move`, { method: 'POST', json: { toSpace } }),
   remove: (space: string, id: string) => request<void>(at(space, id), { method: 'DELETE' }),
+  /** A PDF already uploaded to Files, saved as a link with no address. */
+  savePdf: (space: string, file: string) =>
+    request<LinkView & { existing: boolean }>('/api/links/pdf', {
+      method: 'POST',
+      json: { space, file },
+    }),
+  /** Puts an uploaded PDF on a link that has none ("Add the PDF"). */
+  attachPdf: (space: string, id: string, file: string) =>
+    request<LinkView>(`${at(space, id)}/pdf`, { method: 'POST', json: { file } }),
   highlights: (q: { q?: string } = {}) =>
     request<{ highlights: HighlightView[] }>('/api/links/highlights', {
       query: { q: q.q?.trim() || undefined },

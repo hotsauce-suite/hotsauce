@@ -35,6 +35,8 @@ function link(over: Partial<LinkWithBody>): LinkWithBody {
     status: 'ready',
     reading: null,
     highlightCount: 0,
+    file: null,
+    paper: null,
     highlights: [],
     body: '## Why it matters\n\nSee [the paper](https://journal.test/p). ![fig](https://journal.test/f.png)',
     ...over,
@@ -690,5 +692,130 @@ describe('keys (slice 5)', () => {
     expect(first?.archived).toBe(true)
     await waitFor(() => expect(screen.getAllByTestId('link-title')[0]).toHaveFocus())
     open.mockRestore()
+  })
+})
+
+describe('PDFs and papers (docs/PLAN-links-pdfs.md)', () => {
+  const paper = {
+    server: 'arxiv' as const,
+    id: '2401.00001',
+    version: 2,
+    authors: ['Ada Lovelace', 'Alan Turing', 'Grace Hopper', 'Katherine Johnson'],
+    published: '2024-01-15',
+    doi: '10.1000/x',
+    abstract: 'We show that stand-in papers can be read.',
+  }
+
+  it('R10 R11: a paper shows its kind, authors, abstract and Open PDF', async () => {
+    store[0] = link({
+      id: '01JC0000000000000000000001',
+      title: 'A stand-in paper',
+      site: 'arxiv.org',
+      url: 'https://arxiv.org/abs/2401.00001',
+      summary: paper.abstract,
+      file: '01JF0000000000000000000001',
+      paper,
+    })
+    renderApp('/links')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(2))
+    expect(screen.getByText(/^arXiv · arxiv\.org/)).toBeInTheDocument()
+    cleanup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-paper')).toBeInTheDocument())
+    expect(screen.getByTestId('link-paper')).toHaveTextContent(
+      'Ada Lovelace, Alan Turing, Grace Hopper and 1 more · 2024-01-15 · arXiv v2 · doi:10.1000/x',
+    )
+    expect(screen.getByTestId('link-abstract')).toHaveTextContent(paper.abstract)
+    expect(screen.getByTestId('link-open-pdf')).toHaveAttribute(
+      'href',
+      '/files/ada/01JF0000000000000000000001',
+    )
+    expect(screen.queryByTestId('link-add-pdf')).toBeNull()
+  })
+
+  it('R10: a scanned PDF from the computer says it has no text, with no original to open', async () => {
+    store[0] = link({
+      id: '01JC0000000000000000000001',
+      url: '',
+      site: '',
+      title: 'Scan',
+      words: null,
+      body: '',
+      summary: '',
+      file: '01JF0000000000000000000002',
+    })
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-no-text')).toBeInTheDocument())
+    expect(screen.queryByTestId('link-original')).toBeNull()
+    expect(screen.getByText(/A PDF from your computer/)).toBeInTheDocument()
+  })
+
+  it('R6: Add the PDF on a paper without one uploads it to Files and puts it on the link', async () => {
+    const user = userEvent.setup()
+    const attached: unknown[] = []
+    const uploaded: unknown[] = []
+    server.use(
+      http.post('/api/files/uploads', async ({ request }) => {
+        uploaded.push(await request.json())
+        return HttpResponse.json({ id: 'U1', chunkBytes: 8_000_000, chunks: 1 })
+      }),
+      http.put('/api/files/uploads/U1/chunks/0', () => new HttpResponse(null, { status: 204 })),
+      http.post('/api/files/uploads/U1/complete', () =>
+        HttpResponse.json({ id: '01JF0000000000000000000009', space: 'ada' }),
+      ),
+      http.post('/api/links/:space/:id/pdf', async ({ request }) => {
+        attached.push(await request.json())
+        const l = store[0] as LinkWithBody
+        l.file = '01JF0000000000000000000009'
+        return HttpResponse.json(l)
+      }),
+    )
+    store[0] = link({
+      id: '01JC0000000000000000000001',
+      url: 'https://www.biorxiv.org/content/10.1101/2024.02.01.1v1',
+      paper: { ...paper, server: 'biorxiv' },
+    })
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-add-pdf')).toBeInTheDocument())
+    const pdf = new File(['%PDF-1.4'], 'preprint.pdf', { type: 'application/pdf' })
+    await user.upload(screen.getByTestId('link-pdf-input'), pdf)
+    await waitFor(() => expect(screen.getByTestId('link-open-pdf')).toBeInTheDocument())
+    expect(uploaded).toEqual([
+      expect.objectContaining({ space: 'ada', folder: 'Links', name: 'preprint.pdf' }),
+    ])
+    expect(attached).toEqual([{ file: '01JF0000000000000000000009' }])
+  })
+
+  it('R6: Add a PDF on the list saves it as a link, and refuses what isn’t a PDF', async () => {
+    const user = userEvent.setup({ applyAccept: false })
+    const saved: unknown[] = []
+    server.use(
+      http.post('/api/files/uploads', () =>
+        HttpResponse.json({ id: 'U2', chunkBytes: 8_000_000, chunks: 1 }),
+      ),
+      http.put('/api/files/uploads/U2/chunks/0', () => new HttpResponse(null, { status: 204 })),
+      http.post('/api/files/uploads/U2/complete', () =>
+        HttpResponse.json({ id: '01JF0000000000000000000010', space: 'ada' }),
+      ),
+      http.post('/api/links/pdf', async ({ request }) => {
+        saved.push(await request.json())
+        const made = link({ id: '01JC0000000000000000000020', url: '', title: 'Notes' })
+        store.unshift(made)
+        return HttpResponse.json({ ...made, existing: false }, { status: 201 })
+      }),
+    )
+    renderApp('/links')
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(2))
+    await user.upload(
+      screen.getByTestId('links-pdf-input'),
+      new File(['x'], 'photo.png', { type: 'image/png' }),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('photo.png isn’t a PDF')
+    await user.upload(
+      screen.getByTestId('links-pdf-input'),
+      new File(['%PDF-1.4'], 'Notes.pdf', { type: 'application/pdf' }),
+    )
+    await waitFor(() => expect(screen.getAllByTestId('link-row')).toHaveLength(3))
+    expect(saved).toEqual([{ space: 'ada', file: '01JF0000000000000000000010' }])
   })
 })
