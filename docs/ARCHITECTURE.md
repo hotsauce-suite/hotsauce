@@ -888,7 +888,7 @@ Plan and requirements: `docs/PLAN-cloudflare-deploy.md`. The Worker in `apps/clo
 
 `HOTSAUCE_SETUP_TOKEN` (12+ characters) replaces the generated setup token, so the Deploy button can ask for it. Without `VAPID_*`, push keys are generated once into `DATA_DIR/push/vapid.json`. With `HOTSAUCE_PLATFORM=cloudflare`, the wizard hides "On this server" storage and finishing requires GitHub repos and R2 media.
 
-**Updates.** `HOTSAUCE_VERSION` names the release a copy has; `scripts/update-hotsauce.mjs` (run weekly by `.github/workflows/update-hotsauce.yml`) three-way applies the diff between that tag and the newest upstream tag on a branch and opens a PR, or an issue on conflict. `deploy-fly.yml` deploys main when `vars.FLY_APP` is set. Both skip Hotsauce's own repo.
+**Updates.** `HOTSAUCE_VERSION` names the release a copy has (in Hotsauce itself only the Release workflow writes it: `scripts/next-release.mjs` picks the next number from the newest tag after each merge); `scripts/update-hotsauce.mjs` (run weekly by `.github/workflows/update-hotsauce.yml`) three-way applies the diff between that tag and the newest upstream tag on a branch and opens a PR, or an issue on conflict. `deploy-fly.yml` deploys main when `vars.FLY_APP` is set. Both skip Hotsauce's own repo.
 
 ## 12. Hotsauce Tasks
 
