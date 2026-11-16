@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import * as sqliteVec from 'sqlite-vec'
+import type { LegacyMemberLists } from '../account/store.js'
 import { extractDoc, type FileKind } from './extract.js'
 import { toFtsAnyQuery, toFtsQuery } from './query.js'
 import { migrate } from './schema.js'
@@ -229,35 +230,22 @@ export class Index {
     return this.#q.listConflicts.all(space)
   }
 
-  touchRecent(user: string, space: string, path: string): void {
-    this.#q.touchRecent.run(user, space, path, new Date().toISOString())
+  /** The title a file is indexed under, or null when it isn't indexed. */
+  titleOf(space: string, path: string): string | null {
+    return this.#q.titleOf.get(space, path)?.title ?? null
   }
 
-  /** Most recent first; `title` is null when the file is no longer indexed. */
-  listRecents(
-    user: string,
-    limit = DEFAULT_LIMIT,
-  ): Array<{ space: string; path: string; title: string | null; openedAt: string }> {
-    return this.#q.listRecents.all(user, limit)
-  }
-
-  setStarred(user: string, space: string, path: string, starred: boolean): void {
-    if (starred) this.#q.addStar.run(user, space, path)
-    else this.#q.removeStar.run(user, space, path)
-  }
-
-  listStars(user: string): Array<{ space: string; path: string; title: string | null }> {
-    return this.#q.listStars.all(user)
-  }
-
-  /** The apps `user` pinned to their rail, in order; null until they first change them. */
-  getPins(user: string): string[] | null {
-    const row = this.#q.getPins.get(user)
-    return row ? (JSON.parse(row.apps) as string[]) : null
-  }
-
-  setPins(user: string, apps: readonly string[]): void {
-    this.#q.setPins.run(user, JSON.stringify(apps))
+  /**
+   * Recents, stars and rail pins as releases before the account store kept them here. Read once,
+   * on the first start of a release that has the store (AccountStore.copyFromIndexOnce). The tables
+   * stay, unused, so a rollback to an older release still finds them.
+   */
+  legacyMemberLists(): LegacyMemberLists {
+    return {
+      recents: this.#q.legacyRecents.all(),
+      stars: this.#q.legacyStars.all(),
+      pins: this.#q.legacyPins.all(),
+    }
   }
 
   getSpace(name: string): SpaceRecord | null {
@@ -404,32 +392,16 @@ function prepareStatements(db: Database.Database) {
       'SELECT ref, path, created_at AS createdAt FROM conflicts WHERE space = ? ORDER BY created_at, ref',
     ),
 
-    touchRecent: db.prepare<[string, string, string, string]>(`
-      INSERT INTO recents (user, space, path, opened_at) VALUES (?, ?, ?, ?)
-      ON CONFLICT (user, space, path) DO UPDATE SET opened_at = excluded.opened_at`),
-    listRecents: db.prepare<
-      [string, number],
-      { space: string; path: string; title: string | null; openedAt: string }
-    >(`
-      SELECT r.space, r.path, f.title, r.opened_at AS openedAt
-      FROM recents r LEFT JOIN files f ON f.space = r.space AND f.path = r.path
-      WHERE r.user = ? ORDER BY r.opened_at DESC LIMIT ?`),
-
-    addStar: db.prepare<[string, string, string]>(
-      'INSERT OR IGNORE INTO stars (user, space, path) VALUES (?, ?, ?)',
+    titleOf: db.prepare<[string, string], { title: string }>(
+      'SELECT title FROM files WHERE space = ? AND path = ?',
     ),
-    removeStar: db.prepare<[string, string, string]>(
-      'DELETE FROM stars WHERE user = ? AND space = ? AND path = ?',
+    legacyRecents: db.prepare<[], LegacyMemberLists['recents'][number]>(
+      'SELECT user, space, path, opened_at AS openedAt FROM recents',
     ),
-    listStars: db.prepare<[string], { space: string; path: string; title: string | null }>(`
-      SELECT s.space, s.path, f.title
-      FROM stars s LEFT JOIN files f ON f.space = s.space AND f.path = s.path
-      WHERE s.user = ? ORDER BY s.space, s.path`),
-
-    getPins: db.prepare<[string], { apps: string }>('SELECT apps FROM pins WHERE user = ?'),
-    setPins: db.prepare<[string, string]>(`
-      INSERT INTO pins (user, apps) VALUES (?, ?)
-      ON CONFLICT (user) DO UPDATE SET apps = excluded.apps`),
+    legacyStars: db.prepare<[], LegacyMemberLists['stars'][number]>(
+      'SELECT user, space, path FROM stars',
+    ),
+    legacyPins: db.prepare<[], LegacyMemberLists['pins'][number]>('SELECT user, apps FROM pins'),
 
     getSpace: db.prepare<[string], SpaceRecord>(`
       SELECT name, kind, owner_email AS ownerEmail, created_at AS createdAt

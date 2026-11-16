@@ -195,6 +195,7 @@ async function main(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 500))
     await git.drain()
     index.close()
+    services.account.close()
     services.dictation.store.close()
     services.clips.close()
     services.clips.store.close()

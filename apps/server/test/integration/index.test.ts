@@ -477,46 +477,12 @@ describe('sync state, conflicts, recents and stars', () => {
     expect(index.listConflicts('ada')).toHaveLength(1)
   })
 
-  it('lists recents newest first with titles when indexed', async () => {
+  // Recents, stars and pins live in account.sqlite (src/account/store.test.ts); their titles here.
+  it('gives the title a file is indexed under, or null', async () => {
     await indexer.full('team')
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-10-07T10:00:00Z'))
-    index.touchRecent('u1', 'team', 'docs/roadmap.md')
-    vi.setSystemTime(new Date('2026-10-07T11:00:00Z'))
-    index.touchRecent('u1', 'team', 'docs/gone.md')
-    index.touchRecent('u2', 'team', 'docs/hiring/plan.md')
-    vi.setSystemTime(new Date('2026-10-07T12:00:00Z'))
-    index.touchRecent('u1', 'team', 'docs/roadmap.md')
-
-    expect(index.listRecents('u1')).toEqual([
-      {
-        space: 'team',
-        path: 'docs/roadmap.md',
-        title: 'Roadmap',
-        openedAt: '2026-10-07T12:00:00.000Z',
-      },
-      { space: 'team', path: 'docs/gone.md', title: null, openedAt: '2026-10-07T11:00:00.000Z' },
-    ])
-    expect(index.listRecents('u1', 1)).toHaveLength(1)
-  })
-
-  it('stars and unstars per user', async () => {
-    await indexer.full('team')
-    index.setStarred('u1', 'team', 'docs/roadmap.md', true)
-    index.setStarred('u1', 'team', 'docs/roadmap.md', true)
-    index.setStarred('u1', 'team', 'docs/hiring/plan.md', true)
-    index.setStarred('u2', 'team', 'README.md', true)
-    index.setStarred('u1', 'team', 'docs/hiring/plan.md', false)
-    expect(index.listStars('u1')).toEqual([
-      { space: 'team', path: 'docs/roadmap.md', title: 'Roadmap' },
-    ])
-  })
-
-  it('keeps recents and stars across a reindex', async () => {
-    await indexer.full('team')
-    index.setStarred('u1', 'team', 'docs/roadmap.md', true)
-    await indexer.full('team')
-    expect(index.listStars('u1')).toHaveLength(1)
+    expect(index.titleOf('team', 'docs/roadmap.md')).toBe('Roadmap')
+    expect(index.titleOf('team', 'docs/gone.md')).toBeNull()
+    expect(index.titleOf('other', 'docs/roadmap.md')).toBeNull()
   })
 })
 
