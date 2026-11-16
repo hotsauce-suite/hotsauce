@@ -27,7 +27,15 @@ export interface GitStoreOptions {
   rewriteLinks?: RewriteLinks
   /** Test seam: runs right before every push of main, so a test can land a concurrent push. */
   beforePush?: (space: string) => Promise<void>
+  /**
+   * Checks the final text of every markdown file a commit or move is about to write (after any
+   * merge) against what the path holds now, and throws to refuse it. Wired to the read-only link
+   * rule (ARCHITECTURE §20.1). `trusted` commits skip it.
+   */
+  guardMarkdown?: MarkdownGuard
 }
+
+export type MarkdownGuard = (path: string, text: string, previous: string | null) => void
 
 export type RewriteLinks = (
   markdown: string,
@@ -53,6 +61,7 @@ export class GitStore {
   private readonly committer: Author
   private readonly rewriteLinks: RewriteLinks
   private readonly beforePush: ((space: string) => Promise<void>) | undefined
+  private readonly guardMarkdown: MarkdownGuard | undefined
   private readonly locks = new KeyedMutex()
 
   constructor(opts: GitStoreOptions) {
@@ -60,6 +69,7 @@ export class GitStore {
     this.committer = opts.committer
     this.rewriteLinks = opts.rewriteLinks ?? ((markdown) => markdown)
     this.beforePush = opts.beforePush
+    this.guardMarkdown = opts.guardMarkdown
   }
 
   // ── setup ────────────────────────────────────────────────────────────────
@@ -292,6 +302,8 @@ export class GitStore {
        * blob means the file must not exist yet (create only), checked under the space lock.
        */
       unchanged?: { path: string; blobOid: string | null }
+      /** Skip `guardMarkdown`: the one writer allowed to make what it refuses (Share). */
+      trusted?: boolean
     },
   ): Promise<CommitResult> {
     assertSpace(space)
@@ -301,6 +313,7 @@ export class GitStore {
       content: c.content,
     }))
     const { author, message } = args
+    const trusted = args.trusted === true
     if (args.base === undefined) {
       // "Must not exist": no blob can equal '', and a missing file is fine.
       const unchanged = args.unchanged && {
@@ -313,6 +326,7 @@ export class GitStore {
           changes,
           author,
           message,
+          trusted,
           ...(unchanged ? { unchanged } : {}),
         }),
       )
@@ -322,7 +336,7 @@ export class GitStore {
     }
     const base = { path: normalizeRepoPath(args.base.path), blobOid: args.base.blobOid }
     return this.write(space, (dir) =>
-      this.commitUnlocked(space, dir, { changes, author, message, base }),
+      this.commitUnlocked(space, dir, { changes, author, message, base, trusted }),
     )
   }
 
@@ -386,6 +400,10 @@ export class GitStore {
         changes: [{ path: to.path, content: source.content }],
         author,
         message: withVia(`hotsauce: add "${to.path}" from ${from.space}`, opts.via),
+        // A markdown file moves with what it had; anything else arrives as a new file.
+        copiedFrom: new Map([
+          [to.path, isMarkdownPath(from.path) ? source.content.toString('utf8') : null],
+        ]),
       })
     })
 
@@ -499,6 +517,9 @@ export class GitStore {
       unchanged?: { path: string; blobOid: string; missingOk?: boolean }
       /** Write `base.path` even if HEAD no longer has it (resolving a conflict). */
       allowRecreate?: boolean
+      trusted?: boolean
+      /** The text each path was copied from (a move from another space), for `guardMarkdown`. */
+      copiedFrom?: Map<string, string | null>
     },
   ): Promise<CommitResult> {
     const primaryPath = args.base?.path ?? args.changes[0]?.path ?? ''
@@ -563,6 +584,7 @@ export class GitStore {
       }
 
       // 3. Commit (an empty diff commits nothing).
+      if (!args.trusted) await this.guard(dir, changes, args.copiedFrom)
       await this.writeChanges(dir, changes)
       if (await this.hasStagedChanges(dir)) {
         await this.git(dir, ['commit', '--quiet', '--no-verify', '-m', args.message], {
@@ -627,6 +649,17 @@ export class GitStore {
       const normalized = extra.map((c) => ({ path: normalizeRepoPath(c.path), content: c.content }))
       if (normalized.some((c) => moving(c.path))) {
         throw new HotsauceError('bad_request', `Extra changes can't touch ${from} or ${to}`)
+      }
+
+      // A file renamed into markdown is checked as a new one; a markdown file keeps what it had.
+      // Before anything moves, so a refusal leaves the clone as it was.
+      if (this.guardMarkdown) {
+        for (const file of files) {
+          const newPath = to + file.path.slice(from.length)
+          if (isMarkdownPath(newPath) && !isMarkdownPath(file.path)) {
+            this.guardMarkdown(newPath, await this.blobContent(dir, file.oid), null)
+          }
+        }
       }
 
       await mkdir(dirname(join(dir, to)), { recursive: true })
@@ -979,6 +1012,26 @@ export class GitStore {
     }
   }
 
+  /** Runs `guardMarkdown` on each markdown file about to be written, against the path at HEAD. */
+  private async guard(
+    dir: string,
+    changes: Change[],
+    copiedFrom?: Map<string, string | null>,
+  ): Promise<void> {
+    if (!this.guardMarkdown) return
+    for (const change of changes) {
+      if (change.content === null || !isMarkdownPath(change.path)) continue
+      const text =
+        typeof change.content === 'string'
+          ? change.content
+          : Buffer.from(change.content).toString('utf8')
+      const previous = copiedFrom?.has(change.path)
+        ? (copiedFrom.get(change.path) ?? null)
+        : ((await this.blobAt(dir, 'HEAD', change.path))?.content ?? null)
+      this.guardMarkdown(change.path, text, previous)
+    }
+  }
+
   private async hasStagedChanges(dir: string): Promise<boolean> {
     try {
       await this.git(dir, ['diff', '--cached', '--quiet'])
@@ -1157,3 +1210,5 @@ async function removeStaleLocks(gitDir: string): Promise<void> {
       .map((r) => rm(join(gitDir, 'refs', r), { force: true })),
   )
 }
+
+const isMarkdownPath = (path: string) => path.toLowerCase().endsWith('.md')

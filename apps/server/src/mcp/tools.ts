@@ -271,6 +271,7 @@ export function registerTools(
           message,
           baseBlobOid: base_blob_oid,
           replaceNeedsBase: true,
+          replaceUpToChars: MAX_READ_CHARS,
           via,
         })
         if (result.status === 'conflict') {

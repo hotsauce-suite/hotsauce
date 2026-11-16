@@ -21,6 +21,7 @@ import {
 } from '../git/index.js'
 import { normalizeRepoPath } from '../git/validate.js'
 import { PAGES_FOLDER } from '../pages/index.js'
+import { SHARE_TOKEN } from '../shares/index.js'
 import type { AppDeps } from './env.js'
 
 /**
@@ -54,6 +55,11 @@ export async function saveFile(
      * be overwritten unseen.
      */
     replaceNeedsBase?: boolean | undefined
+    /**
+     * Refuse to replace a file longer than this (AI tools): a tool is given only this much of a
+     * file to read, so what it writes back would drop the rest.
+     */
+    replaceUpToChars?: number | undefined
     message?: string | undefined
     label?: string | undefined
     /** The agent channel the save came through, as a `Hotsauce-Via` trailer (ARCHITECTURE §8.2). */
@@ -65,10 +71,18 @@ export async function saveFile(
   if (args.createOnly && existing) {
     throw new HotsauceError('conflict', `${path} already exists`)
   }
+  if (existing && args.replaceUpToChars !== undefined) {
+    if (existing.content.length > args.replaceUpToChars) {
+      throw new HotsauceError(
+        'bad_request',
+        `${path} is too long to read whole, so it can't be replaced here; edit it in the web app.`,
+      )
+    }
+  }
   if (args.replaceNeedsBase && existing && !args.baseBlobOid) {
     throw new HotsauceError(
       'conflict',
-      `${path} already exists. Read it with read_file and pass its blobOid as base_blob_oid. A file too long to read whole (truncated: true) can't be replaced here; edit it in the web app.`,
+      `${path} already exists. Read it with read_file and pass its blobOid as base_blob_oid.`,
     )
   }
   const content = isMarkdown(path)
@@ -128,16 +142,18 @@ export function withStableId(content: string, previous: string | undefined): str
  * `share` the file doesn't have (typed, pasted, or written by an AI tool that was told to by
  * something it read) would publish the file under a link its sender already knows, so it gets the
  * file's own link back, or none. Leaving the link out is allowed: that only turns sharing off.
+ * This is the quiet repair for the ordinary case; header text it can't patch is left as it is
+ * and refused by the rule every write passes (`assertOwnShare`).
  */
 export function withOwnShare(content: string, previous: string | undefined): string {
   try {
     const sent = parseFrontmatter(content).data.share
-    if (sent === undefined) return content
+    // Only a value that could be a link; `share: true` for some other tool is left alone.
+    if (typeof sent !== 'string' || !SHARE_TOKEN.test(sent)) return content
     const own = previous === undefined ? undefined : parseFrontmatter(previous).data.share
     if (sent === own) return content
     return patchFrontmatter(content, { share: typeof own === 'string' ? own : undefined })
   } catch (err) {
-    // Frontmatter that doesn't parse carries no link: the index reads none from it.
     if (err instanceof FrontmatterError) return content
     throw err
   }

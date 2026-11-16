@@ -443,6 +443,19 @@ describe('MCP tools', () => {
       content: read.value.content,
     })
     expect(result.isError).toBe(true)
+    // Nor with the version taken from a listing instead of a read.
+    const listed = await tool(alice, 'list_files', { space: 'team', dir: 'docs' })
+    const oid = JSON.stringify(listed.value).match(
+      /"oid":"([0-9a-f]{40})"[^}]*long\.md|long\.md[^}]*"oid":"([0-9a-f]{40})"/,
+    )
+    const blind = await tool(alice, 'write_file', {
+      space: 'team',
+      path: 'docs/long.md',
+      content: read.value.content,
+      base_blob_oid: oid?.[1] ?? oid?.[2] ?? 'missing',
+    })
+    expect(blind.isError).toBe(true)
+    expect(blind.text).toMatch(/too long/)
     const res = await call('GET', '/api/spaces/team/file?path=docs/long.md', { as: ALICE })
     expect(((await res.json()) as { content: string }).content).toContain('the last line')
   })

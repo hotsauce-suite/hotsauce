@@ -113,7 +113,7 @@ import {
   type RobotCheck,
   Turnstile,
 } from './scheduling/index.js'
-import { Shares } from './shares/index.js'
+import { assertOwnShare, Shares } from './shares/index.js'
 import { SpaceService } from './spaces/index.js'
 import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
@@ -192,6 +192,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     dataDir: config.DATA_DIR,
     committer,
     rewriteLinks: rewriteLinksForMove,
+    guardMarkdown: assertOwnShare,
   })
   const host = createHostAdapter(config)
   const index = new Index(indexPath(config.DATA_DIR))
