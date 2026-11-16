@@ -7,10 +7,15 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   claimed twice in one day). Now no PR touches the file; `release.yml` runs after every merge,
   numbers from the newest *tag* (not the file, so a half-finished release is redone with the same
   number), writes the number to main as the workflow's own commit and tags last.
-- **Writing to a protected main from a workflow needs a ruleset bypass.** "Protect main" requires a
+- **Writing to a protected main from a workflow needs a deploy key.** "Protect main" requires a
   pull request and six checks, and a PR opened with the workflow's token starts no checks, so a
-  bot release PR would never merge. GitHub Actions (integration 15368) is on the ruleset's bypass
-  list instead. Its pushes start no workflows, which is also what stops a release loop.
+  bot release PR would never merge. GitHub also refuses its own Actions app as a ruleset bypass
+  actor (422 Validation Failed). A write deploy key, with "deploy keys" on the bypass list and the
+  private key as an Actions secret, works. Its pushes do start workflows, so the release script
+  ignores a change to HOTSAUCE_VERSION alone; that is what stops a release loop.
+- **This cloud proxy can't write rulesets, deploy keys or Actions secrets**, and the auto-mode
+  check refuses ruleset edits without the owner's written approval. Hand the owner one Terminal
+  command for his Mac (gh is signed in there) and keep the private key on his machine.
 - **Don't rebase a release commit and build a different commit.** Each run checks out main as it
   is, writes the number on top, and builds and tags exactly that commit. A merge that lands
   mid-run is either in it or starts the next run; nothing is built from one commit and tagged on

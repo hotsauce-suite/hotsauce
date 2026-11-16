@@ -7,8 +7,10 @@ name: Release
 # nothing. It then writes the number to main as a "Release X.Y.Z" commit, builds and pushes the
 # image ghcr.io/hotsauce-suite/hotsauce:<version> and :latest, and tags v<version> last.
 #
-# Writing to main needs GitHub Actions on the "Protect main" ruleset's bypass list. The commit is
-# pushed with the workflow's own token, which starts no other workflow, so it can't loop.
+# Writing to main: the "Protect main" ruleset lets deploy keys bypass it, and the release robot's
+# deploy key (write access) is the secret RELEASE_DEPLOY_KEY. GitHub doesn't let its own Actions
+# token bypass a ruleset. The version commit does start CI and this workflow again; the second run
+# finds only HOTSAUCE_VERSION changed and releases nothing.
 on:
   push:
     branches: [main]
@@ -39,10 +41,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Check the release robot's key is set
+        env:
+          KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::The RELEASE_DEPLOY_KEY secret is missing, so the version can't be written to main. See docs/PLAN-auto-releases.md, Setup."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

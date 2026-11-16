@@ -36,6 +36,9 @@ R8. A hand-run from the Actions tab can force a release (even docs-only) and can
 
 ## Setup
 
-- GitHub Actions (integration 15368) is a bypass actor on the "Protect main" ruleset so the
-  workflow can push the version commit. Done by the agent with repo admin on 2026-11-16.
+- A deploy key with write access titled "Release robot", its private half in the Actions secret
+  `RELEASE_DEPLOY_KEY`, and deploy keys on the "Protect main" ruleset's bypass list (Morgan ran
+  one command on his Mac; the key never left it). GitHub refuses its own Actions app as a ruleset
+  bypass actor (422), so the workflow token can't do it.
+- To undo: delete the deploy key (GitHub → Settings → Deploy keys) and empty the bypass list.
 - The `feature` label exists on the repository.
