@@ -102,8 +102,8 @@ describe('updates', () => {
       updating: { from: '0.2.0', to: '0.3.0' },
     })
     expect(fly.created).toHaveLength(1)
-    const env = (fly.created[0]?.config as { env: Record<string, string> }).env
-    expect(env.HOTSAUCE_UPDATE_TARGET).toBe(`ghcr.io/hotsauce-suite/hotsauce@${DIGEST}`)
+    const env = (fly.created[0]?.config as { env: Record<string, string> } | undefined)?.env
+    expect(env?.HOTSAUCE_UPDATE_TARGET).toBe(`ghcr.io/hotsauce-suite/hotsauce@${DIGEST}`)
     expect((await call('POST', '/api/admin/org/updates/start', ADMIN)).status).toBe(409)
   })
 
