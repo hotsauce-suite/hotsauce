@@ -294,7 +294,16 @@ function LinkRow({
             <div className="h-full rounded-full bg-ember" style={{ width: `${furthest}%` }} />
           </div>
         ) : null}
-        {l.status === 'fetching' ? (
+        {l.status === 'waiting' ? (
+          <p className="mt-1 text-sm text-ink-soft" data-testid="link-waiting">
+            <span className="break-all">{l.url}</span>
+            <br />
+            Saved by an AI tool. Check the address, then{' '}
+            <button type="button" className="text-ember-strong underline" onClick={onRetry}>
+              Get the page
+            </button>
+          </p>
+        ) : l.status === 'fetching' ? (
           <p className="mt-1 text-sm text-ink-soft" data-testid="link-fetching">
             Getting the page…
           </p>

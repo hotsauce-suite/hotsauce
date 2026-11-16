@@ -66,7 +66,7 @@ Trackers with spreadsheet formulas, kept as CSV in Git.
 Needs nothing extra.
 
 ### Links
-A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read.
+A read-later list: save from the Chrome extension, phone or app, read a clean copy, keep the page as you saw it. Remembers where each person stopped reading and shows how much they've read. Links an AI tool saves wait for the member to press Get the page.
 Needs nothing extra; the AI summary needs the AI key.
 
 ### Briefcast

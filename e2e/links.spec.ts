@@ -89,6 +89,28 @@ test('Links works at phone width', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(0)
 })
 
+test('a link an AI tool saved waits for the member to press Get the page', async ({
+  page,
+  user,
+}) => {
+  const id = uid()
+  const url = `https://journal.test/${id}/ai-pick`
+  // What the connector's save_link does: source "mcp" (docs/PLAN-links-ai-saves.md).
+  const res = await page.request.post('/api/links', {
+    data: { url, source: 'mcp' },
+    headers: { 'x-hearth-dev-user': user.email },
+  })
+  expect(res.status()).toBe(201)
+  await page.goto('/links')
+  const row = page.getByTestId('link-row').filter({ hasText: url })
+  await expect(row.getByTestId('link-waiting')).toContainText('Saved by an AI tool')
+  await row.getByTestId('link-title').click()
+  await expect(page.getByTestId('link-address')).toHaveText(url)
+  await page.screenshot({ path: 'test-results/link-waiting.png' })
+  await page.getByRole('button', { name: 'Get the page' }).click()
+  await expect(page.getByTestId('link-body')).toContainText('Ai pick is the subject of this page.')
+})
+
 test('a long read picks up where you left off, and the list shows how far you got', async ({
   page,
 }) => {

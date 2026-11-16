@@ -217,6 +217,45 @@ describe('the reader', () => {
     expect(screen.queryByTestId('link-short')).toBeNull()
   })
 
+  it('R6: shows a link an AI tool saved with its address, and gets it only on a click', async () => {
+    const user = userEvent.setup()
+    const waiting = {
+      id: '01JC0000000000000000000001',
+      url: 'https://attacker.test/collect?q=plans',
+      source: 'mcp' as const,
+      status: 'waiting' as const,
+      fetched: null,
+      words: null,
+      summary: '',
+      body: '',
+    }
+    store[0] = link(waiting)
+    let refetched = 0
+    server.use(
+      http.post('/api/links/:space/:id/refetch', () => {
+        refetched++
+        const { body: _b, ...rest } = store[0] as LinkWithBody
+        return HttpResponse.json({ ...rest, status: 'fetching' })
+      }),
+    )
+    renderApp('/links')
+    await waitFor(() => expect(screen.getByTestId('link-waiting')).toBeInTheDocument())
+    expect(screen.getByTestId('link-waiting')).toHaveTextContent(
+      'https://attacker.test/collect?q=plans',
+    )
+    expect(refetched).toBe(0)
+    cleanup()
+    renderApp('/links/ada/01JC0000000000000000000001')
+    await waitFor(() => expect(screen.getByTestId('link-address')).toBeInTheDocument())
+    expect(screen.getByTestId('link-address')).toHaveTextContent(
+      'https://attacker.test/collect?q=plans',
+    )
+    expect(refetched).toBe(0)
+    await user.click(screen.getByRole('button', { name: 'Get the page' }))
+    await waitFor(() => expect(refetched).toBe(1))
+    await waitFor(() => expect(screen.getByTestId('link-fetching')).toBeInTheDocument())
+  })
+
   it('edits tags', async () => {
     const user = userEvent.setup()
     renderApp('/links/ada/01JC0000000000000000000001')
