@@ -57,9 +57,11 @@ describe('offline in the app (A3)', { timeout: 20_000 }, () => {
     const me = (await api.me()).principal.userId
     // The shell has learned who's signed in (what an offline screen lists drafts for).
     await waitFor(() => expect(localStorage.getItem('hotsauce.offline.member')).toContain(me))
+    await goOffline()
+    // Kept once offline, as an edit made offline is: while the app can still reach the server it
+    // sends a waiting save itself, which took this one before the screen opened on a slow run.
     saveDraft(me, 'team', 'docs/plans/q4-plan.md', 'abc', 'Kept text', 'waiting')
     saveDraft('u-other', 'team', 'docs/other.md', 'abc', 'Not mine', 'waiting')
-    await goOffline()
     await act(() => router.navigate('/tasks'))
     const empty = await screen.findByTestId('offline-empty')
     expect(empty).toHaveTextContent('Not available offline yet')

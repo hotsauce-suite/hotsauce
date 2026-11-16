@@ -352,6 +352,14 @@ interface ListRow {
 
 const LIST_ROWS: ListRow[] = [
   {
+    name: 'Tasks',
+    url: '/tasks',
+    tabs: ['Inbox', 'Today', 'Upcoming', 'All', 'Done'],
+    search: 'tasks-search',
+    width: 'reading',
+  },
+  { name: 'Meetings', url: '/meetings', tabs: null, search: 'meetings-search', width: 'reading' },
+  {
     name: 'Clips',
     url: '/clips',
     tabs: ['Personal', 'Team'],
@@ -645,6 +653,127 @@ test.describe('the row above a list', () => {
       await expect(rows).toHaveCount(2)
     })
   }
+
+  test('Tasks: a list’s name is its tab, a project is named once, and search filters by name', async ({
+    page,
+  }) => {
+    const id = uid()
+    await page.goto('/tasks')
+    await expect(page.getByTestId('tasks-tab-inbox')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('tasks-title')).toHaveCount(0)
+    for (const title of [`Order seed ${id} #Plot${id}`, `Mend fence ${id}`]) {
+      await page.getByTestId('tasks-add').click()
+      const input = page.getByTestId('quick-add-input')
+      await input.fill(title)
+      await input.press('Enter')
+      await expect(input).toBeHidden()
+    }
+    const rows = page.getByTestId('task-row')
+    await page.getByTestId('tasks-tab-all').click()
+    await expect(page).toHaveURL(/\/tasks\/all$/)
+    await expect(page.getByTestId('tasks-tab-all')).toHaveAttribute('aria-selected', 'true')
+    await expect(rows.filter({ hasText: id })).toHaveCount(2)
+    await page.getByTestId('tasks-search').fill(`fence ${id}`)
+    await expect(rows).toHaveCount(1)
+    await expect(rows).toContainText(`Mend fence ${id}`)
+    await page.getByTestId('tasks-search').fill(`nothing-${id}`)
+    await expect(page.getByTestId('tasks-no-match')).toContainText('No tasks match that')
+    // The count is of the whole list, so it steps aside while only matches show.
+    await expect(page.getByTestId('tasks-count')).toHaveCount(0)
+
+    // A task added while searching is shown, not hidden by what was typed.
+    await page.getByTestId('tasks-add').click()
+    const quick = page.getByTestId('quick-add-input')
+    await quick.fill(`Sow beans ${id}`)
+    await quick.press('Enter')
+    await expect(page.getByTestId('tasks-search')).toHaveValue('')
+    await expect(rows.filter({ hasText: `Sow beans ${id}` })).toHaveCount(1)
+    await expect(page.getByTestId('tasks-count')).toContainText('open')
+
+    // Each list starts unsearched.
+    await page.getByTestId('tasks-search').fill(`fence ${id}`)
+    await page.getByTestId('tasks-tab-done').click()
+    await expect(page.getByTestId('tasks-tab-done')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('tasks-search')).toHaveValue('')
+
+    // A project has no tab: none is selected and the project is named, in the list heading size.
+    await page
+      .getByTestId('tasks-nav-project')
+      .filter({ hasText: `Plot${id}` })
+      .click()
+    await expect(page.getByTestId('list-bar').getByRole('tab', { selected: true })).toHaveCount(0)
+    const heading = page.getByTestId('tasks-title')
+    await expect(heading).toHaveText(`#Plot${id}`)
+    expect(
+      await heading.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize)),
+    ).toBeLessThanOrEqual(20)
+  })
+
+  test('Meetings: search is in the row, not the side list, and finds a meeting by name', async ({
+    page,
+  }) => {
+    const stamp = '2026-11-10T09:00:00.000Z'
+    const meeting = (title: string, n: number) => ({
+      space: 'team',
+      path: `meetings/2026/11/m${n}.md`,
+      title,
+      date: stamp,
+      attendees: ['Dana Lee <dana@example.test>'],
+      companies: [],
+      duration_min: 30,
+      hasTranscript: false,
+    })
+    await page.route(
+      (url) => url.pathname === '/api/meetings',
+      async (route) => {
+        if (route.request().method() !== 'GET') return route.fallback()
+        const response = await route.fetch()
+        const real = (await response.json()) as object[]
+        const like = real[0] ?? {}
+        await route.fulfill({
+          response,
+          json: [
+            { ...like, ...meeting('Seed stock review', 1) },
+            { ...like, ...meeting('Field sites', 2) },
+          ],
+        })
+      },
+    )
+    await page.goto('/meetings')
+    await expect(page.getByRole('button', { name: /Search meetings and docs/ })).toHaveCount(0)
+    const items = page.getByTestId('meeting-item')
+    await expect(items).toHaveCount(2)
+    // The top bar says Meetings once; the list of them all is not headed Meetings again.
+    await expect(
+      page.getByTestId('meetings-home').getByRole('heading', { name: 'Meetings', exact: true }),
+    ).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'All meetings' })).toBeVisible()
+    // One heading size for the sections of the page.
+    const sizes = await page
+      .getByTestId('meetings-home')
+      .locator('h2')
+      .evaluateAll((els) => [...new Set(els.map((el) => getComputedStyle(el).fontSize))])
+    expect(sizes).toHaveLength(1)
+    expect(Number.parseFloat(sizes[0] as string)).toBeLessThanOrEqual(20)
+
+    await page.getByTestId('meetings-search').fill('stock')
+    await expect(items).toHaveCount(1)
+    await expect(items).toContainText('Seed stock review')
+    // While searching, the matches are all the page shows.
+    await expect(page.getByRole('heading', { name: 'Coming up' })).toHaveCount(0)
+    await page.getByTestId('meetings-search').fill('dana')
+    await expect(items).toHaveCount(2)
+    await page.getByTestId('meetings-search').fill('zzz')
+    await expect(page.getByTestId('meetings-no-match')).toContainText('No meetings match that')
+    // The row looks at names and people; what was said is one press away, on a phone too.
+    await page.getByTestId('meetings-search-inside').click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await page.getByTestId('meetings-search').fill('')
+    await expect(page.getByRole('heading', { name: 'Coming up' })).toBeVisible()
+    // The page refetches when meetings change; don't leave one of those in flight.
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
+  })
 
   test('Links: Enter in the row’s search searches', async ({ page }) => {
     await page.goto('/links')

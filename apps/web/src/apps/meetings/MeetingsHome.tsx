@@ -13,8 +13,10 @@ import type {
   MeetingSummary,
 } from '../../api/types'
 import { product } from '../../brand/product'
+import { useShell } from '../../components/AppShell'
 import { EmptyState } from '../../components/EmptyState'
 import { Icon } from '../../components/Icon'
+import { ListBar, ListColumn, listHeading, matchesName } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
 import { useListKeys } from '../../keyboard/listKeys'
@@ -147,14 +149,31 @@ function groupByDay<T>(items: T[], dateOf: (item: T) => Date): Array<{ day: Date
   return [...groups.values()]
 }
 
+const NO_FILTERS: MeetingFilters = {}
+
 /** `/meetings`: what's coming up, then every meeting by day, with filters. */
 export default function MeetingsHome() {
   const { events, failed, status, refreshed } = useUpcoming()
   const coverage = useCoverage(refreshed)
   const unsaved = useUnsavedSessions()
   const [filters, setFilters] = useState<MeetingFilters>({})
-  const list = useMeetingList(filters)
   const now = useNow(30_000)
+  // The row's search looks through the meetings by name and by who was there; while it has
+  // words in it, the matches are all the page shows.
+  const [q, setQ] = useState('')
+  const searching = q.trim() !== ''
+  // The filters are out of sight while searching, so they don't apply then.
+  const list = useMeetingList(searching ? NO_FILTERS : filters)
+  const { openSearch } = useShell()
+  const found = useMemo(
+    () =>
+      searching
+        ? list.meetings.filter((m) =>
+            matchesName(`${m.title} ${m.attendees.map(attendeeName).join(' ')}`, q),
+          )
+        : [],
+    [list.meetings, q, searching],
+  )
 
   useEffect(() => {
     document.title = `${product()} Meetings`
@@ -170,70 +189,102 @@ export default function MeetingsHome() {
         </MainButton>
       </MeetingsPageHeader>
       <div data-testid="meetings-home" className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-6 pb-24 md:px-8 md:pt-10">
-          {unsaved.length > 0 ? (
-            <ul aria-label="Meetings not saved yet" className="mb-8 space-y-2">
-              {unsaved.map((s) => (
-                <UnsavedRow key={s.id} session={s} now={now} />
-              ))}
-            </ul>
-          ) : null}
-          <section aria-labelledby="coming-up">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2
-                id="coming-up"
-                className="font-display text-[1.6rem] font-semibold tracking-tight"
+        <ListColumn width="reading">
+          <ListBar
+            search={{
+              value: q,
+              onChange: setQ,
+              label: 'Search meetings',
+              placeholder: 'Search by name or person',
+              testId: 'meetings-search',
+            }}
+          />
+          {searching ? (
+            <>
+              {list.status === 'loading' ? (
+                <p className="text-sm text-ink-faint">Loading meetings…</p>
+              ) : null}
+              <MeetingList
+                list={found}
+                status={list.status}
+                onRetry={list.reload}
+                now={now}
+                searching
+              />
+              {/* The row looks at names and people; this opens the search of what was said. */}
+              <button
+                type="button"
+                className={`${secondaryButton} mt-5`}
+                data-testid="meetings-search-inside"
+                onClick={openSearch}
               >
-                Coming up
-              </h2>
-              <ReminderLink />
-            </div>
-            {failed ? (
-              <p data-testid="calendar-failed" className="mt-2 text-sm text-ink-soft">
-                {failed} You can still start a meeting yourself.
-              </p>
-            ) : status?.error ? (
-              <CalendarStatusLine status={status} error={status.error} now={now} />
-            ) : null}
-            {!failed && upcoming.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-soft">Nothing else on your calendar this week.</p>
-            ) : null}
-            {groupByDay(upcoming, (e) => new Date(e.start)).map((group) => (
-              <div key={dayKey(group.day)} className="mt-4">
-                <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-ink-faint uppercase">
-                  {dayLabel(group.day, new Date(now))}
-                </h3>
-                <ul className="space-y-2">
-                  {group.items.map((event) => (
-                    <EventRow key={event.id} event={event} now={now} />
+                <Icon name="search" />
+                Search inside notes and transcripts
+              </button>
+            </>
+          ) : (
+            <>
+              {unsaved.length > 0 ? (
+                <ul aria-label="Meetings not saved yet" className="mb-8 space-y-2">
+                  {unsaved.map((s) => (
+                    <UnsavedRow key={s.id} session={s} now={now} />
                   ))}
                 </ul>
-              </div>
-            ))}
-          </section>
+              ) : null}
+              <section aria-labelledby="coming-up">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <h2 id="coming-up" className={listHeading}>
+                    Coming up
+                  </h2>
+                  <ReminderLink />
+                </div>
+                {failed ? (
+                  <p data-testid="calendar-failed" className="mt-2 text-sm text-ink-soft">
+                    {failed} You can still start a meeting yourself.
+                  </p>
+                ) : status?.error ? (
+                  <CalendarStatusLine status={status} error={status.error} now={now} />
+                ) : null}
+                {!failed && upcoming.length === 0 ? (
+                  <p className="mt-2 text-sm text-ink-soft">
+                    Nothing else on your calendar this week.
+                  </p>
+                ) : null}
+                {groupByDay(upcoming, (e) => new Date(e.start)).map((group) => (
+                  <div key={dayKey(group.day)} className="mt-4">
+                    <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-ink-faint uppercase">
+                      {dayLabel(group.day, new Date(now))}
+                    </h3>
+                    <ul className="space-y-2">
+                      {group.items.map((event) => (
+                        <EventRow key={event.id} event={event} now={now} />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </section>
 
-          <RecentMeetings items={coverage} now={now} />
+              <RecentMeetings items={coverage} now={now} />
 
-          <ActionItems />
+              <ActionItems />
 
-          <section aria-labelledby="past-meetings" className="mt-12">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2
-                id="past-meetings"
-                className="font-display text-[1.6rem] font-semibold tracking-tight"
-              >
-                Meetings
-              </h2>
-              <Filters filters={filters} onChange={setFilters} />
-            </div>
-            <MeetingList
-              list={list.meetings}
-              status={list.status}
-              onRetry={list.reload}
-              now={now}
-            />
-          </section>
-        </div>
+              <section aria-labelledby="past-meetings" className="mt-12">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <h2 id="past-meetings" className={listHeading}>
+                    All meetings
+                  </h2>
+                  <Filters filters={filters} onChange={setFilters} />
+                </div>
+                <MeetingList
+                  list={list.meetings}
+                  status={list.status}
+                  onRetry={list.reload}
+                  now={now}
+                />
+              </section>
+            </>
+          )}
+        </ListColumn>
       </div>
     </>
   )
@@ -267,7 +318,7 @@ function RecentMeetings({ items, now }: { items: CoverageItem[]; now: number }) 
   if (items.length === 0) return null
   return (
     <section aria-labelledby="recent-meetings" className="mt-12">
-      <h2 id="recent-meetings" className="font-display text-[1.6rem] font-semibold tracking-tight">
+      <h2 id="recent-meetings" className={listHeading}>
         Recent meetings
       </h2>
       <ul
@@ -555,11 +606,14 @@ function MeetingList({
   status,
   onRetry,
   now,
+  searching = false,
 }: {
   list: MeetingSummary[]
   status: 'loading' | 'ready' | 'error'
   onRetry: () => void
   now: number
+  /** The list is what the row's search found. */
+  searching?: boolean
 }) {
   const session = useSession()
   useListKeys()
@@ -570,9 +624,15 @@ function MeetingList({
         <LoadError things="meetings" onRetry={onRetry} className="mb-4" />
       ) : null}
       {status === 'ready' && list.length === 0 ? (
-        <EmptyState icon="calendar" title="No meetings here yet" testId="meetings-empty">
-          Notes you take land in your personal space.
-        </EmptyState>
+        searching ? (
+          <EmptyState icon="calendar" title="No meetings match that" testId="meetings-no-match">
+            Search looks at meeting names and who was there.
+          </EmptyState>
+        ) : (
+          <EmptyState icon="calendar" title="No meetings here yet" testId="meetings-empty">
+            Notes you take land in your personal space.
+          </EmptyState>
+        )
       ) : null}
       {groupByDay(dated, (m) => new Date(m.date)).map((group) => (
         <div key={dayKey(group.day)} className="mt-5 first:mt-0">

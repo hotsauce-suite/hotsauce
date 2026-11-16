@@ -188,11 +188,7 @@ function ShellLayout() {
   const sidebar = (
     <SidebarFrame app={app}>
       {app.id === 'meetings' ? (
-        <MeetingsSidebar
-          activeSpace={activeSpace}
-          activePath={activePath}
-          onOpenSearch={openSearch}
-        />
+        <MeetingsSidebar activeSpace={activeSpace} activePath={activePath} />
       ) : app.id === 'dictate' ? (
         <DictateSidebar />
       ) : app.id === 'clips' ? (

@@ -147,7 +147,7 @@ describe('signing out', () => {
     // Another member signs in on this browser; their first paint has no rows from before.
     mockApi().tasks.tasks.clear()
     renderApp('/tasks')
-    await screen.findByTestId('tasks-title')
+    await screen.findByTestId('tasks-page')
     expect(screen.queryAllByTestId('task-row')).toHaveLength(0)
   })
 })
@@ -317,7 +317,9 @@ describe('completing', () => {
       }),
     )
     await userEvent.click(screen.getByRole('link', { name: 'Inbox' }))
-    await waitFor(() => expect(screen.getByTestId('tasks-title')).toHaveTextContent('Inbox'))
+    await waitFor(() =>
+      expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute('aria-selected', 'true'),
+    )
     expect(screen.getByText('Read the security audit draft')).toBeInTheDocument()
     release()
   })

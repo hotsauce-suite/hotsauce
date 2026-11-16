@@ -4,6 +4,7 @@ import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
 import type { MeetingActionItems } from '../../api/types'
 import { hotsauceSocket } from '../../api/ws'
+import { listHeading } from '../../components/ListBar'
 import { meetingUrl } from '../../lib/paths'
 
 /** How many items show before "Show all". */
@@ -100,7 +101,7 @@ export function ActionItems() {
 
   return (
     <section aria-labelledby="action-items" data-testid="action-items" className="mt-12">
-      <h2 id="action-items" className="font-display text-[1.6rem] font-semibold tracking-tight">
+      <h2 id="action-items" className={listHeading}>
         Open action items
       </h2>
       {error ? (

@@ -151,7 +151,8 @@ describe('Live meeting page', () => {
       },
       stop,
     })
-    expect(screen.queryByText(/isn’t capturing audio/)).toBeNull()
+    // The page hears about the capture a moment after it is attached.
+    await waitFor(() => expect(screen.queryByText(/isn’t capturing audio/)).toBeNull())
 
     act(() => ended?.('them'))
     expect(await screen.findByText(/The Meet tab stopped sharing/)).toBeInTheDocument()

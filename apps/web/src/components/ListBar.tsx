@@ -48,7 +48,8 @@ function arrowKeys(e: KeyboardEvent<HTMLDivElement>) {
   e.preventDefault()
   const next = tabs[(at + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]
   next?.focus()
-  next?.click()
+  // A tab that is a link is followed with Enter, so Back doesn't walk through every arrow press.
+  if (next instanceof HTMLButtonElement) next.click()
 }
 
 export function ListBar<T extends string>({
