@@ -1329,3 +1329,16 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
     outline-offset: 6px;
   }
 }
+
+/* ---------------------------------------------------------------- selects */
+/* Our own chevron, inset from the edge, instead of the browser's arrow pressed against the
+   border. Unlayered so it wins over the px-* utilities on each select; sized in em so small
+   selects get a small chevron. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  padding-right: 2.25em;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.8em center;
+  background-size: 0.85em;
+}
