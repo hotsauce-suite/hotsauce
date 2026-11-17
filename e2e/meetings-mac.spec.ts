@@ -91,17 +91,13 @@ test('any app on this Mac: both tracks are transcribed and saved, and the app is
   expect(calls).toContainEqual({ type: 'stop', session: 'mac-1' })
 })
 
-test('from the call notice, recording starts listening at once, and the call ending stops it', async ({
+test('from the call notice, recording starts by itself, and the call ending stops it', async ({
   page,
   member: _member,
 }) => {
   await page.goto('/meetings/start?via=mac-call&app=Zoom')
-  await expect(page.getByTestId('start-title')).toHaveValue('Zoom call')
-  await expect(page.getByTestId('audio-check')).toHaveAttribute('data-state', 'ok', {
-    timeout: 5_000,
-  })
-  await page.getByTestId('start-recording').click()
-  await page.waitForURL(/\/meetings\/live\/[^/]+$/)
+  // Choosing "Take notes" on the notice was the click: no Start press after the sound check.
+  await page.waitForURL(/\/meetings\/live\/[^/]+$/, { timeout: 10_000 })
 
   await expect(page.getByTestId('live-notepad')).toBeVisible()
   await page.clock.install()
