@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router/dom'
 import { getLive } from './apps/meetings/live/liveState'
 import { sayHelloToMac } from './lib/macSettings'
+import { startAppUpdates } from './lib/startAppUpdates'
 import { followServiceWorkerNavigation } from './lib/swNavigate'
 import { createAppRouter } from './router'
 import './styles/app.css'
@@ -70,6 +71,8 @@ async function boot() {
   if (!root) throw new Error('missing #root')
   const router = createAppRouter()
   followServiceWorkerNavigation(navigator.serviceWorker, (to) => void router.navigate(to))
+  // A window left open picks up a new release at a safe moment (docs/PLAN-reload-after-updates.md).
+  startAppUpdates((listener) => router.subscribe(listener), window.location.pathname)
   createRoot(root).render(
     <StrictMode>
       <RouterProvider router={router} />

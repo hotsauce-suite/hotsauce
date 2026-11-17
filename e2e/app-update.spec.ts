@@ -1,0 +1,85 @@
+import type { Page } from '@playwright/test'
+import { expect, test } from './fixtures'
+
+// An open window picks up a new release on its own, at a safe moment
+// (docs/PLAN-reload-after-updates.md R2 to R4). The server is made to report another release.
+
+async function serverReports(page: Page, version: string) {
+  await page.route('**/api/health', async (route) => {
+    const res = await route.fetch()
+    const body = await res.json()
+    await route.fulfill({ response: res, json: { ...body, version } })
+  })
+}
+
+/** Marks this page load, so a reload shows as the mark being gone. */
+async function markLoad(page: Page) {
+  await page.evaluate(() => {
+    ;(window as unknown as { __sameLoad?: boolean }).__sameLoad = true
+  })
+}
+
+const sameLoad = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __sameLoad?: boolean }).__sameLoad === true)
+
+/** The window going to the background (a safe moment), as the browser would say it. */
+async function goToBackground(page: Page) {
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+}
+
+test('reloads into a new release when moving to another page', async ({ page }) => {
+  await serverReports(page, '99.0.0')
+  await page.goto('/tasks')
+  await expect(page.getByTestId('app-rail')).toBeVisible()
+  await markLoad(page)
+  // The first check runs a few seconds after the page opens.
+  await page.waitForTimeout(6_000)
+  await page.getByTestId('app-rail').getByTestId('app-switch-meetings').click()
+  await expect(page).toHaveURL(/\/meetings$/)
+  await expect.poll(() => sameLoad(page).catch(() => false), { timeout: 20_000 }).toBe(false)
+  await expect(page.getByTestId('meetings-home')).toBeVisible()
+
+  // Back on the old build (this test's build is still the old one): no second reload.
+  await markLoad(page)
+  await page.waitForTimeout(6_000)
+  await page.getByTestId('app-rail').getByTestId('app-switch-tasks').click()
+  await expect(page).toHaveURL(/\/tasks$/)
+  await page.waitForTimeout(3_000)
+  expect(await sameLoad(page)).toBe(true)
+})
+
+test('never reloads while something is being typed', async ({ page }) => {
+  await serverReports(page, '99.0.0')
+  await page.goto('/tasks')
+  await page.getByTestId('tasks-add').click()
+  await page.getByTestId('quick-add-input').fill('Call the lab')
+  await markLoad(page)
+  await page.waitForTimeout(6_000)
+  await goToBackground(page)
+  await page.waitForTimeout(3_000)
+  expect(await sameLoad(page)).toBe(true)
+  await expect(page.getByTestId('quick-add-input')).toHaveValue('Call the lab')
+})
+
+test('does nothing when the server runs this build', async ({ page }) => {
+  await page.goto('/tasks')
+  await expect(page.getByTestId('app-rail')).toBeVisible()
+  await markLoad(page)
+  await page.waitForTimeout(6_000)
+  await goToBackground(page)
+  await page.waitForTimeout(2_000)
+  expect(await sameLoad(page)).toBe(true)
+})
+
+test('reloads when the window goes to the background', async ({ page }) => {
+  await serverReports(page, '99.0.0')
+  await page.goto('/tasks')
+  await expect(page.getByTestId('app-rail')).toBeVisible()
+  await markLoad(page)
+  await page.waitForTimeout(6_000)
+  await goToBackground(page)
+  await expect.poll(() => sameLoad(page).catch(() => false), { timeout: 20_000 }).toBe(false)
+})

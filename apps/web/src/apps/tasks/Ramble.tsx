@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { type TaskPerson, type TaskView, tasksApi } from '../../api/tasks'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { useLeaveGuard } from '../../hooks/useLeaveGuard'
 import { formatClock } from '../meetings/format'
 import { chipsFor, lineFor } from './logic'
 import {
@@ -140,6 +141,10 @@ export function Ramble(props: RambleProps) {
   const stop = useCallback(() => {
     if (recorder.current && recorder.current.state !== 'inactive') recorder.current.stop()
   }, [])
+
+  // A reload or closing the tab would cut the recording, its transcription, or the tasks heard
+  // in it before they're added.
+  useLeaveGuard(phase.kind === 'recording' || phase.kind === 'thinking' || phase.kind === 'review')
 
   // The live timer, and the five-minute cap.
   useEffect(() => {

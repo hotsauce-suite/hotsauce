@@ -89,7 +89,20 @@ function appScreens() {
 
 const screens = appScreens()
 
-export default defineConfig(({ mode }) => ({
+/** The release this build is made from, for the page to notice a newer server
+ * (src/lib/appUpdate.ts, docs/PLAN-reload-after-updates.md R1). */
+function releaseVersion(): string {
+  const file = join(dirname(fileURLToPath(import.meta.url)), '../../HOTSAUCE_VERSION')
+  return existsSync(file) ? readFileSync(file, 'utf8').trim() : ''
+}
+
+export default defineConfig(({ mode, command }) => ({
+  define: {
+    // Empty for the dev server and the demo: they never reload themselves.
+    __HOTSAUCE_VERSION__: JSON.stringify(
+      command === 'build' && mode !== 'demo' ? releaseVersion() : '',
+    ),
+  },
   // Secrets (VITE_CLERK_PUBLISHABLE_KEY) live in the repo-root .env.local.
   envDir: '../../',
   plugins: [
