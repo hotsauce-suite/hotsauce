@@ -503,3 +503,66 @@ describe('word lists', () => {
     )
   })
 })
+
+describe('models and the cleanup choice (docs/PLAN-dictate-models.md)', () => {
+  const dictate = (as = ALICE) =>
+    call('POST', '/api/dictation/transcribe?mode=clean', { as, type: 'audio/wav', body: wav(1500) })
+
+  it('names the models in use, and everyone starts on Fast (R1, R2)', async () => {
+    expect(await json(await call('GET', '/api/dictation/settings', { as: ALICE }))).toEqual({
+      cleanup: 'fast',
+      cleanupAvailable: true,
+      models: {
+        speech: 'Test transcriber',
+        offline: 'Apple, on the Mac',
+        fast: 'Claude Haiku 5.5',
+        careful: 'Claude Sonnet 5.5',
+      },
+    })
+  })
+
+  it('saves each member’s own choice, and refuses anything else (R2, R4)', async () => {
+    expect(
+      await json(
+        await call('PUT', '/api/dictation/settings', { as: ALICE, json: { cleanup: 'careful' } }),
+      ),
+    ).toMatchObject({ cleanup: 'careful' })
+    expect(await json(await call('GET', '/api/dictation/settings', { as: ALICE }))).toMatchObject({
+      cleanup: 'careful',
+    })
+    expect(await json(await call('GET', '/api/dictation/settings', { as: BOB }))).toMatchObject({
+      cleanup: 'fast',
+    })
+    await json(
+      await call('PUT', '/api/dictation/settings', { as: ALICE, json: { cleanup: 'slow' } }),
+      400,
+    )
+  })
+
+  it('cleans with the careful model for a member on Careful (R3)', async () => {
+    await call('PUT', '/api/dictation/settings', { as: ALICE, json: { cleanup: 'careful' } })
+    await json(await dictate())
+    expect(llm.calls[0]?.model).toBe('claude-sonnet-5-5')
+    await json(await dictate(BOB))
+    expect(llm.calls[1]?.model).toBe('claude-haiku-5-5')
+  })
+
+  it('returns the words as heard for a member on Off (R3)', async () => {
+    await call('PUT', '/api/dictation/settings', { as: ALICE, json: { cleanup: 'off' } })
+    expect(await json(await dictate())).toMatchObject({
+      text: 'um so this is a fake dictation, uh, of 1.5 seconds',
+      cleaned: false,
+    })
+    expect(llm.calls).toHaveLength(0)
+  })
+
+  it('may be read by a Mac’s device token, which can’t change it', async () => {
+    const { token } = await connect()
+    expect(await json(await call('GET', '/api/dictation/settings', { token }))).toMatchObject({
+      cleanup: 'fast',
+    })
+    expect(
+      (await call('PUT', '/api/dictation/settings', { token, json: { cleanup: 'off' } })).status,
+    ).toBe(401)
+  })
+})

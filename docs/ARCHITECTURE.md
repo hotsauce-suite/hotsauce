@@ -734,7 +734,7 @@ export class Dictation { dictate(principal, { audio, mimeType, mode, appName?, a
 //   the member's words then the team's (≤ 100). mode=literal skips the model.
 ```
 
-Config: `DICTATION_MODEL` (default `claude-haiku-5-5`). The transcriber follows `ASR_PROVIDER`, the model `LLM_PROVIDER`.
+Config: `DICTATION_MODEL` (default `claude-haiku-5-5`), the Fast cleanup, and `DICTATION_CAREFUL_MODEL` (default `claude-sonnet-5-5`), the Careful one. Each member's choice (`fast`, `careful`, `off`) is a row in `dictation_prefs` in the same store (no row is Fast); Off makes every dictation of theirs literal (`docs/PLAN-dictate-models.md`). The transcriber follows `ASR_PROVIDER`, the model `LLM_PROVIDER`.
 
 ### 9.2 API (`/api/dictation`)
 
@@ -743,6 +743,8 @@ POST   /api/dictation/transcribe?mode=clean|literal&app_name=&app_bundle=&langua
                                      → { text, raw, cleaned, durationMs, ms: { asr, llm } }   Cache-Control: no-store
 GET    /api/dictation/words          → { mine: string[], team: string[], account: email }
 PUT    /api/dictation/words          { scope: 'mine' | 'team', words } | { scope, add?, remove? } → { scope, words }   (any member edits the team list; add/remove apply to the list as it is now, in one transaction, so concurrent edits keep each other; team edits are logged with who and which device, never the words)
+GET    /api/dictation/settings       → { cleanup: 'fast' | 'careful' | 'off', cleanupAvailable (false without an AI key), models: { speech, offline, fast, careful } }   (plain names, e.g. "Deepgram Nova-3", "Claude Haiku 5.5"; a device token may read it)
+PUT    /api/dictation/settings       { cleanup } → the same   (session only)
 GET    /api/dictation/devices        → [{ id, name, createdAt, lastUsedAt }]   (the caller's live devices)
 POST   /api/dictation/devices        { name } → 201 { id, name, createdAt, lastUsedAt, token }   (token shown once)
 DELETE /api/dictation/devices/:id    → 204   (own devices only; else 404)
@@ -757,7 +759,7 @@ WS     /ws/dictation                 first message { type: 'start', token: hdt_�
 
 The stream (`dictation/socket.ts`) uses the Meetings streaming `Transcriber` (Deepgram nova-3 over a WebSocket, keyterms as vocabulary), holds audio sent before Deepgram is ready (up to 30 s), refuses past 10 minutes, counts against the same 30 a minute, and on `finish` waits for Deepgram's last finals, then runs the same `Dictation.finish` as the upload (`asrMs` is then the wait after key-up, and the timing line says `"via":"stream"`). While the member speaks, 300 ms after Deepgram's latest final words with nothing newer, the stream starts a speculative cleanup of the transcript so far (`Dictation.speculate`); a member who pauses before letting go finds it ready at key-up, and newer words simply replace it. One runs at a time (a pause during one is taken up when it returns) and at most four per dictation. Measured on a Mac against a local server with real Deepgram, key-up to transcript went from 0.6–0.8 s (upload) to 0.1–0.17 s (stream). The Mac opens the stream on key-down and streams converted audio as it records, keeps the recording, and uploads it to `/transcribe` if the stream fails in any way, so streaming can only make a dictation faster.
 
-Device tokens: `Authorization: Bearer hdt_…` is recognised in `authenticate` before Clerk and is accepted for `POST /transcribe`, `GET` and `PUT /words` (the Mac app's Dictionary page) and `DELETE /devices/self` only; any other request carrying one is 401, whatever else it carries. Each use re-checks the member through `Authenticator.principalForUser` (Clerk's user cache and domain lock; dev auth checks the domain): a deleted account is 401 and a refused domain 403, and both revoke all that member's devices. The body limit is 15 MB for `/transcribe`, 12 MB elsewhere. Neither the audio nor the text is logged or stored.
+Device tokens: `Authorization: Bearer hdt_…` is recognised in `authenticate` before Clerk and is accepted for `POST /transcribe`, `GET` and `PUT /words` (the Mac app's Dictionary page), `GET /settings` and `DELETE /devices/self` only; any other request carrying one is 401, whatever else it carries. Each use re-checks the member through `Authenticator.principalForUser` (Clerk's user cache and domain lock; dev auth checks the domain): a deleted account is 401 and a refused domain 403, and both revoke all that member's devices. The body limit is 15 MB for `/transcribe`, 12 MB elsewhere. Neither the audio nor the text is logged or stored.
 
 ### 9.3 Web (`apps/web/src/apps/dictate/`)
 

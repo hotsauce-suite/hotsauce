@@ -129,6 +129,9 @@ export const ConfigSchema = z
     CLEANUP_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hotsauce Dictate's cleanup pass runs on every dictation, so it uses a fast model.
     DICTATION_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+    // The cleanup a member can pick as "Careful" (docs/PLAN-dictate-models.md): better with names
+    // and long rambles, a little slower.
+    DICTATION_CAREFUL_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     // Hotsauce Clips (ARCHITECTURE §10): the title and summary model, and where ffmpeg is.
     CLIPS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hotsauce Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.

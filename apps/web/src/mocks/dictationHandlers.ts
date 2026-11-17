@@ -1,7 +1,7 @@
-// MSW routes for `/api/dictation` (ARCHITECTURE §9.2): devices and word lists, in memory.
+// MSW routes for `/api/dictation` (ARCHITECTURE §9.2): devices, word lists and models, in memory.
 
 import { type AnyHandler, HttpResponse, http } from 'msw'
-import type { DictationDevice } from '../api/dictation'
+import type { CleanupChoice, DictationDevice } from '../api/dictation'
 import type { FakeUser } from './fakeRepo'
 
 const TEAM_SEED = [
@@ -23,7 +23,19 @@ export function dictationHandlers(opts: {
 }): AnyHandler[] {
   const devices = new Map<string, Array<DictationDevice & { revoked?: boolean }>>()
   const words = new Map<string, string[]>([['team', [...TEAM_SEED]]])
+  const cleanup = new Map<string, CleanupChoice>()
   let next = 1
+  // What a Hotsauce server with Deepgram and Anthropic keys answers (docs/PLAN-dictate-models.md).
+  const settingsOf = (email: string) => ({
+    cleanup: cleanup.get(email) ?? 'fast',
+    cleanupAvailable: true,
+    models: {
+      speech: 'Deepgram Nova-3',
+      offline: 'Apple, on the Mac',
+      fast: 'Claude Haiku 5.5',
+      careful: 'Claude Sonnet 5.5',
+    },
+  })
 
   const authed =
     (
@@ -85,6 +97,23 @@ export function dictationHandlers(opts: {
           )
         device.revoked = true
         return new HttpResponse(null, { status: 204 })
+      }),
+    ),
+    http.get(
+      '/api/dictation/settings',
+      authed(({ user }) => HttpResponse.json(settingsOf(user.email))),
+    ),
+    http.put(
+      '/api/dictation/settings',
+      authed(async ({ request, user }) => {
+        const body = (await request.json()) as { cleanup: CleanupChoice }
+        if (!['fast', 'careful', 'off'].includes(body.cleanup))
+          return HttpResponse.json(
+            { error: { code: 'bad_request', message: 'Pick Fast, Careful or Off' } },
+            { status: 400 },
+          )
+        cleanup.set(user.email, body.cleanup)
+        return HttpResponse.json(settingsOf(user.email))
       }),
     ),
     http.get(
