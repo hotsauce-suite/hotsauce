@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "version": "0.47.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Updates itself. When a new version has downloaded, click Restart to update in the menu bar, the notification or Settings → Apps; your permissions and sign-in stay.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.46.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Sign: fix a signer's name or email after sending; their old link stops and the new address gets a fresh one, recorded in the audit trail."
+        },
+        {
+          "text": "Sign: copy any sent, declined or finished envelope into a new draft with the same PDF, people and fields."
+        }
+      ]
+    },
+    {
       "version": "0.45.0",
       "date": "2026-11-17",
       "notes": [

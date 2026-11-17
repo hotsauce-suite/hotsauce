@@ -56,3 +56,23 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
   script capitals are far wider than the average letter.
 - Crop a drawn signature to its ink before saving it, or the whole pad, mostly empty, is shrunk
   into the field and the strokes come out thin.
+
+## Bringing SignuDoc changes across (slice 3b, Nov 17)
+
+- SignuDoc keeps envelopes in Postgres and solves races with row locks and transactions; here an
+  envelope is one Git file and `#serial` runs one change per envelope at a time. Most of its
+  follow-up race fixes ("check a decline's recipients under the lock") don't apply: every public
+  action already re-reads the envelope by token inside `#serial`. Read the upstream commit
+  messages for the behaviour, then rebuild; don't port the SQL.
+- The vendored engine already knew `signer_corrected` and `copied` (types, certificate wording,
+  recipient redaction of `previousEmail`). Check `packages/sign/src/vendor` before adding engine
+  code: often only `AUDIT_EVENTS` in `packages/format/src/sign.ts` needs the new names.
+- "A failed email changes nothing" with no transaction: send the email first, save after. The
+  leftover risk is a save that fails after the email went out; say so plainly in the error.
+- The vendored certificate labelled a correction's actor with the corrected person's name; patched
+  in `pdf-finalize.ts` (marked "Hotsauce:"). Keep vendor patches marked so a re-sync finds them.
+- A test that calls a personal-space envelope as another member hits the access check, not the
+  sender check; test sender-only rules on a team-space envelope.
+- `pnpm test` from the root takes over 10 minutes; while iterating run the integration file alone
+  with `npx vitest run -c vitest.integration.config.ts <file>` in `apps/server` (build
+  `@hotsauce/format` and `@hotsauce/sign` first or imports fail to resolve).
