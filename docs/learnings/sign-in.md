@@ -8,3 +8,5 @@
 - `fast-check` is not installed in this repository; a small seeded loop gives the same kind of test without touching `package.json`.
 - Matching people by email is an account-takeover surface. The review found three ways in: an address a member left, an unverified first account, and a deleted account made again (which would have revived its old tokens). Match only verified addresses, move every link on a change of address, and never match inside the same instance.
 - Naming the instance by a hash of the secret key means a rotated key looks like a new instance. Heal the link when the same account id is seen again.
+- The quickest proof after a real move is a credential made before it: a connected AI tool that still lists the member's own clips as theirs shows the id carried over, with no server access needed.
+- Reading the server's data over SSH to cross-check ids can be refused by the operator's own safety rules. Put the check in the product's log line instead, so a move never depends on shell access.

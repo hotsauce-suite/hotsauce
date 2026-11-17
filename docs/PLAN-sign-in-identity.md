@@ -2,7 +2,7 @@
 
 ## Status
 
-Built 2026-11-17 on branch `claude/project-thread-7g8dgw`. Every requirement has a passing test (`apps/server/src/auth/identities.test.ts`). The independent review's findings are fixed (I10 to I12 came from it). Not built: an admin screen that lists the record, and merging two members by hand.
+Released in 0.34.1 (PR #164, 2026-11-17). Every requirement has a passing test (`apps/server/src/auth/identities.test.ts`). The independent review's findings are fixed (I10 to I12 came from it). Used the same day for a real move from a Clerk development instance to production: clips kept their owner and an AI tool connected before the move kept working. Not built: an admin screen that lists the record, and merging two members by hand.
 
 ## Why
 
