@@ -661,7 +661,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Open \(Brand.name)", #selector(showSuite)))
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
-        menu.addItem(item("Dictate settings…", #selector(openMainWindow)))
+        menu.addItem(item("Dictate…", #selector(openMainWindow)))
         let login = item("Launch at login", #selector(toggleLaunchAtLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)

@@ -117,7 +117,8 @@ final class MainWindow: NSObject, NSWindowDelegate {
     var isVisible: Bool { window?.isVisible ?? false }
 
     func show(page: MainModel.Page? = nil) {
-        if let page { model.page = page }
+        // Settings is only the fallback for ⌘, (docs/PLAN-one-settings.md R11): open on it only when asked.
+        if let page { model.page = page } else if model.page == .settings { model.page = .dictations }
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 980, height: 660),
