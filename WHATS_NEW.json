@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.37.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Dictate → Models shows which models hear you and tidy your words, for example \"Speech: Deepgram Nova-3 · Offline: Apple, on the Mac · Cleanup: Claude Haiku 5.5\"."
+        },
+        {
+          "text": "Pick how your dictations are tidied: Fast (default), Careful (a bigger model, better with names) or Off (your exact words)."
+        }
+      ]
+    },
+    {
       "version": "0.36.1",
       "date": "2026-11-17",
       "notes": [
