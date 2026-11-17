@@ -43,7 +43,14 @@ export function ChatRoomsSection() {
     setError(null)
     try {
       const room = await formsApi.setRoomRead(id, read)
-      setRooms((r) => (r ?? []).map((x) => (x.id === id ? { ...x, ...room, copy: undefined } : x)))
+      setRooms((r) =>
+        (r ?? []).map((x) => {
+          if (x.id !== id) return x
+          // The old copy's status no longer applies; the next list brings the new one.
+          const { copy: _old, ...rest } = { ...x, ...room }
+          return rest
+        }),
+      )
       void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t change the room')

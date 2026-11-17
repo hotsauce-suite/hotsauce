@@ -89,6 +89,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
+- **Chat as context** (`docs/PLAN-chat-context.md`): an admin switches on **Read for context** for a chat room in Settings → Workspace whose link is a bot's room address (Ember, Campfire). Hotsauce copies its history into `DATA_DIR/chat.sqlite`, reads new messages every 5 minutes (`CHAT_READ_INTERVAL_MS`) and thread replies of the last week, and the messages show in ⌘K (In chat), Ask and AI tools (`search_chat`, `read_chat`) and the agent brief. Every member can search a read room; direct messages are never read; later edits and deletions aren't picked up. Needs nothing extra beyond the bot in the chat.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
 - **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.

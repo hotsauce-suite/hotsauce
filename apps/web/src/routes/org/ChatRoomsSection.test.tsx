@@ -16,24 +16,17 @@ function serve(start: ChatRoom[]) {
     http.patch('*/api/chat-rooms/:id', async ({ params, request }) => {
       const { read } = (await request.json()) as { read: boolean }
       patches.push({ id: String(params.id), read })
-      rooms = rooms.map((r) =>
-        r.id === params.id
-          ? {
-              ...r,
-              read,
-              ...(read
-                ? {
-                    copy: {
-                      messages: 120,
-                      readAt: new Date().toISOString(),
-                      error: null,
-                      complete: true,
-                    },
-                  }
-                : { copy: undefined }),
-            }
-          : r,
-      )
+      rooms = rooms.map((r): ChatRoom => {
+        if (r.id !== params.id) return r
+        const { copy: _copy, ...rest } = r
+        const copy = {
+          messages: 120,
+          readAt: new Date().toISOString(),
+          error: null,
+          complete: true,
+        }
+        return read ? { ...rest, read, copy } : { ...rest, read }
+      })
       return HttpResponse.json(rooms.find((r) => r.id === params.id))
     }),
   )

@@ -202,6 +202,8 @@ calendar, and the team's finished clips. A tool given anyone else's personal spa
 | --- | --- |
 | `list_checkins` | The team's scheduled questions, with the current round and how many have answered |
 | `get_checkin` | A check-in's recent rounds: everyone's answers, replies and the summary; or one round by date |
+| `search_chat` | Messages in the team chat rooms an admin lets Hotsauce read, best match first, with who, when, the room and a link; by room and from a date. Only listed when a room is read |
+| `read_chat` | One read chat room's messages in order (newest, before a date or from a date), thread replies included; without a room, the room names |
 
 **Clips**
 
