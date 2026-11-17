@@ -6,6 +6,9 @@ test('searching Settings opens the section, scrolled into view and marked', asyn
   await page.goto('/settings')
   await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
   const box = page.getByRole('searchbox', { name: 'Search settings' })
+  // Focused, it shows one ember border, not a second ring around it.
+  await box.focus()
+  await expect(box).toHaveCSS('box-shadow', 'none')
   await box.fill('forecast')
   const result = page.getByTestId('settings-search-result')
   await expect(result).toHaveCount(1)
