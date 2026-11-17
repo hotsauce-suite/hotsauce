@@ -2,8 +2,8 @@
 
 ## Status
 
-- 2026-11-17: plan written; waiting on the owner's answers (questions 1–5 below, recommendations
-  assumed). Nothing built yet.
+- 2026-11-17: owner accepted decisions 1–4 (and said nobody outside the organization uses the
+  chat). Slices 1–4 built in one pull request (#175).
 
 ## Why
 
@@ -18,15 +18,16 @@ conversation with the assistant. Hotsauce needs a connection kind that is safe t
 
 ## Decisions
 
-1. A shared connection sees the team space only and is read only. (Owner: pending, recommended.)
-2. A person's own connection keeps today's full access. (Pending, recommended.)
+1. A shared connection sees the team space only and is read only. (Owner: yes.)
+2. A person's own connection keeps today's full access. (Owner: yes.)
 3. What a team-only connection can use: `list_spaces` (team only), `search`, `list_files`,
    `read_file`, `file_history`, `list_meetings`, `get_meeting`, `ask_meetings`, `list_tasks`,
    `list_tables`, `read_table`, `list_boards`, `read_board`, `find_person`, `get_person`,
    `list_drive_files`, `get_drive_file`, `list_clips`, `get_clip`, `list_checkins`,
-   `get_checkin`, `list_pages`, `get_page`, `get_brand`, and the chat tools `search_chat` and
-   `read_chat` once they land (PR #171; chat content is team-wide). Never: calendar, agent brief, links and
-   highlights, notes (personal by nature), and every tool that writes. (Pending, recommended.)
+   `get_checkin`, `list_pages`, `get_page`, `get_brand`. Chat tools (PR #171) join the list
+   in their own pull request, once their privacy is checked. Never: calendar, agent brief, links and
+   highlights, notes (personal by nature), and every tool that writes. `list_tasks` defaults to
+   the whole team, not "mine". (Owner: yes.)
 4. The choice is made on the Allow page by the person signing in, not by the tool: Hotsauce can't
    tell a shared sign-in from a personal one.
 
@@ -36,7 +37,8 @@ conversation with the assistant. Hotsauce needs a connection kind that is safe t
   only (for a tool many people share, like a team chat)". Nothing is preselected; Allow stays
   disabled until one is picked.
 - **R2.** The choice is stored on the connection (`access: 'full' | 'team-read'`; connections
-  stored before this read as `full`) and survives refresh-token rotation.
+  stored before this read as `full`) and survives refresh-token rotation. A release without
+  team-only refuses a team-only connection instead of giving it full access.
 - **R3.** A team-only connection's principal carries `via.access = 'team-read'`.
 - **R4.** For that principal, `visibleSpaces` is the team space only and `canAccess` refuses every
   other space (`forbidden`), so searches, lists and Ask cover the team space only.
@@ -47,7 +49,7 @@ conversation with the assistant. Hotsauce needs a connection kind that is safe t
 - **R7.** Settings → Connections lists team-only connections with a "Team only" label.
 - **R8.** Personal access tokens are unchanged (full access).
 - **R9.** Docs: `docs/mcp.md` (new section "Connecting a shared tool, like a team chat"),
-  `docs/ARCHITECTURE.md` §8.4, the help center page on AI tools, `docs/STATUS.md`.
+  `docs/ARCHITECTURE.md` §8.5, the help center page on AI tools, `docs/STATUS.md`.
 
 ## Slices
 

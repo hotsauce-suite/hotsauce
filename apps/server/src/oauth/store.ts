@@ -132,6 +132,15 @@ export function hashSecret(secret: string): string {
   return createHash('sha256').update(secret).digest('hex')
 }
 
+/**
+ * The hash a connection keeps of one of its tokens. A team-only connection's is salted with its
+ * access, so a release that doesn't know team-only (a rollback) never matches it and refuses the
+ * connection, rather than reading it as one with full access (ARCHITECTURE §8.5).
+ */
+function tokenHash(token: string, access: ConnectionAccess): string {
+  return access === 'team-read' ? hashSecret(`team-read:${token}`) : hashSecret(token)
+}
+
 function mint(prefix: string): string {
   return `${prefix}${randomBytes(32).toString('base64url')}`
 }
@@ -314,9 +323,9 @@ export class OAuthStore {
       redirectHost: new URL(pending.redirectUri).host,
       createdAt: now,
       lastUsedAt: now,
-      accessHash: hashSecret(access),
+      accessHash: tokenHash(access, pending.access),
       accessExpiresAt: new Date(this.#now() + ACCESS_TTL_S * 1000).toISOString(),
-      refreshHash: hashSecret(refresh),
+      refreshHash: tokenHash(refresh, pending.access),
       oldRefreshHashes: [],
       rotatedAt: null,
       access: pending.access,
@@ -340,17 +349,17 @@ export class OAuthStore {
 
   /** The refresh_token grant: rotates the pair; an old refresh token again revokes everything. */
   async refresh(input: { refreshToken: string; clientId: string }): Promise<TokenPair> {
-    const hash = hashSecret(input.refreshToken)
+    const hashFor = (c: StoredConnection) => tokenHash(input.refreshToken, c.access)
     const access = mint(ACCESS_PREFIX)
     const refresh = mint(REFRESH_PREFIX)
     let outcome = 'unknown' as 'ok' | 'replay' | 'retry' | 'unknown' | 'client'
     await this.#update((s) => {
-      const current = s.connections.find((c) => c.refreshHash === hash)
+      const current = s.connections.find((c) => c.refreshHash === hashFor(c))
       if (!current) {
-        const replayed = s.connections.find((c) => c.oldRefreshHashes.includes(hash))
+        const replayed = s.connections.find((c) => c.oldRefreshHashes.includes(hashFor(c)))
         if (!replayed) return
         const justRotated =
-          replayed.oldRefreshHashes[0] === hash &&
+          replayed.oldRefreshHashes[0] === hashFor(replayed) &&
           replayed.rotatedAt !== null &&
           this.#now() - Date.parse(replayed.rotatedAt) < REFRESH_GRACE_MS
         if (justRotated) {
@@ -369,8 +378,8 @@ export class OAuthStore {
         0,
         OLD_REFRESH_KEPT,
       )
-      current.refreshHash = hashSecret(refresh)
-      current.accessHash = hashSecret(access)
+      current.refreshHash = tokenHash(refresh, current.access)
+      current.accessHash = tokenHash(access, current.access)
       current.accessExpiresAt = new Date(this.#now() + ACCESS_TTL_S * 1000).toISOString()
       current.lastUsedAt = new Date(this.#now()).toISOString()
       current.rotatedAt = current.lastUsedAt
@@ -405,8 +414,7 @@ export class OAuthStore {
       console.error(`oauth: refusing every connection until the store can be read: ${err}`)
       return { ok: false, reason: 'unknown' }
     }
-    const hash = hashSecret(token)
-    const found = state.connections.find((c) => c.accessHash === hash)
+    const found = state.connections.find((c) => c.accessHash === tokenHash(token, c.access))
     if (!found) return { ok: false, reason: 'unknown' }
     if (Date.parse(found.accessExpiresAt) <= this.#now()) return { ok: false, reason: 'expired' }
     this.#recordUse(found)
@@ -421,9 +429,11 @@ export class OAuthStore {
 
   /** RFC 7009: a client dropping its own access or refresh token ends that connection. */
   async revokeToken(token: string): Promise<void> {
-    const hash = hashSecret(token)
     await this.#update((s) => {
-      s.connections = s.connections.filter((c) => c.accessHash !== hash && c.refreshHash !== hash)
+      s.connections = s.connections.filter((c) => {
+        const hash = tokenHash(token, c.access)
+        return c.accessHash !== hash && c.refreshHash !== hash
+      })
     })
   }
 

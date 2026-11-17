@@ -1,14 +1,17 @@
 // A team-only connection (ARCHITECTURE §8.5, docs/PLAN-team-connection.md): the connection a
 // group shares, like a team chat's assistant. It reads the team space only and writes nothing.
 import { createHash, randomBytes } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
+import type { Principal } from '../../src/auth/index.js'
 import { loadConfig } from '../../src/config.js'
 import { TEAM_ONLY_TOOLS } from '../../src/mcp/server.js'
+import type { CalendarEvent, CalendarSource } from '../../src/meetings/calendar/types.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
@@ -16,6 +19,15 @@ const ALICE = 'alice@example.test'
 const BASE = 'https://office.example.test'
 const REDIRECT = 'https://chat.example.test/account/apps/signed-in'
 
+/** Alice's own calendar: a team-only connection must never read it. */
+class TestCalendar implements CalendarSource {
+  events: CalendarEvent[] = []
+  async upcoming(_p: Principal, range: { from: string; to: string }): Promise<CalendarEvent[]> {
+    return this.events.filter((e) => e.end > range.from && e.start < range.to)
+  }
+}
+
+let calendar: TestCalendar
 let root: string
 let services: Services
 let app: ReturnType<typeof createApp>
@@ -32,7 +44,8 @@ beforeEach(async () => {
     WEBHOOK_SECRET: 'test-webhook-secret',
     PUBLIC_URL: BASE,
   })
-  services = createServices(config)
+  calendar = new TestCalendar()
+  services = createServices(config, { calendar })
   await services.spaces.ensureTeamSpace()
   app = createApp(services)
   // Alice keeps one doc in the team space and one in her own.
@@ -239,5 +252,89 @@ describe('a full connection is unchanged (R8)', () => {
     ).toEqual(['alice', 'team'])
     expect((await client.listTools()).tools.map((t) => t.name)).toContain('write_file')
     await client.close()
+  })
+})
+
+describe('what belongs to one member stays out (R4, R6)', () => {
+  it('is no credential on /api', async () => {
+    const { access_token } = await connectApp('team-read')
+    const res = await app.request(`${BASE}/api/spaces`, {
+      headers: { authorization: `Bearer ${access_token}` },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  it('People never reads the member’s calendar', async () => {
+    const soon = Date.now() + 60 * 60 * 1000
+    calendar.events = [
+      {
+        id: 'ev1',
+        title: 'Private chat with a recruiter',
+        start: new Date(soon).toISOString(),
+        end: new Date(soon + 30 * 60 * 1000).toISOString(),
+        attendees: [{ email: 'recruiter@elsewhere.test', name: 'Robin Recruiter' }],
+      },
+    ]
+    const full = await mcpClient((await connectApp()).access_token)
+    expect((await tool(full, 'find_person', { q: 'recruiter' })).text).toContain('Robin')
+    await full.close()
+    const shared = await mcpClient((await connectApp('team-read')).access_token)
+    const found = await tool(shared, 'find_person', { q: 'recruiter' })
+    expect(found.isError, found.text).toBe(false)
+    expect(found.text).not.toContain('Robin')
+    await shared.close()
+  })
+
+  it('Clips shows the team’s finished clips, never the member’s own others', async () => {
+    const me = (await (await call('GET', '/api/me', { as: ALICE })).json()) as {
+      principal: { userId: string; email: string; name: string }
+    }
+    const now = new Date().toISOString()
+    const owner = me.principal
+    services.clips.store.create({
+      id: 'clip_failed',
+      owner,
+      title: 'Failed take',
+      mode: 'screen',
+      container: 'webm',
+      now,
+    })
+    services.clips.store.update('clip_failed', { status: 'failed' }, now)
+    services.clips.store.create({
+      id: 'clip_ready',
+      owner,
+      title: 'Demo for everyone',
+      mode: 'screen',
+      container: 'webm',
+      now,
+    })
+    services.clips.store.update('clip_ready', { status: 'ready' }, now)
+
+    const full = await mcpClient((await connectApp()).access_token)
+    expect((await tool(full, 'list_clips', {})).text).toContain('Failed take')
+    await full.close()
+
+    const shared = await mcpClient((await connectApp('team-read')).access_token)
+    const listed = await tool(shared, 'list_clips', {})
+    expect(listed.text).toContain('Demo for everyone')
+    expect(listed.text).not.toContain('Failed take')
+    expect(JSON.parse((await tool(shared, 'list_clips', { mine: true })).text)).toEqual([])
+    expect((await tool(shared, 'get_clip', { id: 'clip_failed' })).isError).toBe(true)
+    await shared.close()
+  })
+})
+
+describe('a rollback to a release without team-only (R2)', () => {
+  it('refuses the connection rather than giving it full access', async () => {
+    const { access_token } = await connectApp('team-read')
+    // Older releases drop the field they don't know and look tokens up by their plain hash, so
+    // a team-only connection's stored hash must never be the plain one.
+    expect((await services.oauth.verifyAccess(access_token)).ok).toBe(true)
+    const file = join(root, 'data', 'oauth', 'oauth.json')
+    const state = JSON.parse(await readFile(file, 'utf8')) as {
+      connections: Array<{ accessHash: string }>
+    }
+    const plain = createHash('sha256').update(access_token).digest('hex')
+    expect(state.connections.map((c) => c.accessHash)).not.toContain(plain)
   })
 })

@@ -700,12 +700,17 @@ through the personal space of whoever signed it in. Plan: `docs/PLAN-team-connec
   page; anything else is 400), the code carries it, and the connection keeps it
   (`StoredConnection.access`, default `full`), through every refresh. `GET /api/oauth/connections`
   returns it; Settings shows "Team only".
+- A team-only connection's token hashes are salted (`sha256("team-read:" + token)`), so a release
+  that predates this section, which looks tokens up by their plain hash and drops `access`, refuses
+  the connection rather than treating it as full; after rolling forward it stays refused, and the
+  admin connects again.
 - `TokenAuth` puts it on the principal: `via.access = 'team-read'`, tested by `isTeamOnly`.
 - `SpaceService.visibleSpaces` is the team space only and `canAccess` refuses any other space, so
   everything built on them (search, files, meetings, Ask about meetings, tasks, tables, boards,
   pages, files) covers the team only. Things that belong to one member outside the spaces are cut
   where they are read: People skips the member's calendar, Clips shows only the team's finished
   clips (never the member's own failed or `mine` ones).
+- `list_tasks` defaults `mine` to false: the connection answers a group, not its owner.
 - `createMcpServer` registers only `TEAM_ONLY_TOOLS` (mcp/server.ts), and only those marked
   `readOnlyHint`; a tool registered later that isn't on the list is removed at once, so a new tool
   is left out until someone adds it on purpose. Its instructions say the view is shared and

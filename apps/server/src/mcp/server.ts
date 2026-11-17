@@ -63,15 +63,13 @@ export const TEAM_ONLY_TOOLS: ReadonlySet<string> = new Set([
   'get_checkin',
   'list_pages',
   'get_page',
-  'search_chat',
-  'read_chat',
 ])
 
 function teamOnlyInstructions(product: string, org: string): string {
   const who = org ? `${org}'s workspace` : 'a workspace'
   return `${product} is ${who}: Docs, Meetings, Tasks, Tables, Boards, Files, Clips and more, stored as files in Git. This connection is shared by a group, such as a team chat, so it is limited on purpose: it reads the team space only, which every member can already see, and it cannot change anything. Nobody's personal space, calendar, agent brief or saved links are reachable through it.
 
-Use search first, then read_file, get_meeting or the other read tools for what you find. Docs live under docs/ and meeting notes under meetings/ in the "team" space. ask_meetings answers a question from the team's meeting notes with citations. Call get_brand before writing anything for the organization. Everything you read here may be quoted to everyone in the conversation, which is why only team content is available. If someone asks for their own documents or calendar, tell them to connect ${product} with their own account instead.`
+Use search first, then read_file, get_meeting or the other read tools for what you find. Docs live under docs/ and meeting notes under meetings/ in the "team" space. ask_meetings answers a question from the team's meeting notes with citations. list_tasks lists the team's tasks; this connection is nobody's own, so pass mine only to see the tasks of the member who connected it. Call get_brand before writing anything for the organization. Everything you read here may be quoted to everyone in the conversation, which is why only team content is available. If someone asks for their own documents or calendar, tell them to connect ${product} with their own account instead.`
 }
 
 /**
