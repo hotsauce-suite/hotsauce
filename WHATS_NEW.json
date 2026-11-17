@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.38.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "When you connect an AI tool by signing in, you choose \"Everything you can see\" or \"Team space only, read only\". The team-only choice is for a tool many people share, like a team chat's assistant: it reads the team space only and can't change anything."
+        },
+        {
+          "text": "Settings → Connections marks team-only connections \"Team only\"."
+        }
+      ]
+    },
+    {
       "version": "0.37.0",
       "date": "2026-11-17",
       "notes": [
