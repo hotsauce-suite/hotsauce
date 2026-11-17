@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.48.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Hotsauce windows you leave open now switch to a new version by themselves at a quiet moment, never while you're typing or recording, and say \"Hotsauce updated to\" the new version."
+        },
+        {
+          "text": "Closing or reloading the page while dictating into a text box, using Ramble, uploading files or while a clip is still saving now asks first, so nothing is lost."
+        }
+      ]
+    },
+    {
       "version": "0.47.0",
       "date": "2026-11-17",
       "notes": [
