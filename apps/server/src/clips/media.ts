@@ -144,8 +144,14 @@ export async function extractAudio(paths: FfmpegPaths, input: string, output: st
   await ffmpeg(paths, ['-i', input, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'flac', output])
 }
 
-/** The composite's height: the screen's, at most 1080 (a 5K screen re-encoded would take hours). */
-export const COMPOSITE_MAX_HEIGHT = 1080
+/**
+ * The composite's and a trim's height: the screen's, at most 1600. The recorder never sends more
+ * (DISPLAY_MAX in the web app), so a Retina screen is not scaled at all and small text stays
+ * sharp; a taller upload from an older recorder is scaled with Lanczos, which keeps edges.
+ */
+export const COMPOSITE_MAX_HEIGHT = 1600
+/** x264 quality for composites and trims: 23 keeps screen text crisp; mostly still screens stay small. */
+export const VIDEO_CRF = '23'
 /**
  * One shared vCPU in production: one thread, at the lowest priority, so the web server, Meetings'
  * sockets and Dictate always come first; a composite just takes longer.
@@ -165,7 +171,7 @@ export function bubbleGeometry(height: number): { size: number; margin: number; 
 
 /**
  * The screen recording with the camera in a round bubble at the bottom left: H.264 and AAC in a
- * faststart MP4, at most 1080 p. The camera starts `offsetMs` after the screen (earlier when
+ * faststart MP4, at most 1600 p. The camera starts `offsetMs` after the screen (earlier when
  * negative); once it ends the screen carries on alone. Masks are drawn once as PNGs, so ffmpeg only
  * blends per frame. Re-encodes, so it takes a while: allowed a few times the clip's length.
  */
@@ -219,7 +225,7 @@ export async function composite(
   const cameraTiming =
     offset >= 0 ? ['-itsoffset', offset.toFixed(3)] : ['-ss', (-offset).toFixed(3)]
   const filter = [
-    `[0:v]scale=-2:${height}:flags=bilinear,setsar=1,format=yuv420p[bg]`,
+    `[0:v]scale=-2:${height}:flags=lanczos,setsar=1,format=yuv420p[bg]`,
     `[1:v]crop='min(iw,ih)':'min(iw,ih)',scale=${size}:${size},setsar=1,format=yuva420p[cam]`,
     '[2:v]format=gray[mask]',
     '[cam][mask]alphamerge=shortest=1[disc]',
@@ -261,7 +267,7 @@ export async function composite(
       '-preset',
       args.preset ?? 'veryfast',
       '-crf',
-      '26',
+      VIDEO_CRF,
       // A short lookahead and one thread keep ffmpeg to a couple of hundred MB on a 1 GB box.
       '-threads',
       threads,
@@ -288,7 +294,7 @@ export async function composite(
 
 /**
  * The parts of `input` in `keep` (seconds, in order), joined into one H.264/AAC faststart MP4 of
- * at most 1080 p: the owner's trim. Every part is cut on its own timestamps, so cuts land on the
+ * at most 1600 p: the owner's trim. Every part is cut on its own timestamps, so cuts land on the
  * exact frame, not the nearest keyframe. Re-encodes at the composite's low priority.
  */
 export async function cutVideo(
@@ -329,7 +335,7 @@ export async function cutVideo(
   parts.push(`${inputs.join('')}concat=n=${args.keep.length}:v=${v}:a=${a}${outs}`)
   if (v)
     parts.push(
-      `[cv]scale=-2:'trunc(min(${height},ih)/2)*2':flags=bilinear,setsar=1,format=yuv420p[v]`,
+      `[cv]scale=-2:'trunc(min(${height},ih)/2)*2':flags=lanczos,setsar=1,format=yuv420p[v]`,
     )
   const maps = [...(v ? ['-map', '[v]'] : []), ...(a ? ['-map', '[ca]'] : [])]
   const video = v
@@ -339,7 +345,7 @@ export async function cutVideo(
         '-preset',
         'veryfast',
         '-crf',
-        '24',
+        VIDEO_CRF,
         '-threads',
         String(COMPOSITE_THREADS),
         '-x264-params',
