@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.38.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Clips: screen recordings are sharp on Retina and large screens; small text stays readable, with or without the camera bubble and after a trim."
+        }
+      ]
+    },
+    {
       "version": "0.38.0",
       "date": "2026-11-17",
       "notes": [
