@@ -3,19 +3,27 @@
 // mac-app.json ({ version, build }). /download/mac sends people to the newest build's disk image,
 // and /download/mac.json says which version that is, so the page can show the number.
 const REPO = 'hotsauce-suite/hotsauce'
-const MAC_RELEASES_API = `https://api.github.com/repos/${REPO}/releases?per_page=100`
+// Only the mac-app-* tags, in one short answer: the release list holds every Hotsauce release
+// too (about ten a day), so a Mac build would soon fall off its first page.
+const MAC_TAGS_API = `https://api.github.com/repos/${REPO}/git/matching-refs/tags/mac-app-`
 const MAC_DOWNLOADS = `https://github.com/${REPO}/releases/download`
-// Builds from before mac-app-<build> releases existed; used only when GitHub can't be asked.
+// Builds from before mac-app-<build> releases existed; used only when GitHub has never answered.
 const MAC_LEGACY_TAG = 'mac-app'
-const MAC_FRESH_SECONDS = 600
+// Ask GitHub at most this often per Cloudflare location; unauthenticated calls share a small limit.
+const FRESH_SECONDS = 600
+// After a failed ask, wait this long before asking again.
+const RETRY_SECONDS = 60
+// The last good answer is kept this long, to use while GitHub can't be asked.
+const KEEP_SECONDS = 7 * 24 * 3600
 
-/** The tag of the newest Mac app build among GitHub's releases, or null. */
-export function newestMacTag(releases) {
+/** The newest mac-app-<build> tag among GitHub's refs (or release tag names), or null. */
+export function newestMacTag(refs) {
   let best = null
-  for (const r of Array.isArray(releases) ? releases : []) {
-    if (!r || r.draft === true || typeof r.tag_name !== 'string') continue
-    const m = /^mac-app-(\d+)$/.exec(r.tag_name)
-    if (m && (!best || Number(m[1]) > best.build)) best = { tag: r.tag_name, build: Number(m[1]) }
+  for (const r of Array.isArray(refs) ? refs : []) {
+    const name = typeof r?.ref === 'string' ? r.ref.replace(/^refs\/tags\//, '') : r?.tag_name
+    if (typeof name !== 'string') continue
+    const m = /^mac-app-(\d+)$/.exec(name)
+    if (m && (!best || Number(m[1]) > best.build)) best = { tag: name, build: Number(m[1]) }
   }
   return best ? best.tag : null
 }
@@ -25,50 +33,69 @@ function plainVersion(v) {
   return typeof v === 'string' && /^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(v) ? v : null
 }
 
-/**
- * The newest Mac app build: { tag, version, build }, looked up on GitHub and kept for ten minutes
- * in Cloudflare's cache, so a busy page doesn't use up GitHub's limit. Null when GitHub can't say.
- */
-async function newestMacApp(fetchFn, cache) {
-  const key = new Request('https://hotsauce.work/__mac-app-latest')
-  const hit = cache && (await cache.match(key).catch(() => null))
-  if (hit) return hit.json()
-  const ua = { 'user-agent': 'hotsauce.work', accept: 'application/vnd.github+json' }
-  const list = await fetchFn(MAC_RELEASES_API, { headers: ua }).catch(() => null)
-  if (!list?.ok) return null
-  const tag = newestMacTag(await list.json().catch(() => null))
+/** Asks GitHub for the newest build: { tag, version, build }, or null if it can't say. */
+async function askGitHub(fetchFn) {
+  const headers = { 'user-agent': 'hotsauce.work', accept: 'application/vnd.github+json' }
+  const refs = await fetchFn(MAC_TAGS_API, { headers }).catch(() => null)
+  if (!refs?.ok) return null
+  const tag = newestMacTag(await refs.json().catch(() => null))
   if (!tag) return null
-  const info = await fetchFn(`${MAC_DOWNLOADS}/${tag}/mac-app.json`, { headers: ua }).catch(
-    () => null,
-  )
+  // The tag alone is enough for the download; the version is a bonus for the page.
+  const info = await fetchFn(`${MAC_DOWNLOADS}/${tag}/mac-app.json`, { headers }).catch(() => null)
   const data = info?.ok ? await info.json().catch(() => null) : null
-  const version = plainVersion(data?.version)
-  if (!version) return null
-  const build = typeof data.build === 'string' && /^\d{1,9}$/.test(data.build) ? data.build : null
-  const latest = { tag, version, build }
-  if (cache) {
-    const res = new Response(JSON.stringify(latest), {
-      headers: { 'cache-control': `public, max-age=${MAC_FRESH_SECONDS}` },
-    })
-    await cache.put(key, res).catch(() => {})
-  }
-  return latest
+  const build = typeof data?.build === 'string' && /^\d{1,9}$/.test(data.build) ? data.build : null
+  return { tag, version: plainVersion(data?.version), build }
 }
 
-export async function serveMacDownload(url, env) {
+const keyFor = (name) => new Request(`https://hotsauce.work/__mac-app-${name}`)
+const cached = async (cache, name) => {
+  const hit = cache && (await cache.match(keyFor(name)).catch(() => null))
+  return hit ? hit.json() : undefined
+}
+const remember = (cache, name, value, seconds) =>
+  cache
+    ? cache
+        .put(
+          keyFor(name),
+          new Response(JSON.stringify(value), {
+            headers: { 'cache-control': `public, max-age=${seconds}` },
+          }),
+        )
+        .catch(() => {})
+    : Promise.resolve()
+
+/**
+ * The newest Mac app build, kept in Cloudflare's cache so a busy page doesn't use up GitHub's
+ * limit. A failed ask is remembered for a minute, and the last good answer is used meanwhile.
+ */
+async function newestMacApp(fetchFn, cache, waitUntil) {
+  const fresh = await cached(cache, 'latest')
+  if (fresh !== undefined) return fresh ?? (await cached(cache, 'last-good')) ?? null
+  const latest = await askGitHub(fetchFn)
+  if (latest) {
+    waitUntil(remember(cache, 'latest', latest, FRESH_SECONDS))
+    waitUntil(remember(cache, 'last-good', latest, KEEP_SECONDS))
+    return latest
+  }
+  waitUntil(remember(cache, 'latest', null, RETRY_SECONDS))
+  return (await cached(cache, 'last-good')) ?? null
+}
+
+export async function serveMacDownload(url, env, ctx) {
   const fetchFn = env.fetch ?? ((...a) => fetch(...a))
   const cache = env.cache ?? (typeof caches === 'undefined' ? null : caches.default)
-  const latest = await newestMacApp(fetchFn, cache)
+  const pending = []
+  const waitUntil = (p) => (ctx?.waitUntil ? ctx.waitUntil(p) : pending.push(p))
+  const latest = await newestMacApp(fetchFn, cache, waitUntil)
+  await Promise.all(pending)
   const headers = { 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }
   if (url.pathname === '/download/mac.json') {
-    const body = latest
-      ? {
-          version: latest.version,
-          build: latest.build,
-          url: 'https://hotsauce.work/download/mac',
-          minimumMacOS: '14.0',
-        }
-      : { version: null, url: 'https://hotsauce.work/download/mac', minimumMacOS: '14.0' }
+    const body = {
+      version: latest?.version ?? null,
+      build: latest?.build ?? null,
+      url: 'https://hotsauce.work/download/mac',
+      minimumMacOS: '14.0',
+    }
     return new Response(JSON.stringify(body), {
       headers: {
         ...headers,
@@ -77,7 +104,7 @@ export async function serveMacDownload(url, env) {
       },
     })
   }
-  const tag = latest ? latest.tag : MAC_LEGACY_TAG
+  const tag = latest?.tag ?? MAC_LEGACY_TAG
   return new Response(null, {
     status: 302,
     headers: { ...headers, location: `${MAC_DOWNLOADS}/${tag}/Hotsauce.dmg` },

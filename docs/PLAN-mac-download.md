@@ -14,14 +14,16 @@ long-replaced `mac-app` release. People don't know the app and the suite are ver
 
 ## Requirements
 
-1. `hotsauce.work/download/mac` redirects to `Hotsauce.dmg` on the newest published
-   `mac-app-<build>` release (highest build, drafts skipped). Test: `site/worker.test.js`.
+1. `hotsauce.work/download/mac` redirects to `Hotsauce.dmg` on the newest `mac-app-<build>`
+   release (highest build), found from the `mac-app-` tags alone, since the release list fills
+   with Hotsauce releases. Test: `site/worker.test.js`.
 2. `hotsauce.work/download/mac.json` returns `{ version, build, url, minimumMacOS }` for that
    build, from its `mac-app.json`; only a plain dotted version is passed through. Test: same.
-3. GitHub is asked at most once per ten minutes per Cloudflare location (Cache API), so the
-   unauthenticated API limit isn't reached. Test: same.
-4. If GitHub can't be reached, the download still works (the old `mac-app` release) and the version
-   is `null`. Test: same.
+3. GitHub is asked at most once per ten minutes per Cloudflare location (Cache API), and after a
+   failure at most once a minute, so the unauthenticated API limit isn't reached. Test: same.
+4. While GitHub can't be reached, the last good answer (kept a week) is used; with none, the
+   download still works (the old `mac-app` release) and the version is `null`. A build whose
+   version file is missing is still offered. Test: same.
 5. The landing page shows "Download the Mac app · Version X · macOS 14 or later" under the hero
    buttons, filled in from requirement 2, and links to it from "Installs like an app"; the FAQ and
    the Mac app help page link to it. Checked in a real browser, desktop and phone, light and dark.

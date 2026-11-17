@@ -36,7 +36,7 @@ async function serveDemo(request, env, url) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
     if (url.hostname === 'www.hotsauce.work') {
       url.hostname = 'hotsauce.work'
@@ -45,7 +45,7 @@ export default {
     }
     if (url.hostname === DEMO_HOST) return serveDemo(request, env, url)
     if (url.pathname === '/download/mac' || url.pathname === '/download/mac.json') {
-      return serveMacDownload(url, env)
+      return serveMacDownload(url, env, ctx)
     }
     // The demo only lives on its own address.
     if (url.pathname === '/demo' || url.pathname.startsWith('/demo/')) {
