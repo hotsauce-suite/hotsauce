@@ -39,10 +39,11 @@ export function SignatureDialog({
     const ctx = el.getContext('2d')
     if (!ctx) return
     ctx.scale(ratio, ratio)
-    ctx.lineWidth = 2.2
+    ctx.lineWidth = 3.2
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    ctx.strokeStyle = '#16262d'
+    // Blue-black pen ink, thick enough to stay dark once shrunk into a field.
+    ctx.strokeStyle = '#050a1a'
     setDrawn(false)
   }, [mode])
 
@@ -84,7 +85,7 @@ export function SignatureDialog({
               onChange={(e) => setTyped(e.target.value)}
               data-testid="signature-typed"
             />
-            <span className="sign-script mt-2 truncate rounded-lg bg-paper-sunk px-3 py-3 text-4xl text-ink">
+            <span className="sign-script mt-2 truncate rounded-lg border border-ash-strong bg-white px-3 py-3 text-4xl">
               {typed || ' '}
             </span>
           </label>
@@ -152,7 +153,7 @@ export function SignatureDialog({
             onClick={() => {
               if (mode === 'type') onDone({ value: typed.trim() })
               else if (canvas.current) {
-                const image = canvas.current.toDataURL('image/png')
+                const image = inked(canvas.current).toDataURL('image/png')
                 if (image.length > MAX_DRAWN_SIGNATURE_CHARS) setTooBig(true)
                 else onDone({ image })
               }
@@ -164,4 +165,31 @@ export function SignatureDialog({
       </div>
     </Dialog>
   )
+}
+
+/** The drawing cropped to its ink, with a small margin, so it fills the field it goes in. */
+function inked(source: HTMLCanvasElement): HTMLCanvasElement {
+  const ctx = source.getContext('2d')
+  if (!ctx) return source
+  const { width, height } = source
+  const { data } = ctx.getImageData(0, 0, width, height)
+  let [left, top, right, bottom] = [width, height, -1, -1]
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if ((data[(y * width + x) * 4 + 3] ?? 0) === 0) continue
+      if (x < left) left = x
+      if (x > right) right = x
+      if (y < top) top = y
+      if (y > bottom) bottom = y
+    }
+  }
+  if (right < 0) return source
+  const pad = Math.round(Math.min(width, height) * 0.04)
+  const x = Math.max(0, left - pad)
+  const y = Math.max(0, top - pad)
+  const out = document.createElement('canvas')
+  out.width = Math.min(width, right + pad + 1) - x
+  out.height = Math.min(height, bottom + pad + 1) - y
+  out.getContext('2d')?.drawImage(source, x, y, out.width, out.height, 0, 0, out.width, out.height)
+  return out
 }

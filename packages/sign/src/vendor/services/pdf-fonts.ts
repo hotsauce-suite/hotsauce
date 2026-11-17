@@ -4,7 +4,20 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import fontkit from "@pdf-lib/fontkit";
-import type { Color, PDFDocument, PDFFont, PDFPage } from "pdf-lib";
+import {
+  type Color,
+  LineJoinStyle,
+  type PDFDocument,
+  type PDFFont,
+  type PDFPage,
+  popGraphicsState,
+  pushGraphicsState,
+  setLineJoin,
+  setLineWidth,
+  setStrokingColor,
+  setTextRenderingMode,
+  TextRenderingMode,
+} from "pdf-lib";
 
 // Fonts for the text SignuDoc draws into finished PDFs: field values on the
 // signed document, and every line of the audit certificate.
@@ -325,9 +338,19 @@ export class TextFace {
   drawText(
     page: PDFPage,
     value: string,
-    options: { color?: Color; size: number; x: number; y: number },
+    options: { color?: Color; size: number; x: number; y: number; outline?: number },
   ): void {
     let x = options.x;
+    // Hotsauce: an outline in the fill colour thickens a hairline script (render mode 2).
+    if (options.outline && options.color) {
+      page.pushOperators(
+        pushGraphicsState(),
+        setTextRenderingMode(TextRenderingMode.FillAndOutline),
+        setLineWidth(options.outline),
+        setLineJoin(LineJoinStyle.Round),
+        setStrokingColor(options.color),
+      );
+    }
 
     for (const run of this.runs(value)) {
       page.drawText(run.text, {
@@ -339,6 +362,7 @@ export class TextFace {
       });
       x += run.font.widthOfTextAtSize(run.text, options.size);
     }
+    if (options.outline && options.color) page.pushOperators(popGraphicsState());
   }
 }
 

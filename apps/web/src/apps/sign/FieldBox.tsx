@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { FilledValue, SignField } from '../../api/sign'
 import { Icon } from '../../components/Icon'
 import { FIELD_LABEL } from './fields'
@@ -123,7 +124,7 @@ export function FieldBox({
         ) : value?.image ? (
           <img src={value.image} alt="" className="size-full object-contain" />
         ) : value?.value ? (
-          <span className="sign-script truncate text-ink">{value.value}</span>
+          <FitScript text={value.value} />
         ) : (
           <span className="font-medium text-ink">{FIELD_LABEL[field.type]}</span>
         )}
@@ -172,5 +173,33 @@ export function FieldBox({
         </>
       ) : null}
     </div>
+  )
+}
+
+/** A typed signature as big as its field allows, shrinking to fit, as on the signed PDF. */
+function FitScript({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refit when the text changes
+  useLayoutEffect(() => {
+    const el = ref.current
+    const box = el?.parentElement
+    if (!el || !box) return
+    const fit = () => {
+      let size = box.clientHeight * 0.62
+      el.style.fontSize = `${size}px`
+      while (size > 6 && el.offsetWidth > box.clientWidth - 6) {
+        size *= 0.9
+        el.style.fontSize = `${size}px`
+      }
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [text])
+  return (
+    <span ref={ref} className="sign-script inline-block whitespace-nowrap px-1 leading-none">
+      {text}
+    </span>
   )
 }
