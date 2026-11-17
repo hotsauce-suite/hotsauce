@@ -530,3 +530,39 @@ test("numbers and dropdown choices are stamped as text, radio buttons as rings",
   assert.ok(pdfBytes.byteLength > chosenOnly.byteLength);
   assert.ok(chosenOnly.byteLength > withoutRadios.byteLength);
 });
+
+// Hotsauce: Great Vibes is a hairline script, so typed signatures read faint on paper
+// (Morgan, 2026-11-16). They are drawn filled and outlined in near-black ink instead.
+test("typed signatures are drawn in dark, outlined ink", async () => {
+  const { decodePDFRawStream, PDFArray, PDFRawStream } = await import("pdf-lib");
+  type RawStream = import("pdf-lib").PDFRawStream;
+  const fixture = await makeFixture();
+  const pdfBytes = await renderFinalizedEnvelopePdf(
+    {
+      auditEvents: fixture.auditEvents,
+      completedAt: fixture.envelope.completedAt!,
+      envelope: fixture.envelope,
+      fields: fixture.fields.filter((field) => field.id === "field-1"),
+      signers: fixture.signers,
+      sourcePdfKey: fixture.envelope.sourcePdfKey,
+    },
+    { seal: saveUnsealed, storageService: fixture.storageService },
+  );
+  const page = (await PDFDocument.load(pdfBytes)).getPage(0);
+  const contents = page.node.Contents();
+  const streams = contents instanceof PDFArray ? contents.asArray() : [contents];
+  const ops = streams
+    .map((ref) => page.doc.context.lookup(ref as never))
+    .filter((stream): stream is RawStream => stream instanceof PDFRawStream)
+    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
+    .join("\n");
+
+  // Fill and stroke (render mode 2) with a visible outline...
+  assert.match(ops, /\b2 Tr\b/);
+  const width = Number(/([\d.]+) w\b/.exec(ops)?.[1]);
+  assert.ok(width >= 0.3, `outline is ${String(width)} pt`);
+  // ...in ink no lighter than 10% grey.
+  const fill = /([\d.]+) ([\d.]+) ([\d.]+) rg/.exec(ops);
+  assert.ok(fill, "no fill colour");
+  for (const channel of fill.slice(1)) assert.ok(Number(channel) <= 0.1, `fill ${fill[0]}`);
+});

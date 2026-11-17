@@ -49,3 +49,10 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
 - **Anyone who can open an envelope isn't its sender.** Team-space members could mint a new link
   for an outside signer and sign as them. Send and new links are the creator's only, and a new
   link is chained into the audit trail.
+- Great Vibes, the typed-signature font, is a hairline script: at field size it reads grey even in
+  near-black. On the PDF it is drawn filled and outlined (text render mode 2, an outline of about
+  2.5% of the font size) in blue-black; on screen `-webkit-text-stroke` matches it. Size a typed
+  signature to its field by measuring (`offsetWidth` of an inline-block), not with `cqw` maths:
+  script capitals are far wider than the average letter.
+- Crop a drawn signature to its ink before saving it, or the whole pad, mostly empty, is shrunk
+  into the field and the strokes come out thin.
