@@ -33,11 +33,11 @@ import type { ClipTranscriber } from './transcriber.js'
 
 /** A chunk is a few seconds of video; the API's body limit (12 MB) is the real cap. */
 export const MAX_CHUNKS = 3600
-export const MAX_CLIP_BYTES = 2 * 1024 ** 3
+export const MAX_CLIP_BYTES = 4 * 1024 ** 3
 export const MAX_TITLE_LENGTH = 200
 /** A recording nobody finished in this long was abandoned (tab closed); its chunks are removed. */
 const ABANDONED_MS = 24 * 3_600_000
-/** Recordings a member can have open at once (each may hold up to 2 GB of chunks on the volume). */
+/** Recordings a member can have open at once (each may hold up to 4 GB of chunks on the volume). */
 export const MAX_OPEN_RECORDINGS = 3
 /**
  * Free space the data volume keeps for git, SQLite and settings: recording stops below it.
@@ -203,7 +203,7 @@ export class Clips {
   #transcripts: Promise<void> = Promise.resolve()
   /** Re-encoding with the camera takes minutes; it waits on nothing else and nothing waits on it. */
   #composites: Promise<void> = Promise.resolve()
-  /** Bytes of chunks stored per recording, so the 2 GB check doesn't re-read the folder. */
+  /** Bytes of chunks stored per recording, so the 4 GB check doesn't re-read the folder. */
   readonly #uploaded = new Map<string, number>()
   #sweepTimer: NodeJS.Timeout | null = null
 
@@ -323,7 +323,7 @@ export class Clips {
         (await this.#uploadedBytes(this.#uploadDir(id))) +
           (await this.#uploadedBytes(this.#trackDir(id, 'camera')))) - replaced
     if (total + bytes.length > MAX_CLIP_BYTES) {
-      throw new HotsauceError('bad_request', 'A clip can be at most 2 GB', { status: 413 })
+      throw new HotsauceError('bad_request', 'A clip can be at most 4 GB', { status: 413 })
     }
     this.#uploaded.set(id, total + bytes.length)
     const tmp = `${file}.${randomBytes(4).toString('hex')}.tmp`
