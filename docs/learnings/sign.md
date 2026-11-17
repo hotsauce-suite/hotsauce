@@ -40,3 +40,12 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
 - **The format package is read from its build.** After changing `packages/format`, run its build
   before the server's integration tests, or they see the old schema (a signer's `role` was
   silently dropped and every test failed on "Add a signature field").
+- **Secrets in paths reach the logs.** The error handler logged `c.req.path` on every 500, which
+  for a signing link is the secret itself. It now redacts link paths; check any new public route
+  whose path carries a token.
+- **Send email after the lock, not inside it.** Completion emails went out one by one inside the
+  per-envelope lock, so a slow mail service could time out the last signer's page after they had
+  signed. They now go out after the save (`settled()` lets tests wait for them).
+- **Anyone who can open an envelope isn't its sender.** Team-space members could mint a new link
+  for an outside signer and sign as them. Send and new links are the creator's only, and a new
+  link is chained into the audit trail.
