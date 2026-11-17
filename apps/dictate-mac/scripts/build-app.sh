@@ -4,8 +4,13 @@
 # <Name>.zip. The bundle id stays dev.hotsauce.dictate: macOS keys the Microphone and
 # Accessibility permissions to it and the signature, not to the name.
 # Signs with, in order: a "Developer ID Application" identity (hardened runtime, timestamp);
-# "Hotsauce Local Code Signing" from scripts/create-signing-identity.sh (a stable self-signed
-# identity, so macOS keeps permissions across updates); else ad hoc.
+# "Hotsauce Release Signing" from scripts/create-release-signing.sh (the self-signed identity
+# GitHub's Mac app workflow signs with too, so hand builds and GitHub builds keep permissions);
+# "Hotsauce Local Code Signing" from scripts/create-signing-identity.sh (an older self-signed
+# identity, on one Mac only); else ad hoc.
+# GitHub builds one with every Hotsauce release (.github/workflows/mac-app.yml), passing
+# BUILD_NUMBER, SOURCE_HASH (the apps/dictate-mac tree) and SAME_APP_SINCE (the first build with
+# that tree), which go into mac-app.json so installed apps aren't told to update for a new number.
 # With a Developer ID it also notarizes with Apple and staples the tickets, so the download opens
 # without a Gatekeeper warning. That needs a notarytool keychain profile (default "mac-notary",
 # override with NOTARY_PROFILE), saved once with
@@ -74,7 +79,11 @@ PLIST
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+RELEASE_ID="Hotsauce Release Signing"
 INTERNAL="Hotsauce Local Code Signing"
+if grep -q "\"$RELEASE_ID\"" <<<"$(security find-identity -p codesigning 2>/dev/null)"; then
+  INTERNAL="$RELEASE_ID"
+fi
 SIGNER="-"
 if [[ -n "$IDENTITY" ]]; then
   echo "Signing with $IDENTITY (hardened runtime)"
@@ -150,6 +159,9 @@ fi
 # What this build is, published beside it on its mac-app-<build> release so servers and installed apps
 # can tell whether they're behind (docs/PLAN-mac-version-and-whats-new.md, M1). From this build
 # on, the app reports its version, so an app that doesn't is older.
-printf '{"version":"%s","build":"%s","reportsVersion":true}\n' "$VERSION" "$BUILD_NUMBER" > release/mac-app.json
+EXTRA=""
+[[ "${SOURCE_HASH:-}" =~ ^[0-9a-f]{40}$ ]] && EXTRA="${EXTRA},\"source\":\"${SOURCE_HASH}\""
+[[ "${SAME_APP_SINCE:-}" =~ ^[0-9]{1,9}$ ]] && EXTRA="${EXTRA},\"sameAppSince\":\"${SAME_APP_SINCE}\""
+printf '{"version":"%s","build":"%s","reportsVersion":true%s}\n' "$VERSION" "$BUILD_NUMBER" "$EXTRA" > release/mac-app.json
 
 echo "Built $APP, $DMG ($(du -h "$DMG" | cut -f1)), $ZIP ($(du -h "$ZIP" | cut -f1)) and release/mac-app.json"

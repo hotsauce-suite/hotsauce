@@ -9,6 +9,12 @@ export interface MacAppLatest {
   build?: string
   /** True once the newest build tells Hotsauce its version; older builds can't. */
   reportsVersion?: boolean
+  /**
+   * The first build with the same Mac app sources as this one. A new build is made with every
+   * Hotsauce release (docs/PLAN-mac-download.md), so most carry only a new number: an installed
+   * build at or above this one is the same app, and isn't offered an update.
+   */
+  sameAppSince?: string
 }
 
 export const MAC_APP_INFO = '/downloads/mac-app.json'
@@ -53,6 +59,9 @@ export function macAppUpdateState(
   if (!latest) return 'unknown'
   if (!installed) return latest.reportsVersion ? 'outdated' : 'unknown'
   const mine = splitMacVersion(installed)
+  if (mine.build && latest.sameAppSince && /^\d+$/.test(latest.sameAppSince)) {
+    if (Number(mine.build) >= Number(latest.sameAppSince)) return 'current'
+  }
   const order = compareVersions(mine.version, latest.version)
   if (order !== 0) return order < 0 ? 'outdated' : 'current'
   if (mine.build && latest.build && /^\d+$/.test(latest.build)) {

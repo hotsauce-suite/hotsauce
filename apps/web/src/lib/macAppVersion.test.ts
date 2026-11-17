@@ -33,6 +33,14 @@ describe('macAppUpdateState (M5, M6)', () => {
     expect(macAppUpdateState('0.26.0', newest)).toBe('current')
   })
 
+  it('calls a rebuild of the same app current, so a release with no Mac change offers no update', () => {
+    const latest = { version: '0.36.0', build: '130', sameAppSince: '120', reportsVersion: true }
+    expect(macAppUpdateState('0.34.1+120', latest)).toBe('current')
+    expect(macAppUpdateState('0.35.0+125', latest)).toBe('current')
+    expect(macAppUpdateState('0.33.0+119', latest)).toBe('outdated')
+    expect(macAppUpdateState('0.33.0', latest)).toBe('outdated')
+  })
+
   it('is unknown without a newest build to compare with', () => {
     expect(macAppUpdateState('0.26.0', null)).toBe('unknown')
   })
