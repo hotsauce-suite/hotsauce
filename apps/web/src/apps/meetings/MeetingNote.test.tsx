@@ -255,8 +255,13 @@ describe('Meeting note page', () => {
     expect(content).not.toHaveTextContent('typed while enhancing')
 
     finish()
-    await waitFor(() => expect(content).toHaveTextContent('More from the transcript'))
-    await waitFor(() => expect(content).toHaveAttribute('contenteditable', 'true'))
+    // A busy CI runner can take seconds to land the result after typing: wait past the 1 s default.
+    await waitFor(() => expect(content).toHaveTextContent('More from the transcript'), {
+      timeout: 5000,
+    })
+    await waitFor(() => expect(content).toHaveAttribute('contenteditable', 'true'), {
+      timeout: 5000,
+    })
     expect(mockApi().repo.space('ada').files.get(path)).not.toContain('typed while enhancing')
     // Types 21 keys into the editor: about 2 s here, past 5 s on a busy CI runner.
   }, 15_000)
