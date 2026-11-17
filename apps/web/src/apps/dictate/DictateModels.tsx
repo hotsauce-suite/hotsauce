@@ -17,8 +17,9 @@ export function DictateModels() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  // The newest pick: an older save that answers late must not undo it.
-  const latest = useRef(0)
+  // The newest pick in each group: an older save that answers late must not undo it, and a
+  // failed save in one group isn't hidden by the other group's answer.
+  const latest = useRef({ speech: 0, cleanup: 0 })
 
   const load = useCallback(() => {
     setLoadError(null)
@@ -82,19 +83,30 @@ export function DictateModels() {
       'cleanup' in choice ? choice.cleanup === settings.cleanup : choice.speech === settings.speech
     )
       return
-    const before = { speech: settings.speech, cleanup: settings.cleanup }
-    const pick = ++latest.current
+    const group = 'cleanup' in choice ? 'cleanup' : 'speech'
+    const before = { [group]: settings[group] }
+    const pick = ++latest.current[group]
     setSettings({ ...settings, ...choice })
     setSaved(false)
     setError(null)
     try {
       const next = await dictationApi.setChoice(choice)
-      if (pick !== latest.current) return
-      setSettings(next)
+      if (pick !== latest.current[group]) return
+      // Only this group's answer: the other group may have a newer pick on its way.
+      setSettings((s) =>
+        s
+          ? {
+              ...next,
+              [group === 'speech' ? 'cleanup' : 'speech']:
+                s[group === 'speech' ? 'cleanup' : 'speech'],
+            }
+          : next,
+      )
       setSaved(true)
     } catch (err) {
-      if (pick !== latest.current) return
+      if (pick !== latest.current[group]) return
       setSettings((s) => (s ? { ...s, ...before } : s))
+      setSaved(false)
       setError(messageOf(err))
     }
   }

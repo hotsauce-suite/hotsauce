@@ -35,14 +35,16 @@ import Testing
         #expect(!SpeechRouting.mayBeKeptOnMac(after: .notConnected))
     }
 
-    @Test func remembersTheChoiceOnThisMac() throws {
+    @Test func remembersTheChoicesOnThisMacUntilANewConnection() throws {
         let defaults = try #require(UserDefaults(suiteName: "SpeechPreferenceTests"))
         defaults.removePersistentDomain(forName: "SpeechPreferenceTests")
-        #expect(!SpeechPreference.keepsOnMac(defaults))
-        SpeechPreference.set(true, in: defaults)
-        #expect(SpeechPreference.keepsOnMac(defaults))
-        SpeechPreference.set(false, in: defaults)
-        #expect(!SpeechPreference.keepsOnMac(defaults))
+        #expect(SpeechPreference.known(defaults) == nil)
+        SpeechPreference.set(.init(keepOnMac: true, tidy: false), in: defaults)
+        #expect(SpeechPreference.known(defaults) == .init(keepOnMac: true, tidy: false))
+        SpeechPreference.set(.init(keepOnMac: false, tidy: true), in: defaults)
+        #expect(SpeechPreference.known(defaults) == .init(keepOnMac: false, tidy: true))
+        SpeechPreference.forget(defaults)
+        #expect(SpeechPreference.known(defaults) == nil)
     }
 
     @Test func onlyAServerThatCouldNotBeReachedMovesToTheDevice() {

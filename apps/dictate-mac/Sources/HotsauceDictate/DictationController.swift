@@ -38,6 +38,8 @@ final class DictationController {
     /// This dictation stays on the Mac because the member chose "On this Mac only"
     /// (docs/PLAN-dictate-models.md, R8): written up here, and only its text sent to be tidied.
     private var keptOnMac = false
+    /// With `keptOnMac`: whether the text is sent to be tidied (not with Cleanup off).
+    private var tidyOnMac = true
     var onChange: () -> Void = {}
 
     init(settings: Settings, history: HistoryStore) {
@@ -52,16 +54,26 @@ final class DictationController {
         refreshChoices()
     }
 
-    /// Asks the server for the member's "On this Mac only" choice and remembers it for the next
-    /// key press. A failure keeps the last known choice.
-    func refreshChoices() {
+    /// Asks the server for the member's Dictate choices and remembers them for the next key
+    /// press. A failure keeps the last known ones. `newConnection` forgets the old ones first:
+    /// they were another account's, and until these are known a dictation stays on the Mac.
+    func refreshChoices(newConnection: Bool = false) {
+        if newConnection { SpeechPreference.forget() }
         guard let connection = ConnectionStore.connection() else { return }
         let client = DictationClient(server: connection.server, token: connection.token)
         Task { @MainActor in
             if let choices = try? await client.choices() {
-                SpeechPreference.set(choices.keepsSpeechOnMac)
+                SpeechPreference.set(choices.known)
             }
         }
+    }
+
+    /// The choices for this key press. Not known yet (a new connection the server hasn't
+    /// answered for): kept on the Mac, so a voice is never sent before the choice is known.
+    private func loadChoices() {
+        let known = SpeechPreference.known()
+        keptOnMac = known?.keepOnMac ?? true
+        tidyOnMac = known?.tidy ?? true
     }
 
     var isRecording: Bool { machine.isRecording }
@@ -119,7 +131,7 @@ final class DictationController {
             return
         }
         target = NSWorkspace.shared.frontmostApplication
-        keptOnMac = SpeechPreference.keepsOnMac()
+        loadChoices()
         route = SpeechRouting.choose(networkUp: NetworkWatch.shared.isUp, serverFailedAt: serverFailedAt, now: Date(), keepOnMac: keptOnMac)
         // For the next one: the member may have changed it on the web since.
         refreshChoices()
@@ -205,7 +217,7 @@ final class DictationController {
         keyUpAt = nil // a retry's timings aren't measured from the original key-up
         // Retry is for the server: the member pressed it because they're back online. Unless they
         // chose "On this Mac only": then it's written up here again, and the audio never goes.
-        keptOnMac = SpeechPreference.keepsOnMac()
+        loadChoices()
         send(failed.request, to: failed.target, samples: failed.samples, route: keptOnMac ? .onDevice : .server)
     }
 
@@ -220,7 +232,7 @@ final class DictationController {
             status = .processing
             overlay.showProcessing()
             glow.think()
-            let tidy = keptOnMac
+            let tidy = keptOnMac && tidyOnMac
             inFlight = Task { @MainActor [weak self] in
                 await self?.writeUpOnDevice(samples, request: request, to: target, tidy: tidy)
             }
@@ -255,11 +267,18 @@ final class DictationController {
             } catch {
                 let dictationError = error as? DictationError ?? .network(error.localizedDescription)
                 // Refused because the member just chose "On this Mac only" on the web: honour it now.
-                if SpeechRouting.mayBeKeptOnMac(after: dictationError),
-                   let choices = try? await client.choices(), choices.keepsSpeechOnMac {
-                    SpeechPreference.set(true)
-                    await self?.writeUpOnDevice(samples, request: request, to: target, tidy: true)
-                    return
+                if SpeechRouting.mayBeKeptOnMac(after: dictationError) {
+                    if let choices = try? await client.choices() {
+                        SpeechPreference.set(choices.known)
+                        if choices.keepsSpeechOnMac {
+                            await self?.writeUpOnDevice(samples, request: request, to: target, tidy: choices.tidiesText)
+                            return
+                        }
+                    } else if case let .server(_, message) = dictationError, message.contains("On this Mac only") {
+                        SpeechPreference.set(.init(keepOnMac: true, tidy: false))
+                        await self?.writeUpOnDevice(samples, request: request, to: target)
+                        return
+                    }
                 }
                 guard SpeechRouting.fallsBackOnDevice(after: dictationError) else {
                     self?.fail(dictationError, request: request, target: target, samples: samples)
@@ -273,7 +292,8 @@ final class DictationController {
     }
 
     /// The Mac's own speech recognition (A2.6 to A2.9). If it can't write it up either, the
-    /// recording is kept for Retry, which sends it to the server once the connection is back.
+    /// recording is kept for Retry, which sends it to the server once the connection is back
+    /// (or, for a member on "On this Mac only", tries the Mac again).
     /// `tidy`: the member chose "On this Mac only", so the text (never the audio) goes to the
     /// server to be tidied; if that fails, the text is pasted as heard.
     private func writeUpOnDevice(_ samples: [Int16], request: DictationRequest, to target: NSRunningApplication?, afterServer: Bool = false, tidy: Bool = false) async {

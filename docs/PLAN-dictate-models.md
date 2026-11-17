@@ -47,14 +47,18 @@ Slice 1:
 Slice 2 (Mac app):
 
 - **R7** Speech choice **Online** / **On this Mac only** on the same page; the server stores it.
-- **R8a** While a member is on "On this Mac only", the server refuses audio from their Macs
-  (`/transcribe` 403, the stream 4403), so a Mac app from before the choice can't send it. The
+- **R8a** While a member is on "On this Mac only", the server refuses to write up audio from
+  their Macs (`/transcribe` 403, the stream 4403). A Mac app from before the choice still sends
+  it, so the help says to update first. The
   browser's own dictation is not refused. A Mac refused this way asks for the choice and writes
   the dictation up itself.
 - **R8b** `POST /api/dictation/clean` tidies text a Mac heard itself, with the member's choice
   and words; a device token may call it.
 - **R8** The Mac app reads the choice and, with "On this Mac only", always writes the dictation
   up on the Mac, then sends only the text for cleanup unless Cleanup is Off.
+- **R8c** The Mac app remembers the choices per connection; until it knows them (a new
+  connection), a dictation stays on the Mac. Retry for such a member tries the Mac again. With
+  Cleanup Off, or no AI key, the text isn't sent at all.
 - **R9** The Mac app's description of its Clean up / Literal mode says the member's web choice
   applies too (Off returns the words as heard even in Clean up).
 

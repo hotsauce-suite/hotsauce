@@ -319,7 +319,7 @@ function Row({
           <span className="text-sm font-semibold text-ink">{app}</span>
           <span className="text-ink-faint">{relative(record.date)}</span>
           {record.onDevice ? (
-            <Tag title="Written up by this Mac’s own speech recognition, with no connection">
+            <Tag title="Written up by this Mac’s own speech recognition: with no connection, or because you chose On this Mac only">
               on this Mac
             </Tag>
           ) : !record.cleaned ? (

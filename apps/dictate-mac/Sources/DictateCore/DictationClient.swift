@@ -140,14 +140,24 @@ public struct DictationClient: Sendable {
         public let speech: String
         /// `fast`, `careful` or `off`.
         public let cleanup: String
+        /// False when the server has no AI key, so nothing is tidied.
+        public let cleanupAvailable: Bool?
 
-        public init(speech: String, cleanup: String) {
+        public init(speech: String, cleanup: String, cleanupAvailable: Bool? = true) {
             self.speech = speech
             self.cleanup = cleanup
+            self.cleanupAvailable = cleanupAvailable
         }
 
         /// The member chose "On this Mac only": their voice never leaves the Mac.
         public var keepsSpeechOnMac: Bool { speech == "device" }
+
+        /// Whether text heard on the Mac is worth sending to be tidied.
+        public var tidiesText: Bool { cleanup != "off" && cleanupAvailable != false }
+
+        public var known: SpeechPreference.Known {
+            SpeechPreference.Known(keepOnMac: keepsSpeechOnMac, tidy: tidiesText)
+        }
     }
 
     public func choices(session: URLSession = .shared) async throws -> Choices {
