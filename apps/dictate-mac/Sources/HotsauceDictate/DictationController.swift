@@ -203,8 +203,10 @@ final class DictationController {
         guard let failed, inFlight == nil else { return }
         // A retry uploads the kept recording; the stream that carried it is gone.
         keyUpAt = nil // a retry's timings aren't measured from the original key-up
-        // Retry is for the server: the member pressed it because they're back online.
-        send(failed.request, to: failed.target, samples: failed.samples, route: .server)
+        // Retry is for the server: the member pressed it because they're back online. Unless they
+        // chose "On this Mac only": then it's written up here again, and the audio never goes.
+        keptOnMac = SpeechPreference.keepsOnMac()
+        send(failed.request, to: failed.target, samples: failed.samples, route: keptOnMac ? .onDevice : .server)
     }
 
     private func send(

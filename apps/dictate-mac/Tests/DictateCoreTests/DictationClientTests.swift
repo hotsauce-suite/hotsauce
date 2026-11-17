@@ -53,7 +53,8 @@ import Testing
         #expect(choices == DictationClient.Choices(speech: "device", cleanup: "careful"))
         #expect(choices.keepsSpeechOnMac)
         // A server from before the choices keeps everything online.
-        #expect(try !DictationClient.decodeChoices(status: 404, body: Data()).keepsSpeechOnMac)
+        let older = try DictationClient.decodeChoices(status: 404, body: Data())
+        #expect(!older.keepsSpeechOnMac)
         #expect(throws: DictationError.notConnected) { try DictationClient.decodeChoices(status: 401, body: Data()) }
     }
 
@@ -63,7 +64,8 @@ import Testing
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer hdt_token")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-        let body = try #require(try JSONSerialization.jsonObject(with: try #require(request.httpBody)) as? [String: String])
+        let data = try #require(request.httpBody)
+        let body = try JSONSerialization.jsonObject(with: data) as? [String: String]
         #expect(body == ["text": "um ship it", "mode": "clean", "app_name": "Slack", "app_bundle": "com.tinyspeck.slackmacgap"])
     }
 
