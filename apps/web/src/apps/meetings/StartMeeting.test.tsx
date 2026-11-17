@@ -279,6 +279,8 @@ describe('Start screen', () => {
       }
       await waitFor(() => expect(checkState()).toBe('ok'))
     } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
       delete w.hearthMac
       delete w.webkit
     }
@@ -296,6 +298,8 @@ describe('Start screen', () => {
       const id = router.state.location.pathname.split('/').pop() ?? ''
       expect(mockApi().meetings.sessions.get(id)).toMatchObject({ title: 'Zoom call' })
     } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
       delete w.hearthMac
       delete w.webkit
     }
@@ -319,6 +323,8 @@ describe('Start screen', () => {
         meetCode: 'abc-defg-hij',
       })
     } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
       delete w.hearthMac
       delete w.webkit
     }
@@ -338,6 +344,8 @@ describe('Start screen', () => {
         calendarEventId: 'evt-acme-sync',
       })
     } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
       delete w.hearthMac
       delete w.webkit
     }
@@ -361,6 +369,8 @@ describe('Start screen', () => {
       expect(router.state.location.pathname).toBe('/meetings/start')
       expect(screen.getByTestId('start-recording')).toBeEnabled()
     } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
       delete w.hearthMac
       delete w.webkit
     }
