@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.34.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "You can move sign-in to another Clerk application (for example from development to production) without anyone losing their clips, conversations, tokens or settings. Everyone signs in once more and carries on. See \"Moving sign-in to another Clerk application\" in the self-host guide."
+        }
+      ]
+    },
+    {
       "version": "0.34.0",
       "date": "2026-11-17",
       "notes": [
