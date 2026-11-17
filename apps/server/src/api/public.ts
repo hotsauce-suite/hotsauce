@@ -52,6 +52,8 @@ export function publicRoutes(deps: AppDeps) {
           features: {
             ai: config.LLM_PROVIDER !== 'none',
             transcription: config.ASR_PROVIDER !== 'none',
+            // Whether Sign emails signing links (docs/PLAN-sign.md R12), or hands out links to copy.
+            email: Boolean(config.RESEND_API_KEY && config.MAIL_FROM),
           },
         }),
       )
