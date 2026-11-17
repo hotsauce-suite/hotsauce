@@ -18,5 +18,5 @@ Learnings from making the Mac app update itself (`docs/PLAN-mac-self-update.md`)
   forever.
 - **Pass paths to the swap helper as `sh -c script sh arg...` arguments**, never built into the
   script; it is testable on temp folders with a stand-in for `open`.
-- **The old app (before 0.45) can't update itself**: anyone on it needs one last download and
+- **The old app (before 0.47) can't update itself**: anyone on it needs one last download and
   drag. Say so in help and the FAQ.

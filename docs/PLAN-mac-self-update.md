@@ -1,6 +1,6 @@
 # Plan: the Mac app updates itself
 
-Status (2026-11-17): building. The owner asked for a one-click update ("I'm still confused about
+Status (2026-11-17): shipped in 0.47.0 (Mac app build 127). The first real one-click update happens on the next Mac app build. The owner asked for a one-click update ("I'm still confused about
 how I update the macOS app"); this replaces decision 3 of `PLAN-mac-version-and-whats-new.md`
 ("self-updating waits for a Developer ID build"). The new information: download-and-drag confused
 the owner himself, and a Developer ID build isn't needed to update safely, because the app checks
