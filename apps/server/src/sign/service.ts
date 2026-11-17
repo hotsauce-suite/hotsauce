@@ -4,19 +4,23 @@
 // When the last signer signs, the engine (@hotsauce/sign) stamps the fields, seals the PDF and makes
 // an audit certificate; both are saved into Files beside the original.
 
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import {
   type AuditEntry,
   EnvelopeFrontmatter,
   envelopePath,
   envelopeProblem,
   isEnvelopeId,
+  MAX_DECLINE_REASON,
   MAX_SIGN_PAGES,
   MAX_SIGN_PDF_BYTES,
   parseFrontmatter,
+  parseSigningToken,
+  SIGNING_LINK_DAYS,
   type Signer,
   type SignField,
   SPACE_LAYOUT,
+  signersUpNext,
 } from '@hotsauce/format'
 import {
   type AuditEventRecord,
@@ -48,8 +52,13 @@ import {
   withVia,
 } from '../git/index.js'
 import type { Index } from '../index/index.js'
+import type { Mailer } from '../mail/index.js'
 import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
+import { completedEmail, declinedEmail, signingLinkEmail } from './emails.js'
+
+/** The finished PDFs go as attachments up to this size together. */
+const MAX_ATTACH_BYTES = 20 * 1024 * 1024
 
 export interface EnvelopeSummary {
   space: string
@@ -66,7 +75,7 @@ export interface EnvelopeSummary {
 
 export interface EnvelopeView extends EnvelopeSummary {
   source: EnvelopeFrontmatter['source']
-  signerList: Signer[]
+  signerList: SignerView[]
   fields: SignField[]
   audit: AuditEntry[]
   /** Whether the audit trail's hash chain checks out. */
@@ -75,13 +84,45 @@ export interface EnvelopeView extends EnvelopeSummary {
   result: { space: string; signedFile: string; certificateFile: string } | null
   /** Whether the member reading this is a signer who still has to sign. */
   canSign: boolean
+  /** Whether this server emails signing links; without it the sender copies them. */
+  canEmail: boolean
+  /** The ids of the people who can sign now. */
+  upNext: string[]
+  /** All at once, or one after another. */
+  signingOrder: EnvelopeFrontmatter['signing_order']
   blobOid: string
+}
+
+/** A signer as the sender sees them: their link's secret hash stays on the server. */
+export type SignerView = Omit<Signer, 'token_hash'> & { linkActive: boolean }
+
+/** A signing link made for someone, shown once to the sender. */
+export interface SigningLink {
+  signer: string
+  name: string
+  email: string
+  url: string
+  emailed: boolean
+}
+
+/** What a signer with a link sees: their fields only, and nothing about the others' links. */
+export interface PublicEnvelope {
+  title: string
+  sender: string
+  org: string
+  signer: { id: string; name: string; email: string }
+  source: { name: string; pages: EnvelopeFrontmatter['source']['pages'] }
+  fields: SignField[]
+  status: 'ready' | 'signed' | 'declined' | 'completed' | 'voided'
 }
 
 export interface DraftInput {
   title: string
   /** Checked in full by the format's schema. */
   fields: unknown[]
+  /** The people on it: `{ id, name, email, order, role }`; unchanged when left out. */
+  signers?: unknown[] | undefined
+  signingOrder?: 'parallel' | 'sequential' | undefined
   blobOid: string
 }
 
@@ -104,12 +145,17 @@ export interface SignDeps {
   index: Pick<Index, 'listFiles' | 'listSpaces'>
   spaces: Pick<SpaceService, 'canAccess' | 'visibleSpaces'>
   syncer: Pick<Syncer, 'afterHeadChanged'>
-  files: Pick<Files, 'get' | 'bytes' | 'storeFormFile' | 'available' | 'remove'>
+  files: Pick<Files, 'get' | 'peek' | 'bytes' | 'storeFormFile' | 'available' | 'removeStored'>
   /** The install's seal key, made on first use (state/seal-key.ts). */
   sealKey: () => SealIdentity
   /** Shown in a PDF reader's signature panel: the organization, else the product. */
   orgName: string
   productName: string
+  /** Sends signing links and finished copies (R12). */
+  mailer: Mailer
+  /** The server's public address, for signing links. */
+  publicUrl: string
+  log?: (message: string) => void
   now?: () => Date
 }
 
@@ -279,9 +325,23 @@ export class Sign {
           )
         : f,
     )
+    // People are only named in a draft: their status, links and times start when it's sent.
+    const signers = input.signers
+      ? input.signers.map((p) =>
+          p && typeof p === 'object'
+            ? Object.fromEntries(
+                Object.entries(p).filter(([k]) =>
+                  ['id', 'name', 'email', 'order', 'role'].includes(k),
+                ),
+              )
+            : p,
+        )
+      : fm.signers
     const parsed = EnvelopeFrontmatter.safeParse({
       ...fm,
       title: input.title.replace(/\s+/g, ' ').trim(),
+      signers,
+      signing_order: input.signingOrder ?? fm.signing_order,
       fields,
       updated: this.#iso(),
     })
@@ -299,8 +359,113 @@ export class Sign {
   }
 
   /**
-   * The member signs their fields. When nobody else is left to sign, the sealed PDF and its
-   * certificate are made and saved into Files beside the original, and the envelope is completed.
+   * Sends a draft: each signer who can sign now gets their own link, by email when this server
+   * has a mailer (R11–R13). The links come back once, so the sender can copy them; only their
+   * hashes are kept. The sender, if they sign too, signs in the app instead.
+   */
+  async send(
+    principal: Principal,
+    space: string,
+    id: string,
+    input: { blobOid: string },
+    meta: RequestMeta,
+    via?: string,
+  ): Promise<EnvelopeView & { links: SigningLink[] }> {
+    this.#assertAccess(principal, space)
+    return this.#serial(space, id, async () => {
+      const { fm, blobOid } = await this.#read(space, id)
+      this.#assertSender(principal, fm)
+      if (fm.status !== 'draft') {
+        throw new HotsauceError('conflict', 'This envelope has already been sent')
+      }
+      if (blobOid !== input.blobOid) {
+        throw new HotsauceError('conflict', 'This envelope changed since you opened it; reload it')
+      }
+      const problem = envelopeProblem(fm)
+      if (problem) throw new HotsauceError('bad_request', problem)
+      const now = this.#iso()
+      let next: EnvelopeFrontmatter = { ...fm, status: 'sent', sent: now, updated: now }
+      next = {
+        ...next,
+        audit: chain(fm.id, fm.audit, [
+          {
+            event: 'sent',
+            actor: 'sender',
+            email: principal.email,
+            ip: meta.ip,
+            agent: meta.agent,
+            meta: {
+              to: fm.signers.filter((s) => s.role !== 'copy').map((s) => s.email),
+              copies: fm.signers.filter((s) => s.role === 'copy').map((s) => s.email),
+              order: fm.signing_order,
+            },
+            at: now,
+          },
+        ]),
+      }
+      const { fm: withLinks, links } = this.#issueLinks(next, fm.created_by)
+      await this.#save(space, principal, withLinks, blobOid, 'send', via)
+      const sent = await this.#emailLinks(withLinks, links)
+      return { ...(await this.get(principal, space, id)), links: sent }
+    })
+  }
+
+  /**
+   * A fresh link for one signer still to sign (the old one stops working), emailed when this
+   * server can and `email` is set; the link comes back for the sender to copy.
+   */
+  async link(
+    principal: Principal,
+    space: string,
+    id: string,
+    signerId: string,
+    input: { email: boolean },
+    via?: string,
+  ): Promise<SigningLink> {
+    this.#assertAccess(principal, space)
+    return this.#serial(space, id, async () => {
+      const { fm, blobOid } = await this.#read(space, id)
+      this.#assertSender(principal, fm)
+      if (fm.status !== 'sent') {
+        throw new HotsauceError('conflict', 'Links work only while the envelope is out for signing')
+      }
+      const signer = fm.signers.find((s) => s.id === signerId)
+      if (!signer || signer.role === 'copy') throw new HotsauceError('not_found', 'No such signer')
+      if (signer.status !== 'pending') {
+        throw new HotsauceError('conflict', `${signer.name} has already answered`)
+      }
+      if (!signersUpNext(fm.signers, fm.signing_order).some((s) => s.id === signer.id)) {
+        throw new HotsauceError('conflict', `It isn’t ${signer.name}’s turn to sign yet`)
+      }
+      const made = this.#makeLink(fm, signer)
+      const now = this.#iso()
+      // A new link is part of the record: who made it, for whom, and whether it was emailed.
+      const next: EnvelopeFrontmatter = {
+        ...fm,
+        signers: fm.signers.map((s) => (s.id === signer.id ? made.signer : s)),
+        audit: chain(fm.id, fm.audit, [
+          {
+            event: 'sent',
+            actor: 'sender',
+            email: principal.email,
+            ip: null,
+            agent: null,
+            meta: { to: [signer.email], newLink: true, emailed: input.email },
+            at: now,
+          },
+        ]),
+        updated: now,
+      }
+      await this.#save(space, principal, next, blobOid, 'edit', via)
+      const [sent] = input.email ? await this.#emailLinks(next, [made.link], true) : [made.link]
+      return sent ?? made.link
+    })
+  }
+
+  /**
+   * The member signs their fields in the app: a draft only they sign, or a sent envelope when it
+   * is their turn. When nobody is left to sign, the sealed PDF and its certificate are saved into
+   * Files beside the original and everyone on it gets a copy.
    */
   async sign(
     principal: Principal,
@@ -311,10 +476,169 @@ export class Sign {
     via?: string,
   ): Promise<EnvelopeView> {
     this.#assertAccess(principal, space)
-    // One signing at a time per envelope, so two presses of Finish can't both seal a copy.
+    await this.#serial(space, id, async () => {
+      const { fm, blobOid } = await this.#read(space, id)
+      if (blobOid !== input.blobOid) {
+        throw new HotsauceError('conflict', 'This envelope changed since you opened it; reload it')
+      }
+      const signer = fm.signers.find(
+        (s) => s.email === principal.email.toLowerCase() && s.role !== 'copy',
+      )
+      if (!signer) throw new HotsauceError('forbidden', 'You aren’t a signer of this envelope')
+      if (
+        fm.status === 'draft' &&
+        fm.signers.some((s) => s.role !== 'copy' && s.id !== signer.id)
+      ) {
+        throw new HotsauceError('conflict', 'Send it first: other people sign it too')
+      }
+      await this.#signAs(space, fm, blobOid, signer, input, meta, {
+        method: 'Signed in to Hotsauce',
+        author: principal,
+        via,
+      })
+    })
+    return this.get(principal, space, id)
+  }
+
+  // ── signing from a link (no account) ─────────────────────────────────
+
+  /** What the link's signer sees; the first look is recorded as viewed (R14, R15). */
+  async publicView(token: string, meta: RequestMeta): Promise<PublicEnvelope> {
+    const found = await this.#byToken(token)
+    const { space, fm, signer } = found
+    if (fm.status === 'sent' && signer.status === 'pending' && !signer.viewed_at) {
+      await this.#serial(space, fm.id, async () => {
+        const fresh = await this.#byToken(token)
+        if (fresh.signer.viewed_at || fresh.fm.status !== 'sent') return
+        const now = this.#iso()
+        const next: EnvelopeFrontmatter = {
+          ...fresh.fm,
+          signers: fresh.fm.signers.map((s) => (s.id === signer.id ? { ...s, viewed_at: now } : s)),
+          audit: chain(fresh.fm.id, fresh.fm.audit, [
+            {
+              event: 'viewed',
+              actor: 'signer',
+              email: signer.email,
+              ip: meta.ip,
+              agent: meta.agent,
+              meta: { signerId: signer.id, signerName: signer.name },
+              at: now,
+            },
+          ]),
+        }
+        await this.#save(space, authorOf(signer), next, fresh.blobOid, 'view')
+      })
+    }
+    const status =
+      fm.status === 'completed'
+        ? 'completed'
+        : fm.status === 'voided'
+          ? 'voided'
+          : signer.status === 'signed'
+            ? 'signed'
+            : signer.status === 'declined' || fm.status === 'declined'
+              ? 'declined'
+              : 'ready'
+    return {
+      title: fm.title,
+      sender: this.#senderName(fm),
+      org: this.#deps.orgName,
+      signer: { id: signer.id, name: signer.name, email: signer.email },
+      source: { name: fm.source.name, pages: fm.source.pages },
+      fields: fm.fields
+        .filter((f) => f.signer === signer.id)
+        .map((f) => (status === 'ready' ? stripFilled(f) : f)),
+      status,
+    }
+  }
+
+  /** The PDF, for the link's signer to read while it's theirs to sign. */
+  async publicSource(token: string): Promise<Uint8Array> {
+    const { fm, signer } = await this.#byToken(token)
+    if (fm.status !== 'sent' || signer.status !== 'pending') {
+      throw new HotsauceError('conflict', 'This document isn’t waiting for your signature')
+    }
+    return this.#sourceBytes(fm.source.space, fm.source.file, fm.source.sha256)
+  }
+
+  /** The link's signer signs (R14). */
+  async publicSign(
+    token: string,
+    input: { values: FilledValue[]; consent: boolean },
+    meta: RequestMeta,
+  ): Promise<PublicEnvelope> {
+    const first = await this.#byToken(token)
+    await this.#serial(first.space, first.fm.id, async () => {
+      const { space, fm, signer, blobOid } = await this.#byToken(token)
+      if (fm.status !== 'sent') {
+        throw new HotsauceError('conflict', 'This document isn’t out for signing any more')
+      }
+      await this.#signAs(space, fm, blobOid, signer, input, meta, {
+        method: 'Email link',
+        author: authorOf(signer),
+      })
+    })
+    return this.publicView(token, meta)
+  }
+
+  /** The link's signer declines; the envelope stops and the sender is told (R16). */
+  async publicDecline(
+    token: string,
+    input: { reason: string },
+    meta: RequestMeta,
+  ): Promise<PublicEnvelope> {
+    const first = await this.#byToken(token)
+    await this.#serial(first.space, first.fm.id, async () => {
+      const { space, fm, signer, blobOid } = await this.#byToken(token)
+      if (fm.status !== 'sent' || signer.status !== 'pending') {
+        throw new HotsauceError('conflict', 'This document isn’t waiting for your answer')
+      }
+      const reason = input.reason.replace(/\s+/g, ' ').trim().slice(0, MAX_DECLINE_REASON)
+      const now = this.#iso()
+      const next: EnvelopeFrontmatter = {
+        ...fm,
+        status: 'declined',
+        declined: now,
+        updated: now,
+        signers: fm.signers.map((s) =>
+          s.id === signer.id
+            ? {
+                ...s,
+                status: 'declined' as const,
+                declined_at: now,
+                ...(reason ? { decline_reason: reason } : {}),
+              }
+            : s,
+        ),
+        audit: chain(fm.id, fm.audit, [
+          {
+            event: 'declined',
+            actor: 'signer',
+            email: signer.email,
+            ip: meta.ip,
+            agent: meta.agent,
+            meta: { signerId: signer.id, signerName: signer.name, reason: reason || null },
+            at: now,
+          },
+        ]),
+      }
+      await this.#save(space, authorOf(signer), next, blobOid, 'decline')
+      const mail = declinedEmail({
+        signer: signer.name,
+        title: fm.title,
+        reason: reason || null,
+        url: `${this.#deps.publicUrl}/sign/${encodeURIComponent(space)}/${fm.id}`,
+      })
+      await this.#mail({ to: fm.created_by, fromName: this.#deps.productName, ...mail })
+    })
+    return this.publicView(token, meta)
+  }
+
+  /** Runs one change to an envelope at a time, so two presses can't both seal a copy. */
+  async #serial<T>(space: string, id: string, fn: () => Promise<T>): Promise<T> {
     const key = `${space}/${id}`
     const before = this.#signing.get(key) ?? Promise.resolve()
-    const run = before.then(() => this.#signOnce(principal, space, id, input, meta, via))
+    const run = before.then(fn)
     const settled = run.then(
       () => undefined,
       () => undefined,
@@ -327,26 +651,27 @@ export class Sign {
     }
   }
 
-  async #signOnce(
-    principal: Principal,
+  /** One signer signs: fills their fields, chains the audit, and completes or passes it on. */
+  async #signAs(
     space: string,
-    id: string,
-    input: { values: FilledValue[]; consent: boolean; blobOid: string },
+    fm: EnvelopeFrontmatter,
+    blobOid: string,
+    signer: Signer,
+    input: { values: FilledValue[]; consent: boolean },
     meta: RequestMeta,
-    via?: string,
-  ): Promise<EnvelopeView> {
-    const { fm, blobOid } = await this.#read(space, id)
+    how: { method: string; author: Author; via?: string | undefined },
+  ): Promise<void> {
     if (fm.status !== 'draft' && fm.status !== 'sent') {
       throw new HotsauceError('conflict', 'This envelope is finished; nothing is left to sign')
     }
-    // Checked before anything is sealed, so a stale page never leaves copies in Files.
-    if (blobOid !== input.blobOid) {
-      throw new HotsauceError('conflict', 'This envelope changed since you opened it; reload it')
-    }
-    const signer = fm.signers.find((s) => s.email === principal.email.toLowerCase())
-    if (!signer) throw new HotsauceError('forbidden', 'You aren’t a signer of this envelope')
     if (signer.status !== 'pending') {
       throw new HotsauceError('conflict', 'You have already signed this envelope')
+    }
+    if (
+      fm.status === 'sent' &&
+      !signersUpNext(fm.signers, fm.signing_order).some((s) => s.id === signer.id)
+    ) {
+      throw new HotsauceError('conflict', 'It isn’t your turn to sign yet')
     }
     if (!input.consent) {
       throw new HotsauceError('bad_request', 'Agree to sign electronically first')
@@ -357,7 +682,13 @@ export class Sign {
     const now = this.#iso()
     const fields = fillFields(fm.fields, signer.id, input.values, now)
     const signers = fm.signers.map((s) =>
-      s.id === signer.id ? { ...s, status: 'signed' as const, signed_at: now } : s,
+      s.id === signer.id
+        ? {
+            ...s,
+            status: 'signed' as const,
+            signed_at: now,
+          }
+        : s,
     )
     const who = {
       actor: 'signer' as const,
@@ -375,16 +706,17 @@ export class Sign {
           signerId: signer.id,
           signerName: signer.name,
           signerEmail: signer.email,
-          // Members sign in to Hotsauce; that is how they were checked.
-          method: 'Signed in to Hotsauce',
+          // How they were checked: signed in to Hotsauce, or holding their own emailed link.
+          method: how.method,
           // What they filled in, so an edit to the fields afterwards breaks the audit check.
           fieldsSha256: filledDigest(fields, signer.id),
         },
       },
     ])
     let next: EnvelopeFrontmatter = { ...fm, fields, signers, audit, updated: now }
-    const changes: Change[] = []
-    if (signers.every((s) => s.status === 'signed')) {
+    const done = signers.every((s) => s.role === 'copy' || s.status === 'signed')
+    let links: SigningLink[] = []
+    if (done) {
       audit = chain(fm.id, audit, [
         {
           event: 'completed',
@@ -397,6 +729,11 @@ export class Sign {
         },
       ])
       next = { ...next, audit, status: 'completed', completed: now }
+    } else if (next.status === 'sent') {
+      // In order, the next people up get their links now.
+      const issued = this.#issueLinks(next, next.created_by)
+      next = issued.fm
+      links = issued.links
     }
     // Checked with a stand-in result before sealing, so a bad envelope leaves nothing in Files.
     const placeholder = {
@@ -409,28 +746,234 @@ export class Sign {
     )
     if (!check.success) throw badInput(check.error.issues[0])
     const stored: string[] = []
+    const author = { name: how.author.name, email: how.author.email }
+    let sealed: { signed: Uint8Array; certificate: Uint8Array } | null = null
     try {
       if (next.status === 'completed') {
-        next = { ...next, result: await this.#finish(principal, next, stored) }
+        const made = await this.#finish(author, next, stored)
+        next = { ...next, result: made.result }
+        sealed = made
       }
-      const parsed = EnvelopeFrontmatter.safeParse(next)
-      if (!parsed.success) throw badInput(parsed.error.issues[0])
-      changes.push({ path: envelopePath(id), content: envelopeFile(parsed.data) })
-      await this.#commit(space, principal, {
-        changes,
-        verb: 'sign',
-        title: fm.title,
-        via,
-        unchanged: { path: envelopePath(id), blobOid: input.blobOid },
-      })
+      await this.#save(space, how.author, next, blobOid, 'sign', how.via)
     } catch (err) {
       // Nothing points at copies sealed for a sign that didn't land: take them back out.
       for (const fileId of stored) {
-        await this.#deps.files.remove(principal, fm.source.space, fileId).catch(() => undefined)
+        await this.#deps.files.removeStored(author, fm.source.space, fileId).catch(() => undefined)
       }
       throw err
     }
-    return this.get(principal, space, id)
+    // Email doesn't hold up the signer (several slow sends could time their page out): it goes
+    // out after the envelope is saved, and a failure is only logged.
+    const after = next
+    if (sealed) this.#background(this.#emailCopies(after, sealed))
+    else if (links.length) this.#background(this.#emailLinks(after, links))
+  }
+
+  /** Emails sent after the response; tests wait for them with `settled()`. */
+  #pending = new Set<Promise<unknown>>()
+  #background(p: Promise<unknown>): void {
+    const tracked = p.catch((err) => this.#deps.log?.(`sign: email failed: ${err}`))
+    this.#pending.add(tracked)
+    void tracked.finally(() => this.#pending.delete(tracked))
+  }
+
+  /** Waits for emails still going out (tests, and a clean shutdown). */
+  async settled(): Promise<void> {
+    while (this.#pending.size > 0) await Promise.all([...this.#pending])
+  }
+
+  #assertSender(principal: Principal, fm: EnvelopeFrontmatter): void {
+    if (principal.email.toLowerCase() !== fm.created_by.toLowerCase()) {
+      throw new HotsauceError('forbidden', 'Only the person who made this envelope can send it')
+    }
+  }
+
+  /** Gives every signer up next who has no working link a fresh one (not `skip`, the sender). */
+  #issueLinks(
+    fm: EnvelopeFrontmatter,
+    skip: string | null,
+  ): { fm: EnvelopeFrontmatter; links: SigningLink[] } {
+    const links: SigningLink[] = []
+    const now = this.#now().getTime()
+    let signers = fm.signers
+    for (const s of signersUpNext(fm.signers, fm.signing_order)) {
+      if (skip && s.email === skip.toLowerCase()) continue
+      if (s.token_hash && s.token_expires && Date.parse(s.token_expires) > now) continue
+      const made = this.#makeLink(fm, s)
+      signers = signers.map((x) => (x.id === s.id ? made.signer : x))
+      links.push(made.link)
+    }
+    return { fm: { ...fm, signers }, links }
+  }
+
+  #makeLink(fm: EnvelopeFrontmatter, s: Signer): { signer: Signer; link: SigningLink } {
+    const secret = randomBytes(32).toString('base64url')
+    const expires = new Date(this.#now().getTime() + SIGNING_LINK_DAYS * 86_400_000)
+    return {
+      signer: {
+        ...s,
+        token_hash: sha256(secret),
+        token_expires: expires.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        sent_at: this.#iso(),
+      },
+      link: {
+        signer: s.id,
+        name: s.name,
+        email: s.email,
+        url: `${this.#deps.publicUrl}/signing/${fm.id}.${s.id}.${secret}`,
+        emailed: false,
+      },
+    }
+  }
+
+  /** Emails each link, when this server can; says which were sent. */
+  async #emailLinks(
+    fm: EnvelopeFrontmatter,
+    links: SigningLink[],
+    reminder = false,
+  ): Promise<SigningLink[]> {
+    if (!this.#deps.mailer.available) return links
+    const out: SigningLink[] = []
+    for (const l of links) {
+      const signer = fm.signers.find((s) => s.id === l.signer)
+      const expires = signer?.token_expires
+        ? new Date(signer.token_expires).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+            timeZone: 'UTC',
+          })
+        : `${SIGNING_LINK_DAYS} days from now`
+      const mail = signingLinkEmail({
+        to: l.name,
+        sender: this.#senderName(fm),
+        org: this.#deps.orgName,
+        title: fm.title,
+        url: l.url,
+        expires,
+        reminder,
+      })
+      const ok = await this.#mail({
+        to: l.email,
+        fromName: `${this.#senderName(fm)} via ${this.#deps.orgName}`,
+        replyTo: fm.created_by,
+        ...mail,
+      })
+      out.push({ ...l, emailed: ok })
+    }
+    return out
+  }
+
+  /** Everyone on it, and the sender, get the sealed PDF and certificate (R16). */
+  async #emailCopies(
+    fm: EnvelopeFrontmatter,
+    sealed: { signed: Uint8Array; certificate: Uint8Array },
+  ): Promise<void> {
+    if (!this.#deps.mailer.available) return
+    const stem = fm.source.name.replace(/\.pdf$/i, '')
+    const to = new Map<string, string>()
+    for (const s of fm.signers) to.set(s.email, s.name)
+    if (!to.has(fm.created_by)) to.set(fm.created_by, this.#senderName(fm))
+    // Resend takes about 40 MB a message, base64 included: above this, say so instead of failing.
+    const attach = sealed.signed.byteLength + sealed.certificate.byteLength <= MAX_ATTACH_BYTES
+    for (const [email, name] of to) {
+      const mail = completedEmail({
+        to: name,
+        title: fm.title,
+        org: this.#deps.orgName,
+        sender: this.#senderName(fm),
+        attached: attach,
+      })
+      await this.#mail({
+        to: email,
+        fromName: `${this.#senderName(fm)} via ${this.#deps.orgName}`,
+        replyTo: fm.created_by,
+        ...mail,
+        ...(attach
+          ? {
+              attachments: [
+                { filename: `${stem} (signed).pdf`, content: sealed.signed },
+                { filename: `${stem} (certificate).pdf`, content: sealed.certificate },
+              ],
+            }
+          : {}),
+      })
+    }
+  }
+
+  /** Sends one email; a failure is logged, never undoes the signing. */
+  async #mail(message: Parameters<Mailer['send']>[0]): Promise<boolean> {
+    try {
+      await this.#deps.mailer.send(message)
+      return true
+    } catch (err) {
+      this.#deps.log?.(`sign: email to ${message.to} failed: ${err}`)
+      return false
+    }
+  }
+
+  #senderName(fm: EnvelopeFrontmatter): string {
+    return fm.signers.find((s) => s.email === fm.created_by)?.name ?? fm.created_by
+  }
+
+  /** The envelope and signer a link names, once its secret matches and it hasn't expired. */
+  async #byToken(token: string) {
+    const bad = () =>
+      new HotsauceError(
+        'not_found',
+        'This signing link doesn’t work. Ask the sender for a new one.',
+      )
+    const parts = parseSigningToken(token)
+    if (!parts) throw bad()
+    const space = this.#spaceOf(parts.envelope)
+    if (!space) throw bad()
+    const { fm, blobOid } = await this.#read(space, parts.envelope).catch(() => {
+      throw bad()
+    })
+    const signer = fm.signers.find((s) => s.id === parts.signer)
+    if (!signer || signer.role === 'copy' || !signer.token_hash) throw bad()
+    // A replaced link has another hash. One already used still opens, to show what happened.
+    if (!safeEqual(signer.token_hash, sha256(parts.secret))) throw bad()
+    const open = signer.status === 'pending' && fm.status === 'sent'
+    if (open && signer.token_expires && Date.parse(signer.token_expires) < this.#now().getTime()) {
+      throw new HotsauceError(
+        'conflict',
+        'This signing link has expired. Ask the sender for a new one.',
+      )
+    }
+    return { space, fm, signer, blobOid }
+  }
+
+  /** Which space holds an envelope, from the index (envelope ids are unique). */
+  #spaceOf(id: string): string | null {
+    const path = envelopePath(id)
+    for (const { name } of this.#deps.index.listSpaces()) {
+      if (
+        this.#deps.index.listFiles({ space: name, kind: 'envelope' }).some((r) => r.path === path)
+      ) {
+        return name
+      }
+    }
+    return null
+  }
+
+  async #save(
+    space: string,
+    author: Author,
+    fm: EnvelopeFrontmatter,
+    blobOid: string,
+    verb: string,
+    via?: string,
+  ): Promise<void> {
+    const parsed = EnvelopeFrontmatter.safeParse(fm)
+    if (!parsed.success) throw badInput(parsed.error.issues[0])
+    await this.#commit(space, author, {
+      changes: [{ path: envelopePath(fm.id), content: envelopeFile(parsed.data) }],
+      verb,
+      title: fm.title,
+      via,
+      unchanged: { path: envelopePath(fm.id), blobOid },
+    })
   }
 
   /** Moves the envelope to the space's trash. A finished one's PDFs stay in Files. */
@@ -454,17 +997,18 @@ export class Sign {
 
   /** Seals the signed PDF and the certificate and saves both into Files beside the original. */
   async #finish(
-    principal: Principal,
+    author: Pick<Principal, 'name' | 'email'>,
     fm: EnvelopeFrontmatter,
     stored: string[],
-  ): Promise<NonNullable<EnvelopeFrontmatter['result']>> {
-    const original = await this.#deps.files
-      .get(principal, fm.source.space, fm.source.file)
-      .catch((err) => {
-        throw err instanceof HotsauceError && err.code === 'not_found'
-          ? new HotsauceError('conflict', 'The PDF this was made from is gone from Files')
-          : err
-      })
+  ): Promise<{
+    result: NonNullable<EnvelopeFrontmatter['result']>
+    signed: Uint8Array
+    certificate: Uint8Array
+  }> {
+    const original = await this.#deps.files.peek(fm.source.space, fm.source.file)
+    if (!original) {
+      throw new HotsauceError('conflict', 'The PDF this was made from is gone from Files')
+    }
     const source = await this.#sourceBytes(fm.source.space, fm.source.file, fm.source.sha256)
     const records = toRecords(fm)
     const seal = this.#seal()
@@ -496,7 +1040,7 @@ export class Sign {
     const stem = fm.source.name.replace(/\.pdf$/i, '')
     const store = (name: string, bytes: Uint8Array) =>
       this.#deps.files.storeFormFile(
-        principal,
+        author,
         { space: fm.source.space, folder: original.folder, name, mime: 'application/pdf', bytes },
         undefined,
       )
@@ -505,9 +1049,13 @@ export class Sign {
     const certificateFile = await store(`${stem} (certificate).pdf`, certificate)
     stored.push(certificateFile.id)
     return {
-      signed_file: signedFile.id,
-      certificate_file: certificateFile.id,
-      signed_sha256: signedSha256,
+      result: {
+        signed_file: signedFile.id,
+        certificate_file: certificateFile.id,
+        signed_sha256: signedSha256,
+      },
+      signed,
+      certificate,
     }
   }
 
@@ -559,7 +1107,13 @@ export class Sign {
     return {
       ...summary(space, fm),
       source: fm.source,
-      signerList: fm.signers,
+      signerList: fm.signers.map(({ token_hash, ...s }) => ({
+        ...s,
+        linkActive:
+          Boolean(token_hash) &&
+          s.status === 'pending' &&
+          Date.parse(s.token_expires ?? '') > this.#now().getTime(),
+      })),
       fields: fm.fields,
       audit: fm.audit,
       auditIntact:
@@ -572,9 +1126,18 @@ export class Sign {
           }
         : null,
       canSign:
-        (fm.status === 'draft' || fm.status === 'sent') &&
-        me?.status === 'pending' &&
-        envelopeProblem(fm) === null,
+        me !== undefined &&
+        me.role !== 'copy' &&
+        me.status === 'pending' &&
+        envelopeProblem(fm) === null &&
+        (fm.status === 'draft'
+          ? !fm.signers.some((s) => s.role !== 'copy' && s.id !== me.id)
+          : fm.status === 'sent' &&
+            signersUpNext(fm.signers, fm.signing_order).some((s) => s.id === me.id)),
+      canEmail: this.#deps.mailer.available,
+      upNext:
+        fm.status === 'sent' ? signersUpNext(fm.signers, fm.signing_order).map((s) => s.id) : [],
+      signingOrder: fm.signing_order,
       blobOid,
     }
   }
@@ -694,11 +1257,20 @@ export function chain(
 /** Places that can't hold a field: fields must belong to a signer, on a page the PDF has. */
 function fieldsProblem(fm: EnvelopeFrontmatter): string | null {
   const signers = new Set(fm.signers.map((s) => s.id))
+  const emails = new Set<string>()
+  for (const s of fm.signers) {
+    if (emails.has(s.email)) return `${s.email} is on the list twice`
+    emails.add(s.email)
+  }
+  if (signers.size !== fm.signers.length) return 'Two people have the same id'
   const ids = new Set<string>()
   for (const f of fm.fields) {
     if (ids.has(f.id)) return 'Two fields have the same id'
     ids.add(f.id)
     if (!signers.has(f.signer)) return 'A field belongs to nobody on the list'
+    if (fm.signers.find((s) => s.id === f.signer)?.role === 'copy') {
+      return 'Someone who only gets a copy can’t have fields'
+    }
     if (f.page > fm.source.pages.length) return `A field is on page ${f.page}, which isn't there`
   }
   return null
@@ -942,3 +1514,22 @@ const changed = () =>
   new HotsauceError('conflict', 'The PDF in Files changed since this envelope was made from it')
 const stale = () =>
   new HotsauceError('conflict', 'Someone changed this envelope at the same time; reload to see it')
+
+const sha256 = (s: string) => createHash('sha256').update(s).digest('hex')
+
+function safeEqual(a: string, b: string): boolean {
+  const x = Buffer.from(a)
+  const y = Buffer.from(b)
+  return x.length === y.length && timingSafeEqual(x, y)
+}
+
+/** Commits by a signer with no account carry their name and email. */
+function authorOf(s: Pick<Signer, 'name' | 'email'>): Author {
+  return { name: s.name, email: s.email }
+}
+
+/** A field as placed, before anyone filled it in. */
+function stripFilled(f: SignField): SignField {
+  const { value, checked, input, image, filled_at, ...rest } = f
+  return rest
+}

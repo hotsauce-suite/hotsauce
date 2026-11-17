@@ -72,6 +72,13 @@ export const createAppRouter = () =>
           lazy: async () => ({ Component: (await import('./routes/SharedLinkRoute')).default }),
         },
         {
+          // A signing link's page (docs/PLAN-sign.md R14): outside the shell, no account.
+          path: '/signing/:token',
+          lazy: async () => ({
+            Component: (await import('./apps/sign/SigningLinkPage')).default,
+          }),
+        },
+        {
           // A form's fill page (ARCHITECTURE §21.3): outside the shell, signed out for a public form.
           path: '/f/:link',
           lazy: async () => ({ Component: (await import('./apps/forms/FillPage')).default }),

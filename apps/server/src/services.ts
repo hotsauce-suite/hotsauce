@@ -73,6 +73,7 @@ import {
   type PageFetcher,
   ReadingStore,
 } from './links/index.js'
+import { type Mailer, mailerFor } from './mail/index.js'
 import {
   DeepgramRetranscriber,
   type MeetingRetranscriber,
@@ -188,6 +189,8 @@ export interface ServiceOverrides {
   retranscriber?: MeetingRetranscriber | null
   /** Booking links' robot check; null is a server that can't take bookings (§19). */
   robotCheck?: RobotCheck | null
+  /** Sign's email (docs/PLAN-sign.md R12); a fake in tests. */
+  mailer?: Mailer
   /** Saved links' page fetcher (§23.2); tests pass their own pages. */
   linkFetch?: PageFetcher
   /** Hotsauce Forms' chat posts (§21.5); tests pass a fake. */
@@ -561,6 +564,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
         ensureSealKey(config.DATA_DIR, `${config.ORG_NAME || config.PRODUCT_NAME} documents`),
       orgName: config.ORG_NAME || config.PRODUCT_NAME,
       productName: config.PRODUCT_NAME,
+      mailer: overrides.mailer ?? mailerFor(config),
+      publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
+      log: (m) => console.warn(m),
     }),
     // Tables: a CSV block in Git, formulas by IronCalc (§22).
     tables: new Tables({ git, index, spaces, syncer, forms }),

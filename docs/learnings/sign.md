@@ -26,3 +26,26 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
   the Files demo's "Pilot launch" folder; `fileHandlers.test.ts` pins that folder's listing.
 - **e2e here needs `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`** in
   a cloud session, since the repo's Playwright expects another Chromium build.
+- **`/s/` was taken.** Read-only share links already live at `/s/:token`, so signing links are
+  `/signing/:token`. Grep `router.tsx` for a path before putting it in an email: once a link is
+  sent, its path can't change.
+- **A link's secret in the URL needs no-referrer on that page.** The server sends
+  `Referrer-Policy: no-referrer` for `/signing/*` and the page adds the meta tag, so a click on any
+  link in the PDF or footer doesn't leak the secret.
+- **`new Date()` ignores a stubbed `Date.now`.** The expiry test passed with a stub until it
+  didn't; `vi.useFakeTimers({ toFake: ['Date'] })` with `vi.setSystemTime` moves both.
+- **The demo's state lives in one tab.** A signing link made in the demo opens in a new tab as
+  "doesn't work", because that tab has fresh mock data. The seeded envelope has a fixed token
+  (`demoSigningToken()` in the mocks) so the outside signer's page can be tried from any tab.
+- **The format package is read from its build.** After changing `packages/format`, run its build
+  before the server's integration tests, or they see the old schema (a signer's `role` was
+  silently dropped and every test failed on "Add a signature field").
+- **Secrets in paths reach the logs.** The error handler logged `c.req.path` on every 500, which
+  for a signing link is the secret itself. It now redacts link paths; check any new public route
+  whose path carries a token.
+- **Send email after the lock, not inside it.** Completion emails went out one by one inside the
+  per-envelope lock, so a slow mail service could time out the last signer's page after they had
+  signed. They now go out after the save (`settled()` lets tests wait for them).
+- **Anyone who can open an envelope isn't its sender.** Team-space members could mint a new link
+  for an outside signer and sign as them. Send and new links are the creator's only, and a new
+  link is chained into the audit trail.

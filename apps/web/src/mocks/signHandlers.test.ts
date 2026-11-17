@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { filesApi } from '../api/files'
-import { signApi } from '../api/sign'
+import { signApi, signLinkApi } from '../api/sign'
 
 describe('mock Sign', () => {
   it('shows the seeded signed envelope, with its copies in Files', async () => {
     const { envelopes } = await signApi.list()
     expect(envelopes.map((e) => [e.title, e.status])).toEqual([
+      ['Northwind pilot terms', 'sent'],
       ['Acme pilot one-pager, approved', 'completed'],
     ])
-    const env = await signApi.get('ada', envelopes[0]?.id ?? '')
+    const env = await signApi.get('ada', envelopes[1]?.id ?? '')
     expect(env.audit.map((a) => a.event)).toEqual(['created', 'consented', 'signed', 'completed'])
     const listing = await filesApi.list('team', 'Pilot launch')
     expect(listing.files.map((f) => f.name)).toEqual(
@@ -51,6 +52,46 @@ describe('mock Sign', () => {
     })
     expect(done.status).toBe('completed')
     expect(done.result?.signedFile).toBeTruthy()
+    await signApi.remove('ada', draft.id)
+  })
+
+  it('sends to someone outside the team, who signs from their link', async () => {
+    const listing = await filesApi.list('team', 'Pilot launch')
+    const pdf = listing.files.find((f) => f.name === 'Acme pilot one-pager.pdf')
+    if (!pdf) throw new Error('no seeded PDF')
+    const draft = await signApi.create('team', pdf.id)
+    const sig = (id: string, signer: string) => ({
+      id,
+      signer,
+      type: 'signature' as const,
+      page: 1,
+      x: 0.1,
+      y: 0.5,
+      width: 0.3,
+      height: 0.06,
+      required: true,
+    })
+    const placed = await signApi.saveDraft('ada', draft.id, {
+      title: 'Terms',
+      blobOid: draft.blobOid,
+      signers: [
+        { id: 's1', name: 'Maya Lin', email: 'maya@northwind.example', order: 1, role: 'signer' },
+        { id: 's2', name: 'Sam Ortiz', email: 'sam@northwind.example', order: 2, role: 'copy' },
+      ],
+      fields: [sig('f1', 's1')],
+    })
+    const sent = await signApi.send('ada', draft.id, placed.blobOid)
+    expect(sent.status).toBe('sent')
+    expect(sent.links).toHaveLength(1)
+    const token = sent.links[0]?.url.split('/signing/')[1] ?? ''
+    const opened = await signLinkApi.get(token)
+    expect(opened).toMatchObject({ status: 'ready', sender: 'Ada Lovelace', title: 'Terms' })
+    const done = await signLinkApi.sign(token, {
+      consent: true,
+      values: [{ field: 'f1', value: 'Maya Lin' }],
+    })
+    expect(done.status).toBe('completed')
+    expect((await signApi.get('ada', draft.id)).status).toBe('completed')
     await signApi.remove('ada', draft.id)
   })
 })

@@ -4,7 +4,9 @@ import {
   envelopeIdOf,
   envelopePath,
   envelopeProblem,
+  parseSigningToken,
   SignField,
+  signersUpNext,
 } from './sign.js'
 
 const ID = '01JD0000000000000000000000'
@@ -78,5 +80,36 @@ describe('sign format', () => {
     expect(envelopeProblem({ ...fm, fields: [nobody] })).toMatch(/nobody/)
     const twice = [...fm.signers, { ...fm.signers[0], id: 's2' } as (typeof fm.signers)[number]]
     expect(envelopeProblem({ ...fm, signers: twice })).toMatch(/twice/)
+  })
+})
+
+describe('signing links and order (R11, R13)', () => {
+  it('reads a token, and refuses anything else', () => {
+    const id = '01JC4ENV00000000000000000A'
+    const secret = 'a'.repeat(43)
+    expect(parseSigningToken(`${id}.s2.${secret}`)).toEqual({ envelope: id, signer: 's2', secret })
+    for (const bad of ['', `${id}.s2`, `${id}.S2.${secret}`, `${id}.s2.short`, `x.s2.${secret}`]) {
+      expect(parseSigningToken(bad)).toBeNull()
+    }
+  })
+
+  it('in order, only the first signers still pending are up; copies never are', () => {
+    const s = (id: string, order: number, status = 'pending', role = 'signer') =>
+      ({ id, order, status, role }) as {
+        id: string
+        order: number
+        status: 'pending' | 'signed'
+        role: 'signer' | 'copy'
+      }
+    const list = [
+      s('a', 1, 'signed'),
+      s('b', 2),
+      s('c', 2),
+      s('d', 3),
+      s('e', 1, 'pending', 'copy'),
+    ]
+    expect(signersUpNext(list, 'sequential').map((x) => x.id)).toEqual(['b', 'c'])
+    expect(signersUpNext(list, 'parallel').map((x) => x.id)).toEqual(['b', 'c', 'd'])
+    expect(signersUpNext([s('a', 1, 'signed')], 'sequential')).toEqual([])
   })
 })

@@ -141,3 +141,98 @@ test('places, moves, resizes and removes a field from the keyboard alone', async
   await page.keyboard.press('Delete')
   await expect(field).toHaveCount(0)
 })
+
+// Slice 3 (docs/PLAN-sign.md R10–R16): someone outside the team signs from their own link.
+test('send to someone outside the team, who signs from their link with no account', async ({
+  page,
+  member,
+  browser,
+}) => {
+  const id = uid()
+  const name = `terms-${id}.pdf`
+  await page.goto(`/files?space=${encodeURIComponent(member.personal)}`)
+  await page
+    .getByTestId('files-input')
+    .setInputFiles([{ name, mimeType: 'application/pdf', buffer: pdf(`Terms ${id}`) }])
+  await expect(row(page, name)).toBeVisible({ timeout: 15_000 })
+  await row(page, name).getByTestId('files-open').click()
+  await page.getByTestId('file-send-for-signature').click()
+  await expect(page.getByTestId('sign-page-1')).toBeVisible()
+
+  // Swap the member for an outside signer, and add someone who only gets a copy.
+  const people = page.getByTestId('sign-people')
+  await people.getByTestId('sign-person-name').first().fill('Maya Lin')
+  await people.getByTestId('sign-person-email').first().fill(`maya-${id}@outside.example`)
+  await people.getByTestId('sign-person-add').click()
+  await people.getByTestId('sign-person-name').nth(1).fill('Sam Ortiz')
+  await people.getByTestId('sign-person-email').nth(1).fill(`sam-${id}@outside.example`)
+  await people.getByTestId('sign-person-role').nth(1).selectOption('copy')
+  await page.getByTestId('sign-add-signature').click()
+  await clickPage(page, 0.3, 0.8)
+  await expect(page.locator('[data-field-type="signature"]')).toContainText('Signature')
+
+  await page.getByTestId('sign-send').click()
+  await page.getByTestId('sign-send-confirm').click()
+  const url = await page.getByTestId('sign-link-url').inputValue()
+  expect(url).toMatch(/\/signing\/[0-9A-Z]{26}\.s1\./)
+  await page.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByTestId('sign-progress-s1')).toContainText(/Link sent|Waiting/)
+  await expect(page.getByTestId('sign-progress-s2')).toContainText('Gets a copy')
+
+  // Maya opens her link in a browser that isn't signed in to anything.
+  const outside = await browser.newContext()
+  const her = await outside.newPage()
+  await her.goto(new URL(url).pathname)
+  await expect(her.getByTestId('signing-title')).toHaveText(`terms-${id}`)
+  await her.getByTestId('signing-start').click()
+  await her.getByTestId('sign-field-f1').click()
+  await her.getByTestId('signature-typed').fill('Maya Lin')
+  await her.getByTestId('signature-done').click()
+  await her.getByTestId('sign-consent').check()
+  await her.getByTestId('sign-finish').click()
+  await expect(her.getByTestId('signing-completed')).toBeVisible({ timeout: 30_000 })
+  await outside.close()
+
+  // The sender sees it finished and sealed.
+  await page.reload()
+  await expect(page.getByTestId('sign-finished')).toBeVisible()
+  await expect(page.getByTestId('sign-audit')).toContainText('Opened')
+  await expect(page.getByTestId('sign-audit-check')).toContainText('checks out')
+})
+
+test('someone outside the team declines, with a reason the sender sees', async ({
+  page,
+  member,
+  browser,
+}) => {
+  const id = uid()
+  const name = `nda-${id}.pdf`
+  await page.goto(`/files?space=${encodeURIComponent(member.personal)}`)
+  await page
+    .getByTestId('files-input')
+    .setInputFiles([{ name, mimeType: 'application/pdf', buffer: pdf(`NDA ${id}`) }])
+  await expect(row(page, name)).toBeVisible({ timeout: 15_000 })
+  await row(page, name).getByTestId('files-open').click()
+  await page.getByTestId('file-send-for-signature').click()
+  await expect(page.getByTestId('sign-page-1')).toBeVisible()
+  const people = page.getByTestId('sign-people')
+  await people.getByTestId('sign-person-name').first().fill('Raj Patel')
+  await people.getByTestId('sign-person-email').first().fill(`raj-${id}@outside.example`)
+  await page.getByTestId('sign-add-signature').click()
+  await clickPage(page, 0.3, 0.8)
+  await page.getByTestId('sign-send').click()
+  await page.getByTestId('sign-send-confirm').click()
+  const url = await page.getByTestId('sign-link-url').inputValue()
+
+  const outside = await browser.newContext()
+  const his = await outside.newPage()
+  await his.goto(new URL(url).pathname)
+  await his.getByTestId('signing-decline').click()
+  await his.getByTestId('signing-decline-reason').fill('Wrong company name')
+  await his.getByTestId('signing-decline-confirm').click()
+  await expect(his.getByTestId('signing-declined')).toBeVisible()
+  await outside.close()
+
+  await page.reload()
+  await expect(page.getByTestId('sign-declined')).toContainText('Wrong company name')
+})

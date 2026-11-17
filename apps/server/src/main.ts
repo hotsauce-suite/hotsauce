@@ -247,7 +247,11 @@ function serveWebApp(
     }
     if (!c.res.headers.has('X-Frame-Options')) c.header('X-Frame-Options', 'DENY')
     c.header('X-Content-Type-Options', 'nosniff')
-    c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+    // A signing link's page holds its secret in the URL, so it sends no referrer at all.
+    c.header(
+      'Referrer-Policy',
+      c.req.path.startsWith('/signing/') ? 'no-referrer' : 'strict-origin-when-cross-origin',
+    )
   })
 
   app.get('*', (c, next) => {

@@ -20,7 +20,12 @@ export function handleError(err: Error, c: Context): Response {
       err.status as ContentfulStatusCode,
     )
   }
-  console.error(`${c.req.method} ${c.req.path} failed:`, err)
+  // A link's secret sits in some paths (signing, shared and form links): never log it.
+  const path = c.req.path.replace(
+    /^(\/api\/sign-link\/|\/api\/s\/|\/api\/f\/)[^/]+/,
+    '$1<redacted>',
+  )
+  console.error(`${c.req.method} ${path} failed:`, err)
   return c.json({ error: { code: 'internal', message: 'Something went wrong on the server' } }, 500)
 }
 
