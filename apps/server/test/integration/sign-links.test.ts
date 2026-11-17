@@ -121,7 +121,7 @@ async function ready(order: 'parallel' | 'sequential' = 'parallel', people = PEO
   })
 }
 
-const tokenOf = (url: string) => url.slice(url.indexOf('/s/') + 3)
+const tokenOf = (url: string) => url.slice(url.indexOf('/signing/') + 9)
 
 // biome-ignore lint/suspicious/noExplicitAny: test responses are read loosely
 async function publicApi<T = any>(
@@ -143,7 +143,7 @@ async function publicApi<T = any>(
 describe('the people on an envelope (R10)', () => {
   it('saves signers, copies and the order, and refuses fields for a copy', async () => {
     const env = await ready('sequential')
-    expect(env.signing_order ?? env.signerList.length).toBeTruthy()
+    expect(env.signingOrder).toBe('sequential')
     expect(env.signerList.map((s: { role: string }) => s.role)).toEqual([
       'signer',
       'signer',
@@ -173,7 +173,7 @@ describe('sending and signing from a link (R11–R16)', () => {
     expect(sent.links.map((l: { email: string }) => l.email)).toEqual([MAYA])
     expect(sent.links[0].emailed).toBe(true)
     expect(sent.links[0].url).toMatch(
-      /^https:\/\/hotsauce\.example\.test\/s\/[0-9A-Z]{26}\.s2\.[\w-]{43}$/,
+      /^https:\/\/hotsauce\.example\.test\/signing\/[0-9A-Z]{26}\.s2\.[\w-]{43}$/,
     )
     expect(mailer.sent).toHaveLength(1)
     expect(mailer.sent[0]).toMatchObject({

@@ -47,6 +47,8 @@ refuses the fakes and needs the keys:
 | `CHAT_MODEL` | `claude-opus-5-5` | |
 | `DICTATION_MODEL` | `claude-haiku-5-5` | Hotsauce Dictate's cleanup pass; runs on every dictation, so a fast model. |
 | `KEEP_AUDIO` | `false` | whether Stop keeps the audio when the client doesn't say |
+| `RESEND_API_KEY` | unset | Sign emails signing links and finished copies through Resend; unset, the sender copies links |
+| `MAIL_FROM` | unset | the address Sign's emails come from, on a domain verified in Resend |
 | `AUDIO_STORE` | `r2` if the `R2_*` keys are set, else `local` (dev/test) or `none` (production) | where kept audio goes; `none` hides Keep audio |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | | the Cloudflare R2 bucket for kept audio |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | | web push keys for meeting reminders (`npx web-push generate-vapid-keys`); reminders are off without them |

@@ -1,7 +1,7 @@
 # Plan: Sign (send a PDF for signature)
 
 Status (2026-11-17): slices 1 and 2 shipped (0.34.0). Slice 3 (people outside the team sign
-from an emailed link) in progress. Morgan owes the Resend setup (steps page
+from an emailed link) built and tested (R10–R18), merging now. Morgan owes the Resend setup (steps page
 https://claude.ai/artifact/MpyyxKxoCZBAUCszkF52wN). Morgan accepted all seven recommendations
 (Q1 to Q7) on 2026-11-16. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
 
@@ -65,7 +65,7 @@ only get a copy). Built on those; changed if he answers otherwise.
 
 R10. A draft has a list of people: each signs, or only gets a copy, with a name and email; the
      sender is on it by default and can be removed. Signing is all at once (default) or in order.
-R11. Sending gives each signer a link `/s/<envelope id>.<signer id>.<secret>`; only the secret's
+R11. Sending gives each signer a link `/signing/<envelope id>.<signer id>.<secret>`; only the secret's
      SHA-256 is stored, it works for 30 days, and the sender can make a fresh one (the old stops).
 R12. A `Mailer` interface sends email; Resend implements it (`RESEND_API_KEY`, `MAIL_FROM`), from
      "<sender> via <org>", replies to the sender. Without a key, Send still works and the sender
@@ -73,7 +73,8 @@ R12. A `Mailer` interface sends email; Resend implements it (`RESEND_API_KEY`, `
 R13. In order, only the first person still to sign gets a link; the next is emailed when they sign.
 R14. The signing page needs no account: it shows the PDF and only that signer's fields, asks for
      consent, and signs or declines (with a reason). A wrong, old or used link says so plainly.
-     Turnstile guards signing when the server has it.
+     The link's 256-bit secret is the gate, so there is no robot check (Turnstile); the page sends
+     no referrer, so the secret never leaves in a link click.
 R15. The audit trail records sent, viewed, consented, signed and declined, with time, address and
      browser, and how the signer was checked ("Email link").
 R16. Declining stops the envelope; the sender is emailed. When the last signer signs, the envelope
@@ -90,6 +91,6 @@ tools, support materials (site, demo, help, STATUS, ARCHITECTURE).
 
 ## Plumbing
 
-- Morgan: Resend API key (Fly secret), DNS records for the mail subdomain, the Turnstile secret
-  (already owed). Needed from slice 3.
+- Morgan: Resend account, the mail subdomain's DNS records and the Resend key as a Fly secret
+  (steps page above), plus `MAIL_FROM` as a Fly secret. Until then Send gives links to copy.
 - None for slices 1 and 2.

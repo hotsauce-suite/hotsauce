@@ -85,6 +85,8 @@ export interface EnvelopeView extends EnvelopeSummary {
   canEmail: boolean
   /** The ids of the people who can sign now. */
   upNext: string[]
+  /** All at once, or one after another. */
+  signingOrder: EnvelopeFrontmatter['signing_order']
   blobOid: string
 }
 
@@ -778,7 +780,7 @@ export class Sign {
         signer: s.id,
         name: s.name,
         email: s.email,
-        url: `${this.#deps.publicUrl}/s/${fm.id}.${s.id}.${secret}`,
+        url: `${this.#deps.publicUrl}/signing/${fm.id}.${s.id}.${secret}`,
         emailed: false,
       },
     }
@@ -1083,6 +1085,7 @@ export class Sign {
       canEmail: this.#deps.mailer.available,
       upNext:
         fm.status === 'sent' ? signersUpNext(fm.signers, fm.signing_order).map((s) => s.id) : [],
+      signingOrder: fm.signing_order,
       blobOid,
     }
   }

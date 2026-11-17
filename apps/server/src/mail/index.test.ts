@@ -31,7 +31,9 @@ describe('mailers (R12)', () => {
       subject: 'Please sign Bcc: x',
       attachments: [{ filename: 'a.pdf', content: 'AQID' }],
     })
-    expect((calls[0]?.init.headers as Record<string, string>).authorization).toBe('Bearer re_test')
+    expect((calls[0]?.init.headers as Record<string, string> | undefined)?.authorization).toBe(
+      'Bearer re_test',
+    )
   })
 
   it('says plainly when Resend refuses', async () => {
