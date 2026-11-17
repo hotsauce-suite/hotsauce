@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.34.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Sign: open a PDF in Files and choose Send for signature, place signature, initials, date, text and checkbox fields, then sign by typing or drawing. A sealed signed PDF and an audit certificate are saved in Files next to the original."
+        },
+        {
+          "text": "Sign is in the left bar.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.33.0",
       "date": "2026-11-16",
       "notes": [
