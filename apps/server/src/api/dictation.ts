@@ -1,6 +1,11 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { DICTATION_MIME_TYPES, MAX_WORD_LENGTH, MAX_WORDS_PER_LIST } from '../dictation/index.js'
+import {
+  CLEANUP_CHOICES,
+  DICTATION_MIME_TYPES,
+  MAX_WORD_LENGTH,
+  MAX_WORDS_PER_LIST,
+} from '../dictation/index.js'
 import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { valid } from './validate.js'
@@ -31,101 +36,119 @@ const TranscribeQuery = z.object({
 export function dictationRoutes(deps: AppDeps) {
   const { dictation } = deps
   const { store } = dictation
-  return new Hono<AppEnv>()
-    .basePath('/dictation')
-    .post('/transcribe', valid('query', TranscribeQuery), async (c) => {
-      const query = c.req.valid('query')
-      const mimeType =
-        (c.req.header('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
-      if (!(DICTATION_MIME_TYPES as readonly string[]).includes(mimeType)) {
-        throw new HotsauceError(
-          'bad_request',
-          'Send the audio as audio/wav, audio/mp4 or audio/webm',
-          {
-            status: 415,
-          },
-        )
-      }
-      const audio = new Uint8Array(await c.req.arrayBuffer())
-      const result = await dictation.dictate(c.get('principal'), {
-        audio,
-        mimeType: mimeType.includes('wav') ? 'audio/wav' : mimeType,
-        mode: query.mode,
-        appName: query.app_name,
-        appBundle: query.app_bundle,
-        language: query.language,
-      })
-      c.header('Cache-Control', 'no-store')
-      return c.json(result)
-    })
-    .get('/words', (c) => {
-      const { userId, email } = c.get('principal')
-      // `account` lets a Mac show whose Hotsauce it is connecting to.
-      return c.json({ mine: store.words(userId), team: store.words('team'), account: email })
-    })
-    .put(
-      '/words',
-      valid(
-        'json',
-        z.union([
-          // The whole list (the web page), or edits applied to the list as it is now (the Mac).
-          z.object({ scope: z.enum(['mine', 'team']), words: WordList }),
-          // Strict, so a bad `words` list is refused rather than read as an empty edit.
-          z.strictObject({
-            scope: z.enum(['mine', 'team']),
-            add: WordList.optional(),
-            remove: WordList.optional(),
-          }),
-        ]),
-      ),
-      (c) => {
-        const body = c.req.valid('json')
-        const { userId, email } = c.get('principal')
-        const scope = body.scope === 'team' ? 'team' : userId
-        const saved =
-          'words' in body ? store.setWords(scope, body.words) : store.editWords(scope, body)
-        // The team list shapes everyone's dictations: note who changed it (never the words).
-        if (body.scope === 'team') {
-          console.log(
-            `dictation team words edited by ${email}${c.get('deviceId') ? ` (device ${c.get('deviceId')})` : ''}`,
+  return (
+    new Hono<AppEnv>()
+      .basePath('/dictation')
+      .post('/transcribe', valid('query', TranscribeQuery), async (c) => {
+        const query = c.req.valid('query')
+        const mimeType =
+          (c.req.header('content-type') ?? '').split(';')[0]?.trim().toLowerCase() ?? ''
+        if (!(DICTATION_MIME_TYPES as readonly string[]).includes(mimeType)) {
+          throw new HotsauceError(
+            'bad_request',
+            'Send the audio as audio/wav, audio/mp4 or audio/webm',
+            {
+              status: 415,
+            },
           )
         }
-        return c.json({ scope: body.scope, words: saved })
-      },
-    )
-    .get('/devices', (c) => {
-      const devices = store.listDevices(c.get('principal').userId)
-      return c.json(
-        devices.map(({ id, name, createdAt, lastUsedAt, appVersion }) => ({
-          id,
-          name,
-          createdAt,
-          lastUsedAt,
-          appVersion,
-        })),
-      )
-    })
-    .post('/devices', valid('json', z.object({ name: z.string().trim().min(1).max(80) })), (c) => {
-      const principal = c.get('principal')
-      const { device, token } = store.createDevice(principal, c.req.valid('json').name)
-      c.header('Cache-Control', 'no-store')
-      return c.json(
-        {
-          id: device.id,
-          name: device.name,
-          createdAt: device.createdAt,
-          lastUsedAt: null,
-          appVersion: null,
-          token,
+        const audio = new Uint8Array(await c.req.arrayBuffer())
+        const result = await dictation.dictate(c.get('principal'), {
+          audio,
+          mimeType: mimeType.includes('wav') ? 'audio/wav' : mimeType,
+          mode: query.mode,
+          appName: query.app_name,
+          appBundle: query.app_bundle,
+          language: query.language,
+        })
+        c.header('Cache-Control', 'no-store')
+        return c.json(result)
+      })
+      // The models in use and the member's cleanup choice (docs/PLAN-dictate-models.md, R1, R2).
+      .get('/settings', (c) => c.json(dictation.settings(c.get('principal').userId)))
+      .put(
+        '/settings',
+        valid('json', z.strictObject({ cleanup: z.enum(CLEANUP_CHOICES) })),
+        (c) => {
+          const { userId } = c.get('principal')
+          store.setCleanupChoice(userId, c.req.valid('json').cleanup)
+          return c.json(dictation.settings(userId))
         },
-        201,
       )
-    })
-    .delete('/devices/:id', (c) => {
-      // `self` is the calling device, for a Mac that disconnects or reconnects itself.
-      const id = c.req.param('id') === 'self' ? c.get('deviceId') : c.req.param('id')
-      if (!id) throw new HotsauceError('bad_request', 'Only a connected Mac can disconnect itself')
-      store.revokeDevice(c.get('principal').userId, id)
-      return c.body(null, 204)
-    })
+      .get('/words', (c) => {
+        const { userId, email } = c.get('principal')
+        // `account` lets a Mac show whose Hotsauce it is connecting to.
+        return c.json({ mine: store.words(userId), team: store.words('team'), account: email })
+      })
+      .put(
+        '/words',
+        valid(
+          'json',
+          z.union([
+            // The whole list (the web page), or edits applied to the list as it is now (the Mac).
+            z.object({ scope: z.enum(['mine', 'team']), words: WordList }),
+            // Strict, so a bad `words` list is refused rather than read as an empty edit.
+            z.strictObject({
+              scope: z.enum(['mine', 'team']),
+              add: WordList.optional(),
+              remove: WordList.optional(),
+            }),
+          ]),
+        ),
+        (c) => {
+          const body = c.req.valid('json')
+          const { userId, email } = c.get('principal')
+          const scope = body.scope === 'team' ? 'team' : userId
+          const saved =
+            'words' in body ? store.setWords(scope, body.words) : store.editWords(scope, body)
+          // The team list shapes everyone's dictations: note who changed it (never the words).
+          if (body.scope === 'team') {
+            console.log(
+              `dictation team words edited by ${email}${c.get('deviceId') ? ` (device ${c.get('deviceId')})` : ''}`,
+            )
+          }
+          return c.json({ scope: body.scope, words: saved })
+        },
+      )
+      .get('/devices', (c) => {
+        const devices = store.listDevices(c.get('principal').userId)
+        return c.json(
+          devices.map(({ id, name, createdAt, lastUsedAt, appVersion }) => ({
+            id,
+            name,
+            createdAt,
+            lastUsedAt,
+            appVersion,
+          })),
+        )
+      })
+      .post(
+        '/devices',
+        valid('json', z.object({ name: z.string().trim().min(1).max(80) })),
+        (c) => {
+          const principal = c.get('principal')
+          const { device, token } = store.createDevice(principal, c.req.valid('json').name)
+          c.header('Cache-Control', 'no-store')
+          return c.json(
+            {
+              id: device.id,
+              name: device.name,
+              createdAt: device.createdAt,
+              lastUsedAt: null,
+              appVersion: null,
+              token,
+            },
+            201,
+          )
+        },
+      )
+      .delete('/devices/:id', (c) => {
+        // `self` is the calling device, for a Mac that disconnects or reconnects itself.
+        const id = c.req.param('id') === 'self' ? c.get('deviceId') : c.req.param('id')
+        if (!id)
+          throw new HotsauceError('bad_request', 'Only a connected Mac can disconnect itself')
+        store.revokeDevice(c.get('principal').userId, id)
+        return c.body(null, 204)
+      })
+  )
 }

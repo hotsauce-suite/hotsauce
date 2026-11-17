@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Principal } from '../auth/index.js'
 import { FakeLLM } from '../meetings/llm/fake.js'
-import { Dictation, skipsCleanup } from './service.js'
+import { Dictation, modelName, skipsCleanup } from './service.js'
 import { DictationStore } from './store.js'
 import type { DictationTranscriber } from './transcriber.js'
 
@@ -163,5 +163,22 @@ describe('skipsCleanup', () => {
     expect(skipsCleanup('Über über alles.', 'de')).toBe(false)
     expect(skipsCleanup('Send the the report.')).toBe(false)
     expect(skipsCleanup('Send the report, then the deck.')).toBe(true)
+  })
+})
+
+describe('modelName', () => {
+  it('says model ids the way people do, and leaves others alone', () => {
+    expect(modelName('claude-haiku-5-5')).toBe('Claude Haiku 5.5')
+    expect(modelName('claude-sonnet-5')).toBe('Claude Sonnet 5')
+    expect(modelName('gpt-x')).toBe('gpt-x')
+  })
+})
+
+describe('the cleanup choice in the stream', () => {
+  it('starts no early cleanup for a member on Off', () => {
+    const { service } = dictation('um so the the report is due Tuesday no wait Wednesday')
+    expect(service.speculate(MEMBER, 'um so the the report', { mode: 'clean' })).not.toBeNull()
+    service.store.setCleanupChoice(MEMBER.userId, 'off')
+    expect(service.speculate(MEMBER, 'um so the the report', { mode: 'clean' })).toBeNull()
   })
 })

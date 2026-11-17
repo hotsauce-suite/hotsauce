@@ -31,6 +31,8 @@ function deviceTokenMayCall(method: string, path: string): boolean {
   return (
     (method === 'POST' && path === DICTATION_UPLOAD) ||
     ((method === 'GET' || method === 'PUT') && path === '/api/dictation/words') ||
+    // The member's cleanup choice and the models' names, for the Mac to show; only the web changes it.
+    (method === 'GET' && path === '/api/dictation/settings') ||
     // A Mac disconnecting (or replacing) itself.
     (method === 'DELETE' && path === '/api/dictation/devices/self')
   )

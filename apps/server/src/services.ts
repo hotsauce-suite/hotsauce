@@ -276,6 +276,13 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
           )
         : llm),
     model: config.DICTATION_MODEL,
+    carefulModel: config.DICTATION_CAREFUL_MODEL,
+    speechName:
+      config.ASR_PROVIDER === 'deepgram'
+        ? 'Deepgram Nova-3'
+        : config.ASR_PROVIDER === 'none'
+          ? 'Off (no Deepgram key)'
+          : 'Test transcriber',
     chatNames: teamChatNames({
       // The rail's name for it: "<org> Chat", or "<product> Chat" without an org name.
       orgName: config.ORG_NAME || config.PRODUCT_NAME,
