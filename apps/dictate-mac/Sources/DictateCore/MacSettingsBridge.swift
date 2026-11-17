@@ -146,7 +146,7 @@ public enum MacSettingsBridge {
                     "location": location,
                     "notifications": notifications.rawValue,
                 ] as [String: Any],
-                "account": account ?? NSNull(),
+                "account": account.map { $0 as Any } ?? NSNull(),
             ]
         }
     }

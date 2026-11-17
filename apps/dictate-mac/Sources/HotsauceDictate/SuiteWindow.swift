@@ -335,7 +335,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     /// Answers Settings → This Mac's `hotsauceMacSettings.postMessage(...)`, only for the suite's
     /// own page in its main frame (R9). Hello marks this document as having the page (R11).
-    fileprivate func macSettings(for message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
+    fileprivate func answerMacSettings(_ message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
         guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo),
               let request = MacSettingsBridge.parse(message.body)
         else { return reply(nil) }
@@ -866,7 +866,7 @@ private final class MacSettingsHandler: NSObject, WKScriptMessageHandlerWithRepl
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
         MainActor.assumeIsolated {
             guard let suite else { return replyHandler(nil, nil) }
-            suite.macSettings(for: message) { answer in
+            suite.answerMacSettings(message) { answer in
                 MainActor.assumeIsolated { replyHandler(answer, nil) }
             }
         }
