@@ -18,3 +18,13 @@ Learnings from "Take notes on this Zoom call?" (`DictateCore/CallWatch.swift`, `
 - **A tolerance test must fail on the old code.** A test with one dropped tick that only checks
   "one offer eventually" passes on the old code too (it restarts and offers 4 s later). Check the
   offer comes on time, and add a mic that flickers every other tick.
+- **"The call: Silent" doesn't mean no permission.** A process tap delivers only what the Mac
+  plays, and a quiet Zoom room plays nothing, so a 3 s check failed on a working setup. Exact
+  zeros can't tell "not allowed" from "nobody talking" either. The check now keeps listening in
+  Mac mode and the message names the permission with a button to it.
+- **TCC keys a self-signed app by its designated requirement** (`identifier … and certificate
+  root = H"…"`), so rebuilds signed by the same local certificate keep their grants; a new bundle
+  id (the rename) is a new app that has to be allowed again.
+- **In zsh, `log` is a builtin.** `log show …` silently prints nothing; use `/usr/bin/log`.
+- **Call-end auto-stop only knew the app's own recordings.** A meeting started from the call notice
+  in mic-only mode never stopped. The page now tells the app it follows the call (`follow-call`).

@@ -13,6 +13,8 @@ final class CallDetector {
     private let suite: SuiteWindow
     private let isEnabled: () -> Bool
     private var watch = CallWatch()
+    /// The app on the current call, for the decision log: when a call ends no app holds the mic.
+    private var callApp: String?
     private var timer: Timer?
     private static let tick: TimeInterval = 2
 
@@ -37,23 +39,26 @@ final class CallDetector {
         let action = watch.update(micApp: app, recording: suite.recordingMeetingSession, now: Date())
         switch action {
         case .offerNotes(let name):
+            callApp = name
             record(name, "offered")
             notify(id: Self.offerID, title: "Take notes on this \(name) call?",
                    body: "\(Brand.name) records your mic and the call’s audio once you start.",
                    path: MicApps.startPath(app: name), app: name)
         case .callEnded(let session):
-            record(app, "call ended while recording")
+            record(callApp, "call ended while recording")
             withdrawOffer()
             suite.meetingCallEnded(session: session)
             notify(id: "call-end", title: "The call ended",
                    body: "\(Brand.name) stops taking notes in 30 seconds. Open \(Brand.name) to keep recording.",
-                   path: nil, app: app)
+                   path: nil, app: callApp)
         case .callOver:
-            record(app, "call ended")
+            record(callApp, "call ended")
             withdrawOffer()
         case .skipped(let name, .recording):
+            callApp = name
             record(name, "not offered: a meeting was already recording")
         case .skipped(let name, .cooldown):
+            callApp = name
             record(name, "not offered: offered for this app in the last 10 minutes")
         case nil:
             break

@@ -59,6 +59,19 @@ import Testing
         #expect(actions == [.offerNotes(app: "Zoom")])
     }
 
+    @Test func twoDroppedTicksOnALateTimerStillOffer() {
+        // A real 2 s timer runs a little late: two missed ticks measure just over 4 s.
+        var watch = CallWatch()
+        var actions: [CallWatch.Action] = []
+        let present = [true, false, false, true, true, true]
+        for (tick, here) in present.enumerated() {
+            if let action = watch.update(micApp: here ? "Zoom" : nil, recording: nil, now: t0.addingTimeInterval(Double(tick) * 2.05)) {
+                actions.append(action)
+            }
+        }
+        #expect(actions == [.offerNotes(app: "Zoom")])
+    }
+
     @Test func aGrabThatStopsForGoodWithinFourSecondsIsNotACall() {
         var watch = CallWatch()
         #expect(run(&watch, from: 0, for: 2, app: "Zoom", recording: nil).isEmpty)

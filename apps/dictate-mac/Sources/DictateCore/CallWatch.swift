@@ -10,7 +10,8 @@ public struct CallWatch: Sendable {
     public static let startAfter: TimeInterval = 4
     /// While a call is starting, the app can let go of the mic for a moment (joining muted, a
     /// device switch, Core Audio between two reads); only a longer gap means it wasn't a call.
-    public static let startGap: TimeInterval = 4
+    /// Two missed 2 s ticks are tolerated; 5, not 4, because a real timer runs a little late.
+    public static let startGap: TimeInterval = 5
     /// Calls drop the mic for a moment when devices change; that isn't the end.
     public static let endAfter: TimeInterval = 20
     /// "The call ended" only follows a call that lasted this long.
