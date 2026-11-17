@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.49.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "On a phone, choose the apps on the bottom tab bar: open Apps, tap Edit tab bar, then tap apps to add or remove them and drag to reorder. Up to five, and your choice follows you to every phone."
+        }
+      ]
+    },
+    {
       "version": "0.48.0",
       "date": "2026-11-17",
       "notes": [
