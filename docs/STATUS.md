@@ -93,6 +93,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
 - **What's new** (Settings → What's new, from the version under the Settings menu): plain release notes, newest first, from `WHATS_NEW.json`, which the Release workflow fills from each pull request's "What's new" section. Also at hotsauce.work/changes. Needs nothing extra.
+- **Settings search** (the box above the Settings menu, or `/` on a Settings page): finds any section by its name or everyday words and opens it on its page; the same sections are in ⌘K once typed. One list, `apps/web/src/routes/settings/searchIndex.ts`; a test fails if a listed section is missing from its page. Needs nothing extra.
 - **Usage** (Settings → Usage, admins): each app's items made or changed and people per week for 12 weeks, counted from Git history, Clips' list and Dictate's connected Macs. Nothing is tracked; numbers only. Needs nothing extra.
 
 ## Outside the web app

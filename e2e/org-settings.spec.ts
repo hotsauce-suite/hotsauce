@@ -39,14 +39,14 @@ test('the Settings menu stays put while the page scrolls', async ({ page }) => {
     // box, so it is checked by still being on screen.
     const below = (id: string) => async () =>
       Math.round(((await top(id)) ?? 0) - ((await top('settings-scroll')) ?? 0))
-    // Wait out the page's entrance; the menu rests 40px down, wherever the page is scrolled to.
-    await expect.poll(below('settings-nav-general')).toBe(40)
+    // Wait out the page's entrance; the menu (search box first) rests 40px down, wherever the page is scrolled to.
+    await expect.poll(below('settings-search')).toBe(40)
     await pane.evaluate((el) => el.scrollTo({ top: 300 }))
     await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBe(300)
-    await expect.poll(below('settings-nav-general')).toBe(40)
+    await expect.poll(below('settings-search')).toBe(40)
     await pane.evaluate((el) => el.scrollTo({ top: 700 }))
     await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBeGreaterThan(400)
-    await expect.poll(below('settings-nav-general')).toBe(40)
+    await expect.poll(below('settings-search')).toBe(40)
     await expect(page.getByTestId('settings-nav-general')).toBeInViewport()
     await expect(page.getByTestId('settings-reload')).toBeInViewport()
   }
