@@ -79,11 +79,17 @@ const MIGRATIONS = [
     user_id TEXT PRIMARY KEY,
     cleanup TEXT NOT NULL
   );`,
+  // Where the Mac app hears the member (docs/PLAN-dictate-models.md, R7); null is online.
+  `ALTER TABLE dictation_prefs ADD COLUMN speech TEXT;`,
 ]
 
 /** How a member's dictations are cleaned up (docs/PLAN-dictate-models.md). */
 export const CLEANUP_CHOICES = ['fast', 'careful', 'off'] as const
 export type CleanupChoice = (typeof CLEANUP_CHOICES)[number]
+
+/** Where the Mac app hears the member: the server's speech model, or the Mac alone. */
+export const SPEECH_CHOICES = ['online', 'device'] as const
+export type SpeechChoice = (typeof SPEECH_CHOICES)[number]
 
 /**
  * The version in a `Hotsauce-App: mac/<version>[+<build>]` header (`mac/0.26.0+1400`), or null
@@ -246,6 +252,22 @@ export class DictationStore {
       .get(userId) as { cleanup: string } | undefined
     const saved = row?.cleanup as CleanupChoice | undefined
     return saved && CLEANUP_CHOICES.includes(saved) ? saved : 'fast'
+  }
+
+  /** Where the member's Mac app hears them; online until they pick the Mac alone. */
+  speechChoice(userId: string): SpeechChoice {
+    const row = this.#db
+      .prepare('SELECT speech FROM dictation_prefs WHERE user_id = ?')
+      .get(userId) as { speech: string | null } | undefined
+    return row?.speech === 'device' ? 'device' : 'online'
+  }
+
+  setSpeechChoice(userId: string, speech: SpeechChoice): void {
+    this.#db
+      .prepare(
+        "INSERT INTO dictation_prefs (user_id, cleanup, speech) VALUES (?, 'fast', ?) ON CONFLICT (user_id) DO UPDATE SET speech = excluded.speech",
+      )
+      .run(userId, speech)
   }
 
   setCleanupChoice(userId: string, cleanup: CleanupChoice): void {

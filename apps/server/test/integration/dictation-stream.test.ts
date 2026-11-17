@@ -9,6 +9,7 @@ import { loadConfig } from '../../src/config.js'
 import {
   DictationSocketServer,
   WS_DICTATION_FAILED,
+  WS_DICTATION_FORBIDDEN,
   WS_DICTATION_UNAUTHORIZED,
 } from '../../src/dictation/index.js'
 import { FakeLLM, FakeTranscriber } from '../../src/meetings/index.js'
@@ -223,6 +224,17 @@ describe('/ws/dictation', () => {
 
     const missing = await stream((ws) => ws.send(JSON.stringify({ type: 'finish' })))
     expect(missing.close.code).toBe(WS_DICTATION_UNAUTHORIZED)
+  })
+
+  it('refuses the audio of a member on “On this Mac only” with 4403', async () => {
+    const t = token()
+    services.dictation.store.setSpeechChoice(`dev:${ALICE}`, 'device')
+    const { messages, close } = await stream((ws) => {
+      ws.send(JSON.stringify({ type: 'start', token: t, mode: 'clean' }))
+      for (const frame of frames(500)) ws.send(frame)
+    })
+    expect(close.code).toBe(WS_DICTATION_FORBIDDEN)
+    expect(messages).toEqual([expect.objectContaining({ type: 'error', code: 'forbidden' })])
   })
 
   it('cancel closes without a result or a model call', async () => {

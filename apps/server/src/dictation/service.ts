@@ -4,7 +4,7 @@ import type { LLM } from '../meetings/llm/types.js'
 import { cleanTranscript } from './cleaner.js'
 import { type DictationStyle, styleForApp } from './prompt.js'
 import { RateLimiter } from './rate-limit.js'
-import type { CleanupChoice, DictationStore } from './store.js'
+import type { CleanupChoice, DictationStore, SpeechChoice } from './store.js'
 import type { DictationTranscriber } from './transcriber.js'
 import { readWav } from './wav.js'
 
@@ -160,6 +160,8 @@ export interface DictationModels {
 
 /** What `GET /api/dictation/settings` answers. */
 export interface DictationSettings {
+  /** `device`: the Mac app hears the member on the Mac alone and sends only text (R7, R8). */
+  speech: SpeechChoice
   cleanup: CleanupChoice
   /** False when the server has no AI key: nothing is cleaned, whatever the choice. */
   cleanupAvailable: boolean
@@ -224,6 +226,7 @@ export class Dictation {
   /** The member's cleanup choice and the models in use (R1). */
   settings(userId: string): DictationSettings {
     return {
+      speech: this.store.speechChoice(userId),
       cleanup: this.store.cleanupChoice(userId),
       cleanupAvailable: this.#cleanupAvailable,
       models: {
@@ -233,6 +236,41 @@ export class Dictation {
         careful: modelName(this.#carefulModel),
       },
     }
+  }
+
+  /**
+   * A Mac's audio for a member who chose "On this Mac only" is refused (R8): a Mac app from before
+   * the choice would otherwise still send it. The browser's own dictation isn't a Mac's.
+   */
+  refuseMacAudio(principal: Principal): void {
+    if (this.store.speechChoice(principal.userId) === 'device') {
+      throw new HotsauceError(
+        'forbidden',
+        'Your Dictate is set to “On this Mac only”. Update the Mac app, or change it in Dictate → Models.',
+      )
+    }
+  }
+
+  /**
+   * Tidies text the Mac heard itself (R8): the same cleanup as a dictation, with the member's
+   * choice and words, counted against their 30 a minute. Nothing is kept.
+   */
+  async cleanText(
+    principal: Principal,
+    req: CleanupContext & { text: string },
+  ): Promise<DictateResult> {
+    this.takeSlot(principal)
+    return this.finish(principal, {
+      transcript: req.text,
+      durationMs: 0,
+      asrMs: 0,
+      bytes: 0,
+      mode: req.mode,
+      appName: req.appName,
+      appBundle: req.appBundle,
+      language: req.language,
+      via: 'text',
+    })
   }
 
   /** Literal when the request asks for it or the member turned cleanup off (R3). */
@@ -345,7 +383,7 @@ export class Dictation {
       durationMs: number
       asrMs: number
       bytes: number
-      via: 'upload' | 'stream'
+      via: 'upload' | 'stream' | 'text'
     },
     speculation?: Speculation | null,
   ): Promise<DictateResult> {

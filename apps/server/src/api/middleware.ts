@@ -33,6 +33,8 @@ function deviceTokenMayCall(method: string, path: string): boolean {
     ((method === 'GET' || method === 'PUT') && path === '/api/dictation/words') ||
     // The member's cleanup choice and the models' names, for the Mac to show; only the web changes it.
     (method === 'GET' && path === '/api/dictation/settings') ||
+    // Text a Mac heard itself, for "On this Mac only" (docs/PLAN-dictate-models.md, R8).
+    (method === 'POST' && path === '/api/dictation/clean') ||
     // A Mac disconnecting (or replacing) itself.
     (method === 'DELETE' && path === '/api/dictation/devices/self')
   )
