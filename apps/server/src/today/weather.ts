@@ -25,6 +25,18 @@ export interface WeatherView {
   updated: string
   /** MET's terms ask for credit. */
   credit: 'MET Norway'
+  /** The forecast from the current hour on: hourly for about 2½ days, then every 6 hours. */
+  series: ForecastPoint[]
+}
+
+export interface ForecastPoint {
+  time: string
+  /** At `time`, in °C. */
+  temperature: number
+  /** MET's symbol code for the period until the next point. */
+  symbol: string
+  /** Rain or snow (water equivalent), in mm, over the period until the next point. */
+  precipitation: number
 }
 
 export interface WeatherDeps {
@@ -40,8 +52,14 @@ interface MetResponse {
       time: string
       data?: {
         instant?: { details?: { air_temperature?: number } }
-        next_1_hours?: { summary?: { symbol_code?: string } }
-        next_6_hours?: { summary?: { symbol_code?: string } }
+        next_1_hours?: {
+          summary?: { symbol_code?: string }
+          details?: { precipitation_amount?: number }
+        }
+        next_6_hours?: {
+          summary?: { symbol_code?: string }
+          details?: { precipitation_amount?: number }
+        }
       }
     }>
   }
@@ -145,5 +163,36 @@ export function summarize(body: MetResponse, now: number): WeatherView | null {
     low: Math.min(...day),
     updated: body.properties?.meta?.updated_at ?? first.time,
     credit: 'MET Norway',
+    series: toSeries(upcoming),
   }
+}
+
+type MetPoint = NonNullable<NonNullable<MetResponse['properties']>['timeseries']>[number]
+
+/**
+ * Each point's symbol and precipitation cover the time until the next point: MET's 1-hour figures
+ * while points are hourly, its 6-hour figures after, so a day's total counts each hour once.
+ */
+export function toSeries(points: MetPoint[]): ForecastPoint[] {
+  const out: ForecastPoint[] = []
+  points.forEach((p, i) => {
+    const temperature = p.data?.instant?.details?.air_temperature
+    if (typeof temperature !== 'number') return
+    const next = points[i + 1]
+    const gapHours = next ? (Date.parse(next.time) - Date.parse(p.time)) / 3_600_000 : 6
+    const one = p.data?.next_1_hours
+    const six = p.data?.next_6_hours
+    const period = gapHours <= 1 && one ? one : (six ?? one)
+    const amount = period?.details?.precipitation_amount
+    let precipitation = typeof amount === 'number' ? amount : 0
+    // A 6-hour figure over a shorter step (rare, where MET changes step) counts only its share.
+    if (period === six && six && gapHours < 6) precipitation = (precipitation * gapHours) / 6
+    out.push({
+      time: p.time,
+      temperature,
+      symbol: period?.summary?.symbol_code ?? 'cloudy',
+      precipitation: Math.round(precipitation * 100) / 100,
+    })
+  })
+  return out
 }

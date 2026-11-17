@@ -8,6 +8,7 @@ import { Dialog } from '../../components/Dialog'
 import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { PlaceSearch } from '../../components/PlaceSearch'
 import { timeLabel } from '../meetings/format'
+import { forecastDays, forecastHours, rainLabel } from './forecast'
 import { askLocation, inMacApp, useDeviceWeather, writeDeviceWeather } from './weatherPlace'
 
 export { WEATHER_PLACE_KEY } from './weatherPlace'
@@ -363,6 +364,7 @@ function WeatherChip({
           </button>
           {menu ? (
             <Menu anchor={menu} label="Weather" onClose={() => setMenu(null)}>
+              <Forecast weather={state.weather} fahrenheit={f} />
               <p
                 className="px-2.5 pt-1 pb-1.5 text-xs text-ink-faint"
                 data-testid="today-weather-where"
@@ -403,6 +405,89 @@ function WeatherChip({
       )
     }
   }
+}
+
+/** F2–F4: the next 12 hours and the next 7 days, at the top of the weather menu. */
+function Forecast({ weather, fahrenheit }: { weather: TodayWeather; fahrenheit: boolean }) {
+  const series = weather.series ?? []
+  const hours = forecastHours(series)
+  const days = forecastDays(series, new Date())
+  if (hours.length === 0 && days.length === 0) return null
+  const t = (c: number) => formatTemperature(c, fahrenheit)
+  const heading =
+    'px-2.5 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint'
+  return (
+    <div
+      className="w-72 max-w-[calc(100vw-2rem)] border-b border-ash pb-1.5 mb-1"
+      data-testid="today-forecast"
+    >
+      {hours.length > 1 ? (
+        <>
+          <p className={heading}>Next 12 hours</p>
+          <ol className="flex justify-between px-2.5 pb-1" data-testid="today-forecast-hours">
+            {hours.map((h, i) => {
+              const { emoji, words } = describeWeather(h.symbol)
+              return (
+                <li
+                  key={h.time.toISOString()}
+                  className="flex w-11 flex-col items-center gap-0.5 text-xs"
+                  data-testid="today-forecast-hour"
+                >
+                  <span className="text-ink-faint">
+                    {i === 0
+                      ? 'Now'
+                      : h.time
+                          .toLocaleTimeString(undefined, { hour: 'numeric' })
+                          .replace(/\s/g, '')}
+                  </span>
+                  <span aria-hidden="true" title={words} className="text-base leading-5">
+                    {emoji}
+                  </span>
+                  <span className="font-medium text-ink tabular-nums">{t(h.temperature)}</span>
+                </li>
+              )
+            })}
+          </ol>
+        </>
+      ) : null}
+      {days.length > 0 ? (
+        <>
+          <p className={heading}>Next {days.length} days</p>
+          <ol className="px-2.5" data-testid="today-forecast-days">
+            {days.map((d) => {
+              const { emoji, words } = describeWeather(d.symbol)
+              const rain = rainLabel(d.precipitation, fahrenheit)
+              return (
+                <li
+                  key={d.key}
+                  className="flex items-center gap-2 py-0.5 text-xs"
+                  data-testid="today-forecast-day"
+                >
+                  <span className="w-11 text-ink-soft">
+                    {d.today
+                      ? d.tonight
+                        ? 'Tonight'
+                        : 'Today'
+                      : d.date.toLocaleDateString(undefined, { weekday: 'short' })}
+                  </span>
+                  <span aria-hidden="true" className="w-5 text-center text-base leading-5">
+                    {emoji}
+                  </span>
+                  <span className="flex-1 truncate text-ink-faint">
+                    {rain ? <span data-testid="today-forecast-rain">{rain}</span> : words}
+                  </span>
+                  <span className="tabular-nums">
+                    <span className="font-medium text-ink">{t(d.high)}</span>
+                    <span className="text-ink-faint"> / {t(d.low)}</span>
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
+        </>
+      ) : null}
+    </div>
+  )
 }
 
 /** The greeting and what's next, at the top of the page. */

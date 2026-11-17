@@ -14,6 +14,7 @@ import {
 import { type AnyHandler, HttpResponse, http } from 'msw'
 import type { TaskView } from '../api/tasks'
 import type {
+  ForecastPoint,
   StartHereDoc,
   TodayMeeting,
   TodayView,
@@ -41,6 +42,38 @@ const SAMPLE_WEATHER: Omit<TodayWeather, 'updated'> = {
   high: 11.2,
   low: 2.8,
   credit: 'MET Norway',
+}
+
+/**
+ * A week of sample forecast from the current hour, shaped like MET's: hourly for 60 hours, then
+ * every 6 hours. Cool days and cold nights, with rain the day after tomorrow and snow at the end.
+ */
+export function sampleForecast(now = Date.now()): ForecastPoint[] {
+  const hour = 3_600_000
+  const start = Math.floor(now / hour) * hour
+  const times: number[] = []
+  for (let h = 0; h < 60; h++) times.push(start + h * hour)
+  for (let t = start + 60 * hour; t < start + 222 * hour; t += 6 * hour) times.push(t)
+  return times.map((t, i) => {
+    const local = new Date(t)
+    const day = Math.floor((t - start) / (24 * hour))
+    // Warmest mid-afternoon, coldest before dawn.
+    const temperature =
+      Math.round((6 - day * 0.6 + 5 * Math.sin(((local.getHours() - 9) / 24) * 2 * Math.PI)) * 10) /
+      10
+    const night = local.getHours() < 7 || local.getHours() >= 18
+    const step = i + 1 < times.length ? ((times[i + 1] ?? t) - t) / hour : 6
+    const wet = day === 2 ? 'rain' : day === 6 ? 'snow' : null
+    const symbol =
+      wet ??
+      (day % 3 === 1 ? 'cloudy' : `${day % 2 ? 'fair' : 'partlycloudy'}_${night ? 'night' : 'day'}`)
+    return {
+      time: local.toISOString(),
+      temperature,
+      symbol,
+      precipitation: wet ? Math.round(0.6 * step * 10) / 10 : 0,
+    }
+  })
 }
 
 /** A few places the demo's city search knows, matched by the start of their name. */
@@ -97,7 +130,18 @@ export function todayHandlers(): AnyHandler[] {
     }),
     http.get('/api/today/weather', ({ request }) => {
       const url = new URL(request.url)
-      const sample = { ...SAMPLE_WEATHER, updated: new Date().toISOString() }
+      // The chip agrees with the forecast: now is its first hour, high and low its next 24.
+      const series = sampleForecast()
+      const day = series.slice(0, 24).map((p) => p.temperature)
+      const sample = {
+        ...SAMPLE_WEATHER,
+        temperature: series[0]?.temperature ?? SAMPLE_WEATHER.temperature,
+        symbol: series[0]?.symbol ?? SAMPLE_WEATHER.symbol,
+        high: Math.max(...day),
+        low: Math.min(...day),
+        updated: new Date().toISOString(),
+        series,
+      }
       if (url.searchParams.has('lat')) return HttpResponse.json(sample)
       return HttpResponse.json(teamPlace ? { ...sample, place: teamPlace.name } : null)
     }),
