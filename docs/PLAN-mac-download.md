@@ -2,9 +2,9 @@
 
 ## Status
 
-- Slice 1 (download link with its version on hotsauce.work): built, in review.
-- Slice 2 (build the Mac app with every Hotsauce release): waiting on the owner's answer and the
-  signing key in GitHub secrets.
+- Slice 1 (download link with its version on hotsauce.work): live (PR #167).
+- Slice 2 (build the Mac app with every Hotsauce release, no update nags for number-only builds):
+  built; waits on the owner running `apps/dictate-mac/scripts/create-release-signing.sh` once.
 
 ## Why
 
@@ -27,6 +27,17 @@ long-replaced `mac-app` release. People don't know the app and the suite are ver
 5. The landing page shows "Download the Mac app · Version X · macOS 14 or later" under the hero
    buttons, filled in from requirement 2, and links to it from "Installs like an app"; the FAQ and
    the Mac app help page link to it. Checked in a real browser, desktop and phone, light and dark.
-6. (Slice 2) A macOS GitHub runner builds, signs (the same self-signed identity, so permissions
-   survive updates) and publishes `mac-app-<build>` after each Hotsauce release, so the newest
-   download always carries the current release number.
+6. (Slice 2) After each Release run, a GitHub Mac builds main when its version or the
+   `apps/dictate-mac` tree differs from the newest build, signs it with "Hotsauce Release Signing"
+   from the repository's secrets, checks the signature and version, and publishes
+   `mac-app-<build>` (the previous build plus one). Without the secrets it builds nothing.
+   Checked by its first real run.
+7. (Slice 2) `mac-app.json` carries `source` (the tree) and `sameAppSince` (the first build with
+   that tree). An installed build at or above `sameAppSince` is current, in Settings
+   (`apps/web/src/lib/macAppVersion.test.ts`) and in the app's own menu (`AppVersionTests.swift`).
+9. The site deploy looks up the newest build with GitHub Actions' own token and passes it to the
+   Worker (`MAC_APP_TAG`, `MAC_APP_VERSION`, `MAC_APP_BUILD`); the Worker asks GitHub itself only
+   without them, because Cloudflare's unauthenticated calls were refused on the first live check.
+   The Mac app workflow redeploys the site after each build. Test: `site/worker.test.js`.
+8. (Slice 2) `scripts/build-app.sh` prefers "Hotsauce Release Signing" over the older
+   one-Mac identity, so hand builds match GitHub's.
