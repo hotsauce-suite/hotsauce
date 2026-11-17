@@ -16,7 +16,12 @@ import {
   supportsTabCapture,
 } from './audio/capture'
 import { extensionVersion } from './audio/extension'
-import { framesArrived, supportsMacCapture } from './audio/mac'
+import {
+  canOpenMacAudioSettings,
+  framesArrived,
+  openMacAudioSettings,
+  supportsMacCapture,
+} from './audio/mac'
 import {
   MeetingsPageHeader,
   primaryButton,
@@ -34,15 +39,14 @@ import {
   INITIAL_START,
   overallCheck,
   startReducer,
+  trackLabel,
 } from './startMachine'
+
+/** How long the sound check keeps listening for a quiet Mac call after it first says Silent. */
+const LATE_SOUND_MS = 10 * 60_000
 
 const consentLine = () =>
   `Heads up: I’m taking notes with ${product()} so I can focus on our conversation. Say if you’d rather I didn’t.`
-
-const TRACK_LABEL: Record<Track, string> = {
-  me: 'You, on the microphone',
-  them: 'The call, from the Meet tab',
-}
 
 /** The event with this id, from yesterday through the next week. */
 function eventById(id: string): Promise<CalendarEvent | null> {
@@ -187,7 +191,17 @@ function StartForm() {
       if (!arrived) continue
       void arrived.then(
         (arrived) => {
-          if (capture.current === current) dispatch({ type: 'checked', track, arrived })
+          if (capture.current !== current) return
+          dispatch({ type: 'checked', track, arrived })
+          // The Mac app's tap only carries what the Mac plays: a quiet call is silent for the
+          // first 3 s. Keep listening, so the row turns to "Sound is arriving" the moment it does.
+          if (!arrived && current.frames) {
+            void framesArrived(current.frames, track, { timeoutMs: LATE_SOUND_MS }).then((late) => {
+              if (late && capture.current === current) {
+                dispatch({ type: 'checked', track, arrived: true })
+              }
+            })
+          }
         },
         () => {
           if (capture.current === current) dispatch({ type: 'checked', track, arrived: false })
@@ -263,6 +277,8 @@ function StartForm() {
       // The capture now belongs to the live meeting; leaving this page must not stop it.
       handedOff.current = true
       const meeting = beginLive(created)
+      // From the app's call notice: whatever the mode, this meeting ends with that call.
+      meeting.followsCall = params.get('via') === 'mac-call'
       meeting.attachCapture(current).catch(() => {
         patchLive({
           error: `${product()} couldn’t start recording audio. Resume capture to try again.`,
@@ -413,7 +429,11 @@ function StartForm() {
               {tracks ? (
                 <ul className="mt-2 space-y-1.5">
                   {(Object.keys(tracks) as Track[]).sort().map((track) => (
-                    <TrackRow key={track} track={track} state={tracks[track] ?? 'waiting'} />
+                    <TrackRow
+                      key={track}
+                      label={trackLabel(track, mode)}
+                      state={tracks[track] ?? 'waiting'}
+                    />
                   ))}
                 </ul>
               ) : null}
@@ -421,11 +441,21 @@ function StartForm() {
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                   <span className="text-ink-soft">
                     {tracks?.them === 'failed' && mode === 'mac'
-                      ? `No sound from other apps yet. Someone may just not be talking. If it stays silent during a call, turn on ${product()} in System Settings → Privacy & Security → Screen & System Audio Recording.`
+                      ? `No sound from other apps. If someone on the call is talking, ${product()} isn’t allowed to hear other apps yet: turn on ${product()} in System Settings → Privacy & Security → Screen & System Audio Recording, then check again.`
                       : tracks?.them === 'failed'
                         ? 'No sound from the Meet tab yet. Someone may just not be talking.'
                         : `${product()} can’t hear the microphone. Check it isn’t muted.`}
                   </span>
+                  {tracks?.them === 'failed' && mode === 'mac' && canOpenMacAudioSettings() ? (
+                    <button
+                      type="button"
+                      data-testid="open-audio-settings"
+                      onClick={() => openMacAudioSettings()}
+                      className="text-ember-strong underline"
+                    >
+                      Open System Settings
+                    </button>
+                  ) : null}
                   <button type="button" onClick={recheck} className="text-ember-strong underline">
                     Check again
                   </button>
@@ -525,7 +555,7 @@ const CHECK_TEXT: Record<CheckState, string> = {
   failed: 'Silent',
 }
 
-function TrackRow({ track, state }: { track: Track; state: CheckState }) {
+function TrackRow({ label, state }: { label: string; state: CheckState }) {
   return (
     <li className="flex items-center gap-2.5 text-sm">
       <span
@@ -543,7 +573,7 @@ function TrackRow({ track, state }: { track: Track; state: CheckState }) {
           className="size-3"
         />
       </span>
-      <span className="flex-1 text-ink">{TRACK_LABEL[track]}</span>
+      <span className="flex-1 text-ink">{label}</span>
       <span className={state === 'failed' ? 'text-ember-strong' : 'text-ink-soft'}>
         {CHECK_TEXT[state]}
       </span>

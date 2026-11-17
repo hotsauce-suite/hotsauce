@@ -10,8 +10,20 @@ export interface Principal {
   name: string
   handle: string
   isAdmin: boolean
-  /** Set when the request came with a personal access token rather than a session (ARCHITECTURE §8.1). */
-  via?: { kind: 'token'; tokenId: string; tokenName: string }
+  /**
+   * Set when the request came with a personal access token rather than a session (ARCHITECTURE
+   * §8.1). `access: 'team-read'` is a connection meant to be shared (a team chat's assistant): the
+   * team space only, read only (§8.5).
+   */
+  via?: { kind: 'token'; tokenId: string; tokenName: string; access?: 'team-read' }
+}
+
+/**
+ * A team-only connection (§8.5): it sees the team space and nothing that belongs to one member
+ * (their personal space, calendar, brief, saved links, own clips), and it writes nothing.
+ */
+export function isTeamOnly(p: Pick<Principal, 'via'>): boolean {
+  return p.via?.access === 'team-read'
 }
 
 export interface Authenticator {

@@ -45,7 +45,8 @@ refuses the fakes and needs the keys:
 | `LLM_PROVIDER` | `fake`; `anthropic` in production | `anthropic` needs `ANTHROPIC_API_KEY` |
 | `ENHANCE_MODEL` | `claude-sonnet-5-5` | |
 | `CHAT_MODEL` | `claude-opus-5-5` | |
-| `DICTATION_MODEL` | `claude-haiku-5-5` | Hotsauce Dictate's cleanup pass; runs on every dictation, so a fast model. |
+| `DICTATION_MODEL` | `claude-haiku-5-5` | Hotsauce Dictate's cleanup pass (the Fast choice); runs on every dictation, so a fast model. |
+| `DICTATION_CAREFUL_MODEL` | `claude-sonnet-5-5` | The cleanup a member can pick as Careful in Dictate → Models. |
 | `KEEP_AUDIO` | `false` | whether Stop keeps the audio when the client doesn't say |
 | `RESEND_API_KEY` | unset | Sign emails signing links and finished copies through Resend; unset, the sender copies links |
 | `MAIL_FROM` | unset | the address Sign's emails come from, on a domain verified in Resend |

@@ -376,11 +376,94 @@ describe('Start screen', () => {
     }
   })
 
+  it('in the Mac app, a silent call says the app may not be allowed to hear other apps', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    const postMessage = vi.fn(async (_message: unknown) => null)
+    w.hearthMac = { meetingAudio: 2 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage } } }
+    const frames = new Set<(track: 'me' | 'them', pcm: Uint8Array) => void>()
+    capture.captureAudio.mockImplementation(async (mode: string) => ({
+      mode,
+      streams: {},
+      frames: {
+        tracks: ['me', 'them'],
+        onFrame: (l: (track: 'me' | 'them', pcm: Uint8Array) => void) => {
+          frames.add(l)
+          return () => frames.delete(l)
+        },
+      },
+      onEnded: () => () => {},
+      stop: capture.stop,
+    }))
+    try {
+      renderApp('/meetings/start')
+      await userEvent.click(await screen.findByTestId('capture-mac'))
+      for (const l of [...frames]) l('me', new Uint8Array([0x00, 0x10]))
+      await waitFor(() => expect(checkState()).toBe('failed'), { timeout: 5000 })
+      expect(screen.getByText('The call, from apps on this Mac')).toBeInTheDocument()
+      expect(screen.queryByText('The call, from the Meet tab')).toBeNull()
+      expect(screen.getByTestId('audio-check')).toHaveTextContent(
+        'isn’t allowed to hear other apps yet',
+      )
+      await userEvent.click(screen.getByTestId('open-audio-settings'))
+      expect(postMessage).toHaveBeenCalledWith({ type: 'open-audio-settings' })
+      // Someone on the call speaks later: the check turns green by itself, no Check again.
+      for (const l of [...frames]) l('them', new Uint8Array([0x00, 0x10]))
+      await waitFor(() => expect(checkState()).toBe('ok'))
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
   it('a calendar reminder opened outside the Mac app only fills the page in', async () => {
     renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
     await waitFor(() => expect(screen.getByTestId('start-title')).toHaveValue('Acme sync'))
     expect(capture.captureAudio).not.toHaveBeenCalled()
     expect(screen.getByTestId('start-recording')).toBeDisabled()
+  })
+
+  it('from the call notice in mic-only mode: the meeting still ends with the call', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    const postMessage = vi.fn(async (_message: unknown) => null)
+    w.hearthMac = { meetingAudio: 2 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage } } }
+    try {
+      // The Mac check is held, so the notice's automatic start can't beat the switch to mic only.
+      let release = () => {}
+      capture.hold = new Promise((r) => {
+        release = r
+      })
+      const { router } = renderApp('/meetings/start?via=mac-call&app=Zoom')
+      await waitFor(() => expect(capture.captureAudio).toHaveBeenCalledWith('mac', null))
+      await userEvent.click(screen.getByTestId('capture-mic-only'))
+      release()
+      await waitFor(() => expect(checkState()).toBe('ok'))
+      await userEvent.click(screen.getByTestId('start-recording'))
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(postMessage).toHaveBeenCalledWith({ type: 'follow-call', session: id })
+      await waitFor(() => expect(currentLive()?.session.id).toBe(id))
+      // Resume capture (a new mic) keeps following the call: the old one lets go, the new one follows.
+      postMessage.mockClear()
+      await currentLive()?.attachCapture({
+        mode: 'mic-only',
+        streams: { me: {} as MediaStream },
+        onEnded: () => () => {},
+        stop: vi.fn(),
+      })
+      expect(postMessage.mock.calls.map(([m]) => m)).toEqual([
+        { type: 'stop', session: id },
+        { type: 'follow-call', session: id },
+      ])
+      window.dispatchEvent(
+        new CustomEvent('hearth-mac-audio', { detail: { session: id, type: 'call-ended' } }),
+      )
+      expect(await screen.findByTestId('call-ended')).toBeInTheDocument()
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
   })
 
   it('without the extension, points to it from the Meet tab choice', async () => {

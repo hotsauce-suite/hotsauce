@@ -34,8 +34,8 @@ const adminOnly = (p: Principal) => {
 }
 
 /** Building forms and reading their answers (ARCHITECTURE §21.4); spaces are checked in the service. */
-export function formRoutes(deps: Pick<AppDeps, 'forms' | 'chatRooms'>) {
-  const { forms, chatRooms } = deps
+export function formRoutes(deps: Pick<AppDeps, 'forms' | 'chatRooms' | 'chatReader'>) {
+  const { forms, chatRooms, chatReader } = deps
   return (
     new Hono<AppEnv>()
       .get('/forms', (c) =>
@@ -97,9 +97,32 @@ export function formRoutes(deps: Pick<AppDeps, 'forms' | 'chatRooms'>) {
       .get('/chat-rooms', (c) => {
         const p = c.get('principal')
         const canManage = p.isAdmin && !p.via
-        const rooms = chatRooms.list().map((r) => (canManage ? r : { id: r.id, name: r.name }))
+        const rooms = chatRooms.list().map((r) => {
+          if (!canManage) return { id: r.id, name: r.name }
+          if (!r.read) return r
+          // How much of a read room is copied, and when it was last read (PLAN-chat-context R7).
+          const { messages, readAt, error, backfilled } = chatReader.store.state(r.id)
+          return { ...r, copy: { messages, readAt, error, complete: backfilled } }
+        })
         return c.json({ rooms, canManage })
       })
+      // Read a room for context, or stop (PLAN-chat-context R1); the copy follows on the next pass.
+      .patch(
+        '/chat-rooms/:id',
+        valid('param', z.object({ id: z.string().min(1).max(40) })),
+        valid('json', z.object({ read: z.boolean() })),
+        (c) => {
+          adminOnly(c.get('principal'))
+          const { id } = c.req.valid('param')
+          const { read } = c.req.valid('json')
+          const room = chatRooms.setRead(id, read)
+          // Switched off: the copy goes now, not on the next pass (R5).
+          if (!read) chatReader.store.drop(id)
+          // Read it now rather than in five minutes; its status shows on the next list.
+          chatReader.pass().catch(() => {})
+          return c.json(room)
+        },
+      )
       .post(
         '/chat-rooms',
         valid('json', z.object({ name: z.string().max(80), url: z.string().max(2000) })),

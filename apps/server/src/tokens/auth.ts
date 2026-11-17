@@ -48,7 +48,12 @@ export class TokenAuth implements Authenticator {
     if (!principal) return null
     return {
       ...principal,
-      via: { kind: 'token', tokenId: found.connectionId, tokenName: found.clientName },
+      via: {
+        kind: 'token',
+        tokenId: found.connectionId,
+        tokenName: found.clientName,
+        ...(found.access === 'team-read' ? { access: 'team-read' as const } : {}),
+      },
     }
   }
 

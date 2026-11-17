@@ -129,6 +129,9 @@ export const ConfigSchema = z
     CLEANUP_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hotsauce Dictate's cleanup pass runs on every dictation, so it uses a fast model.
     DICTATION_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+    // The cleanup a member can pick as "Careful" (docs/PLAN-dictate-models.md): better with names
+    // and long rambles, a little slower.
+    DICTATION_CAREFUL_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     // Hotsauce Clips (ARCHITECTURE §10): the title and summary model, and where ffmpeg is.
     CLIPS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hotsauce Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
@@ -145,6 +148,10 @@ export const ConfigSchema = z
     ASSISTANT_MODEL: z.string().min(1).optional(),
     ASSISTANT_MONTHLY_LIMIT_USD: z.coerce.number().min(0).optional(),
     BRIEF_HOUR: z.coerce.number().int().min(0).max(23).default(4),
+    // Chat as context (docs/PLAN-chat-context.md): how often the rooms an admin switched on are
+    // read (0 never), and how many days back each pass re-reads threads.
+    CHAT_READ_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
+    CHAT_THREAD_DAYS: z.coerce.number().int().min(0).max(90).default(7),
     BRIEF_REFRESH_GAP_SECONDS: z.coerce.number().int().min(0).default(60),
     // Briefcast (docs/plans/2026-11-12-briefcast.md): the morning audio briefing. The script
     // model, the voice (OpenAI text to speech; fake in development and test), and the local hour

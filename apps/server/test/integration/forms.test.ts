@@ -516,7 +516,14 @@ describe('chat rooms (R13)', () => {
       as: ADMIN,
       json: { name: 'Ops', url: 'https://chat.example.test/hook/abcd1234' },
     })
-    expect(room).toEqual({ id: expect.any(String), name: 'Ops', last4: '1234' })
+    expect(room).toEqual({
+      id: expect.any(String),
+      name: 'Ops',
+      last4: '1234',
+      // Not a bot's room address, so it can only be posted to (PLAN-chat-context R1).
+      readable: false,
+      read: false,
+    })
     expect(await api('GET', '/api/chat-rooms')).toEqual({
       rooms: [{ id: room.id, name: 'Ops' }],
       canManage: false,
