@@ -64,7 +64,7 @@ PUBLIC_URL=https://hotsauce.acme.com docker compose up -d
 docker compose logs hotsauce | grep setup
 ```
 
-Put it behind a reverse proxy that terminates HTTPS and passes WebSockets through (Caddy does both with `reverse_proxy localhost:3000`). Back up the `hotsauce-data` volume.
+Put it behind a reverse proxy that terminates HTTPS and passes WebSockets through (Caddy does both with `reverse_proxy localhost:3000`). Back up the `hotsauce-data` volume. It holds Sign's seal key too (`sign/seal.json`), which the server makes the first time someone signs a PDF.
 
 ## Staying up to date
 

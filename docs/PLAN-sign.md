@@ -1,6 +1,7 @@
 # Plan: Sign (send a PDF for signature)
 
-Status (2026-11-16): slice 1 in progress (draft PR). Morgan accepted all seven recommendations
+Status (2026-11-16): slice 1 shipped (#160). Slice 2 (Sign app, Send for signature in Files, sign
+it yourself, sealed copy and certificate saved in Files) in PR #162. Next: slice 3, outside signers by email. Morgan accepted all seven recommendations
 (Q1 to Q7) on 2026-11-16. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
 
 Send a PDF for signature from Hotsauce. People inside or outside the organization sign it from a
@@ -46,7 +47,9 @@ R6. Latin, Greek and Cyrillic names and text are drawn correctly. Chinese, Japan
 ### Slice 2: sign it yourself (later)
 
 R7. An envelope is one file in Git (`sign/<id>.md`, frontmatter: title, status, source file id and
-    hash, signers, fields; body: the audit trail, one event per line). Signing-link tokens are
+    hash, signers, fields and the hash-chained audit trail; body: a readable copy of the trail).
+    The seal key is `DATA_DIR/sign/seal.json`, made on the first seal (and kept by backups and the
+    state mirror). Signing-link tokens are
     stored only as hashes. Reindexing rebuilds the Sign list from these files.
 R8. (Build) the server depends on `@hotsauce/sign`, and the Dockerfile builds it before the server.
 R9. Files has "Send for signature" on a PDF; the Sign app lists envelopes; a member places fields

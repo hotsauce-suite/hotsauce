@@ -2,7 +2,7 @@
 // returns bytes: no database, no storage, no network. Hotsauce's server keeps the envelope in Git
 // and the PDFs in Files, and hands them in.
 import { generateKeyPairSync } from 'node:crypto'
-import type { PDFDocument } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import type { AuditEventRecord, EnvelopeRecord } from './vendor/schemas/envelope.ts'
 import type { FieldRecord } from './vendor/schemas/field.ts'
 import type { SignerRecord } from './vendor/schemas/signer.ts'
@@ -157,3 +157,31 @@ export function renderCertificate(
 
 /** The SHA-256 a PDF must have to be the one an envelope was sent with. */
 export const pdfFingerprint = sha256Hex
+
+/**
+ * Each page's size in points, for placing fields. Throws when the bytes aren't a PDF pdf-lib can
+ * open; an encrypted PDF is refused, since its pages can't be stamped.
+ */
+export async function readPdfPages(
+  bytes: Uint8Array,
+): Promise<Array<{ width: number; height: number; plain: boolean }>> {
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false })
+  return doc.getPages().map((page) => {
+    const { width, height } = page.getSize()
+    // Fields are stamped in the MediaBox's own coordinates, from its corner at 0,0. A page that
+    // is turned, cropped or shifted shows differently in a reader, so a field would land
+    // somewhere other than where it was placed: `plain` is false for those.
+    const media = page.getMediaBox()
+    const crop = page.getCropBox()
+    const same = (a: number, b: number) => Math.abs(a - b) < 0.5
+    const plain =
+      page.getRotation().angle % 360 === 0 &&
+      same(media.x, 0) &&
+      same(media.y, 0) &&
+      same(crop.x, media.x) &&
+      same(crop.y, media.y) &&
+      same(crop.width, media.width) &&
+      same(crop.height, media.height)
+    return { width, height, plain }
+  })
+}

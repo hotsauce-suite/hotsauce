@@ -130,7 +130,9 @@ import {
   Turnstile,
 } from './scheduling/index.js'
 import { assertOwnShare, Shares } from './shares/index.js'
+import { Sign } from './sign/index.js'
 import { SpaceService } from './spaces/index.js'
+import { ensureSealKey } from './state/seal-key.js'
 import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
 import { Tables } from './tables/index.js'
@@ -548,6 +550,18 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     // Forms and their answers in Git; answers' files in Hotsauce Files (§21).
     chatRooms,
     forms,
+    // Sign: envelopes in Git, the PDFs in Files, sealed with the install's own key (docs/PLAN-sign.md).
+    sign: new Sign({
+      git,
+      index,
+      spaces,
+      syncer,
+      files,
+      sealKey: () =>
+        ensureSealKey(config.DATA_DIR, `${config.ORG_NAME || config.PRODUCT_NAME} documents`),
+      orgName: config.ORG_NAME || config.PRODUCT_NAME,
+      productName: config.PRODUCT_NAME,
+    }),
     // Tables: a CSV block in Git, formulas by IronCalc (§22).
     tables: new Tables({ git, index, spaces, syncer, forms }),
     links,

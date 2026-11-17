@@ -102,6 +102,12 @@ export function formFileUrl(space: string, path: string): string | null {
   return m[2] ? `${base}/answers?answer=${m[2]}` : base
 }
 
+/** An envelope opens in Sign (docs/PLAN-sign.md); anything else null. */
+export function signFileUrl(space: string, path: string): string | null {
+  const m = /^sign\/([0-9A-HJKMNP-TV-Z]{26})\.md$/.exec(path)
+  return m ? `/sign/${encodeURIComponent(space)}/${m[1]}` : null
+}
+
 /** A table opens in Tables (ARCHITECTURE §22); anything else null. */
 export function tableFileUrl(space: string, path: string): string | null {
   const m = /^tables\/([0-9A-Z]{26})\.md$/.exec(path)

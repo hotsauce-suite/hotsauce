@@ -484,6 +484,35 @@ export const shots = {
     await click(page.getByRole('button', { name: 'Add question' }), { after: 1500 })
   },
 
+  async sign({ page, signIn, startCapture, wait, moveTo, click, type }) {
+    await signIn()
+    await page.goto(`${B}/files?space=team&folder=Pilot%20launch`)
+    await wait(1500)
+    await startCapture()
+    await moveTo(900, 450, 10)
+    const row = page.getByTestId('files-row').filter({ hasText: 'Acme pilot one-pager.pdf' })
+    await click(row.getByTestId('files-open'), { after: 1200 })
+    await click(page.getByTestId('file-send-for-signature'), { after: 1500 })
+    await page.getByTestId('sign-page-1').locator('canvas').waitFor()
+    await wait(900)
+    const layer = page.locator('[data-page-layer="1"]')
+    await click(page.getByTestId('sign-add-signature'), { after: 500 })
+    await click(layer, { fx: 0.3, fy: 0.62, after: 700 })
+    await click(page.getByTestId('sign-add-date'), { after: 500 })
+    await click(layer, { fx: 0.72, fy: 0.62, after: 900 })
+    await click(page.getByTestId('sign-start'), { after: 1200 })
+    await click(page.getByTestId('sign-field-f1'), { after: 800 })
+    await page.getByTestId('signature-typed').fill('')
+    await click(page.getByTestId('signature-typed'))
+    await type('Ada Lovelace', 60)
+    await wait(700)
+    await click(page.getByTestId('signature-done'), { after: 900 })
+    await click(page.getByTestId('sign-consent'), { after: 500 })
+    await click(page.getByTestId('sign-finish'), { after: 2200 })
+    await page.getByTestId('sign-finished').waitFor()
+    await wait(1500)
+  },
+
   async booking({ page, signIn, startCapture, wait, moveTo, click, type }) {
     await signIn()
     await page.goto(`${B}/meetings/booking`)

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import forge from 'node-forge'
 import {
   decodePDFRawStream,
+  degrees,
   PDFArray,
   PDFDict,
   PDFDocument,
@@ -20,6 +21,7 @@ import {
   type FieldRecord,
   makeSealer,
   pdfFingerprint,
+  readPdfPages,
   renderCertificate,
   renderSignedPdf,
   type SignerRecord,
@@ -323,6 +325,19 @@ describe('R3 renderSignedPdf', () => {
     await expect(
       renderSignedPdf({ source, envelope: r.envelope, signers: r.signers, fields: r.fields }, seal),
     ).rejects.toThrow(/sig-maya/)
+  })
+})
+
+describe('readPdfPages', () => {
+  it('gives each page’s size, and marks turned, cropped or shifted pages as not plain', async () => {
+    const doc = await PDFDocument.create()
+    doc.addPage([612, 792])
+    doc.addPage([612, 792]).setRotation(degrees(90))
+    doc.addPage([612, 792]).setCropBox(20, 20, 500, 700)
+    doc.addPage([612, 792]).setMediaBox(10, 10, 612, 792)
+    const pages = await readPdfPages(await doc.save())
+    expect(pages.map((p) => p.plain)).toEqual([true, false, false, false])
+    expect(pages[0]).toMatchObject({ width: 612, height: 792 })
   })
 })
 

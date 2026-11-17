@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMatches, useNavigate, useParams, useSearchParams } from 'react-router'
 import { type DriveFile, type FolderListing, filesApi, formatBytes } from '../../api/files'
+import { signApi } from '../../api/sign'
 import { product } from '../../brand/product'
 import { useShell } from '../../components/AppShell'
 import { Dialog } from '../../components/Dialog'
@@ -182,6 +183,16 @@ export default function FilesPage() {
       if (ok) setToast(ok)
       setTick((n) => n + 1)
       filesBus.emit({ type: 'changed' })
+    } catch (err) {
+      setToast(message(err))
+    }
+  }
+
+  /** Sign (docs/PLAN-sign.md R9): a draft envelope for this PDF, opened to place fields. */
+  const sendForSignature = async (file: DriveFile) => {
+    try {
+      const env = await signApi.create(file.space, file.id)
+      navigate(`/sign/${encodeURIComponent(env.space)}/${env.id}`)
     } catch (err) {
       setToast(message(err))
     }
@@ -441,6 +452,7 @@ export default function FilesPage() {
             onMove={(file) => setDialog({ kind: 'move', file })}
             onDelete={(file) => setDialog({ kind: 'delete', file })}
             onShare={copyShare}
+            onSign={(file) => void sendForSignature(file)}
             onMoveSpace={(file, to) =>
               act(
                 () => filesApi.move(file.space, file.id, to),
@@ -480,6 +492,7 @@ export default function FilesPage() {
           personal={personal}
           onClose={closeFile}
           onShare={copyShare}
+          onSign={(file) => void sendForSignature(file)}
           onUnshare={(file) =>
             act(
               async () => setOpen(await filesApi.share(file.space, file.id, false)),
@@ -615,6 +628,9 @@ function RowMenuButton({ label, onOpen }: { label: string; onOpen: (a: MenuAncho
   )
 }
 
+/** A PDF can be sent for signature (Sign). */
+const isPdf = (f: DriveFile) => f.mime === 'application/pdf' || f.preview === 'pdf'
+
 function FileMenuItems({
   file,
   personal,
@@ -623,6 +639,7 @@ function FileMenuItems({
   onMove,
   onDelete,
   onShare,
+  onSign,
   onMoveSpace,
 }: {
   file: DriveFile
@@ -632,6 +649,7 @@ function FileMenuItems({
   onMove: (f: DriveFile) => void
   onDelete: (f: DriveFile) => void
   onShare: (f: DriveFile) => void
+  onSign: (f: DriveFile) => void
   onMoveSpace: (f: DriveFile, to: string) => void
 }) {
   const run = (fn: () => void) => () => {
@@ -647,6 +665,11 @@ function FileMenuItems({
       <MenuItem icon="link" testId="files-copy-link" onSelect={run(() => onShare(file))}>
         Copy link
       </MenuItem>
+      {isPdf(file) ? (
+        <MenuItem icon="sign" testId="files-send-for-signature" onSelect={run(() => onSign(file))}>
+          Send for signature
+        </MenuItem>
+      ) : null}
       <MenuItem icon="pencil" onSelect={run(() => onRename(file))}>
         Rename
       </MenuItem>
@@ -670,6 +693,7 @@ function FileDialog({
   personal,
   onClose,
   onShare,
+  onSign,
   onUnshare,
   onRename,
   onDelete,
@@ -678,6 +702,7 @@ function FileDialog({
   personal: string | null
   onClose: () => void
   onShare: (f: DriveFile) => void
+  onSign: (f: DriveFile) => void
   onUnshare: (f: DriveFile) => void
   onRename: (f: DriveFile) => void
   onDelete: (f: DriveFile) => void
@@ -749,6 +774,17 @@ function FileDialog({
             <Icon name="download" />
             Download
           </a>
+          {isPdf(file) ? (
+            <button
+              type="button"
+              className={`${secondaryButton} h-9`}
+              onClick={() => onSign(file)}
+              data-testid="file-send-for-signature"
+            >
+              <Icon name="sign" />
+              Send for signature
+            </button>
+          ) : null}
           <ShareButton testId="file-share-menu" className={`${secondaryButton} h-9`}>
             {(close) => (
               <>

@@ -4,6 +4,7 @@ import { HttpStateRemote } from './remote.js'
 export { isDurable, StateMirror } from './mirror.js'
 export { ensurePushKeys } from './push-keys.js'
 export { HttpStateRemote, MemoryStateRemote, type StateRemote } from './remote.js'
+export { ensureSealKey } from './seal-key.js'
 
 /**
  * With STATE_URL set, restores DATA_DIR's durable files from the store and returns the running

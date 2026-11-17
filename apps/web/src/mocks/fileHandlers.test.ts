@@ -18,7 +18,10 @@ describe('mock files', () => {
     expect(root.files.map((f) => f.name)).toEqual(['Hotsauce logo.svg'])
     expect(root.files.every((f) => isId(f.id))).toBe(true)
     const launch = await filesApi.list('team', 'Pilot launch')
+    // The signed copy and certificate come from the Sign demo's finished envelope.
     expect(launch.files.map((f) => [f.name, f.preview])).toEqual([
+      ['Acme pilot one-pager (certificate).pdf', 'pdf'],
+      ['Acme pilot one-pager (signed).pdf', 'pdf'],
       ['Acme pilot one-pager.pdf', 'pdf'],
       ['Launch checklist.md', 'text'],
       ['Pilot sign-ups by week.png', 'image'],
@@ -92,7 +95,7 @@ describe('mock files', () => {
     await filesApi.renameFolder('team', 'Pilot launch', 'Launch')
     const moved = await filesApi.list('team', 'Launch')
     expect(moved.folders).toEqual(['Launch/Week 1'])
-    expect(moved.files).toHaveLength(3)
+    expect(moved.files).toHaveLength(5)
     await filesApi.removeFolder('team', 'Launch')
     expect((await filesApi.list('team')).folders).toEqual(['Brand', 'Links', 'Research'])
   })
