@@ -46,12 +46,14 @@ enum AppIcons {
         return icon
     }
 
-    private static var urls: [String: String] = [:]
+    /// Each app's data URL, or nil for one this Mac has no icon for (not asked again).
+    private static var urls: [String: String?] = [:]
 
     /// The icon as a small PNG data URL, for the Dictate page's "On this Mac"
     /// (docs/PLAN-dictations-page.md R8).
     static func dataURL(for bundle: String) -> String? {
         if let cached = urls[bundle] { return cached }
+        urls[bundle] = .some(nil)
         guard let image = icon(for: bundle),
               let rep = NSBitmapImageRep(
                   bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 64, bitsPerSample: 8, samplesPerPixel: 4,

@@ -32,7 +32,7 @@ export function MacDictations({
 }) {
   const [range, setRange] = useState<DictationRange>('month')
   const [search, setSearch] = useState('')
-  const [data, setData] = useState<Dictations | null>(null)
+  const [data, setData] = useState<(Dictations & { query: string }) | null>(null)
   const [absent, setAbsent] = useState(bridge === null)
   const asked = useRef(0)
   const loaded = useRef(false)
@@ -46,7 +46,7 @@ export function MacDictations({
     if (reply) {
       loaded.current = true
       setAbsent(false)
-      setData(reply)
+      setData({ ...reply, query: search })
     } else if (!loaded.current) {
       // An app that doesn't answer has no such section; a later answer brings it back.
       setAbsent(true)
@@ -125,7 +125,7 @@ function Loaded({
   setSearch,
   bridge,
 }: {
-  data: Dictations
+  data: Dictations & { query: string }
   search: string
   setSearch: (s: string) => void
   bridge: MacSettingsBridge
@@ -196,7 +196,7 @@ function Loaded({
         <p className="mt-3 text-sm text-ink-faint" data-testid="mac-dictations-empty">
           {data.total === 0
             ? 'Hold your dictation shortcut anywhere and speak. Your dictations stay on this Mac.'
-            : `Nothing matches “${search.trim()}”.`}
+            : `Nothing matches “${data.query.trim()}”.`}
         </p>
       ) : (
         <ul className="mt-3 space-y-2" data-testid="mac-dictations-list">
@@ -248,7 +248,7 @@ function MonthGrid({ month }: { month: Dictations['month'] }) {
             <span
               key={cell.id}
               title={cell.title}
-              className={`flex h-5 w-6 items-center justify-center rounded text-[0.5rem] text-ink-faint/70 ${LEVELS[cell.level]}`}
+              className={`flex h-5 w-6 items-center justify-center rounded text-[0.5rem] ${cell.level >= 3 ? 'text-paper-raised/80' : 'text-ink-faint/70'} ${LEVELS[cell.level]}`}
             >
               {cell.label}
             </span>
@@ -333,7 +333,7 @@ function Row({
           </p>
         ) : null}
       </div>
-      <div className="flex shrink-0 flex-col gap-1.5">
+      <div className="flex shrink-0 gap-1.5">
         <button
           type="button"
           className={smallButton}
