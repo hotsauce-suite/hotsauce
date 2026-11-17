@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "version": "0.41.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "The meeting reminder joins the call link and starts taking notes in one click; \"Just take notes\" starts notes without joining.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Taking notes from the call notice starts recording right away, with no extra Start press.",
+          "area": "Mac app"
+        },
+        {
+          "text": "When you join a call for a meeting you were reminded about, one offer replaces the other, named for the meeting.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Meeting reminders now also cover calendar events that have a call link but no other guests."
+        }
+      ]
+    },
+    {
       "version": "0.40.0",
       "date": "2026-11-17",
       "notes": [
