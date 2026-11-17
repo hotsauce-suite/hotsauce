@@ -16,7 +16,13 @@ import {
   FakeAssistantModel,
   UnconfiguredAssistantModel,
 } from './assistant/index.js'
-import { type Authenticator, createAuthenticator, type Principal } from './auth/index.js'
+import {
+  type Authenticator,
+  createAuthenticator,
+  IdentityLedger,
+  instanceOf,
+  type Principal,
+} from './auth/index.js'
 import { createBackups } from './backup/index.js'
 import { BoardRooms, Boards } from './boards/index.js'
 import { AgentBriefs, BriefMembers } from './brief/index.js'
@@ -229,7 +235,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ...(config.HOTSAUCE_MASTER_KEY ? { masterKey: config.HOTSAUCE_MASTER_KEY } : {}),
     })
   const brand = new BrandStore(org.dir)
-  const auth = new TokenAuth(createAuthenticator(config), tokens, oauth)
+  // Who each member is, whatever id the sign-in provider gives them (auth/identities.ts).
+  const identities = new IdentityLedger({ dataDir: config.DATA_DIR })
+  const auth = new TokenAuth(createAuthenticator(config, identities), tokens, oauth)
   const spaces = new SpaceService({
     git,
     host,
@@ -271,7 +279,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   })
   const meetings = createMeetingServices(
     config,
-    { git, index, auth, spaces, syncer, keyterms: (p) => dictation.keyterms(p) },
+    { git, index, auth, identities, spaces, syncer, keyterms: (p) => dictation.keyterms(p) },
     { ...overrides, llm },
   )
   const dictationSockets = new DictationSocketServer({
@@ -666,13 +674,14 @@ function createMeetingServices(
     git: GitStore
     index: Index
     auth: Authenticator
+    identities: IdentityLedger
     spaces: SpaceService
     syncer: Syncer
     keyterms: (principal: Principal) => string[]
   },
   overrides: ServiceOverrides,
 ): MeetingServices {
-  const { git, index, auth, spaces, syncer, keyterms } = deps
+  const { git, index, auth, identities, spaces, syncer, keyterms } = deps
   const transcriber =
     overrides.transcriber ??
     (config.ASR_PROVIDER === 'deepgram'
@@ -683,7 +692,7 @@ function createMeetingServices(
   const llm = overrides.llm ?? createLLM(config)
   const { calendar, calendarSync, fakeGoogle, googleGrant } = overrides.calendar
     ? { calendar: overrides.calendar, calendarSync: null, fakeGoogle: null, googleGrant: null }
-    : createCalendar(config)
+    : createCalendar(config, identities)
   const templates = new MeetingTemplates({ git, spaces })
   const audioStore =
     overrides.audioStore !== undefined ? overrides.audioStore : createAudioStore(config)
@@ -756,7 +765,10 @@ function reminderServices(config: Config, calendar: CalendarSource, sender?: Pus
  * The cached Google Calendar (ARCHITECTURE §7.8). Dev auth has no Google account behind it, so
  * the same sync runs against an in-memory Google instead.
  */
-function createCalendar(config: Config): {
+function createCalendar(
+  config: Config,
+  identities: IdentityLedger,
+): {
   calendar: CalendarSource
   calendarSync: CalendarSync
   fakeGoogle: FakeGoogle | null
@@ -766,7 +778,12 @@ function createCalendar(config: Config): {
   const fakeGoogle = fake ? new FakeGoogle() : null
   const googleGrant: GoogleGrantSource = fakeGoogle
     ? async (p) => ({ token: await fakeGoogleToken(p), scopes: fakeGoogle.scopes(p.email) })
-    : clerkGoogleGrant(createClerkClient({ secretKey: config.CLERK_SECRET_KEY ?? '' }))
+    : clerkGoogleGrant(
+        createClerkClient({ secretKey: config.CLERK_SECRET_KEY ?? '' }),
+        console.log,
+        (userId) =>
+          identities.authIdFor(userId, instanceOf(config.CLERK_SECRET_KEY ?? '')) ?? userId,
+      )
   const google = new GoogleCalendarHttp({
     accessToken: async (p) => (await googleGrant(p))?.token ?? null,
     ...(fakeGoogle ? { fetch: fakeGoogle.fetch } : {}),

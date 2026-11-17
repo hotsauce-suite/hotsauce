@@ -1,6 +1,10 @@
 import { HotsauceError } from '../errors.js'
 
 export interface Principal {
+  /**
+   * Our id for the member, the same for good. Not always the sign-in provider's id for them:
+   * auth/identities.ts keeps the link.
+   */
   userId: string
   email: string
   name: string
@@ -23,6 +27,11 @@ export interface Authenticator {
    * desktop sign-in hand-off. Absent where sign-in has no such ticket.
    */
   createSignInTicket?(userId: string): Promise<string>
+  /**
+   * Records every account the sign-in provider already has, so each member keeps their id if the
+   * provider's ids ever change (auth/identities.ts). Absent where there is nothing to record.
+   */
+  recordExistingMembers?(): Promise<void>
 }
 
 function splitEmail(email: string): { local: string; domain: string } {

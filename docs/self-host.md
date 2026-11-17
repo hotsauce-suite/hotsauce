@@ -80,6 +80,16 @@ If a release changes lines you changed too, it opens an issue instead of a pull 
 1. A copy made by the Deploy button has no `.github` folder: add `update-hotsauce.yml` (and `deploy-fly.yml` on Fly) from Hotsauce's repository.
 2. In your repository's **Settings → Actions → General**, tick "Allow GitHub Actions to create and approve pull requests".
 
+## Moving sign-in to another Clerk application
+
+You can change the Clerk application your server uses at any time, for example from a development instance to a production one on your own domain. Clerk gives everyone a new account id in the new application, but Hotsauce knows each member by their verified email, so their clips, conversations, tokens, connected apps and settings stay theirs. Nothing needs migrating.
+
+1. Stay on a recent version for at least one start before the move, so every existing account is on record. The log says `sign-in: N members on record` at startup.
+2. Set the new application's `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` (environment, or Settings → Organization) and restart.
+3. Everyone signs in once more. Until a member does, their access tokens, connected AI tools and Mac app answer "Sign in again" and then carry on by themselves.
+
+To go back, set the old two keys again. The record is `identities/identities.json` in the data directory and is part of every backup.
+
 ## Backups
 
 With a storage bucket set up (Cloudflare R2 or any S3-compatible one), the server backs up its data volume to that bucket every night and keeps 14 daily and 8 weekly copies. **Settings → Data and updates** shows the last one and has a **Back up now** button.

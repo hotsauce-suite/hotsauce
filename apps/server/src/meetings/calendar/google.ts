@@ -47,6 +47,8 @@ export function clerkGoogleToken(
 export function clerkGoogleGrant(
   clerk: ClerkOAuthTokens,
   log: (message: string) => void = console.log,
+  /** The Clerk user id behind a member id (auth/identities.ts); the same id when not given. */
+  authIdFor: (userId: string) => string = (userId) => userId,
 ): GoogleGrantSource {
   const seenScopes = new Map<string, string>()
   return async (principal) => {
@@ -59,7 +61,7 @@ export function clerkGoogleGrant(
     })
     try {
       const { data } = await Promise.race([
-        clerk.users.getUserOauthAccessToken(principal.userId, 'google'),
+        clerk.users.getUserOauthAccessToken(authIdFor(principal.userId), 'google'),
         timeout,
       ])
       const first = data[0]

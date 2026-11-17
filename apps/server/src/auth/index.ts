@@ -2,10 +2,12 @@ import { createClerkClient } from '@clerk/backend'
 import type { Config } from '../config.js'
 import { ClerkAuth } from './clerk.js'
 import { DevAuth } from './dev.js'
+import { IdentityLedger, instanceOf } from './identities.js'
 import type { Authenticator } from './principal.js'
 
 export { ClerkAuth, type ClerkClientLike, type ClerkUserLike } from './clerk.js'
 export { DEV_USER_HEADER, DevAuth } from './dev.js'
+export { IdentityLedger, instanceOf } from './identities.js'
 export {
   type Authenticator,
   deriveHandle,
@@ -26,7 +28,11 @@ export type AuthConfig = Pick<
   | 'PUBLIC_URL'
 >
 
-export function createAuthenticator(config: AuthConfig): Authenticator {
+export function createAuthenticator(
+  config: AuthConfig,
+  /** Who each member is across sign-in instances; in memory when not given (tests). */
+  identities: IdentityLedger = new IdentityLedger(),
+): Authenticator {
   const allowedDomains = config.ALLOWED_EMAIL_DOMAINS
   const allowedEmails = config.ALLOWED_EMAILS
   const adminEmails = config.ADMIN_EMAILS
@@ -47,6 +53,8 @@ export function createAuthenticator(config: AuthConfig): Authenticator {
     allowedEmails,
     adminEmails,
     authorizedParties: authorizedParties(config),
+    identities,
+    instance: instanceOf(config.CLERK_SECRET_KEY),
   })
 }
 
