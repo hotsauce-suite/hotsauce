@@ -265,6 +265,31 @@ export {
 } from './saved-links.js'
 export { DocFrontmatter, MeetingFrontmatter, SpaceConfig } from './schemas.js'
 export {
+  AUDIT_EVENTS,
+  AuditEntry,
+  ENVELOPE_STATUSES,
+  EnvelopeFrontmatter,
+  type EnvelopeStatus,
+  envelopeIdOf,
+  envelopePath,
+  envelopeProblem,
+  isEnvelopeId,
+  MAX_DRAWN_SIGNATURE_CHARS,
+  MAX_FIELDS,
+  MAX_SIGN_PAGES,
+  MAX_SIGN_PDF_BYTES,
+  MAX_SIGNERS,
+  SIGN_FIELD_TYPES,
+  SIGN_FOLDER,
+  SIGNER_STATUSES,
+  Signer,
+  SignField,
+  type SignFieldType,
+  SignPage,
+  SignResult,
+  SignSource,
+} from './sign.js'
+export {
   initialSpaceFiles,
   parseSpaceConfig,
   SPACE_LAYOUT,

@@ -27,6 +27,7 @@ public enum Brand {
         ("People", "/people"),
         ("Files", "/files"),
         ("Forms", "/forms"),
+        ("Sign", "/sign"),
         ("Check-ins", "/checkins"),
         ("Tables", "/tables"),
         ("Links", "/links"),

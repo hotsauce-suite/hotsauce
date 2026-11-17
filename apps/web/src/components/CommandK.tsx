@@ -18,7 +18,14 @@ import {
   useCommandList,
 } from '../keyboard/commands'
 import { Keys } from '../keyboard/KeyCaps'
-import { displayName, fileUrl, linkFileUrl, meetingFileKind, tableFileUrl } from '../lib/paths'
+import {
+  displayName,
+  fileUrl,
+  linkFileUrl,
+  meetingFileKind,
+  signFileUrl,
+  tableFileUrl,
+} from '../lib/paths'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
 import { Icon, type IconName } from './Icon'
@@ -77,6 +84,8 @@ export function hitUrl(space: string, path: string): string {
         : fileUrl(space, path)
     case 'checkins':
       return checkinFileUrl(path)
+    case 'sign':
+      return signFileUrl(space, path) ?? fileUrl(space, path)
     default:
       return fileUrl(space, path)
   }

@@ -29,6 +29,7 @@ const KINDS = [
   'link',
   'checkin',
   'checkin-answer',
+  'envelope',
   'other',
 ] as const satisfies readonly FileKind[]
 

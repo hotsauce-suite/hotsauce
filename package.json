@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build:format": "pnpm --filter @hotsauce/format build",
+    "build:format": "pnpm --filter @hotsauce/format --filter @hotsauce/sign build",
     "dev": "pnpm build:format && pnpm -r --parallel --filter @hotsauce/format --filter @hotsauce/server --filter @hotsauce/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

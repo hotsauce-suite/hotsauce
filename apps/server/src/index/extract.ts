@@ -14,7 +14,8 @@ import { parse as parseYaml } from 'yaml'
  * `pages/` (§20.2), `form` a form under `forms/` and `form-answer` one of its answers beside it
  * (§21.1), `table` a table under `tables/` (§22.1), `link` a saved link under `links/` (§23.1), `checkin` a check-in
  * question under `checkins/` and `checkin-answer` an answer or summary beside it (§24.1),
- * `comment` one comment under `.hearth/comments/<item id>/` (§27.1).
+ * `comment` one comment under `.hearth/comments/<item id>/` (§27.1),
+ * `envelope` a document sent for signature under `sign/` (docs/PLAN-sign.md R7).
  */
 export type FileKind =
   | 'docs'
@@ -33,6 +34,7 @@ export type FileKind =
   | 'checkin'
   | 'checkin-answer'
   | 'comment'
+  | 'envelope'
   | 'other'
 
 export interface ExtractedDoc {
@@ -72,6 +74,7 @@ export function kindOf(path: string): FileKind {
   if (top === 'pages') return 'page'
   if (top === 'tables') return 'table'
   if (top === 'links') return 'link'
+  if (top === 'sign') return 'envelope'
   if (top === 'checkins') return path.split('/').length > 2 ? 'checkin-answer' : 'checkin'
   if (top === 'forms') return path.split('/').length > 2 ? 'form-answer' : 'form'
   if (top !== 'meetings') return 'other'

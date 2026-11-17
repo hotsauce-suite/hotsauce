@@ -12,6 +12,7 @@ import { meetingsRoutes } from './apps/meetings/routes'
 import { notesRoutes } from './apps/notes/routes'
 import { pagesRoutes } from './apps/pages/routes'
 import { peopleRoutes } from './apps/people/routes'
+import { signRoutes } from './apps/sign/routes'
 import { tablesRoutes } from './apps/tables/routes'
 import { tasksRoutes } from './apps/tasks/routes'
 import { todayRoutes } from './apps/today/routes'
@@ -118,6 +119,7 @@ export const createAppRouter = () =>
             { path: '/today', children: todayRoutes },
             { path: '/files', children: filesRoutes },
             { path: '/forms', children: formsRoutes },
+            { path: '/sign', children: signRoutes },
             { path: '/checkins', children: checkinsRoutes },
             { path: '/for-you', children: forYouRoutes },
             { path: '/tables', children: tablesRoutes },
