@@ -68,6 +68,44 @@ describe('IdentityLedger (I1, I2, I3)', () => {
     expect(ledger.resolve('user_b', seen('ada@example.test'))).toBe('user_b')
   })
 
+  it('I10: after a move and a verified change of address, the old address is nobody', () => {
+    const ledger = new IdentityLedger({ log: () => {} })
+    ledger.resolve('user_old', seen('ada@example.test'))
+    ledger.resolve('user_new', seen('ada@example.test', PROD))
+    ledger.resolve('user_new', seen('ada.l@example.test', PROD))
+    // A new hire is given the address she left.
+    expect(ledger.resolve('user_hire', seen('ada@example.test', 'third'))).toBe('user_hire')
+    // And the hire is one member across instances, never her.
+    expect(ledger.resolve('user_hire2', seen('ada@example.test', PROD))).toBe('user_hire')
+  })
+
+  it('I11: an account made again in the same instance starts fresh, as before', () => {
+    const ledger = new IdentityLedger({ log: () => {} })
+    ledger.resolve('user_old', seen('ada@example.test'))
+    expect(ledger.resolve('user_again', seen('ada@example.test'))).toBe('user_again')
+    // A later move follows the account she has now.
+    expect(ledger.resolve('user_new', seen('ada@example.test', PROD))).toBe('user_again')
+  })
+
+  it('I12: a rotated key is the same instance once an account is seen again', () => {
+    const ledger = new IdentityLedger({ log: () => {} })
+    const rotated = instanceOf('sk_live_two_rotated')
+    ledger.resolve('user_old', seen('ada@example.test'))
+    ledger.resolve('user_new', seen('ada@example.test', PROD))
+    expect(ledger.authIdFor('user_old', rotated)).toBeNull()
+    expect(ledger.resolve('user_new', seen('ada@example.test', rotated))).toBe('user_old')
+    expect(ledger.authIdFor('user_old', rotated)).toBe('user_new')
+  })
+
+  it('I3: an unverified first account is never matched by email, nor is a look-alike address', () => {
+    const ledger = new IdentityLedger({ log: () => {} })
+    ledger.resolve('user_unproven', seen('ada@example.test', DEV, false))
+    expect(ledger.resolve('user_real', seen('ada@example.test', PROD))).toBe('user_real')
+    // The Kelvin sign lowercases to "k".
+    ledger.resolve('user_k', seen('kim@example.test'))
+    expect(ledger.resolve('user_kelvin', seen('\u212Aim@example.test', PROD))).toBe('user_kelvin')
+  })
+
   it('I4: survives a restart, and refuses to start from a file it cannot read', async () => {
     const dir = await dataDir()
     const first = new IdentityLedger({ dataDir: dir })
@@ -296,6 +334,27 @@ describe('moving sign-in to another instance (I5 to I9)', () => {
     await auth.recordExistingMembers()
     delete dev.accounts.user_old
     expect(await auth.principalForUser('user_old')).toBeNull()
+  })
+
+  it('I12: after the key is rotated, a moved member is found again and Clerk is asked by her id there', async () => {
+    const ledger = new IdentityLedger({ log: () => {} })
+    ledger.resolve('user_old', seen('ada@example.test', instanceOf('sk_test_one')))
+    const prod = fakeInstance({ user_new: account('ada@example.test') })
+    prod.state.signedInAs = 'user_new'
+    await authOn(prod, ledger, 'sk_live_two').authenticate(request())
+
+    const rotated = authOn(prod, ledger, 'sk_live_two_rotated')
+    expect(await rotated.principalForUser('user_old')).toMatchObject({ userId: 'user_old' })
+    expect(await rotated.createSignInTicket('user_old')).toBe('ticket:user_new')
+  })
+
+  it('I8: the email lookup ignores an account that only has the address as an unverified one', async () => {
+    const ledger = new IdentityLedger({ log: () => {} })
+    ledger.resolve('user_old', seen('ada@example.test', instanceOf('sk_test_one')))
+    const prod = fakeInstance({ user_fake: account('ada@example.test', false) })
+    const auth = authOn(prod, ledger, 'sk_live_two')
+    await expect(auth.principalForUser('user_old')).rejects.toMatchObject({ code: 'unauthorized' })
+    expect(Object.keys(prod.accounts)).toEqual(['user_fake'])
   })
 
   it('an id from before the record is taken as the sign-in id it was', async () => {

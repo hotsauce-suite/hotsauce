@@ -2,11 +2,11 @@
 
 ## Status
 
-Built 2026-11-17 on branch `claude/project-thread-7g8dgw`. Every requirement has a passing test (`apps/server/src/auth/identities.test.ts`). Not built: an admin screen that lists the record, and merging two members by hand.
+Built 2026-11-17 on branch `claude/project-thread-7g8dgw`. Every requirement has a passing test (`apps/server/src/auth/identities.test.ts`). The independent review's findings are fixed (I10 to I12 came from it). Not built: an admin screen that lists the record, and merging two members by hand.
 
 ## Why
 
-Everything a member owns on the server is keyed by `Principal.userId`: clips, Ask conversations and usage, reading positions, calendar picks and cache, Dictate devices and word lists, access tokens, connected AI tools, briefing and podcast state, push subscriptions. Each browser also keys kept offline drafts by it. That id was Clerk's user id, and Clerk gives every person a new one when an organization moves to another Clerk application (development to production) or an account is deleted and made again. A plain key swap would leave every member looking at an empty account.
+Everything a member owns on the server is keyed by `Principal.userId`: clips, Ask conversations and usage, reading positions, calendar picks and cache, Dictate devices and word lists, access tokens, connected AI tools, briefing and podcast state, push subscriptions. Each browser also keys kept offline drafts by it. That id was Clerk's user id, and Clerk gives every person a new one when an organization moves to another Clerk application (development to production). A plain key swap would leave every member looking at an empty account.
 
 ## Decisions
 
@@ -15,6 +15,8 @@ Everything a member owns on the server is keyed by `Principal.userId`: clips, As
 - The record is a JSON file on the data volume, in every backup. It is written rarely and read in memory.
 - The instance is named by the start of a hash of its secret key, so nothing about the key or its host is stored.
 - Going back to the old instance needs nothing: the old ids are still linked.
+- A new id joins a member only when that member has no id in the same instance. An account deleted and made again in one instance starts fresh, exactly as before this change, so a departed person's tokens, connected apps and devices never come back.
+- The record must exist before a move. Startup lists the accounts (retried on failure); an operator checks the log line before changing keys.
 
 ## Requirements
 
@@ -29,3 +31,6 @@ Each maps to a test in `identities.test.ts`, named by its number.
 - I7: After a move and before the member signs in again, their access token and Dictate device are refused with `unauthorized` and not revoked; after one sign-in both work.
 - I8: An account that already exists in the new instance is found by email without a sign-in.
 - I9: An account deleted in the same instance is still reported gone.
+- I10: After a verified change of address, every link of the member carries the new address; the old address matches nobody.
+- I11: An account made again in the same instance is a new member; a later move follows the newest account.
+- I12: A rotated secret key is the same instance once an account is seen or looked up again.

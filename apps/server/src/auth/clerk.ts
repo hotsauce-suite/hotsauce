@@ -150,6 +150,9 @@ export class ClerkAuth implements Authenticator {
     if ((this.#absent.get(member) ?? 0) > Date.now()) throw signInAgain
     const found = await this.#clerk.users.getUserList?.({ emailAddress: [email], limit: 10 })
     for (const candidate of found?.data ?? []) {
+      // The lookup also matches secondary and unverified addresses; only a verified primary counts.
+      const primary = primaryEmail(candidate)
+      if (!primary.verified || primary.email.toLowerCase() !== email) continue
       const user = await this.#loadUser(candidate.id).catch(() => null)
       if (user?.member === member) return candidate.id
     }
