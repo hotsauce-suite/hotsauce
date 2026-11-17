@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "version": "0.39.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "⌘, and the menu bar's Settings… open Settings → This Mac in the main window: dictation shortcut, microphone, mode, edge glow, meeting reminders, the \"Take notes?\" offer, open at login, menu bar icon, permissions, Run setup again, dictation history and Disconnect.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Pick which microphone dictation uses, or keep the Mac's default.",
+          "area": "Mac app"
+        },
+        {
+          "text": "The Dictate window's Settings tab is gone; a small version opens only when Hotsauce can't load.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Settings search finds every This Mac setting inside the Mac app."
+        }
+      ]
+    },
+    {
       "version": "0.38.1",
       "date": "2026-11-17",
       "notes": [
