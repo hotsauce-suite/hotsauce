@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { calendarApi } from '../../api/calendar'
 import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
@@ -105,6 +105,7 @@ export default function StartMeeting() {
   // Only a meeting that was live when the page opened; the one this form starts navigates away.
   const [liveAtOpen] = useState(getLive)
   const live = useLive()
+  const { search } = useLocation()
   if (live && live.id === liveAtOpen?.id) {
     return (
       <>
@@ -121,7 +122,8 @@ export default function StartMeeting() {
       </>
     )
   }
-  return <StartForm />
+  // A new query (another reminder, opened on this same page) starts the form afresh.
+  return <StartForm key={search} />
 }
 
 function StartForm() {
@@ -243,9 +245,12 @@ function StartForm() {
     )
   }
 
+  // Set at once, so a click landing in the same frame as the automatic start can't start twice.
+  const starting = useRef(false)
   const start = async () => {
     const current = capture.current
-    if (!current || !canStart(state)) return
+    if (!current || !canStart(state) || starting.current) return
+    starting.current = true
     dispatch({ type: 'start' })
     try {
       const created = await meetingsApi.createSession({
@@ -265,6 +270,7 @@ function StartForm() {
       })
       navigate(`/meetings/live/${encodeURIComponent(created.id)}`, { replace: true })
     } catch (err) {
+      starting.current = false
       dispatch({
         type: 'failed',
         message:
@@ -278,7 +284,8 @@ function StartForm() {
   const autoStarted = useRef(false)
   useEffect(() => {
     if (!autoChose.current || autoStarted.current || !eventSettled || !canStart(state)) return
-    if (state.step !== 'check') return
+    // Only the Mac listening it chose: a member who picked another way presses Start themselves.
+    if (state.step !== 'check' || state.mode !== 'mac') return
     autoStarted.current = true
     void start()
   })

@@ -76,7 +76,8 @@ enum SelfTest {
                     result["notification"] = await postReminder(meeting)
                 }
                 if let meeting = due.first {
-                    suite.open(path: meeting.startPath)
+                    // The plain page: the self-test must never start recording.
+                    suite.open(path: meeting.pagePath)
                     try? await Task.sleep(for: .seconds(3))
                     result["reminderClickURL"] = suite.webView.url?.absoluteString
                     await snapshot(suite.webView, to: folder.appendingPathComponent("3-reminder-start.png"))
@@ -229,7 +230,7 @@ enum SelfTest {
         let content = UNMutableNotificationContent()
         content.title = "Take notes for “\(meeting.title)”?"
         content.body = "It starts in about a minute."
-        content.userInfo = ["path": meeting.startPath]
+        content.userInfo = ["path": meeting.pagePath]
         do {
             try await center.add(UNNotificationRequest(identifier: "self-test \(meeting.id)", content: content, trigger: nil))
             try? await Task.sleep(for: .seconds(1))

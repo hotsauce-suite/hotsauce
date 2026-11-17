@@ -139,8 +139,10 @@ import Testing
     @Test func remindsAMeetingWithACallLinkEvenWithNobodyInvited() {
         var planner = ReminderPlanner()
         let due = planner.due([meeting("call", in: 60, attendees: 0, link: "https://zoom.us/j/1"),
-                               meeting("focus", in: 60, attendees: 0)], now: now)
-        #expect(due.map(\.id) == ["call"])
+                               meeting("app", in: 60, attendees: 0, link: "zoommtg://zoom.us/join?confno=1"),
+                               meeting("focus", in: 60, attendees: 0),
+                               meeting("blank", in: 60, attendees: 0, link: " \n")], now: now)
+        #expect(due.map(\.id) == ["call", "app"])
     }
 
     @Test func joinsOnlyWebLinks() {
@@ -149,6 +151,9 @@ import Testing
         #expect(meeting("m", in: 0, link: "javascript:alert(1)").joinURL == nil)
         #expect(meeting("m", in: 0, link: "not a link").joinURL == nil)
         #expect(meeting("m", in: 0).joinURL == nil)
+        #expect(meeting("m", in: 0, link: "https://meet.google.com/x\n").joinURL?.host == "meet.google.com")
+        // An app link is reminded but not opened: the notice offers only "Just take notes".
+        #expect(meeting("m", in: 0, link: "zoommtg://zoom.us/join").joinURL == nil)
     }
 
     @Test func remindsMeetingsWithAttendeesStartingWithinTheLead() {
@@ -175,6 +180,7 @@ import Testing
     }
 
     @Test func startPathEncodesTheId() {
+        #expect(meeting("abc_123", in: 0).pagePath == "/meetings/start?event=abc_123")
         #expect(meeting("abc_123", in: 0).startPath == "/meetings/start?event=abc_123&via=mac-reminder")
         #expect(meeting("a&b=c#d/e", in: 0).startPath == "/meetings/start?event=a%26b%3Dc%23d%2Fe&via=mac-reminder")
     }

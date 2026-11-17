@@ -324,6 +324,48 @@ describe('Start screen', () => {
     }
   })
 
+  it('a reminder opened on a Start page that is already showing starts for the new event', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    try {
+      const { router } = renderApp('/meetings/start')
+      await screen.findByTestId('start-title')
+      await router.navigate('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({
+        calendarEventId: 'evt-acme-sync',
+      })
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('a member who picks another way during the reminder’s sound check presses Start themselves', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    let release = () => {}
+    capture.hold = new Promise((r) => {
+      release = r
+    })
+    try {
+      const { router } = renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+      await waitFor(() => expect(capture.captureAudio.mock.calls[0]?.[0]).toBe('mac'))
+      await userEvent.click(screen.getByTestId('capture-mic-only'))
+      release()
+      await waitFor(() => expect(checkState()).toBe('ok'))
+      await new Promise((r) => setTimeout(r, 50))
+      expect(router.state.location.pathname).toBe('/meetings/start')
+      expect(screen.getByTestId('start-recording')).toBeEnabled()
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
   it('a calendar reminder opened outside the Mac app only fills the page in', async () => {
     renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
     await waitFor(() => expect(screen.getByTestId('start-title')).toHaveValue('Acme sync'))

@@ -24,10 +24,10 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         super.init()
     }
 
-    private static let withLink = "meeting-with-link"
-    private static let withoutLink = "meeting"
-    private static let joinAction = "join"
-    private static let notesAction = "notes"
+    nonisolated private static let withLink = "meeting-with-link"
+    nonisolated private static let withoutLink = "meeting"
+    nonisolated private static let joinAction = "join"
+    nonisolated private static let notesAction = "notes"
 
     func start() {
         UNUserNotificationCenter.current().delegate = self

@@ -24,7 +24,7 @@ public struct UpcomingMeeting: Decodable, Equatable, Sendable {
     /// The call to join from the reminder: only a web link, never another kind of URL a calendar
     /// invite could carry (a file, an app scheme).
     public var joinURL: URL? {
-        guard let text = meetLink?.trimmingCharacters(in: .whitespaces),
+        guard let text = meetLink?.trimmingCharacters(in: .whitespacesAndNewlines),
               let url = URL(string: text), let scheme = url.scheme?.lowercased(),
               scheme == "https" || scheme == "http", url.host?.isEmpty == false
         else { return nil }
@@ -44,12 +44,20 @@ public struct UpcomingMeeting: Decodable, Equatable, Sendable {
         return try decoder.decode([UpcomingMeeting].self, from: data)
     }
 
-    /// The page a reminder opens: Start for this event, which starts taking notes at once because
-    /// the member chose to from the reminder.
-    public var startPath: String {
+    /// Start for this event, filled in and waiting for the member to press Start.
+    public var pagePath: String {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.remove(charactersIn: "&=+#?/")
-        return "/meetings/start?event=" + (id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id) + "&via=mac-reminder"
+        return "/meetings/start?event=" + (id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id)
+    }
+
+    /// The page a reminder opens: Start for this event, which starts taking notes at once because
+    /// the member chose to from the reminder.
+    public var startPath: String { pagePath + "&via=mac-reminder" }
+
+    /// Whether the event has a call link of any kind, as the server's web push counts it.
+    public var hasCallLink: Bool {
+        meetLink?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
     }
 }
 
@@ -74,7 +82,7 @@ public struct ReminderPlanner {
     /// The meetings to remind now; each is remembered so it isn't reminded twice.
     public mutating func due(_ meetings: [UpcomingMeeting], now: Date) -> [UpcomingMeeting] {
         let due = meetings.filter { meeting in
-            (!meeting.attendees.isEmpty || meeting.joinURL != nil)
+            (!meeting.attendees.isEmpty || meeting.hasCallLink)
                 && meeting.start > now
                 && meeting.start <= now.addingTimeInterval(Self.lead)
                 && sent[Self.key(meeting)] == nil
