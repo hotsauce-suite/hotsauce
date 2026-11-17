@@ -177,6 +177,9 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   if (target.isContentEditable) return true
   // jsdom has no isContentEditable; the attribute says the same.
   if (target.closest('[contenteditable]:not([contenteditable="false"])')) return true
+  // The note editor while it's read-only for a moment (Enhance running): letters typed there are
+  // meant as text, not as "c" for a new meeting.
+  if (target.closest('.cm-editor')) return true
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
   if (target instanceof HTMLInputElement) {
     return !['checkbox', 'radio', 'button', 'submit', 'reset'].includes(target.type)
