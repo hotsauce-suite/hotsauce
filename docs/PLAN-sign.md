@@ -1,10 +1,10 @@
 # Plan: Sign (send a PDF for signature)
 
-Status (2026-11-17): slices 1 and 2 shipped (0.34.0). Slice 3b (correct a signer, copy an
-envelope; R19–R26) built and tested, merging in #186. Slice 3 (people outside the team sign
-from an emailed link) built and tested (R10–R18), merging now. Morgan owes the Resend setup (steps page
-https://claude.ai/artifact/MpyyxKxoCZBAUCszkF52wN). Morgan accepted all seven recommendations
-(Q1 to Q7) on 2026-11-16. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
+Status (2026-11-17): slices 1 to 3 shipped and live (0.35.0; darker ink 0.39.1). Email via
+Resend is on at Haven; Morgan's test email worked on 2026-11-17. Slice 3b (correct a
+signer, copy an envelope; R19–R26) built and tested, merging in #186. Morgan called the plan done for
+now: slices 4 and 5 (deadlines, reminders, cancelling, templates) are the next Sign work, not yet
+started. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
 
 Send a PDF for signature from Hotsauce. People inside or outside the organization sign it from a
 link on any device, with no account. The sealed PDF and its audit certificate are kept in Files.
@@ -84,37 +84,6 @@ R16. Declining stops the envelope; the sender is emailed. When the last signer s
 R17. The sender sees each person's state on the envelope page (waiting, sent, viewed, signed,
      declined) and can copy or resend a link.
 R18. Help page, landing card, demo, STATUS, self-host (RESEND_API_KEY, MAIL_FROM) match.
-
-### Slice 3b: fix a wrong address, and copy an envelope (from SignuDoc 0.3.0)
-
-Morgan said yes on 2026-11-17 to bringing two SignuDoc 0.3.0 changes into Sign ("Let a sender
-correct a signer's email after sending" with its follow-ups, and "Copy a finished envelope into a
-new draft"). SignuDoc keeps envelopes in Postgres; here the behaviour is rebuilt on the envelope
-file, and the engine already draws a correction on the certificate. Reminders and long-lived seals
-stay for later.
-
-R19. While an envelope is out for signing, its sender can change the name, the email or both of
-     anyone on it who hasn't signed or declined (a copy recipient too). Only the sender can, and
-     never once the envelope is finished, declined or still a draft.
-R20. The new email can't already be on the envelope. A change that changes nothing does nothing.
-R21. Correcting someone whose turn it is stops their old link at once and makes a fresh one for the
-     new address: emailed when the server can, otherwise shown to the sender to copy. Someone not
-     yet up gets no link until their turn; a copy recipient never gets one. When the new address
-     is the sender's own, they sign in the app and no link is made.
-R22. The audit trail records `signer_corrected` by the sender with the old and new name and email.
-     When emailing the new link fails, nothing changes: no event, and the old link still works.
-R23. The corrected person starts fresh: an earlier "opened" by the old address doesn't count, so the
-     new person's first open is recorded. The certificate names the corrected person, lists the
-     correction, and the recipients' copy hides the old address.
-R24. Anyone who can open an envelope that has been sent (out for signing, declined or finished)
-     can copy it into a new draft: the same PDF (refused if it changed or left Files), title,
-     people, order and field places, with nothing filled in, no links and no times. The copy is
-     kept in the same space, its maker is its sender, nobody is emailed, the original is left as
-     it is, and the copy's trail starts with `copied` naming the original.
-R25. On the envelope page the sender has "Change" beside each person still to sign or copy while it
-     is out, and "Copy to a new draft" on any envelope that has been sent; the copy opens ready to
-     edit. The audit trail lists both new events in plain words.
-R26. The help page, demo, STATUS and landing card match.
 
 ### Slice 4 and 5 (later, requirements written when each starts)
 
