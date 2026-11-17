@@ -5,7 +5,6 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { composite, cutVideo, probe } from '../../src/clips/index.js'
-import { COMPOSITE_MAX_HEIGHT } from '../../src/clips/media.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
 const run = promisify(execFile)
@@ -54,10 +53,6 @@ afterAll(async () => {
 })
 
 describe('clip sharpness', () => {
-  it('keeps a Retina-sized screen at its own height', () => {
-    expect(COMPOSITE_MAX_HEIGHT).toBeGreaterThanOrEqual(H)
-  })
-
   it('puts the camera in without scaling the screen down or smearing fine detail', async () => {
     const output = join(dir, 'composite.mp4')
     await composite(FFMPEG, {
@@ -91,5 +86,33 @@ describe('clip sharpness', () => {
     expect([info.width, info.height]).toEqual([W, H])
     const [a, b] = [await grey(output, 100, 100), await grey(output, 102, 100)]
     expect(Math.abs(a - b)).toBeGreaterThan(150)
+  }, 120_000)
+
+  it('scales a taller screen down to 1600 p without losing fine detail', async () => {
+    const tall = join(dir, 'tall.webm')
+    // 4 px stripes at 3200×2000: 3.2 px once scaled to 2560×1600, still black and white.
+    await run('ffmpeg', [
+      ...['-y', '-loglevel', 'error', '-f', 'lavfi'],
+      ...[
+        '-i',
+        "color=c=black:s=3200x2000:r=10:d=2,format=gray,geq=lum='if(mod(floor(X/4),2),255,0)'",
+      ],
+      ...['-c:v', 'libvpx', '-b:v', '20M', '-an', '-f', 'webm', tall],
+    ])
+    const output = join(dir, 'tall.mp4')
+    await composite(FFMPEG, {
+      screen: tall,
+      camera,
+      output,
+      workDir: dir,
+      screenHeight: 2000,
+      offsetMs: 0,
+      durationMs: 2000,
+    })
+    const info = await probe(FFMPEG, output)
+    expect([info.width, info.height]).toEqual([2560, 1600])
+    // Light and dark stripes are still clearly apart near the top right.
+    const row = await Promise.all([0, 1, 2, 3, 4, 5, 6, 7].map((i) => grey(output, 2400 + i, 40)))
+    expect(Math.max(...row) - Math.min(...row)).toBeGreaterThan(150)
   }, 120_000)
 })

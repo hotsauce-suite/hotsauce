@@ -10,6 +10,7 @@ import {
   type MixedAudio,
   mixAudio,
   type RecordingFormat,
+  SCREEN_BITS_MIN,
   screenBitrate,
   stopStream,
 } from './media'
@@ -255,7 +256,8 @@ export class RecordingSession {
     const cameraFormat = this.#deps.cameraFormat
     this.#screen = this.#track(clip.id, 'screen', stream, attempt, {
       mimeType: this.#deps.format.mimeType,
-      videoBitsPerSecond: screenBitrate(video.getSettings?.() ?? {}),
+      // A camera-only clip keeps the floor; a screen gets the bits its size needs.
+      videoBitsPerSecond: shared ? screenBitrate(shared.getSettings?.() ?? {}) : SCREEN_BITS_MIN,
       audioBitsPerSecond: AUDIO_BITS,
     })
     // Started in the same task, so both clocks begin together; `start` events give the offset.

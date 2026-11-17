@@ -28,7 +28,7 @@ export function screenBitrate(settings: {
   return Math.min(SCREEN_BITS_MAX, Math.max(SCREEN_BITS_MIN, bits))
 }
 export const AUDIO_BITS = 128_000
-/** The camera's own track: it ends up a 260 px bubble, so a modest rate is plenty. */
+/** The camera's own track: it ends up a bubble a quarter of the video's height, so a modest rate is plenty. */
 export const CAMERA_BITS = 1_000_000
 
 export interface RecordingFormat {

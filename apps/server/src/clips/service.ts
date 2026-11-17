@@ -11,6 +11,7 @@ import { type AudioStore, LocalAudioStore, R2AudioStore } from '../meetings/audi
 import type { LLM } from '../meetings/llm/types.js'
 import { type Cut, keptRanges, MAX_CUTS, MIN_KEPT_MS, normalizeCuts } from './cuts.js'
 import {
+  COMPOSITE_MAX_HEIGHT,
   composite,
   cutVideo,
   extractAudio,
@@ -1147,7 +1148,9 @@ export class Clips {
         camera,
         output,
         workDir: dir,
-        screenHeight: clip.height ?? 1080,
+        // An unprobed clip is probed now, so it isn't shrunk to a guessed size.
+        screenHeight:
+          clip.height ?? (await probe(this.#opts.ffmpeg, screen)).height ?? COMPOSITE_MAX_HEIGHT,
         offsetMs: clip.cameraOffsetMs,
         durationMs: clip.durationMs ?? 0,
       })
