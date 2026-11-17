@@ -82,7 +82,14 @@ export interface FillPage {
 export interface ChatRoom {
   id: string
   name: string
+  /** Admins only from here down. */
   last4?: string
+  /** The link is a chat bot's room address, so Hotsauce can read the room. */
+  readable?: boolean
+  /** Hotsauce reads the room for context (docs/PLAN-chat-context.md). */
+  read?: boolean
+  /** How much of a read room is copied; missing until its first read finishes. */
+  copy?: { messages: number; readAt: string | null; error: string | null; complete: boolean }
 }
 
 const enc = encodeURIComponent
@@ -107,6 +114,8 @@ export const formsApi = {
   addRoom: (name: string, url: string) =>
     request<ChatRoom>('/api/chat-rooms', { method: 'POST', json: { name, url } }),
   removeRoom: (id: string) => request<void>(`/api/chat-rooms/${enc(id)}`, { method: 'DELETE' }),
+  setRoomRead: (id: string, read: boolean) =>
+    request<ChatRoom>(`/api/chat-rooms/${enc(id)}`, { method: 'PATCH', json: { read } }),
   fill: (link: string) => request<FillPage>(`/api/form/${enc(link)}`),
   submit: (
     link: string,

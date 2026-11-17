@@ -3,6 +3,7 @@ import {
   ariaKeys,
   formatSpec,
   isCharacterStroke,
+  isTypingTarget,
   type KeyInput,
   matchStroke,
   parseSpec,
@@ -102,5 +103,23 @@ describe('character keys (K6)', () => {
     expect(isCharacterStroke(parseStroke('mod+k'))).toBe(false)
     expect(isCharacterStroke(parseStroke('ArrowDown'))).toBe(false)
     expect(isCharacterStroke(parseStroke('Enter'))).toBe(false)
+  })
+})
+
+describe('typing targets', () => {
+  it('counts a note editor that is read-only for a moment, so letters stay text', () => {
+    const editor = document.createElement('div')
+    editor.className = 'cm-editor'
+    const content = document.createElement('div')
+    content.setAttribute('contenteditable', 'false')
+    editor.append(content)
+    document.body.append(editor)
+    expect(isTypingTarget(content)).toBe(true)
+    const plain = document.createElement('div')
+    plain.setAttribute('contenteditable', 'false')
+    document.body.append(plain)
+    expect(isTypingTarget(plain)).toBe(false)
+    editor.remove()
+    plain.remove()
   })
 })

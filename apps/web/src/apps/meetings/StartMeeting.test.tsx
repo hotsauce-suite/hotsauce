@@ -279,20 +279,210 @@ describe('Start screen', () => {
       }
       await waitFor(() => expect(checkState()).toBe('ok'))
     } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
       delete w.hearthMac
       delete w.webkit
     }
   })
 
-  it('from the Mac app’s call notice: titled for the app, listening to the Mac at once', async () => {
+  it('from the Mac app’s call notice: titled for the app, listening and recording at once', async () => {
     const w = window as { hearthMac?: unknown; webkit?: unknown }
     w.hearthMac = { meetingAudio: 1 }
     w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
     try {
-      renderApp('/meetings/start?via=mac-call&app=Zoom')
+      const { router } = renderApp('/meetings/start?via=mac-call&app=Zoom')
       await waitFor(() => expect(capture.captureAudio).toHaveBeenCalledWith('mac', null))
       expect(capture.captureAudio).toHaveBeenCalledTimes(1)
-      expect(screen.getByTestId('start-title')).toHaveValue('Zoom call')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({ title: 'Zoom call' })
+    } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('from the Mac app’s calendar reminder: starts recording for that event without a click', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    // Silent call audio (nobody has joined yet) doesn't hold the start up.
+    capture.arrived = false
+    try {
+      const { router } = renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      expect(capture.captureAudio).toHaveBeenCalledTimes(1)
+      expect(capture.captureAudio.mock.calls[0]?.[0]).toBe('mac')
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({
+        title: 'Acme sync',
+        calendarEventId: 'evt-acme-sync',
+        meetCode: 'abc-defg-hij',
+      })
+    } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('from the call notice for a reminded meeting: named for the event, and it ends with the call', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    const postMessage = vi.fn(async (_message: unknown) => null)
+    w.hearthMac = { meetingAudio: 2 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage } } }
+    try {
+      const { router } = renderApp('/meetings/start?event=evt-acme-sync&via=mac-call&app=Zoom')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({
+        title: 'Acme sync',
+        calendarEventId: 'evt-acme-sync',
+      })
+      await waitFor(() =>
+        expect(postMessage).toHaveBeenCalledWith({ type: 'follow-call', session: id }),
+      )
+    } finally {
+      await currentLive()?.dispose()
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('a reminder opened on a Start page that is already showing starts for the new event', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    try {
+      const { router } = renderApp('/meetings/start')
+      await screen.findByTestId('start-title')
+      await router.navigate('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({
+        calendarEventId: 'evt-acme-sync',
+      })
+    } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('a member who picks another way during the reminder’s sound check presses Start themselves', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    let release = () => {}
+    capture.hold = new Promise((r) => {
+      release = r
+    })
+    try {
+      const { router } = renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+      await waitFor(() => expect(capture.captureAudio.mock.calls[0]?.[0]).toBe('mac'))
+      await userEvent.click(screen.getByTestId('capture-mic-only'))
+      release()
+      await waitFor(() => expect(checkState()).toBe('ok'))
+      await new Promise((r) => setTimeout(r, 50))
+      expect(router.state.location.pathname).toBe('/meetings/start')
+      expect(screen.getByTestId('start-recording')).toBeEnabled()
+    } finally {
+      // The meeting this started stops while the app's bridge is still there to tell.
+      await currentLive()?.dispose()
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('in the Mac app, a silent call says the app may not be allowed to hear other apps', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    const postMessage = vi.fn(async (_message: unknown) => null)
+    w.hearthMac = { meetingAudio: 2 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage } } }
+    const frames = new Set<(track: 'me' | 'them', pcm: Uint8Array) => void>()
+    capture.captureAudio.mockImplementation(async (mode: string) => ({
+      mode,
+      streams: {},
+      frames: {
+        tracks: ['me', 'them'],
+        onFrame: (l: (track: 'me' | 'them', pcm: Uint8Array) => void) => {
+          frames.add(l)
+          return () => frames.delete(l)
+        },
+      },
+      onEnded: () => () => {},
+      stop: capture.stop,
+    }))
+    try {
+      renderApp('/meetings/start')
+      await userEvent.click(await screen.findByTestId('capture-mac'))
+      for (const l of [...frames]) l('me', new Uint8Array([0x00, 0x10]))
+      await waitFor(() => expect(checkState()).toBe('failed'), { timeout: 5000 })
+      expect(screen.getByText('The call, from apps on this Mac')).toBeInTheDocument()
+      expect(screen.queryByText('The call, from the Meet tab')).toBeNull()
+      expect(screen.getByTestId('audio-check')).toHaveTextContent(
+        'isn’t allowed to hear other apps yet',
+      )
+      await userEvent.click(screen.getByTestId('open-audio-settings'))
+      expect(postMessage).toHaveBeenCalledWith({ type: 'open-audio-settings' })
+      // Someone on the call speaks later: the check turns green by itself, no Check again.
+      for (const l of [...frames]) l('them', new Uint8Array([0x00, 0x10]))
+      await waitFor(() => expect(checkState()).toBe('ok'))
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('a calendar reminder opened outside the Mac app only fills the page in', async () => {
+    renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+    await waitFor(() => expect(screen.getByTestId('start-title')).toHaveValue('Acme sync'))
+    expect(capture.captureAudio).not.toHaveBeenCalled()
+    expect(screen.getByTestId('start-recording')).toBeDisabled()
+  })
+
+  it('from the call notice in mic-only mode: the meeting still ends with the call', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    const postMessage = vi.fn(async (_message: unknown) => null)
+    w.hearthMac = { meetingAudio: 2 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage } } }
+    try {
+      // The Mac check is held, so the notice's automatic start can't beat the switch to mic only.
+      let release = () => {}
+      capture.hold = new Promise((r) => {
+        release = r
+      })
+      const { router } = renderApp('/meetings/start?via=mac-call&app=Zoom')
+      await waitFor(() => expect(capture.captureAudio).toHaveBeenCalledWith('mac', null))
+      await userEvent.click(screen.getByTestId('capture-mic-only'))
+      release()
+      await waitFor(() => expect(checkState()).toBe('ok'))
+      await userEvent.click(screen.getByTestId('start-recording'))
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(postMessage).toHaveBeenCalledWith({ type: 'follow-call', session: id })
+      await waitFor(() => expect(currentLive()?.session.id).toBe(id))
+      // Resume capture (a new mic) keeps following the call: the old one lets go, the new one follows.
+      postMessage.mockClear()
+      await currentLive()?.attachCapture({
+        mode: 'mic-only',
+        streams: { me: {} as MediaStream },
+        onEnded: () => () => {},
+        stop: vi.fn(),
+      })
+      expect(postMessage.mock.calls.map(([m]) => m)).toEqual([
+        { type: 'stop', session: id },
+        { type: 'follow-call', session: id },
+      ])
+      window.dispatchEvent(
+        new CustomEvent('hearth-mac-audio', { detail: { session: id, type: 'call-ended' } }),
+      )
+      expect(await screen.findByTestId('call-ended')).toBeInTheDocument()
     } finally {
       delete w.hearthMac
       delete w.webkit

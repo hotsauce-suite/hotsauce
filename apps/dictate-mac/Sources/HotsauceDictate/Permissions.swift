@@ -103,6 +103,11 @@ enum Permissions {
         open("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
     }
 
+    /// Screen & System Audio Recording, where "Any app on this Mac" is allowed to hear other apps.
+    static func openAudioCaptureSettings() {
+        open("x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")
+    }
+
     static func openAccessibilitySettings() {
         open("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
     }

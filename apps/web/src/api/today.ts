@@ -62,6 +62,18 @@ export interface TodayWeather {
   credit: string
   /** The team default's name, when the weather is for that. */
   place?: string
+  /** The forecast from the current hour on; missing from older servers. */
+  series?: ForecastPoint[]
+}
+
+/** One point of the forecast: its symbol and precipitation cover the time until the next one. */
+export interface ForecastPoint {
+  time: string
+  /** °C */
+  temperature: number
+  symbol: string
+  /** mm */
+  precipitation: number
 }
 
 /** A place found by name (`GET /api/today/places`), position rounded to about 1 km. */

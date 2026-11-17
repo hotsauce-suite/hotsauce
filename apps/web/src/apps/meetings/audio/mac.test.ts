@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type Capture, CaptureError, captureAudio, type FrameSource } from './capture'
 import {
+  canOpenMacAudioSettings,
   captureMac,
+  followMacCall,
   frameRecorder,
   framesArrived,
   MAC_AUDIO_EVENT,
   macBridge,
+  openMacAudioSettings,
   pcmPeak,
   supportsMacCapture,
 } from './mac'
@@ -193,5 +196,59 @@ describe('is sound arriving', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('a meeting that follows the call (started from the call notice)', () => {
+  const micOnly = (): Capture => ({
+    mode: 'mic-only',
+    streams: {},
+    onEnded: () => () => {},
+    stop: vi.fn(),
+  })
+
+  it('tells the app, hears the end of that call only, and lets go when stopped', () => {
+    const bridge = fakeBridge()
+    ;(window as W).webkit = { messageHandlers: { hearthMeetingAudio: bridge } }
+    ;(window as W).hearthMac = { meetingAudio: 2 }
+    const inner = micOnly()
+    const followed = followMacCall(inner, 'm1')
+    expect(bridge.postMessage).toHaveBeenCalledWith({ type: 'follow-call', session: 'm1' })
+    const ended = vi.fn()
+    followed.onCallEnded?.(ended)
+    send({ session: 'other', type: 'call-ended' })
+    send({ session: 'm1', type: 'frames' })
+    expect(ended).not.toHaveBeenCalled()
+    send({ session: 'm1', type: 'call-ended' })
+    expect(ended).toHaveBeenCalledTimes(1)
+
+    followed.stop()
+    expect(inner.stop).toHaveBeenCalled()
+    expect(bridge.postMessage).toHaveBeenCalledWith({ type: 'stop', session: 'm1' })
+    send({ session: 'm1', type: 'call-ended' })
+    expect(ended).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the capture alone in an older app, outside the app, or when it hears the call itself', () => {
+    const plain = micOnly()
+    expect(followMacCall(plain, 'm1')).toBe(plain)
+    const bridge = fakeBridge()
+    ;(window as W).webkit = { messageHandlers: { hearthMeetingAudio: bridge } }
+    ;(window as W).hearthMac = { meetingAudio: 1 }
+    expect(followMacCall(plain, 'm1')).toBe(plain)
+    expect(canOpenMacAudioSettings()).toBe(false)
+    ;(window as W).hearthMac = { meetingAudio: 2 }
+    const own: Capture = { ...micOnly(), mode: 'mac', onCallEnded: () => () => {} }
+    expect(followMacCall(own, 'm1')).toBe(own)
+    expect(bridge.postMessage).not.toHaveBeenCalled()
+  })
+
+  it('asks the app to open Screen & System Audio Recording', () => {
+    const bridge = fakeBridge()
+    ;(window as W).webkit = { messageHandlers: { hearthMeetingAudio: bridge } }
+    ;(window as W).hearthMac = { meetingAudio: 2 }
+    expect(canOpenMacAudioSettings()).toBe(true)
+    openMacAudioSettings()
+    expect(bridge.postMessage).toHaveBeenCalledWith({ type: 'open-audio-settings' })
   })
 })

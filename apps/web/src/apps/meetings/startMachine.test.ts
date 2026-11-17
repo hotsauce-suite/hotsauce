@@ -6,6 +6,7 @@ import {
   type StartEvent,
   type StartState,
   startReducer,
+  trackLabel,
 } from './startMachine'
 
 const run = (events: StartEvent[], from: StartState = INITIAL_START) =>
@@ -93,5 +94,13 @@ describe('Start screen state machine', () => {
     ])
     expect(run([{ type: 'checked', track: 'them', arrived: true }], check)).toBe(check)
     expect(run([{ type: 'granted', tracks: ['me'] }], INITIAL_START)).toBe(INITIAL_START)
+  })
+})
+
+describe('sound check labels', () => {
+  it('names where the call is heard from, for the way the meeting listens', () => {
+    expect(trackLabel('me', 'mac')).toBe('You, on the microphone')
+    expect(trackLabel('them', 'mac')).toBe('The call, from apps on this Mac')
+    expect(trackLabel('them', 'meet-tab')).toBe('The call, from the Meet tab')
   })
 })

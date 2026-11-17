@@ -1,6 +1,74 @@
 {
   "releases": [
     {
+      "version": "0.42.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Click the weather on Today to see the next 12 hours and the next 7 days, with rain or snow on the days that have more than a trace."
+        }
+      ]
+    },
+    {
+      "version": "0.41.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "The meeting reminder joins the call link and starts taking notes in one click; \"Just take notes\" starts notes without joining.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Taking notes from the call notice starts recording right away, with no extra Start press.",
+          "area": "Mac app"
+        },
+        {
+          "text": "When you join a call for a meeting you were reminded about, one offer replaces the other, named for the meeting.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Meeting reminders now also cover calendar events that have a call link but no other guests."
+        }
+      ]
+    },
+    {
+      "version": "0.40.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Settings: chat rooms can be switched to \"Read for context\", with how much is copied and when it was last read."
+        },
+        {
+          "text": "Search: chat messages show up in ⌘K and open in the chat."
+        },
+        {
+          "text": "Ask and AI tools can search and read the rooms you switched on, and the agent brief uses the last week of chat that involves you."
+        }
+      ]
+    },
+    {
+      "version": "0.39.2",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "\"Take notes on this call?\" now appears even when the call app briefly lets go of the microphone as the call starts (for example when you join muted).",
+          "area": "Mac app"
+        },
+        {
+          "text": "When an offer doesn't appear, the app records why, so it can be diagnosed.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A meeting started from the Mac app's call notice now stops on its own when the call ends, in every mode, including Mic only."
+        },
+        {
+          "text": "Typing in a meeting note while Enhance runs no longer jumps to New meeting when you press \"c\"."
+        },
+        {
+          "text": "In the Mac app, the sound check says \"The call, from apps on this Mac\", keeps listening until someone speaks, and links straight to the System Audio Recording setting when the call stays silent."
+        }
+      ]
+    },
+    {
       "version": "0.39.1",
       "date": "2026-11-17",
       "notes": [

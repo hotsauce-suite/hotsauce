@@ -14,7 +14,7 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 ## The apps (the rail, in order)
 
 ### Today
-The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
+The home page: clock, next meeting, optional weather (click it for the next 12 hours and 7 days), and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
 ### For you
@@ -89,6 +89,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
+- **Chat as context** (`docs/PLAN-chat-context.md`): an admin switches on **Read for context** for a chat room in Settings → Workspace whose link is a bot's room address (Ember, Campfire). Hotsauce copies its history into `DATA_DIR/chat.sqlite`, reads new messages every 5 minutes (`CHAT_READ_INTERVAL_MS`) and thread replies of the last week, and the messages show in ⌘K (In chat), Ask and AI tools (`search_chat`, `read_chat`) and the agent brief. Every member can search a read room; direct messages are never read; later edits and deletions aren't picked up. Needs nothing extra beyond the bot in the chat.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
 - **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
