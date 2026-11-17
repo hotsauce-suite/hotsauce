@@ -2,6 +2,8 @@
 // demo.hotsauce.work serves the live demo: the web app built with its in-browser mock API
 // (docs/PLAN-live-demo.md) from /demo/, which only hotsauce.work may frame.
 
+import { serveMacDownload } from './mac-download.js'
+
 const DEMO_HOST = 'demo.hotsauce.work'
 const FRAMERS = "frame-ancestors 'self' https://hotsauce.work http://localhost:*"
 // The install guide, its script and the map for language models (docs/PLAN-one-click-install.md):
@@ -42,6 +44,9 @@ export default {
       return Response.redirect(url.toString(), 301)
     }
     if (url.hostname === DEMO_HOST) return serveDemo(request, env, url)
+    if (url.pathname === '/download/mac' || url.pathname === '/download/mac.json') {
+      return serveMacDownload(url, env)
+    }
     // The demo only lives on its own address.
     if (url.pathname === '/demo' || url.pathname.startsWith('/demo/')) {
       return env.ASSETS.fetch(new Request(new URL('/404-does-not-exist', url), request))
