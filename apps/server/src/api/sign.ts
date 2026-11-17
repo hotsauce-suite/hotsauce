@@ -111,6 +111,26 @@ export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
         return c.json(await sign.link(p, space, id, signer, c.req.valid('json'), viaFor(p)))
       },
     )
+    .patch(
+      '/sign/:space/:id/people/:signer',
+      valid('param', SignerParams),
+      valid(
+        'json',
+        z.object({ name: z.string().max(120).optional(), email: z.string().max(320).optional() }),
+      ),
+      async (c) => {
+        const { space, id, signer } = c.req.valid('param')
+        const p = c.get('principal')
+        return c.json(
+          await sign.correct(p, space, id, signer, c.req.valid('json'), metaOf(c), viaFor(p)),
+        )
+      },
+    )
+    .post('/sign/:space/:id/copy', valid('param', Params), async (c) => {
+      const { space, id } = c.req.valid('param')
+      const p = c.get('principal')
+      return c.json(await sign.copy(p, space, id, viaFor(p)))
+    })
     .post(
       '/sign/:space/:id/sign',
       signBody(),

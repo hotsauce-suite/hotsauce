@@ -753,7 +753,9 @@ function buildAuditLines(input: {
       (typeof event.metadata?.signerEmail === "string"
         ? event.metadata.signerEmail
         : event.actorType);
+    // Hotsauce: a correction is made by the sender; its signerName is the corrected person's.
     const signerName =
+      event.event !== "signer_corrected" &&
       typeof event.metadata?.signerName === "string"
         ? event.metadata.signerName
         : null;
