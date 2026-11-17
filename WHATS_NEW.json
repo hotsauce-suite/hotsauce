@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "version": "0.40.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Settings: chat rooms can be switched to \"Read for context\", with how much is copied and when it was last read."
+        },
+        {
+          "text": "Search: chat messages show up in ⌘K and open in the chat."
+        },
+        {
+          "text": "Ask and AI tools can search and read the rooms you switched on, and the agent brief uses the last week of chat that involves you."
+        }
+      ]
+    },
+    {
       "version": "0.39.2",
       "date": "2026-11-17",
       "notes": [
