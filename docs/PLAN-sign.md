@@ -1,7 +1,7 @@
 # Plan: Sign (send a PDF for signature)
 
 Status (2026-11-17): slices 1 and 2 shipped (0.34.0). Slice 3b (correct a signer, copy an
-envelope; R19–R26) in progress. Slice 3 (people outside the team sign
+envelope; R19–R26) built and tested, merging in #186. Slice 3 (people outside the team sign
 from an emailed link) built and tested (R10–R18), merging now. Morgan owes the Resend setup (steps page
 https://claude.ai/artifact/MpyyxKxoCZBAUCszkF52wN). Morgan accepted all seven recommendations
 (Q1 to Q7) on 2026-11-16. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
