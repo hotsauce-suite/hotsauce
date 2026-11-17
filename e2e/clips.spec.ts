@@ -338,7 +338,9 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
       const outside = await browser.newContext()
       const stranger = await outside.newPage()
       await stranger.goto(url)
-      await expect(stranger.getByRole('heading', { name: 'Walkthrough of the bubble' })).toBeVisible()
+      await expect(
+        stranger.getByRole('heading', { name: 'Walkthrough of the bubble' }),
+      ).toBeVisible()
       await expect(stranger.getByTestId('shared-clip-transcript')).toContainText('clip segment')
       const shared = stranger.getByTestId('shared-clip-video')
       await expect
