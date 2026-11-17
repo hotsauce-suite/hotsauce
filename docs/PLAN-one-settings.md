@@ -1,6 +1,6 @@
 # One Settings: the Mac app's settings move into Settings → This Mac
 
-Status (2026-11-17): building. Morgan answered the questions: Q1, Q2, Q4, Q6 as recommended; Q3 add the microphone picker now; Q5 move the Dictate window into the app next. Morgan (Nov 17): "It's confusing that we have settings
+Status (2026-11-17): shipped in 0.39.0 (PR #170, Mac app build 115), live at Haven; step two (the Dictate window) shipped in 0.43.0, docs/PLAN-dictations-page.md. Morgan answered the questions: Q1, Q2, Q4, Q6 as recommended; Q3 add the microphone picker now; Q5 move the Dictate window into the app next. Morgan (Nov 17): "It's confusing that we have settings
 within the Hotsauce UI, but also a standalone settings for the app" → "do it".
 
 ## Why

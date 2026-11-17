@@ -1,7 +1,9 @@
 # Dictations on the Dictate page: the Dictate window moves into the app
 
-Status (2026-11-17): building. Step two of docs/PLAN-one-settings.md (Morgan, Q5: "can we move all
-the dictate stuff into the app?"). Questions posted with recommended answers; building on those.
+Status (2026-11-17): shipped in 0.43.0 (PR #181, Mac app build 122), live at Haven. Step two of
+docs/PLAN-one-settings.md (Morgan, Q5: "can we move all the dictate stuff into the app?"). Morgan
+accepted all four recommended answers ("yes"): the section on the Dictate page, Dictate… opens it
+with the old window as fallback, the Dictionary tab gone, app icons from the Mac.
 
 ## Why
 
