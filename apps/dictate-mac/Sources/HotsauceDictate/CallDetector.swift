@@ -33,23 +33,40 @@ final class CallDetector {
             watch = CallWatch()
             return
         }
-        let app = Self.callAppUsingMic()
-        switch watch.update(micApp: app, recording: suite.recordingMeetingSession, now: Date()) {
+        let app = Self.callAppUsingMic(Self.micUsers())
+        let action = watch.update(micApp: app, recording: suite.recordingMeetingSession, now: Date())
+        switch action {
         case .offerNotes(let name):
+            record(name, "offered")
             notify(id: Self.offerID, title: "Take notes on this \(name) call?",
                    body: "\(Brand.name) records your mic and the call’s audio once you start.",
-                   path: MicApps.startPath(app: name))
+                   path: MicApps.startPath(app: name), app: name)
         case .callEnded(let session):
+            record(app, "call ended while recording")
             withdrawOffer()
             suite.meetingCallEnded(session: session)
             notify(id: "call-end", title: "The call ended",
                    body: "\(Brand.name) stops taking notes in 30 seconds. Open \(Brand.name) to keep recording.",
-                   path: nil)
+                   path: nil, app: app)
         case .callOver:
+            record(app, "call ended")
             withdrawOffer()
+        case .skipped(let name, .recording):
+            record(name, "not offered: a meeting was already recording")
+        case .skipped(let name, .cooldown):
+            record(name, "not offered: offered for this app in the last 10 minutes")
         case nil:
             break
         }
+    }
+
+    /// The latest call decision, so `defaults read <bundle id> status.callLastDecision` explains a
+    /// missed offer: "<ISO time> <app> <decision>".
+    nonisolated static let decisionKey = "status.callLastDecision"
+
+    private func record(_ app: String?, _ decision: String) {
+        let line = "\(ISO8601DateFormatter().string(from: Date())) \(app ?? "call") \(decision)"
+        UserDefaults.standard.set(line, forKey: Self.decisionKey)
     }
 
     private static let offerID = "call-start"
@@ -60,9 +77,13 @@ final class CallDetector {
     }
 
     /// Shown through the meeting reminders' notification delegate, which opens `path` on click.
-    private func notify(id: String, title: String, body: String, path: String?) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
-            guard granted else { return }
+    private func notify(id: String, title: String, body: String, path: String?, app: String?) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+            guard granted else {
+                let reason = error.map { ": \($0.localizedDescription)" } ?? ""
+                Task { @MainActor in self.record(app, "notification refused by macOS\(reason)") }
+                return
+            }
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
@@ -89,11 +110,11 @@ final class CallDetector {
         }
     }
 
-    /// The name of another app that is using the microphone and could be on a call, or nil.
-    static func callAppUsingMic() -> String? {
+    /// The name of another app in `users` (one Core Audio snapshot) that could be on a call, or nil.
+    static func callAppUsingMic(_ users: [MicUser]) -> String? {
         let own = Bundle.main.bundleIdentifier
         let ownPID = ProcessInfo.processInfo.processIdentifier
-        for user in micUsers() where user.pid != ownPID {
+        for user in users where user.pid != ownPID {
             guard MicApps.isCallCandidate(user.bundleID, ownBundleID: own),
                   let name = appName(of: user) else { continue }
             return name

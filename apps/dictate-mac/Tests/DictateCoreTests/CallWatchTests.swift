@@ -27,9 +27,49 @@ import Testing
         #expect(run(&watch, from: 4, for: 30, app: nil, recording: nil).isEmpty)
     }
 
+    @Test func aDroppedTickWhileTheCallStartsStillOffers() {
+        // Zoom lets go of the mic for one 2 s tick inside the first 4 s (joining muted, a device
+        // switch, two Core Audio reads disagreeing): still one call, offered once.
+        var watch = CallWatch()
+        var actions = run(&watch, from: 0, for: 2, app: "Zoom", recording: nil)
+        actions += run(&watch, from: 2, for: 2, app: nil, recording: nil)
+        // Offered on time, counted from when Zoom first took the mic (not restarted by the drop).
+        actions += run(&watch, from: 4, for: 2, app: "Zoom", recording: nil)
+        #expect(actions == [.offerNotes(app: "Zoom")])
+        #expect(run(&watch, from: 6, for: 60, app: "Zoom", recording: nil).isEmpty)
+    }
+
+    @Test func aMicThatFlickersEveryOtherTickIsStillACall() {
+        var watch = CallWatch()
+        var actions: [CallWatch.Action] = []
+        for tick in 0..<15 {
+            let at = TimeInterval(tick * 2)
+            if let action = watch.update(micApp: tick.isMultiple(of: 2) ? "Zoom" : nil, recording: nil, now: t0.addingTimeInterval(at)) {
+                actions.append(action)
+            }
+        }
+        #expect(actions == [.offerNotes(app: "Zoom")])
+    }
+
+    @Test func twoDroppedTicksWhileTheCallStartsStillOffer() {
+        var watch = CallWatch()
+        var actions = run(&watch, from: 0, for: 2, app: "Zoom", recording: nil)
+        actions += run(&watch, from: 2, for: 4, app: nil, recording: nil)
+        actions += run(&watch, from: 6, for: 30, app: "Zoom", recording: nil)
+        #expect(actions == [.offerNotes(app: "Zoom")])
+    }
+
+    @Test func aGrabThatStopsForGoodWithinFourSecondsIsNotACall() {
+        var watch = CallWatch()
+        #expect(run(&watch, from: 0, for: 2, app: "Zoom", recording: nil).isEmpty)
+        #expect(run(&watch, from: 2, for: 60, app: nil, recording: nil).isEmpty)
+        // Gone longer than the gap allowed: the next grab starts its own 4 s count.
+        #expect(run(&watch, from: 62, for: 4, app: "Zoom", recording: nil).isEmpty)
+    }
+
     @Test func noOfferWhileAlreadyRecording() {
         var watch = CallWatch()
-        #expect(run(&watch, from: 0, for: 30, app: "Zoom", recording: "a").isEmpty)
+        #expect(run(&watch, from: 0, for: 30, app: "Zoom", recording: "a") == [.skipped(app: "Zoom", reason: .recording)])
     }
 
     @Test func aShortDropDuringACallIsNotTheEndAndDoesNotOfferAgain() {
@@ -82,7 +122,7 @@ import Testing
         #expect(run(&watch, from: 90, for: 20, app: "FaceTime", recording: nil) == [.offerNotes(app: "FaceTime")])
         _ = run(&watch, from: 110, for: 30, app: nil, recording: nil)
         // Zoom again within ten minutes (a long mute): no second offer.
-        #expect(run(&watch, from: 140, for: 20, app: "Zoom", recording: nil).isEmpty)
+        #expect(run(&watch, from: 140, for: 20, app: "Zoom", recording: nil) == [.skipped(app: "Zoom", reason: .cooldown)])
         _ = run(&watch, from: 160, for: 30, app: nil, recording: nil)
         #expect(run(&watch, from: 700, for: 20, app: "Zoom", recording: nil) == [.offerNotes(app: "Zoom")])
     }

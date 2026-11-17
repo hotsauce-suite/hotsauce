@@ -8,6 +8,9 @@ import Foundation
 public struct CallWatch: Sendable {
     /// A brief grab (a voice memo, a sound check) isn't a call.
     public static let startAfter: TimeInterval = 4
+    /// While a call is starting, the app can let go of the mic for a moment (joining muted, a
+    /// device switch, Core Audio between two reads); only a longer gap means it wasn't a call.
+    public static let startGap: TimeInterval = 4
     /// Calls drop the mic for a moment when devices change; that isn't the end.
     public static let endAfter: TimeInterval = 20
     /// "The call ended" only follows a call that lasted this long.
@@ -22,11 +25,21 @@ public struct CallWatch: Sendable {
         case callEnded(session: String)
         /// A call ended with nothing to stop: withdraw the offer.
         case callOver
+        /// A call began but no offer was made, and why (so a missed offer can be explained).
+        case skipped(app: String, reason: SkipReason)
+    }
+
+    public enum SkipReason: String, Equatable, Sendable {
+        /// A meeting was already recording in this app.
+        case recording
+        /// The same app was offered less than `offerCooldown` ago.
+        case cooldown
     }
 
     enum Phase: Equatable, Sendable {
         case idle
-        case starting(since: Date, app: String)
+        /// `lastSeen` is the latest tick the app held the mic; `since` stays the first.
+        case starting(since: Date, lastSeen: Date, app: String)
         /// `before` was already recording when the call began, and is never stopped for it;
         /// `during` is the latest recording that started during the call.
         case inCall(began: Date, before: String?, during: String?)
@@ -43,17 +56,20 @@ public struct CallWatch: Sendable {
     public mutating func update(micApp: String?, recording: String?, now: Date) -> Action? {
         switch phase {
         case .idle:
-            if let micApp { phase = .starting(since: now, app: micApp) }
+            if let micApp { phase = .starting(since: now, lastSeen: now, app: micApp) }
             return nil
-        case .starting(let since, let app):
+        case .starting(let since, let lastSeen, let app):
             guard micApp != nil else {
-                phase = .idle
+                if now.timeIntervalSince(lastSeen) > Self.startGap { phase = .idle }
                 return nil
             }
+            phase = .starting(since: since, lastSeen: now, app: app)
             guard now.timeIntervalSince(since) >= Self.startAfter else { return nil }
             phase = .inCall(began: since, before: recording, during: nil)
-            guard recording == nil else { return nil }
-            if let last = offered[app], now.timeIntervalSince(last) < Self.offerCooldown { return nil }
+            guard recording == nil else { return .skipped(app: app, reason: .recording) }
+            if let last = offered[app], now.timeIntervalSince(last) < Self.offerCooldown {
+                return .skipped(app: app, reason: .cooldown)
+            }
             offered[app] = now
             return .offerNotes(app: app)
         case .inCall(let began, let before, let during):
