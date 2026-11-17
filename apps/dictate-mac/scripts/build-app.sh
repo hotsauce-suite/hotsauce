@@ -25,7 +25,15 @@ cd "$(dirname "$0")/.."
 
 # The Mac app takes the Hotsauce release it is built from, unless VERSION says otherwise.
 VERSION="${VERSION:-$(tr -d '[:space:]' < ../../HOTSAUCE_VERSION 2>/dev/null || echo 0.0.0)}"
-BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+# The next build number: one above the newest mac-app-<build> release, so servers take this build.
+next_build() {
+  local n
+  n="$(gh api repos/hotsauce-suite/hotsauce/git/matching-refs/tags/mac-app- \
+    --jq '[.[].ref | capture("mac-app-(?<n>[0-9]+)$").n | tonumber] | max // 0' 2>/dev/null)" || n=""
+  [[ "$n" =~ ^[0-9]+$ ]] && echo $((n + 1))
+}
+BUILD_NUMBER="${BUILD_NUMBER:-$(next_build || true)}"
+[[ "${BUILD_NUMBER:-}" =~ ^[0-9]+$ ]] || { echo "Set BUILD_NUMBER to one above the newest mac-app-<build> release (gh wasn't able to look it up)." >&2; exit 1; }
 # The display name and deep-link scheme live in one place, Sources/DictateCore/Brand.swift.
 brand() { sed -n "s/.*static let $1 = \"\\(.*\\)\".*/\\1/p" Sources/DictateCore/Brand.swift; }
 APP_NAME="$(brand name)"

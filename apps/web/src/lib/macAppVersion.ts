@@ -88,14 +88,15 @@ export function installedMacAppVersion(): string | null {
   return typeof b === 'string' && /^\d{1,9}$/.test(b) ? `${v}+${b}` : v
 }
 
-function parseLatest(body: unknown): MacAppLatest | null {
+export function parseLatest(body: unknown): MacAppLatest | null {
   if (!body || typeof body !== 'object') return null
-  const { version, build, reportsVersion } = body as Record<string, unknown>
+  const { version, build, reportsVersion, sameAppSince } = body as Record<string, unknown>
   if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version)) return null
   return {
     version,
     ...(typeof build === 'string' ? { build } : {}),
     reportsVersion: reportsVersion === true,
+    ...(typeof sameAppSince === 'string' && /^\d{1,9}$/.test(sameAppSince) ? { sameAppSince } : {}),
   }
 }
 

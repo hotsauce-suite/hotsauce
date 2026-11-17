@@ -76,11 +76,12 @@ jobs:
           # The newest Mac build so far, and what it was built from.
           PREV="$(gh api "repos/$REPO/git/matching-refs/tags/mac-app-" --jq '[.[].ref | capture("mac-app-(?<n>[0-9]+)$").n | tonumber] | max // 0')"
           PREV_VERSION="" PREV_SOURCE="" PREV_SINCE=""
-          if [ "$PREV" -gt 0 ]; then
-            gh release download "mac-app-$PREV" -R "$REPO" -p mac-app.json -D "$RUNNER_TEMP/prev" --clobber
-            PREV_VERSION="$(jq -r '.version // ""' "$RUNNER_TEMP/prev/mac-app.json")"
-            PREV_SOURCE="$(jq -r '.source // ""' "$RUNNER_TEMP/prev/mac-app.json")"
-            PREV_SINCE="$(jq -r '.sameAppSince // ""' "$RUNNER_TEMP/prev/mac-app.json")"
+          # A newest build without a readable mac-app.json (a hand release, a failed upload) counts
+          # as different, so the next build still happens.
+          if [ "$PREV" -gt 0 ] && gh release download "mac-app-$PREV" -R "$REPO" -p mac-app.json -D "$RUNNER_TEMP/prev" --clobber; then
+            PREV_VERSION="$(jq -r '.version // ""' "$RUNNER_TEMP/prev/mac-app.json" || true)"
+            PREV_SOURCE="$(jq -r '.source // ""' "$RUNNER_TEMP/prev/mac-app.json" || true)"
+            PREV_SINCE="$(jq -r '.sameAppSince // ""' "$RUNNER_TEMP/prev/mac-app.json" || true)"
           fi
           BUILD=$((PREV + 1))
           if [ "$PREV_SOURCE" = "$SOURCE_HASH" ] && [[ "$PREV_SINCE" =~ ^[0-9]+$ ]]; then
@@ -91,6 +92,10 @@ jobs:
           BUILDIT=true
           if [ "$PREV_VERSION" = "$VERSION" ] && [ "$PREV_SOURCE" = "$SOURCE_HASH" ] && [ "$FORCE" != "true" ]; then
             echo "::notice::Mac app build $PREV is already $VERSION from these sources; nothing to do."
+            BUILDIT=false
+          elif ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            # The Release run that wrote this number didn't finish; its retry will tag it.
+            echo "::notice::$VERSION isn't released yet (no v$VERSION tag); building nothing."
             BUILDIT=false
           elif [ "$HAS_KEY" != "true" ]; then
             echo "::warning::MAC_SIGNING_P12 isn't set, so no Mac app was built (an unsigned build would reset everyone's permissions). See apps/dictate-mac/scripts/create-release-signing.sh."
