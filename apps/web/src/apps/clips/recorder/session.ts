@@ -10,8 +10,9 @@ import {
   type MixedAudio,
   mixAudio,
   type RecordingFormat,
+  SCREEN_BITS_MIN,
+  screenBitrate,
   stopStream,
-  VIDEO_BITS,
 } from './media'
 import { ChunkUploader, isRetryable, type UploadState } from './uploader'
 
@@ -243,6 +244,8 @@ export class RecordingSession {
       if (attempt !== this.#attempt) return
     }
 
+    // Keep every pixel and drop frames when the encoder is pressed: text over smooth motion.
+    if (shared) shared.contentHint = 'detail'
     const mixed = (this.#deps.mix ?? mixAudio)([opts.mic, display])
     this.#mixed = mixed
     const stream = new MediaStream(mixed.track ? [video, mixed.track] : [video])
@@ -253,7 +256,8 @@ export class RecordingSession {
     const cameraFormat = this.#deps.cameraFormat
     this.#screen = this.#track(clip.id, 'screen', stream, attempt, {
       mimeType: this.#deps.format.mimeType,
-      videoBitsPerSecond: VIDEO_BITS,
+      // A camera-only clip keeps the floor; a screen gets the bits its size needs.
+      videoBitsPerSecond: shared ? screenBitrate(shared.getSettings?.() ?? {}) : SCREEN_BITS_MIN,
       audioBitsPerSecond: AUDIO_BITS,
     })
     // Started in the same task, so both clocks begin together; `start` events give the offset.

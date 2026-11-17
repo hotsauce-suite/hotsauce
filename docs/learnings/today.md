@@ -90,3 +90,17 @@
   `--repeat-each` with two workers. Run such a spec with `--workers=1` when repeating it.
 - **hotsauce.work now redirects `/help/<page>.html` to `/help/<page>`.** A check of a help page
   after a site deploy needs `curl -L`, or it reads the empty redirect and reports the text missing.
+
+## Weather forecast (2026-11-17)
+
+- MET's compact forecast has no daily highs and lows and no 6-hour min/max: points are hourly
+  for about 60 hours, then every 6 hours. A far-off day's high and low come from four samples, so
+  they read a little milder than a full-day forecast. Good enough for a glance; don't promise more.
+- Precipitation sits on each point for the period after it (1 hour or 6 hours). Pick the figure
+  by the step to the next point, or a day's total double-counts where MET switches step.
+- Group days in the browser, not on the server: the server doesn't know the member's time zone,
+  and the cached answer is shared by everyone at that place.
+- The demo's chip and its forecast come from one generated series, so they always agree. A fixed
+  sample temperature next to a generated forecast looked broken in the first screenshot.
+- After `pnpm install` in a fresh container, build `@hotsauce/format` before running web tests,
+  or Vite can't resolve it.

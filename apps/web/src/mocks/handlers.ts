@@ -18,6 +18,7 @@ import { meetingHandlers } from './meetingHandlers'
 import { FakeNotes, noteHandlers } from './noteHandlers'
 import { peopleHandlers } from './peopleHandlers'
 import { seed, seedPersonal } from './seed'
+import { FakeSign, seedSign, signHandlers } from './signHandlers'
 import { FakeTasks, seedTasksOnce, taskHandlers } from './taskHandlers'
 import { todayHandlers } from './todayHandlers'
 
@@ -164,6 +165,15 @@ function createHandlers(
       redirectHost: 'claude.ai',
       createdAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
       lastUsedAt: new Date(Date.now() - 3_600_000).toISOString(),
+      access: 'full',
+    },
+    {
+      id: 'conn_team_chat',
+      clientName: 'Team chat',
+      redirectHost: 'chat.example.com',
+      createdAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+      lastUsedAt: new Date(Date.now() - 600_000).toISOString(),
+      access: 'team-read',
     },
   ]
 
@@ -468,6 +478,29 @@ function createHandlers(
       return HttpResponse.json(repo.search(url.searchParams.get('q') ?? '', spaces))
     }),
 
+    // Chat rooms read for context (docs/PLAN-chat-context.md): a few demo messages, no live chat.
+    http.get('/api/chat/search', async ({ request }) => {
+      await wait()
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const words = (new URL(request.url).searchParams.get('q') ?? '')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 1)
+      if (words.length === 0) return HttpResponse.json([])
+      const hits = DEMO_CHAT.filter((m) => words.every((w) => m.text.toLowerCase().includes(w)))
+      return HttpResponse.json(
+        hits.map((m) => ({
+          ...m,
+          snippet: m.text.replace(
+            new RegExp(`(${words.map(escapeRe).join('|')})`, 'gi'),
+            '\u0002$1\u0003',
+          ),
+          url: '',
+        })),
+      )
+    }),
+
     http.get('/api/recents', ({ request }) => {
       const user = principal(request)
       if (user instanceof Response) return user
@@ -528,6 +561,9 @@ function createHandlers(
   handlers.push(...boardHandlers({ boards: work.boards, latencyMs, principal, seeded }))
   handlers.push(...fileHandlers({ files: work.files, latencyMs, principal }))
   handlers.push(...formHandlers({ forms: work.forms, files: work.files, latencyMs, principal }))
+  const sign = new FakeSign()
+  if (seeded) seedSign(sign, work.files)
+  handlers.push(...signHandlers({ sign, files: work.files, latencyMs, principal }))
   handlers.push(
     ...linkHandlers({ links: work.links, files: work.files, repo, latencyMs, principal }),
   )
@@ -602,3 +638,30 @@ export function createMockApi(opts: { latencyMs?: number; seeded?: boolean } = {
     ...createHandlers(repo, meetings, tasks, notes, work, opts.latencyMs ?? 0, seeded),
   }
 }
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** What the demo's team said in its chat, for ⌘K's "In chat" group. */
+const DEMO_CHAT = [
+  {
+    room: 'General',
+    id: 'demo-1',
+    author: 'Priya Natarajan',
+    createdAt: '2026-11-12T15:04:00.000Z',
+    text: 'The posting for the assay scientist role is in Docs. Comments by Wednesday please.',
+  },
+  {
+    room: 'General',
+    id: 'demo-2',
+    author: 'Sam Okafor',
+    createdAt: '2026-11-13T10:22:00.000Z',
+    text: 'Acme pricing call moved to Thursday at 2. Notes will be in Meetings.',
+  },
+  {
+    room: 'Pilots',
+    id: 'demo-3',
+    author: 'Sam Okafor',
+    createdAt: '2026-11-14T09:47:00.000Z',
+    text: 'Decided: we rerun the Northwind pilot next week with the new barcode labels.',
+  },
+]

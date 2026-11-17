@@ -484,6 +484,39 @@ export const shots = {
     await click(page.getByRole('button', { name: 'Add question' }), { after: 1500 })
   },
 
+  async sign({ page, signIn, startCapture, wait, moveTo, click, type }) {
+    await signIn()
+    await page.goto(`${B}/files?space=team&folder=Pilot%20launch`)
+    await wait(1500)
+    await startCapture()
+    await moveTo(900, 450, 10)
+    const row = page.getByTestId('files-row').filter({ hasText: 'Acme pilot one-pager.pdf' })
+    await click(row.getByTestId('files-open'), { after: 1200 })
+    await click(page.getByTestId('file-send-for-signature'), { after: 1500 })
+    await page.getByTestId('sign-page-1').locator('canvas').waitFor()
+    await wait(900)
+    // Ada signs first, then someone outside the team, who gets an emailed link.
+    await click(page.getByTestId('sign-person-add'), { after: 400 })
+    await click(page.getByTestId('sign-person-name').nth(1))
+    await type('Maya Lin', 30)
+    await click(page.getByTestId('sign-person-email').nth(1))
+    await type('maya@northwind.example', 20)
+    await wait(500)
+    const layer = page.locator('[data-page-layer="1"]')
+    await click(page.getByTestId('sign-add-signature'), { after: 500 })
+    await click(layer, { fx: 0.3, fy: 0.62, after: 700 })
+    await page.getByTestId('sign-fields-for').selectOption('s2')
+    await wait(500)
+    await click(page.getByTestId('sign-add-signature'), { after: 500 })
+    await click(layer, { fx: 0.7, fy: 0.62, after: 900 })
+    await click(page.getByTestId('sign-send'), { after: 1400 })
+    await click(page.getByTestId('sign-send-confirm'), { after: 1800 })
+    await click(page.getByTestId('sign-link-copy'), { after: 1000 })
+    await click(page.getByRole('button', { name: 'Done' }), { after: 1200 })
+    await page.getByTestId('sign-progress').scrollIntoViewIfNeeded()
+    await wait(2200)
+  },
+
   async booking({ page, signIn, startCapture, wait, moveTo, click, type }) {
     await signIn()
     await page.goto(`${B}/meetings/booking`)

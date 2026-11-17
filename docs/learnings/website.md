@@ -47,3 +47,8 @@
 - **Re-shoot them from the mock web app, not a real server.** `cd apps/web && VITE_MOCK_API=1 npx vite --port 5191`, sign in at `/sign-in` as `ada@example.test`, and shoot at 1600×1000 with Playwright's `colorScheme` set to light, then dark. Install the page clock at 7:50 AM so Today says "Good morning" and the next meeting is a minute away.
 - **Linux shows "Ctrl K" in the search box.** The sidebar reads `navigator.platform`, not the user agent: add an init script that makes it `MacIntel` so the shots show ⌘K and the placeholder doesn't wrap.
 - **The branded shot needs a brand the mock doesn't have.** Patch the `/api/org/brand` answer in `apps/web/src/mocks/handlers.ts` for the one shot (green primary, `modern` fonts, a data-URL `markUrl`), then put the file back. Don't commit it: the live demo uses the same mock.
+- **A Worker that calls GitHub's API has to cache failures too.** Unauthenticated calls share 60
+  an hour per address, and Cloudflare's addresses are shared, so a 403 is normal. Remember the
+  last good answer (a week) and a failure (a minute), or every visitor asks again
+  (`site/mac-download.js`). Keep helpers out of `worker.js`: a Worker module's named exports are
+  treated as entrypoints.

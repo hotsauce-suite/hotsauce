@@ -14,8 +14,18 @@ import { product } from '../../brand/product'
 import { feedbackLink, useFeedbackEnabled } from '../../components/AppRail'
 import { Icon } from '../../components/Icon'
 import { onFeedbackClick } from '../../feedback/pageShot'
+import { useShortcut } from '../../keyboard/shortcuts'
+import { hasMacSettings } from '../../lib/macSettings'
 import { useSession } from '../../state/session'
-import { movedSection, ORG_PAGES, type SettingsPage, YOUR_PAGES } from './pages'
+import { MAC_PAGE, movedSection, ORG_PAGES, type SettingsPage, YOUR_PAGES } from './pages'
+import {
+  type FindState,
+  resultCount,
+  SearchBox,
+  SearchResults,
+  useFoundSection,
+} from './SettingsSearch'
+import { type SettingEntry, searchSettings } from './searchIndex'
 
 /** The help center, and its frequently asked questions. */
 export const HELP_DOCS = 'https://hotsauce.work/help'
@@ -28,10 +38,32 @@ export const HELP_FAQ = 'https://hotsauce.work/faq'
  */
 export default function SettingsLayout() {
   const isAdmin = useSession().me?.principal.isAdmin === true
-  const { pathname, hash } = useLocation()
+  // Inside the Mac app, This Mac comes first (docs/PLAN-one-settings.md R1).
+  const mac = hasMacSettings()
+  const { pathname, hash, state, key } = useLocation()
   const navigate = useNavigate()
   // The pages still reach the shell (the shortcuts sheet) through the outlet.
   const shell = useOutletContext()
+
+  // Search (docs/PLAN-settings-search.md): what's typed stands in for the page until it's cleared
+  // or a result is chosen. The page stays mounted underneath, so nothing typed into it is lost.
+  const [query, setQuery] = useState('')
+  const searching = query.trim() !== ''
+  const results = searching ? searchSettings(query, { admin: isAdmin, mac }) : []
+  const box = useRef<HTMLInputElement>(null)
+  const choose = (entry: SettingEntry | undefined) => {
+    if (!entry) return
+    setQuery('')
+    void navigate(entry.to, { state: { settingsFind: entry.title } satisfies FindState })
+  }
+  // Any move to another page (a tab, ⌘K, Back) ends the search.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each move is a new location key
+  useEffect(() => setQuery(''), [key])
+  const content = useRef<HTMLDivElement>(null)
+  useShortcut('global.search', () => {
+    box.current?.focus()
+    return true
+  })
 
   // An address from before Settings had pages opens the page its section moved to (G4).
   const moved = movedSection(pathname, hash)
@@ -42,9 +74,12 @@ export default function SettingsLayout() {
   // The router doesn't scroll to a section named in the address, and the pane outlives the page:
   // a new page starts at its top, or at its section.
   const pane = useRef<HTMLDivElement>(null)
+  useFoundSection(pane, content)
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is the reason to scroll
   useEffect(() => {
     if (moved) return
+    // A search result scrolls to its own section (useFoundSection).
+    if ((state as FindState | null)?.settingsFind) return
     if (!hash) {
       pane.current?.scrollTo?.({ top: 0 })
       return
@@ -94,12 +129,19 @@ export default function SettingsLayout() {
             data-testid="settings-side"
             className="contents md:sticky md:top-10 md:col-start-1 md:row-start-1 md:block md:max-h-[calc(100dvh-7rem)] md:self-start md:overflow-y-auto"
           >
+            <SearchBox
+              value={query}
+              onChange={setQuery}
+              onChoose={() => choose(results[0])}
+              inputRef={box}
+              searching={searching}
+            />
             <nav
               aria-label="Settings"
               data-testid="settings-nav"
               className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-3 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0"
             >
-              <Group pages={YOUR_PAGES} />
+              <Group pages={mac ? [MAC_PAGE, ...YOUR_PAGES] : YOUR_PAGES} />
               {isAdmin ? (
                 <>
                   <span
@@ -123,7 +165,18 @@ export default function SettingsLayout() {
             data-testid="settings-page"
             className="order-1 min-w-0 pt-4 md:order-none md:col-start-2 md:row-start-1 md:pt-0"
           >
-            <Outlet context={shell} />
+            {/* Always there, so the first count is read out too. */}
+            <p aria-live="polite" className="sr-only" data-testid="settings-search-announce">
+              {searching ? resultCount(query, results.length) : ''}
+            </p>
+            {searching ? (
+              <SearchResults query={query} results={results} onChoose={choose} inputRef={box} />
+            ) : null}
+            {/* Hidden and inert under the results: still mounted, so nothing typed into it is
+                lost, but its shortcuts and focus are off. */}
+            <div ref={content} hidden={searching} inert={searching} data-testid="settings-content">
+              <Outlet context={shell} />
+            </div>
           </div>
         </div>
       </div>

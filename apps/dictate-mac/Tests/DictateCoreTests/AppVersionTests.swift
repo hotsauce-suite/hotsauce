@@ -62,4 +62,15 @@ import Testing
         #expect(AppVersion.infoURL(server: server).absoluteString == "https://team.example.test/downloads/mac-app.json")
         #expect(AppVersion.downloadURL(server: server).absoluteString == "https://team.example.test/downloads/Hotsauce.dmg")
     }
+
+    @Test func noUpdateForARebuildOfTheSameApp() {
+        // Every Hotsauce release makes a Mac build; most change only the number.
+        let json = Data(#"{"version":"0.36.0","build":"130","sameAppSince":"120"}"#.utf8)
+        let latest = AppVersion.latest(fromJSON: json)
+        #expect(latest?.sameAppSince == "120")
+        #expect(AppVersion.update(installed: "0.34.1", installedBuild: "120", latest: latest) == nil)
+        #expect(AppVersion.update(installed: "0.34.1", installedBuild: "125", latest: latest) == nil)
+        #expect(AppVersion.update(installed: "0.33.0", installedBuild: "119", latest: latest) == "0.36.0")
+        #expect(AppVersion.update(installed: "0.33.0", installedBuild: nil, latest: latest) == "0.36.0")
+    }
 }

@@ -33,6 +33,7 @@ const PAGES = [
   { slug: 'whiteboard', title: 'Boards', group: 'apps' },
   { slug: 'people', title: 'People', group: 'apps' },
   { slug: 'forms', title: 'Forms', group: 'apps' },
+  { slug: 'sign', title: 'Sign', group: 'apps' },
   { slug: 'tables', title: 'Tables', group: 'apps' },
   { slug: 'links', title: 'Links', group: 'apps' },
   { slug: 'checkins', title: 'Check-ins', group: 'apps' },

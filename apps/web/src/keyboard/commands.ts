@@ -33,6 +33,8 @@ export interface Command {
   confirm?: string
   /** Offered whatever is typed, taking it as its input (Ask the assistant). */
   anyQuery?: boolean
+  /** Offered only once something is typed, so a long list doesn't crowd the empty menu (Settings' sections). */
+  typedOnly?: boolean
   /** Gets what was typed, for commands that use it ("Ask the assistant: …"). */
   run: (query: string) => void
 }
@@ -103,11 +105,12 @@ const words = (text: string) =>
 
 /**
  * The commands every typed word starts a word of (title, keywords, the group's name), so "e"
- * matches nothing while "new t" finds New task. An empty query matches every command.
+ * matches nothing while "new t" finds New task. An empty query matches every command but the
+ * typed-only ones.
  */
 export function matchCommands(commands: readonly Command[], query: string): Command[] {
   const typed = words(query)
-  if (typed.length === 0) return [...commands]
+  if (typed.length === 0) return commands.filter((command) => !command.typedOnly)
   return commands.filter((command) => {
     if (command.anyQuery) return true
     const vocabulary = [

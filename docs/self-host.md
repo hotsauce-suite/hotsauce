@@ -64,7 +64,7 @@ PUBLIC_URL=https://hotsauce.acme.com docker compose up -d
 docker compose logs hotsauce | grep setup
 ```
 
-Put it behind a reverse proxy that terminates HTTPS and passes WebSockets through (Caddy does both with `reverse_proxy localhost:3000`). Back up the `hotsauce-data` volume.
+Put it behind a reverse proxy that terminates HTTPS and passes WebSockets through (Caddy does both with `reverse_proxy localhost:3000`). Back up the `hotsauce-data` volume. It holds Sign's seal key too (`sign/seal.json`), which the server makes the first time someone signs a PDF. For Sign to email signing links and the finished copies, set `RESEND_API_KEY` (a free [Resend](https://resend.com) key with a verified domain) and `MAIL_FROM` (an address on that domain, like `sign@mail.example.com`); without them, Send shows each link for the sender to copy.
 
 ## Staying up to date
 
@@ -79,6 +79,16 @@ If a release changes lines you changed too, it opens an issue instead of a pull 
 
 1. A copy made by the Deploy button has no `.github` folder: add `update-hotsauce.yml` (and `deploy-fly.yml` on Fly) from Hotsauce's repository.
 2. In your repository's **Settings → Actions → General**, tick "Allow GitHub Actions to create and approve pull requests".
+
+## Moving sign-in to another Clerk application
+
+You can change the Clerk application your server uses at any time, for example from a development instance to a production one on your own domain. Clerk gives everyone a new account id in the new application, but Hotsauce knows each member by their verified email, so their clips, conversations, tokens, connected apps and settings stay theirs. Nothing needs migrating.
+
+1. Stay on a recent version for at least one start before the move, so every existing account is on record. The log says `sign-in: N members on record` at startup.
+2. Set the new application's `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` (environment, or Settings → Organization) and restart.
+3. Everyone signs in once more. Until a member does, their access tokens, connected AI tools and Mac app answer "Sign in again" and then carry on by themselves.
+
+To go back, set the old two keys again. The record is `identities/identities.json` in the data directory and is part of every backup.
 
 ## Backups
 
@@ -103,7 +113,7 @@ Each member's own **Settings** has three pages: **General** (their account and S
 
 ## Configuring by environment instead
 
-Every setting can also come from the environment, which always wins over the wizard. That suits infrastructure-as-code. The variables are in `apps/server/src/config.ts`; the ones the wizard covers are `ORG_NAME`, `PRODUCT_NAME`, `ALLOWED_EMAIL_DOMAINS`, `ADMIN_EMAILS`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `ANTHROPIC_API_KEY`, `DEEPGRAM_API_KEY`, `HOST_KIND`, `GITHUB_ORG`, `GITHUB_TOKEN`, `WEBHOOK_SECRET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `KEEP_AUDIO` and `CHAT_URL`. With `CLERK_SECRET_KEY` set, the wizard never appears.
+Every setting can also come from the environment, which always wins over the wizard. That suits infrastructure-as-code. The variables are in `apps/server/src/config.ts`; the ones the wizard covers are `ORG_NAME`, `PRODUCT_NAME`, `ALLOWED_EMAIL_DOMAINS`, `ADMIN_EMAILS`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `ANTHROPIC_API_KEY`, `DEEPGRAM_API_KEY`, `HOST_KIND`, `GITHUB_ORG`, `GITHUB_TOKEN`, `WEBHOOK_SECRET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `KEEP_AUDIO` and `CHAT_URL`. With `CLERK_SECRET_KEY` set, the wizard never appears. Chat rooms read for context are read every `CHAT_READ_INTERVAL_MS` (default 300000, 0 turns reading off) and their threads re-read for `CHAT_THREAD_DAYS` days (default 7).
 
 The assistant (Ask, ⌘J) uses the Anthropic key and needs nothing else. Its model and monthly limit per member are set in Settings → AI, or by environment: `ASSISTANT_MODEL` (default `claude-sonnet-5-5`; `claude-opus-5-5` for harder questions) and `ASSISTANT_MONTHLY_LIMIT_USD` (an estimated dollar amount per member per month; empty or `0` for no limit). Conversations are kept in `assistant.sqlite` in the data directory, private to each member, and backed up with the rest of the server's data.
 

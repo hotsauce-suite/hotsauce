@@ -1,0 +1,14 @@
+/* Sign: the script font typed signatures are drawn in on the PDF (packages/sign/fonts), here
+   subset to Latin, Greek and Cyrillic so the preview matches. Fetched only when a signature shows. */
+@font-face {
+  font-family: "Signature";
+  src: url("/fonts/GreatVibes.woff2") format("woff2");
+  font-display: swap;
+}
+
+.sign-script {
+  font-family: "Signature", "Segoe Script", cursive;
+  /* The same blue-black, outlined ink the PDF is stamped in (packages/sign pdf-finalize). */
+  color: #050a1a;
+  -webkit-text-stroke: 0.025em currentColor;
+}

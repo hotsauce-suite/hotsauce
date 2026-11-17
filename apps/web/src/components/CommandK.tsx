@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { personUrl } from '../api/people'
 import { memberTimeZone, tasksApi } from '../api/tasks'
-import type { SearchResult } from '../api/types'
+import type { ChatSearchHit, SearchResult } from '../api/types'
 import { checkinFileUrl } from '../apps/checkins/manifest'
 import { usePins } from '../apps/pins'
 import { APPS, type AppId, appForFile, railLinks } from '../apps/registry'
@@ -18,7 +18,14 @@ import {
   useCommandList,
 } from '../keyboard/commands'
 import { Keys } from '../keyboard/KeyCaps'
-import { displayName, fileUrl, linkFileUrl, meetingFileKind, tableFileUrl } from '../lib/paths'
+import {
+  displayName,
+  fileUrl,
+  linkFileUrl,
+  meetingFileKind,
+  signFileUrl,
+  tableFileUrl,
+} from '../lib/paths'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
 import { Icon, type IconName } from './Icon'
@@ -77,6 +84,8 @@ export function hitUrl(space: string, path: string): string {
         : fileUrl(space, path)
     case 'checkins':
       return checkinFileUrl(path)
+    case 'sign':
+      return signFileUrl(space, path) ?? fileUrl(space, path)
     default:
       return fileUrl(space, path)
   }
@@ -183,6 +192,8 @@ export default function CommandK({
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<{ query: string; hits: SearchResult[] } | null>(null)
   const [error, setError] = useState(false)
+  // Chat rooms read for context come back on their own; a failure just shows none.
+  const [chatHits, setChatHits] = useState<{ query: string; hits: ChatSearchHit[] } | null>(null)
   const spaces = useMemo(() => session.spaces.map((s) => s.name), [session.spaces])
 
   useEffect(() => {
@@ -190,6 +201,10 @@ export default function CommandK({
     if (!q) return
     let live = true
     const timer = setTimeout(() => {
+      api.chatSearch(q).then(
+        (hits) => live && setChatHits({ query: q, hits }),
+        () => live && setChatHits({ query: q, hits: [] }),
+      )
       api.search(q, spaces).then(
         (hits) => {
           if (!live) return
@@ -309,6 +324,11 @@ export default function CommandK({
   ) : null
 
   const searching = query.trim() !== '' && results?.query !== query.trim() && !error
+  const chatFound = chatHits?.query === query.trim() ? chatHits.hits.slice(0, 8) : []
+  const openChat = (hit: ChatSearchHit) => {
+    close()
+    if (hit.url) window.open(hit.url, '_blank', 'noopener,noreferrer')
+  }
   const recent = session.recents.slice(0, 6)
 
   // Keep the top row selected as results arrive: the app jumps render at once and the doc
@@ -479,6 +499,13 @@ export default function CommandK({
                 ))}
               </Command.Group>
             ) : null}
+            {chatFound.length ? (
+              <Command.Group heading="In chat">
+                {chatFound.map((hit) => (
+                  <ChatItem key={`c:${hit.id}`} hit={hit} query={query} onSelect={openChat} />
+                ))}
+              </Command.Group>
+            ) : null}
             {query.trim() === '' ? (
               <>
                 {actionGroup('page')}
@@ -502,7 +529,8 @@ export default function CommandK({
             jumps.length === 0 &&
             actions.length === 0 &&
             titles.length === 0 &&
-            fullText.length === 0 ? (
+            fullText.length === 0 &&
+            chatFound.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-ink-faint">
                 {error
                   ? 'Search is unavailable right now. Try again in a moment.'
@@ -552,6 +580,38 @@ function ResultItem({
       <span className="truncate font-mono text-[0.68rem] text-ink-faint">
         {hit.path.replace(/^(docs|meetings)\//, '')}
       </span>
+    </Command.Item>
+  )
+}
+
+/** A chat message; choosing it opens the message in the chat, in a new tab. */
+function ChatItem({
+  hit,
+  query,
+  onSelect,
+}: {
+  hit: ChatSearchHit
+  query: string
+  onSelect: (hit: ChatSearchHit) => void
+}) {
+  const when = new Date(hit.createdAt).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
+  return (
+    <Command.Item
+      value={`chat:${hit.id}:${hit.room}`}
+      onSelect={() => onSelect(hit)}
+      data-testid="chat-result"
+      className="flex cursor-pointer flex-col gap-0.5 rounded-lg px-3 py-2"
+    >
+      <span className="flex items-baseline gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{hit.author}</span>
+        <span className="shrink-0 text-xs text-ink-faint">
+          {hit.room} · {when}
+        </span>
+      </span>
+      <span className="line-clamp-2 text-xs text-ink-soft">{snippet(hit.snippet, query)}</span>
     </Command.Item>
   )
 }

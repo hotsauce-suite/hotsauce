@@ -13,6 +13,7 @@ import {
   briefcastRoutes,
   briefRoutes,
   calendarRoutes,
+  chatRoutes,
   checkinRoutes,
   clipRoutes,
   commentRoutes,
@@ -39,6 +40,8 @@ import {
   searchRoutes,
   setupRoutes,
   shareRoutes,
+  signLinkRoutes,
+  signRoutes,
   tableRoutes,
   taskRoutes,
   testRoutes,
@@ -74,6 +77,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', usageRoutes(deps))
     .route('/api', accountRoutes(deps))
     .route('/api', searchRoutes(deps))
+    .route('/api', chatRoutes(deps))
     .route('/api', fileRoutes(deps))
     .route('/api', historyRoutes(deps))
     .route('/api', conflictRoutes(deps))
@@ -97,6 +101,8 @@ export function createApp(deps: AppDeps) {
     .route('/api', shareRoutes(deps))
     .route('/api', pageRoutes(deps))
     .route('/api', formRoutes(deps))
+    .route('/api', signRoutes(deps))
+    .route('/api', signLinkRoutes(deps))
     .route('/api', formFillRoutes(deps))
     .route('/api', tableRoutes(deps))
     .route('/api', linkRoutes(deps))

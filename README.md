@@ -133,6 +133,7 @@ tools can all read what you saved. [More in the help center](https://hotsauce.wo
 | **Files** | Upload and share files and folders, with previews and search across what's inside them. |
 | **Tables** | Trackers with spreadsheet formulas, kept as CSV files in git. |
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
+| **Sign** | Sign a PDF from Files by typing or drawing. The signed copy is sealed so any later change shows, and an audit certificate is saved beside it. |
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note or meeting, or publish a page. |
 | **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, trimming, one-click Summarize and Action items, speed control and a shared library. |
@@ -151,7 +152,10 @@ anything in your workspace: “What did we decide about pricing?”, “Prep me 
 “Turn this meeting’s action items into tasks”. It’s named after your workspace (“Ask Acme”), knows the
 doc or meeting you have open, answers with links to what it used, and makes docs, tasks and notes
 when you ask, each with an Undo. Deleting or moving a file, sharing a link or publishing a page waits for your Confirm. It works through
-the same tools as [the MCP server](docs/mcp.md), as you, so it sees only what you can see.
+the same tools as [the MCP server](docs/mcp.md), as you, so it sees only what you can see. An admin
+can also let it read chosen team chat rooms (Ember, Campfire, or any chat whose bots have a room
+address): switch on **Read for context** for a room in Settings → Workspace → Chat rooms, and its
+messages show up in search, Ask, AI tools and each person's agent brief. Direct messages are never read.
 Conversations are private to each person. Admins pick the model (Claude Sonnet or Opus), see each
 person’s use this month, and can set a monthly limit, in Settings → AI.
 

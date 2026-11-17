@@ -54,3 +54,47 @@
   `order` puts the help strip after the page, so one set of elements serves both layouts. When
   testing it, measure the menu against the scrolling area and poll: the page's entrance and late
   fonts move things a few pixels for the first moments.
+
+## Settings search (2026-11-17)
+
+- **Find sections by their heading text, not new ids.** Most Settings sections had no `id`, and
+  adding one to each would have touched a dozen shared components. The result carries the heading
+  in router state (`settingsFind`), and the layout finds the `h2`/`h3`/`legend`/card title that
+  matches. A test renders every page and checks each listed heading is there, so a renamed
+  heading fails CI instead of quietly breaking search.
+- **Keep the page mounted under the results** (`hidden`), so a half-typed form on the page
+  survives a search.
+- **The layout's "new page scrolls to top" effect fights a jump to a section**: skip it when the
+  location carries `settingsFind`, and keep re-scrolling for a few seconds as lazy sections load.
+- **Watch prefixes in the everyday words**: "logout" made "logo" find Account. Every typed word
+  matches the start of a word, so one-word synonyms leak; prefer two-word phrases.
+- **A long list of ⌘K rows can be `typedOnly`**: they match once something is typed and stay out
+  of the empty menu.
+
+## The Mac app's settings live in web Settings (This Mac, Nov 17)
+
+- A native settings window beside the web app's Settings confused people more than any single
+  setting did. One Settings, with a Mac-only page fed by a WKWebView bridge, costs little: the page
+  is ordinary React tested against a fake bridge (`apps/web/src/test/fakeMac.ts`), and the Swift side
+  is a pure parser plus a snapshot in DictateCore that runs in `swift test` without a window.
+- Have every bridge answer with the whole snapshot, and render what came back, not what was asked.
+  Native confirms (history retention, Clear history) can be cancelled, and the page then shows the
+  truth with no extra code.
+- A new Mac build can meet an older web app (self-hosted servers update on their own schedule). The
+  page says hello over the bridge on boot; the app routes ⌘, to the page only after that hello and
+  keeps a small native fallback otherwise. Reset the flag in `didCommit`, before the new document's
+  scripts run.
+- WebKit hands JS booleans and numbers over as NSNumber. Check `CFBooleanGetTypeID` to tell a real
+  `true` from `1`, or strict parsing silently accepts the wrong type.
+- No Swift toolchain in the cloud container: write the Swift, then compile and `swift test` on m5Box
+  in a throwaway worktree. Installing test builds there resets Morgan's permissions; it isn't needed
+  to check a build.
+- The PR's "check" job (macOS runner, `swift test` and a release build) compiles the Swift for you
+  now, so a cloud thread can change the Mac app without m5Box: push early and let CI be the compiler.
+- To add a second page to an existing bridge, send a second hello (`helloDictations`) rather than
+  growing the first: strict parsing in older apps would refuse a hello with extra keys and lose
+  the original routing.
+- Anything the sidebar links to inside the Mac app should appear only after the app has answered,
+  not when the bridge merely exists: older apps have the handler but not every request.
+- Let the Mac compute numbers it already computes (DictationStats, MonthActivity) and send them;
+  porting the sums to TypeScript would give two answers to one question.

@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router/dom'
 import { getLive } from './apps/meetings/live/liveState'
+import { sayHelloToMac } from './lib/macSettings'
 import { followServiceWorkerNavigation } from './lib/swNavigate'
 import { createAppRouter } from './router'
 import './styles/app.css'
@@ -53,6 +54,8 @@ function showDemoNotice() {
 }
 
 async function boot() {
+  // In the Mac app: this web app has Settings → This Mac, so ⌘, can open it (docs/PLAN-one-settings.md R11).
+  sayHelloToMac()
   // Statically false in production builds, so the mock layer is tree-shaken away. The demo
   // build (`vite build --mode demo`, the live demo on hotsauce.work) keeps it.
   if (

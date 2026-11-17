@@ -48,12 +48,21 @@ export class TokenAuth implements Authenticator {
     if (!principal) return null
     return {
       ...principal,
-      via: { kind: 'token', tokenId: found.connectionId, tokenName: found.clientName },
+      via: {
+        kind: 'token',
+        tokenId: found.connectionId,
+        tokenName: found.clientName,
+        ...(found.access === 'team-read' ? { access: 'team-read' as const } : {}),
+      },
     }
   }
 
   principalForUser(userId: string): Promise<Principal | null> {
     return this.#inner.principalForUser(userId)
+  }
+
+  recordExistingMembers(): Promise<void> {
+    return this.#inner.recordExistingMembers?.() ?? Promise.resolve()
   }
 
   createSignInTicket(userId: string): Promise<string> {

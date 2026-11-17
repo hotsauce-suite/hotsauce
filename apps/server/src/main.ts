@@ -84,12 +84,22 @@ async function main(): Promise<void> {
   // Clips that were being processed or transcribed when the server stopped carry on.
   const clipsResumed = services.clips.recover()
   if (clipsResumed > 0) console.log(`Resuming ${clipsResumed} clip job(s)`)
+  // Each member's sign-in id goes on record, so a later move of sign-in keeps them who they are.
+  // Tried again a few times: a move made before the record exists would split every member.
+  const recordMembers = (attempt: number): void => {
+    void services.auth.recordExistingMembers?.().catch((err: unknown) => {
+      console.error(`sign-in: could not record the existing accounts (try ${attempt}): ${err}`)
+      if (attempt < 5) setTimeout(() => recordMembers(attempt + 1), 60_000).unref()
+    })
+  }
+  recordMembers(1)
   meetings.reminders?.start()
   services.tasks.reminders?.start()
   meetings.calendarSync?.start()
   services.briefs.start()
   services.briefcasts.start()
   services.checkinScheduler.start()
+  services.chatReader.start()
   // An update this server started either took or was rolled back; then keep checking.
   services.updates.reconcile()
   services.updates.startTimer()
@@ -187,6 +197,8 @@ async function main(): Promise<void> {
     await services.briefs.close()
     await services.briefcasts.close()
     await services.checkinScheduler.close()
+    await services.chatReader.close()
+    services.chatReader.store.close()
     await services.backups?.close()
     await meetings.calendarSync?.close()
     // Requests that were mid-flight when shutdown began may queue a write after the first
@@ -238,7 +250,11 @@ function serveWebApp(
     }
     if (!c.res.headers.has('X-Frame-Options')) c.header('X-Frame-Options', 'DENY')
     c.header('X-Content-Type-Options', 'nosniff')
-    c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+    // A signing link's page holds its secret in the URL, so it sends no referrer at all.
+    c.header(
+      'Referrer-Policy',
+      c.req.path.startsWith('/signing/') ? 'no-referrer' : 'strict-origin-when-cross-origin',
+    )
   })
 
   app.get('*', (c, next) => {

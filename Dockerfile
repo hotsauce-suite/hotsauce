@@ -29,7 +29,7 @@ FROM deps AS build
 # so the Clerk publishable key (public by design) comes in as a build arg from fly.toml.
 ARG VITE_CLERK_PUBLISHABLE_KEY
 # Packages without a build script are skipped; pnpm builds in dependency order.
-RUN pnpm --filter @hotsauce/format --filter @hotsauce/web --filter @hotsauce/server run build
+RUN pnpm --filter @hotsauce/format --filter @hotsauce/sign --filter @hotsauce/web --filter @hotsauce/server run build
 # The Chrome extension, built for any server: the server writes its own address and name into
 # the zip it offers at /downloads/ (apps/server/src/extension), so one image serves everyone.
 # The zip copied here is the unstamped fallback.

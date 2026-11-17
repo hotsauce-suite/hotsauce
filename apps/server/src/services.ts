@@ -16,7 +16,13 @@ import {
   FakeAssistantModel,
   UnconfiguredAssistantModel,
 } from './assistant/index.js'
-import { type Authenticator, createAuthenticator, type Principal } from './auth/index.js'
+import {
+  type Authenticator,
+  createAuthenticator,
+  IdentityLedger,
+  instanceOf,
+  type Principal,
+} from './auth/index.js'
 import { createBackups } from './backup/index.js'
 import { BoardRooms, Boards } from './boards/index.js'
 import { AgentBriefs, BriefMembers } from './brief/index.js'
@@ -28,6 +34,7 @@ import {
   type Speaker,
   UnconfiguredSpeaker,
 } from './briefcast/index.js'
+import { ChatReader, ChatStore, chatInvolving } from './chat/index.js'
 import { CheckinMembers, CheckinScheduler, Checkins } from './checkins/index.js'
 import {
   ClipStore,
@@ -39,6 +46,7 @@ import {
 import { Comments } from './comments/index.js'
 import type { Config } from './config.js'
 import {
+  DEEPGRAM_DICTATION_MODEL,
   DeepgramDictationTranscriber,
   Dictation,
   DictationSocketServer,
@@ -67,6 +75,7 @@ import {
   type PageFetcher,
   ReadingStore,
 } from './links/index.js'
+import { type Mailer, mailerFor } from './mail/index.js'
 import {
   DeepgramRetranscriber,
   type MeetingRetranscriber,
@@ -124,7 +133,9 @@ import {
   Turnstile,
 } from './scheduling/index.js'
 import { assertOwnShare, Shares } from './shares/index.js'
+import { Sign } from './sign/index.js'
 import { SpaceService } from './spaces/index.js'
+import { ensureSealKey } from './state/seal-key.js'
 import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
 import { Tables } from './tables/index.js'
@@ -180,6 +191,8 @@ export interface ServiceOverrides {
   retranscriber?: MeetingRetranscriber | null
   /** Booking links' robot check; null is a server that can't take bookings (§19). */
   robotCheck?: RobotCheck | null
+  /** Sign's email (docs/PLAN-sign.md R12); a fake in tests. */
+  mailer?: Mailer
   /** Saved links' page fetcher (§23.2); tests pass their own pages. */
   linkFetch?: PageFetcher
   /** Hotsauce Forms' chat posts (§21.5); tests pass a fake. */
@@ -229,7 +242,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ...(config.HOTSAUCE_MASTER_KEY ? { masterKey: config.HOTSAUCE_MASTER_KEY } : {}),
     })
   const brand = new BrandStore(org.dir)
-  const auth = new TokenAuth(createAuthenticator(config), tokens, oauth)
+  // Who each member is, whatever id the sign-in provider gives them (auth/identities.ts).
+  const identities = new IdentityLedger({ dataDir: config.DATA_DIR })
+  const auth = new TokenAuth(createAuthenticator(config, identities), tokens, oauth)
   const spaces = new SpaceService({
     git,
     host,
@@ -263,6 +278,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
           )
         : llm),
     model: config.DICTATION_MODEL,
+    carefulModel: config.DICTATION_CAREFUL_MODEL,
+    speechName:
+      config.ASR_PROVIDER === 'deepgram'
+        ? DEEPGRAM_DICTATION_MODEL.name
+        : config.ASR_PROVIDER === 'none'
+          ? 'Off (no Deepgram key)'
+          : 'Test transcriber',
+    cleanupAvailable: config.LLM_PROVIDER !== 'none',
     chatNames: teamChatNames({
       // The rail's name for it: "<org> Chat", or "<product> Chat" without an org name.
       orgName: config.ORG_NAME || config.PRODUCT_NAME,
@@ -271,7 +294,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   })
   const meetings = createMeetingServices(
     config,
-    { git, index, auth, spaces, syncer, keyterms: (p) => dictation.keyterms(p) },
+    { git, index, auth, identities, spaces, syncer, keyterms: (p) => dictation.keyterms(p) },
     { ...overrides, llm },
   )
   const dictationSockets = new DictationSocketServer({
@@ -327,6 +350,16 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
       : {}),
   })
+  // Chat as context (docs/PLAN-chat-context.md): a copy of the rooms an admin lets Hotsauce read.
+  const chatReader = new ChatReader({
+    rooms: chatRooms,
+    store: new ChatStore(path.join(config.DATA_DIR, 'chat.sqlite')),
+    ...(overrides.chatFetch
+      ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
+      : {}),
+    intervalMs: config.CHAT_READ_INTERVAL_MS,
+    threadDays: config.CHAT_THREAD_DAYS,
+  })
   // Members' names and zones as their browsers last said them.
   const checkinMembers = new CheckinMembers(config.DATA_DIR)
   // Check-ins (§24): scheduled team questions in the team space; summaries go to a chat room.
@@ -367,6 +400,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     syncer,
     tasks: taskService,
     checkins,
+    chat: { involving: chatInvolving(chatRooms, chatReader.store) },
     llm,
     model: config.BRIEF_MODEL,
     members: new BriefMembers(config.DATA_DIR),
@@ -539,7 +573,23 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     pages: new Pages({ git, index, spaces, syncer }),
     // Forms and their answers in Git; answers' files in Hotsauce Files (§21).
     chatRooms,
+    chatReader,
     forms,
+    // Sign: envelopes in Git, the PDFs in Files, sealed with the install's own key (docs/PLAN-sign.md).
+    sign: new Sign({
+      git,
+      index,
+      spaces,
+      syncer,
+      files,
+      sealKey: () =>
+        ensureSealKey(config.DATA_DIR, `${config.ORG_NAME || config.PRODUCT_NAME} documents`),
+      orgName: config.ORG_NAME || config.PRODUCT_NAME,
+      productName: config.PRODUCT_NAME,
+      mailer: overrides.mailer ?? mailerFor(config),
+      publicUrl: config.PUBLIC_URL.replace(/\/+$/, ''),
+      log: (m) => console.warn(m),
+    }),
     // Tables: a CSV block in Git, formulas by IronCalc (§22).
     tables: new Tables({ git, index, spaces, syncer, forms }),
     links,
@@ -666,13 +716,14 @@ function createMeetingServices(
     git: GitStore
     index: Index
     auth: Authenticator
+    identities: IdentityLedger
     spaces: SpaceService
     syncer: Syncer
     keyterms: (principal: Principal) => string[]
   },
   overrides: ServiceOverrides,
 ): MeetingServices {
-  const { git, index, auth, spaces, syncer, keyterms } = deps
+  const { git, index, auth, identities, spaces, syncer, keyterms } = deps
   const transcriber =
     overrides.transcriber ??
     (config.ASR_PROVIDER === 'deepgram'
@@ -683,7 +734,7 @@ function createMeetingServices(
   const llm = overrides.llm ?? createLLM(config)
   const { calendar, calendarSync, fakeGoogle, googleGrant } = overrides.calendar
     ? { calendar: overrides.calendar, calendarSync: null, fakeGoogle: null, googleGrant: null }
-    : createCalendar(config)
+    : createCalendar(config, identities)
   const templates = new MeetingTemplates({ git, spaces })
   const audioStore =
     overrides.audioStore !== undefined ? overrides.audioStore : createAudioStore(config)
@@ -756,7 +807,10 @@ function reminderServices(config: Config, calendar: CalendarSource, sender?: Pus
  * The cached Google Calendar (ARCHITECTURE §7.8). Dev auth has no Google account behind it, so
  * the same sync runs against an in-memory Google instead.
  */
-function createCalendar(config: Config): {
+function createCalendar(
+  config: Config,
+  identities: IdentityLedger,
+): {
   calendar: CalendarSource
   calendarSync: CalendarSync
   fakeGoogle: FakeGoogle | null
@@ -766,7 +820,12 @@ function createCalendar(config: Config): {
   const fakeGoogle = fake ? new FakeGoogle() : null
   const googleGrant: GoogleGrantSource = fakeGoogle
     ? async (p) => ({ token: await fakeGoogleToken(p), scopes: fakeGoogle.scopes(p.email) })
-    : clerkGoogleGrant(createClerkClient({ secretKey: config.CLERK_SECRET_KEY ?? '' }))
+    : clerkGoogleGrant(
+        createClerkClient({ secretKey: config.CLERK_SECRET_KEY ?? '' }),
+        console.log,
+        (userId) =>
+          identities.authIdFor(userId, instanceOf(config.CLERK_SECRET_KEY ?? '')) ?? userId,
+      )
   const google = new GoogleCalendarHttp({
     accessToken: async (p) => (await googleGrant(p))?.token ?? null,
     ...(fakeGoogle ? { fetch: fakeGoogle.fetch } : {}),

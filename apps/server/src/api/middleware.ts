@@ -15,6 +15,7 @@ import type { AppDeps, AppEnv } from './env.js'
 import { FEEDBACK_SUBMIT_PATH } from './feedback.js'
 import { FORM_FILL_PREFIX } from './forms.js'
 import { SHARED_PREFIX } from './shares.js'
+import { SIGN_LINK_PREFIX } from './sign.js'
 
 // Above the 10 MB upload limit, which the assets route checks itself.
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024
@@ -30,6 +31,8 @@ function deviceTokenMayCall(method: string, path: string): boolean {
   return (
     (method === 'POST' && path === DICTATION_UPLOAD) ||
     ((method === 'GET' || method === 'PUT') && path === '/api/dictation/words') ||
+    // The member's cleanup choice and the models' names, for the Mac to show; only the web changes it.
+    (method === 'GET' && path === '/api/dictation/settings') ||
     // A Mac disconnecting (or replacing) itself.
     (method === 'DELETE' && path === '/api/dictation/devices/self')
   )
@@ -51,7 +54,9 @@ function isPublic(path: string): boolean {
     // A member's private podcast feed: podcast apps can't sign in; the URL's token is the key.
     path.startsWith(BRIEFCAST_FEED_PREFIX) ||
     // The signed-out booking page (ARCHITECTURE §19): Turnstile and rate limits guard booking.
-    path.startsWith(PUBLIC_BOOKING_PREFIX)
+    path.startsWith(PUBLIC_BOOKING_PREFIX) ||
+    // Sign's page for people with an emailed link: the link's secret is the key (PLAN-sign R14).
+    path.startsWith(SIGN_LINK_PREFIX)
   )
 }
 
