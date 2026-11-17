@@ -32,6 +32,8 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
     nonisolated private static let updateAction = "update"
     /// "Restart to update" on the update notification (docs/PLAN-mac-self-update.md U10).
     var installUpdate: () -> Void = {}
+    /// A click on the update notification itself: Settings → Apps, no restart.
+    var showUpdate: () -> Void = {}
 
     func start() {
         UNUserNotificationCenter.current().delegate = self
@@ -156,9 +158,11 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if response.notification.request.content.categoryIdentifier == Self.updateCategory {
-            let dismissed = response.actionIdentifier == UNNotificationDismissActionIdentifier
+            let action = response.actionIdentifier
             DispatchQueue.main.async { [weak self] in
-                if !dismissed { self?.installUpdate() }
+                // Only the button restarts; a click on the banner just shows the update.
+                if action == Self.updateAction { self?.installUpdate() }
+                else if action == UNNotificationDefaultActionIdentifier { self?.showUpdate() }
                 completionHandler()
             }
             return

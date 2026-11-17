@@ -17,19 +17,25 @@ public enum AppUpdate {
         case notNewer
         case signature
         case copy
+        /// A previous swap of this version didn't take (the app reopened on the old version).
+        case swap
+
+        /// Failures that a new download of the same version would hit again.
+        public var isPermanent: Bool { [.wrongApp, .notNewer, .signature, .swap, .noApp].contains(self) }
     }
 
     // MARK: Where (U1)
 
     /// The installed app this update replaces: the running bundle itself, when it sits in a
-    /// folder this user can write, not on a disk image and not translocated by Gatekeeper.
+    /// folder this user can write (the bundle too, since moving it aside renames it), not on a
+    /// disk image and not translocated by Gatekeeper.
     public static func destination(bundle: URL, isWritable: (URL) -> Bool) -> Result<URL, Failure> {
         let app = bundle.standardizedFileURL
         let path = app.path
         if path.hasPrefix("/Volumes/") || path.contains("/AppTranslocation/") || app.pathExtension != "app" {
             return .failure(.notInstalled)
         }
-        return isWritable(app.deletingLastPathComponent()) ? .success(app) : .failure(.notWritable)
+        return isWritable(app.deletingLastPathComponent()) && isWritable(app) ? .success(app) : .failure(.notWritable)
     }
 
     // MARK: What (U2)
@@ -95,6 +101,15 @@ public enum AppUpdate {
         return SecStaticCodeCheckValidity(code, flags, requirement) == errSecSuccess
     }
 
+    /// Checks a staged copy again right before it replaces the installed one: it may have sat
+    /// for days, and only a copy that still passes U2 and U3 goes in.
+    public static func recheck(_ staged: Staged, installed: BundleInfo, requirement: SecRequirement) -> Failure? {
+        guard let info = BundleInfo(app: staged.app) else { return .noApp }
+        if let failure = verdict(installed: installed, candidate: info) { return failure }
+        guard info.version == staged.version, info.build == staged.build else { return .signature }
+        return satisfies(staged.app, requirement) ? nil : .signature
+    }
+
     // MARK: Getting it ready (U4)
 
     /// A new copy, checked and waiting next to the installed one.
@@ -102,6 +117,11 @@ public enum AppUpdate {
         public let app: URL
         public let version: String
         public let build: String?
+        public init(app: URL, version: String, build: String?) {
+            self.app = app
+            self.version = version
+            self.build = build
+        }
     }
 
     /// Downloads the disk image at `url` into `folder` (a private folder on the installed app's
@@ -116,7 +136,9 @@ public enum AppUpdate {
         let mount = folder.appendingPathComponent("mount", isDirectory: true)
         defer { try? files.removeItem(at: image) }
 
-        guard let (download, response) = try? await session.download(from: url) else { return .failure(.download) }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 60)
+        request.setValue("application/x-apple-diskimage", forHTTPHeaderField: "Accept")
+        guard let (download, response) = try? await session.download(for: request) else { return .failure(.download) }
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             try? files.removeItem(at: download)
             return .failure(.download)
@@ -126,6 +148,8 @@ public enum AppUpdate {
 
         try? files.createDirectory(at: mount, withIntermediateDirectories: true)
         guard await run("/usr/bin/hdiutil", ["attach", image.path, "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mount.path]) == 0 else {
+            _ = await run("/usr/bin/hdiutil", ["detach", mount.path, "-force"])
+            try? files.removeItem(at: mount)
             return .failure(.mount)
         }
         let copied: Result<URL, Failure>
@@ -161,7 +185,8 @@ public enum AppUpdate {
     }
 
     /// Runs a tool and waits for it, without a shell; its exit status, or -1 when it can't start.
-    static func run(_ tool: String, _ arguments: [String]) async -> Int32 {
+    /// One that runs past `timeout` is stopped (and fails).
+    static func run(_ tool: String, _ arguments: [String], timeout: TimeInterval = 120) async -> Int32 {
         await withCheckedContinuation { done in
             let task = Process()
             task.executableURL = URL(fileURLWithPath: tool)
@@ -169,7 +194,8 @@ public enum AppUpdate {
             task.standardOutput = FileHandle.nullDevice
             task.standardError = FileHandle.nullDevice
             task.terminationHandler = { done.resume(returning: $0.terminationStatus) }
-            do { try task.run() } catch { done.resume(returning: -1) }
+            do { try task.run() } catch { return done.resume(returning: -1) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { if task.isRunning { task.terminate() } }
         }
     }
 
@@ -177,13 +203,13 @@ public enum AppUpdate {
 
     /// The helper that swaps the copies once the app has quit. Run as
     /// `/bin/sh -c <script> sh <pid> <new app> <installed app> <old copy> <opener>`: everything
-    /// arrives as arguments, nothing is built into the script. Gives up after 30 s if the app
-    /// hasn't quit, leaving everything as it was.
+    /// arrives as arguments, nothing is built into the script. Gives up after 2 minutes if the
+    /// app is still running, leaving everything as it was (the app is still open then).
     public static let swapScript = """
     pid="$1"; new="$2"; dest="$3"; old="$4"; opener="$5"
     i=0
     while kill -0 "$pid" 2>/dev/null; do
-      i=$((i+1)); [ "$i" -gt 300 ] && exit 1
+      i=$((i+1)); [ "$i" -gt 1200 ] && exit 1
       sleep 0.1
     done
     rm -rf "$old"

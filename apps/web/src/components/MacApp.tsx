@@ -110,8 +110,10 @@ export function MacAppCard() {
   if (inMacApp) {
     const installed = installedMacAppVersion()
     const ready = selfUpdate?.state === 'ready'
-    const state = ready ? 'outdated' : macAppUpdateState(installed, latest ?? null)
-    const offered = (ready ? selfUpdate?.version : null) ?? latest?.version
+    // The app's own word wins: it may know of an update before this page's check does.
+    const selfKnows = ready || selfUpdate?.state === 'downloading'
+    const state = selfKnows ? 'outdated' : macAppUpdateState(installed, latest ?? null)
+    const offered = (selfKnows ? selfUpdate?.version : null) ?? latest?.version
     return (
       <section
         id="mac-app"

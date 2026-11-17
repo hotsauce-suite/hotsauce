@@ -53,14 +53,21 @@ U5. The swap helper waits for the given process to exit, swaps the copies, opens
 U6. `UpdateState` gives the menu its entry: none; "Downloading update (X)…" (disabled); "Restart to
     update (X)"; "Update available (X)…" (the download) when it can't install. [AppUpdateTests]
 U7. The window answers `hotsauceMacUpdate.postMessage('state' | 'install')` from the suite's own
-    main frame only, with `{ state, version }`. [AppUpdateTests for parsing and replies]
+    main frame only, with `{ state, version }`. [AppUpdateTests for parsing and replies; the
+    main-frame check is the same one every bridge uses, checked on the owner's Mac]
 U8. Settings → Apps inside a Mac app with the bridge: "Restart to update" when ready, "Downloading
     the update…" while it downloads, and the download button otherwise; older apps keep the
-    download button. [MacApp.test]
-U9. Restarting waits while dictation is recording or the window is using the microphone (a meeting
-    or clip being recorded), and says so. [checked on the owner's Mac]
-U10. One notification per version when an update is ready, with a "Restart to update" button.
+    download button. [SettingsRoute.test]
+U9. Restarting waits while dictation is recording or still being written up, or the window
+    is using the microphone (a meeting or clip being recorded), and says so. [checked on the owner's Mac]
+U10. One notification per version when an update is ready (counted only when macOS shows it),
+    with a "Restart to update" button; a click on the banner opens Settings → Apps instead.
     [checked on the owner's Mac]
+U11. Right before the swap the staged copy is checked again (U2, U3); the copy waits in the app's
+    Caches folder on the same disk, not a temporary folder that macOS cleans. [AppUpdateTests]
+U12. A swap that didn't take (the app reopens on the old version) and failures a new download would
+    hit again (wrong signer, not newer) aren't retried for that version: it offers the download.
+    Downloads, mounts and copies time out. [AppUpdateTests for which failures are permanent]
 
 ## Slices
 
@@ -71,4 +78,6 @@ U10. One notification per version when an update is ready, with a "Restart to up
 
 ## Not doing
 
-Delta updates; release channels; updating a copy outside its own folder; downgrades.
+Delta updates; release channels; updating a copy outside its own folder; downgrades. Checking the
+disk image's own signature before mounting it (the app inside is checked, which is what runs), and
+Swift 6 strict-concurrency cleanups (the package builds in Swift 5 mode).

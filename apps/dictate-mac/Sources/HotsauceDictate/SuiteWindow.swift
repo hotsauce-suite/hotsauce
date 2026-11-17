@@ -42,7 +42,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Settings → Apps' "Restart to update".
     var installUpdate: () -> Void = {}
     /// The page is using the microphone (a meeting or clip recording): an update waits (U9).
-    var isUsingMicrophone: Bool { webView.microphoneCaptureState == .active || meetingCapture != nil }
+    var isUsingMicrophone: Bool { webView.microphoneCaptureState != .none || meetingCapture != nil }
     /// The page loaded now said it has This Mac (R11); a new document starts without.
     private var pageSaidHello = false
     /// The same for the Dictate page's "On this Mac" (docs/PLAN-dictations-page.md R7).

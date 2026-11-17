@@ -51,6 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         suite.installUpdate = { [weak self] in self?.installUpdate() }
         updater.onChange = { [weak self] in self?.updateStateChanged($0) }
         reminders.installUpdate = { [weak self] in self?.installUpdate() }
+        reminders.showUpdate = { [weak self] in
+            self?.suite.show()
+            self?.suite.open(path: "/settings/apps")
+        }
         suite.handleAppLink = { [weak self] in self?.openAppLink($0.absoluteString) }
         suite.signInWithBrowser = { [weak self] in self?.startBrowserSignIn() }
         suite.serverMoved = { [weak self] old, new in self?.serverMoved(from: old, to: new) }
@@ -798,7 +802,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Quits, swaps in the ready build and reopens; not while a recording would be cut off (U9).
     func installUpdate() {
         guard case .ready = updater.state else { return downloadUpdate() }
-        if controller.isRecording || suite.isUsingMicrophone {
+        if controller.isRecording || controller.isBusy || suite.isUsingMicrophone {
             controller.showMessage("Finish recording first, then restart to update")
             return
         }
@@ -816,8 +820,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard case .ready(let version) = state else { return }
         let key = "update.notified"
         guard UserDefaults.standard.string(forKey: key) != version else { return }
-        UserDefaults.standard.set(version, forKey: key)
-        reminders.postUpdateReady(version: version)
+        // Counted as sent only when macOS will show it.
+        reminders.authorizationStatus { [weak self] status in
+            guard status == .authorized || status == .provisional else { return }
+            UserDefaults.standard.set(version, forKey: key)
+            self?.reminders.postUpdateReady(version: version)
+        }
     }
 
     // MARK: Connecting

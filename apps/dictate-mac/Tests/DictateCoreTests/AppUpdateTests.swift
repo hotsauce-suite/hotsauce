@@ -12,8 +12,10 @@ import Testing
         let installed = URL(fileURLWithPath: "/Applications/Hotsauce.app")
         #expect(AppUpdate.destination(bundle: installed, isWritable: { _ in true }) == .success(installed))
         #expect(AppUpdate.destination(bundle: installed, isWritable: { _ in false }) == .failure(.notWritable))
+        // A bundle owned by someone else can't be moved aside, even in a writable folder.
+        #expect(AppUpdate.destination(bundle: installed, isWritable: { $0.path == "/Applications" }) == .failure(.notWritable))
         let mine = URL(fileURLWithPath: "/Users/me/Applications/Hotsauce.app")
-        #expect(AppUpdate.destination(bundle: mine, isWritable: { $0.path == "/Users/me/Applications" }) == .success(mine))
+        #expect(AppUpdate.destination(bundle: mine, isWritable: { $0.path.hasPrefix("/Users/me/Applications") }) == .success(mine))
         #expect(AppUpdate.destination(bundle: URL(fileURLWithPath: "/Volumes/Hotsauce/Hotsauce.app"), isWritable: { _ in true }) == .failure(.notInstalled))
         let moved = URL(fileURLWithPath: "/private/var/folders/x/AppTranslocation/ABC/d/Hotsauce.app")
         #expect(AppUpdate.destination(bundle: moved, isWritable: { _ in true }) == .failure(.notInstalled))
@@ -47,6 +49,30 @@ import Testing
         // Changed after signing.
         try Data("tampered".utf8).write(to: b.appendingPathComponent("Contents/Resources/extra.txt"))
         #expect(!AppUpdate.satisfies(b, byID))
+    }
+
+    @Test func checksAStagedCopyAgainBeforeInstalling() throws {
+        let dir = try Fixture.folder()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let app = try Fixture.app(in: dir, name: "Staged", version: "1.2.0", build: "5")
+        let staged = AppUpdate.Staged(app: app, version: "1.2.0", build: "5")
+        let installed = AppUpdate.BundleInfo(id: "dev.test.update", version: "1.1.0", build: "4")
+        let byID = try #require(Fixture.requirement(#"identifier "dev.test.update""#))
+        #expect(AppUpdate.recheck(staged, installed: installed, requirement: byID) == nil)
+        // Changed while it waited.
+        try Data("tampered".utf8).write(to: app.appendingPathComponent("Contents/Resources/extra.txt"))
+        #expect(AppUpdate.recheck(staged, installed: installed, requirement: byID) == .signature)
+        // Gone (a cleaned folder).
+        try FileManager.default.removeItem(at: app.appendingPathComponent("Contents/Info.plist"))
+        #expect(AppUpdate.recheck(staged, installed: installed, requirement: byID) == .noApp)
+    }
+
+    @Test func onlyRetriesFailuresThatCouldPassNextTime() {
+        #expect(!AppUpdate.Failure.download.isPermanent)
+        #expect(!AppUpdate.Failure.mount.isPermanent)
+        #expect(AppUpdate.Failure.signature.isPermanent)
+        #expect(AppUpdate.Failure.swap.isPermanent)
+        #expect(AppUpdate.Failure.notNewer.isPermanent)
     }
 
     // MARK: U4
@@ -126,6 +152,25 @@ import Testing
         let opener = try Fixture.opener(in: dir, recording: dir.appendingPathComponent("opened"))
         try Fixture.sh(AppUpdate.swapArguments(pid: 999_999, staged: staged, destination: dest, opener: opener.path))
         #expect(try String(contentsOf: dest.appendingPathComponent("marker"), encoding: .utf8) == "old")
+    }
+
+    @Test func reopensTheOldCopyWhenItCantBeMovedAside() throws {
+        let dir = try Fixture.folder()
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.appendingPathComponent("Applications").path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+        let dest = dir.appendingPathComponent("Applications/Test.app")
+        let staged = dir.appendingPathComponent("staging/Test.app")
+        try Fixture.marker(dest, "old")
+        try Fixture.marker(staged, "new")
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dest.deletingLastPathComponent().path)
+        let opened = dir.appendingPathComponent("opened")
+        let opener = try Fixture.opener(in: dir, recording: opened)
+        try Fixture.sh(AppUpdate.swapArguments(pid: 999_999, staged: staged, destination: dest, opener: opener.path))
+        #expect(try String(contentsOf: dest.appendingPathComponent("marker"), encoding: .utf8) == "old")
+        #expect(FileManager.default.fileExists(atPath: staged.path))
+        #expect(try String(contentsOf: opened, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) == dest.path)
     }
 
     @Test func swapArgumentsCarryPathsAsArguments() {
