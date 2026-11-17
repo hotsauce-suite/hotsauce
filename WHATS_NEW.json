@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "version": "0.35.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "**Send a PDF to other people for signature.** On a draft, list who signs (inside or outside your team) and who only gets a copy. Choose whether they sign all at once or one after another, then place each person's fields and press Send."
+        },
+        {
+          "text": "**Signing links, no account needed.** Each signer gets their own link. It works for 30 days, and only the hash of its secret is kept. The signer opens `/signing/…`, reads the PDF, then signs or declines with a reason."
+        },
+        {
+          "text": "**Email through Resend** when `RESEND_API_KEY` and `MAIL_FROM` are set. Without them, Send shows each link for the sender to copy."
+        },
+        {
+          "text": "**Follow progress.** The envelope page shows each person's state: link sent, opened, signed, declined, or waiting for their turn. You can make a new link or email it again."
+        },
+        {
+          "text": "**When the last person signs,** everyone on the envelope, copies included, gets the sealed PDF and its certificate attached. Both are also saved in Files."
+        }
+      ]
+    },
+    {
       "version": "0.34.1",
       "date": "2026-11-17",
       "notes": [
