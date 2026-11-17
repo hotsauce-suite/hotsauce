@@ -15,8 +15,9 @@ import { feedbackLink, useFeedbackEnabled } from '../../components/AppRail'
 import { Icon } from '../../components/Icon'
 import { onFeedbackClick } from '../../feedback/pageShot'
 import { useShortcut } from '../../keyboard/shortcuts'
+import { hasMacSettings } from '../../lib/macSettings'
 import { useSession } from '../../state/session'
-import { movedSection, ORG_PAGES, type SettingsPage, YOUR_PAGES } from './pages'
+import { MAC_PAGE, movedSection, ORG_PAGES, type SettingsPage, YOUR_PAGES } from './pages'
 import {
   type FindState,
   resultCount,
@@ -37,6 +38,8 @@ export const HELP_FAQ = 'https://hotsauce.work/faq'
  */
 export default function SettingsLayout() {
   const isAdmin = useSession().me?.principal.isAdmin === true
+  // Inside the Mac app, This Mac comes first (docs/PLAN-one-settings.md R1).
+  const mac = hasMacSettings()
   const { pathname, hash, state, key } = useLocation()
   const navigate = useNavigate()
   // The pages still reach the shell (the shortcuts sheet) through the outlet.
@@ -46,7 +49,7 @@ export default function SettingsLayout() {
   // or a result is chosen. The page stays mounted underneath, so nothing typed into it is lost.
   const [query, setQuery] = useState('')
   const searching = query.trim() !== ''
-  const results = searching ? searchSettings(query, { admin: isAdmin }) : []
+  const results = searching ? searchSettings(query, { admin: isAdmin, mac }) : []
   const box = useRef<HTMLInputElement>(null)
   const choose = (entry: SettingEntry | undefined) => {
     if (!entry) return
@@ -138,7 +141,7 @@ export default function SettingsLayout() {
               data-testid="settings-nav"
               className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-3 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0"
             >
-              <Group pages={YOUR_PAGES} />
+              <Group pages={mac ? [MAC_PAGE, ...YOUR_PAGES] : YOUR_PAGES} />
               {isAdmin ? (
                 <>
                   <span

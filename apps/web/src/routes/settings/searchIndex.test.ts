@@ -1,6 +1,6 @@
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
-import { ORG_PAGES, YOUR_PAGES } from './pages'
+import { MAC_PAGE, ORG_PAGES, YOUR_PAGES } from './pages'
 import { SETTINGS_INDEX, searchSettings } from './searchIndex'
 
 // docs/PLAN-settings-search.md S2, S3, S6.
@@ -12,10 +12,9 @@ describe('the list of settings', () => {
     const entryIds = SETTINGS_INDEX.map((e) => e.id)
     expect(new Set(entryIds).size).toBe(entryIds.length)
     const pages = new Map(
-      [...YOUR_PAGES, ...ORG_PAGES, { label: 'Help', to: '/settings/whats-new' }].map((p) => [
-        p.to,
-        p.label,
-      ]),
+      [MAC_PAGE, ...YOUR_PAGES, ...ORG_PAGES, { label: 'Help', to: '/settings/whats-new' }].map(
+        (p) => [p.to, p.label],
+      ),
     )
     for (const entry of SETTINGS_INDEX) expect(pages.get(entry.to)).toBe(entry.page)
   })
@@ -25,8 +24,13 @@ describe('the list of settings', () => {
       expect(entry.admin === true).toBe(entry.to.startsWith('/settings/organization'))
   })
 
+  it('marks exactly This Mac as Mac only', () => {
+    for (const entry of SETTINGS_INDEX)
+      expect(entry.macOnly === true).toBe(entry.to === MAC_PAGE.to)
+  })
+
   it('gives every page of the menu at least one section', () => {
-    for (const page of [...YOUR_PAGES, ...ORG_PAGES])
+    for (const page of [MAC_PAGE, ...YOUR_PAGES, ...ORG_PAGES])
       expect(SETTINGS_INDEX.some((e) => e.to === page.to)).toBe(true)
   })
 })
@@ -83,9 +87,12 @@ describe('searching settings', () => {
   })
 
   it('finds every section by its own title, for anyone allowed to see it', () => {
+    const found = (query: string, admin: boolean, mac: boolean) =>
+      searchSettings(query, { admin, mac }).map((e) => e.id)
     for (const entry of SETTINGS_INDEX) {
-      expect(ids(entry.title, true)).toContain(entry.id)
-      expect(ids(entry.title, false).includes(entry.id)).toBe(!entry.admin)
+      expect(found(entry.title, true, true)).toContain(entry.id)
+      expect(found(entry.title, false, true).includes(entry.id)).toBe(!entry.admin)
+      expect(found(entry.title, true, false).includes(entry.id)).toBe(!entry.macOnly)
     }
   })
 

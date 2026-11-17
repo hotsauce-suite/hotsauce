@@ -12,9 +12,8 @@ enum Previews {
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         let model = sampleModel()
-        // Each page at the window's usual size, and Settings again tall enough to show all of it.
+        // Each page at the window's usual size (Settings is the small fallback, docs/PLAN-one-settings.md).
         let shots = MainModel.Page.allCases.map { (page: $0, height: CGFloat(700), name: $0.rawValue.lowercased()) }
-            + [(page: MainModel.Page.settings, height: CGFloat(1500), name: "settings-full")]
         for (page, height, name) in shots {
             model.page = page
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: height), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
