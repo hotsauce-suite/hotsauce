@@ -82,7 +82,7 @@ export class UpdateWatch {
     const last = readAttempt(this.deps.storage)
     // Already reloaded for this release and still on the old build: don't loop (R6).
     if (last && last.version === target && this.deps.now() - last.at < RETRY_AFTER_MS) return false
-    if (this.deps.blocker() !== null) return false
+    if (!this.deps.storage || this.deps.blocker() !== null) return false
     this.reloading = true
     try {
       await this.deps.prepare()
@@ -95,12 +95,15 @@ export class UpdateWatch {
       return false
     }
     try {
-      this.deps.storage?.setItem(
+      if (!this.deps.storage) throw new Error('no storage')
+      this.deps.storage.setItem(
         RELOAD_KEY,
         JSON.stringify({ version: target, at: this.deps.now() } satisfies Attempt),
       )
     } catch {
-      // No storage: the loop guard is lost, the reload still happens.
+      // Without a note of the attempt nothing stops a loop: leave it to Settings' Reload (R6).
+      this.reloading = false
+      return false
     }
     this.deps.reload()
     return true

@@ -158,6 +158,13 @@ describe('no reload loops (R6)', () => {
     expect(await again.moment('hidden')).toBe(true)
   })
 
+  it('never reloads without storage to note the attempt in', async () => {
+    const { watch, deps } = setup({ storage: null })
+    await watch.check()
+    expect(await watch.moment('hidden')).toBe(false)
+    expect(deps.reload).not.toHaveBeenCalled()
+  })
+
   it('a newer release than the one tried reloads at once', async () => {
     const first = setup()
     await first.watch.check()

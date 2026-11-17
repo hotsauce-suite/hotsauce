@@ -1,8 +1,13 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
 // An open window picks up a new release on its own, at a safe moment
 // (docs/PLAN-reload-after-updates.md R2 to R4). The server is made to report another release.
+
+// The service worker can answer requests the test's routes would miss: keep it out.
+test.use({ serviceWorkers: 'block' })
 
 async function serverReports(page: Page, version: string) {
   await page.route('**/api/health', async (route) => {
@@ -37,9 +42,11 @@ test('reloads into a new release when moving to another page', async ({ page }) 
   await markLoad(page)
   // The first check runs a few seconds after the page opens.
   await page.waitForTimeout(6_000)
+  const reloaded = page.waitForEvent('load', { timeout: 20_000 })
   await page.getByTestId('app-rail').getByTestId('app-switch-meetings').click()
   await expect(page).toHaveURL(/\/meetings$/)
-  await expect.poll(() => sameLoad(page).catch(() => false), { timeout: 20_000 }).toBe(false)
+  await reloaded
+  expect(await sameLoad(page)).toBe(false)
   await expect(page.getByTestId('meetings-home')).toBeVisible()
 
   // Back on the old build (this test's build is still the old one): no second reload.
@@ -80,6 +87,28 @@ test('reloads when the window goes to the background', async ({ page }) => {
   await expect(page.getByTestId('app-rail')).toBeVisible()
   await markLoad(page)
   await page.waitForTimeout(6_000)
+  const reloaded = page.waitForEvent('load', { timeout: 20_000 })
   await goToBackground(page)
-  await expect.poll(() => sameLoad(page).catch(() => false), { timeout: 20_000 }).toBe(false)
+  await reloaded
+  expect(await sameLoad(page)).toBe(false)
+})
+
+test('says it updated after a reload brought the new release', async ({ page }) => {
+  const version = readFileSync(
+    path.join(import.meta.dirname, '..', 'HOTSAUCE_VERSION'),
+    'utf8',
+  ).trim()
+  await page.goto('/tasks')
+  await expect(page.getByTestId('app-rail')).toBeVisible()
+  // What the page remembers when it reloads itself for a release (lib/appUpdate RELOAD_KEY).
+  await page.evaluate(
+    (v) => sessionStorage.setItem('hotsauce:update-reload', JSON.stringify({ version: v, at: 1 })),
+    version,
+  )
+  await page.reload()
+  await expect(page.getByText(`updated to ${version}`)).toBeVisible()
+  // Once.
+  await page.reload()
+  await expect(page.getByTestId('app-rail')).toBeVisible()
+  await expect(page.getByText(`updated to ${version}`)).toHaveCount(0)
 })

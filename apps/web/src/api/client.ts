@@ -1,5 +1,6 @@
 import { product } from '../brand/product'
 import { reportReachable, reportUnreachable } from '../lib/connection'
+import { trackWrite } from '../lib/leaveGuards'
 import type {
   ApiErrorBody,
   ChatSearchHit,
@@ -146,7 +147,9 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   if (opts.keepalive) init.keepalive = true
   let res: Response
   try {
-    res = await fetch(apiUrl(path, opts.query), init)
+    const pending = fetch(apiUrl(path, opts.query), init)
+    // A save in flight holds off an update reload (lib/leaveGuards); a keepalive one outlives it.
+    res = await (init.method !== 'GET' && !opts.keepalive ? trackWrite(pending) : pending)
   } catch (err) {
     // No answer at all: the app is offline until the server answers again (lib/connection).
     reportUnreachable()

@@ -10,7 +10,7 @@ import {
   IDLE_AFTER_MS,
   UpdateWatch,
 } from './appUpdate'
-import { reloadBlocker } from './safeToReload'
+import { reloadBlocker, watchTyping } from './safeToReload'
 
 /** The router's subscribe, narrowed to what's watched: the page's path. */
 type Subscribe = (
@@ -37,6 +37,7 @@ async function askServer(): Promise<string | null> {
 
 export function startAppUpdates(subscribe: Subscribe, initialPath: string): UpdateWatch | null {
   if (!BUILD_VERSION) return null
+  watchTyping()
   const watch = new UpdateWatch({
     buildVersion: BUILD_VERSION,
     serverVersion: askServer,
@@ -64,8 +65,12 @@ export function startAppUpdates(subscribe: Subscribe, initialPath: string): Upda
   }
   for (const type of ['keydown', 'pointerdown', 'wheel', 'touchstart'] as const)
     window.addEventListener(type, touched, { capture: true, passive: true })
+  // One try per quiet spell: asking the page again every 30 s would rerun its leave handlers.
+  let triedSince = -1
   setInterval(() => {
-    if (visible() && Date.now() - lastInput >= IDLE_AFTER_MS) void watch.moment('idle')
+    if (!visible() || Date.now() - lastInput < IDLE_AFTER_MS || triedSince === lastInput) return
+    triedSince = lastInput
+    void watch.moment('idle')
   }, 30_000)
 
   // Moving to another page: once it has settled, so the last page's saves have gone out.
