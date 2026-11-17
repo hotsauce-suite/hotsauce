@@ -46,6 +46,7 @@ import {
 import { Comments } from './comments/index.js'
 import type { Config } from './config.js'
 import {
+  DEEPGRAM_DICTATION_MODEL,
   DeepgramDictationTranscriber,
   Dictation,
   DictationSocketServer,
@@ -277,6 +278,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
           )
         : llm),
     model: config.DICTATION_MODEL,
+    carefulModel: config.DICTATION_CAREFUL_MODEL,
+    speechName:
+      config.ASR_PROVIDER === 'deepgram'
+        ? DEEPGRAM_DICTATION_MODEL.name
+        : config.ASR_PROVIDER === 'none'
+          ? 'Off (no Deepgram key)'
+          : 'Test transcriber',
+    cleanupAvailable: config.LLM_PROVIDER !== 'none',
     chatNames: teamChatNames({
       // The rail's name for it: "<org> Chat", or "<product> Chat" without an org name.
       orgName: config.ORG_NAME || config.PRODUCT_NAME,

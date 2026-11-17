@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HotsauceApiError } from '../../../api/client'
 import type { Clip } from '../../../api/clips'
+import { screenBitrate } from './media'
 import { elapsedMs, RecordingSession, type SessionDeps } from './session'
 
 class FakeTrack extends EventTarget {
@@ -172,6 +173,24 @@ describe('RecordingSession', () => {
     recorder.emit('b')
     await flush()
     expect(vi.mocked(api.putChunk).mock.calls.map((c) => c[1])).toEqual([0, 1])
+  })
+
+  it('records the screen sharp: bitrate from its size, and detail kept over smooth motion', async () => {
+    const big = new FakeTrack('video', {
+      displaySurface: 'monitor',
+      width: 2463,
+      height: 1600,
+      frameRate: 30,
+    })
+    display = new FakeStream([big, new FakeTrack('audio')])
+    const session = new RecordingSession(deps)
+    await session.start(opts('screen'))
+    // About 0.06 bits per pixel per frame, so text stays crisp on a Retina screen.
+    expect(recorder.options.videoBitsPerSecond).toBe(
+      screenBitrate({ width: 2463, height: 1600, frameRate: 30 }),
+    )
+    expect(recorder.options.videoBitsPerSecond).toBe(7_000_000)
+    expect((big as unknown as { contentHint: string }).contentHint).toBe('detail')
   })
 
   it('records the camera on its own track, chunk-uploaded beside the screen', async () => {

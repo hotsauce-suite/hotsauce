@@ -8,4 +8,7 @@
 
 .sign-script {
   font-family: "Signature", "Segoe Script", cursive;
+  /* The same blue-black, outlined ink the PDF is stamped in (packages/sign pdf-finalize). */
+  color: #050a1a;
+  -webkit-text-stroke: 0.025em currentColor;
 }

@@ -58,9 +58,33 @@ jobs:
           echo "sha=$live" >> "$GITHUB_OUTPUT"
       - name: Site tests
         run: pnpm exec vitest run --project site
+      # The newest Mac app build, for hotsauce.work/download/mac (site/mac-download.js). Asked here
+      # with this run's token, since Cloudflare's own calls to GitHub are often refused. The Mac app
+      # workflow runs this deploy again after each build. Empty if GitHub can't say; the site then
+      # asks by itself.
+      - name: Newest Mac app build
+        id: mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          n=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/mac-app-" \
+            --jq '[.[].ref | capture("mac-app-(?<n>[0-9]+)$").n | tonumber] | max // 0' || echo 0)
+          if [ "${n:-0}" -gt 0 ] && gh release download "mac-app-$n" -R "$GITHUB_REPOSITORY" \
+               -p mac-app.json -D "$RUNNER_TEMP/mac" --clobber; then
+            echo "tag=mac-app-$n" >> "$GITHUB_OUTPUT"
+            echo "version=$(jq -r '.version // ""' "$RUNNER_TEMP/mac/mac-app.json" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true)" >> "$GITHUB_OUTPUT"
+            echo "build=$n" >> "$GITHUB_OUTPUT"
+          fi
       # wrangler.jsonc's build step builds the demo into site/public/demo/ first.
       - name: Deploy
-        run: npx --yes wrangler@4.161.0 deploy --config site/wrangler.jsonc --var "SITE_VERSION:$GITHUB_SHA"
+        env:
+          MAC_APP_TAG: ${{ steps.mac.outputs.tag }}
+          MAC_APP_VERSION: ${{ steps.mac.outputs.version }}
+          MAC_APP_BUILD: ${{ steps.mac.outputs.build }}
+        run: |
+          npx --yes wrangler@4.161.0 deploy --config site/wrangler.jsonc --var "SITE_VERSION:$GITHUB_SHA" \
+            --var "MAC_APP_TAG:$MAC_APP_TAG" --var "MAC_APP_VERSION:$MAC_APP_VERSION" --var "MAC_APP_BUILD:$MAC_APP_BUILD"
       - name: Changed pages
         env:
           LIVE: ${{ steps.base.outputs.sha }}

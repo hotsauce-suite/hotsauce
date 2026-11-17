@@ -12,6 +12,7 @@ import { org, product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
+import { DictateModels } from './DictateModels'
 import { openAppLink } from './openAppLink'
 
 const kbd =
@@ -185,6 +186,14 @@ export default function DictatePage() {
                 onSaved={(list) => setWords((w) => (w ? { ...w, team: list } : w))}
               />
             </div>
+          </section>
+
+          <section id="models" aria-labelledby="models-title" className="mt-14">
+            <SectionTitle id="models-title" title="Models">
+              What hears you and what tidies your words. Your choice applies to your dictations
+              only, on every Mac and in the browser.
+            </SectionTitle>
+            <DictateModels />
           </section>
 
           <p className="mt-14 border-t border-ash/70 pt-4 text-xs leading-relaxed text-ink-faint">

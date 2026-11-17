@@ -15,9 +15,12 @@ export {
   type DictateRequest,
   type DictateResult,
   Dictation,
+  type DictationModels,
+  type DictationSettings,
   MAX_DICTATION_BYTES,
   MAX_DICTATION_MS,
   MAX_KEYTERMS,
+  modelName,
 } from './service.js'
 export {
   type DictationSocket,
@@ -28,6 +31,8 @@ export {
   WS_DICTATION_UNAUTHORIZED,
 } from './socket.js'
 export {
+  CLEANUP_CHOICES,
+  type CleanupChoice,
   DEVICE_TOKEN_PREFIX,
   type DictationDevice,
   DictationStore,
@@ -41,6 +46,7 @@ export {
   TEAM_WORDS_SEED,
 } from './store.js'
 export {
+  DEEPGRAM_DICTATION_MODEL,
   DeepgramDictationTranscriber,
   type DictationTranscriber,
   deepgramBatchUrl,

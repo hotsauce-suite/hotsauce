@@ -25,6 +25,12 @@ final class Settings {
         set { defaults.set(newValue, forKey: "retentionDays") }
     }
 
+    /// The microphone dictation records from, by its Core Audio UID; nil is the Mac's default.
+    var microphoneUID: String? {
+        get { defaults.string(forKey: "microphoneUID") }
+        set { defaults.set(newValue, forKey: "microphoneUID") }
+    }
+
     /// The menu bar icon; on by default. With it off the app is reached from Applications.
     var showInMenuBar: Bool {
         get { defaults.object(forKey: "showInMenuBar") as? Bool ?? true }

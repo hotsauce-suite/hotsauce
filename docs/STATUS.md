@@ -30,7 +30,7 @@ Notes for calls: live transcript with speaker names, your own notes, AI-written 
 Needs the speech and AI keys; the calendar needs Google sign-in through Clerk with `calendar.readonly`; booking links need Turnstile. Reminders work out of the box (the server makes its own push keys). Keeping a meeting's audio is a per-meeting choice (`KEEP_AUDIO=true` makes it the default); re-transcribing it after the call needs the speech key.
 
 ### Dictate
-Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app. With no connection, the Mac app writes up dictation with the Mac's own speech recognition (as spoken, the Mac's language, audio never leaves the Mac; `docs/PLAN-offline.md` step A2).
+Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app. With no connection, the Mac app writes up dictation with the Mac's own speech recognition (as spoken, the Mac's language, audio never leaves the Mac; `docs/PLAN-offline.md` step A2). The Dictate page's Models section shows the speech, offline and cleanup models, and each member picks Fast, Careful or Off for the cleanup (`docs/PLAN-dictate-models.md`; the Mac's "On this Mac only" speech choice is slice 2, not built yet).
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
@@ -99,10 +99,10 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 
 ## Outside the web app
 
-- **Mac app** (`apps/dictate-mac`), published as one GitHub prerelease per build (`mac-app-<build>`; servers take the highest): Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the newest release); the app's menu says "Update available" too. Updating is download and drag. hotsauce.work/download/mac always hands out the newest build, and the landing page shows its version (`site/mac-download.js`, `docs/PLAN-mac-download.md`).
+- **Mac app** (`apps/dictate-mac`), published as one GitHub prerelease per build (`mac-app-<build>`; servers take the highest): Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the newest release); the app's menu says "Update available" too. Updating is download and drag. hotsauce.work/download/mac always hands out the newest build, and the landing page shows its version (`site/mac-download.js`, `docs/PLAN-mac-download.md`). GitHub builds the app after every release whose version or Mac sources changed (`.github/workflows/mac-app.yml`), once its signing secrets are set; a build that only carries a new number offers no update. Its settings are one page of the web app, Settings → This Mac, shown only inside the app (`docs/PLAN-one-settings.md`).
 - **Chrome extension** (`apps/extension`), 0.7.0: records Meet tabs, saves links in one click, connects in one click. In Chrome Web Store review; installed by hand until approved.
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
-- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool can search, read and write as the member, either by signing in (OAuth, used by claude.ai, ChatGPT and Grok) or by sending a token header.
+- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool can search, read and write as the member, either by signing in (OAuth, used by claude.ai, ChatGPT and Grok) or by sending a token header. A sign-in can be **Team space only, read only**, for a tool many people share, like a team chat's assistant (`docs/PLAN-team-connection.md`).
 - **Site** (`site/`): hotsauce.work, the help center, install guide and the live demo at demo.hotsauce.work.
 
 ## Built but switched off by default

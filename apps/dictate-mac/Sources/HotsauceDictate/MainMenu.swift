@@ -97,7 +97,17 @@ extension AppDelegate: NSMenuItemValidation {
         }
     }
 
-    @objc func openSettings() { mainWindow.show(page: .settings) }
+    /// Settings → This Mac in the main window; the Dictate window's small Settings only when the
+    /// main window can't show it (docs/PLAN-one-settings.md R10, R11).
+    @objc func openSettings() {
+        switch suite.settingsDestination {
+        case .thisMacPage:
+            suite.show()
+            suite.open(path: SettingsDestination.path)
+        case .fallbackWindow:
+            mainWindow.show(page: .settings)
+        }
+    }
     @objc func openDictateWindow() { mainWindow.show(page: .dictations) }
     @objc func showSuiteWindow() { suite.show() }
     @objc func reloadSuite() { suite.reload() }

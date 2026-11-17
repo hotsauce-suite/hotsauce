@@ -3,10 +3,32 @@
 
 import type { ClipContainer, ClipMode } from '../../../api/clips'
 
-/** Bits per second. Screen content compresses well; this keeps an hour near 1 GB. */
-export const VIDEO_BITS = 2_500_000
+/**
+ * The largest screen picture recorded. A Retina screen is shared at its full pixel size, and the
+ * video is then scaled down to fit inside this keeping its shape: small text stays readable,
+ * without a 4K monitor's file size.
+ */
+export const DISPLAY_MAX = { width: 2560, height: 1600 } as const
+/** Screen bits per second, at least and at most. An hour at the ceiling, with the camera, fits the server's 4 GB a clip. */
+export const SCREEN_BITS_MIN = 2_500_000
+export const SCREEN_BITS_MAX = 7_000_000
+/** Bits per pixel per frame: enough for H.264 to keep text sharp. */
+const BITS_PER_PIXEL = 0.06
+
+/** The screen's bitrate for the size and frame rate the browser says it is sharing. */
+export function screenBitrate(settings: {
+  width?: number
+  height?: number
+  frameRate?: number
+}): number {
+  const width = settings.width || DISPLAY_MAX.width
+  const height = settings.height || DISPLAY_MAX.height
+  const fps = Math.min(settings.frameRate || 30, 30)
+  const bits = Math.round(width * height * fps * BITS_PER_PIXEL)
+  return Math.min(SCREEN_BITS_MAX, Math.max(SCREEN_BITS_MIN, bits))
+}
 export const AUDIO_BITS = 128_000
-/** The camera's own track: it ends up a 260 px bubble, so a modest rate is plenty. */
+/** The camera's own track: it ends up a bubble a quarter of the video's height, so a modest rate is plenty. */
 export const CAMERA_BITS = 1_000_000
 
 export interface RecordingFormat {
@@ -91,7 +113,12 @@ export async function getMic(deviceId: string | null): Promise<MediaStream> {
  */
 export function requestDisplay(): Promise<MediaStream> {
   return navigator.mediaDevices.getDisplayMedia({
-    video: { frameRate: { ideal: 30 }, displaySurface: 'monitor' },
+    video: {
+      frameRate: { ideal: 30 },
+      width: { max: DISPLAY_MAX.width },
+      height: { max: DISPLAY_MAX.height },
+      displaySurface: 'monitor',
+    },
     audio: true,
     selfBrowserSurface: 'exclude',
     surfaceSwitching: 'include',
