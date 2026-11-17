@@ -46,6 +46,13 @@ const StoredClient = z.object({
 })
 type StoredClient = z.infer<typeof StoredClient>
 
+/**
+ * What a connection may reach: `full` is everything the member sees; `team-read` is the team
+ * space only, read only, for a tool many people share (ARCHITECTURE §8.5).
+ */
+export const ConnectionAccess = z.enum(['full', 'team-read'])
+export type ConnectionAccess = z.infer<typeof ConnectionAccess>
+
 const StoredConnection = z.object({
   id: z.string(),
   userId: z.string(),
@@ -61,6 +68,8 @@ const StoredConnection = z.object({
   oldRefreshHashes: z.array(z.string()).default([]),
   /** When the refresh token was last rotated (the grace window for retries). */
   rotatedAt: z.string().nullable().default(null),
+  /** What the member allowed: everything they see, or the team space read only (§8.5). */
+  access: ConnectionAccess.default('full'),
 })
 type StoredConnection = z.infer<typeof StoredConnection>
 
@@ -84,6 +93,7 @@ export interface ConnectionSummary {
   redirectHost: string
   createdAt: string
   lastUsedAt: string | null
+  access: ConnectionAccess
 }
 
 export interface TokenPair {
@@ -95,7 +105,13 @@ export interface TokenPair {
 }
 
 export type AccessCheck =
-  | { ok: true; connectionId: string; clientName: string; userId: string }
+  | {
+      ok: true
+      connectionId: string
+      clientName: string
+      userId: string
+      access: ConnectionAccess
+    }
   | { ok: false; reason: 'unknown' | 'expired' }
 
 interface PendingCode {
@@ -105,6 +121,7 @@ interface PendingCode {
   challenge: string
   userId: string
   email: string
+  access: ConnectionAccess
   expiresAt: number
   used: boolean
   /** Set once exchanged, so a replayed code can revoke what it issued. */
@@ -232,6 +249,8 @@ export class OAuthStore {
     redirectUri: string
     challenge: string
     principal: Principal
+    /** Defaults to `full`, as every connection was before §8.5. */
+    access?: ConnectionAccess
   }): string {
     this.#sweepCodes()
     const code = mint('htc_')
@@ -242,6 +261,7 @@ export class OAuthStore {
       challenge: input.challenge,
       userId: input.principal.userId,
       email: input.principal.email,
+      access: input.access ?? 'full',
       expiresAt: this.#now() + CODE_TTL_MS,
       used: false,
     })
@@ -299,6 +319,7 @@ export class OAuthStore {
       refreshHash: hashSecret(refresh),
       oldRefreshHashes: [],
       rotatedAt: null,
+      access: pending.access,
     }
     pending.connectionId = connection.id
     await this.#update((s) => {
@@ -389,7 +410,13 @@ export class OAuthStore {
     if (!found) return { ok: false, reason: 'unknown' }
     if (Date.parse(found.accessExpiresAt) <= this.#now()) return { ok: false, reason: 'expired' }
     this.#recordUse(found)
-    return { ok: true, connectionId: found.id, clientName: found.clientName, userId: found.userId }
+    return {
+      ok: true,
+      connectionId: found.id,
+      clientName: found.clientName,
+      userId: found.userId,
+      access: found.access,
+    }
   }
 
   /** RFC 7009: a client dropping its own access or refresh token ends that connection. */
@@ -410,6 +437,7 @@ export class OAuthStore {
         redirectHost: c.redirectHost,
         createdAt: c.createdAt,
         lastUsedAt: c.lastUsedAt,
+        access: c.access,
       }))
   }
 

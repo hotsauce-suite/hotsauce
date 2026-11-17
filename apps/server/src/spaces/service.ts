@@ -1,5 +1,5 @@
 import { parseSpaceConfig, SPACE_LAYOUT } from '@hotsauce/format'
-import type { Principal } from '../auth/index.js'
+import { isTeamOnly, type Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
 import type { SpaceRecord } from '../index/index.js'
 
@@ -161,13 +161,15 @@ export class SpaceService {
 
   /** The team space plus the personal space this member owns, once it is provisioned. */
   async visibleSpaces(p: Principal): Promise<Space[]> {
+    if (isTeamOnly(p)) return [TEAM]
     const own = this.#ownedSpace(p)
     return own && this.#provisioned.has(own.name) ? [TEAM, personalSpace(own.name)] : [TEAM]
   }
 
-  /** Team: every member. Personal: the recorded owner only; admins get no override. */
+  /** Team: every member. Personal: the recorded owner only (never a team-only connection); admins get no override. */
   canAccess(p: Principal, space: string): boolean {
     if (space === TEAM_SPACE) return true
+    if (isTeamOnly(p)) return false
     const record = this.#registry.getSpace(space)
     return record?.kind === 'personal' && record.ownerEmail === ownerKey(p)
   }

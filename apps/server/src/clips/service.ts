@@ -5,7 +5,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ulid } from 'ulid'
-import type { Principal } from '../auth/index.js'
+import { isTeamOnly, type Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
 import { type AudioStore, LocalAudioStore, R2AudioStore } from '../meetings/audio/index.js'
 import type { LLM } from '../meetings/llm/types.js'
@@ -659,6 +659,10 @@ export class Clips {
     if (clip.status === 'recording' && clip.ownerId !== principal.userId) {
       throw new HotsauceError('not_found', 'No such clip')
     }
+    // A team-only connection sees the team's finished clips, never one member's own others.
+    if (isTeamOnly(principal) && clip.status !== 'processing' && clip.status !== 'ready') {
+      throw new HotsauceError('not_found', 'No such clip')
+    }
     return { clip: await this.view(clip, principal), transcript: clip.transcript }
   }
 
@@ -672,9 +676,11 @@ export class Clips {
       limit: number
     },
   ): Promise<ClipView[]> {
+    // A team-only connection is nobody's own: it sees the team's finished clips only.
+    if (isTeamOnly(principal) && opts.scope === 'mine') return Promise.resolve([])
     return Promise.all(
       this.store
-        .list({ userId: principal.userId, ...opts })
+        .list({ userId: isTeamOnly(principal) ? '' : principal.userId, ...opts })
         .map((clip) => this.view(clip, principal)),
     )
   }
