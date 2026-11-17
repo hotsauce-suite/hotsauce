@@ -84,6 +84,15 @@ async function main(): Promise<void> {
   // Clips that were being processed or transcribed when the server stopped carry on.
   const clipsResumed = services.clips.recover()
   if (clipsResumed > 0) console.log(`Resuming ${clipsResumed} clip job(s)`)
+  // Each member's sign-in id goes on record, so a later move of sign-in keeps them who they are.
+  // Tried again a few times: a move made before the record exists would split every member.
+  const recordMembers = (attempt: number): void => {
+    void services.auth.recordExistingMembers?.().catch((err: unknown) => {
+      console.error(`sign-in: could not record the existing accounts (try ${attempt}): ${err}`)
+      if (attempt < 5) setTimeout(() => recordMembers(attempt + 1), 60_000).unref()
+    })
+  }
+  recordMembers(1)
   meetings.reminders?.start()
   services.tasks.reminders?.start()
   meetings.calendarSync?.start()

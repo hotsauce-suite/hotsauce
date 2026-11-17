@@ -56,6 +56,10 @@ export class TokenAuth implements Authenticator {
     return this.#inner.principalForUser(userId)
   }
 
+  recordExistingMembers(): Promise<void> {
+    return this.#inner.recordExistingMembers?.() ?? Promise.resolve()
+  }
+
   createSignInTicket(userId: string): Promise<string> {
     if (!this.#inner.createSignInTicket) {
       throw new HotsauceError('not_found', 'Signing in the Mac app is not available on this server')
