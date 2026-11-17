@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.36.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Its version now matches the Hotsauce release, and Settings only says Update available when the Mac app itself changed.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Hotsauce.work has a Download the Mac app link that always gets the newest build and shows its version."
+        }
+      ]
+    },
+    {
       "version": "0.36.0",
       "date": "2026-11-17",
       "notes": [

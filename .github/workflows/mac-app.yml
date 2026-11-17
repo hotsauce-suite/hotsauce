@@ -1,0 +1,170 @@
+name: Mac app
+
+# Builds the Mac app with every Hotsauce release, so the download always carries the release's
+# number (docs/PLAN-mac-download.md). After each Release run (including ones that release nothing,
+# like a merge that only changes the Mac app), this builds main on a GitHub Mac when its version or
+# its Mac app sources differ from the newest build, signs it with "Hotsauce Release Signing" (the secrets MAC_SIGNING_P12 and
+# MAC_SIGNING_PASSWORD, from apps/dictate-mac/scripts/create-release-signing.sh) and publishes it
+# as the prerelease mac-app-<build>, which servers and hotsauce.work/download/mac pick up.
+# mac-app.json says which build first had these Mac app sources (sameAppSince), so a release that
+# changes nothing in the app doesn't tell everyone to update it.
+# Pull requests that touch the Mac app get its tests and a build, unsigned.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if the newest Mac app build matches main
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - apps/dictate-mac/**
+      - .github/workflows/mac-app.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        working-directory: apps/dictate-mac
+        run: swift test
+      - name: Build, unsigned
+        working-directory: apps/dictate-mac
+        run: swift build -c release --arch arm64 --arch x86_64
+
+  publish:
+    if: >-
+      github.repository == 'hotsauce-suite/hotsauce' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      actions: write
+    concurrency:
+      group: mac-app
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Decide what to build
+        id: plan
+        env:
+          FORCE: ${{ inputs.force }}
+          HAS_KEY: ${{ secrets.MAC_SIGNING_P12 != '' }}
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < HOTSAUCE_VERSION)"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::HOTSAUCE_VERSION isn't a version"; exit 1; }
+          SOURCE_HASH="$(git rev-parse HEAD:apps/dictate-mac)"
+          # The newest Mac build so far, and what it was built from.
+          PREV="$(gh api "repos/$REPO/git/matching-refs/tags/mac-app-" --jq '[.[].ref | capture("mac-app-(?<n>[0-9]+)$").n | tonumber] | max // 0')"
+          PREV_VERSION="" PREV_SOURCE="" PREV_SINCE=""
+          # A newest build without a readable mac-app.json (a hand release, a failed upload) counts
+          # as different, so the next build still happens.
+          if [ "$PREV" -gt 0 ] && gh release download "mac-app-$PREV" -R "$REPO" -p mac-app.json -D "$RUNNER_TEMP/prev" --clobber; then
+            PREV_VERSION="$(jq -r '.version // ""' "$RUNNER_TEMP/prev/mac-app.json" || true)"
+            PREV_SOURCE="$(jq -r '.source // ""' "$RUNNER_TEMP/prev/mac-app.json" || true)"
+            PREV_SINCE="$(jq -r '.sameAppSince // ""' "$RUNNER_TEMP/prev/mac-app.json" || true)"
+          fi
+          BUILD=$((PREV + 1))
+          if [ "$PREV_SOURCE" = "$SOURCE_HASH" ] && [[ "$PREV_SINCE" =~ ^[0-9]+$ ]]; then
+            SINCE="$PREV_SINCE"
+          else
+            SINCE="$BUILD"
+          fi
+          BUILDIT=true
+          if [ "$PREV_VERSION" = "$VERSION" ] && [ "$PREV_SOURCE" = "$SOURCE_HASH" ] && [ "$FORCE" != "true" ]; then
+            echo "::notice::Mac app build $PREV is already $VERSION from these sources; nothing to do."
+            BUILDIT=false
+          elif ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            # The Release run that wrote this number didn't finish; its retry will tag it.
+            echo "::notice::$VERSION isn't released yet (no v$VERSION tag); building nothing."
+            BUILDIT=false
+          elif [ "$HAS_KEY" != "true" ]; then
+            echo "::warning::MAC_SIGNING_P12 isn't set, so no Mac app was built (an unsigned build would reset everyone's permissions). See apps/dictate-mac/scripts/create-release-signing.sh."
+            BUILDIT=false
+          fi
+          {
+            echo "build_it=$BUILDIT"
+            echo "version=$VERSION"
+            echo "sha=$(git rev-parse HEAD)"
+            echo "build=$BUILD"
+            echo "source=$SOURCE_HASH"
+            echo "since=$SINCE"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release $VERSION, Mac build $BUILD (same app since $SINCE; previous build $PREV was ${PREV_VERSION:-none})"
+      - name: Add the signing identity to a temporary keychain
+        if: steps.plan.outputs.build_it == 'true'
+        env:
+          P12: ${{ secrets.MAC_SIGNING_P12 }}
+          P12_PASSWORD: ${{ secrets.MAC_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KC_PASS="$(openssl rand -hex 24)"
+          echo "::add-mask::$KC_PASS"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/id.p12"
+          security create-keychain -p "$KC_PASS" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KC_PASS" "$KC"
+          security import "$RUNNER_TEMP/id.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASS" "$KC" >/dev/null
+          rm -f "$RUNNER_TEMP/id.p12"
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security find-identity -p codesigning | grep -q '"Hotsauce Release Signing"' \
+            || { echo "::error::The secret doesn't hold \"Hotsauce Release Signing\""; exit 1; }
+      - name: Install dmgbuild's runner
+        if: steps.plan.outputs.build_it == 'true'
+        run: brew install uv
+      - name: Build and sign
+        if: steps.plan.outputs.build_it == 'true'
+        working-directory: apps/dictate-mac
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          BUILD_NUMBER: ${{ steps.plan.outputs.build }}
+          SOURCE_HASH: ${{ steps.plan.outputs.source }}
+          SAME_APP_SINCE: ${{ steps.plan.outputs.since }}
+        run: |
+          set -euo pipefail
+          scripts/build-app.sh
+          codesign -dvv build/Hotsauce.app 2>&1 | grep -q 'Authority=Hotsauce Release Signing' \
+            || { echo "::error::The app wasn't signed with Hotsauce Release Signing"; exit 1; }
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/Hotsauce.app/Contents/Info.plist | grep -qx "$VERSION"
+          cat release/mac-app.json
+      - name: Publish
+        if: steps.plan.outputs.build_it == 'true'
+        working-directory: apps/dictate-mac
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          BUILD: ${{ steps.plan.outputs.build }}
+          SHA: ${{ steps.plan.outputs.sha }}
+        run: |
+          gh release create "mac-app-$BUILD" -R "$REPO" --prerelease --target "$SHA" \
+            --title "Hotsauce Mac app $VERSION ($BUILD)" \
+            --notes "The Mac app for Hotsauce $VERSION. Download it from https://hotsauce.work/download/mac." \
+            release/Hotsauce.dmg release/Hotsauce.zip release/mac-app.json
+      # hotsauce.work/download/mac learns the newest build when the site deploys.
+      - name: Point hotsauce.work at the new build
+        if: steps.plan.outputs.build_it == 'true'
+        run: gh workflow run deploy-site.yml -R "$REPO" --ref main
+      - name: Remove the temporary keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
