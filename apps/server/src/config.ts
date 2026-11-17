@@ -197,6 +197,10 @@ export const ConfigSchema = z
     // secret is a Fly secret. Without both, production takes no bookings.
     TURNSTILE_SITE_KEY: z.string().optional(),
     TURNSTILE_SECRET_KEY: z.string().optional(),
+    // Sign's email (docs/PLAN-sign.md R12): Resend's key and the address mail comes from, like
+    // sign@mail.example.com. Without both, Sign gives the sender links to copy instead.
+    RESEND_API_KEY: z.string().optional(),
+    MAIL_FROM: z.string().trim().email().optional(),
     // Test only: `record` keeps reminder pushes in memory for e2e (GET /api/test/pushes).
     PUSH_SENDER: z.enum(['web', 'record']).default('web'),
     // A recording session with no socket for this long, or older than the maximum, is stopped

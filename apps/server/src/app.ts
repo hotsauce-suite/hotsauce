@@ -39,6 +39,7 @@ import {
   searchRoutes,
   setupRoutes,
   shareRoutes,
+  signLinkRoutes,
   signRoutes,
   tableRoutes,
   taskRoutes,
@@ -99,6 +100,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', pageRoutes(deps))
     .route('/api', formRoutes(deps))
     .route('/api', signRoutes(deps))
+    .route('/api', signLinkRoutes(deps))
     .route('/api', formFillRoutes(deps))
     .route('/api', tableRoutes(deps))
     .route('/api', linkRoutes(deps))

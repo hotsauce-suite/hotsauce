@@ -621,6 +621,29 @@ export class Files {
     return new Uint8Array(Buffer.concat(chunks))
   }
 
+  /**
+   * A file's details for a server feature that has checked access itself (Sign, for a signer
+   * with no account); null when it's gone.
+   */
+  async peek(space: string, id: string): Promise<FileView | null> {
+    return (await this.#read(space, id).catch(() => null))?.view ?? null
+  }
+
+  /** Moves a file Sign stored to `.trash/` again, when the signing it was for didn't land. */
+  async removeStored(
+    author: Pick<Principal, 'name' | 'email'>,
+    space: string,
+    id: string,
+  ): Promise<void> {
+    const file = await this.#read(space, id)
+    await this.#commit(author, space, {
+      changes: trashChanges(file.view.path, file.content, this.#now()),
+      verb: 'delete',
+      title: file.view.name,
+      via: undefined,
+    })
+  }
+
   /** Moves the pointer to `.trash/`. The bytes stay in the store for now (see §18.5). */
   async remove(principal: Principal, space: string, id: string, via?: string): Promise<void> {
     this.#assertAccess(principal, space)

@@ -1,5 +1,10 @@
 import { isIP } from 'node:net'
-import { MAX_DRAWN_SIGNATURE_CHARS, MAX_FIELDS } from '@hotsauce/format'
+import {
+  MAX_DECLINE_REASON,
+  MAX_DRAWN_SIGNATURE_CHARS,
+  MAX_FIELDS,
+  MAX_SIGNERS,
+} from '@hotsauce/format'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
@@ -22,23 +27,42 @@ const Draft = z.object({
   title: z.string().max(200),
   // Checked in full by the format's schema in the service.
   fields: z.array(z.unknown()).max(MAX_FIELDS),
+  signers: z.array(z.unknown()).max(MAX_SIGNERS).optional(),
+  signingOrder: z.enum(['parallel', 'sequential']).optional(),
   blobOid: z.string().min(1).max(64),
 })
 
+const SignerParams = Params.extend({ signer: z.string().min(1).max(16) })
+const Token = z.object({ token: z.string().min(1).max(200) })
+
+const Values = z
+  .array(
+    z.object({
+      field: z.string().min(1).max(16),
+      value: z.string().max(5000).optional(),
+      checked: z.boolean().optional(),
+      image: z.string().max(MAX_DRAWN_SIGNATURE_CHARS).optional(),
+    }),
+  )
+  .max(MAX_FIELDS)
+
 const SignInput = z.object({
-  values: z
-    .array(
-      z.object({
-        field: z.string().min(1).max(16),
-        value: z.string().max(5000).optional(),
-        checked: z.boolean().optional(),
-        image: z.string().max(MAX_DRAWN_SIGNATURE_CHARS).optional(),
-      }),
-    )
-    .max(MAX_FIELDS),
+  values: Values,
   consent: z.boolean(),
   blobOid: z.string().min(1).max(64),
 })
+
+/** Prefix of the signing page's API for people with a link (`isPublic` in middleware.ts). */
+export const SIGN_LINK_PREFIX = '/api/sign-link/'
+
+// Drawn signatures are PNGs; a few of them fit well inside this.
+const signBody = () =>
+  bodyLimit({
+    maxSize: 4 * 1024 * 1024,
+    onError: () => {
+      throw new HotsauceError('bad_request', 'That’s too much to send at once')
+    },
+  })
 
 /** Sign (docs/PLAN-sign.md R9): envelopes, their source PDF, and signing as a member. */
 export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
@@ -67,24 +91,34 @@ export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
       return c.json(await sign.saveDraft(p, space, id, c.req.valid('json'), viaFor(p)))
     })
     .post(
+      '/sign/:space/:id/send',
+      valid('param', Params),
+      valid('json', z.object({ blobOid: z.string().min(1).max(64) })),
+      async (c) => {
+        const { space, id } = c.req.valid('param')
+        const p = c.get('principal')
+        return c.json(await sign.send(p, space, id, c.req.valid('json'), metaOf(c), viaFor(p)))
+      },
+    )
+    .post(
+      '/sign/:space/:id/link/:signer',
+      valid('param', SignerParams),
+      valid('json', z.object({ email: z.boolean() })),
+      async (c) => {
+        const { space, id, signer } = c.req.valid('param')
+        const p = c.get('principal')
+        return c.json(await sign.link(p, space, id, signer, c.req.valid('json'), viaFor(p)))
+      },
+    )
+    .post(
       '/sign/:space/:id/sign',
-      // Drawn signatures are PNGs; a few of them fit well inside this.
-      bodyLimit({
-        maxSize: 4 * 1024 * 1024,
-        onError: () => {
-          throw new HotsauceError('bad_request', 'That’s too much to send at once')
-        },
-      }),
+      signBody(),
       valid('param', Params),
       valid('json', SignInput),
       async (c) => {
         const { space, id } = c.req.valid('param')
         const p = c.get('principal')
-        const meta = {
-          ip: signerIp((n) => c.req.header(n)),
-          agent: c.req.header('user-agent')?.slice(0, 500) ?? null,
-        }
-        return c.json(await sign.sign(p, space, id, c.req.valid('json'), meta, viaFor(p)))
+        return c.json(await sign.sign(p, space, id, c.req.valid('json'), metaOf(c), viaFor(p)))
       },
     )
     .delete('/sign/:space/:id', valid('param', Params), async (c) => {
@@ -93,6 +127,60 @@ export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
       await sign.remove(p, space, id, viaFor(p))
       return c.body(null, 204)
     })
+}
+
+/**
+ * Signing from an emailed link, with no account (R14). The link's 256-bit secret is the key:
+ * nothing here is reachable without it.
+ */
+export function signLinkRoutes(deps: Pick<AppDeps, 'sign'>) {
+  const { sign } = deps
+  const noStore = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' }
+  return new Hono<AppEnv>()
+    .get('/sign-link/:token', valid('param', Token), async (c) =>
+      c.json(await sign.publicView(c.req.valid('param').token, metaOf(c)), 200, noStore),
+    )
+    .get('/sign-link/:token/source.pdf', valid('param', Token), async (c) => {
+      const bytes = await sign.publicSource(c.req.valid('param').token)
+      return c.body(new Uint8Array(bytes), 200, { 'Content-Type': 'application/pdf', ...noStore })
+    })
+    .post(
+      '/sign-link/:token/sign',
+      signBody(),
+      valid('param', Token),
+      valid('json', z.object({ values: Values, consent: z.boolean() })),
+      async (c) =>
+        c.json(
+          await sign.publicSign(c.req.valid('param').token, c.req.valid('json'), metaOf(c)),
+          200,
+          noStore,
+        ),
+    )
+    .post(
+      '/sign-link/:token/decline',
+      bodyLimit({
+        maxSize: 16 * 1024,
+        onError: () => {
+          throw new HotsauceError('bad_request', 'That’s too much to send at once')
+        },
+      }),
+      valid('param', Token),
+      valid('json', z.object({ reason: z.string().max(MAX_DECLINE_REASON) })),
+      async (c) =>
+        c.json(
+          await sign.publicDecline(c.req.valid('param').token, c.req.valid('json'), metaOf(c)),
+          200,
+          noStore,
+        ),
+    )
+}
+
+/** Where a request came from, for the audit trail. */
+function metaOf(c: { req: { header: (name: string) => string | undefined } }) {
+  return {
+    ip: signerIp((n) => c.req.header(n)),
+    agent: c.req.header('user-agent')?.slice(0, 500) ?? null,
+  }
 }
 
 /**
