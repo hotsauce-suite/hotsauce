@@ -52,6 +52,14 @@ const MIGRATIONS = [
     PRIMARY KEY (user, app)
   );
   `,
+  `
+  -- The apps each member chose for the phone's tab bar, in order, as a JSON array of app ids; apart
+  -- from the rail's pins (docs/PLAN-phone-tab-bar.md). No row: the app shows the default bar.
+  CREATE TABLE phone_pins (
+    user TEXT PRIMARY KEY,
+    apps TEXT NOT NULL
+  );
+  `,
 ]
 
 const INDEX_PRINT = 'index-lists-fingerprint'
@@ -170,6 +178,16 @@ export class AccountStore {
     this.#q.setPins.run(user, JSON.stringify(apps))
   }
 
+  /** The apps `user` chose for the phone's tab bar, in order; null until they first change them. */
+  getPhonePins(user: string): string[] | null {
+    const row = this.#q.getPhonePins.get(user)
+    return row ? (JSON.parse(row.apps) as string[]) : null
+  }
+
+  setPhonePins(user: string, apps: readonly string[]): void {
+    this.#q.setPhonePins.run(user, JSON.stringify(apps))
+  }
+
   /**
    * The member's pins with each of `offers` added once, right after the app it names (first when
    * that isn't pinned): a member still on the defaults already has them, and an offer made once is
@@ -232,6 +250,12 @@ function prepare(db: Database.Database) {
     getPins: db.prepare<[string], { apps: string }>('SELECT apps FROM pins WHERE user = ?'),
     setPins: db.prepare<[string, string]>(`
       INSERT INTO pins (user, apps) VALUES (?, ?)
+      ON CONFLICT (user) DO UPDATE SET apps = excluded.apps`),
+    getPhonePins: db.prepare<[string], { apps: string }>(
+      'SELECT apps FROM phone_pins WHERE user = ?',
+    ),
+    setPhonePins: db.prepare<[string, string]>(`
+      INSERT INTO phone_pins (user, apps) VALUES (?, ?)
       ON CONFLICT (user) DO UPDATE SET apps = excluded.apps`),
     hasOffer: db.prepare<[string, string], { app: string }>(
       'SELECT app FROM pin_offers WHERE user = ? AND app = ?',

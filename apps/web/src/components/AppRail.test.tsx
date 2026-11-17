@@ -1,11 +1,11 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api/client'
 import { meetingsApi } from '../api/meetings'
 import { AudioRing } from '../apps/meetings/audio/ring-buffer'
 import { beginLive, currentLive } from '../apps/meetings/live/controller'
-import { DEFAULT_PINS } from '../apps/pins'
+import { DEFAULT_PHONE_PINS, DEFAULT_PINS, savePhonePins } from '../apps/pins'
 import { APPS, railLinks } from '../apps/registry'
 import { MOBILE_QUERY } from '../hooks/useMediaQuery'
 import { renderApp } from '../test/renderApp'
@@ -266,13 +266,15 @@ describe('the app rail', () => {
     const { router } = renderApp('/meetings')
     const rail = await screen.findByTestId('app-rail')
     expect(rail.className).toContain('shell-tabbar')
-    const pinned = APPS.filter((app) => app.onPhoneBar === true).map((app) => app.id)
-    expect(pinned).toEqual(['today', 'docs', 'meetings', 'tasks'])
-    for (const app of APPS) {
-      const item = within(rail).queryByTestId(`app-switch-${app.id}`)
-      if (pinned.includes(app.id)) expect(item).toBeInTheDocument()
-      else expect(item).toBeNull()
-    }
+    expect(DEFAULT_PHONE_PINS).toEqual(['today', 'docs', 'tasks', 'meetings'])
+    const tabs = [...rail.querySelectorAll('[data-testid^="app-switch-"], [data-testid="apps-menu"]')]
+    expect(tabs.map((el) => el.getAttribute('data-testid'))).toEqual([
+      'app-switch-today',
+      'app-switch-docs',
+      'app-switch-tasks',
+      'app-switch-meetings',
+      'apps-menu',
+    ])
     expect(within(rail).getByTestId('app-switch-meetings')).toHaveAttribute('aria-current', 'page')
     expect(within(rail).getByTestId('apps-menu')).not.toHaveClass('text-ember')
     expect(screen.queryByTestId('sidebar')).toBeNull()
@@ -285,6 +287,47 @@ describe('the app rail', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
     await waitFor(() => expect(screen.queryByTestId('apps-sheet')).toBeNull())
     await waitFor(() => expect(within(rail).getByTestId('apps-menu')).toHaveClass('text-ember'))
+  })
+
+  it("shows the member's chosen apps on the phone bar, in order, links too (phone bar R2)", async () => {
+    await api.setPhonePins(['tasks', 'chat', 'gone', 'for-you'])
+    phone()
+    const { router } = renderApp('/docs')
+    const rail = await screen.findByTestId('app-rail')
+    await waitFor(() =>
+      expect(
+        [...rail.querySelectorAll('a, button')].map((el) => el.getAttribute('data-testid')),
+      ).toEqual(['app-switch-tasks', 'app-link-chat', 'app-switch-for-you', 'apps-menu']),
+    )
+    // Docs is off the bar, so Apps is the current tab; the rail's own pins are untouched.
+    expect(within(rail).getByTestId('apps-menu')).toHaveAttribute('aria-current', 'page')
+    expect((await api.pins()).pins).toBeNull()
+    await userEvent.click(within(rail).getByTestId('app-switch-tasks'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/tasks'))
+    expect(within(rail).getByTestId('apps-menu')).not.toHaveAttribute('aria-current')
+  })
+
+  it('puts the For you count where it can be seen on a phone (phone bar R8)', async () => {
+    phone()
+    renderApp('/docs')
+    const rail = await screen.findByTestId('app-rail')
+    // The default bar has Today, not For you: Today carries it.
+    await waitFor(() =>
+      expect(within(rail).getByTestId('app-switch-today')).toHaveAccessibleName(
+        'Hotsauce Today, 2 new',
+      ),
+    )
+    await act(() => savePhonePins(['for-you', 'today']))
+    await waitFor(() =>
+      expect(within(rail).getByTestId('app-switch-for-you')).toHaveAccessibleName('For you, 2 new'),
+    )
+    expect(within(rail).getByTestId('app-switch-today')).toHaveAccessibleName('Hotsauce Today')
+    // With neither on the bar, Apps gets a dot.
+    await act(() => savePhonePins(['docs']))
+    await waitFor(() =>
+      expect(within(rail).getByTestId('apps-menu')).toHaveAccessibleName('All apps (2 new)'),
+    )
+    expect(within(rail).getByTestId('apps-waiting')).toBeInTheDocument()
   })
 
   it('opens every app, Chat and the account from the Apps sheet on a phone', async () => {

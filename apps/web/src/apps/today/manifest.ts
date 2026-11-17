@@ -15,6 +15,5 @@ export const todayApp: AppManifest = {
   urlFor: () => '/today',
   // One page, nothing to list beside it.
   sidebar: false,
-  onPhoneBar: true,
   preload: () => import('./TodayPage'),
 }

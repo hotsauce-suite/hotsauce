@@ -150,6 +150,7 @@ export class FakeRepo {
   readonly recents = new Map<string, RecentItem[]>()
   readonly stars = new Map<string, StarItem[]>()
   readonly pins = new Map<string, string[]>()
+  readonly phonePins = new Map<string, string[]>()
   idleCommitMs = 2500
   private conflictCounter = 0
   private idCounter = 0

@@ -11,12 +11,16 @@ const Item = z.object({ space: z.string().min(1), path: PathParam })
  * above every app and link an instance has.
  */
 export const MAX_PINS = 100
-const Pins = z.object({
-  pins: z
+const AppIds = (max: number) =>
+  z
     .array(z.string().regex(/^[a-z][a-z0-9-]{0,31}$/))
-    .max(MAX_PINS)
-    .refine((ids) => new Set(ids).size === ids.length, 'An app is pinned twice'),
-})
+    .max(max)
+    .refine((ids) => new Set(ids).size === ids.length, 'An app is pinned twice')
+const Pins = z.object({ pins: AppIds(MAX_PINS) })
+
+/** The phone's tab bar holds this many apps beside Apps (docs/PLAN-phone-tab-bar.md R5). */
+export const MAX_PHONE_PINS = 5
+const PhonePins = z.object({ pins: AppIds(MAX_PHONE_PINS) })
 
 /** How many recents a member is shown. */
 const RECENTS_LIMIT = 20
@@ -30,7 +34,8 @@ const PIN_OFFERS = [{ app: 'for-you', after: 'today' }] as const
 /**
  * Who the member is, and their per-user lists. Recents, stars and rail pins live in the account
  * store (backed up, keyed by email); titles come from the index, null when a file isn't indexed.
- * Pins are `null` until the member first changes them (the app shows defaults).
+ * Pins (the rail's, and the phone tab bar's) are `null` until the member first changes them (the
+ * app shows defaults).
  */
 export function accountRoutes(deps: AppDeps) {
   const { config, index, account, spaces } = deps
@@ -82,6 +87,12 @@ export function accountRoutes(deps: AppDeps) {
     .put('/pins', valid('json', Pins), (c) => {
       const { pins } = c.req.valid('json')
       account.setPins(c.get('principal').email, pins)
+      return c.json({ pins })
+    })
+    .get('/phone-pins', (c) => c.json({ pins: account.getPhonePins(c.get('principal').email) }))
+    .put('/phone-pins', valid('json', PhonePins), (c) => {
+      const { pins } = c.req.valid('json')
+      account.setPhonePins(c.get('principal').email, pins)
       return c.json({ pins })
     })
 }

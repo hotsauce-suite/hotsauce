@@ -13,6 +13,5 @@ export const docsApp: AppManifest = {
   route: '/docs',
   folder: 'docs',
   urlFor: docUrl,
-  onPhoneBar: true,
   preload: () => import('../../routes/DocsIndex'),
 }
