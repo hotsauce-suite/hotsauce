@@ -90,6 +90,9 @@ export function useLink(target: LinkTarget) {
   const [choosing, setChoosing] = useState<{ before?: () => Promise<unknown> } | null>(null)
   const targetRef = useRef(target)
   targetRef.current = target
+  // Another item (a different clip in the same page): forget the last one's link at once.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on the item, not its object
+  useEffect(() => setState(null), [target.key])
 
   const refresh = useCallback(() => {
     const t = targetRef.current
@@ -97,7 +100,9 @@ export function useLink(target: LinkTarget) {
       (s) => {
         if (targetRef.current.key === t.key) setState(s)
       },
-      () => setState(null),
+      () => {
+        if (targetRef.current.key === t.key) setState(null)
+      },
     )
   }, [])
 

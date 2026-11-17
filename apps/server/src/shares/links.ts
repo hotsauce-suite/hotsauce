@@ -201,6 +201,15 @@ export class LinkStore {
   }
 }
 
+/**
+ * Whether turning on a link that is already live should replace it: the caller asked for an
+ * audience it doesn't have, or named an end date. A plain repeat keeps the link it has.
+ */
+export function wantsNewLink(live: LinkPolicy, opts: LinkOptions): boolean {
+  if (opts.anyone !== undefined && opts.anyone !== live.anyone) return true
+  return opts.expiresDays !== undefined
+}
+
 /** Refuses an "anyone" link the organization doesn't allow, and an end date we don't offer. */
 export function checkLinkOptions(opts: LinkOptions, allowAnyone: boolean): void {
   if (opts.anyone === true && !allowAnyone) throw anyoneOff()

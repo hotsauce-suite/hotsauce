@@ -203,9 +203,11 @@ export default function FilesPage() {
     try {
       // For teammates: open to members, never ending. A link for people outside is made with
       // Share read-only link, which asks who it's for and when it ends.
-      const shared = file.shareUrl
-        ? file
-        : await filesApi.share(file.space, file.id, true, { anyone: false, expiresDays: 0 })
+      // A link that has ended is replaced (the server makes a new one).
+      const shared =
+        file.shareUrl && !file.shareLink?.ended
+          ? file
+          : await filesApi.share(file.space, file.id, true, { anyone: false, expiresDays: 0 })
       const url = `${window.location.origin}${shared.shareUrl}`
       await navigator.clipboard?.writeText(url).catch(() => {})
       setToast(`Link copied. ${describeLink(shared.shareLink ?? null)}.`)

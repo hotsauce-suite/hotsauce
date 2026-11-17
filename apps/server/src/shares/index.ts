@@ -10,6 +10,7 @@ export {
   type LinkRef,
   LinkStore,
   linkEnded,
+  wantsNewLink,
 } from './links.js'
 export {
   assertOwnShare,

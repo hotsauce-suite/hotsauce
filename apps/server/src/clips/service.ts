@@ -14,6 +14,7 @@ import {
   type LinkOptions,
   type LinkPolicy,
   type LinkStore,
+  wantsNewLink,
 } from '../shares/links.js'
 import { type Cut, keptRanges, MAX_CUTS, MIN_KEPT_MS, normalizeCuts } from './cuts.js'
 import {
@@ -725,9 +726,10 @@ export class Clips {
       links.deleteRef({ clip: id })
       return { token: null, url: null, link: null }
     }
-    if (current.link && !current.link.ended) return current
+    if (current.link && !current.link.ended && !wantsNewLink(current.link, opts)) return current
     if (clip.status !== 'ready') throw new HotsauceError('conflict', 'This clip isn’t ready yet')
-    checkLinkOptions(opts, this.#opts.allowAnyone?.() ?? false)
+    const allowAnyone = this.#opts.allowAnyone?.() ?? false
+    checkLinkOptions(opts, allowAnyone)
     links.deleteRef({ clip: id })
     links.create(
       principal,
@@ -738,7 +740,7 @@ export class Clips {
         title: clip.title,
       },
       opts,
-      this.#opts.allowAnyone?.() ?? false,
+      allowAnyone,
     )
     this.#log(`clip ${id} shared by ${principal.email}`)
     return this.#shareStateOf(id)

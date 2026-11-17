@@ -18,6 +18,7 @@ import {
   type LinkPolicy,
   type LinkStore,
   linkEnded,
+  wantsNewLink,
 } from './links.js'
 
 /**
@@ -119,8 +120,9 @@ export class Shares {
     via?: string,
     opts: LinkOptions = {},
   ): Promise<ShareState> {
-    // Checked before any commit, so a refusal changes nothing.
-    if (on) checkLinkOptions(opts, this.#deps.allowAnyone())
+    // Checked before any commit, so a refusal changes nothing; the same answer is used after it.
+    const allowAnyone = this.#deps.allowAnyone()
+    if (on) checkLinkOptions(opts, allowAnyone)
     for (let attempt = 1; ; attempt++) {
       const { path, content, blobOid, app, kind } = await this.#readShareable(
         principal,
@@ -128,8 +130,11 @@ export class Shares {
         rawPath,
       )
       const current = tokenOf(content)
-      const live = current !== null && !this.#deps.links.policy(current)?.ended
-      if (on ? live : current === null) return this.#stateOf(current)
+      const policy = this.#deps.links.policy(current)
+      const live = current !== null && policy !== null && !policy.ended
+      // A live link stays, unless the caller asked for a different one (a new token then).
+      const keep = live && !wantsNewLink(policy, opts)
+      if (on ? keep : current === null) return this.#stateOf(current)
       const token = on ? randomBytes(18).toString('base64url') : null
       let text: string
       try {
@@ -163,7 +168,7 @@ export class Shares {
         principal,
         { token, kind, ref: { space, path }, title: titleOf(path, content) },
         opts,
-        this.#deps.allowAnyone(),
+        allowAnyone,
       )
       return this.#stateOf(token)
     }

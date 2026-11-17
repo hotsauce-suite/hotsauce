@@ -10,7 +10,7 @@ import {
   MAX_CHUNKS,
 } from '../files/index.js'
 import { contentDisposition } from '../meetings/audio/index.js'
-import { checkLinkOptions, type LinkStore, linkEnded } from '../shares/index.js'
+import { checkLinkOptions, type LinkStore, linkEnded, wantsNewLink } from '../shares/index.js'
 import { parseRange } from './clips.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { LinkChoice, linkOptions } from './link-choice.js'
@@ -209,9 +209,14 @@ export function driveRoutes(deps: AppDeps) {
           return c.json(await view(v))
         }
         const opts = linkOptions(body)
-        checkLinkOptions(opts, org.settings().publicShareLinks)
-        // A link that has ended is replaced by a fresh one (a new token).
-        if (old && !shareLinks.policy(old)?.ended) return c.json(await view(before))
+        const allowAnyone = org.settings().publicShareLinks
+        checkLinkOptions(opts, allowAnyone)
+        // A live link stays unless a different one was asked for; one that has ended, or one
+        // that isn't what was asked for, is replaced by a fresh one (a new token).
+        const policy = shareLinks.policy(old)
+        if (old && policy && !policy.ended && !wantsNewLink(policy, opts)) {
+          return c.json(await view(before))
+        }
         if (old) {
           await files.setShared(principal, space, id, false, via)
           shareLinks.delete(old)
@@ -222,7 +227,7 @@ export function driveRoutes(deps: AppDeps) {
             principal,
             { token: v.shareToken, kind: 'file', ref: { space, id }, title: v.name },
             opts,
-            org.settings().publicShareLinks,
+            allowAnyone,
           )
         }
         return c.json(await view(v))

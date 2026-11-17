@@ -219,9 +219,10 @@ export async function attachmentFor(file: DriveFile, targetSpace: string): Promi
   let url = file.url
   if (needsShareLink(file, targetSpace)) {
     // For the page's readers, so one that stays open to members and never ends.
-    const shared = file.shareUrl
-      ? file
-      : await filesApi.share(file.space, file.id, true, { anyone: false, expiresDays: 0 })
+    const shared =
+      file.shareUrl && !file.shareLink?.ended
+        ? file
+        : await filesApi.share(file.space, file.id, true, { anyone: false, expiresDays: 0 })
     url = shared.shareUrl ?? file.url
   }
   const label = file.name.replace(/([\\[\]])/g, '\\$1')

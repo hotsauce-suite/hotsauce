@@ -185,6 +185,21 @@ describe('who a link is for and when it ends', () => {
     await api('GET', `/api/shared/${outside.token}`, { as: null, status: 401 })
   })
 
+  it('replaces a live link when a different one is asked for, and keeps it on a plain repeat', async () => {
+    await writeDoc('team', 'docs/r.md', '# R\n')
+    const first = await shareDoc('docs/r.md')
+    expect((await shareDoc('docs/r.md')).token).toBe(first.token)
+    await allowAnyone()
+    const wide = await shareDoc('docs/r.md', { anyone: true })
+    expect(wide.token).not.toBe(first.token)
+    expect(wide.link.anyone).toBe(true)
+    await api('GET', `/api/shared/${first.token}`, { as: BOB, status: 404 })
+    expect((await api('GET', `/api/shared/${wide.token}`, { as: null })).title).toBe('R')
+    const never = await shareDoc('docs/r.md', { anyone: true, expiresDays: 0 })
+    expect(never.link).toEqual({ anyone: true, expiresAt: null, ended: false })
+    expect(services.shareLinks.get(wide.token)).toBeNull()
+  })
+
   it('keeps a link made before the change open to members, never ending (R10)', async () => {
     await writeDoc('team', 'docs/old.md', '# Old\n')
     const on = await shareDoc('docs/old.md')

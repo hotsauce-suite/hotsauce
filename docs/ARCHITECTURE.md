@@ -1403,7 +1403,7 @@ Plan and decisions: `docs/PLAN-outside-links.md`. Code: `shares/links.ts` (`Link
 - `GET /api/shared/:token` opens every kind. Signed out it answers only an anyone link while the switch is on (anything else is 401, before the token is looked at further); an ended link is 410 for everyone. A clip answers `{ kind: 'clip', title, summary, durationMs, videoUrl, thumbUrl, transcript (speaker names), updated, updatedBy }`, never AI notes, action items, a download or the owner's email; deleting the clip deletes its row. A file answers `{ kind: 'file', title, file: { name, size, mime, preview, contentUrl, downloadUrl } }`, never who uploaded it.
 - `GET /api/share-links` and `DELETE /api/share-links/:token` (admin in a session): the list in Settings → People and access; Turn off sets the end to now.
 - Web: Share read-only link opens a pop-up (who can open it, when it ends); the menu then shows who and when, Copy and Turn off, or Make a new read-only link once it has ended. `/s/:token` shows a clip in `SharedClipView` and a file with `FilePreview` and Download.
-- Known limit: with the local media store, a shared file's signed media URL names its space (R2's don't).
+- Known limit: with the local media store, a shared file's signed media URL names its space (R2's don't). Signed media URLs already handed out keep working for their window (clips up to 3 h, files up to 1 h) after a link ends; the page itself stops at once.
 
 ### 20.2 Published pages
 
