@@ -111,7 +111,7 @@ export class ChatRooms {
     try {
       rooms = this.#read()
     } catch (err) {
-      this.#log(`chat: chat rooms file can't be read: ${err}`)
+      this.#log(`chat: chat rooms file can't be read: ${err instanceof Error ? err.name : 'error'}`)
       return []
     }
     return rooms.flatMap((r) => {
@@ -206,7 +206,9 @@ export class ChatRooms {
     try {
       room = this.#read().find((r) => r.id === id)
     } catch (err) {
-      this.#log(`forms: chat rooms file can't be read: ${err}`)
+      this.#log(
+        `forms: chat rooms file can't be read: ${err instanceof Error ? err.name : 'error'}`,
+      )
       return false
     }
     if (!room) return false
@@ -222,7 +224,9 @@ export class ChatRooms {
       if (!res.ok) this.#log(`forms: chat room "${room.name}" answered ${res.status}`)
       return res.ok
     } catch (err) {
-      this.#log(`forms: couldn't post to chat room "${room.name}": ${err}`)
+      this.#log(
+        `forms: couldn't post to chat room "${room.name}": ${err instanceof Error ? err.name : 'error'}`,
+      )
       return false
     }
   }

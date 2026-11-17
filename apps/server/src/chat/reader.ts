@@ -1,4 +1,6 @@
+import { lookup } from 'node:dns/promises'
 import type { ChatRooms, ReadTarget } from '../forms/index.js'
+import { isPrivateHost } from '../forms/rooms.js'
 import type { ChatMessage, ChatStore } from './store.js'
 
 /**
@@ -12,10 +14,14 @@ export interface ChatReaderOptions {
   rooms: Pick<ChatRooms, 'readTargets'>
   store: ChatStore
   fetch?: typeof fetch
+  /** The addresses a hostname resolves to (checked every pass); tests pass a fake. */
+  resolve?: (host: string) => Promise<string[]>
   /** How often a pass runs; 0 never starts a timer (tests call `pass()`). */
   intervalMs: number
-  /** How many days back each pass re-reads threads. */
+  /** How many days back threads are re-read (hourly; the last day's on every pass). */
   threadDays: number
+  /** Most pages one room reads in a pass. */
+  maxPages?: number
   now?: () => Date
   log?: (message: string) => void
 }
@@ -26,6 +32,8 @@ export const MAX_PAGES_PER_PASS = 500
 export const MAX_THREADS_PER_PASS = 2000
 const TIMEOUT_MS = 15_000
 const FIRST_PASS_DELAY_MS = 5_000
+const DAY_MS = 86_400_000
+const WIDE_THREADS_EVERY_MS = 3_600_000
 
 class ReadError extends Error {}
 
@@ -43,21 +51,29 @@ export class ChatReader {
   readonly #rooms: ChatReaderOptions['rooms']
   readonly #store: ChatStore
   readonly #fetch: typeof fetch
+  readonly #resolve: (host: string) => Promise<string[]>
   readonly #intervalMs: number
   readonly #threadDays: number
+  readonly #maxPages: number
   readonly #now: () => Date
   readonly #log: (m: string) => void
+  /** When each room last re-read its older threads (in memory: a restart just reads them again). */
+  readonly #wideThreadsAt = new Map<string, number>()
   #timer: NodeJS.Timeout | null = null
   #first: NodeJS.Timeout | null = null
   #running: Promise<void> | null = null
+  #again = false
   #closed = false
 
   constructor(opts: ChatReaderOptions) {
     this.#rooms = opts.rooms
     this.#store = opts.store
     this.#fetch = opts.fetch ?? fetch
+    this.#resolve =
+      opts.resolve ?? (async (host) => (await lookup(host, { all: true })).map((a) => a.address))
     this.#intervalMs = opts.intervalMs
     this.#threadDays = opts.threadDays
+    this.#maxPages = Math.max(1, opts.maxPages ?? MAX_PAGES_PER_PASS)
     this.#now = opts.now ?? (() => new Date())
     this.#log = opts.log ?? console.warn
   }
@@ -68,9 +84,9 @@ export class ChatReader {
 
   start(): void {
     if (this.#timer || this.#intervalMs <= 0) return
-    this.#first = setTimeout(() => void this.pass(), FIRST_PASS_DELAY_MS)
+    this.#first = setTimeout(() => this.#background(), FIRST_PASS_DELAY_MS)
     this.#first.unref()
-    this.#timer = setInterval(() => void this.pass(), this.#intervalMs)
+    this.#timer = setInterval(() => this.#background(), this.#intervalMs)
     this.#timer.unref()
   }
 
@@ -80,15 +96,35 @@ export class ChatReader {
     if (this.#first) clearTimeout(this.#first)
     this.#timer = null
     this.#first = null
-    await this.#running
+    await this.#running?.catch(() => {})
   }
 
-  /** One pass over every room; a pass still running is joined rather than doubled. */
+  /**
+   * One pass over every room. A call while a pass runs is joined, and one more pass follows it,
+   * so a room switched on mid-pass is read straight after.
+   */
   pass(): Promise<void> {
-    this.#running ??= this.#pass().finally(() => {
+    if (this.#running) {
+      this.#again = true
+      return this.#running
+    }
+    const run = async () => {
+      do {
+        this.#again = false
+        await this.#pass()
+      } while (this.#again && !this.#closed)
+    }
+    this.#running = run().finally(() => {
       this.#running = null
     })
     return this.#running
+  }
+
+  /** A pass nobody waits on: a failure is logged, never thrown. */
+  #background(): void {
+    this.pass().catch((err) => {
+      this.#log(`chat: a read pass failed: ${err instanceof Error ? err.name : 'error'}`)
+    })
   }
 
   async #pass(): Promise<void> {
@@ -99,6 +135,7 @@ export class ChatReader {
     for (const target of targets) {
       if (this.#closed) return
       try {
+        await this.#checkHost(target)
         await this.#readRoom(target)
       } catch (err) {
         const why = err instanceof ReadError ? err.message : 'Couldn’t reach the chat.'
@@ -108,61 +145,146 @@ export class ChatReader {
     }
   }
 
+  /** The chat's host must still be public: a name can be pointed somewhere else after it's added. */
+  async #checkHost(target: ReadTarget): Promise<void> {
+    const host = new URL(target.messagesUrl).hostname.replace(/^\[|\]$/g, '')
+    const addresses = await this.#resolve(host).catch(() => [] as string[])
+    if (addresses.length === 0) throw new ReadError('Couldn’t reach the chat.')
+    if (isPrivateHost(host) || addresses.some(isPrivateHost)) {
+      throw new ReadError('The chat’s address now points at a private network, so it isn’t read.')
+    }
+  }
+
   async #readRoom(target: ReadTarget): Promise<void> {
     const state = this.#store.state(target.id)
     let newest = state.newest
     let backfilled = state.backfilled
+    let backfillBefore = state.backfillBefore
+    let wholeHistory = false
     if (!backfilled) {
-      // The whole history (R2): newest page first, then back until there's nothing before.
-      const first = await this.#page(target, {})
-      this.#store.upsert(first.messages)
-      newest = first.messages.at(-1)?.id ?? null
-      let before = first.before
-      let pages = 1
-      while (before && pages < MAX_PAGES_PER_PASS && !this.#closed) {
-        const page = await this.#page(target, { before })
-        this.#store.upsert(page.messages)
-        before = page.before
-        pages += 1
+      // The whole history (R2): newest page first, then back until there's nothing before. A long
+      // history carries on next pass from where this one stopped.
+      let before: string | null
+      let pages = 0
+      if (backfillBefore) {
+        before = backfillBefore
+      } else {
+        const first = await this.#page(target, {})
+        this.#store.upsert(first.messages)
+        newest = first.messages.at(-1)?.id ?? newest
+        before = first.before
+        pages = 1
       }
-      // A history longer than one pass carries on next time from scratch; the copy dedupes.
+      while (before && pages < this.#maxPages && !this.#closed) {
+        const page = await this.#page(target, { before }).catch((err) => {
+          // The message we were going back from is gone: start the history again from the top.
+          if (err instanceof NotFound) return null
+          throw err
+        })
+        if (!page) {
+          before = null
+          backfillBefore = null
+          this.#store.markRead(target.id, {
+            newest,
+            backfilled: false,
+            backfillBefore: null,
+            at: this.#now().toISOString(),
+          })
+          return
+        }
+        this.#store.upsert(page.messages)
+        pages += 1
+        // An empty page, or one that points back at itself, ends the history.
+        before = page.messages.length > 0 && page.before !== before ? page.before : null
+      }
       backfilled = before === null
-      if (backfilled) await this.#threads(target, this.#store.timeline(target.id))
+      backfillBefore = before
+      wholeHistory = backfilled
     } else {
       // What's new (R3): forward from the newest message copied.
       let after = newest
       let pages = 0
-      while (pages < MAX_PAGES_PER_PASS && !this.#closed) {
-        const page = after
-          ? await this.#page(target, { after }).catch((err) => {
-              // That message is gone from the chat: start again from the newest page.
-              if (err instanceof NotFound) return null
-              throw err
-            })
-          : null
-        const read = page ?? (await this.#page(target, {}))
-        this.#store.upsert(read.messages)
-        if (read.messages.length > 0) newest = read.messages.at(-1)!.id
+      while (after && pages < this.#maxPages && !this.#closed) {
+        const page = await this.#page(target, { after }).catch((err) => {
+          if (err instanceof NotFound) return null
+          throw err
+        })
         pages += 1
-        if (!page || !read.after) break
-        after = newest
+        if (!page) {
+          // That message is gone from the chat: read back from the newest until we meet the copy.
+          newest = await this.#catchUp(target, newest)
+          break
+        }
+        this.#store.upsert(page.messages)
+        const last = page.messages.at(-1)?.id ?? null
+        if (last) newest = last
+        if (!page.after || !last || page.after === after) break
+        after = page.after
       }
-      const since = new Date(this.#now().getTime() - this.#threadDays * 86_400_000)
-      await this.#threads(target, this.#store.recentTimeline(target.id, since.toISOString()))
+      if (!after) newest = await this.#catchUp(target, newest)
     }
-    this.#store.markRead(target.id, { newest, backfilled, at: this.#now().toISOString() })
+    // Saved before threads, so a thread that fails can't lose the messages read.
+    this.#store.markRead(target.id, {
+      newest,
+      backfilled,
+      backfillBefore,
+      at: this.#now().toISOString(),
+    })
+    if (wholeHistory) {
+      await this.#threads(target, this.#store.timeline(target.id))
+      this.#wideThreadsAt.set(target.id, this.#now().getTime())
+    } else if (backfilled) {
+      const now = this.#now().getTime()
+      const wide = now - (this.#wideThreadsAt.get(target.id) ?? 0) >= WIDE_THREADS_EVERY_MS
+      const days = wide ? this.#threadDays : 1
+      const since = new Date(now - days * DAY_MS).toISOString()
+      await this.#threads(target, this.#store.recentTimeline(target.id, since))
+      if (wide) this.#wideThreadsAt.set(target.id, now)
+    }
+  }
+
+  /**
+   * Reads back from the newest page until a page holds a message already copied, so nothing
+   * written since `newest` is skipped. Returns the newest message now copied.
+   */
+  async #catchUp(target: ReadTarget, newest: string | null): Promise<string | null> {
+    const known = (page: { messages: ChatMessage[] }) =>
+      page.messages.some((m) => this.#store.has(target.id, m.id))
+    let page = await this.#page(target, {})
+    const top = page.messages.at(-1)?.id ?? newest
+    let met = known(page)
+    this.#store.upsert(page.messages)
+    let pages = 1
+    while (!met && page.before && pages < this.#maxPages && !this.#closed) {
+      const before: string = page.before
+      const next = await this.#page(target, { before }).catch((err) => {
+        if (err instanceof NotFound) return null
+        throw err
+      })
+      if (!next || next.messages.length === 0 || next.before === before) break
+      met = known(next)
+      this.#store.upsert(next.messages)
+      page = next
+      pages += 1
+    }
+    return top
   }
 
   /** Reads the threads of these timeline messages and copies their replies (R4). */
   async #threads(target: ReadTarget, ids: string[]): Promise<void> {
     for (const id of ids.slice(-MAX_THREADS_PER_PASS)) {
       if (this.#closed) return
-      const res = await this.#get(target, `thread=${encodeURIComponent(id)}`, true)
-      if (!res) continue
-      const all = parseMessages(target.id, await res.json(), null, keyOf(target.messagesUrl))
-      // The thread's own message comes first; the rest are its replies.
-      const replies = all.filter((m) => m.id !== id).map((m) => ({ ...m, thread: id }))
-      if (replies.length > 0) this.#store.upsert(replies)
+      try {
+        const res = await this.#get(target, `thread=${encodeURIComponent(id)}`, true)
+        if (!res) continue
+        const all = parseMessages(target.id, await res.json(), null, keyOf(target.messagesUrl))
+        // The thread's own message comes first; the rest are its replies.
+        const replies = all.filter((m) => m.id !== id).map((m) => ({ ...m, thread: id }))
+        if (replies.length > 0) this.#store.upsert(replies)
+      } catch (err) {
+        // One thread that can't be read is skipped; the next pass tries it again.
+        if (err instanceof ReadError && /refused/.test(err.message)) throw err
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
+import { ChatReader, ChatStore } from '../../src/chat/index.js'
 import { loadConfig } from '../../src/config.js'
 import { createMcpServer } from '../../src/mcp/server.js'
 import { FakeLLM, type LLMRequest, scriptedResponse } from '../../src/meetings/index.js'
@@ -299,6 +300,144 @@ describe('reading a room', () => {
     expect(JSON.stringify(refused)).toMatch(/can only post/)
     const room = await addRoom('General', 'general')
     await api('PATCH', `/api/chat-rooms/${room.id}`, { json: { read: true }, status: 403 })
+    // An admin's access token (an AI tool acting for them) can't switch it either.
+    const made = await app.request('/api/tokens', {
+      method: 'POST',
+      headers: { 'x-hearth-dev-user': ADMIN, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'agent' }),
+    })
+    const { token } = (await made.json()) as { token: string }
+    const viaToken = await app.request(`/api/chat-rooms/${room.id}`, {
+      method: 'PATCH',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ read: true }),
+    })
+    expect(viaToken.status).toBe(403)
+  })
+})
+
+describe('the reader on its own', () => {
+  const target = {
+    id: 'r1',
+    name: 'General',
+    messagesUrl: `${CHAT}/rooms/general/${KEY}/messages`,
+  }
+  let store: ChatStore
+  let reader: ChatReader
+  let addresses: string[]
+
+  beforeEach(() => {
+    store = new ChatStore(':memory:')
+    addresses = ['203.0.113.10']
+    reader = new ChatReader({
+      rooms: { readTargets: () => [target] },
+      store,
+      fetch: chat.fetch,
+      resolve: async () => addresses,
+      intervalMs: 0,
+      threadDays: 7,
+      maxPages: 2,
+      log: () => {},
+    })
+  })
+  afterEach(async () => {
+    await reader.close()
+    store.close()
+  })
+  const texts = () => store.messages('r1', { limit: 100 }).map((m) => m.text)
+  const timeline = () => chat.requests.filter((r) => !r.includes('thread='))
+
+  it('a history longer than one pass carries on where it stopped', async () => {
+    for (let i = 1; i <= 10; i++) chat.say('general', `m${i}`)
+    await reader.pass()
+    // Two pages of three: the newest six.
+    expect(store.count('r1')).toBe(6)
+    expect(store.state('r1')).toMatchObject({ backfilled: false, backfillBefore: '5' })
+    chat.requests = []
+    chat.say('general', 'm11')
+    await reader.pass()
+    // Carries on before the oldest read, without starting over from the top.
+    expect(timeline()).toEqual([
+      '/rooms/general/7-s3cretbotkey/messages?before=5',
+      '/rooms/general/7-s3cretbotkey/messages?before=2',
+    ])
+    expect(store.count('r1')).toBe(10)
+    expect(store.state('r1')).toMatchObject({
+      backfilled: true,
+      backfillBefore: null,
+      newest: '10',
+    })
+    // Then forward from the newest, which catches what was written meanwhile.
+    await reader.pass()
+    expect(texts().at(-1)).toBe('m11')
+  })
+
+  it('reads forward over several pages', async () => {
+    chat.say('general', 'm1')
+    await reader.pass()
+    for (let i = 2; i <= 6; i++) chat.say('general', `m${i}`)
+    chat.requests = []
+    await reader.pass()
+    expect(timeline()).toEqual([
+      '/rooms/general/7-s3cretbotkey/messages?after=1',
+      '/rooms/general/7-s3cretbotkey/messages?after=4',
+    ])
+    expect(texts()).toEqual(['m1', 'm2', 'm3', 'm4', 'm5', 'm6'])
+    expect(store.state('r1').newest).toBe('6')
+  })
+
+  it('when the newest copied message is deleted, reads back until it meets the copy', async () => {
+    chat.say('general', 'm1')
+    chat.say('general', 'm2')
+    await reader.pass()
+    // m2 is deleted in the chat, then four more are written: more than one page.
+    chat.rooms.set(
+      'general',
+      chat.rooms.get('general')!.filter((m) => m.text !== 'm2'),
+    )
+    for (let i = 3; i <= 6; i++) chat.say('general', `m${i}`)
+    await reader.pass()
+    expect(texts()).toEqual(['m1', 'm2', 'm3', 'm4', 'm5', 'm6'])
+    expect(store.state('r1')).toMatchObject({ newest: '6', error: null })
+  })
+
+  it('stops reading a room whose name now points at a private address', async () => {
+    chat.say('general', 'm1')
+    await reader.pass()
+    addresses = ['10.0.0.5']
+    chat.requests = []
+    chat.say('general', 'm2')
+    await reader.pass()
+    expect(chat.requests).toEqual([])
+    expect(store.state('r1')).toMatchObject({
+      messages: 1,
+      error: expect.stringMatching(/private/),
+    })
+  })
+
+  it('a thread that fails is skipped; the messages read are kept', async () => {
+    const parent = chat.say('general', 'parent', 'Rajiv Patel', new Date(Date.now() - 3_600_000))
+    chat.reply('general', parent.id, 'reply')
+    const fetch = chat.fetch
+    let failThreads = true
+    reader = new ChatReader({
+      rooms: { readTargets: () => [target] },
+      store,
+      fetch: async (input, init) => {
+        if (failThreads && String(input).includes('thread='))
+          return new Response('', { status: 500 })
+        return fetch(input, init)
+      },
+      resolve: async () => addresses,
+      intervalMs: 0,
+      threadDays: 7,
+      log: () => {},
+    })
+    await reader.pass()
+    expect(store.state('r1')).toMatchObject({ messages: 1, backfilled: true, error: null })
+    failThreads = false
+    await reader.pass()
+    expect(texts()).toEqual(['parent', 'reply'])
   })
 })
 
@@ -426,5 +565,14 @@ describe('the agent brief (R11)', () => {
       force: false,
     })
     expect(prompts.length).toBe(calls)
+
+    // Something new that names them: the brief's material changes.
+    chat.say('general', '@alice the vendor called back', 'Casey', new Date())
+    await services.chatReader.pass()
+    await services.briefs.refresh((await services.auth.principalForUser(`dev:${ALICE}`))!, {
+      force: false,
+    })
+    expect(prompts.length).toBe(calls + 1)
+    expect(JSON.stringify(prompts.at(-1)?.messages)).toContain('the vendor called back')
   })
 })

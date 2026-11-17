@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { type ChatRoom, formsApi } from '../../api/forms'
 import { primaryButton } from '../../apps/meetings/components/common'
 import { chat, product } from '../../brand/product'
@@ -21,14 +21,18 @@ export function ChatRoomsSection() {
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const load = useCallback(
-    () =>
-      formsApi.rooms().then(
-        (r) => setRooms(r.rooms),
-        () => setRooms((old) => old ?? []),
-      ),
-    [],
-  )
+  // The rooms whose switch is being saved, and a count so an older list never overwrites a newer.
+  const [saving, setSaving] = useState<ReadonlySet<string>>(new Set())
+  const seq = useRef(0)
+  const load = useCallback(() => {
+    const mine = ++seq.current
+    return formsApi.rooms().then(
+      (r) => {
+        if (mine === seq.current) setRooms(r.rooms)
+      },
+      () => setRooms((old) => old ?? []),
+    )
+  }, [])
   useEffect(() => {
     void load()
   }, [load])
@@ -41,6 +45,9 @@ export function ChatRoomsSection() {
   }, [copying, load])
   const setRead = async (id: string, read: boolean) => {
     setError(null)
+    setSaving((s) => new Set(s).add(id))
+    // A list already on its way predates this change.
+    seq.current += 1
     try {
       const room = await formsApi.setRoomRead(id, read)
       setRooms((r) =>
@@ -54,6 +61,12 @@ export function ChatRoomsSection() {
       void load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t change the room')
+    } finally {
+      setSaving((s) => {
+        const next = new Set(s)
+        next.delete(id)
+        return next
+      })
     }
   }
   const add = async () => {
@@ -139,6 +152,7 @@ export function ChatRoomsSection() {
                       aria-label={`Read ${r.name} for context`}
                       data-testid="chat-room-read"
                       checked={r.read === true}
+                      disabled={saving.has(r.id)}
                       onChange={(e) => void setRead(r.id, e.target.checked)}
                       className="size-4 accent-ember"
                     />

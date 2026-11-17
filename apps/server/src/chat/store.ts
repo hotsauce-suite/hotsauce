@@ -34,6 +34,8 @@ export interface ChatRoomState {
   newest: string | null
   /** True once the room's whole history has been copied. */
   backfilled: boolean
+  /** While a first copy is under way, the oldest message read so far, which it goes on before. */
+  backfillBefore: string | null
   readAt: string | null
   error: string | null
   messages: number
@@ -80,6 +82,8 @@ const MIGRATIONS = [
     error      TEXT
   );
   `,
+  // Where a long first copy got to, so the next pass carries on from there.
+  'ALTER TABLE rooms ADD COLUMN backfill_before TEXT;',
 ]
 
 interface MessageRow {
@@ -164,13 +168,20 @@ export class ChatStore {
     const row = this.#db
       .prepare<
         [string],
-        { newest: string | null; backfilled: number; read_at: string | null; error: string | null }
-      >('SELECT newest, backfilled, read_at, error FROM rooms WHERE room = ?')
+        {
+          newest: string | null
+          backfilled: number
+          backfill_before: string | null
+          read_at: string | null
+          error: string | null
+        }
+      >('SELECT newest, backfilled, backfill_before, read_at, error FROM rooms WHERE room = ?')
       .get(room)
     return {
       room,
       newest: row?.newest ?? null,
       backfilled: row?.backfilled === 1,
+      backfillBefore: row?.backfill_before ?? null,
       readAt: row?.read_at ?? null,
       error: row?.error ?? null,
       messages: this.count(room),
@@ -186,14 +197,29 @@ export class ChatStore {
   }
 
   /** Records a successful read: where the room's timeline was read up to, and when. */
-  markRead(room: string, update: { newest: string | null; backfilled: boolean; at: string }): void {
+  markRead(
+    room: string,
+    update: {
+      newest: string | null
+      backfilled: boolean
+      backfillBefore?: string | null
+      at: string
+    },
+  ): void {
     this.#db
       .prepare(
-        `INSERT INTO rooms (room, newest, backfilled, read_at, error) VALUES (?, ?, ?, ?, NULL)
+        `INSERT INTO rooms (room, newest, backfilled, backfill_before, read_at, error)
+         VALUES (?, ?, ?, ?, ?, NULL)
          ON CONFLICT (room) DO UPDATE SET newest = excluded.newest, backfilled = excluded.backfilled,
-           read_at = excluded.read_at, error = NULL`,
+           backfill_before = excluded.backfill_before, read_at = excluded.read_at, error = NULL`,
       )
-      .run(room, update.newest, update.backfilled ? 1 : 0, update.at)
+      .run(
+        room,
+        update.newest,
+        update.backfilled ? 1 : 0,
+        update.backfilled ? null : (update.backfillBefore ?? null),
+        update.at,
+      )
   }
 
   /** Records why a read failed, keeping what was copied and where it got to. */
@@ -204,6 +230,17 @@ export class ChatStore {
          ON CONFLICT (room) DO UPDATE SET read_at = excluded.read_at, error = excluded.error`,
       )
       .run(room, at, error)
+  }
+
+  /** Whether this message is already in the copy. */
+  has(room: string, id: string): boolean {
+    return (
+      this.#db
+        .prepare<[string, string], { n: number }>(
+          'SELECT 1 AS n FROM messages WHERE room = ? AND id = ?',
+        )
+        .get(room, id) !== undefined
+    )
   }
 
   /** The rooms with anything copied or recorded. */

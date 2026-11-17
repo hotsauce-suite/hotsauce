@@ -113,9 +113,13 @@ export function formRoutes(deps: Pick<AppDeps, 'forms' | 'chatRooms' | 'chatRead
         valid('json', z.object({ read: z.boolean() })),
         (c) => {
           adminOnly(c.get('principal'))
-          const room = chatRooms.setRead(c.req.valid('param').id, c.req.valid('json').read)
+          const { id } = c.req.valid('param')
+          const { read } = c.req.valid('json')
+          const room = chatRooms.setRead(id, read)
+          // Switched off: the copy goes now, not on the next pass (R5).
+          if (!read) chatReader.store.drop(id)
           // Read it now rather than in five minutes; its status shows on the next list.
-          void chatReader.pass()
+          chatReader.pass().catch(() => {})
           return c.json(room)
         },
       )

@@ -345,7 +345,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   const chatReader = new ChatReader({
     rooms: chatRooms,
     store: new ChatStore(path.join(config.DATA_DIR, 'chat.sqlite')),
-    ...(overrides.chatFetch ? { fetch: overrides.chatFetch } : {}),
+    ...(overrides.chatFetch
+      ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
+      : {}),
     intervalMs: config.CHAT_READ_INTERVAL_MS,
     threadDays: config.CHAT_THREAD_DAYS,
   })
