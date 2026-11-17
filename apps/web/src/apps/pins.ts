@@ -107,10 +107,17 @@ function pinList(options: {
     return () => listeners.delete(listener)
   }
 
+  // For a component that may not need the list: listens without asking the server.
+  const listen = (listener: () => void): (() => void) => {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  }
+
   const snapshot = (): readonly string[] => current ?? options.defaults
 
   return {
-    use: (): readonly string[] => useSyncExternalStore(subscribe, snapshot, snapshot),
+    use: (fetch = true): readonly string[] =>
+      useSyncExternalStore(fetch ? subscribe : listen, snapshot, snapshot),
 
     save(pins: readonly string[]): Promise<void> {
       const next = [...new Set(pins)]
@@ -173,9 +180,12 @@ export function savePins(pins: readonly string[]): Promise<void> {
   return rail.save(pins)
 }
 
-/** The ids on the member's phone tab bar, in order (the defaults until they change them). */
-export function usePhonePins(): readonly string[] {
-  return phone.use()
+/**
+ * The ids on the member's phone tab bar, in order (the defaults until they change them). `fetch`
+ * false skips asking the server, for the desktop rail, which doesn't show the bar.
+ */
+export function usePhonePins(fetch = true): readonly string[] {
+  return phone.use(fetch)
 }
 
 /** Saves the phone tab bar's apps, the way `savePins` saves the rail's. */

@@ -82,7 +82,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   const recording = live !== null && (live.state === 'recording' || live.state === 'paused')
   const vertical = orientation === 'vertical'
   const pins = usePins()
-  const phonePins = usePhonePins()
+  const phonePins = usePhonePins(!vertical)
   const waiting = useForYou().view.unseen
   const onPhoneBar = vertical ? [] : pinnedEntries(phonePins).slice(0, MAX_PHONE_PINS)
   const phoneIds = new Set(onPhoneBar.map(entryId))

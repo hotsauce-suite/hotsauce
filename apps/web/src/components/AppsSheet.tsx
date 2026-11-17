@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { useForYou } from '../apps/for-you/store'
 import {
   allEntries,
   entryId,
@@ -114,12 +115,14 @@ function AppsSheet({
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const [editing, setEditing] = useState(false)
+  const waiting = useForYou().view.unseen
   const principal = session.me?.principal
   const onFeedback = location.pathname === '/feedback'
   const onSettings = location.pathname === '/settings' || location.pathname.startsWith('/settings/')
 
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('a, button')?.focus()
+    // The first app, not the Edit tab bar button above it.
+    ref.current?.querySelector<HTMLElement>('a')?.focus()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !event.defaultPrevented) onCloseRef.current()
     }
@@ -206,12 +209,19 @@ function AppsSheet({
               {APPS.map((app) => {
                 const current = app.id === active
                 const isRecording = app.id === 'meetings' && recording
+                const count = app.id === 'for-you' ? waiting : 0
                 return (
                   <Link
                     key={app.id}
                     to={current ? app.route : appHref(app)}
                     aria-current={current ? 'page' : undefined}
-                    aria-label={isRecording ? `${app.name} (recording)` : app.name}
+                    aria-label={
+                      isRecording
+                        ? `${app.name} (recording)`
+                        : count > 0
+                          ? `${app.name}, ${count} new`
+                          : app.name
+                    }
                     data-testid={`apps-sheet-${app.id}`}
                     onPointerEnter={() => void app.preload().catch(() => {})}
                     onClick={(event) => {
@@ -231,6 +241,15 @@ function AppsSheet({
                           aria-hidden="true"
                           className="absolute top-1 right-1 size-2 rounded-full bg-ember ring-2 ring-paper-raised"
                         />
+                      ) : null}
+                      {count > 0 ? (
+                        <span
+                          data-testid="apps-sheet-count"
+                          aria-hidden="true"
+                          className="absolute -top-1 -right-1.5 min-w-4 rounded-full bg-ember px-1 text-center text-[0.625rem] leading-4 font-semibold text-paper ring-2 ring-paper-raised"
+                        >
+                          {count > 99 ? '99+' : count}
+                        </span>
                       ) : null}
                     </span>
                     <span className="max-w-full truncate">{app.label}</span>
@@ -318,6 +337,12 @@ function TabBarEditor() {
   const barIds = new Set(onBar.map(entryId))
   const full = onBar.length >= MAX_PHONE_PINS
 
+  const ref = useRef<HTMLDivElement>(null)
+  // After the bar changes, focus goes to `testId` (its button may have moved or gone).
+  const refocus = (testId: string) =>
+    requestAnimationFrame(() =>
+      ref.current?.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.focus(),
+    )
   const toggle = (id: string) => {
     if (barIds.has(id)) save(savedIds.filter((p) => p !== id))
     else if (!full) save([...savedIds, id])
@@ -329,10 +354,11 @@ function TabBarEditor() {
     if (from === -1 || to < 0 || to >= next.length) return
     next.splice(to, 0, ...next.splice(from, 1))
     save(next)
+    refocus(`apps-sheet-remove-${id}`)
   }
 
   return (
-    <>
+    <div ref={ref}>
       <ul
         aria-label="On your tab bar"
         data-testid="apps-sheet-bar"
@@ -352,7 +378,10 @@ function TabBarEditor() {
                 aria-label={`Remove ${entryName(entry)} from the tab bar (position ${index + 1}; Alt and arrow keys move it)`}
                 data-testid={`apps-sheet-remove-${id}`}
                 onClick={() => {
-                  if (!drag.takeDragged()) toggle(id)
+                  if (drag.takeDragged()) return
+                  toggle(id)
+                  // Its tile goes; focus moves to the same app in the list below.
+                  refocus(`apps-sheet-toggle-${id}`)
                 }}
                 onKeyDown={(event) => {
                   if (!event.altKey) return
@@ -404,7 +433,7 @@ function TabBarEditor() {
           )
         })}
       </ul>
-    </>
+    </div>
   )
 }
 

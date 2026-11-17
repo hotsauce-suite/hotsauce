@@ -30,14 +30,16 @@ in the bottom tab bar").
 7. The Apps tab is the current tab whenever the open page belongs to no app on the bar, and carries
    the recording dot whenever Meetings isn't on the bar. *(AppRail.test phone tests)*
 8. For you's unread count shows on For you when it's on the bar, otherwise on Today, otherwise as
-   a dot on Apps. *(AppRail.test: "puts the For you count where it can be seen")*
+   a dot on Apps; in the Apps sheet, For you's tile carries the count.
+   *(AppRail.test: "puts the For you count where it can be seen")*
+9. The desktop rail doesn't ask the server for the phone list. *(AppRail.test: desktop default pins)*
 
 ## Decisions taken (Morgan's answers, Nov 17)
 
 - **Chosen in the Apps sheet,** not Settings: it's where you are when you want an app that isn't on
   the bar.
 - **Its own list,** not the desktop pins: a rail fits many, a phone bar fits few.
-- **Up to five apps** plus Apps. Labels still fit on a 320px-wide phone.
+- **Up to five apps** plus Apps. Six tabs fit a 375px-wide iPhone with every label whole (e2e checks it at 375px).
 - **Organization links can go on the bar,** as on the rail; they open in a new tab.
 
 ## Shared files touched

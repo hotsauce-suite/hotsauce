@@ -27,6 +27,7 @@ function phone() {
 
 describe('the app rail', () => {
   it('shows the default pins, then the launcher, Settings and the account', async () => {
+    const phoneList = vi.spyOn(api, 'phonePins')
     renderApp('/docs')
     const rail = await screen.findByTestId('app-rail')
     const list = within(rail).getByTestId('rail-apps')
@@ -49,6 +50,8 @@ describe('the app rail', () => {
       expect(item).toHaveAttribute('aria-label', app.name)
     }
     expect(within(rail).queryByTestId('app-switch-dictate')).toBeNull()
+    // The desktop rail never asks for the phone bar's list (phone bar R9).
+    expect(phoneList).not.toHaveBeenCalled()
     expect(within(rail).getByTestId('launcher-button')).toHaveAccessibleName('All apps')
     expect(within(rail).getByTestId('app-switch-docs')).toHaveAttribute('aria-current', 'page')
     expect(within(rail).getByTestId('app-switch-meetings')).not.toHaveAttribute('aria-current')
@@ -267,7 +270,9 @@ describe('the app rail', () => {
     const rail = await screen.findByTestId('app-rail')
     expect(rail.className).toContain('shell-tabbar')
     expect(DEFAULT_PHONE_PINS).toEqual(['today', 'docs', 'tasks', 'meetings'])
-    const tabs = [...rail.querySelectorAll('[data-testid^="app-switch-"], [data-testid="apps-menu"]')]
+    const tabs = [
+      ...rail.querySelectorAll('[data-testid^="app-switch-"], [data-testid="apps-menu"]'),
+    ]
     expect(tabs.map((el) => el.getAttribute('data-testid'))).toEqual([
       'app-switch-today',
       'app-switch-docs',
@@ -304,7 +309,9 @@ describe('the app rail', () => {
     expect((await api.pins()).pins).toBeNull()
     await userEvent.click(within(rail).getByTestId('app-switch-tasks'))
     await waitFor(() => expect(router.state.location.pathname).toBe('/tasks'))
-    expect(within(rail).getByTestId('apps-menu')).not.toHaveAttribute('aria-current')
+    await waitFor(() =>
+      expect(within(rail).getByTestId('apps-menu')).not.toHaveAttribute('aria-current'),
+    )
   })
 
   it('puts the For you count where it can be seen on a phone (phone bar R8)', async () => {
@@ -328,6 +335,9 @@ describe('the app rail', () => {
       expect(within(rail).getByTestId('apps-menu')).toHaveAccessibleName('All apps (2 new)'),
     )
     expect(within(rail).getByTestId('apps-waiting')).toBeInTheDocument()
+    // The sheet's For you tile says where they are.
+    await userEvent.click(within(rail).getByTestId('apps-menu'))
+    expect(screen.getByTestId('apps-sheet-for-you')).toHaveAccessibleName('For you, 2 new')
   })
 
   it('opens every app, Chat and the account from the Apps sheet on a phone', async () => {

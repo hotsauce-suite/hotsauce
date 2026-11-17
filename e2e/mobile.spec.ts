@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { docUrl, expect, test, typeAtEnd, uid, waitForSave } from './fixtures'
 
 // Runs only in the mobile-chromium project (Pixel 7 viewport, touch).
@@ -90,6 +91,18 @@ test('a phone reaches every app from the Apps sheet', async ({ page }) => {
 })
 
 test('a phone chooses the apps on its tab bar, and they stay after a reload', async ({ page }) => {
+  // The member is shared by every spec in this run: start from the defaults and put them back.
+  const defaults = ['today', 'docs', 'tasks', 'meetings']
+  await page.request.put('/api/phone-pins', { data: { pins: defaults } })
+  try {
+    await choose(page)
+  } finally {
+    await page.request.put('/api/phone-pins', { data: { pins: defaults } })
+  }
+})
+
+async function choose(page: Page) {
+  await page.setViewportSize({ width: 375, height: 760 })
   await page.goto('/today')
   const bar = page.getByTestId('app-rail')
   await bar.getByTestId('apps-menu').tap()
@@ -116,7 +129,7 @@ test('a phone chooses the apps on its tab bar, and they stay after a reload', as
   await page.reload()
   await expect.poll(tabs).toEqual(chosen)
 
-  // Five apps and Apps still fit: six even tabs, nothing scrolls sideways, every label whole.
+  // Five apps and Apps fit a 375px iPhone: six even tabs, every label whole.
   await bar.getByTestId('apps-menu').tap()
   await sheet.getByTestId('apps-sheet-edit').tap()
   await sheet.getByTestId('apps-sheet-toggle-briefcast').tap()
@@ -135,4 +148,4 @@ test('a phone chooses the apps on its tab bar, and they stay after a reload', as
     expect(tab.width).toBeGreaterThanOrEqual(56)
     expect(tab.clipped).toBe(false)
   }
-})
+}
