@@ -34,6 +34,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     var connectDictate: (_ token: String, _ server: URL, _ done: @escaping (_ account: String?, _ error: String?) -> Void) -> Void = { _, _, done in done(nil, "Not available") }
     /// The finish page redeemed its sign-in ticket: it only asks about Dictate after signing in.
     var signedIn: () -> Void = {}
+    /// Settings → This Mac (docs/PLAN-one-settings.md): the app reads or changes its settings and
+    /// answers with the snapshot.
+    var macSettings: (_ request: MacSettingsBridge.Request, _ reply: @escaping (Any?) -> Void) -> Void = { _, reply in reply(nil) }
+    /// The page loaded now said it has This Mac (R11); a new document starts without.
+    private var pageSaidHello = false
     /// When the finish page took a sign-in ticket: it may connect Dictate for a short while after.
     private var handoffOpenedAt: Date?
     /// The suite page that couldn't be loaded, while the window shows the "Can't reach" page.
@@ -101,6 +106,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.addScriptMessageHandler(LocationHandler(self), contentWorld: .page, name: LocationBridge.handlerName)
         // Settings → Notifications: macOS's state and a button to its settings (no Notification API here).
         configuration.userContentController.addScriptMessageHandler(NotificationsHandler(self), contentWorld: .page, name: NotificationsBridge.handlerName)
+        // Settings → This Mac: the app's own settings, read and changed by the page.
+        configuration.userContentController.addScriptMessageHandler(MacSettingsHandler(self), contentWorld: .page, name: MacSettingsBridge.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -324,6 +331,24 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
                 reply(state.rawValue)
             }
         }
+    }
+
+    /// Answers Settings → This Mac's `hotsauceMacSettings.postMessage(...)`, only for the suite's
+    /// own page in its main frame (R9). Hello marks this document as having the page (R11).
+    fileprivate func macSettings(for message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
+        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo),
+              let request = MacSettingsBridge.parse(message.body)
+        else { return reply(nil) }
+        if request == .hello {
+            pageSaidHello = true
+            return reply(nil)
+        }
+        macSettings(request, reply)
+    }
+
+    /// Whether ⌘, can show This Mac here, or the app's own small window is needed (R11).
+    var settingsDestination: SettingsDestination {
+        SettingsDestination.choose(pageSaidHello: pageSaidHello, pageLoaded: isOnSuitePage && failedURL == nil)
     }
 
     /// The frame's own origin is the suite's, and so is the page the web view shows.
@@ -622,6 +647,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         // A new document: whatever took the sign-in ticket is gone, so is its Dictate handoff.
         if webView.url?.path != DictateHandoff.finishPath { handoffOpenedAt = nil }
+        pageSaidHello = false
         stopMeetingCapture()
     }
 
@@ -826,6 +852,21 @@ private final class NotificationsHandler: NSObject, WKScriptMessageHandlerWithRe
         MainActor.assumeIsolated {
             guard let suite else { return replyHandler(nil, nil) }
             suite.notifications(for: message) { answer in
+                MainActor.assumeIsolated { replyHandler(answer, nil) }
+            }
+        }
+    }
+}
+
+/// Answers Settings → This Mac's `hotsauceMacSettings.postMessage({type: ...})`.
+private final class MacSettingsHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            guard let suite else { return replyHandler(nil, nil) }
+            suite.macSettings(for: message) { answer in
                 MainActor.assumeIsolated { replyHandler(answer, nil) }
             }
         }
