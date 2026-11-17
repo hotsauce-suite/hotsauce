@@ -577,6 +577,9 @@ export function signHandlers(deps: {
       if (user instanceof Response) return user
       const s = read(String(params.space), String(params.id))
       if (!s || !own(user, s)) return error(404, 'not_found', 'No such envelope')
+      if (s.fm.created_by.toLowerCase() !== user.email.toLowerCase()) {
+        return error(403, 'forbidden', 'Only the person who made this envelope can change it')
+      }
       if (s.fm.status !== 'sent') {
         return error(
           409,

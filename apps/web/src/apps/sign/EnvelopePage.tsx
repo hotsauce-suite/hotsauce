@@ -67,7 +67,12 @@ export default function EnvelopePage() {
   const [confirmSend, setConfirmSend] = useState(false)
   const [links, setLinks] = useState<SigningLink[] | null>(null)
   const [replace, setReplace] = useState<{ signer: SignerView; email: boolean } | null>(null)
-  const [fix, setFix] = useState<{ signer: SignerView; name: string; email: string } | null>(null)
+  const [fix, setFix] = useState<{
+    signer: SignerView
+    name: string
+    email: string
+    problem?: string
+  } | null>(null)
 
   const adopt = useCallback((view: EnvelopeView) => {
     setEnv(view)
@@ -255,8 +260,8 @@ export default function EnvelopePage() {
       if (link && !link.emailed) setLinks([link])
       else notify(link ? `New link emailed to ${link.email}` : 'Saved')
     } catch (e) {
-      setError(message(e, 'Couldn’t change that'))
-      setFix(null)
+      // The dialog stays open with what they typed, and says what's wrong.
+      setFix({ ...fix, problem: message(e, 'Couldn’t change that') })
     } finally {
       setBusy(false)
     }
@@ -660,9 +665,11 @@ export default function EnvelopePage() {
                 ? ' They get the finished copy at the new address.'
                 : ` Their current link stops working${
                     env.upNext.includes(fix.signer.id)
-                      ? env.canEmail
-                        ? ', and a new one is emailed to the address below.'
-                        : ', and you get a new one to copy and send.'
+                      ? fix.email.trim().toLowerCase() === env.createdBy.toLowerCase()
+                        ? ', and you sign it here in the app.'
+                        : env.canEmail
+                          ? ', and a new one is emailed to the address below.'
+                          : ', and you get a new one to copy and send.'
                       : '; they get a new one when it’s their turn.'
                   }`}{' '}
               The change is kept in the audit trail.
@@ -673,7 +680,7 @@ export default function EnvelopePage() {
                 className={inputClass}
                 value={fix.name}
                 maxLength={120}
-                onChange={(e) => setFix({ ...fix, name: e.target.value })}
+                onChange={(e) => setFix({ ...fix, name: e.target.value, problem: '' })}
                 data-testid="sign-fix-name"
               />
             </label>
@@ -684,10 +691,15 @@ export default function EnvelopePage() {
                 type="email"
                 value={fix.email}
                 maxLength={320}
-                onChange={(e) => setFix({ ...fix, email: e.target.value })}
+                onChange={(e) => setFix({ ...fix, email: e.target.value, problem: '' })}
                 data-testid="sign-fix-email"
               />
             </label>
+            {fix.problem ? (
+              <p role="alert" className="text-sm text-ink" data-testid="sign-fix-problem">
+                {fix.problem}
+              </p>
+            ) : null}
             <div className="mt-1 flex justify-end gap-2">
               <button type="button" className={secondaryButton} onClick={() => setFix(null)}>
                 Cancel

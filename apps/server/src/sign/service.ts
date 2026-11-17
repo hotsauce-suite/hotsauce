@@ -600,7 +600,18 @@ export class Sign {
           },
         ]),
       }
-      await this.#save(space, principal, next, blobOid, 'edit', via)
+      // The email went first, so a save that fails now (a rare clash with a change made outside
+      // the app) leaves the new address holding a link that doesn't work yet: say so plainly.
+      await this.#save(space, principal, next, blobOid, 'edit', via).catch((err) => {
+        if (link?.emailed) {
+          this.#deps.log?.(`sign: correction emailed but not saved: ${err}`)
+          throw new HotsauceError(
+            'conflict',
+            `The envelope changed while saving, so the link just emailed to ${email} won’t work. Reload and change them again.`,
+          )
+        }
+        throw err
+      })
       return { ...(await this.get(principal, space, id)), link }
     })
   }

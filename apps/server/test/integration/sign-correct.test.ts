@@ -241,7 +241,7 @@ describe('correcting someone after sending (R19–R23)', () => {
     await publicApi('GET', `/api/sign-link/${tokenOf(sent.links[0].url)}`)
   })
 
-  it('someone not yet up gets no link until their turn; a name-only fix keeps the link', async () => {
+  it('someone not yet up gets no link until their turn; a name-only fix makes a fresh link', async () => {
     const people = [
       { id: 's1', name: 'Maya Lin', email: MAYA, order: 1, role: 'signer' },
       { id: 's2', name: 'Raj Patel', email: RAJ, order: 2, role: 'signer' },
@@ -282,10 +282,6 @@ describe('correcting someone after sending (R19–R23)', () => {
     // Someone already on it.
     const dup = await correct(sent.id, 's2', { email: RAJ.toUpperCase() }, { status: 400 })
     expect(dup.error.message).toMatch(/already on this envelope/)
-    // Only the sender.
-    await correct(sent.id, 's2', { email: MAYA_RIGHT }, { as: BOB, status: 403 }).catch(
-      () => undefined,
-    )
     // No such person, and a bad address.
     await correct(sent.id, 's9', { email: MAYA_RIGHT }, { status: 404 })
     await correct(sent.id, 's2', { email: 'not an email' }, { status: 400 })
@@ -303,6 +299,30 @@ describe('correcting someone after sending (R19–R23)', () => {
     // A draft is edited, not corrected.
     const draftOnly = await ready()
     await correct(draftOnly.id, 's2', { email: MAYA_RIGHT }, { status: 409 })
+  })
+
+  it('only the sender can correct, even on a shared envelope (R19)', async () => {
+    const file = await upload('offer.pdf', offer())
+    const made = await api('POST', '/api/sign', {
+      json: { fileSpace: 'team', fileId: file.id, space: 'team' },
+    })
+    const env = await api('PUT', `/api/sign/team/${made.id}`, {
+      json: {
+        title: 'Team NDA',
+        fields: [sig('f1', 's2')],
+        signers: [{ ...PEOPLE[1], order: 1 }],
+        blobOid: made.blobOid,
+      },
+    })
+    await api('POST', `/api/sign/team/${env.id}/send`, { json: { blobOid: env.blobOid } })
+    const res = await api('PATCH', `/api/sign/team/${env.id}/people/s2`, {
+      as: BOB,
+      json: { email: MAYA_RIGHT },
+      status: 403,
+    })
+    expect(res.error.message).toMatch(/Only the person who made this envelope/)
+    const after = await api('GET', `/api/sign/team/${env.id}`, { as: BOB })
+    expect(after.signerList[0].email).toBe(MAYA)
   })
 
   it('correcting someone to the sender’s own address lets them sign in the app, with no link', async () => {
