@@ -511,6 +511,7 @@ describe('models and the cleanup choice (docs/PLAN-dictate-models.md)', () => {
   it('names the models in use, and everyone starts on Fast (R1, R2)', async () => {
     expect(await json(await call('GET', '/api/dictation/settings', { as: ALICE }))).toEqual({
       cleanup: 'fast',
+      cleanupAvailable: true,
       models: {
         speech: 'Test transcriber',
         offline: 'Apple, on the Mac',

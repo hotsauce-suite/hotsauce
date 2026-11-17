@@ -161,6 +161,8 @@ export interface DictationModels {
 /** What `GET /api/dictation/settings` answers. */
 export interface DictationSettings {
   cleanup: CleanupChoice
+  /** False when the server has no AI key: nothing is cleaned, whatever the choice. */
+  cleanupAvailable: boolean
   models: DictationModels
 }
 
@@ -188,6 +190,7 @@ export class Dictation {
   readonly #model: string
   readonly #carefulModel: string
   readonly #speechName: string
+  readonly #cleanupAvailable: boolean
   readonly #chatNames: string[]
   readonly #limiter = new RateLimiter(RATE_LIMIT_PER_MINUTE, 60_000)
   readonly #log: (message: string) => void
@@ -201,6 +204,8 @@ export class Dictation {
     carefulModel?: string
     /** What hears an online dictation, as people say it ("Deepgram Nova-3"). */
     speechName?: string
+    /** False when there is no AI key (LLM_PROVIDER=none). */
+    cleanupAvailable?: boolean
     /** The organization's own team chat, styled like Slack (see `teamChatNames`). */
     chatNames?: string[]
     log?: (message: string) => void
@@ -212,6 +217,7 @@ export class Dictation {
     this.#model = opts.model
     this.#carefulModel = opts.carefulModel ?? opts.model
     this.#speechName = opts.speechName ?? 'Test transcriber'
+    this.#cleanupAvailable = opts.cleanupAvailable ?? true
     this.#chatNames = opts.chatNames ?? []
   }
 
@@ -219,6 +225,7 @@ export class Dictation {
   settings(userId: string): DictationSettings {
     return {
       cleanup: this.store.cleanupChoice(userId),
+      cleanupAvailable: this.#cleanupAvailable,
       models: {
         speech: this.#speechName,
         offline: 'Apple, on the Mac',

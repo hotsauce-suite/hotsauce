@@ -743,7 +743,7 @@ POST   /api/dictation/transcribe?mode=clean|literal&app_name=&app_bundle=&langua
                                      → { text, raw, cleaned, durationMs, ms: { asr, llm } }   Cache-Control: no-store
 GET    /api/dictation/words          → { mine: string[], team: string[], account: email }
 PUT    /api/dictation/words          { scope: 'mine' | 'team', words } | { scope, add?, remove? } → { scope, words }   (any member edits the team list; add/remove apply to the list as it is now, in one transaction, so concurrent edits keep each other; team edits are logged with who and which device, never the words)
-GET    /api/dictation/settings       → { cleanup: 'fast' | 'careful' | 'off', models: { speech, offline, fast, careful } }   (plain names, e.g. "Deepgram Nova-3", "Claude Haiku 5.5"; a device token may read it)
+GET    /api/dictation/settings       → { cleanup: 'fast' | 'careful' | 'off', cleanupAvailable (false without an AI key), models: { speech, offline, fast, careful } }   (plain names, e.g. "Deepgram Nova-3", "Claude Haiku 5.5"; a device token may read it)
 PUT    /api/dictation/settings       { cleanup } → the same   (session only)
 GET    /api/dictation/devices        → [{ id, name, createdAt, lastUsedAt }]   (the caller's live devices)
 POST   /api/dictation/devices        { name } → 201 { id, name, createdAt, lastUsedAt, token }   (token shown once)

@@ -28,6 +28,7 @@ export function dictationHandlers(opts: {
   // What a Hotsauce server with Deepgram and Anthropic keys answers (docs/PLAN-dictate-models.md).
   const settingsOf = (email: string) => ({
     cleanup: cleanup.get(email) ?? 'fast',
+    cleanupAvailable: true,
     models: {
       speech: 'Deepgram Nova-3',
       offline: 'Apple, on the Mac',

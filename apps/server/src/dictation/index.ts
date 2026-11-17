@@ -46,6 +46,7 @@ export {
   TEAM_WORDS_SEED,
 } from './store.js'
 export {
+  DEEPGRAM_DICTATION_MODEL,
   DeepgramDictationTranscriber,
   type DictationTranscriber,
   deepgramBatchUrl,

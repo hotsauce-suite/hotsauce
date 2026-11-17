@@ -2,7 +2,8 @@
 
 ## Status
 
-- Slice 1 (server + web): in progress.
+- Slice 1 (server + web): built, PR #172. With no AI key the page says cleanup is off and hides
+  the choice.
 - Slice 2 (Mac app, "On this Mac only" speech): not started; needs a Mac build.
 
 ## Why
@@ -14,7 +15,7 @@ a different trade-off.
 ## Decisions (Morgan, 2026-11-16)
 
 1. The models show as one line where Dictate's settings live: "Speech: Deepgram Nova-3 ·
-   Offline: Apple, on this Mac · Cleanup: Claude Haiku 5.5".
+   Offline: Apple, on the Mac · Cleanup: Claude Haiku 5.5".
 2. Plain choices instead of a list of model ids. Cleanup is **Fast** (the default, the
    `DICTATION_MODEL`), **Careful** (`DICTATION_CAREFUL_MODEL`, default Claude Sonnet 5.5) or
    **Off** (the exact words). Speech is **Online** (the default) or **On this Mac only**.
@@ -47,6 +48,8 @@ Slice 2 (Mac app):
 - **R7** Speech choice **Online** / **On this Mac only** on the same page; the server stores it.
 - **R8** The Mac app reads the choice and, with "On this Mac only", always writes the dictation
   up on the Mac, then sends only the text for cleanup unless Cleanup is Off.
+- **R9** The Mac app's description of its Clean up / Literal mode says the member's web choice
+  applies too (Off returns the words as heard even in Clean up).
 
 ## Out of scope
 

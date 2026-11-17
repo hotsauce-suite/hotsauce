@@ -187,6 +187,22 @@ describe('/ws/dictation', () => {
     local.dictation.store.close()
   })
 
+  it('follows the member’s cleanup choice: Careful’s model, or none for Off', async () => {
+    const t = token()
+    const long = () =>
+      stream((ws) => {
+        ws.send(JSON.stringify({ type: 'start', token: t, mode: 'clean', app_name: 'Slack' }))
+        for (const frame of frames(15_000)) ws.send(frame)
+        setTimeout(() => ws.send(JSON.stringify({ type: 'finish' })), 600)
+      })
+    services.dictation.store.setCleanupChoice(`dev:${ALICE}`, 'careful')
+    expect((await long()).messages.at(-1)).toMatchObject({ type: 'result', cleaned: true })
+    expect(llm.calls.map((c) => c.model)).toEqual(['claude-sonnet-5-5'])
+    services.dictation.store.setCleanupChoice(`dev:${ALICE}`, 'off')
+    expect((await long()).messages.at(-1)).toMatchObject({ type: 'result', cleaned: false })
+    expect(llm.calls).toHaveLength(1)
+  })
+
   it('literal mode skips the model', async () => {
     const t = token()
     const { messages } = await stream((ws) => {

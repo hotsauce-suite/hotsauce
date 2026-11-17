@@ -24,6 +24,8 @@ export type CleanupChoice = 'fast' | 'careful' | 'off'
 /** The member's cleanup choice and the plain names of the models in use. */
 export interface DictationSettings {
   cleanup: CleanupChoice
+  /** False when the server has no AI key: nothing is cleaned, whatever the choice. */
+  cleanupAvailable: boolean
   models: { speech: string; offline: string; fast: string; careful: string }
 }
 
