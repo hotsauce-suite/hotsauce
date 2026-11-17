@@ -1,7 +1,8 @@
 # Plan: Sign (send a PDF for signature)
 
 Status (2026-11-17): slices 1 to 3 shipped and live (0.35.0; darker ink 0.39.1). Email via
-Resend is on at Haven; Morgan's test email worked on 2026-11-17. Morgan called the plan done for
+Resend is on at Haven; Morgan's test email worked on 2026-11-17. Slice 3b (correct a
+signer, copy an envelope; R19–R26) built and tested, merging in #186. Morgan called the plan done for
 now: slices 4 and 5 (deadlines, reminders, cancelling, templates) are the next Sign work, not yet
 started. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
 

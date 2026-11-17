@@ -101,6 +101,15 @@ export const signApi = {
       method: 'POST',
       json: { email },
     }),
+  /** Fixes someone's name or email after sending; whoever is up gets a fresh link. */
+  correct: (space: string, id: string, signer: string, input: { name: string; email: string }) =>
+    request<EnvelopeView & { link: SigningLink | null }>(`${at(space, id)}/people/${enc(signer)}`, {
+      method: 'PATCH',
+      json: input,
+    }),
+  /** A new draft with the same PDF, people and field places, nothing filled in. */
+  copy: (space: string, id: string) =>
+    request<EnvelopeView>(`${at(space, id)}/copy`, { method: 'POST' }),
   sign: (
     space: string,
     id: string,

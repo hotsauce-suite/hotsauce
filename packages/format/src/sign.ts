@@ -116,6 +116,10 @@ export const AUDIT_EVENTS = [
   'signed',
   'declined',
   'completed',
+  /** The sender fixed someone's name or email after sending (meta: the old and new ones). */
+  'signer_corrected',
+  /** A draft copied from an earlier envelope (meta.from: its id); the copy's first event. */
+  'copied',
 ] as const
 
 /** One audit event, chained to the one before it by `prev` and `hash` (see @hotsauce/sign). */
