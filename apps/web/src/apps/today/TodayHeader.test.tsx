@@ -126,6 +126,33 @@ describe('Today weather (H5)', () => {
     expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({ off: true })
   })
 
+  it('F2–F4: the weather menu shows the next 12 hours and the next 7 days', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (ok: PositionCallback) =>
+          ok({ coords: { latitude: 44.48, longitude: -73.21 } } as GeolocationPosition),
+      },
+    })
+    renderApp('/today')
+    await userEvent.click(await screen.findByTestId('today-weather-on'))
+    await userEvent.click(await screen.findByTestId('today-weather'))
+    const forecast = await screen.findByTestId('today-forecast')
+    expect(forecast).toHaveTextContent('Next 12 hours')
+    const hours = screen.getAllByTestId('today-forecast-hour')
+    expect(hours).toHaveLength(5)
+    expect(hours[0]).toHaveTextContent(/Now.*\d+°/)
+    const days = screen.getAllByTestId('today-forecast-day')
+    expect(days).toHaveLength(7)
+    expect(days[0]).toHaveTextContent(/(Today|Tonight).*\d+° \/ -?\d+°/)
+    // The sample has rain the day after tomorrow and snow on the last day; dry days show none.
+    expect(screen.getAllByTestId('today-forecast-rain').length).toBeGreaterThanOrEqual(2)
+    // Each day is read out whole, since its icon and numbers are hidden from screen readers.
+    expect(days[1]).toHaveAccessibleName(/^\w+: .*high -?\d+°, low -?\d+°/)
+    // The location options are still there, under the forecast.
+    expect(screen.getByTestId('today-weather-use-city')).toBeInTheDocument()
+  })
+
   it('W3: offers Allow location and a city when location is refused', async () => {
     const getCurrentPosition = vi.fn((_ok: PositionCallback, fail: PositionErrorCallback) =>
       fail({ code: 1 } as GeolocationPositionError),

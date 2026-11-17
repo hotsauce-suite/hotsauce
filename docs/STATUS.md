@@ -14,7 +14,7 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 ## The apps (the rail, in order)
 
 ### Today
-The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
+The home page: clock, next meeting, optional weather (click it for the next 12 hours and 7 days), and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
 ### For you
