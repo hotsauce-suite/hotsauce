@@ -12,6 +12,7 @@ import {
   useMacAppLatest,
 } from '../lib/macAppVersion'
 import { hasMacNotifications } from '../lib/macNotifications'
+import { hasMacUpdate, installMacUpdate, type MacUpdate, macUpdateState } from '../lib/macUpdate'
 import { Icon } from './Icon'
 
 // The Mac app's download: offered in Settings, linked from Today.
@@ -62,6 +63,37 @@ export function useMacAppBuild(enabled = true): boolean | null {
 }
 
 /**
+ * Where the Mac app's own update stands, from an app that updates itself; null otherwise. Asks
+ * again every few seconds while it downloads (docs/PLAN-mac-self-update.md U8).
+ */
+export function useMacUpdate(): [MacUpdate | null, () => void] {
+  const [update, setUpdate] = useState<MacUpdate | null>(null)
+  useEffect(() => {
+    if (!hasMacUpdate()) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const check = () => {
+      void macUpdateState().then((next) => {
+        if (cancelled) return
+        setUpdate(next)
+        if (next?.state === 'downloading') timer = setTimeout(check, 4000)
+      })
+    }
+    check()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [])
+  const install = () => {
+    void installMacUpdate().then((next) => {
+      if (next) setUpdate(next)
+    })
+  }
+  return [update, install]
+}
+
+/**
  * Settings → Apps, the Mac app's card: the download, or the source for a server without a build.
  * `#mac-app` (MAC_APP_SETTINGS) scrolls to it. The first-install steps stay folded until asked
  * for, and inside the Mac app the card says so and offers only the newest build
@@ -74,9 +106,14 @@ export function MacAppCard() {
   const latest = useMacAppLatest()
   // Someone sent here by a “Get the Mac app” link is about to install it: show them the steps.
   const sentHere = useLocation().hash === '#mac-app'
+  const [selfUpdate, installSelfUpdate] = useMacUpdate()
   if (inMacApp) {
     const installed = installedMacAppVersion()
-    const state = macAppUpdateState(installed, latest ?? null)
+    const ready = selfUpdate?.state === 'ready'
+    // The app's own word wins: it may know of an update before this page's check does.
+    const selfKnows = ready || selfUpdate?.state === 'downloading'
+    const state = selfKnows ? 'outdated' : macAppUpdateState(installed, latest ?? null)
+    const offered = (selfKnows ? selfUpdate?.version : null) ?? latest?.version
     return (
       <section
         id="mac-app"
@@ -98,12 +135,12 @@ export function MacAppCard() {
             ) : state === 'outdated' ? (
               <>, an older version</>
             ) : null}
-            .{/* The app doesn't update itself: a newer build is fetched from here. */}
-            {state === 'outdated' && latest ? (
+            .{/* An app that updates itself restarts into it; an older one downloads it here. */}
+            {state === 'outdated' && offered ? (
               <>
                 {' '}
                 <span data-testid="mac-app-update-available" className="font-medium text-ink">
-                  Update available: {latest.version}.
+                  Update available: {offered}.
                 </span>{' '}
                 <Link
                   to={WHATS_NEW}
@@ -129,7 +166,24 @@ export function MacAppCard() {
           </span>
         </span>
         {state === 'outdated' ? (
-          hasBuild ? (
+          ready ? (
+            <button
+              type="button"
+              onClick={installSelfUpdate}
+              data-testid="mac-app-restart-update"
+              className={primaryButton}
+            >
+              <Icon name="download" />
+              Restart to update
+            </button>
+          ) : selfUpdate?.state === 'downloading' ? (
+            <span
+              data-testid="mac-app-update-downloading"
+              className="shrink-0 text-sm font-medium text-ink-soft"
+            >
+              Downloading the update…
+            </span>
+          ) : hasBuild ? (
             <a
               href={MAC_APP_DOWNLOAD}
               download

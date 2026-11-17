@@ -53,6 +53,8 @@ beforeEach(async () => {
     llm,
     pushSender: push,
     checkinsNow: () => now,
+    // Briefcast reads answers since the last briefing, so it needs the same clock.
+    briefcastNow: () => now,
     chatFetch: async (input, init) => {
       posts.push({ url: String(input), body: JSON.parse(String(init?.body)) })
       return new Response('ok')

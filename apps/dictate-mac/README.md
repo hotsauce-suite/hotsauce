@@ -9,6 +9,10 @@ The menu bar app behind Dictate (ARCHITECTURE §9). Build it on a Mac with the X
 
 Without a Developer ID, macOS asks each person to confirm the app once (System Settings → Privacy & Security → Open Anyway). Settings → Apps explains this.
 
+## Updating itself
+
+The app checks the server's `/downloads/mac-app.json` at launch and every six hours. When a newer build is out it downloads `/downloads/Hotsauce.dmg` quietly, copies the app out of it, and keeps it only when it has the same bundle id, is newer, and satisfies the running app's designated code requirement (the same signing identity, so macOS keeps its permissions). Then the menu bar menu, Settings → Apps and one notification offer "Restart to update"; a small helper waits for the app to quit, swaps the copies and reopens it. It falls back to the download when the app runs from the disk image, can't write its folder, or the check fails (the reason is in `defaults read dev.hotsauce.dictate status.updateFailed`). See `docs/PLAN-mac-self-update.md`; the logic and its tests are `Sources/DictateCore/AppUpdate.swift`.
+
 ## With no connection
 
 When the Mac has no network, or the server didn't answer in the last minute, the dictation key records as usual and the text is written up by the Mac's own speech recognition (`SFSpeechRecognizer` with `requiresOnDeviceRecognition`), with "Offline: on-device" in the pill. A dictation whose stream and upload both fail to reach the server is written up the same way from the kept recording. Nothing is sent anywhere offline. The choice is `SpeechRouting` in `Sources/DictateCore/SpeechRoute.swift` (tested); the recognizer is `Sources/HotsauceDictate/OnDeviceSpeech.swift`. Plan: `docs/PLAN-offline.md`, step A2.
