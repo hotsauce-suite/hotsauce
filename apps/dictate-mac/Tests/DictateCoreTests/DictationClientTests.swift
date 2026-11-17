@@ -46,6 +46,27 @@ import Testing
         #expect(!DictationError.notConnected.isRetryable)
     }
 
+    // docs/PLAN-dictate-models.md, R8.
+    @Test func readsTheMembersChoices() throws {
+        let body = #"{"speech":"device","cleanup":"careful","cleanupAvailable":true,"models":{"speech":"Deepgram Nova-3","offline":"Apple, on the Mac","fast":"Claude Haiku 5.5","careful":"Claude Sonnet 5.5"}}"#
+        let choices = try DictationClient.decodeChoices(status: 200, body: Data(body.utf8))
+        #expect(choices == DictationClient.Choices(speech: "device", cleanup: "careful"))
+        #expect(choices.keepsSpeechOnMac)
+        // A server from before the choices keeps everything online.
+        #expect(try !DictationClient.decodeChoices(status: 404, body: Data()).keepsSpeechOnMac)
+        #expect(throws: DictationError.notConnected) { try DictationClient.decodeChoices(status: 401, body: Data()) }
+    }
+
+    @Test func sendsOnlyTheTextToBeTidied() throws {
+        let request = try client.urlRequest(cleaning: "um ship it", like: DictationRequest(audio: Data([9, 9]), mode: .clean, appName: "Slack", appBundle: "com.tinyspeck.slackmacgap"))
+        #expect(request.url?.path == "/api/dictation/clean")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer hdt_token")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        let body = try #require(try JSONSerialization.jsonObject(with: try #require(request.httpBody)) as? [String: String])
+        #expect(body == ["text": "um ship it", "mode": "clean", "app_name": "Slack", "app_bundle": "com.tinyspeck.slackmacgap"])
+    }
+
     @Test func readsTheAccountATokenBelongsTo() throws {
         #expect(try DictationClient.decodeAccount(status: 200, body: Data(#"{"mine":[],"team":[],"account":"ada@example.com"}"#.utf8)) == "ada@example.com")
         #expect(throws: DictationError.notConnected) { try DictationClient.decodeAccount(status: 401, body: Data()) }

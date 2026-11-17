@@ -4,7 +4,8 @@
 
 - Slice 1 (server + web): built, PR #172. With no AI key the page says cleanup is off and hides
   the choice.
-- Slice 2 (Mac app, "On this Mac only" speech): not started; needs a Mac build.
+- Slice 2 (Mac app, "On this Mac only" speech): built; ships with the next release and its Mac
+  build (built on GitHub, docs/PLAN-mac-download.md). R9 (Mac copy) is the This Mac page's.
 
 ## Why
 
@@ -46,6 +47,12 @@ Slice 1:
 Slice 2 (Mac app):
 
 - **R7** Speech choice **Online** / **On this Mac only** on the same page; the server stores it.
+- **R8a** While a member is on "On this Mac only", the server refuses audio from their Macs
+  (`/transcribe` 403, the stream 4403), so a Mac app from before the choice can't send it. The
+  browser's own dictation is not refused. A Mac refused this way asks for the choice and writes
+  the dictation up itself.
+- **R8b** `POST /api/dictation/clean` tidies text a Mac heard itself, with the member's choice
+  and words; a device token may call it.
 - **R8** The Mac app reads the choice and, with "On this Mac only", always writes the dictation
   up on the Mac, then sends only the text for cleanup unless Cleanup is Off.
 - **R9** The Mac app's description of its Clean up / Literal mode says the member's web choice

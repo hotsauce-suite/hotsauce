@@ -21,6 +21,30 @@ import Testing
         #expect(SpeechRouting.choose(networkUp: true, serverFailedAt: longAgo, now: now) == .server)
     }
 
+    // docs/PLAN-dictate-models.md, R8.
+    @Test func keepsSpeechOnTheMacWhenTheMemberChoseIt() {
+        #expect(SpeechRouting.choose(networkUp: true, serverFailedAt: nil, now: now, keepOnMac: true) == .onDevice)
+        #expect(SpeechRouting.choose(networkUp: false, serverFailedAt: nil, now: now, keepOnMac: true) == .onDevice)
+        #expect(SpeechRouting.choose(networkUp: true, serverFailedAt: nil, now: now, keepOnMac: false) == .server)
+    }
+
+    @Test func aRefusalMayMeanTheMemberJustChoseOnThisMacOnly() {
+        #expect(SpeechRouting.mayBeKeptOnMac(after: .server(status: 403, message: "On this Mac only")))
+        #expect(!SpeechRouting.mayBeKeptOnMac(after: .server(status: 500, message: "busy")))
+        #expect(!SpeechRouting.mayBeKeptOnMac(after: .network("offline")))
+        #expect(!SpeechRouting.mayBeKeptOnMac(after: .notConnected))
+    }
+
+    @Test func remembersTheChoiceOnThisMac() throws {
+        let defaults = try #require(UserDefaults(suiteName: "SpeechPreferenceTests"))
+        defaults.removePersistentDomain(forName: "SpeechPreferenceTests")
+        #expect(!SpeechPreference.keepsOnMac(defaults))
+        SpeechPreference.set(true, in: defaults)
+        #expect(SpeechPreference.keepsOnMac(defaults))
+        SpeechPreference.set(false, in: defaults)
+        #expect(!SpeechPreference.keepsOnMac(defaults))
+    }
+
     @Test func onlyAServerThatCouldNotBeReachedMovesToTheDevice() {
         #expect(SpeechRouting.fallsBackOnDevice(after: .network("offline")))
         #expect(!SpeechRouting.fallsBackOnDevice(after: .notConnected))

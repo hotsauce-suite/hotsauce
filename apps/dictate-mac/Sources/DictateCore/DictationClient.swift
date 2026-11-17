@@ -134,6 +134,61 @@ public struct DictationClient: Sendable {
         return try Self.decode(status: status, body: body)
     }
 
+    /// The member's Dictate choices (`GET /api/dictation/settings`, docs/PLAN-dictate-models.md).
+    public struct Choices: Decodable, Equatable, Sendable {
+        /// `online`, or `device` for "On this Mac only".
+        public let speech: String
+        /// `fast`, `careful` or `off`.
+        public let cleanup: String
+
+        public init(speech: String, cleanup: String) {
+            self.speech = speech
+            self.cleanup = cleanup
+        }
+
+        /// The member chose "On this Mac only": their voice never leaves the Mac.
+        public var keepsSpeechOnMac: Bool { speech == "device" }
+    }
+
+    public func choices(session: URLSession = .shared) async throws -> Choices {
+        var request = URLRequest(url: server.appendingPathComponent("api/dictation/settings"), timeoutInterval: 15)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AppVersion.tag(&request)
+        let (body, status) = try await send(request, session: session)
+        return try Self.decodeChoices(status: status, body: body)
+    }
+
+    /// A server from before the choices (404) has none: everything stays online.
+    public static func decodeChoices(status: Int, body: Data) throws -> Choices {
+        if status == 401 { throw DictationError.notConnected }
+        if status == 404 { return Choices(speech: "online", cleanup: "fast") }
+        guard (200..<300).contains(status), let choices = try? JSONDecoder().decode(Choices.self, from: body) else {
+            throw DictationError.server(status: status, message: "\(Brand.name) answered \(status)")
+        }
+        return choices
+    }
+
+    /// Text this Mac heard itself, sent to be tidied like a dictation (`POST /api/dictation/clean`).
+    /// Only the text goes, never the audio.
+    public func urlRequest(cleaning text: String, like request: DictationRequest) throws -> URLRequest {
+        var body: [String: Any] = ["text": text, "mode": request.mode.rawValue]
+        if let name = request.appName, !name.isEmpty { body["app_name"] = String(name.prefix(200)) }
+        if let bundle = request.appBundle, !bundle.isEmpty { body["app_bundle"] = String(bundle.prefix(200)) }
+        var urlRequest = URLRequest(url: server.appendingPathComponent("api/dictation/clean"), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 25)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        AppVersion.tag(&urlRequest)
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return urlRequest
+    }
+
+    public func clean(_ text: String, like request: DictationRequest, session: URLSession = .shared) async throws -> DictationResult {
+        let (body, status) = try await send(try urlRequest(cleaning: text, like: request), session: session)
+        return try Self.decode(status: status, body: body)
+    }
+
     /// Whose Hotsauce this token belongs to (`GET /api/dictation/words` names the account).
     public func account(session: URLSession = .shared) async throws -> String {
         var request = URLRequest(url: server.appendingPathComponent("api/dictation/words"), timeoutInterval: 20)

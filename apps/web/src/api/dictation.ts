@@ -21,8 +21,12 @@ export type WordScope = 'mine' | 'team'
 /** How a member's dictations are cleaned up (docs/PLAN-dictate-models.md). */
 export type CleanupChoice = 'fast' | 'careful' | 'off'
 
+/** Where the Mac app hears the member: online, or on the Mac alone. */
+export type SpeechChoice = 'online' | 'device'
+
 /** The member's cleanup choice and the plain names of the models in use. */
 export interface DictationSettings {
+  speech: SpeechChoice
   cleanup: CleanupChoice
   /** False when the server has no AI key: nothing is cleaned, whatever the choice. */
   cleanupAvailable: boolean
@@ -41,8 +45,8 @@ export const dictationApi = {
     request<void>(`/api/dictation/devices/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   words: () => request<DictationWords>('/api/dictation/words'),
   settings: () => request<DictationSettings>('/api/dictation/settings'),
-  setCleanup: (cleanup: CleanupChoice) =>
-    request<DictationSettings>('/api/dictation/settings', { method: 'PUT', json: { cleanup } }),
+  setChoice: (choice: { cleanup: CleanupChoice } | { speech: SpeechChoice }) =>
+    request<DictationSettings>('/api/dictation/settings', { method: 'PUT', json: choice }),
   /** Speech in, cleaned-up text out (the browser's recording; nothing is kept on the server). */
   transcribe: (audio: Blob) =>
     request<{ text: string }>('/api/dictation/transcribe', {

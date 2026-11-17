@@ -81,6 +81,17 @@ describe('Dictate models (docs/PLAN-dictate-models.md)', () => {
     await user.click(within(screen.getByTestId('dictate-cleanup-off')).getByRole('radio'))
     await waitFor(() => expect(line).toHaveTextContent('Cleanup:Off'))
   })
+
+  it('keeps my voice on the Mac when I pick On this Mac only (R7)', async () => {
+    const user = userEvent.setup()
+    renderApp('/dictate')
+    const line = await screen.findByTestId('dictate-models-line')
+    expect(within(screen.getByTestId('dictate-speech-online')).getByRole('radio')).toBeChecked()
+    await user.click(within(screen.getByTestId('dictate-speech-device')).getByRole('radio'))
+    expect(await screen.findByText('Saved. Your next dictation uses it.')).toBeInTheDocument()
+    expect(line).toHaveTextContent('Speech:Apple, on the Mac only')
+    expect(within(screen.getByTestId('dictate-cleanup-fast')).getByRole('radio')).toBeChecked()
+  })
 })
 
 describe('connectLink', () => {

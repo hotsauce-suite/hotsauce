@@ -12,6 +12,8 @@ final class OverlayModel: ObservableObject {
     @Published var phase: Phase = .recording
     /// Recording for the Mac's own speech recognition: no connection (docs/PLAN-offline.md, A2.4).
     @Published var onDevice = false
+    /// What the pill says while the Mac writes it up itself: offline, or "On this Mac" by choice.
+    @Published var onDeviceLabel = "Offline: on-device"
     /// Recent levels, oldest first, for the meter.
     @Published var levels: [Float] = Array(repeating: 0, count: 18)
 
@@ -52,9 +54,10 @@ final class Overlay {
         panel.contentView = NSHostingView(rootView: OverlayView(model: model))
     }
 
-    func showRecording(onDevice: Bool = false) {
+    func showRecording(onDevice: Bool = false, label: String = "Offline: on-device") {
         model.levels = Array(repeating: 0, count: model.levels.count)
         model.onDevice = onDevice
+        model.onDeviceLabel = label
         show(.recording, hideAfter: nil)
     }
 
@@ -107,7 +110,7 @@ struct OverlayView: View {
                 }
                 .animation(.easeOut(duration: 0.08), value: model.levels)
                 if model.onDevice {
-                    Text("Offline: on-device")
+                    Text(model.onDeviceLabel)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
                         .fixedSize()
