@@ -25,3 +25,12 @@ General lessons from building outside links (docs/PLAN-outside-links.md, 2026-11
 - **Outside views need their own shapes.** The signed-in file and clip views carry emails,
   AI notes and download URLs; build the public response field by field rather than trimming the
   internal one, and assert in a test that those strings never appear.
+
+## A setting that changes meaning is dangerous until the release is live
+
+The outside-links work kept the existing `publicShareLinks` switch but changed what it does (old:
+every link opens signed out; new: members may choose "anyone" per link). The owner's steps page
+went out before the release, the owner ticked the switch on the old version, and for a few minutes
+every existing members-only link at that organization was public. Next time: when a change gives an
+existing setting a new meaning, either use a new setting key, or hold any "go flip it" page until
+the release is confirmed live, and say on the page what the switch does on older versions.
