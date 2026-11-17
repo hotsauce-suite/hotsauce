@@ -173,11 +173,12 @@ type MetPoint = NonNullable<NonNullable<MetResponse['properties']>['timeseries']
  * Each point's symbol and precipitation cover the time until the next point: MET's 1-hour figures
  * while points are hourly, its 6-hour figures after, so a day's total counts each hour once.
  */
-export function toSeries(points: MetPoint[]): ForecastPoint[] {
+export function toSeries(all: MetPoint[]): ForecastPoint[] {
+  // A point without a temperature is dropped first, so the one before it covers its time.
+  const points = all.filter((p) => typeof p.data?.instant?.details?.air_temperature === 'number')
   const out: ForecastPoint[] = []
   points.forEach((p, i) => {
-    const temperature = p.data?.instant?.details?.air_temperature
-    if (typeof temperature !== 'number') return
+    const temperature = p.data?.instant?.details?.air_temperature ?? 0
     const next = points[i + 1]
     const gapHours = next ? (Date.parse(next.time) - Date.parse(p.time)) / 3_600_000 : 6
     const one = p.data?.next_1_hours

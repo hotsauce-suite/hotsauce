@@ -13,11 +13,15 @@ F1. `GET /api/today/weather` also answers `series`: MET Norway's points from the
     its 6-hour figures, so a day's total never counts the same hour twice. Same source, cache and
     limits as before; no new service, key or setting. [server weather.test]
 F2. Clicking the weather chip opens the menu with the forecast above the location options:
-    "Next 12 hours" shows now and then every 3 hours (time, icon, temperature). [forecast.test,
+    "Next 12 hours" shows the hour now (even when the answer is a few minutes old) and then every
+    3 hours (time, icon, temperature). Screen readers and arrow keys reach the hours row and each
+    day as read-only menu items with a spoken summary. [forecast.test,
     TodayHeader.test]
 F3. "Next 7 days" shows today and the six days after, in this device's time zone: day name
-    ("Today" first), icon, high and low. A day's icon is MET's 6-hour symbol for its late morning,
-    shown as a day icon. [forecast.test, TodayHeader.test]
+    ("Today" first, or "Tonight" from 6 PM on), icon, high and low. A day's icon is the symbol of
+    the forecast period nearest 10 AM (or of its wettest period on a day over 1 mm), shown as a day
+    icon. Far-off days have only four readings, so their high and low are a little mild; MET's
+    free compact forecast has no 6-hour maximum or minimum to do better. [forecast.test, TodayHeader.test]
 F4. A day with more than 1 mm of rain or snow (water equivalent) shows the amount: inches to one
     decimal for °F locales ("💧 0.4 in"), whole millimetres otherwise ("💧 6 mm"). Drier days
     show nothing. [forecast.test]

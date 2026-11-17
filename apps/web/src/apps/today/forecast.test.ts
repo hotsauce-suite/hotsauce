@@ -24,14 +24,24 @@ function series(temp: (i: number) => number = () => 5, rain = 0): ForecastPoint[
 
 describe('forecastHours (F2)', () => {
   it('gives now and every 3 hours up to 12 hours', () => {
-    const hours = forecastHours(series((i) => i))
+    const hours = forecastHours(
+      series((i) => i),
+      new Date(START + 10 * 60_000),
+    )
     expect(hours.map((h) => h.temperature)).toEqual([0, 3, 6, 9, 12])
     expect(hours[1]?.time.toISOString()).toBe('2026-11-17T07:00:00.000Z')
+    // A series fetched an hour ago starts from the hour that's current now.
+    const later = forecastHours(
+      series((i) => i),
+      new Date(START + 75 * 60_000),
+    )
+    expect(later.map((h) => h.temperature)).toEqual([1, 4, 7, 10, 13])
   })
 
   it('leaves out hours the forecast does not reach (F5)', () => {
-    expect(forecastHours(series().slice(0, 4)).length).toBe(2)
-    expect(forecastHours([])).toEqual([])
+    expect(forecastHours(series().slice(0, 4), new Date(START)).length).toBe(2)
+    expect(forecastHours([], new Date(START))).toEqual([])
+    expect(forecastDays([], new Date(START), 7, TZ)).toEqual([])
   })
 })
 
@@ -76,6 +86,12 @@ describe('forecastDays (F3)', () => {
         },
       ),
     )
+  })
+
+  it('shows a day’s late-morning icon, as a day icon', () => {
+    const s = series().map((p, i) => (i === 11 ? { ...p, symbol: 'fog_night' } : p))
+    // Point 11 is 10 AM on Nov 17 in Toronto.
+    expect(forecastDays(s, new Date(START), 7, TZ)[1]?.symbol).toBe('fog_day')
   })
 
   it('adds up each day’s rain', () => {

@@ -26,11 +26,15 @@ export interface ForecastDay {
   precipitation: number
 }
 
-/** F2: the series' first point (the current hour), then every 3 hours up to 12 hours on. */
-export function forecastHours(series: ForecastPoint[], steps = 4): ForecastHour[] {
-  const first = series[0]
-  if (!first) return []
-  const start = Date.parse(first.time)
+/**
+ * F2: the hour now (the last point at or before `now`, since the series can be a few minutes
+ * old), then every 3 hours up to 12 hours on.
+ */
+export function forecastHours(series: ForecastPoint[], now: Date, steps = 4): ForecastHour[] {
+  const t = now.getTime()
+  const current = [...series].reverse().find((s) => Date.parse(s.time) <= t) ?? series[0]
+  if (!current) return []
+  const start = Date.parse(current.time)
   const out: ForecastHour[] = []
   for (let k = 0; k <= steps; k++) {
     const target = start + k * 3 * HOUR
@@ -40,17 +44,20 @@ export function forecastHours(series: ForecastPoint[], steps = 4): ForecastHour[
   return out
 }
 
-function dayParts(ms: number, timeZone?: string): { key: string; hour: number } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+function dayParter(timeZone?: string): (ms: number) => { key: string; hour: number } {
+  const format = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     hourCycle: 'h23',
-  }).formatToParts(new Date(ms))
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
-  return { key: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) }
+  })
+  return (ms) => {
+    const parts = format.formatToParts(new Date(ms))
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+    return { key: `${get('year')}-${get('month')}-${get('day')}`, hour: Number(get('hour')) }
+  }
 }
 
 /**
@@ -64,11 +71,12 @@ export function forecastDays(
   days = 7,
   timeZone?: string,
 ): ForecastDay[] {
-  const todayKey = dayParts(now.getTime(), timeZone).key
+  const dayParts = dayParter(timeZone)
+  const todayKey = dayParts(now.getTime()).key
   const groups = new Map<string, Array<{ p: ForecastPoint; hour: number; ms: number }>>()
   for (const p of series) {
     const ms = Date.parse(p.time)
-    const { key, hour } = dayParts(ms, timeZone)
+    const { key, hour } = dayParts(ms)
     if (key < todayKey) continue
     const group = groups.get(key) ?? []
     group.push({ p, hour, ms })

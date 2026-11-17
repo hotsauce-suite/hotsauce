@@ -147,6 +147,8 @@ describe('Today weather (H5)', () => {
     expect(days[0]).toHaveTextContent(/(Today|Tonight).*\d+° \/ -?\d+°/)
     // The sample has rain the day after tomorrow and snow on the last day; dry days show none.
     expect(screen.getAllByTestId('today-forecast-rain').length).toBeGreaterThanOrEqual(2)
+    // Each day is read out whole, since its icon and numbers are hidden from screen readers.
+    expect(days[1]).toHaveAccessibleName(/^\w+: .*high -?\d+°, low -?\d+°/)
     // The location options are still there, under the forecast.
     expect(screen.getByTestId('today-weather-use-city')).toBeInTheDocument()
   })

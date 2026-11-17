@@ -8,7 +8,13 @@ import { Dialog } from '../../components/Dialog'
 import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { PlaceSearch } from '../../components/PlaceSearch'
 import { timeLabel } from '../meetings/format'
-import { forecastDays, forecastHours, rainLabel } from './forecast'
+import {
+  type ForecastDay,
+  type ForecastHour,
+  forecastDays,
+  forecastHours,
+  rainLabel,
+} from './forecast'
 import { askLocation, inMacApp, useDeviceWeather, writeDeviceWeather } from './weatherPlace'
 
 export { WEATHER_PLACE_KEY } from './weatherPlace'
@@ -407,86 +413,112 @@ function WeatherChip({
   }
 }
 
-/** F2–F4: the next 12 hours and the next 7 days, at the top of the weather menu. */
+/**
+ * F2–F4: the next 12 hours and the next 7 days, at the top of the weather menu. Inside a menu
+ * only menu items are reachable, so the hours row and each day are inert items with a spoken
+ * label; arrow keys read them before the place options.
+ */
 function Forecast({ weather, fahrenheit }: { weather: TodayWeather; fahrenheit: boolean }) {
   const series = weather.series ?? []
-  const hours = forecastHours(series)
-  const days = forecastDays(series, new Date())
-  if (hours.length === 0 && days.length === 0) return null
+  const now = new Date()
+  const hours = forecastHours(series, now)
+  const days = forecastDays(series, now)
+  if (hours.length < 2 && days.length === 0) return null
   const t = (c: number) => formatTemperature(c, fahrenheit)
   const heading =
     'px-2.5 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint'
+  const item = 'rounded-md outline-none focus-visible:bg-paper-sunk'
+  const hourLabel = (h: ForecastHour, i: number) =>
+    i === 0 ? 'Now' : h.time.toLocaleTimeString(undefined, { hour: 'numeric' }).replace(/\s/g, '')
+  const dayLabel = (d: ForecastDay) =>
+    d.today
+      ? d.tonight
+        ? 'Tonight'
+        : 'Today'
+      : d.date.toLocaleDateString(undefined, { weekday: 'short' })
   return (
-    <div
-      className="w-72 max-w-[calc(100vw-2rem)] border-b border-ash pb-1.5 mb-1"
+    <fieldset
+      aria-label="Forecast"
+      className="mb-1 min-w-0 w-72 max-w-[calc(100vw-2rem)] border-b border-ash pb-1.5"
       data-testid="today-forecast"
     >
       {hours.length > 1 ? (
         <>
-          <p className={heading}>Next 12 hours</p>
-          <ol className="flex justify-between px-2.5 pb-1" data-testid="today-forecast-hours">
+          <p className={heading} aria-hidden="true">
+            Next 12 hours
+          </p>
+          <div
+            role="menuitem"
+            aria-disabled="true"
+            tabIndex={-1}
+            aria-label={`Next 12 hours: ${hours
+              .map(
+                (h, i) =>
+                  `${hourLabel(h, i)} ${t(h.temperature)}, ${describeWeather(h.symbol).words}`,
+              )
+              .join('; ')}`}
+            className={`flex justify-between px-2.5 pb-1 ${item}`}
+            data-testid="today-forecast-hours"
+          >
             {hours.map((h, i) => {
               const { emoji, words } = describeWeather(h.symbol)
               return (
-                <li
+                <span
                   key={h.time.toISOString()}
+                  aria-hidden="true"
                   className="flex w-11 flex-col items-center gap-0.5 text-xs"
                   data-testid="today-forecast-hour"
                 >
-                  <span className="text-ink-faint">
-                    {i === 0
-                      ? 'Now'
-                      : h.time
-                          .toLocaleTimeString(undefined, { hour: 'numeric' })
-                          .replace(/\s/g, '')}
-                  </span>
-                  <span aria-hidden="true" title={words} className="text-base leading-5">
+                  <span className="text-ink-faint">{hourLabel(h, i)}</span>
+                  <span title={words} className="text-base leading-5">
                     {emoji}
                   </span>
                   <span className="font-medium text-ink tabular-nums">{t(h.temperature)}</span>
-                </li>
+                </span>
               )
             })}
-          </ol>
+          </div>
         </>
       ) : null}
       {days.length > 0 ? (
         <>
-          <p className={heading}>Next {days.length} days</p>
-          <ol className="px-2.5" data-testid="today-forecast-days">
+          <p className={heading} aria-hidden="true">
+            {days.length === 1 ? dayLabel(days[0] as ForecastDay) : `Next ${days.length} days`}
+          </p>
+          <div className="px-1" data-testid="today-forecast-days">
             {days.map((d) => {
               const { emoji, words } = describeWeather(d.symbol)
               const rain = rainLabel(d.precipitation, fahrenheit)
               return (
-                <li
+                <div
                   key={d.key}
-                  className="flex items-center gap-2 py-0.5 text-xs"
+                  role="menuitem"
+                  aria-disabled="true"
+                  tabIndex={-1}
+                  aria-label={`${dayLabel(d)}: ${words ? `${words}, ` : ''}high ${t(d.high)}, low ${t(d.low)}${rain ? `, ${rain.replace('💧 ', '')} of rain or snow` : ''}`}
+                  className={`flex items-center gap-2 px-1.5 py-0.5 text-xs ${item}`}
                   data-testid="today-forecast-day"
                 >
-                  <span className="w-11 text-ink-soft">
-                    {d.today
-                      ? d.tonight
-                        ? 'Tonight'
-                        : 'Today'
-                      : d.date.toLocaleDateString(undefined, { weekday: 'short' })}
+                  <span aria-hidden="true" className="w-11 text-ink-soft">
+                    {dayLabel(d)}
                   </span>
                   <span aria-hidden="true" className="w-5 text-center text-base leading-5">
                     {emoji}
                   </span>
-                  <span className="flex-1 truncate text-ink-faint">
+                  <span aria-hidden="true" className="flex-1 truncate text-ink-faint">
                     {rain ? <span data-testid="today-forecast-rain">{rain}</span> : words}
                   </span>
-                  <span className="tabular-nums">
+                  <span aria-hidden="true" className="tabular-nums">
                     <span className="font-medium text-ink">{t(d.high)}</span>
                     <span className="text-ink-faint"> / {t(d.low)}</span>
                   </span>
-                </li>
+                </div>
               )
             })}
-          </ol>
+          </div>
         </>
       ) : null}
-    </div>
+    </fieldset>
   )
 }
 
