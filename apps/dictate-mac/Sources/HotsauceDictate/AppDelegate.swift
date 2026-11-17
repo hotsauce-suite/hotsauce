@@ -13,8 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let setupLocation = LocationService()
     let mainWindow = MainWindow()
     private var pruneTimer: Timer?
-    /// A newer Mac app the server offers, for the menu bar menu (M7); nil when this one is newest.
-    private var availableUpdate: String?
+    /// A newer Mac app the server offers, got ready quietly and swapped in on a click
+    /// (docs/PLAN-mac-self-update.md); its state is the menu bar menu's update entry.
+    private let updater = Updater()
     private var updateTimer: Timer?
     private var statusItem: NSStatusItem!
     private var healthTimer: Timer?
@@ -46,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = makeMainMenu()
         suite.showMessage = { [weak self] in self?.controller.showMessage($0) }
+        suite.updateState = { [weak self] in self?.updater.state ?? .none }
+        suite.installUpdate = { [weak self] in self?.installUpdate() }
+        updater.onChange = { [weak self] in self?.updateStateChanged($0) }
+        reminders.installUpdate = { [weak self] in self?.installUpdate() }
         suite.handleAppLink = { [weak self] in self?.openAppLink($0.absoluteString) }
         suite.signInWithBrowser = { [weak self] in self?.startBrowserSignIn() }
         suite.serverMoved = { [weak self] old, new in self?.serverMoved(from: old, to: new) }
@@ -433,7 +438,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if self.settings.suiteServer != server { self.settings.appSignedIn = false }
             self.settings.suiteServer = server
             self.suite.setServer(server)
-            self.availableUpdate = nil
+            self.updater.offer(nil, server: nil)
             self.checkForUpdate()
             model.reload()
             return nil
@@ -597,8 +602,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         menu.addItem(disabled(statusLine))
-        if let version = availableUpdate {
-            menu.addItem(item("Update available (\(version))…", #selector(downloadUpdate)))
+        if let entry = updater.state.menuEntry {
+            menu.addItem(item(entry.title, #selector(updateFromMenu), enabled: entry.enabled))
         }
         menu.addItem(.separator())
 
@@ -781,14 +786,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let (data, response) = try? await URLSession.shared.data(for: request),
                   (response as? HTTPURLResponse)?.statusCode == 200 else { return }
             let update = AppVersion.update(installed: installed, installedBuild: AppVersion.build, latest: AppVersion.latest(fromJSON: data))
-            await MainActor.run { self?.availableUpdate = update }
+            await MainActor.run { self?.updater.offer(update, server: server) }
         }
+    }
+
+    /// The menu's update entry: restart into a ready update, else download it.
+    @objc private func updateFromMenu() {
+        if case .ready = updater.state { installUpdate() } else { downloadUpdate() }
+    }
+
+    /// Quits, swaps in the ready build and reopens; not while a recording would be cut off (U9).
+    func installUpdate() {
+        guard case .ready = updater.state else { return downloadUpdate() }
+        if controller.isRecording || suite.isUsingMicrophone {
+            controller.showMessage("Finish recording first, then restart to update")
+            return
+        }
+        if !updater.installAndRelaunch() { downloadUpdate() }
     }
 
     /// Downloads the newest build in the browser; the person drags it into Applications.
     @objc private func downloadUpdate() {
         guard let server = suiteServer else { return }
         NSWorkspace.shared.open(AppVersion.downloadURL(server: server))
+    }
+
+    /// One notification per version once an update is ready (U10).
+    private func updateStateChanged(_ state: UpdateState) {
+        guard case .ready(let version) = state else { return }
+        let key = "update.notified"
+        guard UserDefaults.standard.string(forKey: key) != version else { return }
+        UserDefaults.standard.set(version, forKey: key)
+        reminders.postUpdateReady(version: version)
     }
 
     // MARK: Connecting
@@ -818,7 +847,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings.suiteServer = server
         if suite.recordingMeetingSession == nil { suite.setServer(server) }
         // A different workspace may offer a different Mac app (M7).
-        availableUpdate = nil
+        updater.offer(nil, server: nil)
         checkForUpdate()
         mainWindow.model.reload()
     }

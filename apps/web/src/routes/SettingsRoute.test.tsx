@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
@@ -412,6 +412,75 @@ describe('Settings: General, Apps, and the help strip', () => {
       const card = await screen.findByTestId('mac-app')
       expect(await within(card).findByTestId('mac-app-update')).toBeInTheDocument()
       expect(card).toHaveTextContent('You’re using it on this Mac, an older version.')
+    } finally {
+      leave()
+    }
+  })
+
+  // docs/PLAN-mac-self-update.md U8: an app that updates itself restarts into it.
+  function inSelfUpdatingMacApp(version: string, reply: { state: string; version?: string }) {
+    const notifications = vi.fn().mockResolvedValue('on')
+    const update = vi.fn().mockResolvedValue(reply)
+    Object.assign(window, {
+      webkit: {
+        messageHandlers: {
+          hearthNotifications: { postMessage: notifications },
+          hotsauceMacUpdate: { postMessage: update },
+        },
+      },
+      hotsauceMacApp: { version },
+    })
+    return {
+      update,
+      leave: () => {
+        Reflect.deleteProperty(window, 'webkit')
+        Reflect.deleteProperty(window, 'hotsauceMacApp')
+      },
+    }
+  }
+
+  it('offers Restart to update when the Mac app has the update ready', async () => {
+    const { update, leave } = inSelfUpdatingMacApp('0.25.0', { state: 'ready', version: '0.26.0' })
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      const restart = await within(card).findByTestId('mac-app-restart-update')
+      expect(restart).toHaveTextContent('Restart to update')
+      expect(within(card).getByTestId('mac-app-update-available')).toHaveTextContent(
+        'Update available: 0.26.0.',
+      )
+      expect(within(card).queryByTestId('mac-app-update')).toBeNull()
+      fireEvent.click(restart)
+      await waitFor(() => expect(update).toHaveBeenCalledWith('install'))
+    } finally {
+      leave()
+    }
+  })
+
+  it('says the update is downloading instead of offering the download', async () => {
+    const { leave } = inSelfUpdatingMacApp('0.25.0', { state: 'downloading', version: '0.26.0' })
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      expect(await within(card).findByTestId('mac-app-update-downloading')).toHaveTextContent(
+        'Downloading the update…',
+      )
+      expect(within(card).queryByTestId('mac-app-update')).toBeNull()
+    } finally {
+      leave()
+    }
+  })
+
+  it('keeps the download when the Mac app can’t install the update itself', async () => {
+    const { leave } = inSelfUpdatingMacApp('0.25.0', { state: 'available', version: '0.26.0' })
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      expect(await within(card).findByTestId('mac-app-update')).toHaveAttribute(
+        'href',
+        '/downloads/Hotsauce.dmg',
+      )
+      expect(within(card).queryByTestId('mac-app-restart-update')).toBeNull()
     } finally {
       leave()
     }

@@ -37,6 +37,12 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// Settings → This Mac (docs/PLAN-one-settings.md): the app reads or changes its settings and
     /// answers with the snapshot.
     var macSettings: (_ request: MacSettingsBridge.Request, _ reply: @escaping (Any?) -> Void) -> Void = { _, reply in reply(nil) }
+    /// The app's own update, for Settings → Apps (docs/PLAN-mac-self-update.md U7).
+    var updateState: () -> UpdateState = { .none }
+    /// Settings → Apps' "Restart to update".
+    var installUpdate: () -> Void = {}
+    /// The page is using the microphone (a meeting or clip recording): an update waits (U9).
+    var isUsingMicrophone: Bool { webView.microphoneCaptureState == .active || meetingCapture != nil }
     /// The page loaded now said it has This Mac (R11); a new document starts without.
     private var pageSaidHello = false
     /// The same for the Dictate page's "On this Mac" (docs/PLAN-dictations-page.md R7).
@@ -110,6 +116,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.addScriptMessageHandler(NotificationsHandler(self), contentWorld: .page, name: NotificationsBridge.handlerName)
         // Settings → This Mac: the app's own settings, read and changed by the page.
         configuration.userContentController.addScriptMessageHandler(MacSettingsHandler(self), contentWorld: .page, name: MacSettingsBridge.handlerName)
+        // Settings → Apps: where the app's own update stands, and "Restart to update".
+        configuration.userContentController.addScriptMessageHandler(UpdateHandler(self), contentWorld: .page, name: UpdateBridge.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -359,6 +367,16 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             return reply(nil)
         }
         macSettings(request, reply)
+    }
+
+    /// Answers Settings → Apps' `hotsauceMacUpdate.postMessage('state' | 'install')`, only for the
+    /// suite's own page in its main frame (U7).
+    fileprivate func answerUpdate(_ message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
+        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo),
+              let request = UpdateBridge.request(message.body)
+        else { return reply(nil) }
+        if request == .install { installUpdate() }
+        reply(updateState().reply)
     }
 
     /// Whether ⌘, can show This Mac here, or the app's own small window is needed (R11).
@@ -908,6 +926,21 @@ private final class MacSettingsHandler: NSObject, WKScriptMessageHandlerWithRepl
         MainActor.assumeIsolated {
             guard let suite else { return replyHandler(nil, nil) }
             suite.answerMacSettings(message) { answer in
+                MainActor.assumeIsolated { replyHandler(answer, nil) }
+            }
+        }
+    }
+}
+
+/// Answers Settings → Apps' `hotsauceMacUpdate.postMessage(...)`.
+private final class UpdateHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            guard let suite else { return replyHandler(nil, nil) }
+            suite.answerUpdate(message) { answer in
                 MainActor.assumeIsolated { replyHandler(answer, nil) }
             }
         }
