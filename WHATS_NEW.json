@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "version": "0.43.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "The Dictate page starts with your word count, time saved, speed, top apps, this month's busy days and recent dictations. You can search them, and each one has Copy and Paste.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Dictate… in the menu bar opens that page. The separate Dictate window only appears when Hotsauce can't load, and it no longer has a Dictionary tab.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.42.1",
       "date": "2026-11-17",
       "notes": [
