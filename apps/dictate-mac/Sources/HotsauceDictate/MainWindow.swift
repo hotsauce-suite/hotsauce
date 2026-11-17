@@ -428,7 +428,7 @@ private struct RecordRow: View {
                         Text("on this Mac").font(.system(size: 10, weight: .medium)).foregroundStyle(Hotsauce.inkFaint)
                             .padding(.horizontal, 6).padding(.vertical, 1)
                             .background(Capsule().fill(Hotsauce.sunk))
-                            .help("Written up by this Mac’s own speech recognition, with no connection")
+                            .help("Written up by this Mac’s own speech recognition: with no connection, or because you chose On this Mac only")
                     } else if !record.cleaned {
                         Text("as spoken").font(.system(size: 10, weight: .medium)).foregroundStyle(Hotsauce.inkFaint)
                             .padding(.horizontal, 6).padding(.vertical, 1)

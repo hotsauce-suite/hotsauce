@@ -1,7 +1,7 @@
 // MSW routes for `/api/dictation` (ARCHITECTURE §9.2): devices, word lists and models, in memory.
 
 import { type AnyHandler, HttpResponse, http } from 'msw'
-import type { CleanupChoice, DictationDevice } from '../api/dictation'
+import type { CleanupChoice, DictationDevice, SpeechChoice } from '../api/dictation'
 import type { FakeUser } from './fakeRepo'
 
 const TEAM_SEED = [
@@ -24,9 +24,11 @@ export function dictationHandlers(opts: {
   const devices = new Map<string, Array<DictationDevice & { revoked?: boolean }>>()
   const words = new Map<string, string[]>([['team', [...TEAM_SEED]]])
   const cleanup = new Map<string, CleanupChoice>()
+  const speech = new Map<string, SpeechChoice>()
   let next = 1
   // What a Hotsauce server with Deepgram and Anthropic keys answers (docs/PLAN-dictate-models.md).
   const settingsOf = (email: string) => ({
+    speech: speech.get(email) ?? 'online',
     cleanup: cleanup.get(email) ?? 'fast',
     cleanupAvailable: true,
     models: {
@@ -106,13 +108,17 @@ export function dictationHandlers(opts: {
     http.put(
       '/api/dictation/settings',
       authed(async ({ request, user }) => {
-        const body = (await request.json()) as { cleanup: CleanupChoice }
-        if (!['fast', 'careful', 'off'].includes(body.cleanup))
+        const body = (await request.json()) as { cleanup?: CleanupChoice; speech?: SpeechChoice }
+        const okCleanup =
+          body.cleanup === undefined || ['fast', 'careful', 'off'].includes(body.cleanup)
+        const okSpeech = body.speech === undefined || ['online', 'device'].includes(body.speech)
+        if (!okCleanup || !okSpeech || (!body.cleanup && !body.speech))
           return HttpResponse.json(
-            { error: { code: 'bad_request', message: 'Pick Fast, Careful or Off' } },
+            { error: { code: 'bad_request', message: 'Pick a speech or cleanup choice' } },
             { status: 400 },
           )
-        cleanup.set(user.email, body.cleanup)
+        if (body.cleanup) cleanup.set(user.email, body.cleanup)
+        if (body.speech) speech.set(user.email, body.speech)
         return HttpResponse.json(settingsOf(user.email))
       }),
     ),

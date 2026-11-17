@@ -43,6 +43,8 @@ export {
   macAppVersionFrom,
   newDeviceToken,
   normalizeWords,
+  SPEECH_CHOICES,
+  type SpeechChoice,
   TEAM_WORDS_SEED,
 } from './store.js'
 export {

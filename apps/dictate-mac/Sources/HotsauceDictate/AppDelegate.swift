@@ -890,6 +890,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let previous, previous.token != token {
                 Task { await DictationClient(server: previous.server, token: previous.token).revokeSelf() }
             }
+            self.controller.refreshChoices(newConnection: true)
             if self.settings.suiteServer == nil { self.settings.suiteServer = server }
             self.updateIcon()
             self.onboarding.model.refresh()
@@ -943,6 +944,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let previous, previous.token != link.token {
                 Task { await DictationClient(server: previous.server, token: previous.token).revokeSelf() }
             }
+            self.controller.refreshChoices(newConnection: true)
             // The window follows the connection unless Settings names another server; remembered,
             // so disconnecting later doesn't leave the window without a workspace.
             if self.settings.suiteServer == nil || self.settings.suiteServer == previous?.server {

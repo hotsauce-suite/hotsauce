@@ -381,11 +381,14 @@ describe('reading position', () => {
   it('R2: sharing mid-read keeps your place under the new address', async () => {
     const user = userEvent.setup()
     ;(store[0] as LinkWithBody).reading = place(60, 5)
-    renderApp('/links/ada/01JC0000000000000000000001')
+    const { router } = renderApp('/links/ada/01JC0000000000000000000001')
     await screen.findByTestId('link-resumed')
     await user.click(screen.getByTestId('link-share'))
     await user.click(screen.getByTestId('link-share-team'))
     await waitFor(() => expect(store[0]?.space).toBe('team'))
+    // The page is at its new address before it is left (the store moves first, then the page).
+    await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/links\/team\//))
+    await screen.findByTestId('link-resumed')
     window.dispatchEvent(new Event('pagehide'))
     await waitFor(() => expect(places.length).toBeGreaterThan(0))
     expect(places.every((p) => p.space === 'team')).toBe(true)

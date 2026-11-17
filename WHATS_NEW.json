@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.44.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Dictate → Models: choose where the Mac app hears you. Online (most accurate) or On this Mac only (your voice never leaves the Mac; only the text is tidied)."
+        },
+        {
+          "text": "Honours \"On this Mac only\", and its pill says \"On this Mac\" while it listens.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.43.1",
       "date": "2026-11-17",
       "notes": [
