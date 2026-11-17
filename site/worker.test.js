@@ -145,6 +145,30 @@ describe('the Mac app download (docs/PLAN-mac-download.md)', () => {
   const dmg = (tag) =>
     `https://github.com/hotsauce-suite/hotsauce/releases/download/${tag}/Hotsauce.dmg`
 
+  it('uses the build the deploy found, without asking GitHub', async () => {
+    const gh = github({ down: true })
+    const e = {
+      ...env(),
+      fetch: gh.fetch,
+      MAC_APP_TAG: 'mac-app-112',
+      MAC_APP_VERSION: '0.34.2',
+      MAC_APP_BUILD: '112',
+    }
+    const res = await get('https://hotsauce.work/download/mac', e)
+    expect(res.headers.get('location')).toBe(dmg('mac-app-112'))
+    const info = await (await get('https://hotsauce.work/download/mac.json', e)).json()
+    expect(info).toMatchObject({ version: '0.34.2', build: '112' })
+    expect(gh.calls).toHaveLength(0)
+  })
+
+  it('asks GitHub itself when the deploy found nothing usable', async () => {
+    const gh = github()
+    const e = { ...env(), fetch: gh.fetch, MAC_APP_TAG: '', MAC_APP_VERSION: '' }
+    const res = await get('https://hotsauce.work/download/mac', e)
+    expect(res.headers.get('location')).toBe(dmg('mac-app-111'))
+    expect(gh.calls.length).toBeGreaterThan(0)
+  })
+
   it('picks the highest build among the mac-app tags', () => {
     expect(newestMacTag(refs)).toBe('mac-app-111')
     expect(newestMacTag([{ tag_name: 'mac-app-7' }, { tag_name: 'v1.0.0' }])).toBe('mac-app-7')

@@ -46,13 +46,16 @@ const DeepgramResponse = z.object({
   }),
 })
 
+/** Deepgram's model for dictation, and its name as people say it (Dictate → Models). */
+export const DEEPGRAM_DICTATION_MODEL = { id: 'nova-3', name: 'Deepgram Nova-3' } as const
+
 /** The pre-recorded URL: nova-3 with smart formatting, each custom word as a `keyterm`. */
 export function deepgramBatchUrl(
   base: string,
   opts: { keyterms: string[]; language?: string | undefined },
 ): string {
   const url = new URL(base)
-  url.searchParams.set('model', 'nova-3')
+  url.searchParams.set('model', DEEPGRAM_DICTATION_MODEL.id)
   url.searchParams.set('smart_format', 'true')
   url.searchParams.set('punctuate', 'true')
   if (opts.language) url.searchParams.set('language', opts.language)

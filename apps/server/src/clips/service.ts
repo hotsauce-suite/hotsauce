@@ -5,7 +5,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ulid } from 'ulid'
-import type { Principal } from '../auth/index.js'
+import { isTeamOnly, type Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
 import { type AudioStore, LocalAudioStore, R2AudioStore } from '../meetings/audio/index.js'
 import type { LLM } from '../meetings/llm/types.js'
@@ -18,6 +18,7 @@ import {
 } from '../shares/links.js'
 import { type Cut, keptRanges, MAX_CUTS, MIN_KEPT_MS, normalizeCuts } from './cuts.js'
 import {
+  COMPOSITE_MAX_HEIGHT,
   composite,
   cutVideo,
   extractAudio,
@@ -40,11 +41,11 @@ import type { ClipTranscriber } from './transcriber.js'
 
 /** A chunk is a few seconds of video; the API's body limit (12 MB) is the real cap. */
 export const MAX_CHUNKS = 3600
-export const MAX_CLIP_BYTES = 2 * 1024 ** 3
+export const MAX_CLIP_BYTES = 4 * 1024 ** 3
 export const MAX_TITLE_LENGTH = 200
 /** A recording nobody finished in this long was abandoned (tab closed); its chunks are removed. */
 const ABANDONED_MS = 24 * 3_600_000
-/** Recordings a member can have open at once (each may hold up to 2 GB of chunks on the volume). */
+/** Recordings a member can have open at once (each may hold up to 4 GB of chunks on the volume). */
 export const MAX_OPEN_RECORDINGS = 3
 /**
  * Free space the data volume keeps for git, SQLite and settings: recording stops below it.
@@ -237,7 +238,7 @@ export class Clips {
   #transcripts: Promise<void> = Promise.resolve()
   /** Re-encoding with the camera takes minutes; it waits on nothing else and nothing waits on it. */
   #composites: Promise<void> = Promise.resolve()
-  /** Bytes of chunks stored per recording, so the 2 GB check doesn't re-read the folder. */
+  /** Bytes of chunks stored per recording, so the 4 GB check doesn't re-read the folder. */
   readonly #uploaded = new Map<string, number>()
   #sweepTimer: NodeJS.Timeout | null = null
 
@@ -357,7 +358,7 @@ export class Clips {
         (await this.#uploadedBytes(this.#uploadDir(id))) +
           (await this.#uploadedBytes(this.#trackDir(id, 'camera')))) - replaced
     if (total + bytes.length > MAX_CLIP_BYTES) {
-      throw new HotsauceError('bad_request', 'A clip can be at most 2 GB', { status: 413 })
+      throw new HotsauceError('bad_request', 'A clip can be at most 4 GB', { status: 413 })
     }
     this.#uploaded.set(id, total + bytes.length)
     const tmp = `${file}.${randomBytes(4).toString('hex')}.tmp`
@@ -694,6 +695,10 @@ export class Clips {
     if (clip.status === 'recording' && clip.ownerId !== principal.userId) {
       throw new HotsauceError('not_found', 'No such clip')
     }
+    // A team-only connection sees the team's finished clips, never one member's own others.
+    if (isTeamOnly(principal) && clip.status !== 'processing' && clip.status !== 'ready') {
+      throw new HotsauceError('not_found', 'No such clip')
+    }
     return { clip: await this.view(clip, principal), transcript: clip.transcript }
   }
 
@@ -788,9 +793,11 @@ export class Clips {
       limit: number
     },
   ): Promise<ClipView[]> {
+    // A team-only connection is nobody's own: it sees the team's finished clips only.
+    if (isTeamOnly(principal) && opts.scope === 'mine') return Promise.resolve([])
     return Promise.all(
       this.store
-        .list({ userId: principal.userId, ...opts })
+        .list({ userId: isTeamOnly(principal) ? '' : principal.userId, ...opts })
         .map((clip) => this.view(clip, principal)),
     )
   }
@@ -1263,7 +1270,9 @@ export class Clips {
         camera,
         output,
         workDir: dir,
-        screenHeight: clip.height ?? 1080,
+        // An unprobed clip is probed now, so it isn't shrunk to a guessed size.
+        screenHeight:
+          clip.height ?? (await probe(this.#opts.ffmpeg, screen)).height ?? COMPOSITE_MAX_HEIGHT,
         offsetMs: clip.cameraOffsetMs,
         durationMs: clip.durationMs ?? 0,
       })

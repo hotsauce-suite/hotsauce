@@ -1,3 +1,4 @@
+import AudioToolbox
 import AVFoundation
 import DictateCore
 
@@ -22,6 +23,10 @@ final class Recorder {
 
     var isRecording: Bool { engine != nil }
 
+    /// The microphone picked in Settings → This Mac, by its UID; nil (or one that's unplugged)
+    /// records from the Mac's default input.
+    var preferredInput: () -> String? = { nil }
+
     /// Seconds recorded so far.
     var duration: TimeInterval {
         lock.lock()
@@ -33,6 +38,10 @@ final class Recorder {
         cancel()
         let engine = AVAudioEngine()
         let input = engine.inputNode
+        if let uid = preferredInput(), var device = AudioInputs.deviceID(uid: uid), let unit = input.audioUnit {
+            // Before the format is read: it's the chosen device's.
+            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else { throw RecorderError.noMicrophone }
         let resampler = StreamingResampler(inputRate: format.sampleRate)

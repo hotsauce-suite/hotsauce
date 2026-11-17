@@ -64,8 +64,11 @@ export function ConnectedApps({ origin }: { origin: string }) {
         </li>
       </ul>
       <p className="mt-2 text-sm text-ink-soft">
-        It sees what you see, in the team space and your own, and what it writes is marked with its
-        name. It can’t change your settings or make tokens.
+        On the Allow page, pick what it may use. <b className="text-ink">Everything you can see</b>{' '}
+        is the team space and your own, and what it writes is marked with its name.{' '}
+        <b className="text-ink">Team space only, read only</b> is for a tool many people share, like
+        a team chat’s assistant: it can’t see your own space, calendar or brief, or change anything.
+        Neither can change your settings or make tokens.
       </p>
 
       <h3 className="mt-6 text-sm font-semibold text-ink-soft">Connected apps</h3>
@@ -90,6 +93,15 @@ export function ConnectedApps({ origin }: { origin: string }) {
               className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
             >
               <span className="min-w-0 flex-1 truncate font-medium text-ink">{c.clientName}</span>
+              {c.access === 'team-read' ? (
+                <span
+                  data-testid="connection-team-only"
+                  title="Team space only, read only"
+                  className="rounded-full bg-paper-sunk px-2 py-0.5 text-xs text-ink-soft"
+                >
+                  Team only
+                </span>
+              ) : null}
               <span className="text-xs text-ink-faint">{c.redirectHost}</span>
               <span className="text-xs text-ink-faint">Connected {when(c.createdAt)}</span>
               <span className="text-xs text-ink-faint">Last used {when(c.lastUsedAt)}</span>

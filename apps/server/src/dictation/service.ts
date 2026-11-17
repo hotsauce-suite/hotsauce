@@ -4,7 +4,7 @@ import type { LLM } from '../meetings/llm/types.js'
 import { cleanTranscript } from './cleaner.js'
 import { type DictationStyle, styleForApp } from './prompt.js'
 import { RateLimiter } from './rate-limit.js'
-import type { DictationStore } from './store.js'
+import type { CleanupChoice, DictationStore } from './store.js'
 import type { DictationTranscriber } from './transcriber.js'
 import { readWav } from './wav.js'
 
@@ -148,6 +148,32 @@ export interface Speculation {
   result: Promise<{ text: string; cleaned: boolean; skipped: boolean }>
 }
 
+/** The plain names of the models a member's dictations go through (docs/PLAN-dictate-models.md). */
+export interface DictationModels {
+  /** What hears an online dictation. */
+  speech: string
+  /** What the Mac uses when it can't reach the server. */
+  offline: string
+  fast: string
+  careful: string
+}
+
+/** What `GET /api/dictation/settings` answers. */
+export interface DictationSettings {
+  cleanup: CleanupChoice
+  /** False when the server has no AI key: nothing is cleaned, whatever the choice. */
+  cleanupAvailable: boolean
+  models: DictationModels
+}
+
+/** A model id as people say it: `claude-haiku-5-5` is "Claude Haiku 5.5"; others stay as they are. */
+export function modelName(id: string): string {
+  const match = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?$/.exec(id)
+  if (!match) return id
+  const [, family = '', major, minor] = match
+  return `Claude ${family.charAt(0).toUpperCase()}${family.slice(1)} ${major}${minor ? `.${minor}` : ''}`
+}
+
 export interface DictateResult {
   text: string
   raw: string
@@ -162,6 +188,9 @@ export class Dictation {
   readonly #transcriber: DictationTranscriber
   readonly #llm: LLM
   readonly #model: string
+  readonly #carefulModel: string
+  readonly #speechName: string
+  readonly #cleanupAvailable: boolean
   readonly #chatNames: string[]
   readonly #limiter = new RateLimiter(RATE_LIMIT_PER_MINUTE, 60_000)
   readonly #log: (message: string) => void
@@ -171,6 +200,12 @@ export class Dictation {
     transcriber: DictationTranscriber
     llm: LLM
     model: string
+    /** The Careful choice's model; the Fast one when not given. */
+    carefulModel?: string
+    /** What hears an online dictation, as people say it ("Deepgram Nova-3"). */
+    speechName?: string
+    /** False when there is no AI key (LLM_PROVIDER=none). */
+    cleanupAvailable?: boolean
     /** The organization's own team chat, styled like Slack (see `teamChatNames`). */
     chatNames?: string[]
     log?: (message: string) => void
@@ -180,7 +215,31 @@ export class Dictation {
     this.#transcriber = opts.transcriber
     this.#llm = opts.llm
     this.#model = opts.model
+    this.#carefulModel = opts.carefulModel ?? opts.model
+    this.#speechName = opts.speechName ?? 'Test transcriber'
+    this.#cleanupAvailable = opts.cleanupAvailable ?? true
     this.#chatNames = opts.chatNames ?? []
+  }
+
+  /** The member's cleanup choice and the models in use (R1). */
+  settings(userId: string): DictationSettings {
+    return {
+      cleanup: this.store.cleanupChoice(userId),
+      cleanupAvailable: this.#cleanupAvailable,
+      models: {
+        speech: this.#speechName,
+        offline: 'Apple, on the Mac',
+        fast: modelName(this.#model),
+        careful: modelName(this.#carefulModel),
+      },
+    }
+  }
+
+  /** Literal when the request asks for it or the member turned cleanup off (R3). */
+  #modeFor(principal: Principal, mode: 'clean' | 'literal'): 'clean' | 'literal' {
+    return mode === 'literal' || this.store.cleanupChoice(principal.userId) === 'off'
+      ? 'literal'
+      : 'clean'
   }
 
   /** The member's words then the team's, deduplicated. */
@@ -265,7 +324,12 @@ export class Dictation {
    */
   speculate(principal: Principal, transcript: string, context: CleanupContext): Speculation | null {
     const raw = transcript.trim()
-    if (context.mode === 'literal' || raw === '' || skipsCleanup(raw, context.language)) return null
+    if (
+      this.#modeFor(principal, context.mode) === 'literal' ||
+      raw === '' ||
+      skipsCleanup(raw, context.language)
+    )
+      return null
     return { transcript: raw, result: this.#clean(principal, raw, context) }
   }
 
@@ -293,7 +357,8 @@ export class Dictation {
     const llmStart = performance.now()
     let cleanup: { text: string; cleaned: boolean; skipped: boolean }
     let speculated = false
-    if (heard.mode === 'literal' || raw === '') {
+    const mode = this.#modeFor(principal, heard.mode)
+    if (mode === 'literal' || raw === '') {
       cleanup = { text: raw, cleaned: false, skipped: true }
     } else if (speculation && speculation.transcript === raw) {
       speculated = true
@@ -312,7 +377,7 @@ export class Dictation {
     }
     // Timings only: never the audio or the text.
     this.#log(
-      `dictation ${JSON.stringify({ audioMs: result.durationMs, bytes: heard.bytes, asrMs: result.ms.asr, llmMs, words: wordCount(raw), cleaned: result.cleaned, skipped: cleanup.skipped, speculated, mode: heard.mode, style, via: heard.via })}`,
+      `dictation ${JSON.stringify({ audioMs: result.durationMs, bytes: heard.bytes, asrMs: result.ms.asr, llmMs, words: wordCount(raw), cleaned: result.cleaned, skipped: cleanup.skipped, speculated, mode, style, via: heard.via })}`,
     )
     return result
   }
@@ -333,7 +398,9 @@ export class Dictation {
       // latency (it was most of the wait).
       return { text: tidyShort(raw, style, dictionary), cleaned: false, skipped: true }
     }
-    const cleaned = await cleanTranscript(this.#llm, this.#model, {
+    const model =
+      this.store.cleanupChoice(principal.userId) === 'careful' ? this.#carefulModel : this.#model
+    const cleaned = await cleanTranscript(this.#llm, model, {
       transcript: raw,
       style,
       appName: context.appName,

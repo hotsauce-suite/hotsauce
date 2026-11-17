@@ -6,13 +6,11 @@ import SwiftUI
 final class MainModel: ObservableObject {
     enum Page: String, CaseIterable, Identifiable {
         case dictations = "Dictations"
-        case dictionary = "Dictionary"
         case settings = "Settings"
         var id: String { rawValue }
         var symbol: String {
             switch self {
             case .dictations: "waveform"
-            case .dictionary: "character.book.closed"
             case .settings: "gearshape"
             }
         }
@@ -36,14 +34,6 @@ final class MainModel: ObservableObject {
     @Published var range: Range = .month
     @Published var search = ""
     @Published var records: [DictationRecord] = []
-
-    // Dictionary
-    @Published var mine: [String] = []
-    @Published var team: [String] = []
-    @Published var wordsState: String? = "Loading…"
-    /// What's typed in each list's Add field. Kept here: the Command Line Tools' SwiftUI has no
-    /// @State (its macro plugin ships with Xcode only).
-    @Published var drafts: [DictationClient.WordScope: String] = [:]
 
     // Settings and status
     @Published var hotkey: Hotkey = .rightOption
@@ -71,11 +61,8 @@ final class MainModel: ObservableObject {
     var reload: () -> Void = {}
     /// The history list: when it changes.
     var reloadRecords: () -> Void = {}
-    var loadWords: () -> Void = {}
     var copy: (String) -> Void = { _ in }
     var paste: (String) -> Void = { _ in }
-    /// Adds and removes words; calls back with whether it saved.
-    var editWords: (_ add: [String], _ remove: [String], DictationClient.WordScope, @escaping (Bool) -> Void) -> Void = { _, _, _, done in done(false) }
     var setHotkey: (Hotkey) -> Void = { _ in }
     var setMode: (DictationMode) -> Void = { _ in }
     var setLaunchAtLogin: (Bool) -> Void = { _ in }
@@ -85,6 +72,8 @@ final class MainModel: ObservableObject {
     var clearHistory: () -> Void = {}
     var disconnect: () -> Void = {}
     var openWeb: () -> Void = {}
+    /// The main window, from the fallback Settings page.
+    var openSuite: () -> Void = {}
     var openSetup: () -> Void = {}
     /// Settings → Run setup again (docs/PLAN-replay-setup.md R1).
     var runSetupAgain: () -> Void = {}
@@ -115,7 +104,8 @@ final class MainWindow: NSObject, NSWindowDelegate {
     var isVisible: Bool { window?.isVisible ?? false }
 
     func show(page: MainModel.Page? = nil) {
-        if let page { model.page = page }
+        // Settings is only the fallback for ⌘, (docs/PLAN-one-settings.md R11): open on it only when asked.
+        if let page { model.page = page } else if model.page == .settings { model.page = .dictations }
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 980, height: 660),
@@ -135,7 +125,6 @@ final class MainWindow: NSObject, NSWindowDelegate {
         }
         model.reload()
         model.reloadRecords()
-        model.loadWords()
         timer?.invalidate()
         // Permissions and the key tap can change while the window is open; only while it's seen.
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -162,7 +151,7 @@ struct MainView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(MainModel.Page.allCases, selection: Binding(get: { model.page }, set: { if let p = $0 { model.page = p } })) { page in
+            List(MainModel.Page.allCases.filter { $0 != .settings || model.page == .settings }, selection: Binding(get: { model.page }, set: { if let p = $0 { model.page = p } })) { page in
                 Label(page.rawValue, systemImage: page.symbol).tag(page)
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 190)
@@ -182,7 +171,6 @@ struct MainView: View {
                 Group {
                     switch model.page {
                     case .dictations: DictationsPage(model: model)
-                    case .dictionary: DictionaryPage(model: model)
                     case .settings: SettingsPage(model: model)
                     }
                 }
@@ -463,172 +451,20 @@ private struct RecordRow: View {
     }
 }
 
-// MARK: Dictionary
-
-private struct DictionaryPage: View {
-    @ObservedObject var model: MainModel
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Names and terms \(Brand.name) should hear and spell exactly as written. Yours apply to your dictations; the team’s apply to everyone on the team.")
-                    .font(.system(size: 13)).foregroundStyle(Hotsauce.inkSoft).fixedSize(horizontal: false, vertical: true)
-                if let state = model.wordsState {
-                    Text(state).font(.system(size: 12)).foregroundStyle(Hotsauce.inkFaint)
-                }
-                HStack(alignment: .top, spacing: 12) {
-                    WordList(model: model, scope: .mine, title: "My words", hint: "Only you", words: model.mine)
-                    WordList(model: model, scope: .team, title: "Team words", hint: "Everyone on the team", words: model.team)
-                }
-            }
-            .padding(.horizontal, 28)
-            .padding(.bottom, 28)
-        }
-    }
-}
-
-private struct WordList: View {
-    @ObservedObject var model: MainModel
-    let scope: DictationClient.WordScope
-    let title: String
-    let hint: String
-    let words: [String]
-
-    private var draft: Binding<String> {
-        Binding(get: { model.drafts[scope] ?? "" }, set: { model.drafts[scope] = $0 })
-    }
-
-
-    var body: some View {
-        Card(title: title) {
-            Text(hint).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-            if words.isEmpty {
-                Empty("None yet.")
-            } else {
-                Flow(spacing: 6) {
-                    ForEach(words, id: \.self) { word in
-                        HStack(spacing: 4) {
-                            Text(word).font(.system(size: 12)).foregroundStyle(Hotsauce.ink)
-                            Button {
-                                model.editWords([], [word], scope) { _ in }
-                            } label: {
-                                Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Hotsauce.inkFaint)
-                            .help("Remove \(word)")
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Hotsauce.paper))
-                        .overlay(Capsule().strokeBorder(Hotsauce.ash))
-                    }
-                }
-            }
-            HStack {
-                TextField("Add a word or name", text: draft).textFieldStyle(.roundedBorder).onSubmit(add)
-                Button("Add", action: add).disabled(draft.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-        }
-    }
-
-    private func add() {
-        let added = draft.wrappedValue.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        guard !added.isEmpty else { return }
-        // Cleared only once saved, so a failed save doesn't lose what was typed.
-        model.editWords(added, [], scope) { saved in
-            if saved { draft.wrappedValue = "" }
-        }
-    }
-}
-
-/// Wrapping row of chips.
-private struct Flow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
-        return CGSize(width: proposal.width ?? rows.width, height: rows.height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = arrange(width: bounds.width, subviews: subviews)
-        for (index, point) in rows.points.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y), proposal: .unspecified)
-        }
-    }
-
-    private func arrange(width: CGFloat, subviews: Subviews) -> (points: [CGPoint], width: CGFloat, height: CGFloat) {
-        var points: [CGPoint] = []
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, maxX: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            points.append(CGPoint(x: x, y: y))
-            x += size.width + spacing
-            maxX = max(maxX, x)
-            rowHeight = max(rowHeight, size.height)
-        }
-        return (points, maxX, y + rowHeight)
-    }
-}
-
 // MARK: Settings
 
 private struct SettingsPage: View {
     @ObservedObject var model: MainModel
 
-    // Grouped by what each setting is about (docs/PLAN-mac-settings-ia.md): what you change most
-    // comes first, the workspace and setup sit together near the end, history last.
+    // The app's settings are in the main window, Settings → This Mac (docs/PLAN-one-settings.md).
+    // This page is the fallback for when that can't load (R11): the workspace's address, so the
+    // app can reach it again, and the permissions it needs.
     var body: some View {
         Form {
             Section {
-                Picker("Hotkey", selection: Binding(get: { model.hotkey }, set: model.setHotkey)) {
-                    ForEach(Hotkey.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                Described(model.mode == .clean ? "Removes ums and applies corrections." : "Types exactly what you said.") {
-                    Picker("Mode", selection: Binding(get: { model.mode }, set: model.setMode)) {
-                        Text("Clean up").tag(DictationMode.clean)
-                        Text("Literal").tag(DictationMode.literal)
-                    }
-                }
-                Described("A warm glow around the window you’re talking into, with flames that follow your voice. Still, with no flames, when Reduce motion is on.") {
-                    Toggle("Edge glow while dictating", isOn: Binding(get: { model.edgeGlow }, set: model.setEdgeGlow))
-                }
-            } header: {
-                Text("Dictation")
-            } footer: {
-                Text("With no connection, dictation still works with this Mac’s own speech recognition, as spoken and in your Mac’s language. The audio stays on this Mac.")
-                    .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-            }
-            Section("Meetings") {
-                Toggle("Meeting reminders", isOn: Binding(get: { model.meetingReminders }, set: model.setMeetingReminders))
-                if model.meetingReminders && !model.notificationsAllowed {
-                    HStack {
-                        Text("Notifications are off for \(Brand.name) in System Settings.")
-                            .font(.system(size: 11)).foregroundStyle(Hotsauce.ember)
-                        Button("Open Notifications settings") {
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.link).font(.system(size: 11))
-                    }
-                }
-                if #available(macOS 14.2, *) {
-                    Toggle("Offer to take notes when a call starts", isOn: Binding(get: { model.offerCallNotes }, set: model.setOfferCallNotes))
-                }
-            }
-            Section("This Mac") {
-                Toggle("Open at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
-                Toggle("Show in menu bar", isOn: Binding(get: { model.showInMenuBar }, set: model.setShowInMenuBar))
-                if model.showInMenuBar && !model.menuBarIconShown {
-                    MenuBarHint()
-                }
+                Text("Your \(Brand.name) settings are in the main window, under Settings → This Mac. These are here for when \(Brand.name) can’t load.")
+                    .font(.system(size: 12)).foregroundStyle(Hotsauce.inkSoft)
+                Button("Open \(Brand.name)", action: model.openSuite)
             }
             Section("Workspace") {
                 LabeledContent("Address") {
@@ -650,11 +486,6 @@ private struct SettingsPage: View {
                         Text(model.server).font(.system(size: 11, design: .monospaced)).foregroundStyle(Hotsauce.inkFaint)
                     }
                 }
-                HStack {
-                    Button("Open Dictate in \(Brand.name)", action: model.openWeb)
-                    Spacer()
-                    if model.account != nil { Button("Disconnect this Mac", role: .destructive, action: model.disconnect) }
-                }
             }
             Section("Setup") {
                 PermissionRow(title: "Microphone", granted: model.microphone, action: model.requestMicrophone)
@@ -669,41 +500,14 @@ private struct SettingsPage: View {
                     Text("Walks through them again. Nothing is reset.")
                 }
             }
-            Section {
-                Picker("Keep history for", selection: Binding(get: { model.retentionDays }, set: model.setRetention)) {
-                    Text("7 days").tag(7)
-                    Text("30 days").tag(30)
-                    Text("90 days").tag(90)
-                }
+            Section("History") {
+                // Dictation text is on this Mac only: clearing it can't wait for the workspace.
                 Button("Clear history…", action: model.clearHistory)
-            } header: {
-                Text("History")
-            } footer: {
-                Text("Dictation text stays on this Mac, readable only by you. It is never uploaded and never includes audio.")
-                    .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .padding(.horizontal, 12)
-    }
-}
-
-/// A settings row with a line of explanation under it, in the form's caption style.
-private struct Described<Content: View>: View {
-    let text: String
-    let content: Content
-
-    init(_ text: String, @ViewBuilder content: () -> Content) {
-        self.text = text
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            content
-            Text(text).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-        }
     }
 }
 

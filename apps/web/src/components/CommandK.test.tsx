@@ -55,6 +55,39 @@ describe('CommandK', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('shows chat matches in their own group and opens one in the chat', async () => {
+    server.use(
+      http.get('*/api/chat/search', () =>
+        HttpResponse.json([
+          {
+            room: 'General',
+            id: '42',
+            author: 'Rajiv Patel',
+            createdAt: '2026-11-12T15:04:00.000Z',
+            snippet: 'The \u0002freezer\u0003 alarm went off',
+            url: 'https://chat.example.test/rooms/general/@42',
+          },
+        ]),
+      ),
+    )
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const { onOpenChange } = renderPalette()
+    await userEvent.type(screen.getByTestId('cmdk-input'), 'freezer')
+    const group = await screen.findByRole('group', { name: 'In chat' })
+    const hit = within(group).getByTestId('chat-result')
+    expect(hit).toHaveTextContent('Rajiv Patel')
+    expect(hit).toHaveTextContent('General')
+    expect(within(hit).getByText('freezer', { selector: 'mark' })).toBeInTheDocument()
+    await userEvent.click(hit)
+    expect(open).toHaveBeenCalledWith(
+      'https://chat.example.test/rooms/general/@42',
+      '_blank',
+      'noopener,noreferrer',
+    )
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    open.mockRestore()
+  })
+
   it('says so when nothing matches', async () => {
     renderPalette()
     await userEvent.type(screen.getByTestId('cmdk-input'), 'zebracorn')

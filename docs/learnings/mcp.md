@@ -53,3 +53,23 @@
 - Rotating refresh tokens with replay revocation needs a short grace window: clients retry and
   refresh in parallel, and without it a member is silently disconnected.
 
+
+## Team-only connections for shared tools (Nov 2026)
+
+- A chat assistant connected once by an admin answers everyone, so "as the member who signed in"
+  is the wrong identity for it. Hotsauce can't tell a shared sign-in from a personal one; only the
+  person pressing Allow knows, so the choice lives on the Allow page, with nothing preselected.
+- Ember already splits shared (admin, used in rooms) and personal (each person, used only in their
+  DM with the agent) sign-ins to one app. Read the other side's code before designing the privacy
+  model: it decided most of ours.
+- `SpaceService.visibleSpaces`/`canAccess` gate almost everything, but a few things belong to one
+  member outside the spaces (People reads their calendar, Clips shows their own unfinished clips,
+  `list_tasks` defaults to "mine"). Grep every tool's service for `principal.userId` and calendar
+  reads, not just space checks.
+- Filtering tools: wrap `server.registerTool` before any register function runs and call
+  `RegisteredTool.remove()` on what isn't allowed (SDK 1.32: hidden from tools/list and "not
+  found" on call). An allowlist plus `readOnlyHint` means a new tool stays out until added on
+  purpose; don't pre-allow names for features that haven't landed.
+- A new stored field that narrows access is lost on a rollback (old zod schemas strip unknown
+  keys and rewrite the file). Make narrowed records fail closed on old code: here the token hashes
+  are salted, so an old release never matches them.

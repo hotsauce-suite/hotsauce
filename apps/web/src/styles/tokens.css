@@ -12,6 +12,7 @@
   --ash-strong: #b9a691;
   --ink: #2a221d;
   --ink-soft: #5b4e44;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235b4e44' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
   --ink-faint: #8c7c6e;
   /* AI-written lines in a meeting note: quieter than the member's own words, still readable. */
   --ink-ai: #75675c;
@@ -58,6 +59,7 @@
     --ash-strong: #54483f;
     --ink: #ede3d6;
     --ink-soft: #c1b2a2;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23c1b2a2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
     --ink-faint: #8d7d6f;
     --ink-ai: #a89888;
 
@@ -93,6 +95,7 @@
   --ash-strong: #54483f;
   --ink: #ede3d6;
   --ink-soft: #c1b2a2;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23c1b2a2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
   --ink-faint: #8d7d6f;
   --ink-ai: #a89888;
 

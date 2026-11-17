@@ -12,9 +12,8 @@ enum Previews {
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         let model = sampleModel()
-        // Each page at the window's usual size, and Settings again tall enough to show all of it.
+        // Each page at the window's usual size (Settings is the small fallback, docs/PLAN-one-settings.md).
         let shots = MainModel.Page.allCases.map { (page: $0, height: CGFloat(700), name: $0.rawValue.lowercased()) }
-            + [(page: MainModel.Page.settings, height: CGFloat(1500), name: "settings-full")]
         for (page, height, name) in shots {
             model.page = page
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 980, height: height), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
@@ -170,9 +169,6 @@ enum Previews {
         model.records = samples.map { app, bundle, text, days, ms in
             DictationRecord(date: now.addingTimeInterval(-days * 86_400), text: text, cleaned: app != "Ghostty", appName: app, appBundle: bundle, audioMs: ms)
         }
-        model.mine = ["Priya", "Kestrel", "Fly.io"]
-        model.team = ["Acme", "Hotsauce", "Ember", "Granola", "Clerk", "Deepgram", "Anthropic", "Claude"]
-        model.wordsState = nil
         model.microphone = true
         model.accessibility = true
         model.listening = true

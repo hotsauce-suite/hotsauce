@@ -18,6 +18,7 @@ export interface SettingEntry {
   macOnly?: true
 }
 
+const MAC = { page: 'This Mac', to: '/settings/mac', macOnly: true as const }
 const GENERAL = { page: 'General', to: '/settings' }
 const CONNECTIONS = { page: 'Connections', to: '/settings/connections' }
 const APPS = { page: 'Apps', to: '/settings/apps' }
@@ -28,6 +29,150 @@ const org = (page: string, path = '') => ({
 })
 
 export const SETTINGS_INDEX: readonly SettingEntry[] = [
+  // This Mac, only inside the Mac app (docs/PLAN-one-settings.md R13)
+  {
+    id: 'mac-dictation',
+    title: 'Dictation',
+    ...MAC,
+    summary: 'The key you hold to dictate, Clean up or Literal, and the edge glow.',
+    words: [
+      'dictate',
+      'hotkey',
+      'shortcut',
+      'key',
+      'option',
+      'fn',
+      'globe',
+      'mode',
+      'literal',
+      'clean up',
+      'glow',
+      'voice',
+      'typing',
+    ],
+  },
+  {
+    id: 'mac-hotkey',
+    title: 'Dictation shortcut',
+    ...MAC,
+    summary: 'The key you hold to dictate.',
+    words: ['hotkey', 'key', 'option', 'command', 'fn', 'globe', 'control', 'shift'],
+  },
+  {
+    id: 'mac-microphone',
+    title: 'Microphone for dictation',
+    ...MAC,
+    summary: 'Which microphone dictation records from.',
+    words: ['mic', 'input', 'headset', 'airpods', 'usb', 'audio device'],
+  },
+  {
+    id: 'mac-mode',
+    title: 'Mode',
+    ...MAC,
+    summary: 'Clean up removes ums; Literal types exactly what you said.',
+    words: ['clean up', 'literal', 'filler', 'ums', 'verbatim'],
+  },
+  {
+    id: 'mac-edge-glow',
+    title: 'Edge glow while dictating',
+    ...MAC,
+    summary: 'The glow around the window you’re talking into.',
+    words: ['glow', 'flames', 'animation', 'reduce motion'],
+  },
+  {
+    id: 'mac-meetings',
+    title: 'Meetings',
+    ...MAC,
+    summary: 'Meeting reminders, and the offer to take notes when a call starts.',
+    words: ['reminders', 'notifications', 'calls', 'take notes', 'zoom', 'teams'],
+  },
+  {
+    id: 'mac-reminders',
+    title: 'Meeting reminders',
+    ...MAC,
+    summary: 'A notification a minute before each meeting with other people.',
+    words: ['reminder', 'notification', 'calendar', 'before meeting'],
+  },
+  {
+    id: 'mac-call-notes',
+    title: 'Offer to take notes when a call starts',
+    ...MAC,
+    summary: 'Asks “Take notes?” when another app starts a call.',
+    words: ['take notes', 'call', 'zoom', 'teams', 'meet', 'detect'],
+  },
+  {
+    id: 'mac-login',
+    title: 'App',
+    ...MAC,
+    summary: 'Open at login, and the icon in the menu bar.',
+    words: ['open at login', 'launch at login', 'startup', 'menu bar', 'icon', 'notch'],
+  },
+  {
+    id: 'mac-open-at-login',
+    title: 'Open at login',
+    ...MAC,
+    summary: 'Start the Mac app when you log in.',
+    words: ['launch at login', 'startup', 'start automatically', 'boot'],
+  },
+  {
+    id: 'mac-menu-bar',
+    title: 'Show in menu bar',
+    ...MAC,
+    summary: 'The icon in the menu bar, and what to do when the notch hides it.',
+    words: ['menu bar', 'icon', 'notch', 'status bar', 'tray'],
+  },
+  {
+    id: 'mac-permissions',
+    title: 'Permissions',
+    ...MAC,
+    summary: 'Microphone, Accessibility, Location and Notifications, and Run setup again.',
+    words: [
+      'microphone',
+      'mic',
+      'accessibility',
+      'location',
+      'notifications',
+      'privacy',
+      'allow',
+      'setup',
+      'set up',
+    ],
+  },
+  {
+    id: 'mac-history',
+    title: 'Dictation history',
+    ...MAC,
+    summary: 'How long dictations stay on this Mac, and Clear history.',
+    words: ['history', 'clear', 'delete', 'keep', 'retention', 'days', 'privacy'],
+  },
+  {
+    id: 'mac-run-setup',
+    title: 'First-run steps',
+    ...MAC,
+    summary: 'Run setup again: walks through the first-run steps, changing nothing.',
+    words: ['run setup again', 'setup', 'onboarding', 'permissions', 'walkthrough'],
+  },
+  {
+    id: 'mac-keep-history',
+    title: 'Keep history for',
+    ...MAC,
+    summary: 'Keep dictations on this Mac for 7, 30 or 90 days.',
+    words: ['history', 'retention', 'days', 'keep'],
+  },
+  {
+    id: 'mac-clear-history',
+    title: 'Clear history',
+    ...MAC,
+    summary: 'Delete every dictation saved on this Mac.',
+    words: ['delete', 'erase', 'remove', 'history'],
+  },
+  {
+    id: 'mac-account',
+    title: 'Dictate on this Mac',
+    ...MAC,
+    summary: 'The account Dictate is connected as, and Disconnect this Mac.',
+    words: ['disconnect', 'connected', 'account', 'sign out', 'log out'],
+  },
   // General
   {
     id: 'account',
@@ -160,10 +305,20 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   },
   {
     id: 'org-chat-rooms',
-    title: 'Chat rooms for form answers',
+    title: 'Chat rooms',
     ...org('Workspace'),
-    summary: 'Where answers to forms are posted.',
-    words: ['forms', 'slack', 'webhook', 'chat', 'answers', 'responses'],
+    summary: 'Where forms and check-ins post, and which rooms search and Ask can read.',
+    words: [
+      'forms',
+      'slack',
+      'webhook',
+      'chat',
+      'answers',
+      'responses',
+      'read for context',
+      'chat search',
+      'bot',
+    ],
   },
 
   // Organization: Brand

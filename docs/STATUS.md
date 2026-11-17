@@ -14,7 +14,7 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 ## The apps (the rail, in order)
 
 ### Today
-The home page: clock, next meeting, optional weather, and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
+The home page: clock, next meeting, optional weather (click it for the next 12 hours and 7 days), and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares.
 
 ### For you
@@ -30,7 +30,7 @@ Notes for calls: live transcript with speaker names, your own notes, AI-written 
 Needs the speech and AI keys; the calendar needs Google sign-in through Clerk with `calendar.readonly`; booking links need Turnstile. Reminders work out of the box (the server makes its own push keys). Keeping a meeting's audio is a per-meeting choice (`KEEP_AUDIO=true` makes it the default); re-transcribing it after the call needs the speech key.
 
 ### Dictate
-Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app. With no connection, the Mac app writes up dictation with the Mac's own speech recognition (as spoken, the Mac's language, audio never leaves the Mac; `docs/PLAN-offline.md` step A2).
+Hold a key on the Mac, talk, and clean text lands at the cursor, with team word lists. The web page sets up the Mac app. With no connection, the Mac app writes up dictation with the Mac's own speech recognition (as spoken, the Mac's language, audio never leaves the Mac; `docs/PLAN-offline.md` step A2). The Dictate page's Models section shows the speech, offline and cleanup models, and each member picks Fast, Careful or Off for the cleanup (`docs/PLAN-dictate-models.md`; the Mac's "On this Mac only" speech choice is slice 2, not built yet).
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
@@ -89,6 +89,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
 - **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Docs, meeting notes, notes, pages, clips and files can have a read-only link; each link is for members or for anyone with the link (anyone links need the admin switch in Settings → People and access, off by default) and ends after 7 days, 30 days (default) or never. Admins see and turn off every link there. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
+- **Chat as context** (`docs/PLAN-chat-context.md`): an admin switches on **Read for context** for a chat room in Settings → Workspace whose link is a bot's room address (Ember, Campfire). Hotsauce copies its history into `DATA_DIR/chat.sqlite`, reads new messages every 5 minutes (`CHAT_READ_INTERVAL_MS`) and thread replies of the last week, and the messages show in ⌘K (In chat), Ask and AI tools (`search_chat`, `read_chat`) and the agent brief. Every member can search a read room; direct messages are never read; later edits and deletions aren't picked up. Needs nothing extra beyond the bot in the chat.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.
 - **Updates**: the server checks for a new release hourly and, on Fly, updates itself (needs `FLY_API_TOKEN`), installing only the exact image each release recorded.
 - **Backups**: nightly copies of the data to R2/S3 (14 daily, 8 weekly) whenever a bucket is set.
@@ -98,10 +99,10 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 
 ## Outside the web app
 
-- **Mac app** (`apps/dictate-mac`), published as one GitHub prerelease per build (`mac-app-<build>`; servers take the highest): Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the newest release); the app's menu says "Update available" too. Updating is download and drag. hotsauce.work/download/mac always hands out the newest build, and the landing page shows its version (`site/mac-download.js`, `docs/PLAN-mac-download.md`).
+- **Mac app** (`apps/dictate-mac`), published as one GitHub prerelease per build (`mac-app-<build>`; servers take the highest): Dictate, meeting recording with call detection, Today's weather, the Go menu. Self-signed, not notarized, so macOS asks once to open it. Settings → Apps shows each Mac's version and whether an update exists (from `mac-app.json` on the newest release); the app's menu says "Update available" too. Updating is download and drag. hotsauce.work/download/mac always hands out the newest build, and the landing page shows its version (`site/mac-download.js`, `docs/PLAN-mac-download.md`). GitHub builds the app after every release whose version or Mac sources changed (`.github/workflows/mac-app.yml`), once its signing secrets are set; a build that only carries a new number offers no update. Its settings are one page of the web app, Settings → This Mac, shown only inside the app (`docs/PLAN-one-settings.md`), and its dictation numbers and history are the Dictate page's "On this Mac" (`docs/PLAN-dictations-page.md`).
 - **Chrome extension** (`apps/extension`), 0.7.0: records Meet tabs, saves links in one click, connects in one click. In Chrome Web Store review; installed by hand until approved.
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
-- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool can search, read and write as the member, either by signing in (OAuth, used by claude.ai, ChatGPT and Grok) or by sending a token header.
+- **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool can search, read and write as the member, either by signing in (OAuth, used by claude.ai, ChatGPT and Grok) or by sending a token header. A sign-in can be **Team space only, read only**, for a tool many people share, like a team chat's assistant (`docs/PLAN-team-connection.md`).
 - **Site** (`site/`): hotsauce.work, the help center, install guide and the live demo at demo.hotsauce.work.
 
 ## Built but switched off by default

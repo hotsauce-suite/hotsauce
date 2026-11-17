@@ -531,11 +531,18 @@ describe('Settings: apps connected by signing in', () => {
     expect(await screen.findByTestId('connect-url')).toHaveTextContent(
       `${window.location.origin}/mcp`,
     )
-    const item = await screen.findByTestId('connection-item')
-    expect(within(item).getByText('Claude')).toBeInTheDocument()
-    expect(within(item).getByText('claude.ai')).toBeInTheDocument()
+    const items = await screen.findAllByTestId('connection-item')
+    const claude = items.find((i) => within(i).queryByText('Claude'))
+    const chat = items.find((i) => within(i).queryByText('Team chat'))
+    if (!claude || !chat) throw new Error('both demo connections should be listed')
+    expect(within(claude).getByText('claude.ai')).toBeInTheDocument()
+    expect(within(claude).queryByTestId('connection-team-only')).not.toBeInTheDocument()
+    // A connection a group shares is marked, so nobody mistakes it for a personal one.
+    expect(within(chat).getByTestId('connection-team-only')).toHaveTextContent('Team only')
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await user.click(within(item).getByTestId('connection-disconnect'))
+    for (const item of [claude, chat]) {
+      await user.click(within(item).getByTestId('connection-disconnect'))
+    }
     expect(await screen.findByText(/Nothing connected yet/)).toBeInTheDocument()
   })
 })

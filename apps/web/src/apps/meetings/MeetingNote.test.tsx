@@ -257,6 +257,8 @@ describe('Meeting note page', () => {
     finish()
     await waitFor(() => expect(content).toHaveTextContent('More from the transcript'))
     await waitFor(() => expect(content).toHaveAttribute('contenteditable', 'true'))
+    // Letters typed into the read-only note stayed text: "c" didn't open a new meeting.
+    expect(document.title).not.toMatch(/New meeting/)
     expect(mockApi().repo.space('ada').files.get(path)).not.toContain('typed while enhancing')
     // Types 21 keys into the editor: about 2 s here, past 5 s on a busy CI runner.
   }, 15_000)

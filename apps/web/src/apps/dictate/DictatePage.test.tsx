@@ -60,6 +60,29 @@ describe('Hotsauce Dictate page', () => {
   })
 })
 
+describe('Dictate models (docs/PLAN-dictate-models.md)', () => {
+  it('shows the models in use and saves my cleanup choice (R5)', async () => {
+    const user = userEvent.setup()
+    renderApp('/dictate')
+    const line = await screen.findByTestId('dictate-models-line')
+    expect(line).toHaveTextContent('Speech:Deepgram Nova-3')
+    expect(line).toHaveTextContent('Offline:Apple, on the Mac')
+    expect(line).toHaveTextContent('Cleanup:Claude Haiku 5.5')
+    expect(within(screen.getByTestId('dictate-cleanup-fast')).getByRole('radio')).toBeChecked()
+    expect(screen.getByRole('link', { name: 'Models' })).toHaveAttribute(
+      'href',
+      '/dictate/mac#models',
+    )
+
+    await user.click(within(screen.getByTestId('dictate-cleanup-careful')).getByRole('radio'))
+    expect(await screen.findByText('Saved. Your next dictation uses it.')).toBeInTheDocument()
+    expect(line).toHaveTextContent('Cleanup:Claude Sonnet 5.5')
+
+    await user.click(within(screen.getByTestId('dictate-cleanup-off')).getByRole('radio'))
+    await waitFor(() => expect(line).toHaveTextContent('Cleanup:Off'))
+  })
+})
+
 describe('connectLink', () => {
   it('carries the token and server as query parameters', () => {
     const url = new URL(connectLink('hdt_abc', 'https://office.example.com'))

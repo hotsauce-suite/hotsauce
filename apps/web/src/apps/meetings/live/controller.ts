@@ -6,6 +6,7 @@ import { meetingsApi } from '../../../api/meetings'
 import type { MeetingSession, MeetingState, StopResult, Track } from '../../../api/types'
 import { product } from '../../../brand/product'
 import type { Capture } from '../audio/capture'
+import { followMacCall } from '../audio/mac'
 import type { Recorder } from '../audio/recorder'
 import { AudioRing } from '../audio/ring-buffer'
 import { forgetSkipped, MeetingSocket } from '../audio/socket'
@@ -61,6 +62,11 @@ export class LiveMeeting {
   readonly socket: MeetingSocket
   private readonly ring: AudioRing
   private capture: Capture | null = null
+  /**
+   * Started from the Mac app's call notice: every capture attached (the first, and any Resume
+   * capture) follows that call, so the meeting ends with it whatever the mode.
+   */
+  followsCall = false
   private recorder: Recorder | null = null
   /** The notepad's latest text, once typed on this page. */
   private text: string | null = null
@@ -167,15 +173,17 @@ export class LiveMeeting {
    * Starts sending audio from `capture`; replaces any earlier capture (a re-shared tab). An
    * attach overtaken by a newer one, or by dispose(), releases what it started.
    */
-  async attachCapture(capture: Capture): Promise<void> {
+  async attachCapture(attached: Capture): Promise<void> {
     this.attachments += 1
     const attempt = this.attachments
     const replaced = () => this.disposed || attempt !== this.attachments
     await this.releaseCapture()
     if (replaced()) {
-      capture.stop()
+      attached.stop()
       return
     }
+    // After releasing the old capture, whose stop lets go of the call it followed.
+    const capture = this.followsCall ? followMacCall(attached, this.session.id) : attached
     this.capture = capture
     capture.onEnded((track) => this.patch({ lostTrack: track }))
     capture.onCallEnded?.(() => this.callEnded())

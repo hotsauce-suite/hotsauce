@@ -1,6 +1,188 @@
 {
   "releases": [
     {
+      "version": "0.43.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Search boxes and text fields show one orange outline when selected, not two."
+        }
+      ]
+    },
+    {
+      "version": "0.43.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "The Dictate page starts with your word count, time saved, speed, top apps, this month's busy days and recent dictations. You can search them, and each one has Copy and Paste.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Dictate… in the menu bar opens that page. The separate Dictate window only appears when Hotsauce can't load, and it no longer has a Dictionary tab.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.42.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "**Dropdowns look tidier.** Every dropdown now has its own arrow, set in from the edge, in both light and dark themes. Before, the browser's arrow sat right against the border."
+        },
+        {
+          "text": "**`/api/health` reports `features.email`.** It shows whether Sign emails signing links (both `RESEND_API_KEY` and `MAIL_FROM` set) or hands out links to copy."
+        }
+      ]
+    },
+    {
+      "version": "0.42.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Click the weather on Today to see the next 12 hours and the next 7 days, with rain or snow on the days that have more than a trace."
+        }
+      ]
+    },
+    {
+      "version": "0.41.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "The meeting reminder joins the call link and starts taking notes in one click; \"Just take notes\" starts notes without joining.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Taking notes from the call notice starts recording right away, with no extra Start press.",
+          "area": "Mac app"
+        },
+        {
+          "text": "When you join a call for a meeting you were reminded about, one offer replaces the other, named for the meeting.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Meeting reminders now also cover calendar events that have a call link but no other guests."
+        }
+      ]
+    },
+    {
+      "version": "0.40.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Settings: chat rooms can be switched to \"Read for context\", with how much is copied and when it was last read."
+        },
+        {
+          "text": "Search: chat messages show up in ⌘K and open in the chat."
+        },
+        {
+          "text": "Ask and AI tools can search and read the rooms you switched on, and the agent brief uses the last week of chat that involves you."
+        }
+      ]
+    },
+    {
+      "version": "0.39.2",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "\"Take notes on this call?\" now appears even when the call app briefly lets go of the microphone as the call starts (for example when you join muted).",
+          "area": "Mac app"
+        },
+        {
+          "text": "When an offer doesn't appear, the app records why, so it can be diagnosed.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A meeting started from the Mac app's call notice now stops on its own when the call ends, in every mode, including Mic only."
+        },
+        {
+          "text": "Typing in a meeting note while Enhance runs no longer jumps to New meeting when you press \"c\"."
+        },
+        {
+          "text": "In the Mac app, the sound check says \"The call, from apps on this Mac\", keeps listening until someone speaks, and links straight to the System Audio Recording setting when the call stays silent."
+        }
+      ]
+    },
+    {
+      "version": "0.39.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "**Signatures are darker and easier to read.** A typed signature is stamped on the signed PDF in blue-black ink with a slight outline, so the script reads clearly on paper. On screen it fills its field in the same ink."
+        },
+        {
+          "text": "**Drawn signatures** use a thicker, darker pen. The drawing is also cropped to the ink, so it fills the field instead of shrinking."
+        }
+      ]
+    },
+    {
+      "version": "0.39.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "⌘, and the menu bar's Settings… open Settings → This Mac in the main window: dictation shortcut, microphone, mode, edge glow, meeting reminders, the \"Take notes?\" offer, open at login, menu bar icon, permissions, Run setup again, dictation history and Disconnect.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Pick which microphone dictation uses, or keep the Mac's default.",
+          "area": "Mac app"
+        },
+        {
+          "text": "The Dictate window's Settings tab is gone; a small version opens only when Hotsauce can't load.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Settings search finds every This Mac setting inside the Mac app."
+        }
+      ]
+    },
+    {
+      "version": "0.38.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Clips: screen recordings are sharp on Retina and large screens; small text stays readable, with or without the camera bubble and after a trim."
+        }
+      ]
+    },
+    {
+      "version": "0.38.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "When you connect an AI tool by signing in, you choose \"Everything you can see\" or \"Team space only, read only\". The team-only choice is for a tool many people share, like a team chat's assistant: it reads the team space only and can't change anything."
+        },
+        {
+          "text": "Settings → Connections marks team-only connections \"Team only\"."
+        }
+      ]
+    },
+    {
+      "version": "0.37.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Dictate → Models shows which models hear you and tidy your words, for example \"Speech: Deepgram Nova-3 · Offline: Apple, on the Mac · Cleanup: Claude Haiku 5.5\"."
+        },
+        {
+          "text": "Pick how your dictations are tidied: Fast (default), Careful (a bigger model, better with names) or Off (your exact words)."
+        }
+      ]
+    },
+    {
+      "version": "0.36.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Its version now matches the Hotsauce release, and Settings only says Update available when the Mac app itself changed.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Hotsauce.work has a Download the Mac app link that always gets the newest build and shows its version."
+        }
+      ]
+    },
+    {
       "version": "0.36.0",
       "date": "2026-11-17",
       "notes": [

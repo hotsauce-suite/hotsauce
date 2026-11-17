@@ -4,7 +4,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { type AppDeps, authorOf } from '../api/env.js'
 import { saveFile } from '../api/save.js'
-import type { Principal } from '../auth/index.js'
+import { isTeamOnly, type Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
 import { normalizeRepoPath } from '../git/validate.js'
 import { type FileKind, SNIPPET_CLOSE, SNIPPET_OPEN } from '../index/index.js'
@@ -496,7 +496,8 @@ function registerTaskTools(
       run(() =>
         tasks.list(principal, {
           status,
-          mine: mine ?? true,
+          // A team-only connection answers a group, so "mine" would be someone else's (§8.5).
+          mine: mine ?? !isTeamOnly(principal),
           project,
           space,
           dueBefore: due_before,

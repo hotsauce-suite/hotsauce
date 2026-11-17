@@ -74,7 +74,16 @@ const MIGRATIONS = [
   `,
   // The app version each device reports (docs/PLAN-mac-version-and-whats-new.md, M3).
   `ALTER TABLE dictation_devices ADD COLUMN app_version TEXT;`,
+  // Each member's cleanup choice (docs/PLAN-dictate-models.md, R4); no row means Fast.
+  `CREATE TABLE dictation_prefs (
+    user_id TEXT PRIMARY KEY,
+    cleanup TEXT NOT NULL
+  );`,
 ]
+
+/** How a member's dictations are cleaned up (docs/PLAN-dictate-models.md). */
+export const CLEANUP_CHOICES = ['fast', 'careful', 'off'] as const
+export type CleanupChoice = (typeof CLEANUP_CHOICES)[number]
 
 /**
  * The version in a `Hotsauce-App: mac/<version>[+<build>]` header (`mac/0.26.0+1400`), or null
@@ -228,6 +237,23 @@ export class DictationStore {
         'UPDATE dictation_devices SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL',
       )
       .run(new Date().toISOString(), userId)
+  }
+
+  /** The member's cleanup choice; Fast until they pick another. */
+  cleanupChoice(userId: string): CleanupChoice {
+    const row = this.#db
+      .prepare('SELECT cleanup FROM dictation_prefs WHERE user_id = ?')
+      .get(userId) as { cleanup: string } | undefined
+    const saved = row?.cleanup as CleanupChoice | undefined
+    return saved && CLEANUP_CHOICES.includes(saved) ? saved : 'fast'
+  }
+
+  setCleanupChoice(userId: string, cleanup: CleanupChoice): void {
+    this.#db
+      .prepare(
+        'INSERT INTO dictation_prefs (user_id, cleanup) VALUES (?, ?) ON CONFLICT (user_id) DO UPDATE SET cleanup = excluded.cleanup',
+      )
+      .run(userId, cleanup)
   }
 
   /** `scope` is 'team' or a member's user id. */

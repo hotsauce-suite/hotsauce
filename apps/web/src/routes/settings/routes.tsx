@@ -10,6 +10,11 @@ export const settingsRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('../SettingsRoute')).GeneralSettings }),
     },
     {
+      // The Mac app's own settings, only inside it (docs/PLAN-one-settings.md).
+      path: 'mac',
+      lazy: async () => ({ Component: (await import('./ThisMacPage')).default }),
+    },
+    {
       path: 'connections',
       lazy: async () => ({ Component: (await import('../SettingsRoute')).ConnectionsSettings }),
     },

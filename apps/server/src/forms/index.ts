@@ -1,4 +1,4 @@
-export { type ChatRoom, ChatRooms, MAX_ROOMS } from './rooms.js'
+export { type ChatRoom, ChatRooms, MAX_ROOMS, messagesUrlOf, type ReadTarget } from './rooms.js'
 export {
   ANSWERS_PER_FORM_PER_DAY,
   ANSWERS_PER_IP_PER_HOUR,

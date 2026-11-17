@@ -34,6 +34,13 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     var connectDictate: (_ token: String, _ server: URL, _ done: @escaping (_ account: String?, _ error: String?) -> Void) -> Void = { _, _, done in done(nil, "Not available") }
     /// The finish page redeemed its sign-in ticket: it only asks about Dictate after signing in.
     var signedIn: () -> Void = {}
+    /// Settings → This Mac (docs/PLAN-one-settings.md): the app reads or changes its settings and
+    /// answers with the snapshot.
+    var macSettings: (_ request: MacSettingsBridge.Request, _ reply: @escaping (Any?) -> Void) -> Void = { _, reply in reply(nil) }
+    /// The page loaded now said it has This Mac (R11); a new document starts without.
+    private var pageSaidHello = false
+    /// The same for the Dictate page's "On this Mac" (docs/PLAN-dictations-page.md R7).
+    private var pageSaidDictationsHello = false
     /// When the finish page took a sign-in ticket: it may connect Dictate for a short while after.
     private var handoffOpenedAt: Date?
     /// The suite page that couldn't be loaded, while the window shows the "Can't reach" page.
@@ -94,13 +101,15 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         // Meetings' "Any app on this Mac" (docs/PLAN-record-any-call.md): process taps need 14.2.
         if #available(macOS 14.2, *) {
             configuration.userContentController.addUserScript(WKUserScript(
-                source: "window.hearthMac = Object.freeze({ meetingAudio: 1 })", injectionTime: .atDocumentStart, forMainFrameOnly: true
+                source: "window.hearthMac = Object.freeze({ meetingAudio: \(MeetingAudio.bridgeVersion) })", injectionTime: .atDocumentStart, forMainFrameOnly: true
             ))
             configuration.userContentController.addScriptMessageHandler(MeetingAudioHandler(self), contentWorld: .page, name: MeetingAudio.handlerName)
         }
         configuration.userContentController.addScriptMessageHandler(LocationHandler(self), contentWorld: .page, name: LocationBridge.handlerName)
         // Settings → Notifications: macOS's state and a button to its settings (no Notification API here).
         configuration.userContentController.addScriptMessageHandler(NotificationsHandler(self), contentWorld: .page, name: NotificationsBridge.handlerName)
+        // Settings → This Mac: the app's own settings, read and changed by the page.
+        configuration.userContentController.addScriptMessageHandler(MacSettingsHandler(self), contentWorld: .page, name: MacSettingsBridge.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -263,8 +272,17 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         if command == .start, !isOnMeetingsPage { return MeetingAudio.failed(.unsupported, message: "Start from Meetings.") }
         let current = meetingCapture as? MeetingCapture
         switch command {
+        case .followCall(let session):
+            guard isOnMeetingsPage else { return nil }
+            followedCallSession = session
+            return ["ok": true]
+        case .openAudioSettings:
+            guard isOnMeetingsPage else { return nil }
+            Permissions.openAudioCaptureSettings()
+            return nil
         case .stop(let session):
             if current?.session == session { stopMeetingCapture() }
+            if followedCallSession == session { followedCallSession = nil }
             return nil
         case .pause(let session):
             if current?.session == session { current?.setPaused(true) }
@@ -326,6 +344,40 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         }
     }
 
+    /// Answers Settings → This Mac's `hotsauceMacSettings.postMessage(...)`, only for the suite's
+    /// own page in its main frame (R9). Hello marks this document as having the page (R11).
+    fileprivate func answerMacSettings(_ message: WKScriptMessage, reply: @escaping (Any?) -> Void) {
+        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo),
+              let request = MacSettingsBridge.parse(message.body)
+        else { return reply(nil) }
+        if request == .hello {
+            pageSaidHello = true
+            return reply(nil)
+        }
+        if request == .helloDictations {
+            pageSaidDictationsHello = true
+            return reply(nil)
+        }
+        macSettings(request, reply)
+    }
+
+    /// Whether ⌘, can show This Mac here, or the app's own small window is needed (R11).
+    var settingsDestination: SettingsDestination {
+        SettingsDestination.choose(pageSaidHello: pageSaidHello, pageLoaded: isOnSuitePage && failedURL == nil)
+    }
+
+    /// Whether "Dictate…" can show the Dictate page's "On this Mac" here, or the old window is
+    /// needed (docs/PLAN-dictations-page.md R7).
+    var dictationsDestination: SettingsDestination {
+        SettingsDestination.choose(pageSaidHello: pageSaidDictationsHello, pageLoaded: isOnSuitePage && failedURL == nil)
+    }
+
+    /// Tells the page the history changed, so "On this Mac" reads it again (R5).
+    func dictationsChanged() {
+        guard pageSaidDictationsHello else { return }
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('hotsauce:mac-dictations'))", in: nil, in: .page) { _ in }
+    }
+
     /// The frame's own origin is the suite's, and so is the page the web view shows.
     private func isSuiteFrame(_ frame: WKFrameInfo) -> Bool {
         let origin = frame.securityOrigin
@@ -347,18 +399,29 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         return MeetingAudio.isMeetingsPath(current.path)
     }
 
-    /// The "Any app on this Mac" recording of a live meeting (paused counts), by its session. Nil
+    /// A live meeting started from the call notice in a mode this app doesn't record (mic only,
+    /// the Meet tab), by the session its page gave (`follow-call`). Cleared by its `stop` or when
+    /// the page goes away.
+    private var followedCallSession: String?
+
+    /// The meeting recording in this window (paused counts), by its session: the "Any app on this
+    /// Mac" recording, or else a meeting that follows the call. The "Any app" capture doesn't count
     /// while the Start page only checks the sound: nothing is recorded there yet.
     var recordingMeetingSession: String? {
-        guard #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture else { return nil }
-        if let current = webView.url, isSuite(current), current.path == "/meetings/start" { return nil }
-        return capture.session
+        if #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture,
+           !(webView.url.map { isSuite($0) && $0.path == "/meetings/start" } ?? false) {
+            return capture.session
+        }
+        return followedCallSession
     }
 
     /// Tells the recording page its call ended (`CallDetector`), if that recording still runs.
     func meetingCallEnded(session: String) {
-        guard #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture, capture.session == session else { return }
-        sendMeetingEvent(MeetingAudio.callEndedEvent(session: session))
+        if #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture, capture.session == session {
+            sendMeetingEvent(MeetingAudio.callEndedEvent(session: session))
+        } else if followedCallSession == session {
+            sendMeetingEvent(MeetingAudio.callEndedEvent(session: session))
+        }
     }
 
     /// Ends any meeting recording: the page stopped it, or the page itself went away.
@@ -622,11 +685,15 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         // A new document: whatever took the sign-in ticket is gone, so is its Dictate handoff.
         if webView.url?.path != DictateHandoff.finishPath { handoffOpenedAt = nil }
+        pageSaidHello = false
+        pageSaidDictationsHello = false
         stopMeetingCapture()
+        followedCallSession = nil
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         stopMeetingCapture()
+        followedCallSession = nil
         // At most once a minute, so a page that keeps crashing doesn't loop.
         guard Date().timeIntervalSince(lastCrashReload) > 60 else { return }
         lastCrashReload = Date()
@@ -826,6 +893,21 @@ private final class NotificationsHandler: NSObject, WKScriptMessageHandlerWithRe
         MainActor.assumeIsolated {
             guard let suite else { return replyHandler(nil, nil) }
             suite.notifications(for: message) { answer in
+                MainActor.assumeIsolated { replyHandler(answer, nil) }
+            }
+        }
+    }
+}
+
+/// Answers Settings → This Mac's `hotsauceMacSettings.postMessage({type: ...})`.
+private final class MacSettingsHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            guard let suite else { return replyHandler(nil, nil) }
+            suite.answerMacSettings(message) { answer in
                 MainActor.assumeIsolated { replyHandler(answer, nil) }
             }
         }

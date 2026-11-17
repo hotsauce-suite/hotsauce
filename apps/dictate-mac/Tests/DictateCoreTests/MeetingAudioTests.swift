@@ -49,6 +49,13 @@ import Testing
         #expect(MeetingAudio.Command.parse(["type": "start", "extra": 1]) == nil)
         #expect(MeetingAudio.Command.parse(["type": "record"]) == nil)
         #expect(MeetingAudio.Command.parse("start") == nil)
+        #expect(MeetingAudio.Command.parse(["type": "follow-call", "session": "m1"]) == .followCall(session: "m1"))
+        #expect(MeetingAudio.Command.parse(["type": "follow-call"]) == nil)
+        #expect(MeetingAudio.Command.parse(["type": "follow-call", "session": ""]) == nil)
+        #expect(MeetingAudio.Command.parse(["type": "follow-call", "session": String(repeating: "a", count: 101)]) == nil)
+        #expect(MeetingAudio.Command.parse(["type": "follow-call", "session": "m1", "extra": 1]) == nil)
+        #expect(MeetingAudio.Command.parse(["type": "open-audio-settings"]) == .openAudioSettings)
+        #expect(MeetingAudio.Command.parse(["type": "open-audio-settings", "url": "x"]) == nil)
     }
 
     @Test func onlyMeetingsPagesMayRecord() {

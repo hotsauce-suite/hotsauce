@@ -34,6 +34,7 @@ import {
   type Speaker,
   UnconfiguredSpeaker,
 } from './briefcast/index.js'
+import { ChatReader, ChatStore, chatInvolving } from './chat/index.js'
 import { CheckinMembers, CheckinScheduler, Checkins } from './checkins/index.js'
 import {
   ClipStore,
@@ -45,6 +46,7 @@ import {
 import { Comments } from './comments/index.js'
 import type { Config } from './config.js'
 import {
+  DEEPGRAM_DICTATION_MODEL,
   DeepgramDictationTranscriber,
   Dictation,
   DictationSocketServer,
@@ -279,6 +281,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
           )
         : llm),
     model: config.DICTATION_MODEL,
+    carefulModel: config.DICTATION_CAREFUL_MODEL,
+    speechName:
+      config.ASR_PROVIDER === 'deepgram'
+        ? DEEPGRAM_DICTATION_MODEL.name
+        : config.ASR_PROVIDER === 'none'
+          ? 'Off (no Deepgram key)'
+          : 'Test transcriber',
+    cleanupAvailable: config.LLM_PROVIDER !== 'none',
     chatNames: teamChatNames({
       // The rail's name for it: "<org> Chat", or "<product> Chat" without an org name.
       orgName: config.ORG_NAME || config.PRODUCT_NAME,
@@ -345,6 +355,16 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
       : {}),
   })
+  // Chat as context (docs/PLAN-chat-context.md): a copy of the rooms an admin lets Hotsauce read.
+  const chatReader = new ChatReader({
+    rooms: chatRooms,
+    store: new ChatStore(path.join(config.DATA_DIR, 'chat.sqlite')),
+    ...(overrides.chatFetch
+      ? { fetch: overrides.chatFetch, resolve: async () => ['203.0.113.10'] }
+      : {}),
+    intervalMs: config.CHAT_READ_INTERVAL_MS,
+    threadDays: config.CHAT_THREAD_DAYS,
+  })
   // Members' names and zones as their browsers last said them.
   const checkinMembers = new CheckinMembers(config.DATA_DIR)
   // Check-ins (§24): scheduled team questions in the team space; summaries go to a chat room.
@@ -385,6 +405,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     syncer,
     tasks: taskService,
     checkins,
+    chat: { involving: chatInvolving(chatRooms, chatReader.store) },
     llm,
     model: config.BRIEF_MODEL,
     members: new BriefMembers(config.DATA_DIR),
@@ -558,6 +579,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     pages: new Pages({ git, index, spaces, syncer }),
     // Forms and their answers in Git; answers' files in Hotsauce Files (§21).
     chatRooms,
+    chatReader,
     forms,
     // Sign: envelopes in Git, the PDFs in Files, sealed with the install's own key (docs/PLAN-sign.md).
     sign: new Sign({

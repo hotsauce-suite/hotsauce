@@ -16,7 +16,7 @@ export interface Health {
   signInDomain?: string | null
   /** Invited people outside the domains can sign in with an emailed code. */
   emailCodeSignIn?: boolean
-  features?: { ai: boolean; transcription: boolean }
+  features?: { ai: boolean; transcription: boolean; email?: boolean }
   /** The Hotsauce release this server runs. */
   version?: string
   /** Added by the root loader from /api/org/brand. */
@@ -131,6 +131,18 @@ export interface SearchResult {
   /** Matched terms are wrapped in \u0002 … \u0003. */
   snippet: string
   score: number
+}
+
+/** A chat message from a room read for context (docs/PLAN-chat-context.md). */
+export interface ChatSearchHit {
+  room: string
+  id: string
+  author: string
+  createdAt: string
+  /** Matched terms are wrapped in \u0002 … \u0003. */
+  snippet: string
+  /** The message in the chat, or empty when the chat gave no link. */
+  url: string
 }
 
 export interface RecentItem {

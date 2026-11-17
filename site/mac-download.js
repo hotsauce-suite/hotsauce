@@ -81,12 +81,28 @@ async function newestMacApp(fetchFn, cache, waitUntil) {
   return (await cached(cache, 'last-good')) ?? null
 }
 
+/**
+ * The newest build as the deploy found it: GitHub Actions asks GitHub with its own token when it
+ * deploys the site (.github/workflows/deploy-site.yml), and the Mac app workflow redeploys the site
+ * after each build. Unauthenticated calls from Cloudflare are often refused, so this comes first.
+ */
+export function deployedMacApp(env) {
+  const tag = env?.MAC_APP_TAG
+  if (typeof tag !== 'string' || !/^mac-app-\d{1,9}$/.test(tag)) return null
+  const build = typeof env.MAC_APP_BUILD === 'string' && /^\d{1,9}$/.test(env.MAC_APP_BUILD)
+  return {
+    tag,
+    version: plainVersion(env.MAC_APP_VERSION),
+    build: build ? env.MAC_APP_BUILD : null,
+  }
+}
+
 export async function serveMacDownload(url, env, ctx) {
   const fetchFn = env.fetch ?? ((...a) => fetch(...a))
   const cache = env.cache ?? (typeof caches === 'undefined' ? null : caches.default)
   const pending = []
   const waitUntil = (p) => (ctx?.waitUntil ? ctx.waitUntil(p) : pending.push(p))
-  const latest = await newestMacApp(fetchFn, cache, waitUntil)
+  const latest = deployedMacApp(env) ?? (await newestMacApp(fetchFn, cache, waitUntil))
   await Promise.all(pending)
   const headers = { 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }
   if (url.pathname === '/download/mac.json') {

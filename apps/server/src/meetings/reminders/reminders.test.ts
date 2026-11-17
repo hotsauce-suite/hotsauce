@@ -78,6 +78,18 @@ describe('MeetingReminders', () => {
     })
   })
 
+  it('reminds an event with a meeting link even when nobody else is invited', async () => {
+    await store.subscribe(ALICE, sub(1))
+    events = [
+      { ...event('call', 60_000, 0), meetLink: 'https://meet.google.com/abc-defg-hij' },
+      event('focus', 60_000, 0),
+    ]
+
+    await reminders().tick()
+
+    expect(sender.sent.map((s) => s.payload.tag)).toEqual(['meeting-call'])
+  })
+
   it('forgets a subscription the browser dropped', async () => {
     await store.subscribe(ALICE, sub(1))
     sender.gone.add(sub(1).endpoint)

@@ -17,6 +17,9 @@ import { normalizedRectToPdfRect } from "../utils/pdf-coords.ts";
 import { embedTextFaces, type TextFace } from "./pdf-fonts.ts";
 import { sha256Hex } from "./pdf-seal.ts";
 
+/** Hotsauce: the colour typed signatures are stamped in (blue-black, like pen ink). */
+const SIGNATURE_INK = rgb(0.02, 0.04, 0.1);
+
 // Hotsauce: SignuDoc's storage service, reduced to the one read the engine
 // makes (a drawn signature's image). Hotsauce passes bytes it already holds.
 export type StorageObjectRef = { bucketName?: string; key: string };
@@ -426,8 +429,10 @@ export async function stampFieldValue(
         Math.min(maxHeight, rect.heightPt * 0.9),
       );
 
+      // Hotsauce: near-black ink, outlined so the hairline script reads on paper.
       fonts.signature.drawText(page, signatureValue, {
-        color: rgb(0.12, 0.12, 0.12),
+        color: SIGNATURE_INK,
+        outline: Math.max(0.35, fontSize * 0.025),
         size: fontSize,
         x: rect.xPt + padding,
         y: rect.yPt + (rect.heightPt - fontSize) / 2 + fontSize * 0.1,

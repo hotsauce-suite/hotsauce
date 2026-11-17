@@ -16,3 +16,19 @@
   past Playwright's 30 s default; it sets its own timeout.
 - **Porting a stale branch:** `git diff <merge-base> <branch> | git apply --reject` onto this repo
   applied all but a few hunks; the rejects were import lines and test lines that had moved.
+
+## Video sharpness (Nov 2026)
+
+- "Fuzzy" had two causes stacked: a fixed 2.5 Mbit/s for every screen size, and the camera
+  composite shrinking everything to 1080 p with a bilinear scaler. Check every re-encode a clip goes
+  through (composite, trim), not only the recorder.
+- A Retina screen is shared at its physical pixel size. `width/height: { max }` on
+  `getDisplayMedia` scales it down keeping its shape; `min`/`exact` are refused.
+- Base the bitrate on the track's `getSettings()` after the picker resolves, and set
+  `contentHint = 'detail'` so a busy encoder drops frames rather than resolution.
+- A cheap sharpness test: 2 px black and white stripes as the source, then read two neighbouring
+  pixels of the output. A downscale or a soft scaler turns them grey.
+- Memory measured on a full-motion 2464×1600 pattern: about 384 MB of ffmpeg at 1600 p against 237 MB
+  at 1080 p. The Fly box has 1 GB and no swap, so watch for out-of-memory restarts after big clips.
+- Raising the bitrate means raising the per-clip byte limit too: check that an hour at the ceiling,
+  with the camera, still fits.
