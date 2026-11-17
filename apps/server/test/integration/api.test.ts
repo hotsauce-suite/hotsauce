@@ -89,6 +89,8 @@ describe('health and identity', () => {
     expect(health).toMatchObject({ ok: true, authMode: 'dev', setupRequired: false })
     // Its own address, as an origin: the Mac app follows an instance that moved (LEGACY_HOSTS).
     expect(health.publicUrl).toMatch(/^https?:\/\/[^/]+$/)
+    // Whether Sign emails links: here neither RESEND_API_KEY nor MAIL_FROM is set.
+    expect(health.features).toMatchObject({ email: false })
   })
 
   it('rejects requests without a session, and unknown API routes with JSON errors', async () => {

@@ -116,6 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         wireMacSettings()
         controller.onHistoryChange = { [weak self] in
             if self?.mainWindow.isVisible == true { self?.mainWindow.model.reloadRecords() }
+            self?.suite.dictationsChanged()
         }
         pruneHistory()
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3_600, repeats: true) { [weak self] _ in
@@ -143,7 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func finishLaunching() {
         reminders.start()
         if #available(macOS 14.2, *) {
-            let detector = CallDetector(suite: suite) { [weak self] in self?.settings.offerCallNotes ?? false }
+            let detector = CallDetector(suite: suite, reminders: reminders) { [weak self] in self?.settings.offerCallNotes ?? false }
             detector.start()
             callDetector = detector
         }
@@ -215,6 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func pruneHistory() {
         historyStore.prune(retentionDays: settings.retentionDays)
+        suite.dictationsChanged()
     }
 
     /// Settings → This Mac (docs/PLAN-one-settings.md): the page changes the app's settings through
@@ -226,8 +228,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return reply(nil) }
             let answer = { self.macSettingsSnapshot { reply($0.reply) } }
             switch request {
-            case .hello, .get:
+            case .hello, .get, .helloDictations:
                 answer()
+            case let .dictations(range, search):
+                reply(DictationsReply.build(records: self.historyStore.records, range: range, search: search, icon: AppIcons.dataURL(for:)))
+            case let .dictation(id, action):
+                // Only one still in the history; anything else does nothing (R6).
+                guard let record = self.historyStore.records.first(where: { $0.id == id }) else { return reply(nil) }
+                switch action {
+                case .copy: model.copy(record.text)
+                case .paste: model.paste(record.text)
+                }
+                reply(["ok": true])
             case let .set(change):
                 switch change {
                 case let .hotkey(hotkey): model.setHotkey(hotkey)
@@ -345,7 +357,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // Asks a system service, so not on the 2 s tick.
             model.launchAtLogin = SMAppService.mainApp.status == .enabled
         }
-        model.loadWords = { [weak self] in self?.loadWords() }
         model.copy = { Inserter.copy($0) }
         model.paste = { [weak self] text in
             // Back to the app the member was in, then paste there.
@@ -353,9 +364,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 if Inserter.insert(text, into: nil) == .copied { self?.controller.showMessage("Copied — press ⌘V") }
             }
-        }
-        model.editWords = { [weak self] add, remove, scope, done in
-            self?.editWords(add: add, remove: remove, scope: scope, done: done)
         }
         model.setHotkey = { [weak self] hotkey in
             self?.settings.hotkey = hotkey
@@ -408,6 +416,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             alert.addButton(withTitle: "Cancel")
             guard alert.runModal() == .alertFirstButtonReturn else { return }
             self?.historyStore.clear()
+            self?.suite.dictationsChanged()
             model.reloadRecords()
         }
         model.disconnect = { [weak self] in
@@ -449,42 +458,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.runSetupAgain = { [weak self] in self?.onboarding.replay() }
         model.requestMicrophone = { Permissions.requestMicrophone { _ in model.reload() } }
         model.requestAccessibility = { Permissions.requestAccessibility() }
-    }
-
-    private func loadWords() {
-        let model = mainWindow.model
-        guard let connection = ConnectionStore.connection() else {
-            model.wordsState = "Connect this Mac to edit the word lists."
-            return
-        }
-        let client = DictationClient(server: connection.server, token: connection.token)
-        Task { @MainActor in
-            do {
-                let words = try await client.words()
-                model.mine = words.mine
-                model.team = words.team
-                model.wordsState = nil
-            } catch {
-                model.wordsState = (error as? DictationError)?.errorDescription ?? error.localizedDescription
-            }
-        }
-    }
-
-    private func editWords(add: [String], remove: [String], scope: DictationClient.WordScope, done: @escaping (Bool) -> Void) {
-        let model = mainWindow.model
-        guard let connection = ConnectionStore.connection() else { return done(false) }
-        let client = DictationClient(server: connection.server, token: connection.token)
-        Task { @MainActor in
-            do {
-                let saved = try await client.editWords(add: add, remove: remove, scope: scope)
-                if scope == .mine { model.mine = saved } else { model.team = saved }
-                model.wordsState = nil
-                done(true)
-            } catch {
-                model.wordsState = (error as? DictationError)?.errorDescription ?? error.localizedDescription
-                done(false)
-            }
-        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -782,7 +755,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func openMainWindow() { mainWindow.show() }
+    @objc private func openMainWindow() { openDictateWindow() }
 
     @objc private func disconnect() {
         guard let connection = ConnectionStore.connection() else { return }

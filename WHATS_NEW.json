@@ -1,6 +1,62 @@
 {
   "releases": [
     {
+      "version": "0.43.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "The Dictate page starts with your word count, time saved, speed, top apps, this month's busy days and recent dictations. You can search them, and each one has Copy and Paste.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Dictate… in the menu bar opens that page. The separate Dictate window only appears when Hotsauce can't load, and it no longer has a Dictionary tab.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.42.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "**Dropdowns look tidier.** Every dropdown now has its own arrow, set in from the edge, in both light and dark themes. Before, the browser's arrow sat right against the border."
+        },
+        {
+          "text": "**`/api/health` reports `features.email`.** It shows whether Sign emails signing links (both `RESEND_API_KEY` and `MAIL_FROM` set) or hands out links to copy."
+        }
+      ]
+    },
+    {
+      "version": "0.42.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Click the weather on Today to see the next 12 hours and the next 7 days, with rain or snow on the days that have more than a trace."
+        }
+      ]
+    },
+    {
+      "version": "0.41.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "The meeting reminder joins the call link and starts taking notes in one click; \"Just take notes\" starts notes without joining.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Taking notes from the call notice starts recording right away, with no extra Start press.",
+          "area": "Mac app"
+        },
+        {
+          "text": "When you join a call for a meeting you were reminded about, one offer replaces the other, named for the meeting.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Meeting reminders now also cover calendar events that have a call link but no other guests."
+        }
+      ]
+    },
+    {
       "version": "0.40.0",
       "date": "2026-11-17",
       "notes": [

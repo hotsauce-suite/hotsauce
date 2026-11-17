@@ -16,7 +16,7 @@ export interface Health {
   signInDomain?: string | null
   /** Invited people outside the domains can sign in with an emailed code. */
   emailCodeSignIn?: boolean
-  features?: { ai: boolean; transcription: boolean }
+  features?: { ai: boolean; transcription: boolean; email?: boolean }
   /** The Hotsauce release this server runs. */
   version?: string
   /** Added by the root loader from /api/org/brand. */

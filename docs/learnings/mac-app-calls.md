@@ -28,3 +28,15 @@ Learnings from "Take notes on this Zoom call?" (`DictateCore/CallWatch.swift`, `
 - **In zsh, `log` is a builtin.** `log show …` silently prints nothing; use `/usr/bin/log`.
 - **Call-end auto-stop only knew the app's own recordings.** A meeting started from the call notice
   in mic-only mode never stopped. The page now tells the app it follows the call (`follow-call`).
+- **Calendar reminder and call notice share one delegate.** `Reminders` is the
+  `UNUserNotificationCenter` delegate for every notice, and `setNotificationCategories` replaces
+  the whole set, so register all categories in one place. A notice with no category still opens its
+  `path` on click; only a reminder's `join` key opens a call link, and only an http(s) one.
+- **A test that starts a Mac-mode meeting must stop it before removing the fake bridge.** Deleting
+  `window.hearthMac` in `finally` first left the live meeting running, which slowed unrelated test
+  files in the same full run (the meeting note Enhance test failed 3 of 3 on CI, never alone).
+  Bisect a "flake" that only shows up in the full suite by dropping the new tests and rerunning.
+- **Auto-start must wait for the event's title.** The title state is set from the event in an
+  effect, so an auto-start effect in the same commit still sees "Zoom call". Wait until the title
+  matches the event (unless the member typed one), and key the form on the query so a second
+  reminder opened on the same page starts fresh.

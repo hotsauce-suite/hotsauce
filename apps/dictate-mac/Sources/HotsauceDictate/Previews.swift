@@ -169,9 +169,6 @@ enum Previews {
         model.records = samples.map { app, bundle, text, days, ms in
             DictationRecord(date: now.addingTimeInterval(-days * 86_400), text: text, cleaned: app != "Ghostty", appName: app, appBundle: bundle, audioMs: ms)
         }
-        model.mine = ["Priya", "Kestrel", "Fly.io"]
-        model.team = ["Acme", "Hotsauce", "Ember", "Granola", "Clerk", "Deepgram", "Anthropic", "Claude"]
-        model.wordsState = nil
         model.microphone = true
         model.accessibility = true
         model.listening = true

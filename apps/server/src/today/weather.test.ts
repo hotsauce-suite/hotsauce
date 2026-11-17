@@ -3,6 +3,7 @@ import { HotsauceError } from '../errors.js'
 import {
   roundPlace,
   summarize,
+  toSeries,
   WEATHER_FAILURE_TTL_MS,
   WEATHER_MISSES_PER_MINUTE,
   WEATHER_TTL_MS,
@@ -100,5 +101,55 @@ describe('Weather', () => {
     await expect(weather.forecast(50, 0, 'b@x')).resolves.toMatchObject({ temperature: 5 })
     now += 60_001
     await expect(weather.forecast(51, 0, 'a@x')).resolves.toMatchObject({ temperature: 5 })
+  })
+
+  it('F1: carries the forecast, each point covering the time until the next', () => {
+    const at = (h: number) =>
+      new Date(Date.parse('2026-11-13T15:00:00Z') + h * 3_600_000).toISOString()
+    const points = [
+      {
+        time: at(0),
+        data: {
+          instant: { details: { air_temperature: 4 } },
+          next_1_hours: {
+            summary: { symbol_code: 'rain' },
+            details: { precipitation_amount: 1.2 },
+          },
+          next_6_hours: {
+            summary: { symbol_code: 'cloudy' },
+            details: { precipitation_amount: 5 },
+          },
+        },
+      },
+      {
+        // Last hourly point: the step to the next is 3 hours, so half the 6-hour amount.
+        time: at(1),
+        data: {
+          instant: { details: { air_temperature: 5 } },
+          next_1_hours: { summary: { symbol_code: 'rain' }, details: { precipitation_amount: 9 } },
+          next_6_hours: { summary: { symbol_code: 'snow' }, details: { precipitation_amount: 4 } },
+        },
+      },
+      {
+        time: at(4),
+        data: {
+          instant: { details: { air_temperature: 2 } },
+          next_6_hours: {
+            summary: { symbol_code: 'clearsky_night' },
+            details: { precipitation_amount: 0 },
+          },
+        },
+      },
+      { time: at(10), data: { instant: { details: {} } } },
+      { time: at(16), data: { instant: { details: { air_temperature: 1 } } } },
+    ]
+    expect(toSeries(points)).toEqual([
+      { time: at(0), temperature: 4, symbol: 'rain', precipitation: 1.2 },
+      { time: at(1), temperature: 5, symbol: 'snow', precipitation: 2 },
+      { time: at(4), temperature: 2, symbol: 'clearsky_night', precipitation: 0 },
+      { time: at(16), temperature: 1, symbol: 'cloudy', precipitation: 0 },
+    ])
+    const view = summarize(met([3, 5]), NOW)
+    expect(view?.series.map((p) => p.temperature)).toEqual([3, 5])
   })
 })

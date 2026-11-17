@@ -13,6 +13,7 @@ import { Icon } from '../../components/Icon'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { DictateModels } from './DictateModels'
+import { MacDictations } from './MacDictations'
 import { openAppLink } from './openAppLink'
 
 const kbd =
@@ -25,8 +26,9 @@ type Connect =
   | { state: 'failed'; message: string }
 
 /**
- * `/dictate` on a computer, and `/dictate/mac` anywhere: connect this Mac, see connected Macs, edit
- * the word lists. The app's download is in Settings.
+ * `/dictate` on a computer, and `/dictate/mac` anywhere: inside the Mac app, this Mac's dictations
+ * (docs/PLAN-dictations-page.md); connect this Mac, see connected Macs, edit the word lists. The
+ * app's download is in Settings.
  */
 export default function DictatePage() {
   const [devices, setDevices] = useState<DictationDevice[] | null>(null)
@@ -79,6 +81,7 @@ export default function DictatePage() {
       <MeetingsPageHeader title="Dictate" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 pt-8 pb-24 md:px-8 md:pt-12">
+          <MacDictations />
           <section id="get-it" aria-labelledby="dictate-title" className="dictate-hero">
             <div className="grid items-center gap-8 md:grid-cols-[1fr_auto]">
               <div>

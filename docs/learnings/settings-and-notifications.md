@@ -89,3 +89,12 @@
 - No Swift toolchain in the cloud container: write the Swift, then compile and `swift test` on m5Box
   in a throwaway worktree. Installing test builds there resets Morgan's permissions; it isn't needed
   to check a build.
+- The PR's "check" job (macOS runner, `swift test` and a release build) compiles the Swift for you
+  now, so a cloud thread can change the Mac app without m5Box: push early and let CI be the compiler.
+- To add a second page to an existing bridge, send a second hello (`helloDictations`) rather than
+  growing the first: strict parsing in older apps would refuse a hello with extra keys and lose
+  the original routing.
+- Anything the sidebar links to inside the Mac app should appear only after the app has answered,
+  not when the bridge merely exists: older apps have the handler but not every request.
+- Let the Mac compute numbers it already computes (DictationStats, MonthActivity) and send them;
+  porting the sums to TypeScript would give two answers to one question.

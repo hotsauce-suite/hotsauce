@@ -6,13 +6,11 @@ import SwiftUI
 final class MainModel: ObservableObject {
     enum Page: String, CaseIterable, Identifiable {
         case dictations = "Dictations"
-        case dictionary = "Dictionary"
         case settings = "Settings"
         var id: String { rawValue }
         var symbol: String {
             switch self {
             case .dictations: "waveform"
-            case .dictionary: "character.book.closed"
             case .settings: "gearshape"
             }
         }
@@ -36,14 +34,6 @@ final class MainModel: ObservableObject {
     @Published var range: Range = .month
     @Published var search = ""
     @Published var records: [DictationRecord] = []
-
-    // Dictionary
-    @Published var mine: [String] = []
-    @Published var team: [String] = []
-    @Published var wordsState: String? = "Loading…"
-    /// What's typed in each list's Add field. Kept here: the Command Line Tools' SwiftUI has no
-    /// @State (its macro plugin ships with Xcode only).
-    @Published var drafts: [DictationClient.WordScope: String] = [:]
 
     // Settings and status
     @Published var hotkey: Hotkey = .rightOption
@@ -71,11 +61,8 @@ final class MainModel: ObservableObject {
     var reload: () -> Void = {}
     /// The history list: when it changes.
     var reloadRecords: () -> Void = {}
-    var loadWords: () -> Void = {}
     var copy: (String) -> Void = { _ in }
     var paste: (String) -> Void = { _ in }
-    /// Adds and removes words; calls back with whether it saved.
-    var editWords: (_ add: [String], _ remove: [String], DictationClient.WordScope, @escaping (Bool) -> Void) -> Void = { _, _, _, done in done(false) }
     var setHotkey: (Hotkey) -> Void = { _ in }
     var setMode: (DictationMode) -> Void = { _ in }
     var setLaunchAtLogin: (Bool) -> Void = { _ in }
@@ -138,7 +125,6 @@ final class MainWindow: NSObject, NSWindowDelegate {
         }
         model.reload()
         model.reloadRecords()
-        model.loadWords()
         timer?.invalidate()
         // Permissions and the key tap can change while the window is open; only while it's seen.
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -185,7 +171,6 @@ struct MainView: View {
                 Group {
                     switch model.page {
                     case .dictations: DictationsPage(model: model)
-                    case .dictionary: DictionaryPage(model: model)
                     case .settings: SettingsPage(model: model)
                     }
                 }
@@ -463,120 +448,6 @@ private struct RecordRow: View {
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12).fill(Hotsauce.raised))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Hotsauce.ash))
-    }
-}
-
-// MARK: Dictionary
-
-private struct DictionaryPage: View {
-    @ObservedObject var model: MainModel
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Names and terms \(Brand.name) should hear and spell exactly as written. Yours apply to your dictations; the team’s apply to everyone on the team.")
-                    .font(.system(size: 13)).foregroundStyle(Hotsauce.inkSoft).fixedSize(horizontal: false, vertical: true)
-                if let state = model.wordsState {
-                    Text(state).font(.system(size: 12)).foregroundStyle(Hotsauce.inkFaint)
-                }
-                HStack(alignment: .top, spacing: 12) {
-                    WordList(model: model, scope: .mine, title: "My words", hint: "Only you", words: model.mine)
-                    WordList(model: model, scope: .team, title: "Team words", hint: "Everyone on the team", words: model.team)
-                }
-            }
-            .padding(.horizontal, 28)
-            .padding(.bottom, 28)
-        }
-    }
-}
-
-private struct WordList: View {
-    @ObservedObject var model: MainModel
-    let scope: DictationClient.WordScope
-    let title: String
-    let hint: String
-    let words: [String]
-
-    private var draft: Binding<String> {
-        Binding(get: { model.drafts[scope] ?? "" }, set: { model.drafts[scope] = $0 })
-    }
-
-
-    var body: some View {
-        Card(title: title) {
-            Text(hint).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-            if words.isEmpty {
-                Empty("None yet.")
-            } else {
-                Flow(spacing: 6) {
-                    ForEach(words, id: \.self) { word in
-                        HStack(spacing: 4) {
-                            Text(word).font(.system(size: 12)).foregroundStyle(Hotsauce.ink)
-                            Button {
-                                model.editWords([], [word], scope) { _ in }
-                            } label: {
-                                Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Hotsauce.inkFaint)
-                            .help("Remove \(word)")
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Hotsauce.paper))
-                        .overlay(Capsule().strokeBorder(Hotsauce.ash))
-                    }
-                }
-            }
-            HStack {
-                TextField("Add a word or name", text: draft).textFieldStyle(.roundedBorder).onSubmit(add)
-                Button("Add", action: add).disabled(draft.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-        }
-    }
-
-    private func add() {
-        let added = draft.wrappedValue.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        guard !added.isEmpty else { return }
-        // Cleared only once saved, so a failed save doesn't lose what was typed.
-        model.editWords(added, [], scope) { saved in
-            if saved { draft.wrappedValue = "" }
-        }
-    }
-}
-
-/// Wrapping row of chips.
-private struct Flow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
-        return CGSize(width: proposal.width ?? rows.width, height: rows.height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let rows = arrange(width: bounds.width, subviews: subviews)
-        for (index, point) in rows.points.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y), proposal: .unspecified)
-        }
-    }
-
-    private func arrange(width: CGFloat, subviews: Subviews) -> (points: [CGPoint], width: CGFloat, height: CGFloat) {
-        var points: [CGPoint] = []
-        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0, maxX: CGFloat = 0
-        for view in subviews {
-            let size = view.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            points.append(CGPoint(x: x, y: y))
-            x += size.width + spacing
-            maxX = max(maxX, x)
-            rowHeight = max(rowHeight, size.height)
-        }
-        return (points, maxX, y + rowHeight)
     }
 }
 

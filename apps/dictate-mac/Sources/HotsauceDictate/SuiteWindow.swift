@@ -39,6 +39,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     var macSettings: (_ request: MacSettingsBridge.Request, _ reply: @escaping (Any?) -> Void) -> Void = { _, reply in reply(nil) }
     /// The page loaded now said it has This Mac (R11); a new document starts without.
     private var pageSaidHello = false
+    /// The same for the Dictate page's "On this Mac" (docs/PLAN-dictations-page.md R7).
+    private var pageSaidDictationsHello = false
     /// When the finish page took a sign-in ticket: it may connect Dictate for a short while after.
     private var handoffOpenedAt: Date?
     /// The suite page that couldn't be loaded, while the window shows the "Can't reach" page.
@@ -352,12 +354,28 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             pageSaidHello = true
             return reply(nil)
         }
+        if request == .helloDictations {
+            pageSaidDictationsHello = true
+            return reply(nil)
+        }
         macSettings(request, reply)
     }
 
     /// Whether ⌘, can show This Mac here, or the app's own small window is needed (R11).
     var settingsDestination: SettingsDestination {
         SettingsDestination.choose(pageSaidHello: pageSaidHello, pageLoaded: isOnSuitePage && failedURL == nil)
+    }
+
+    /// Whether "Dictate…" can show the Dictate page's "On this Mac" here, or the old window is
+    /// needed (docs/PLAN-dictations-page.md R7).
+    var dictationsDestination: SettingsDestination {
+        SettingsDestination.choose(pageSaidHello: pageSaidDictationsHello, pageLoaded: isOnSuitePage && failedURL == nil)
+    }
+
+    /// Tells the page the history changed, so "On this Mac" reads it again (R5).
+    func dictationsChanged() {
+        guard pageSaidDictationsHello else { return }
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('hotsauce:mac-dictations'))", in: nil, in: .page) { _ in }
     }
 
     /// The frame's own origin is the suite's, and so is the page the web view shows.
@@ -668,6 +686,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         // A new document: whatever took the sign-in ticket is gone, so is its Dictate handoff.
         if webView.url?.path != DictateHandoff.finishPath { handoffOpenedAt = nil }
         pageSaidHello = false
+        pageSaidDictationsHello = false
         stopMeetingCapture()
         followedCallSession = nil
     }
