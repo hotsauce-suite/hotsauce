@@ -114,3 +114,15 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   read could never take a new build. Each build is now its own prerelease, `mac-app-<build>`, and
   the server asks GitHub's API for the highest build (once per refresh, so the app, the zip and
   `mac-app.json` all come from the same one), falling back to the old `mac-app` release.
+- **The Mac app's version only matched the release on the day it was built.** `build-app.sh`
+  always read `HOTSAUCE_VERSION`, but builds were by hand on one Mac, so the app fell 15 releases
+  behind in a day and people saw two numbers. Building on a GitHub Mac after every Release run
+  fixes the number; `sameAppSince` in `mac-app.json` keeps those number-only builds from telling
+  everyone to update (Hotsauce releases about ten times a day).
+- **The first signing identity couldn't leave its Mac.** `create-signing-identity.sh` imported
+  the key with `-x` (not exportable), so moving builds to GitHub needed a new identity, made once
+  with the key sent straight to GitHub secrets and the keychain. Its first build costs members one
+  more Accessibility grant. Make keys that CI will need exportable to CI from the start.
+- **Don't find the newest Mac build from the release list.** Every Hotsauce release is a release
+  too, so a `mac-app-<build>` falls off GitHub's first page of 100 within days. Ask for the tags
+  alone: `git/matching-refs/tags/mac-app-`.

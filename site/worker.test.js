@@ -1,6 +1,7 @@
 // The hotsauce.work worker: the landing page, and the live demo at demo.hotsauce.work
 // (docs/PLAN-live-demo.md). ASSETS is faked; it records which file each request asked for.
 import { describe, expect, it } from 'vitest'
+import { newestMacTag } from './mac-download.js'
 import worker from './worker.js'
 
 function env() {
@@ -102,5 +103,137 @@ describe('which version is live', () => {
 
   it('says nothing when the deploy gave no version', async () => {
     expect((await get('https://hotsauce.work/', env())).headers.has('x-site-version')).toBe(false)
+  })
+})
+
+describe('the Mac app download (docs/PLAN-mac-download.md)', () => {
+  const refs = [
+    { ref: 'refs/tags/mac-app-99' },
+    { ref: 'refs/tags/mac-app-111' },
+    { ref: 'refs/tags/mac-app-1x' },
+  ]
+  function github({ down = false, info = { version: '0.29.2', build: '111' } } = {}) {
+    const calls = []
+    const gh = {
+      calls,
+      down,
+      async fetch(u) {
+        calls.push(u)
+        if (gh.down) return new Response('rate limited', { status: 403 })
+        if (u.includes('/git/matching-refs/tags/mac-app-')) return Response.json(refs)
+        if (u.endsWith('/mac-app-111/mac-app.json') && info) return Response.json(info)
+        return new Response('missing', { status: 404 })
+      },
+    }
+    return gh
+  }
+  function memoryCache() {
+    const m = new Map()
+    return {
+      async match(req) {
+        const hit = m.get(req.url)
+        return hit === undefined ? undefined : new Response(hit)
+      },
+      async put(req, res) {
+        m.set(req.url, await res.text())
+      },
+      expire(name) {
+        m.delete(`https://hotsauce.work/__mac-app-${name}`)
+      },
+    }
+  }
+  const dmg = (tag) =>
+    `https://github.com/hotsauce-suite/hotsauce/releases/download/${tag}/Hotsauce.dmg`
+
+  it('uses the build the deploy found, without asking GitHub', async () => {
+    const gh = github({ down: true })
+    const e = {
+      ...env(),
+      fetch: gh.fetch,
+      MAC_APP_TAG: 'mac-app-112',
+      MAC_APP_VERSION: '0.34.2',
+      MAC_APP_BUILD: '112',
+    }
+    const res = await get('https://hotsauce.work/download/mac', e)
+    expect(res.headers.get('location')).toBe(dmg('mac-app-112'))
+    const info = await (await get('https://hotsauce.work/download/mac.json', e)).json()
+    expect(info).toMatchObject({ version: '0.34.2', build: '112' })
+    expect(gh.calls).toHaveLength(0)
+  })
+
+  it('asks GitHub itself when the deploy found nothing usable', async () => {
+    const gh = github()
+    const e = { ...env(), fetch: gh.fetch, MAC_APP_TAG: '', MAC_APP_VERSION: '' }
+    const res = await get('https://hotsauce.work/download/mac', e)
+    expect(res.headers.get('location')).toBe(dmg('mac-app-111'))
+    expect(gh.calls.length).toBeGreaterThan(0)
+  })
+
+  it('picks the highest build among the mac-app tags', () => {
+    expect(newestMacTag(refs)).toBe('mac-app-111')
+    expect(newestMacTag([{ tag_name: 'mac-app-7' }, { tag_name: 'v1.0.0' }])).toBe('mac-app-7')
+    expect(newestMacTag([{ ref: 'refs/tags/v1.0.0' }])).toBeNull()
+    expect(newestMacTag('nonsense')).toBeNull()
+  })
+
+  it('sends /download/mac to the newest build of the disk image', async () => {
+    const res = await get('https://hotsauce.work/download/mac', { ...env(), fetch: github().fetch })
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe(dmg('mac-app-111'))
+  })
+
+  it('says which version the download is, for the page to show', async () => {
+    const gh = github()
+    const res = await get('https://hotsauce.work/download/mac.json', { ...env(), fetch: gh.fetch })
+    expect(res.headers.get('content-type')).toContain('application/json')
+    expect(await res.json()).toEqual({
+      version: '0.29.2',
+      build: '111',
+      url: 'https://hotsauce.work/download/mac',
+      minimumMacOS: '14.0',
+    })
+  })
+
+  it('asks GitHub once per ten minutes, not once per visitor', async () => {
+    const gh = github()
+    const e = { ...env(), fetch: gh.fetch, cache: memoryCache() }
+    await get('https://hotsauce.work/download/mac.json', e)
+    await get('https://hotsauce.work/download/mac', e)
+    await get('https://hotsauce.work/download/mac.json', e)
+    expect(gh.calls).toHaveLength(2)
+  })
+
+  it('keeps offering the last good build while GitHub refuses, and asks again only after a minute', async () => {
+    const gh = github()
+    const cache = memoryCache()
+    const e = { ...env(), fetch: gh.fetch, cache }
+    await get('https://hotsauce.work/download/mac', e)
+    cache.expire('latest')
+    gh.down = true
+    const before = gh.calls.length
+    const res = await get('https://hotsauce.work/download/mac', e)
+    expect(res.headers.get('location')).toBe(dmg('mac-app-111'))
+    const info = await (await get('https://hotsauce.work/download/mac.json', e)).json()
+    expect(info.version).toBe('0.29.2')
+    expect(gh.calls.length).toBe(before + 1)
+  })
+
+  it('still offers a download, with no number, when GitHub has never answered', async () => {
+    const e = { ...env(), fetch: github({ down: true }).fetch }
+    const res = await get('https://hotsauce.work/download/mac', e)
+    expect(res.headers.get('location')).toBe(dmg('mac-app'))
+    const info = await (await get('https://hotsauce.work/download/mac.json', e)).json()
+    expect(info.version).toBeNull()
+  })
+
+  it('offers the newest build even when its version file is missing or odd', async () => {
+    for (const info of [null, { version: '<script>', build: '111' }]) {
+      const e = { ...env(), fetch: github({ info }).fetch }
+      const res = await get('https://hotsauce.work/download/mac', e)
+      expect(res.headers.get('location')).toBe(dmg('mac-app-111'))
+      expect(
+        (await (await get('https://hotsauce.work/download/mac.json', e)).json()).version,
+      ).toBeNull()
+    }
   })
 })

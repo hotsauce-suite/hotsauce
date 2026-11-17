@@ -52,23 +52,29 @@ public enum AppVersion {
     public struct Latest: Equatable, Sendable {
         public let version: String
         public let build: String?
-        public init(version: String, build: String? = nil) {
+        /// The first build with the same Mac app sources as this one: every Hotsauce release makes
+        /// a build (docs/PLAN-mac-download.md), and one at or above this is the same app.
+        public let sameAppSince: String?
+        public init(version: String, build: String? = nil, sameAppSince: String? = nil) {
             self.version = version
             self.build = build
+            self.sameAppSince = sameAppSince
         }
     }
 
     /// The newest build a server's `/downloads/mac-app.json` names, or nil.
     public static func latest(fromJSON data: Data) -> Latest? {
-        struct Info: Decodable { let version: String; let build: String? }
+        struct Info: Decodable { let version: String; let build: String?; let sameAppSince: String? }
         guard let info = try? JSONDecoder().decode(Info.self, from: data), let v = valid(info.version) else { return nil }
-        return Latest(version: v, build: validBuild(info.build))
+        return Latest(version: v, build: validBuild(info.build), sameAppSince: validBuild(info.sameAppSince))
     }
 
     /// The version to offer when `latest` is newer than what's installed (a higher version, or the
     /// same version with a higher build); else nil.
     public static func update(installed: String?, installedBuild: String? = nil, latest: Latest?) -> String? {
         guard let installed = valid(installed), let latest, let newest = valid(latest.version) else { return nil }
+        if let mine = validBuild(installedBuild).flatMap(Int.init),
+           let since = validBuild(latest.sameAppSince).flatMap(Int.init), mine >= since { return nil }
         switch compare(installed, newest) {
         case .orderedAscending: return newest
         case .orderedDescending: return nil
