@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMatches, useNavigate, useParams, useSearchParams } from 'react-router'
 import { type DriveFile, type FolderListing, filesApi, formatBytes } from '../../api/files'
 import { signApi } from '../../api/sign'
@@ -12,6 +12,7 @@ import { LoadError } from '../../components/LoadError'
 import { Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { needsConnection } from '../../components/Offline'
 import { MainButton, MoreMenu } from '../../components/PageHeader'
+import { describeLink, fileLink, ReadOnlyLinkItems, useLink } from '../../components/ReadOnlyLink'
 import { ShareButton } from '../../components/ShareButton'
 import { useListKeys } from '../../keyboard/listKeys'
 import { useShortcut } from '../../keyboard/shortcuts'
@@ -200,10 +201,16 @@ export default function FilesPage() {
 
   const copyShare = async (file: DriveFile) => {
     try {
-      const shared = file.shareUrl ? file : await filesApi.share(file.space, file.id, true)
+      // For teammates: open to members, never ending. A link for people outside is made with
+      // Share read-only link, which asks who it's for and when it ends.
+      // A link that has ended is replaced (the server makes a new one).
+      const shared =
+        file.shareUrl && !file.shareLink?.ended
+          ? file
+          : await filesApi.share(file.space, file.id, true, { anyone: false, expiresDays: 0 })
       const url = `${window.location.origin}${shared.shareUrl}`
       await navigator.clipboard?.writeText(url).catch(() => {})
-      setToast('Link copied. Anyone signed in to the team can open it.')
+      setToast(`Link copied. ${describeLink(shared.shareLink ?? null)}.`)
       if (open?.id === file.id) setOpen(shared)
       setTick((n) => n + 1)
     } catch (err) {
@@ -493,12 +500,10 @@ export default function FilesPage() {
           onClose={closeFile}
           onShare={copyShare}
           onSign={(file) => void sendForSignature(file)}
-          onUnshare={(file) =>
-            act(
-              async () => setOpen(await filesApi.share(file.space, file.id, false)),
-              'Link turned off',
-            )
-          }
+          onChanged={(file) => {
+            setOpen(file)
+            setTick((n) => n + 1)
+          }}
           onRename={(file) => setDialog({ kind: 'rename', file })}
           onDelete={(file) => setDialog({ kind: 'delete', file })}
         />
@@ -694,7 +699,7 @@ function FileDialog({
   onClose,
   onShare,
   onSign,
-  onUnshare,
+  onChanged,
   onRename,
   onDelete,
 }: {
@@ -703,10 +708,18 @@ function FileDialog({
   onClose: () => void
   onShare: (f: DriveFile) => void
   onSign: (f: DriveFile) => void
-  onUnshare: (f: DriveFile) => void
+  /** The file as the server returned it after its link changed. */
+  onChanged: (f: DriveFile) => void
   onRename: (f: DriveFile) => void
   onDelete: (f: DriveFile) => void
 }) {
+  const changed = useRef(onChanged)
+  changed.current = onChanged
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one target per file; its link changes through it
+  const target = useMemo(() => fileLink(file, (f) => changed.current(f)), [file.space, file.id])
+  const link = useLink(target)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-read when the file's link changes
+  useEffect(() => link.refresh(), [file.shareUrl, link.refresh])
   return (
     <Dialog
       title={file.name}
@@ -785,7 +798,11 @@ function FileDialog({
               Send for signature
             </button>
           ) : null}
-          <ShareButton testId="file-share-menu" className={`${secondaryButton} h-9`}>
+          <ShareButton
+            testId="file-share-menu"
+            className={`${secondaryButton} h-9`}
+            onOpen={() => link.refresh()}
+          >
             {(close) => (
               <>
                 <MenuItem
@@ -798,24 +815,14 @@ function FileDialog({
                 >
                   Copy link
                 </MenuItem>
-                {file.shareUrl ? (
-                  <MenuItem
-                    icon="close"
-                    testId="file-unshare"
-                    onSelect={() => {
-                      close()
-                      onUnshare(file)
-                    }}
-                  >
-                    Turn off link
-                  </MenuItem>
-                ) : null}
+                <ReadOnlyLinkItems link={link} close={close} />
               </>
             )}
           </ShareButton>
+          {link.dialog}
           {file.shareUrl ? (
             <p className="text-xs text-ink-faint" data-testid="file-shared-note">
-              Anyone signed in to {product()} with the link can open this file.
+              Link on: {describeLink(file.shareLink ?? null)}.
             </p>
           ) : null}
         </aside>

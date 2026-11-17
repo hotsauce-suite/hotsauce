@@ -74,6 +74,7 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
   user,
   playwright,
   baseURL,
+  browser,
 }) => {
   // A whole journey: record, wait for the server to put the camera in, then watch and edit.
   test.setTimeout(120_000)
@@ -317,6 +318,42 @@ test('record screen and camera, stop from the bubble, watch, change speed, follo
     await expect(card).toBeVisible()
     await page.getByTestId('clips-search').fill('no clip says this')
     await expect(card).toBeHidden()
+  })
+
+  await test.step('the owner shares it with someone outside, who watches it signed out', async () => {
+    const admin = await playwright.request.newContext({
+      baseURL: baseURL as string,
+      extraHTTPHeaders: { 'x-hearth-dev-user': 'e2e-admin@example.test' },
+    })
+    await admin.put('/api/sharing', { data: { publicShareLinks: true } })
+    try {
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+      await page.goto(`/clips/${clipId}`)
+      await page.getByTestId('clip-share').click()
+      await page.getByTestId('read-only-link-on').click()
+      await page.getByTestId('link-who-anyone').check()
+      await page.getByTestId('link-make').click()
+      await expect(page.getByText('Read-only link copied. Anyone with the link')).toBeVisible()
+      const url = await page.evaluate(() => navigator.clipboard.readText())
+      const outside = await browser.newContext()
+      const stranger = await outside.newPage()
+      await stranger.goto(url)
+      await expect(
+        stranger.getByRole('heading', { name: 'Walkthrough of the bubble' }),
+      ).toBeVisible()
+      await expect(stranger.getByTestId('shared-clip-transcript')).toContainText('clip segment')
+      const shared = stranger.getByTestId('shared-clip-video')
+      await expect
+        .poll(() => shared.evaluate((v: HTMLVideoElement) => v.readyState))
+        .toBeGreaterThan(0)
+      await stranger.getByTestId('shared-clip-speed-2').click()
+      expect(await shared.evaluate((v: HTMLVideoElement) => v.playbackRate)).toBe(2)
+      await stranger.screenshot({ path: test.info().outputPath('shared-clip.png') })
+      await outside.close()
+    } finally {
+      await admin.put('/api/sharing', { data: { publicShareLinks: false } })
+      await admin.dispose()
+    }
   })
 
   await test.step('another member watches but cannot delete', async () => {

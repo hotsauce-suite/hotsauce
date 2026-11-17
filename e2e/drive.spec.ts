@@ -121,7 +121,7 @@ test('upload, preview, organize, search and share files', async ({ page, member,
   await expect(otherPage.getByTestId('shared-download')).toBeVisible()
 
   await page.getByTestId('file-share-menu').click()
-  await page.getByTestId('file-unshare').click()
+  await page.getByTestId('read-only-link-off').click()
   await expect(page.getByTestId('file-shared-note')).toHaveCount(0)
   await otherPage.reload()
   await expect(otherPage.getByRole('alert')).toContainText('turned off')

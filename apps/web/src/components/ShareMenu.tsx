@@ -58,6 +58,7 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
 
   return (
     <>
+      {readOnly.dialog}
       <ShareButton iconOnly={iconOnly} online={online} onOpen={() => readOnly.refresh()}>
         {(close) => (
           <>

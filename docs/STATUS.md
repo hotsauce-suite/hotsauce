@@ -34,7 +34,7 @@ Hold a key on the Mac, talk, and clean text lands at the cursor, with team word 
 Needs the speech key and the Mac app (`apps/dictate-mac`); the AI key turns the raw transcript into clean text.
 
 ### Clips
-Screen and camera recordings with a transcript, trimming, Summarize and Action items, speed control and a shared library.
+Screen and camera recordings with a transcript, trimming, Summarize and Action items, speed control, a shared library and read-only links for people outside.
 Needs the speech and AI keys and `ffmpeg` on the server; video lives on the volume or in R2/S3.
 
 ### Tasks
@@ -87,7 +87,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Comments and @mentions**: a conversation under every team doc, meeting note and task; `@` and a name sends that teammate one notification that opens on the comment. Needs nothing extra; notifications must be on for the push. Not yet: a "For you" list, replies and comments from AI tools (the next steps in `docs/PLAN-comments.md`), and sending a comment written offline.
 - **Offline (step A)**: once opened on a device, the app opens there with no connection, as the last member signed in, with an Offline bar; what needs the server is greyed out or says "Not available offline yet". Doc edits made offline are kept on the device ("Saved on this device") and sent when back, even after a reload; text the server refuses (the doc moved) is kept in Docs → Kept on this device. Sign out works offline. Needs nothing extra. Not yet: reading docs, tasks and notes not edited offline (step B in `docs/PLAN-offline.md`), new docs made offline.
 - **Agent briefs**: a nightly page per member from their meetings and tasks. Needs the AI key.
-- **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Needs nothing extra.
+- **Share pages** (`apps/web/src/apps/pages`): read-only links and published pages. Docs, meeting notes, notes, pages, clips and files can have a read-only link; each link is for members or for anyone with the link (anyone links need the admin switch in Settings → People and access, off by default) and ends after 7 days, 30 days (default) or never. Admins see and turn off every link there. Needs nothing extra.
 - **Chat** in the rail is a link to the organization's own chat (`CHAT_URL`), not a Hotsauce app.
 - **Chat as context** (`docs/PLAN-chat-context.md`): an admin switches on **Read for context** for a chat room in Settings → Workspace whose link is a bot's room address (Ember, Campfire). Hotsauce copies its history into `DATA_DIR/chat.sqlite`, reads new messages every 5 minutes (`CHAT_READ_INTERVAL_MS`) and thread replies of the last week, and the messages show in ⌘K (In chat), Ask and AI tools (`search_chat`, `read_chat`) and the agent brief. Every member can search a read room; direct messages are never read; later edits and deletions aren't picked up. Needs nothing extra beyond the bot in the chat.
 - **Send feedback** files a GitHub issue. Needs `FEEDBACK_REPO` and `FEEDBACK_GITHUB_TOKEN`.

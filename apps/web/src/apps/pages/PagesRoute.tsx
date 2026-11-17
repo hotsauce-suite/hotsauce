@@ -189,6 +189,7 @@ export function PageRoute() {
 
   return (
     <>
+      {link.dialog}
       <MeetingsPageHeader title={page?.title ?? 'Page'} back={{ to: '/pages', label: 'Pages' }}>
         {page ? <ItemStatus whose={spaceLabel(page.space)} /> : null}
         {compact ? null : (

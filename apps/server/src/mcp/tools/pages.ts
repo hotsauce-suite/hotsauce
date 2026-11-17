@@ -100,17 +100,28 @@ export function registerPageTools(
     {
       title: 'Turn a read-only link on or off',
       description:
-        'Turns a read-only link on or off for a doc, meeting note, note or page (a page’s path is pages/<id>.md). Who can open the link depends on the organization’s setting: signed-in members and invited people, or anyone with the link. Only turn one on when the member asks for it.',
+        'Turns a read-only link on or off for a doc, meeting note, note or page (a page’s path is pages/<id>.md). By default only people who can sign in to the organization can open it, and it ends after 30 days. anyone: true makes it open for anyone with the link (only when the member asks for that, and only if the organization allows it). Only turn a link on when the member asks for it.',
       inputSchema: {
         space: Space,
         path: z.string().min(1).describe('The file path, e.g. "docs/plan.md"'),
         on: z.boolean().describe('true to turn the link on, false to turn it off'),
+        anyone: z
+          .boolean()
+          .optional()
+          .describe('true: anyone with the link can open it, signed out too. Default false.'),
+        expires_days: z
+          .union([z.literal(7), z.literal(30), z.literal(0)])
+          .optional()
+          .describe('When the link ends: 7 or 30 days, or 0 for never. Default 30.'),
       },
       annotations: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
     },
-    ({ space, path, on }) =>
+    ({ space, path, on, anyone, expires_days }) =>
       runTool(async () => {
-        const state = await shares.set(principal, space, path, on, via)
+        const state = await shares.set(principal, space, path, on, via, {
+          ...(anyone === undefined ? {} : { anyone }),
+          ...(expires_days === undefined ? {} : { expiresDays: expires_days }),
+        })
         return { ...state, url: state.url ? `${base}${state.url}` : null }
       }),
   )

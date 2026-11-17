@@ -404,6 +404,7 @@ function NoteShareButton({
   const ref = useRef<HTMLSpanElement>(null)
   return (
     <>
+      {link.dialog}
       <span ref={ref} className="inline-flex">
         <ToolButton
           icon="share"

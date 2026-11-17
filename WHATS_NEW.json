@@ -1,6 +1,30 @@
 {
   "releases": [
     {
+      "version": "0.45.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Share read-only link now asks who can open it (people in your organization, or anyone with the link) and when it ends (7 days, 30 days by default, or never)."
+        },
+        {
+          "text": "Clips can have a read-only link: people outside watch the video at any speed and read the summary and transcript, without signing in."
+        },
+        {
+          "text": "Files can have a link for people outside, with a preview and a download button."
+        },
+        {
+          "text": "The organization switch now lets members make links anyone can open, instead of opening every link at once. Links made before stay for members."
+        },
+        {
+          "text": "Settings → People and access lists every link, who made it and when it ends, with Turn off."
+        },
+        {
+          "text": "A link that has ended says so, and its Share menu offers a new one."
+        }
+      ]
+    },
+    {
       "version": "0.44.0",
       "date": "2026-11-17",
       "notes": [
