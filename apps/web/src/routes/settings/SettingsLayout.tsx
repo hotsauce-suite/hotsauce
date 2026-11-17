@@ -213,9 +213,9 @@ const stripLink =
   'flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm text-ink-soft hover:bg-paper-sunk/60 hover:text-ink'
 
 /**
- * Help, feedback and the version, on every Settings page (L3). Updates apply on their own
- * (vite.config.ts: autoUpdate with skipWaiting), so Reload just checks for a newer build and
- * reloads the page.
+ * Help, feedback and the version, on every Settings page (L3). Open windows reload into a new
+ * release on their own at a safe moment (lib/appUpdate), so Reload is for doing it right now: it
+ * checks for a newer build and reloads the page.
  */
 function HelpStrip() {
   const health = useRouteLoaderData('root') as Health | undefined

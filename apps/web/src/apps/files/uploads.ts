@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { type DriveFile, uploadFile } from '../../api/files'
+import { registerLeaveGuard } from '../../lib/leaveGuards'
 import { filesBus } from './bus'
 
 export interface UploadItem {
@@ -18,6 +19,9 @@ export interface UploadItem {
 let items: UploadItem[] = []
 let nextKey = 1
 const listeners = new Set<() => void>()
+
+// Leaving the page (closing it, or an update reload) would cut the uploads still running.
+registerLeaveGuard(() => items.some((i) => i.status === 'uploading'))
 
 function set(next: UploadItem[]): void {
   items = next

@@ -3,6 +3,7 @@
 
 import { HotsauceApiError } from '../../../api/client'
 import type { Clip, ClipContainer, ClipMode, FinishBody } from '../../../api/clips'
+import { registerLeaveGuard } from '../../../lib/leaveGuards'
 import {
   AUDIO_BITS,
   CAMERA_BITS,
@@ -160,8 +161,16 @@ export class RecordingSession {
 
   getSnapshot = (): SessionState => this.#state
 
+  /** Holds leaving the page while the clip is still saving (lib/leaveGuards). */
+  #saving: (() => void) | null = null
+
   #set(patch: Partial<SessionState>): void {
     this.#state = { ...this.#state, ...patch }
+    if (this.#state.phase === 'finishing') this.#saving ??= registerLeaveGuard(() => true)
+    else if (this.#saving) {
+      this.#saving()
+      this.#saving = null
+    }
     for (const listener of this.#listeners) listener()
   }
 

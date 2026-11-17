@@ -13,12 +13,14 @@ import { NotesSidebar } from '../apps/notes/NotesSidebar'
 import { appForPath, ownerOfPath } from '../apps/registry'
 import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
+import { product } from '../brand/product'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSpec } from '../keyboard/keys'
 import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
 import { useAppShortcuts } from '../keyboard/useAppShortcuts'
 import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
+import { BUILD_VERSION, takeUpdatedVersion } from '../lib/appUpdate'
 import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
 import { SessionProvider, useSession } from '../state/session'
@@ -121,6 +123,17 @@ function ShellLayout() {
     live !== null &&
     (location.pathname === `/meetings/live/${live.id}` || location.pathname === '/dictate/voice')
   useRecordingTitle(live)
+
+  // This window just reloaded itself into a new release: say so once (PLAN-reload-after-updates R7).
+  const { notify } = session
+  useEffect(() => {
+    let store: Storage | null = null
+    try {
+      store = window.sessionStorage
+    } catch {}
+    const updated = takeUpdatedVersion(BUILD_VERSION, store)
+    if (updated) notify(`${product()} updated to ${updated}`)
+  }, [notify])
 
   // The sidebar follows the open doc's space.
   useEffect(() => {

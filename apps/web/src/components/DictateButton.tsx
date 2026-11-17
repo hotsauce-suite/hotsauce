@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { dictationApi } from '../api/dictation'
+import { useLeaveGuard } from '../hooks/useLeaveGuard'
 import { Icon } from './Icon'
 
 /** A dictation stops itself after this long. */
@@ -33,6 +34,8 @@ export function DictateButton({
   const stream = useRef<MediaStream | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gone = useRef(false)
+  // A reload or closing the tab would cut the recording, or the upload of it.
+  useLeaveGuard(phase !== 'idle')
 
   useEffect(
     () => () => {
