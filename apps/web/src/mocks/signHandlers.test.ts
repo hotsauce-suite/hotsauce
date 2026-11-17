@@ -94,4 +94,26 @@ describe('mock Sign', () => {
     expect((await signApi.get('ada', draft.id)).status).toBe('completed')
     await signApi.remove('ada', draft.id)
   })
+
+  it('corrects someone after sending and copies a finished envelope into a draft', async () => {
+    const { envelopes } = await signApi.list()
+    const out = envelopes.find((e) => e.status === 'sent')
+    const done = envelopes.find((e) => e.status === 'completed')
+    if (!out || !done) throw new Error('no seeded envelopes')
+    const env = await signApi.get(out.space, out.id)
+    const who = env.signerList.find((p) => p.status === 'pending' && p.role !== 'copy')
+    if (!who) throw new Error('nobody pending')
+    const fixed = await signApi.correct(out.space, out.id, who.id, {
+      name: who.name,
+      email: 'right.address@example.org',
+    })
+    expect(fixed.signerList.find((p) => p.id === who.id)?.email).toBe('right.address@example.org')
+    expect(fixed.audit.at(-1)?.event).toBe('signer_corrected')
+
+    const copy = await signApi.copy(done.space, done.id)
+    expect(copy).toMatchObject({ status: 'draft', title: done.title })
+    expect(copy.audit.map((a) => a.event)).toEqual(['copied'])
+    expect(copy.fields.every((f) => f.value === undefined && f.image === undefined)).toBe(true)
+    await signApi.remove(copy.space, copy.id)
+  })
 })

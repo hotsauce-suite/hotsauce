@@ -67,6 +67,7 @@ export default function EnvelopePage() {
   const [confirmSend, setConfirmSend] = useState(false)
   const [links, setLinks] = useState<SigningLink[] | null>(null)
   const [replace, setReplace] = useState<{ signer: SignerView; email: boolean } | null>(null)
+  const [fix, setFix] = useState<{ signer: SignerView; name: string; email: string } | null>(null)
 
   const adopt = useCallback((view: EnvelopeView) => {
     setEnv(view)
@@ -240,6 +241,41 @@ export default function EnvelopePage() {
     }
   }
 
+  const correct = async () => {
+    if (!fix) return
+    setBusy(true)
+    setError(null)
+    try {
+      const { link, ...view } = await signApi.correct(space, id, fix.signer.id, {
+        name: fix.name,
+        email: fix.email,
+      })
+      adopt(view)
+      setFix(null)
+      if (link && !link.emailed) setLinks([link])
+      else notify(link ? `New link emailed to ${link.email}` : 'Saved')
+    } catch (e) {
+      setError(message(e, 'Couldn’t change that'))
+      setFix(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copy = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const made = await signApi.copy(space, id)
+      notify('Copied to a new draft')
+      navigate(`/sign/${encodeURIComponent(made.space)}/${made.id}`)
+    } catch (e) {
+      setError(message(e, 'Couldn’t copy this envelope'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const finish = async () => {
     setBusy(true)
     setError(null)
@@ -356,6 +392,17 @@ export default function EnvelopePage() {
             Sign it
           </button>
         ) : null}
+        {env.status !== 'draft' && !signing ? (
+          <button
+            type="button"
+            className={`${secondaryButton} h-9`}
+            disabled={busy}
+            onClick={() => void copy()}
+            data-testid="sign-copy"
+          >
+            Copy to a new draft
+          </button>
+        ) : null}
       </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto bg-paper-sunk/60">
         <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-4">
@@ -387,6 +434,7 @@ export default function EnvelopePage() {
                   myEmail={myEmail}
                   busy={busy}
                   onLink={(signer, email) => setReplace({ signer, email })}
+                  onFix={(signer) => setFix({ signer, name: signer.name, email: signer.email })}
                 />
               ) : null}
 
@@ -594,6 +642,66 @@ export default function EnvelopePage() {
               {replace.email ? 'Email it' : 'Make a new link'}
             </button>
           </div>
+        </Dialog>
+      ) : null}
+
+      {fix ? (
+        <Dialog title={`Change ${fix.signer.name}`} onClose={() => setFix(null)}>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void correct()
+            }}
+          >
+            <p className="text-sm text-ink-soft">
+              Fix a misspelled name or a wrong address.
+              {fix.signer.role === 'copy'
+                ? ' They get the finished copy at the new address.'
+                : ` Their current link stops working${
+                    env.upNext.includes(fix.signer.id)
+                      ? env.canEmail
+                        ? ', and a new one is emailed to the address below.'
+                        : ', and you get a new one to copy and send.'
+                      : '; they get a new one when it’s their turn.'
+                  }`}{' '}
+              The change is kept in the audit trail.
+            </p>
+            <label className="flex flex-col gap-1 text-sm text-ink-soft">
+              Name
+              <input
+                className={inputClass}
+                value={fix.name}
+                maxLength={120}
+                onChange={(e) => setFix({ ...fix, name: e.target.value })}
+                data-testid="sign-fix-name"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-ink-soft">
+              Email
+              <input
+                className={inputClass}
+                type="email"
+                value={fix.email}
+                maxLength={320}
+                onChange={(e) => setFix({ ...fix, email: e.target.value })}
+                data-testid="sign-fix-email"
+              />
+            </label>
+            <div className="mt-1 flex justify-end gap-2">
+              <button type="button" className={secondaryButton} onClick={() => setFix(null)}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={primaryButton}
+                disabled={busy || !fix.name.trim() || !fix.email.trim()}
+                data-testid="sign-fix-confirm"
+              >
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </form>
         </Dialog>
       ) : null}
 
@@ -852,11 +960,13 @@ function Progress({
   myEmail,
   busy,
   onLink,
+  onFix,
 }: {
   env: EnvelopeView
   myEmail: string | undefined
   busy: boolean
   onLink: (signer: SignerView, email: boolean) => void
+  onFix: (signer: SignerView) => void
 }) {
   const decliner = env.signerList.find((s) => s.status === 'declined')
   const isSender = env.createdBy.toLowerCase() === myEmail
@@ -899,6 +1009,17 @@ function Progress({
               <span className="text-xs text-ink-soft" data-testid="sign-progress-state">
                 {personState(s, turn, isMe)}
               </span>
+              {env.status === 'sent' && isSender && s.status === 'pending' ? (
+                <button
+                  type="button"
+                  className="rounded-full px-2 py-1 text-xs text-ink-soft ring-1 ring-ash-strong hover:ring-ember"
+                  disabled={busy}
+                  onClick={() => onFix(s)}
+                  data-testid="sign-fix"
+                >
+                  Change
+                </button>
+              ) : null}
               {env.status === 'sent' && turn && !isMe && isSender ? (
                 <span className="flex gap-1">
                   <button
@@ -1019,4 +1140,6 @@ const EVENT_LABEL: Record<string, string> = {
   signed: 'Signed',
   declined: 'Declined',
   completed: 'Completed and sealed',
+  signer_corrected: 'Changed someone’s name or email',
+  copied: 'Copied from an earlier envelope',
 }

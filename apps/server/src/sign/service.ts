@@ -17,7 +17,7 @@ import {
   parseFrontmatter,
   parseSigningToken,
   SIGNING_LINK_DAYS,
-  type Signer,
+  Signer,
   type SignField,
   SPACE_LAYOUT,
   signersUpNext,
@@ -498,6 +498,175 @@ export class Sign {
       })
     })
     return this.get(principal, space, id)
+  }
+
+  /**
+   * The sender fixes the name or email of someone who hasn't answered yet, while it's out (R19–R23).
+   * If it's their turn, their old link stops and a fresh one goes to the new address; when this
+   * server emails, the email goes first and a failure changes nothing (no event, old link works).
+   */
+  async correct(
+    principal: Principal,
+    space: string,
+    id: string,
+    signerId: string,
+    input: { name?: string | undefined; email?: string | undefined },
+    meta: RequestMeta,
+    via?: string,
+  ): Promise<EnvelopeView & { link: SigningLink | null }> {
+    this.#assertAccess(principal, space)
+    return this.#serial(space, id, async () => {
+      const { fm, blobOid } = await this.#read(space, id)
+      this.#assertSender(principal, fm)
+      if (fm.status !== 'sent') {
+        throw new HotsauceError(
+          'conflict',
+          'Only an envelope that’s out for signing can have someone corrected',
+        )
+      }
+      const signer = fm.signers.find((s) => s.id === signerId)
+      if (!signer) throw new HotsauceError('not_found', 'No such person on this envelope')
+      if (signer.status === 'signed') {
+        throw new HotsauceError(
+          'conflict',
+          `${signer.name} has already signed, so can’t be changed`,
+        )
+      }
+      if (signer.status === 'declined') {
+        throw new HotsauceError('conflict', `${signer.name} has declined, so can’t be changed`)
+      }
+      const name = (input.name ?? signer.name).replace(/\s+/g, ' ').trim().slice(0, 120)
+      const email = (input.email ?? signer.email).trim().toLowerCase()
+      const check = Signer.shape.email.safeParse(email)
+      if (!check.success || !name) {
+        throw new HotsauceError(
+          'bad_request',
+          name ? 'That email address isn’t valid' : 'Add a name',
+        )
+      }
+      if (name === signer.name && email === signer.email) {
+        return { ...this.#view(principal, space, fm, blobOid), link: null }
+      }
+      if (fm.signers.some((s) => s.id !== signer.id && s.email === email)) {
+        throw new HotsauceError('bad_request', `${email} is already on this envelope`)
+      }
+      const now = this.#iso()
+      // The corrected person starts fresh: no old link, and no "opened" from the old address.
+      const { token_hash, token_expires, sent_at, viewed_at, ...rest } = signer
+      let corrected: Signer = { ...rest, name, email }
+      let link: SigningLink | null = null
+      const isSender = email === fm.created_by.toLowerCase()
+      const turn = signersUpNext(fm.signers, fm.signing_order).some((s) => s.id === signer.id)
+      if (signer.role !== 'copy' && turn && !isSender) {
+        const made = this.#makeLink(fm, corrected)
+        corrected = made.signer
+        link = made.link
+      }
+      let next: EnvelopeFrontmatter = {
+        ...fm,
+        signers: fm.signers.map((s) => (s.id === signer.id ? corrected : s)),
+        updated: now,
+      }
+      if (link && this.#deps.mailer.available) {
+        const [mailed] = await this.#emailLinks(next, [link])
+        if (!mailed?.emailed) {
+          throw new HotsauceError(
+            'host_error',
+            `The new link couldn’t be emailed to ${email}, so nothing changed. Try again in a minute.`,
+          )
+        }
+        link = mailed
+      }
+      next = {
+        ...next,
+        audit: chain(fm.id, fm.audit, [
+          {
+            event: 'signer_corrected',
+            actor: 'sender',
+            email: principal.email,
+            ip: meta.ip,
+            agent: meta.agent,
+            meta: {
+              signerId: signer.id,
+              signerOrder: signer.order,
+              previousName: signer.name,
+              previousEmail: signer.email,
+              signerName: name,
+              signerEmail: email,
+              newLink: link !== null,
+              emailed: link?.emailed ?? false,
+            },
+            at: now,
+          },
+        ]),
+      }
+      await this.#save(space, principal, next, blobOid, 'edit', via)
+      return { ...(await this.get(principal, space, id)), link }
+    })
+  }
+
+  /**
+   * A new draft from an envelope that has been sent (R24): the same PDF, title, people, order
+   * and field places, with nothing filled in. Kept in the same space; whoever copies it sends it.
+   */
+  async copy(principal: Principal, space: string, id: string, via?: string): Promise<EnvelopeView> {
+    this.#assertAccess(principal, space)
+    const { fm } = await this.#read(space, id)
+    if (fm.status === 'draft') {
+      throw new HotsauceError('conflict', 'A draft can’t be copied; edit it instead')
+    }
+    this.#assertAccess(principal, fm.source.space)
+    const original = await this.#deps.files.peek(fm.source.space, fm.source.file)
+    if (!original) {
+      throw new HotsauceError(
+        'not_found',
+        'The PDF this was made from is gone from Files, so it can’t be copied',
+      )
+    }
+    // Refused when the PDF in Files changed since.
+    await this.#sourceBytes(fm.source.space, fm.source.file, fm.source.sha256)
+    const newId = ulid()
+    const now = this.#iso()
+    const copy = EnvelopeFrontmatter.parse({
+      id: newId,
+      type: 'envelope',
+      title: fm.title,
+      status: 'draft',
+      signing_order: fm.signing_order,
+      source: fm.source,
+      signers: fm.signers.map((s) => ({
+        id: s.id,
+        name: s.name,
+        email: s.email,
+        order: s.order,
+        role: s.role,
+      })),
+      fields: fm.fields.map(stripFilled),
+      created: now,
+      created_by: principal.email,
+      updated: now,
+      audit: chain(
+        newId,
+        [],
+        [
+          {
+            event: 'copied',
+            actor: 'sender',
+            email: principal.email,
+            meta: { from: fm.id, file: fm.source.name, sha256: fm.source.sha256 },
+            at: now,
+          },
+        ],
+      ),
+    })
+    await this.#commit(space, principal, {
+      changes: [{ path: envelopePath(newId), content: envelopeFile(copy) }],
+      verb: 'create',
+      title: copy.title,
+      via,
+      unchanged: { path: envelopePath(newId), blobOid: null },
+    })
+    return this.get(principal, space, newId)
   }
 
   // ── signing from a link (no account) ─────────────────────────────────

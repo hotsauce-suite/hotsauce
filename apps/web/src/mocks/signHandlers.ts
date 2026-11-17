@@ -571,6 +571,104 @@ export function signHandlers(deps: {
       return HttpResponse.json(link)
     }),
 
+    // Fix someone's name or email after sending (R19–R23): whoever is up gets a fresh link.
+    http.patch('/api/sign/:space/:id/people/:signer', async ({ request, params }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const s = read(String(params.space), String(params.id))
+      if (!s || !own(user, s)) return error(404, 'not_found', 'No such envelope')
+      if (s.fm.status !== 'sent') {
+        return error(
+          409,
+          'conflict',
+          'Only an envelope that’s out for signing can have someone corrected',
+        )
+      }
+      const x = s.fm.signers.find((y) => y.id === params.signer)
+      if (!x) return error(404, 'not_found', 'No such person on this envelope')
+      if (x.status !== 'pending') return error(409, 'conflict', `${x.name} has already answered`)
+      const body = (await request.json()) as { name?: string; email?: string }
+      const name = (body.name ?? x.name).replace(/\s+/g, ' ').trim()
+      const email = (body.email ?? x.email).trim().toLowerCase()
+      if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return error(400, 'bad_request', 'That email address isn’t valid')
+      }
+      if (s.fm.signers.some((y) => y.id !== x.id && y.email === email)) {
+        return error(400, 'bad_request', `${email} is already on this envelope`)
+      }
+      if (name === x.name && email === x.email) {
+        return HttpResponse.json({ ...view(s, user.email), link: null })
+      }
+      const key = fake.key(s.space, s.fm.id)
+      for (const [t, v] of fake.links) if (v.key === key && v.signer === x.id) fake.links.delete(t)
+      const { token_hash, token_expires, sent_at, viewed_at, ...rest } = x
+      let fixed: Signer = { ...rest, name, email }
+      let link: SigningLink | null = null
+      const turn = view(s, user.email).upNext.includes(x.id)
+      if (x.role !== 'copy' && turn && email !== s.fm.created_by.toLowerCase()) {
+        link = makeLink(fake, key, s.fm.id, fixed)
+        const now = iso(Date.now())
+        fixed = { ...fixed, token_hash: fakeHash(x.id + now), sent_at: now }
+      }
+      const now = iso(Date.now())
+      s.fm = {
+        ...s.fm,
+        signers: s.fm.signers.map((y) => (y.id === x.id ? fixed : y)),
+        updated: now,
+      }
+      s.fm = {
+        ...s.fm,
+        audit: fake.audit(s.fm, [
+          { event: 'signer_corrected', actor: 'sender', email: user.email, at: now },
+        ]),
+      }
+      s.blobOid = newId().toLowerCase()
+      await delay(latencyMs)
+      return HttpResponse.json({ ...view(s, user.email), link })
+    }),
+
+    // A new draft with the same PDF, people and field places, nothing filled in (R24).
+    http.post('/api/sign/:space/:id/copy', async ({ request, params }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const s = read(String(params.space), String(params.id))
+      if (!s || !own(user, s)) return error(404, 'not_found', 'No such envelope')
+      if (s.fm.status === 'draft') return error(409, 'conflict', 'A draft can’t be copied')
+      if (!files.get(s.fm.source.space, s.fm.source.file)) {
+        return error(404, 'not_found', 'The PDF this was made from is gone from Files')
+      }
+      const now = iso(Date.now())
+      const id = newId()
+      let fm = EnvelopeFrontmatter.parse({
+        id,
+        type: 'envelope',
+        title: s.fm.title,
+        status: 'draft',
+        signing_order: s.fm.signing_order,
+        source: s.fm.source,
+        signers: s.fm.signers.map(({ id, name, email, order, role }) => ({
+          id,
+          name,
+          email,
+          order,
+          role,
+        })),
+        fields: s.fm.fields.map(({ value, checked, input, image, filled_at, ...f }) => f),
+        audit: [],
+        created: now,
+        created_by: user.email,
+        updated: now,
+      })
+      fm = {
+        ...fm,
+        audit: fake.audit(fm, [{ event: 'copied', actor: 'sender', email: user.email, at: now }]),
+      }
+      const stored = { space: s.space, fm, blobOid: newId().toLowerCase() }
+      fake.envelopes.set(fake.key(stored.space, id), stored)
+      await delay(latencyMs)
+      return HttpResponse.json(view(stored, user.email))
+    }),
+
     ...publicHandlers(fake, files, latencyMs),
 
     http.delete('/api/sign/:space/:id', ({ request, params }) => {
