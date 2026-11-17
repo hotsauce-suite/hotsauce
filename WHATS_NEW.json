@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.39.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "**Signatures are darker and easier to read.** A typed signature is stamped on the signed PDF in blue-black ink with a slight outline, so the script reads clearly on paper. On screen it fills its field in the same ink."
+        },
+        {
+          "text": "**Drawn signatures** use a thicker, darker pen. The drawing is also cropped to the ink, so it fills the field instead of shrinking."
+        }
+      ]
+    },
+    {
       "version": "0.39.0",
       "date": "2026-11-17",
       "notes": [
