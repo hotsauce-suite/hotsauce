@@ -1,6 +1,6 @@
 # Plan: chat as context
 
-**Status (2026-11-17):** slice 1 in progress (PR "Chat as context"). Decisions settled with the owner
+**Status (2026-11-17):** slices 1–4 built and reviewed (PR "Chat as context"); waiting on CI, then merge. Not refreshed yet: edits and deletions of messages already copied (an edit is picked up only when its thread is re-read). Decisions settled with the owner
 on 2026-11-17: a bot keeps a searchable copy; only rooms an admin switches on; full history; chat
 in search, Ask, AI tools and the agent brief, in that order. Not in scope: closed rooms' member
 lists, Briefcast, Today, the reverse direction (the chat's own AI reading Hotsauce).
