@@ -84,6 +84,11 @@ body {
     box-shadow: var(--focus-ring);
     border-radius: 6px;
   }
+  /* A field whose border turns ember on focus already shows where the cursor is: one ring, not
+     two (the search boxes and most text fields). */
+  .focus\:border-ember:focus-visible {
+    box-shadow: none;
+  }
 }
 
 button {
