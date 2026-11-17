@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.42.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "**Dropdowns look tidier.** Every dropdown now has its own arrow, set in from the edge, in both light and dark themes. Before, the browser's arrow sat right against the border."
+        },
+        {
+          "text": "**`/api/health` reports `features.email`.** It shows whether Sign emails signing links (both `RESEND_API_KEY` and `MAIL_FROM` set) or hands out links to copy."
+        }
+      ]
+    },
+    {
       "version": "0.42.0",
       "date": "2026-11-17",
       "notes": [
