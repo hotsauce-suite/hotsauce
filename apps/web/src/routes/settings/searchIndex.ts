@@ -47,8 +47,8 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     id: 'notifications',
     title: 'Notifications',
     ...GENERAL,
-    summary: 'Alerts on this device for meetings and mentions.',
-    words: ['alerts', 'reminders', 'push', 'notify', 'sound', 'badges', 'mentions'],
+    summary: 'Reminders before meetings and due tasks, check-ins and the daily briefing.',
+    words: ['alerts', 'reminders', 'push', 'notify', 'sound', 'briefing', 'test notification'],
   },
   {
     id: 'keyboard',

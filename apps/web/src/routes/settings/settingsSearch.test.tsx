@@ -32,6 +32,7 @@ describe('Settings search', () => {
     expect(resultIds()).toEqual(['appearance'])
     expect(screen.getByTestId('settings-account')).not.toBeVisible()
     expect(screen.getByTestId('settings-search-count')).toHaveTextContent('1 setting')
+    expect(screen.getByTestId('settings-search-announce')).toHaveTextContent('1 setting')
   })
 
   it('opens the chosen section on its page, marked, and empties the box', async () => {
@@ -57,6 +58,30 @@ describe('Settings search', () => {
     expect(router.state.location.pathname).toBe('/settings')
     const keyboard = await screen.findByRole('region', { name: 'Keyboard' })
     await waitFor(() => expect(keyboard).toHaveAttribute('data-settings-found'))
+  })
+
+  it('ends the search when another page is opened from the menu', async () => {
+    serveOrg({ admin: false })
+    const { router } = renderApp('/settings')
+    const input = await box()
+    await userEvent.type(input, 'calendars')
+    await userEvent.click(screen.getByTestId('settings-nav-apps'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/apps'))
+    await waitFor(() => expect(input).toHaveValue(''))
+    expect(screen.queryByTestId('settings-search-results')).toBeNull()
+    expect(await screen.findByTestId('settings-apps')).toBeVisible()
+  })
+
+  it('takes the mark off a section when another is chosen straight away', async () => {
+    serveOrg({ admin: false })
+    renderApp('/settings')
+    const input = await box()
+    await screen.findByTestId('settings-account')
+    await userEvent.type(input, 'keyboard{Enter}')
+    const keyboard = await screen.findByRole('region', { name: 'Keyboard' })
+    await waitFor(() => expect(keyboard).toHaveAttribute('data-settings-found'))
+    await userEvent.type(input, 'calendars{Enter}')
+    await waitFor(() => expect(keyboard).not.toHaveAttribute('data-settings-found'))
   })
 
   it('says when nothing matches, and Escape brings the page back', async () => {
@@ -120,9 +145,14 @@ describe('the list of settings matches the pages', () => {
   it.each(pages)('every section listed for %s is on it', async (to) => {
     serveOrg({ admin: true })
     renderApp(to)
-    const page = await screen.findByTestId('settings-page')
+    const content = await screen.findByTestId('settings-content')
     for (const entry of SETTINGS_INDEX.filter((e) => e.to === to)) {
-      await waitFor(() => expect(findHeading(page, entry.title), entry.title).not.toBeNull())
+      await waitFor(() => expect(findHeading(content, entry.title), entry.title).not.toBeNull())
+      // The section's own title, not a button's label or a line that merely starts the same way.
+      const heading = findHeading(content, entry.title) as HTMLElement
+      const text = (heading.textContent ?? '').replace(/\s+/g, ' ').trim()
+      expect(text === entry.title || text.startsWith(`${entry.title} `), entry.title).toBe(true)
+      expect(heading.closest('button'), entry.title).toBeNull()
     }
   })
 })

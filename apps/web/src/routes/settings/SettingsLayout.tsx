@@ -17,7 +17,13 @@ import { onFeedbackClick } from '../../feedback/pageShot'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
 import { movedSection, ORG_PAGES, type SettingsPage, YOUR_PAGES } from './pages'
-import { type FindState, SearchBox, SearchResults, useFoundSection } from './SettingsSearch'
+import {
+  type FindState,
+  resultCount,
+  SearchBox,
+  SearchResults,
+  useFoundSection,
+} from './SettingsSearch'
 import { type SettingEntry, searchSettings } from './searchIndex'
 
 /** The help center, and its frequently asked questions. */
@@ -31,7 +37,7 @@ export const HELP_FAQ = 'https://hotsauce.work/faq'
  */
 export default function SettingsLayout() {
   const isAdmin = useSession().me?.principal.isAdmin === true
-  const { pathname, hash, state } = useLocation()
+  const { pathname, hash, state, key } = useLocation()
   const navigate = useNavigate()
   // The pages still reach the shell (the shortcuts sheet) through the outlet.
   const shell = useOutletContext()
@@ -47,6 +53,10 @@ export default function SettingsLayout() {
     setQuery('')
     void navigate(entry.to, { state: { settingsFind: entry.title } satisfies FindState })
   }
+  // Any move to another page (a tab, ⌘K, Back) ends the search.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each move is a new location key
+  useEffect(() => setQuery(''), [key])
+  const content = useRef<HTMLDivElement>(null)
   useShortcut('global.search', () => {
     box.current?.focus()
     return true
@@ -61,7 +71,7 @@ export default function SettingsLayout() {
   // The router doesn't scroll to a section named in the address, and the pane outlives the page:
   // a new page starts at its top, or at its section.
   const pane = useRef<HTMLDivElement>(null)
-  useFoundSection(pane)
+  useFoundSection(pane, content)
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new page is the reason to scroll
   useEffect(() => {
     if (moved) return
@@ -121,6 +131,7 @@ export default function SettingsLayout() {
               onChange={setQuery}
               onChoose={() => choose(results[0])}
               inputRef={box}
+              searching={searching}
             />
             <nav
               aria-label="Settings"
@@ -151,10 +162,16 @@ export default function SettingsLayout() {
             data-testid="settings-page"
             className="order-1 min-w-0 pt-4 md:order-none md:col-start-2 md:row-start-1 md:pt-0"
           >
+            {/* Always there, so the first count is read out too. */}
+            <p aria-live="polite" className="sr-only" data-testid="settings-search-announce">
+              {searching ? resultCount(query, results.length) : ''}
+            </p>
             {searching ? (
               <SearchResults query={query} results={results} onChoose={choose} inputRef={box} />
             ) : null}
-            <div hidden={searching}>
+            {/* Hidden and inert under the results: still mounted, so nothing typed into it is
+                lost, but its shortcuts and focus are off. */}
+            <div ref={content} hidden={searching} inert={searching} data-testid="settings-content">
               <Outlet context={shell} />
             </div>
           </div>

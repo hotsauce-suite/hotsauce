@@ -17,7 +17,9 @@ export function SearchBox({
   onChange,
   onChoose,
   inputRef,
+  searching,
 }: {
+  searching: boolean
   value: string
   onChange: (value: string) => void
   /** Enter: the first result. */
@@ -54,7 +56,7 @@ export function SearchBox({
         onKeyDown={keys}
         placeholder="Search settings"
         aria-label="Search settings"
-        aria-controls="settings-search-results"
+        aria-controls={searching ? 'settings-search-results' : undefined}
         data-testid="settings-search-input"
         className="h-9 w-full rounded-lg border border-ash bg-paper-raised pr-3 pl-9 text-sm text-ink placeholder:text-ink-faint focus:border-ember focus:outline-none"
       />
@@ -139,6 +141,12 @@ export function SearchResults({
   )
 }
 
+/** "3 settings", or that nothing matches. */
+export function resultCount(query: string, count: number): string {
+  if (count === 0) return `Nothing in Settings matches “${query.trim()}”.`
+  return count === 1 ? '1 setting' : `${count} settings`
+}
+
 const HEADINGS = 'h2, h3, legend, .font-medium'
 const squash = (text: string | null) => (text ?? '').replace(/\s+/g, ' ').trim()
 
@@ -154,43 +162,65 @@ export function findHeading(root: ParentNode, title: string): HTMLElement | null
 
 /**
  * After a result is chosen: keep its section in view as the page loads (it loads lazily, and what
- * sits above the section can arrive later still), mark it for a moment, and move focus to it.
+ * sits above the section can arrive later still), mark it for a moment, and move focus to it. The
+ * page's own content is searched, never the results. Once found, the request is dropped from
+ * history so a reload or Back doesn't replay it; if it's never found, the page starts at its top.
  */
-export function useFoundSection(pane: RefObject<HTMLElement | null>) {
+export function useFoundSection(
+  pane: RefObject<HTMLElement | null>,
+  content: RefObject<HTMLElement | null>,
+) {
   const location = useLocation()
   const title = (location.state as FindState | null)?.settingsFind
   // biome-ignore lint/correctness/useExhaustiveDependencies: each choice is a new location
   useEffect(() => {
     if (!title) return
     let found: HTMLElement | null = null
+    let marked: HTMLElement | null = null
     let last: number | null = null
     let tries = 0
     let unmark: number | undefined
     const timer = window.setInterval(() => {
-      const root = pane.current?.querySelector('[data-testid="settings-page"]') ?? pane.current
-      const heading = root ? findHeading(root, title) : null
+      const heading = content.current ? findHeading(content.current, title) : null
       if (heading && !found) {
         found = heading
-        const section =
-          heading.closest<HTMLElement>('section, fieldset, form, [data-testid]') ?? heading
-        section.setAttribute('data-settings-found', '')
-        unmark = window.setTimeout(() => section.removeAttribute('data-settings-found'), 2400)
+        marked = heading.closest<HTMLElement>('section, fieldset, form, [data-testid]') ?? heading
+        // Taken off and put back, so choosing the same section again replays the mark.
+        marked.removeAttribute('data-settings-found')
+        void marked.offsetWidth
+        marked.setAttribute('data-settings-found', '')
+        const done = marked
+        unmark = window.setTimeout(() => done.removeAttribute('data-settings-found'), 2400)
         if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
         heading.focus({ preventScroll: true })
+        forgetRequest()
       }
       const top = found?.getBoundingClientRect().top ?? null
       if (found && top !== last) found.scrollIntoView?.({ block: 'start' })
       last = found ? found.getBoundingClientRect().top : null
-      if (++tries > 30) window.clearInterval(timer)
+      if (++tries > 30) {
+        window.clearInterval(timer)
+        if (!found) pane.current?.scrollTo?.({ top: 0 })
+      }
     }, 100)
+    // Their own scrolling wins over ours.
     const stop = () => window.clearInterval(timer)
-    window.addEventListener('wheel', stop, { once: true, passive: true })
-    window.addEventListener('touchmove', stop, { once: true, passive: true })
+    const events = ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const
+    for (const name of events) window.addEventListener(name, stop, { once: true, passive: true })
     return () => {
       stop()
       window.clearTimeout(unmark)
-      window.removeEventListener('wheel', stop)
-      window.removeEventListener('touchmove', stop)
+      marked?.removeAttribute('data-settings-found')
+      for (const name of events) window.removeEventListener(name, stop)
     }
-  }, [location.key, title, pane])
+  }, [location.key, title, pane, content])
+}
+
+/** Drops `settingsFind` from this history entry without a navigation, so the mark isn't undone. */
+function forgetRequest() {
+  const entry = window.history.state as { usr?: unknown } | null
+  if (entry && typeof entry.usr === 'object' && entry.usr && 'settingsFind' in entry.usr) {
+    const { settingsFind: _, ...usr } = entry.usr as Record<string, unknown>
+    window.history.replaceState({ ...entry, usr: Object.keys(usr).length ? usr : null }, '')
+  }
 }

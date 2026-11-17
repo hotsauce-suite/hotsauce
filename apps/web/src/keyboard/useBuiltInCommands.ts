@@ -225,7 +225,9 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
 
     // Every Settings section, once something is typed (docs/PLAN-settings-search.md S8). AI tools
     // and the Mac app already have their own rows above.
-    ...SETTINGS_INDEX.filter((entry) => (!entry.admin || isAdmin) && !OWN_ROWS.has(entry.id)).map(
+    ...SETTINGS_INDEX.filter(
+      (entry) => (!entry.admin || isAdmin) && !entry.macOnly && !OWN_ROWS.has(entry.id),
+    ).map(
       (entry): Command => ({
         id: `setting-${entry.id}`,
         title: `${entry.title} · Settings`,
