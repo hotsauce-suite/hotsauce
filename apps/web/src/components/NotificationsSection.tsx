@@ -83,8 +83,8 @@ function BrowserNotificationsSection() {
         Notifications
       </h2>
       <p className="mt-2 text-ink-soft">
-        A reminder a minute before each meeting with other people and when a timed task is due,
-        check-in questions when they’re asked, and your daily briefing when it’s ready.
+        A reminder a minute before each meeting with other people or a call link, and when a timed
+        task is due, check-in questions when they’re asked, and your daily briefing when it’s ready.
       </p>
       {state === null ? null : state === 'on' || state === 'off' ? (
         <>

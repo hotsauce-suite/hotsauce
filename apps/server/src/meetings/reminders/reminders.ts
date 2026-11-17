@@ -14,7 +14,8 @@ function reminderKey(email: string, event: CalendarEvent): string {
 }
 
 /**
- * PRD §6.1: a web push a minute before each calendar event with attendees, "Take notes for
+ * PRD §6.1: a web push a minute before each calendar event with attendees or a meeting link
+ * (a focus block has neither), "Take notes for
  * <title>?", opening Start for that event. Every member who turned reminders on is checked every
  * 30 seconds; each event is reminded once per member, on every browser they subscribed.
  */
@@ -63,7 +64,7 @@ export class MeetingReminders {
     return this.#running
   }
 
-  /** Events with attendees starting in the next LEAD_MS, from the calendar. */
+  /** Events with attendees or a meeting link starting in the next LEAD_MS, from the calendar. */
   async #due(principal: Subscriber['principal'], now: Date): Promise<CalendarEvent[]> {
     const events = await this.#calendar.upcoming(principal, {
       from: now.toISOString(),
@@ -71,7 +72,8 @@ export class MeetingReminders {
     })
     return events.filter((event) => {
       const start = Date.parse(event.start)
-      return event.attendees.length > 0 && start > now.getTime() && start <= now.getTime() + LEAD_MS
+      const meeting = event.attendees.length > 0 || Boolean(event.meetLink)
+      return meeting && start > now.getTime() && start <= now.getTime() + LEAD_MS
     })
   }
 

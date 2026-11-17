@@ -10,12 +10,25 @@ public struct UpcomingMeeting: Decodable, Equatable, Sendable {
     public let title: String
     public let start: Date
     public let attendees: [Attendee]
+    /// The event's video call link (Meet, Zoom, Teams...), when it has one.
+    public let meetLink: String?
 
-    public init(id: String, title: String, start: Date, attendees: [Attendee]) {
+    public init(id: String, title: String, start: Date, attendees: [Attendee], meetLink: String? = nil) {
         self.id = id
         self.title = title
         self.start = start
         self.attendees = attendees
+        self.meetLink = meetLink
+    }
+
+    /// The call to join from the reminder: only a web link, never another kind of URL a calendar
+    /// invite could carry (a file, an app scheme).
+    public var joinURL: URL? {
+        guard let text = meetLink?.trimmingCharacters(in: .whitespaces),
+              let url = URL(string: text), let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http", url.host?.isEmpty == false
+        else { return nil }
+        return url
     }
 
     /// The server's JSON array; ISO timestamps with or without milliseconds.
@@ -31,16 +44,17 @@ public struct UpcomingMeeting: Decodable, Equatable, Sendable {
         return try decoder.decode([UpcomingMeeting].self, from: data)
     }
 
-    /// The page a reminder opens: Start for this event, as the web push does.
+    /// The page a reminder opens: Start for this event, which starts taking notes at once because
+    /// the member chose to from the reminder.
     public var startPath: String {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.remove(charactersIn: "&=+#?/")
-        return "/meetings/start?event=" + (id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id)
+        return "/meetings/start?event=" + (id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id) + "&via=mac-reminder"
     }
 }
 
 /// The rule of the server's web push reminders (meetings/reminders/reminders.ts): a meeting with
-/// attendees, starting within the next 90 seconds, reminded once per event and start time (a
+/// attendees or a call link (a focus block has neither), starting within the next 90 seconds, reminded once per event and start time (a
 /// moved meeting is reminded again at its new time).
 public struct ReminderPlanner {
     public static let lead: TimeInterval = 90
@@ -60,7 +74,7 @@ public struct ReminderPlanner {
     /// The meetings to remind now; each is remembered so it isn't reminded twice.
     public mutating func due(_ meetings: [UpcomingMeeting], now: Date) -> [UpcomingMeeting] {
         let due = meetings.filter { meeting in
-            !meeting.attendees.isEmpty
+            (!meeting.attendees.isEmpty || meeting.joinURL != nil)
                 && meeting.start > now
                 && meeting.start <= now.addingTimeInterval(Self.lead)
                 && sent[Self.key(meeting)] == nil

@@ -121,9 +121,9 @@ import Testing
 @Suite struct MeetingReminderTests {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
 
-    func meeting(_ id: String, in seconds: TimeInterval, attendees: Int = 2) -> UpcomingMeeting {
+    func meeting(_ id: String, in seconds: TimeInterval, attendees: Int = 2, link: String? = nil) -> UpcomingMeeting {
         UpcomingMeeting(id: id, title: id, start: now.addingTimeInterval(seconds),
-                        attendees: (0 ..< attendees).map { _ in .init(email: "a@b.com") })
+                        attendees: (0 ..< attendees).map { _ in .init(email: "a@b.com") }, meetLink: link)
     }
 
     @Test func decodesTheServersList() throws {
@@ -132,6 +132,23 @@ import Testing
         #expect(list.map(\.id) == ["e1", "e2"])
         #expect(list[0].start == ISO8601DateFormatter().date(from: "2026-11-11T19:00:00Z"))
         #expect(list[1].attendees.count == 0)
+        #expect(list[0].joinURL == URL(string: "https://meet.google.com/x"))
+        #expect(list[1].meetLink == nil)
+    }
+
+    @Test func remindsAMeetingWithACallLinkEvenWithNobodyInvited() {
+        var planner = ReminderPlanner()
+        let due = planner.due([meeting("call", in: 60, attendees: 0, link: "https://zoom.us/j/1"),
+                               meeting("focus", in: 60, attendees: 0)], now: now)
+        #expect(due.map(\.id) == ["call"])
+    }
+
+    @Test func joinsOnlyWebLinks() {
+        #expect(meeting("m", in: 0, link: " https://teams.microsoft.com/l/x ").joinURL?.host == "teams.microsoft.com")
+        #expect(meeting("m", in: 0, link: "file:///etc/passwd").joinURL == nil)
+        #expect(meeting("m", in: 0, link: "javascript:alert(1)").joinURL == nil)
+        #expect(meeting("m", in: 0, link: "not a link").joinURL == nil)
+        #expect(meeting("m", in: 0).joinURL == nil)
     }
 
     @Test func remindsMeetingsWithAttendeesStartingWithinTheLead() {
@@ -158,7 +175,7 @@ import Testing
     }
 
     @Test func startPathEncodesTheId() {
-        #expect(meeting("abc_123", in: 0).startPath == "/meetings/start?event=abc_123")
-        #expect(meeting("a&b=c#d/e", in: 0).startPath == "/meetings/start?event=a%26b%3Dc%23d%2Fe")
+        #expect(meeting("abc_123", in: 0).startPath == "/meetings/start?event=abc_123&via=mac-reminder")
+        #expect(meeting("a&b=c#d/e", in: 0).startPath == "/meetings/start?event=a%26b%3Dc%23d%2Fe&via=mac-reminder")
     }
 }

@@ -284,19 +284,51 @@ describe('Start screen', () => {
     }
   })
 
-  it('from the Mac app’s call notice: titled for the app, listening to the Mac at once', async () => {
+  it('from the Mac app’s call notice: titled for the app, listening and recording at once', async () => {
     const w = window as { hearthMac?: unknown; webkit?: unknown }
     w.hearthMac = { meetingAudio: 1 }
     w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
     try {
-      renderApp('/meetings/start?via=mac-call&app=Zoom')
+      const { router } = renderApp('/meetings/start?via=mac-call&app=Zoom')
       await waitFor(() => expect(capture.captureAudio).toHaveBeenCalledWith('mac', null))
       expect(capture.captureAudio).toHaveBeenCalledTimes(1)
-      expect(screen.getByTestId('start-title')).toHaveValue('Zoom call')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({ title: 'Zoom call' })
     } finally {
       delete w.hearthMac
       delete w.webkit
     }
+  })
+
+  it('from the Mac app’s calendar reminder: starts recording for that event without a click', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    // Silent call audio (nobody has joined yet) doesn't hold the start up.
+    capture.arrived = false
+    try {
+      const { router } = renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      expect(capture.captureAudio).toHaveBeenCalledTimes(1)
+      expect(capture.captureAudio.mock.calls[0]?.[0]).toBe('mac')
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({
+        title: 'Acme sync',
+        calendarEventId: 'evt-acme-sync',
+        meetCode: 'abc-defg-hij',
+      })
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
+  it('a calendar reminder opened outside the Mac app only fills the page in', async () => {
+    renderApp('/meetings/start?event=evt-acme-sync&via=mac-reminder')
+    await waitFor(() => expect(screen.getByTestId('start-title')).toHaveValue('Acme sync'))
+    expect(capture.captureAudio).not.toHaveBeenCalled()
+    expect(screen.getByTestId('start-recording')).toBeDisabled()
   })
 
   it('without the extension, points to it from the Meet tab choice', async () => {

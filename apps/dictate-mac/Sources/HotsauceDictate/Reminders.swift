@@ -4,8 +4,9 @@ import UserNotifications
 
 /// Native meeting reminders: every 30 seconds, the member's upcoming meetings from the suite's
 /// calendar API (asked through the signed-in page, so no other credential is needed), and a
-/// notification a minute before each one with attendees. Clicking it opens Start for that meeting
-/// in the app's window, as the web push reminder does in a browser.
+/// notification a minute before each one with attendees or a call link. Clicking it opens the
+/// call link (when there is one) and starts taking notes for that meeting in the app's window;
+/// "Just take notes" does only the second.
 @MainActor
 final class Reminders: NSObject, UNUserNotificationCenterDelegate {
     private let suite: SuiteWindow
@@ -23,8 +24,19 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         super.init()
     }
 
+    private static let withLink = "meeting-with-link"
+    private static let withoutLink = "meeting"
+    private static let joinAction = "join"
+    private static let notesAction = "notes"
+
     func start() {
         UNUserNotificationCenter.current().delegate = self
+        let join = UNNotificationAction(identifier: Self.joinAction, title: "Join and take notes", options: [.foreground])
+        let notes = UNNotificationAction(identifier: Self.notesAction, title: "Just take notes", options: [.foreground])
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(identifier: Self.withLink, actions: [join, notes], intentIdentifiers: []),
+            UNNotificationCategory(identifier: Self.withoutLink, actions: [notes], intentIdentifiers: []),
+        ])
         if isEnabled() { requestAuthorization() }
         updateActivity()
         timer?.invalidate()
@@ -83,9 +95,16 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
     private func notify(_ meeting: UpcomingMeeting) {
         let content = UNMutableNotificationContent()
         content.title = "Take notes for “\(meeting.title)”?"
-        content.body = "It starts in about a minute."
         content.sound = .default
-        content.userInfo = ["path": meeting.startPath]
+        if let join = meeting.joinURL {
+            content.body = "It starts in about a minute. Click to join the call and take notes."
+            content.categoryIdentifier = Self.withLink
+            content.userInfo = ["path": meeting.startPath, "join": join.absoluteString]
+        } else {
+            content.body = "It starts in about a minute. Click to take notes."
+            content.categoryIdentifier = Self.withoutLink
+            content.userInfo = ["path": meeting.startPath]
+        }
         let request = UNNotificationRequest(identifier: "meeting \(ReminderPlanner.key(meeting))", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
             let outcome = error.map { "failed: \($0.localizedDescription)" } ?? "posted"
@@ -103,11 +122,19 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let path = response.notification.request.content.userInfo["path"] as? String
+        let info = response.notification.request.content.userInfo
+        let path = info["path"] as? String
+        // A click on the notice itself joins too; "Just take notes" doesn't.
+        let joins = response.actionIdentifier != Self.notesAction
+        let join = joins ? (info["join"] as? String).flatMap(URL.init(string:)) : nil
         DispatchQueue.main.async { [weak self] in
             guard let self else { return completionHandler() }
             self.suite.show()
             if let path { self.suite.open(path: path) }
+            // The call opens last, so its window (browser, Zoom, Teams) ends up in front.
+            if let join {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSWorkspace.shared.open(join) }
+            }
             completionHandler()
         }
     }

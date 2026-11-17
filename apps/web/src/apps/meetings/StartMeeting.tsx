@@ -57,23 +57,32 @@ function eventById(id: string): Promise<CalendarEvent | null> {
  * The event named by id, or else the one the server matches to the Meet call `meet` (the
  * extension's Take notes).
  */
-function useCalendarEvent(id: string | null, meet: string | null): CalendarEvent | null {
+/** The calendar event this meeting is for, and whether looking it up has finished. */
+function useCalendarEvent(
+  id: string | null,
+  meet: string | null,
+): { event: CalendarEvent | null; settled: boolean } {
   const [event, setEvent] = useState<CalendarEvent | null>(null)
+  const [settled, setSettled] = useState(!id && !meet)
   useEffect(() => {
     if (!id && !meet) return
     let cancelled = false
     const found = id ? eventById(id) : calendarApi.match(meet ?? '').then((m) => m.event)
     found.then(
       (e) => {
-        if (!cancelled) setEvent(e)
+        if (cancelled) return
+        setEvent(e)
+        setSettled(true)
       },
-      () => {},
+      () => {
+        if (!cancelled) setSettled(true)
+      },
     )
     return () => {
       cancelled = true
     }
   }, [id, meet])
-  return event
+  return { event, settled }
 }
 
 /** The Hotsauce Chrome extension's version when it's installed in this browser. */
@@ -125,7 +134,11 @@ function StartForm() {
   const meet = params.get('meet')
   // Opened by the Mac app's "Take notes on this call?": the app that is on the call.
   const callApp = params.get('via') === 'mac-call' ? params.get('app')?.trim().slice(0, 60) : null
-  const event = useCalendarEvent(eventId, meet)
+  // Opened by the Mac app's "Take notes for <meeting>?" calendar reminder.
+  const viaMacReminder = params.get('via') === 'mac-reminder'
+  // Either Mac notice: the member already said "take notes", so listen and start at once.
+  const fromMacNotice = Boolean(callApp) || viaMacReminder
+  const { event, settled: eventSettled } = useCalendarEvent(eventId, meet)
   // The Meet call this meeting is for, so the extension hands over that tab and no other.
   const call = meet ?? meetCallCode(event?.meetLink)
   const extension = useExtensionVersion()
@@ -212,10 +225,10 @@ function StartForm() {
     }
   }
 
-  // The member chose "Take notes" on the app's call notice: listen to the Mac at once.
+  // The member chose "Take notes" on one of the app's notices: listen to the Mac at once.
   const autoChose = useRef(false)
   useEffect(() => {
-    if (!callApp || !macCapture || autoChose.current) return
+    if (!fromMacNotice || !macCapture || autoChose.current) return
     autoChose.current = true
     void choose('mac')
   })
@@ -259,6 +272,16 @@ function StartForm() {
       })
     }
   }
+
+  // ...and start as soon as the sound check is done and the meeting's name is known. A track
+  // that stayed silent doesn't hold it up: before the call begins there is no call audio yet.
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoChose.current || autoStarted.current || !eventSettled || !canStart(state)) return
+    if (state.step !== 'check') return
+    autoStarted.current = true
+    void start()
+  })
 
   const mode = state.step === 'choose' ? null : state.mode
   const tracks =
