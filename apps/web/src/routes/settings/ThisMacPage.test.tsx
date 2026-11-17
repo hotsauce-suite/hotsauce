@@ -80,7 +80,7 @@ describe('Settings → This Mac', () => {
     await ready()
     const mic = screen.getByTestId('mac-permission-microphone')
     expect(mic).toHaveAttribute('data-granted', 'false')
-    await userEvent.click(within(mic).getByRole('button', { name: 'Allow…' }))
+    await userEvent.click(within(mic).getByRole('button', { name: 'Allow Microphone' }))
     expect(screen.getByTestId('mac-permission-microphone')).toHaveTextContent('Allowed')
     expect(
       within(screen.getByTestId('mac-permission-accessibility')).queryByRole('button'),
@@ -190,5 +190,31 @@ describe('Microphone for dictation (R14)', () => {
     await ready()
     expect(screen.getByLabelText('Microphone for dictation')).toHaveValue('gone')
     expect(screen.getByText(/isn’t connected/)).toBeInTheDocument()
+  })
+})
+
+describe('while the Mac answers', () => {
+  it('keeps the control in use focused and takes one change at a time', async () => {
+    const mac = new FakeMac()
+    let release = () => {}
+    const slow = Object.assign(Object.create(mac), {
+      postMessage: async (request: Parameters<FakeMac['postMessage']>[0]) => {
+        if (request.type === 'set') await new Promise<void>((done) => (release = done))
+        return mac.postMessage(request)
+      },
+    })
+    show(slow)
+    await ready()
+    const glow = screen.getByTestId('mac-edgeGlow')
+    glow.focus()
+    await userEvent.click(glow)
+    expect(glow).not.toBeDisabled()
+    expect(glow).toHaveAttribute('aria-disabled', 'true')
+    expect(glow).toHaveFocus()
+    await userEvent.click(screen.getByTestId('mac-openAtLogin'))
+    await act(async () => release())
+    expect(mac.requests.filter((r) => r.type === 'set')).toEqual([
+      { type: 'set', key: 'edgeGlow', value: false },
+    ])
   })
 })

@@ -629,6 +629,10 @@ private struct SettingsPage: View {
                     Text("Walks through them again. Nothing is reset.")
                 }
             }
+            Section("History") {
+                // Dictation text is on this Mac only: clearing it can't wait for the workspace.
+                Button("Clear history…", action: model.clearHistory)
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)

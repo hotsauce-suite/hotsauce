@@ -27,8 +27,10 @@ export class FakeMac implements MacSettingsBridge {
         this.settings.permissions = { ...p, microphone: true }
       if (request.action === 'allowNotifications')
         this.settings.permissions = { ...p, notifications: 'on' }
-      if (request.action === 'disconnect' && !this.refuse.has('disconnect'))
+      if (request.action === 'disconnect' && !this.refuse.has('disconnect')) {
         this.settings.account = null
+        this.settings.connected = false
+      }
     }
     return request.type === 'hello' ? null : structuredClone(this.settings)
   }
@@ -52,6 +54,7 @@ export function defaultMacSettings(): MacSettings {
       { id: 'usb-yeti', name: 'Yeti Stereo Microphone' },
     ],
     permissions: { microphone: true, accessibility: true, location: true, notifications: 'on' },
+    connected: true,
     account: 'sam@example.com',
   }
 }

@@ -236,7 +236,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 case let .meetingReminders(on): model.setMeetingReminders(on)
                 case let .offerCallNotes(on): model.setOfferCallNotes(on)
                 case let .openAtLogin(on): model.setLaunchAtLogin(on)
-                case let .showInMenuBar(on): model.setShowInMenuBar(on)
+                case let .showInMenuBar(on):
+                    model.setShowInMenuBar(on)
+                    // macOS places the icon a moment later; read whether it's hidden after that.
+                    if on { return DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { answer() } }
                 case let .historyDays(days): model.setRetention(days)
                 case let .microphone(uid):
                     // Only one this Mac has now; anything else keeps the choice as it was.
@@ -251,7 +254,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     Permissions.requestAccessibility()
                     answer()
                 case .allowLocation:
-                    self.setupLocation.request { _ in answer() }
+                    // Answer now: the position can take minutes (an unanswered prompt). The page
+                    // reads again when the window comes back to the front after macOS's prompt.
+                    self.setupLocation.request { _ in }
+                    answer()
                 case .allowNotifications, .openNotificationSettings:
                     Permissions.notificationsState { state in
                         if action == .allowNotifications, NotificationsBridge.step(for: state) == .ask {
@@ -296,7 +302,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 accessibility: Permissions.accessibilityGranted,
                 location: Permissions.locationAllowed,
                 notifications: notifications,
-                account: ConnectionStore.connection().map { $0.account ?? "this Mac" }
+                connected: ConnectionStore.connection() != nil,
+                account: ConnectionStore.connection()?.account
             ))
         }
     }

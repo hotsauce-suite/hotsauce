@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { secondaryButton } from '../../apps/meetings/components/common'
 import { product } from '../../brand/product'
@@ -56,15 +56,19 @@ function NotInMacApp() {
 
 function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
   const [settings, setSettings] = useState<MacSettings | null>(null)
-  const [failed, setFailed] = useState(false)
+  /** The app didn't answer a read (the page can't show anything) or a change (it says so). */
+  const [failed, setFailed] = useState<'read' | 'change' | null>(null)
   const [busy, setBusy] = useState(false)
+  // One change at a time. Controls stay enabled (aria-disabled only), so the one in use keeps
+  // keyboard focus while the Mac answers.
+  const busyRef = useRef(false)
 
-  const take = useCallback((next: MacSettings | null) => {
+  const take = useCallback((next: MacSettings | null, kind: 'read' | 'change') => {
     if (next) {
       setSettings(next)
-      setFailed(false)
+      setFailed(null)
     } else {
-      setFailed(true)
+      setFailed(kind)
     }
   }, [])
 
@@ -72,7 +76,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
     let live = true
     const read = () =>
       readMacSettings(bridge).then((s) => {
-        if (live) take(s)
+        if (live) take(s, 'read')
       })
     void read()
     // Back from System Settings or the Mac's own dialogs: show what changed there.
@@ -83,23 +87,22 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
     }
   }, [bridge, take])
 
-  const change = async <K extends MacSettingKey>(key: K, value: MacSettingValues[K]) => {
+  const run = async (ask: () => Promise<MacSettings | null>) => {
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     try {
-      take(await setMacSetting(key, value, bridge))
+      take(await ask(), 'change')
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }
 
-  const act = async (action: MacSettingsAction) => {
-    setBusy(true)
-    try {
-      take(await macSettingsAction(action, bridge))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const change = <K extends MacSettingKey>(key: K, value: MacSettingValues[K]) =>
+    run(() => setMacSetting(key, value, bridge))
+
+  const act = (action: MacSettingsAction) => run(() => macSettingsAction(action, bridge))
 
   if (!settings) {
     return (
@@ -124,7 +127,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
         Settings for the {product()} app on this Mac. They stay on this Mac; your other devices keep
         their own.
       </p>
-      {failed ? (
+      {failed === 'change' ? (
         <p role="alert" data-testid="settings-mac-error" className="mt-3 text-sm text-ember">
           That didn’t change. Try again.
         </p>
@@ -139,7 +142,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
             aria-label="Dictation shortcut"
             data-testid="mac-hotkey"
             value={settings.hotkey}
-            disabled={busy}
+            aria-disabled={busy}
             onChange={(e) => void change('hotkey', e.target.value as HotkeyId)}
             className="h-9 rounded-lg border border-ash-strong bg-paper-raised px-2 text-sm"
           >
@@ -163,7 +166,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
             aria-label="Microphone for dictation"
             data-testid="mac-microphone"
             value={settings.microphoneChoice ?? ''}
-            disabled={busy}
+            aria-disabled={busy}
             onChange={(e) => void change('microphone', e.target.value || null)}
             className="h-9 max-w-64 rounded-lg border border-ash-strong bg-paper-raised px-2 text-sm"
           >
@@ -191,7 +194,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
             aria-label="Mode"
             data-testid="mac-mode"
             value={settings.mode}
-            disabled={busy}
+            aria-disabled={busy}
             onChange={(e) =>
               void change('mode', e.target.value === 'literal' ? 'literal' : 'clean')
             }
@@ -314,7 +317,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
             aria-label="Keep history for"
             data-testid="mac-history-days"
             value={settings.historyDays}
-            disabled={busy}
+            aria-disabled={busy}
             onChange={(e) => void change('historyDays', Number(e.target.value) as HistoryDays)}
             className="h-9 rounded-lg border border-ash-strong bg-paper-raised px-2 text-sm"
           >
@@ -337,15 +340,21 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
 
       <Section id="account" title="Dictate on this Mac">
         <Row
-          label={settings.account ? `Connected as ${settings.account}` : 'Not connected'}
+          label={
+            settings.connected
+              ? settings.account
+                ? `Connected as ${settings.account}`
+                : 'Connected'
+              : 'Not connected'
+          }
           hint={
-            settings.account
+            settings.connected
               ? 'Disconnecting stops dictation from cleaning up text and using your word lists until you sign in again.'
               : `Dictation still works with this Mac’s own speech recognition. Sign in to ${product()} to connect it.`
           }
           testId="mac-account"
         >
-          {settings.account ? (
+          {settings.connected ? (
             <ActionButton action="disconnect" busy={busy} onAct={act}>
               Disconnect this Mac
             </ActionButton>
@@ -413,7 +422,7 @@ function SwitchRow(props: {
         aria-checked={props.on}
         data-testid={`mac-${props.id}`}
         checked={props.on}
-        disabled={props.busy}
+        aria-disabled={props.busy}
         onChange={(e) => props.onChange(e.target.checked)}
         className="size-5 accent-ember"
       />
@@ -442,7 +451,12 @@ function Permission(props: {
       {props.granted ? (
         <span className="text-sm text-ink-soft">Allowed</span>
       ) : (
-        <ActionButton action={props.action} busy={props.busy} onAct={props.onAct}>
+        <ActionButton
+          action={props.action}
+          busy={props.busy}
+          onAct={props.onAct}
+          label={`Allow ${props.label}`}
+        >
           Allow…
         </ActionButton>
       )}
@@ -454,10 +468,13 @@ function ActionButton({
   action,
   busy,
   onAct,
+  label,
   children,
 }: {
   action: MacSettingsAction
   busy: boolean
+  /** The button's name for screen readers, when its text alone doesn't say what it's for. */
+  label?: string
   onAct: (action: MacSettingsAction) => void
   children: ReactNode
 }) {
@@ -465,7 +482,8 @@ function ActionButton({
     <button
       type="button"
       data-testid={`mac-action-${action}`}
-      disabled={busy}
+      aria-label={label}
+      aria-disabled={busy}
       onClick={() => onAct(action)}
       className={`${secondaryButton} h-9 shrink-0`}
     >

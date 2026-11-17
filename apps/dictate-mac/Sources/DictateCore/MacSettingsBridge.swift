@@ -92,8 +92,8 @@ public enum MacSettingsBridge {
     private static func number(_ value: Any) -> Int? {
         guard !isBoolean(value), let number = value as? NSNumber else { return nil }
         let double = number.doubleValue
-        guard double == double.rounded() else { return nil }
-        return Int(double)
+        // Int(exactly:) is nil for fractions, infinities and anything past Int's range (1e300).
+        return Int(exactly: double)
     }
 
     private static func isBoolean(_ value: Any) -> Bool {
@@ -122,13 +122,15 @@ public enum MacSettingsBridge {
         public var accessibility: Bool
         public var location: Bool
         public var notifications: NotificationsBridge.State
+        /// Whether this Mac's Dictate is connected, and as whom when the connection says.
+        public var connected: Bool
         public var account: String?
 
         public init(
             hotkey: Hotkey, mode: DictationMode, edgeGlow: Bool, meetingReminders: Bool, offerCallNotes: Bool, callNotesSupported: Bool,
             openAtLogin: Bool, showInMenuBar: Bool, menuBarIconHidden: Bool, historyDays: Int,
             microphoneChoice: String?, microphones: [Microphone],
-            microphone: Bool, accessibility: Bool, location: Bool, notifications: NotificationsBridge.State, account: String?
+            microphone: Bool, accessibility: Bool, location: Bool, notifications: NotificationsBridge.State, connected: Bool, account: String?
         ) {
             self.hotkey = hotkey
             self.mode = mode
@@ -146,6 +148,7 @@ public enum MacSettingsBridge {
             self.accessibility = accessibility
             self.location = location
             self.notifications = notifications
+            self.connected = connected
             self.account = account
         }
 
@@ -170,6 +173,7 @@ public enum MacSettingsBridge {
                     "location": location,
                     "notifications": notifications.rawValue,
                 ] as [String: Any],
+                "connected": connected,
                 "account": account.map { $0 as Any } ?? NSNull(),
             ]
         }

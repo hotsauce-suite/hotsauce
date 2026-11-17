@@ -41,6 +41,9 @@ import Testing
             ["type": "set", "key": "historyDays", "value": NSNumber(value: 14)],
             ["type": "set", "key": "historyDays", "value": NSNumber(value: 7.5)],
             ["type": "set", "key": "historyDays", "value": NSNumber(value: true)],
+            ["type": "set", "key": "historyDays", "value": NSNumber(value: 1e300)],
+            ["type": "set", "key": "historyDays", "value": NSNumber(value: Double.infinity)],
+            ["type": "set", "key": "historyDays", "value": NSNumber(value: Double.nan)],
             ["type": "set", "key": "suiteServer", "value": "https://evil.example"],
             ["type": "set", "key": "hotkey"],
             ["type": "set", "key": "microphone", "value": ""],
@@ -55,13 +58,14 @@ import Testing
             hotkey: .rightShift, mode: .clean, edgeGlow: true, meetingReminders: false, offerCallNotes: true, callNotesSupported: false,
             openAtLogin: false, showInMenuBar: true, menuBarIconHidden: true, historyDays: 30,
             microphoneChoice: "usb-1", microphones: [.init(id: "usb-1", name: "USB Mic")],
-            microphone: true, accessibility: false, location: true, notifications: .undecided, account: nil
+            microphone: true, accessibility: false, location: true, notifications: .undecided, connected: true, account: nil
         )
         let reply = snapshot.reply
         #expect(reply["hotkey"] as? String == "rightShift")
         #expect(reply["historyDays"] as? Int == 30)
         #expect(reply["callNotesSupported"] as? Bool == false)
         #expect(reply["account"] is NSNull)
+        #expect(reply["connected"] as? Bool == true)
         let permissions = reply["permissions"] as? [String: Any]
         #expect(permissions?["notifications"] as? String == "undecided")
         #expect(permissions?["accessibility"] as? Bool == false)

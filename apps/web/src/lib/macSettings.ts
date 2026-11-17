@@ -43,7 +43,9 @@ export interface MacSettings {
     location: boolean
     notifications: NotificationsPermission
   }
-  /** Who this Mac's Dictate is connected as; null when it isn't. */
+  /** Whether this Mac's Dictate is connected. */
+  connected: boolean
+  /** Who it's connected as, when the connection says; null otherwise. */
   account: string | null
 }
 
@@ -113,6 +115,7 @@ export function parseMacSettings(reply: unknown): MacSettings | null {
     r.openAtLogin,
     r.showInMenuBar,
     r.menuBarIconHidden,
+    r.connected,
   ]
   if (!flags.every(bool)) return null
   if (!p || !bool(p.microphone) || !bool(p.accessibility) || !bool(p.location)) return null
@@ -151,6 +154,7 @@ export function parseMacSettings(reply: unknown): MacSettings | null {
       location: p.location,
       notifications: p.notifications,
     },
+    connected: r.connected as boolean,
     account: typeof r.account === 'string' && r.account ? r.account : null,
   }
 }

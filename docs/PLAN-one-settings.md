@@ -47,7 +47,7 @@ window loses its Settings tab.
 
 R11. When the main window can't show This Mac (no workspace yet, the workspace can't be reached, or
 its web app is older than this page), ⌘, opens a small native window instead: the workspace address,
-the permission rows and "Run setup again". The app knows the page exists because the page says hello
+the permission rows, "Run setup again" and Clear history (dictation text is only on the Mac). The app knows the page exists because the page says hello
 over the bridge when it loads.
 
 R12. The first-launch "Set up Hotsauce" window is unchanged.

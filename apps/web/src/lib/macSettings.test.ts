@@ -32,6 +32,7 @@ const settingsArb: fc.Arbitrary<MacSettings> = fc.record({
     location: fc.boolean(),
     notifications: fc.constantFrom('on' as const, 'off' as const, 'undecided' as const),
   }),
+  connected: fc.boolean(),
   account: fc.option(fc.emailAddress(), { nil: null }),
 })
 
