@@ -4,7 +4,8 @@
 
 - Slice 1 (download link with its version on hotsauce.work): live (PR #167).
 - Slice 2 (build the Mac app with every Hotsauce release, no update nags for number-only builds):
-  built; waits on the owner running `apps/dictate-mac/scripts/create-release-signing.sh` once.
+  live since 2026-11-17. The first GitHub build was mac-app-112 (0.36.1), and hotsauce.work showed
+  it within minutes.
 
 ## Why
 
