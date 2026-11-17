@@ -1,7 +1,7 @@
 // A team-only connection (ARCHITECTURE §8.5, docs/PLAN-team-connection.md): the connection a
 // group shares, like a team chat's assistant. It reads the team space only and writes nothing.
 import { createHash, randomBytes } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
@@ -212,6 +212,33 @@ describe('a team-only connection on /mcp (R3, R4, R5)', () => {
       expect(names, left).not.toContain(left)
     }
     expect(instructions).toContain('team space only')
+    expect(names).not.toContain('search_chat')
+  })
+
+  it('reads the open chat rooms an admin switched on (PLAN-chat-context R10)', async () => {
+    await mkdir(join(root, 'data', 'forms'), { recursive: true })
+    await writeFile(
+      join(root, 'data', 'forms', 'rooms.json'),
+      JSON.stringify({
+        rooms: [
+          {
+            id: 'r1',
+            name: 'General',
+            url: 'https://chat.example.test/rooms/1/7-key/slack',
+            read: true,
+          },
+        ],
+      }),
+    )
+    // A fresh server answers every request, so the switched-on room shows straight away.
+    const tools = (await client.listTools()).tools
+    for (const name of ['search_chat', 'read_chat']) {
+      const t = tools.find((x) => x.name === name)
+      expect(t?.annotations?.readOnlyHint, name).toBe(true)
+    }
+    const again = await mcpClient((await connectApp('team-read')).access_token)
+    expect(again.getInstructions()).toContain('search_chat')
+    await again.close()
   })
 
   it('sees the team space only', async () => {

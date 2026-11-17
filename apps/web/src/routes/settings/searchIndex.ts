@@ -305,10 +305,20 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   },
   {
     id: 'org-chat-rooms',
-    title: 'Chat rooms for form answers',
+    title: 'Chat rooms',
     ...org('Workspace'),
-    summary: 'Where answers to forms are posted.',
-    words: ['forms', 'slack', 'webhook', 'chat', 'answers', 'responses'],
+    summary: 'Where forms and check-ins post, and which rooms search and Ask can read.',
+    words: [
+      'forms',
+      'slack',
+      'webhook',
+      'chat',
+      'answers',
+      'responses',
+      'read for context',
+      'chat search',
+      'bot',
+    ],
   },
 
   // Organization: Brand

@@ -6,6 +6,7 @@ export { bookingRoutes, PUBLIC_BOOKING_PREFIX, publicBookingRoutes } from './boo
 export { briefRoutes } from './brief.js'
 export { BRIEFCAST_FEED_PREFIX, briefcastRoutes } from './briefcast.js'
 export { calendarRoutes } from './calendar.js'
+export { chatRoutes } from './chat.js'
 export { checkinRoutes } from './checkins.js'
 export { CLIP_MEDIA_PREFIX, clipRoutes } from './clips.js'
 export { commentRoutes } from './comments.js'

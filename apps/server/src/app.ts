@@ -13,6 +13,7 @@ import {
   briefcastRoutes,
   briefRoutes,
   calendarRoutes,
+  chatRoutes,
   checkinRoutes,
   clipRoutes,
   commentRoutes,
@@ -76,6 +77,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', usageRoutes(deps))
     .route('/api', accountRoutes(deps))
     .route('/api', searchRoutes(deps))
+    .route('/api', chatRoutes(deps))
     .route('/api', fileRoutes(deps))
     .route('/api', historyRoutes(deps))
     .route('/api', conflictRoutes(deps))

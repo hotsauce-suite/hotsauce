@@ -5,6 +5,7 @@ import type { BackupService } from '../backup/index.js'
 import type { Boards } from '../boards/index.js'
 import type { AgentBriefs } from '../brief/index.js'
 import type { Briefcasts } from '../briefcast/index.js'
+import type { ChatReader } from '../chat/index.js'
 import type { CheckinScheduler, Checkins } from '../checkins/index.js'
 import type { Clips } from '../clips/index.js'
 import type { Comments } from '../comments/index.js'
@@ -68,6 +69,8 @@ export interface AppDeps {
   /** Sign: envelopes in Git, the PDFs in Files (docs/PLAN-sign.md). */
   sign: Sign
   chatRooms: ChatRooms
+  /** The copy of the chat rooms read for context (docs/PLAN-chat-context.md). */
+  chatReader: ChatReader
   tables: Tables
   links: Links
   checkins: Checkins

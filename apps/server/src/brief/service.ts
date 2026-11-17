@@ -15,6 +15,7 @@ import type { Syncer } from '../sync/index.js'
 import type { Tasks, TaskView } from '../tasks/index.js'
 import type { BriefMembers } from './members.js'
 import {
+  type BriefChat,
   type BriefCheckin,
   type BriefMeeting,
   type BriefTask,
@@ -40,9 +41,11 @@ const DONE_WINDOW_DAYS = 14
 const MAX_CHECKINS = 10
 const CHECKIN_CHARS = 1_500
 export const MAX_NOTES_CHARS = 20_000
+/** How far back the brief reads team chat. */
+const CHAT_WINDOW_DAYS = 7
 const TICK_MS = 15 * 60_000
 /** Bumped when the prompt changes, so every brief is rewritten the next night. */
-const PROMPT_VERSION = 1
+const PROMPT_VERSION = 2
 /** A nightly failure is tried again on later ticks, up to this many times a night. */
 const NIGHTLY_ATTEMPTS = 3
 /** Forced rewrites (the button, the API) per member: at most one a minute and this many a day. */
@@ -76,6 +79,8 @@ type BriefDeps = {
   tasks: Pick<Tasks, 'list'>
   /** Check-ins (§24): the member's own answers; absent leaves them out. */
   checkins?: Pick<Checkins, 'answersSince'> | null
+  /** Team chat read for context (docs/PLAN-chat-context.md R11); absent leaves it out. */
+  chat?: { involving(person: { name: string; email: string }, since: Date): BriefChat[] } | null
   llm: LLM
   model: string
   members: BriefMembers
@@ -230,7 +235,8 @@ export class AgentBriefs {
     if (
       material.meetings.length === 0 &&
       material.tasks.length === 0 &&
-      material.checkins.length === 0
+      material.checkins.length === 0 &&
+      material.chat.length === 0
     )
       return 'empty'
     const notes = (await this.#readText(space, BRIEF_NOTES_PATH))?.content ?? ''
@@ -251,6 +257,7 @@ export class AgentBriefs {
       meetings: material.meetings,
       tasks: material.tasks,
       checkins: material.checkins,
+      chat: material.chat,
       notes,
       previous: previous?.body ?? null,
     })
@@ -285,6 +292,7 @@ export class AgentBriefs {
     meetings: BriefMeeting[]
     tasks: BriefTask[]
     checkins: BriefCheckin[]
+    chat: BriefChat[]
     fingerprint: string[]
   }> {
     const since = now.getTime() - BRIEF_WINDOW_DAYS * 86_400_000
@@ -360,7 +368,14 @@ export class AgentBriefs {
       }) ?? []
     ).map((a) => ({ question: a.question, date: a.date, text: a.text.slice(0, CHECKIN_CHARS) }))
     for (const a of checkins) fingerprint.push(`checkin ${a.date} ${a.question}:${a.text}`)
-    return { meetings, tasks, checkins, fingerprint }
+    // Team chat of the last week that involves them (R11).
+    const chat =
+      this.#d.chat?.involving(
+        { name: principal.name, email: principal.email },
+        new Date(now.getTime() - CHAT_WINDOW_DAYS * 86_400_000),
+      ) ?? []
+    for (const m of chat) fingerprint.push(`chat ${m.room} ${m.at} ${m.author}:${m.text}`)
+    return { meetings, tasks, checkins, chat, fingerprint }
   }
 
   /** Refuses a forced rewrite past the member's limits (each is a large model call). */
