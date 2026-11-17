@@ -41,11 +41,19 @@ export function signingLinkEmail(a: {
 }
 
 /** Everyone gets the sealed PDF and certificate when the last person signs. */
-export function completedEmail(a: { to: string; title: string; org: string }): EmailBody {
+export function completedEmail(a: {
+  to: string
+  title: string
+  org: string
+  sender: string
+  attached: boolean
+}): EmailBody {
   const lines = [
     `Hi ${a.to},`,
     `Everyone has signed “${a.title}”.`,
-    'The signed PDF and its audit certificate are attached. The PDF is sealed, so a PDF reader shows if anyone changes it.',
+    a.attached
+      ? 'The signed PDF and its audit certificate are attached. The PDF is sealed, so a PDF reader shows if anyone changes it.'
+      : `The signed PDF is too large to attach. Reply to this email and ${a.sender} will send you a copy.`,
     `Sent by ${a.org}.`,
   ]
   return {

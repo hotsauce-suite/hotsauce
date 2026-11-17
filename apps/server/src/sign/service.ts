@@ -57,6 +57,9 @@ import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import { completedEmail, declinedEmail, signingLinkEmail } from './emails.js'
 
+/** The finished PDFs go as attachments up to this size together. */
+const MAX_ATTACH_BYTES = 20 * 1024 * 1024
+
 export interface EnvelopeSummary {
   space: string
   id: string
@@ -371,6 +374,7 @@ export class Sign {
     this.#assertAccess(principal, space)
     return this.#serial(space, id, async () => {
       const { fm, blobOid } = await this.#read(space, id)
+      this.#assertSender(principal, fm)
       if (fm.status !== 'draft') {
         throw new HotsauceError('conflict', 'This envelope has already been sent')
       }
@@ -399,7 +403,7 @@ export class Sign {
           },
         ]),
       }
-      const { fm: withLinks, links } = this.#issueLinks(next, principal.email)
+      const { fm: withLinks, links } = this.#issueLinks(next, fm.created_by)
       await this.#save(space, principal, withLinks, blobOid, 'send', via)
       const sent = await this.#emailLinks(withLinks, links)
       return { ...(await this.get(principal, space, id)), links: sent }
@@ -421,6 +425,7 @@ export class Sign {
     this.#assertAccess(principal, space)
     return this.#serial(space, id, async () => {
       const { fm, blobOid } = await this.#read(space, id)
+      this.#assertSender(principal, fm)
       if (fm.status !== 'sent') {
         throw new HotsauceError('conflict', 'Links work only while the envelope is out for signing')
       }
@@ -433,10 +438,23 @@ export class Sign {
         throw new HotsauceError('conflict', `It isn’t ${signer.name}’s turn to sign yet`)
       }
       const made = this.#makeLink(fm, signer)
+      const now = this.#iso()
+      // A new link is part of the record: who made it, for whom, and whether it was emailed.
       const next: EnvelopeFrontmatter = {
         ...fm,
         signers: fm.signers.map((s) => (s.id === signer.id ? made.signer : s)),
-        updated: this.#iso(),
+        audit: chain(fm.id, fm.audit, [
+          {
+            event: 'sent',
+            actor: 'sender',
+            email: principal.email,
+            ip: null,
+            agent: null,
+            meta: { to: [signer.email], newLink: true, emailed: input.email },
+            at: now,
+          },
+        ]),
+        updated: now,
       }
       await this.#save(space, principal, next, blobOid, 'edit', via)
       const [sent] = input.email ? await this.#emailLinks(next, [made.link], true) : [made.link]
@@ -713,7 +731,7 @@ export class Sign {
       next = { ...next, audit, status: 'completed', completed: now }
     } else if (next.status === 'sent') {
       // In order, the next people up get their links now.
-      const issued = this.#issueLinks(next, null)
+      const issued = this.#issueLinks(next, next.created_by)
       next = issued.fm
       links = issued.links
     }
@@ -744,8 +762,30 @@ export class Sign {
       }
       throw err
     }
-    if (sealed) await this.#emailCopies(next, sealed)
-    else if (links.length) await this.#emailLinks(next, links)
+    // Email doesn't hold up the signer (several slow sends could time their page out): it goes
+    // out after the envelope is saved, and a failure is only logged.
+    const after = next
+    if (sealed) this.#background(this.#emailCopies(after, sealed))
+    else if (links.length) this.#background(this.#emailLinks(after, links))
+  }
+
+  /** Emails sent after the response; tests wait for them with `settled()`. */
+  #pending = new Set<Promise<unknown>>()
+  #background(p: Promise<unknown>): void {
+    const tracked = p.catch((err) => this.#deps.log?.(`sign: email failed: ${err}`))
+    this.#pending.add(tracked)
+    void tracked.finally(() => this.#pending.delete(tracked))
+  }
+
+  /** Waits for emails still going out (tests, and a clean shutdown). */
+  async settled(): Promise<void> {
+    while (this.#pending.size > 0) await Promise.all([...this.#pending])
+  }
+
+  #assertSender(principal: Principal, fm: EnvelopeFrontmatter): void {
+    if (principal.email.toLowerCase() !== fm.created_by.toLowerCase()) {
+      throw new HotsauceError('forbidden', 'Only the person who made this envelope can send it')
+    }
   }
 
   /** Gives every signer up next who has no working link a fresh one (not `skip`, the sender). */
@@ -834,17 +874,29 @@ export class Sign {
     const to = new Map<string, string>()
     for (const s of fm.signers) to.set(s.email, s.name)
     if (!to.has(fm.created_by)) to.set(fm.created_by, this.#senderName(fm))
+    // Resend takes about 40 MB a message, base64 included: above this, say so instead of failing.
+    const attach = sealed.signed.byteLength + sealed.certificate.byteLength <= MAX_ATTACH_BYTES
     for (const [email, name] of to) {
-      const mail = completedEmail({ to: name, title: fm.title, org: this.#deps.orgName })
+      const mail = completedEmail({
+        to: name,
+        title: fm.title,
+        org: this.#deps.orgName,
+        sender: this.#senderName(fm),
+        attached: attach,
+      })
       await this.#mail({
         to: email,
         fromName: `${this.#senderName(fm)} via ${this.#deps.orgName}`,
         replyTo: fm.created_by,
         ...mail,
-        attachments: [
-          { filename: `${stem} (signed).pdf`, content: sealed.signed },
-          { filename: `${stem} (certificate).pdf`, content: sealed.certificate },
-        ],
+        ...(attach
+          ? {
+              attachments: [
+                { filename: `${stem} (signed).pdf`, content: sealed.signed },
+                { filename: `${stem} (certificate).pdf`, content: sealed.certificate },
+              ],
+            }
+          : {}),
       })
     }
   }

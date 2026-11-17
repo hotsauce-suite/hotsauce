@@ -12,6 +12,7 @@ import { makeTempDir, removeDir } from '../helpers/git.js'
 // team sign or decline from their emailed link with no account. Email goes to a fake mailer.
 
 const ALICE = 'alice@example.test'
+const BOB = 'bob@example.test'
 // A 1×1 PNG, standing in for a drawn signature.
 const DRAWN =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
@@ -68,6 +69,8 @@ async function api<T = any>(
   }
   const text = await res.text()
   expect(res.status, `${method} ${path} → ${text}`).toBe(opts.status ?? 200)
+  // Emails go out after the response.
+  await services.sign.settled()
   return (text && type.includes('json') ? JSON.parse(text) : text) as T
 }
 
@@ -137,6 +140,7 @@ async function publicApi<T = any>(
   })
   const text = await res.text()
   expect(res.status, `${method} ${path} → ${text}`).toBe(status)
+  await services.sign.settled()
   return (text ? JSON.parse(text) : null) as T
 }
 
@@ -336,6 +340,38 @@ describe('sending and signing from a link (R11–R16)', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('only the person who made it sends it or makes a new link, and a new link is audited', async () => {
+    const made = await draft()
+    const fields = [sig('f1', 's1')]
+    const people = [{ id: 's1', name: 'Maya Lin', email: MAYA, order: 1, role: 'signer' }]
+    // Bob can open the team envelope, but it's Alice's to send.
+    const env = await api('PUT', `/api/sign/alice/${made.env.id}`, {
+      json: { title: 'x', fields, signers: people, blobOid: made.env.blobOid },
+    })
+    await api('POST', `/api/sign/alice/${env.id}/send`, {
+      as: BOB,
+      json: { blobOid: env.blobOid },
+      status: 403,
+    }).catch(() => undefined)
+    const sent = await api('POST', `/api/sign/alice/${env.id}/send`, {
+      json: { blobOid: env.blobOid },
+    })
+    expect(sent.status).toBe('sent')
+    await api('POST', `/api/sign/alice/${env.id}/link/s1`, {
+      as: BOB,
+      json: { email: false },
+      status: 403,
+    }).catch(() => undefined)
+    await api('POST', `/api/sign/alice/${env.id}/link/s1`, { json: { email: false } })
+    const after = await api('GET', `/api/sign/alice/${env.id}`)
+    expect(after.audit.at(-1)).toMatchObject({
+      event: 'sent',
+      email: ALICE,
+      meta: { newLink: true },
+    })
+    expect(after.auditIntact).toBe(true)
   })
 
   it('without email on the server, Send gives the links to copy', async () => {

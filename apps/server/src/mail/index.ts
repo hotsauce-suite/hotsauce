@@ -59,8 +59,8 @@ export class ResendMailer implements Mailer {
   }
 
   async send(m: MailMessage): Promise<void> {
-    // Quotes and angle brackets would break the From header.
-    const name = m.fromName.replace(/["<>\r\n]/g, '').slice(0, 120)
+    // Quotes, backslashes and angle brackets would break the From header.
+    const name = m.fromName.replace(/["\\<>\r\n]/g, '').slice(0, 120)
     const body = {
       from: `"${name}" <${this.#from}>`,
       to: [m.to],

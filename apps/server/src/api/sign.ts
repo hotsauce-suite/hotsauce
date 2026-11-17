@@ -9,6 +9,7 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
+import { clientIp } from './booking.js'
 import type { AppDeps, AppEnv } from './env.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'
@@ -133,10 +134,34 @@ export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
  * Signing from an emailed link, with no account (R14). The link's 256-bit secret is the key:
  * nothing here is reachable without it.
  */
+/** Requests to signing links from one address, per window. */
+const LINK_REQUESTS = 300
+const LINK_WINDOW_MS = 10 * 60_000
+
 export function signLinkRoutes(deps: Pick<AppDeps, 'sign'>) {
   const { sign } = deps
   const noStore = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' }
+  // Signed out, so each address gets a budget: plenty to read and sign, too few to guess links.
+  const seen = new Map<string, { count: number; until: number }>()
   return new Hono<AppEnv>()
+    .use('/sign-link/*', async (c, next) => {
+      const ip = clientIp((n) => c.req.header(n)) ?? 'unknown'
+      const now = Date.now()
+      const hit = seen.get(ip)
+      if (!hit || hit.until < now) {
+        if (seen.size > 10_000) seen.clear()
+        seen.set(ip, { count: 1, until: now + LINK_WINDOW_MS })
+      } else if (++hit.count > LINK_REQUESTS) {
+        throw new HotsauceError(
+          'bad_request',
+          'Too many tries. Wait a few minutes and open the link again',
+          {
+            status: 429,
+          },
+        )
+      }
+      await next()
+    })
     .get('/sign-link/:token', valid('param', Token), async (c) =>
       c.json(await sign.publicView(c.req.valid('param').token, metaOf(c)), 200, noStore),
     )

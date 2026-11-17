@@ -66,6 +66,7 @@ export default function EnvelopePage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmSend, setConfirmSend] = useState(false)
   const [links, setLinks] = useState<SigningLink[] | null>(null)
+  const [replace, setReplace] = useState<{ signer: SignerView; email: boolean } | null>(null)
 
   const adopt = useCallback((view: EnvelopeView) => {
     setEnv(view)
@@ -385,7 +386,7 @@ export default function EnvelopePage() {
                   env={env}
                   myEmail={myEmail}
                   busy={busy}
-                  onLink={(s, email) => void newLink(s, email)}
+                  onLink={(signer, email) => setReplace({ signer, email })}
                 />
               ) : null}
 
@@ -559,6 +560,38 @@ export default function EnvelopePage() {
               data-testid="sign-send-confirm"
             >
               {busy ? 'Sending…' : 'Send'}
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
+
+      {replace ? (
+        <Dialog
+          title={replace.email ? 'Email a new link?' : 'Make a new link?'}
+          onClose={() => setReplace(null)}
+        >
+          <p className="text-sm text-ink-soft">
+            {replace.signer.name}’s current link stops working, and the new one works for 30 days.
+            {replace.email
+              ? ` It’s emailed to ${replace.signer.email}.`
+              : ' You copy it and send it.'}
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" className={secondaryButton} onClick={() => setReplace(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={primaryButton}
+              disabled={busy}
+              onClick={() => {
+                const r = replace
+                setReplace(null)
+                void newLink(r.signer, r.email)
+              }}
+              data-testid="sign-new-link-confirm"
+            >
+              {replace.email ? 'Email it' : 'Make a new link'}
             </button>
           </div>
         </Dialog>
@@ -826,6 +859,7 @@ function Progress({
   onLink: (signer: SignerView, email: boolean) => void
 }) {
   const decliner = env.signerList.find((s) => s.status === 'declined')
+  const isSender = env.createdBy.toLowerCase() === myEmail
   return (
     <section
       className="flex flex-col gap-3 rounded-xl bg-paper-raised p-4 ring-1 ring-ash"
@@ -865,7 +899,7 @@ function Progress({
               <span className="text-xs text-ink-soft" data-testid="sign-progress-state">
                 {personState(s, turn, isMe)}
               </span>
-              {env.status === 'sent' && turn && !isMe ? (
+              {env.status === 'sent' && turn && !isMe && isSender ? (
                 <span className="flex gap-1">
                   <button
                     type="button"
@@ -903,6 +937,7 @@ function personState(s: SignerView, turn: boolean, isMe: boolean): string {
   if (s.status === 'declined') return 'Declined'
   if (!turn) return 'Waits for their turn'
   if (isMe) return 'Your turn'
+  if (!s.sent_at) return 'Signs in the app'
   if (s.viewed_at) return `Opened ${when(s.viewed_at)}`
   if (!s.linkActive) return 'Link expired: make a new one'
   return s.sent_at ? `Link sent ${when(s.sent_at)}` : 'Waiting'
