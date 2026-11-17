@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.43.1",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Search boxes and text fields show one orange outline when selected, not two."
+        }
+      ]
+    },
+    {
       "version": "0.43.0",
       "date": "2026-11-17",
       "notes": [
