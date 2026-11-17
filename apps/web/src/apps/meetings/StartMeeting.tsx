@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { calendarApi } from '../../api/calendar'
 import { HotsauceApiError } from '../../api/client'
 import { meetingsApi } from '../../api/meetings'
@@ -61,23 +61,32 @@ function eventById(id: string): Promise<CalendarEvent | null> {
  * The event named by id, or else the one the server matches to the Meet call `meet` (the
  * extension's Take notes).
  */
-function useCalendarEvent(id: string | null, meet: string | null): CalendarEvent | null {
+/** The calendar event this meeting is for, and whether looking it up has finished. */
+function useCalendarEvent(
+  id: string | null,
+  meet: string | null,
+): { event: CalendarEvent | null; settled: boolean } {
   const [event, setEvent] = useState<CalendarEvent | null>(null)
+  const [settled, setSettled] = useState(!id && !meet)
   useEffect(() => {
     if (!id && !meet) return
     let cancelled = false
     const found = id ? eventById(id) : calendarApi.match(meet ?? '').then((m) => m.event)
     found.then(
       (e) => {
-        if (!cancelled) setEvent(e)
+        if (cancelled) return
+        setEvent(e)
+        setSettled(true)
       },
-      () => {},
+      () => {
+        if (!cancelled) setSettled(true)
+      },
     )
     return () => {
       cancelled = true
     }
   }, [id, meet])
-  return event
+  return { event, settled }
 }
 
 /** The Hotsauce Chrome extension's version when it's installed in this browser. */
@@ -100,6 +109,7 @@ export default function StartMeeting() {
   // Only a meeting that was live when the page opened; the one this form starts navigates away.
   const [liveAtOpen] = useState(getLive)
   const live = useLive()
+  const { search } = useLocation()
   if (live && live.id === liveAtOpen?.id) {
     return (
       <>
@@ -116,7 +126,8 @@ export default function StartMeeting() {
       </>
     )
   }
-  return <StartForm />
+  // A new query (another reminder, opened on this same page) starts the form afresh.
+  return <StartForm key={search} />
 }
 
 function StartForm() {
@@ -129,7 +140,11 @@ function StartForm() {
   const meet = params.get('meet')
   // Opened by the Mac app's "Take notes on this call?": the app that is on the call.
   const callApp = params.get('via') === 'mac-call' ? params.get('app')?.trim().slice(0, 60) : null
-  const event = useCalendarEvent(eventId, meet)
+  // Opened by the Mac app's "Take notes for <meeting>?" calendar reminder.
+  const viaMacReminder = params.get('via') === 'mac-reminder'
+  // Either Mac notice: the member already said "take notes", so listen and start at once.
+  const fromMacNotice = Boolean(callApp) || viaMacReminder
+  const { event, settled: eventSettled } = useCalendarEvent(eventId, meet)
   // The Meet call this meeting is for, so the extension hands over that tab and no other.
   const call = meet ?? meetCallCode(event?.meetLink)
   const extension = useExtensionVersion()
@@ -226,10 +241,10 @@ function StartForm() {
     }
   }
 
-  // The member chose "Take notes" on the app's call notice: listen to the Mac at once.
+  // The member chose "Take notes" on one of the app's notices: listen to the Mac at once.
   const autoChose = useRef(false)
   useEffect(() => {
-    if (!callApp || !macCapture || autoChose.current) return
+    if (!fromMacNotice || !macCapture || autoChose.current) return
     autoChose.current = true
     void choose('mac')
   })
@@ -244,9 +259,12 @@ function StartForm() {
     )
   }
 
+  // Set at once, so a click landing in the same frame as the automatic start can't start twice.
+  const starting = useRef(false)
   const start = async () => {
     const current = capture.current
-    if (!current || !canStart(state)) return
+    if (!current || !canStart(state) || starting.current) return
+    starting.current = true
     dispatch({ type: 'start' })
     try {
       const created = await meetingsApi.createSession({
@@ -268,6 +286,7 @@ function StartForm() {
       })
       navigate(`/meetings/live/${encodeURIComponent(created.id)}`, { replace: true })
     } catch (err) {
+      starting.current = false
       dispatch({
         type: 'failed',
         message:
@@ -275,6 +294,19 @@ function StartForm() {
       })
     }
   }
+
+  // ...and start as soon as the sound check is done and the meeting's name is known. A track
+  // that stayed silent doesn't hold it up: before the call begins there is no call audio yet.
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoChose.current || autoStarted.current || !eventSettled || !canStart(state)) return
+    // Only the Mac listening it chose: a member who picked another way presses Start themselves.
+    if (state.step !== 'check' || state.mode !== 'mac') return
+    // The event's name has replaced the call's ("Zoom call"), unless the member typed one.
+    if (event && !titleTouched.current && title !== event.title) return
+    autoStarted.current = true
+    void start()
+  })
 
   const mode = state.step === 'choose' ? null : state.mode
   const tracks =
