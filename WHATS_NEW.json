@@ -1,6 +1,29 @@
 {
   "releases": [
     {
+      "version": "0.39.2",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "\"Take notes on this call?\" now appears even when the call app briefly lets go of the microphone as the call starts (for example when you join muted).",
+          "area": "Mac app"
+        },
+        {
+          "text": "When an offer doesn't appear, the app records why, so it can be diagnosed.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A meeting started from the Mac app's call notice now stops on its own when the call ends, in every mode, including Mic only."
+        },
+        {
+          "text": "Typing in a meeting note while Enhance runs no longer jumps to New meeting when you press \"c\"."
+        },
+        {
+          "text": "In the Mac app, the sound check says \"The call, from apps on this Mac\", keeps listening until someone speaks, and links straight to the System Audio Recording setting when the call stays silent."
+        }
+      ]
+    },
+    {
       "version": "0.39.1",
       "date": "2026-11-17",
       "notes": [
