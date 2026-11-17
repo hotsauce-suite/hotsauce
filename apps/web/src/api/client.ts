@@ -281,4 +281,9 @@ export const api = {
   pins: () => request<{ pins: string[] | null }>('/api/pins'),
   setPins: (pins: readonly string[]) =>
     request<{ pins: string[] }>('/api/pins', { method: 'PUT', json: { pins } }),
+
+  /** The apps on this member's phone tab bar, in order; null until they first change them. */
+  phonePins: () => request<{ pins: string[] | null }>('/api/phone-pins'),
+  setPhonePins: (pins: readonly string[]) =>
+    request<{ pins: string[] }>('/api/phone-pins', { method: 'PUT', json: { pins } }),
 }

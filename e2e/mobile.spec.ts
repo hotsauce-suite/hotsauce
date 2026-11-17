@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { docUrl, expect, test, typeAtEnd, uid, waitForSave } from './fixtures'
 
 // Runs only in the mobile-chromium project (Pixel 7 viewport, touch).
@@ -88,3 +89,63 @@ test('a phone reaches every app from the Apps sheet', async ({ page }) => {
   await expect(sheet).toHaveCount(0)
   await expect(page).toHaveURL(/\/files/)
 })
+
+test('a phone chooses the apps on its tab bar, and they stay after a reload', async ({ page }) => {
+  // The member is shared by every spec in this run: start from the defaults and put them back.
+  const defaults = ['today', 'docs', 'tasks', 'meetings']
+  await page.request.put('/api/phone-pins', { data: { pins: defaults } })
+  try {
+    await choose(page)
+  } finally {
+    await page.request.put('/api/phone-pins', { data: { pins: defaults } })
+  }
+})
+
+async function choose(page: Page) {
+  await page.setViewportSize({ width: 375, height: 760 })
+  await page.goto('/today')
+  const bar = page.getByTestId('app-rail')
+  await bar.getByTestId('apps-menu').tap()
+  const sheet = page.getByRole('dialog', { name: 'All apps' })
+  await sheet.getByTestId('apps-sheet-edit').tap()
+  await sheet.getByTestId('apps-sheet-toggle-clips').tap()
+  await expect(sheet.getByTestId('apps-sheet-help')).toContainText('holds 5 apps')
+  await expect(sheet.getByTestId('apps-sheet-toggle-notes')).toBeDisabled()
+  await sheet.getByTestId('apps-sheet-remove-docs').tap()
+  await sheet.getByTestId('apps-sheet-edit').tap()
+  await page.mouse.click(200, 60)
+  await expect(sheet).toHaveCount(0)
+
+  const tabs = () =>
+    bar.locator('a, button').evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')))
+  const chosen = [
+    'app-switch-today',
+    'app-switch-tasks',
+    'app-switch-meetings',
+    'app-switch-clips',
+    'apps-menu',
+  ]
+  await expect.poll(tabs).toEqual(chosen)
+  await page.reload()
+  await expect.poll(tabs).toEqual(chosen)
+
+  // Five apps and Apps fit a 375px iPhone: six even tabs, every label whole.
+  await bar.getByTestId('apps-menu').tap()
+  await sheet.getByTestId('apps-sheet-edit').tap()
+  await sheet.getByTestId('apps-sheet-toggle-briefcast').tap()
+  await page.keyboard.press('Escape')
+  await expect.poll(async () => (await tabs()).length).toBe(6)
+  const fit = await bar.locator('a, button').evaluateAll((els) =>
+    els.map((el) => {
+      const label = el.querySelector('span:last-child') as HTMLElement
+      return {
+        width: el.getBoundingClientRect().width,
+        clipped: label.scrollWidth > label.clientWidth,
+      }
+    }),
+  )
+  for (const tab of fit) {
+    expect(tab.width).toBeGreaterThanOrEqual(56)
+    expect(tab.clipped).toBe(false)
+  }
+}

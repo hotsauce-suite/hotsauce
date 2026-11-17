@@ -3,7 +3,15 @@ import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { api } from '../api/client'
 import { server } from '../test/mockServer'
-import { DEFAULT_PINS, forgetPins, savePins, usePins } from './pins'
+import {
+  DEFAULT_PHONE_PINS,
+  DEFAULT_PINS,
+  forgetPins,
+  savePhonePins,
+  savePins,
+  usePhonePins,
+  usePins,
+} from './pins'
 
 describe('the pins store', () => {
   it('keeps a save made before the first load answers', async () => {
@@ -41,5 +49,19 @@ describe('the pins store', () => {
     act(() => forgetPins())
     expect(result.current).toEqual(DEFAULT_PINS)
     expect(localStorage.getItem('hearth.pins')).toBeNull()
+  })
+
+  it("keeps the phone list apart from the rail's, and sign-out forgets both", async () => {
+    const rail = renderHook(() => usePins())
+    const phone = renderHook(() => usePhonePins())
+    expect(phone.result.current).toEqual(DEFAULT_PHONE_PINS)
+    await act(() => savePhonePins(['tasks', 'chat']))
+    expect(phone.result.current).toEqual(['tasks', 'chat'])
+    expect(rail.result.current).toEqual(DEFAULT_PINS)
+    expect((await api.phonePins()).pins).toEqual(['tasks', 'chat'])
+    expect((await api.pins()).pins).toBeNull()
+    act(() => forgetPins())
+    expect(phone.result.current).toEqual(DEFAULT_PHONE_PINS)
+    expect(localStorage.getItem('hotsauce.phone-pins')).toBeNull()
   })
 })

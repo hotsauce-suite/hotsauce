@@ -44,6 +44,7 @@ launcher with every app.
   bridge from the web page to the Mac app and a new Mac release; the Go menu already works like the
   launcher (every app). Revisit if members ask for ⌘1 to mean "my first pin".
 - **The phone bar stays as it is.** Its four apps were chosen for a phone; the Apps sheet has the rest.
+  *Superseded Nov 17: members choose the phone bar's apps (docs/PLAN-phone-tab-bar.md).*
 - **The open app shows below the pins** instead of disappearing, so you never lose your place.
 
 ## Shared files touched

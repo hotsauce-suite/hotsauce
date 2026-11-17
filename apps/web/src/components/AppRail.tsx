@@ -11,7 +11,15 @@ import { feedbackEnabled } from '../api/feedback'
 import { forgetForYou, useForYou } from '../apps/for-you/store'
 import { useLive } from '../apps/meetings/live/liveState'
 import { forgetRemindersHere } from '../apps/meetings/reminders'
-import { entryId, forgetPins, pinnedEntries, type RailEntry, usePins } from '../apps/pins'
+import {
+  entryId,
+  forgetPins,
+  MAX_PHONE_PINS,
+  pinnedEntries,
+  type RailEntry,
+  usePhonePins,
+  usePins,
+} from '../apps/pins'
 import { APPS, type AppId, type AppManifest, ownerOfPath } from '../apps/registry'
 import { forgetTaskLists } from '../apps/tasks/useTaskList'
 import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
@@ -62,8 +70,8 @@ type Orientation = 'vertical' | 'horizontal'
  * The app rail: the member's pinned apps (docs/PLAN-pinned-rail.md), the open app below them when
  * it isn't pinned, then the launcher's grid button (every app), Settings and the account menu, in
  * a column on the far left of the shell; the apps scroll when there are more than fit, so the
- * window never does. On phones, a tab bar along the bottom with the apps marked `onPhoneBar` and
- * an Apps tab whose sheet holds everything else.
+ * window never does. On phones, a tab bar along the bottom with the apps the member chose for it
+ * (docs/PLAN-phone-tab-bar.md) and an Apps tab whose sheet holds everything else.
  */
 export function AppRail({ orientation }: { orientation: Orientation }) {
   const location = useLocation()
@@ -74,14 +82,19 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   const recording = live !== null && (live.state === 'recording' || live.state === 'paused')
   const vertical = orientation === 'vertical'
   const pins = usePins()
+  const phonePins = usePhonePins(!vertical)
   const waiting = useForYou().view.unseen
+  const onPhoneBar = vertical ? [] : pinnedEntries(phonePins).slice(0, MAX_PHONE_PINS)
+  const phoneIds = new Set(onPhoneBar.map(entryId))
+  // For you's count: on its own entry when it's there (always on the rail); on the phone bar
+  // without it, on Today, whose tile lists them; with neither, as a dot on Apps.
+  const countOn =
+    vertical || phoneIds.has('for-you') ? 'for-you' : phoneIds.has('today') ? 'today' : null
 
   const appItem = (app: AppManifest) => {
     const current = app.id === active
     const isRecording = app.id === 'meetings' && recording
-    // For you's count: on its own entry on the rail; on the phone bar, which has no room for it,
-    // on Today, whose tile lists them.
-    const count = app.id === (vertical ? 'for-you' : 'today') ? waiting : 0
+    const count = app.id === countOn ? waiting : 0
     return (
       <RailItem
         key={app.id}
@@ -126,9 +139,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
   const openApp = APPS.find((app) => app.id === active)
   const unpinned =
     vertical && openApp && !pinned.some((entry) => entryId(entry) === openApp.id) ? openApp : null
-  const apps = vertical
-    ? pinned.map(entryItem)
-    : APPS.filter((app) => app.onPhoneBar === true).map(appItem)
+  const apps = (vertical ? pinned : onPhoneBar).map(entryItem)
   const onFeedback = location.pathname === '/feedback'
   const feedbackHref = feedbackLink(location.pathname)
   const feedbackOn = useFeedbackEnabled()
@@ -196,7 +207,12 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
     >
       <div className="flex">
         {apps}
-        <AppsTab active={active} recording={recording} />
+        <AppsTab
+          active={active}
+          onBar={phoneIds}
+          recording={recording}
+          waiting={countOn === null ? waiting : 0}
+        />
       </div>
     </nav>
   )

@@ -59,11 +59,6 @@ export interface AppManifest {
   urlFor: (space: string, path: string) => string
   /** False: the app has no sidebar, and its page takes the whole width. */
   sidebar?: boolean
-  /**
-   * True pins it to the phone's bottom bar, beside the Apps button. Keep it to four (a test
-   * holds it there); every app, pinned or not, is in the Apps sheet.
-   */
-  onPhoneBar?: boolean
   /** Loads the app's first page, so its chunk is warm before the click lands. */
   preload: () => Promise<unknown>
 }

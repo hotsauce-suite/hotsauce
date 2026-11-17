@@ -542,6 +542,23 @@ function createHandlers(
       repo.pins.set(user.email, pins)
       return HttpResponse.json({ pins })
     }),
+
+    http.get('/api/phone-pins', ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      return HttpResponse.json({ pins: repo.phonePins.get(user.email) ?? null })
+    }),
+
+    http.put('/api/phone-pins', async ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const { pins } = (await request.json()) as { pins: string[] }
+      if (pins.length > 5 || new Set(pins).size !== pins.length) {
+        return HttpResponse.json({ error: 'bad_request' }, { status: 400 })
+      }
+      repo.phonePins.set(user.email, pins)
+      return HttpResponse.json({ pins })
+    }),
   ]
 
   // Before the meetings routes: ticking a meeting's action item is recorded here first.

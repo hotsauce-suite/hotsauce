@@ -794,6 +794,28 @@ describe('rail pins', () => {
   })
 })
 
+describe('phone pins', () => {
+  it('keeps each member their own phone bar, apart from the rail, at most five apps', async () => {
+    expect(await json('GET', '/api/phone-pins')).toEqual({ pins: null })
+    const pins = ['tasks', 'for-you', 'chat']
+    expect(await json('PUT', '/api/phone-pins', { json: { pins } })).toEqual({ pins })
+    expect(await json('GET', '/api/phone-pins')).toEqual({ pins })
+    expect(await json('GET', '/api/phone-pins', { as: BOB })).toEqual({ pins: null })
+    // The rail's pins are a separate list.
+    expect(await json('GET', '/api/pins')).toEqual({ pins: null })
+
+    const five = ['today', 'docs', 'tasks', 'meetings', 'clips']
+    expect(await json('PUT', '/api/phone-pins', { json: { pins: five } })).toEqual({ pins: five })
+    await json('PUT', '/api/phone-pins', { json: { pins: [...five, 'dictate'] } }, 400)
+    await json('PUT', '/api/phone-pins', { json: { pins: ['docs', 'docs'] } }, 400)
+    await json('PUT', '/api/phone-pins', { json: { pins: ['../etc'] } }, 400)
+    expect(await json('GET', '/api/phone-pins')).toEqual({ pins: five })
+
+    await json('PUT', '/api/phone-pins', { json: { pins: [] } })
+    expect(await json('GET', '/api/phone-pins')).toEqual({ pins: [] })
+  })
+})
+
 describe('webhooks', () => {
   function signedPush(body: string, secret = WEBHOOK_SECRET): Record<string, string> {
     return {

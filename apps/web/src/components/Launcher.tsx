@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
 import { allEntries, entryId, pinnedEntries, type RailEntry, savePins, usePins } from '../apps/pins'
@@ -6,6 +6,7 @@ import type { AppId } from '../apps/registry'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
 import { Icon, type IconName } from './Icon'
+import { usePinDrag } from './usePinDrag'
 
 /**
  * The desktop rail's grid button: opens the launcher, a popover beside the rail with every app.
@@ -57,28 +58,19 @@ function Launcher({
   const session = useSession()
   const saved = usePins()
   const [editing, setEditing] = useState(false)
-  // While a pinned app is dragged, the order shown; saved when it's dropped.
-  const [dragOrder, setDragOrder] = useState<string[] | null>(null)
-  // A press on a pinned app in edit mode; it becomes a drag once it moves a few pixels.
-  const drag = useRef<{
-    id: string
-    pointer: number
-    x: number
-    y: number
-    moving: boolean
-  } | null>(null)
-  // A drag that moved an app ends in a click on it, which mustn't also unpin it.
-  const dragged = useRef(false)
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
-  const order = dragOrder ?? [...saved]
-  const pinned = pinnedEntries(order)
-  const pinnedIds = new Set(pinned.map(entryId))
-
   const save = (next: readonly string[]) => {
     savePins(next).catch(() => session.notify("Couldn't save your pinned apps. Try again."))
   }
+  const drag = usePinDrag({
+    enabled: editing,
+    ids: pinnedEntries(saved).map(entryId),
+    onDrop: save,
+  })
+  const pinned = pinnedEntries(drag.dragOrder ?? saved)
+  const pinnedIds = new Set(pinned.map(entryId))
   // Ids the instance doesn't have (say, Chat without a chat link) keep no slot.
   const toggle = (id: string) => {
     const known = pinned.map(entryId)
@@ -123,50 +115,6 @@ function Launcher({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const onDragStart = (event: PointerEvent<HTMLElement>, id: string) => {
-    if (!editing || event.button !== 0) return
-    drag.current = {
-      id,
-      pointer: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      moving: false,
-    }
-    dragged.current = false
-  }
-  const onDragMove = (event: PointerEvent<HTMLElement>) => {
-    const dragging = drag.current
-    if (dragging?.pointer !== event.pointerId) return
-    // Capture only once it moves, so a plain click still lands on the unpin button.
-    if (!dragging.moving) {
-      if (Math.hypot(event.clientX - dragging.x, event.clientY - dragging.y) < 5) return
-      dragging.moving = true
-      event.currentTarget.setPointerCapture?.(event.pointerId)
-      setDragOrder(pinned.map(entryId))
-    }
-    const over = document
-      .elementFromPoint?.(event.clientX, event.clientY)
-      ?.closest<HTMLElement>('[data-pin-id]')?.dataset.pinId
-    if (!over || over === dragging.id) return
-    dragged.current = true
-    setDragOrder((was) => {
-      const next = [...(was ?? [])]
-      const from = next.indexOf(dragging.id)
-      const to = next.indexOf(over)
-      if (from === -1 || to === -1) return was
-      next.splice(to, 0, ...next.splice(from, 1))
-      return next
-    })
-  }
-  const onDragEnd = (event: PointerEvent<HTMLElement>) => {
-    if (drag.current?.pointer !== event.pointerId) return
-    drag.current = null
-    const next = dragOrder
-    setDragOrder(null)
-    // A cancelled touch (the page scrolled, a call came in) puts everything back.
-    if (event.type === 'pointercancel') return
-    if (next && next.join() !== pinnedEntries(saved).map(entryId).join()) save(next)
-  }
   const onPinnedKey = (event: KeyboardEvent<HTMLElement>, id: string) => {
     if (!editing || !event.altKey) return
     if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') move(id, -1)
@@ -223,13 +171,9 @@ function Launcher({
             return (
               <li
                 key={id}
-                data-pin-id={id}
+                {...drag.itemProps(id)}
                 data-testid={`launcher-pinned-${id}`}
                 className={editing ? 'cursor-grab touch-none active:cursor-grabbing' : undefined}
-                onPointerDown={(event) => onDragStart(event, id)}
-                onPointerMove={onDragMove}
-                onPointerUp={onDragEnd}
-                onPointerCancel={onDragEnd}
               >
                 {editing ? (
                   <button
@@ -237,8 +181,7 @@ function Launcher({
                     aria-label={`Unpin ${entryName(entry)} (position ${index + 1}; Alt and arrow keys move it)`}
                     data-testid={`launcher-unpin-${id}`}
                     onClick={() => {
-                      if (dragged.current) dragged.current = false
-                      else toggle(id)
+                      if (!drag.takeDragged()) toggle(id)
                     }}
                     onKeyDown={(event) => onPinnedKey(event, id)}
                     className={TILE}
@@ -315,7 +258,7 @@ function entryIsActive(entry: RailEntry, active: AppId | null): boolean {
   return entry.kind === 'app' && entry.app.id === active
 }
 
-function TileIcon({
+export function TileIcon({
   icon,
   badge,
   current = false,
