@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import { defaultMacSettings, FakeMac } from '../../test/fakeMac'
+import { SETTINGS_INDEX, searchSettings } from './searchIndex'
 import ThisMacPage from './ThisMacPage'
 
 // docs/PLAN-one-settings.md R1–R8, against a stand-in for the Mac app's bridge.
@@ -142,5 +143,52 @@ describe('Settings → This Mac on macOS before 14.2', () => {
     await ready()
     expect(screen.queryByTestId('mac-offerCallNotes')).toBeNull()
     expect(screen.getByTestId('mac-meetingReminders')).toBeInTheDocument()
+  })
+})
+
+describe('Settings search covers This Mac (R13)', () => {
+  it('has every setting the search lists for it, by its heading or label', async () => {
+    show(new FakeMac())
+    await ready()
+    const page = screen.getByTestId('settings-mac')
+    const labels = [...page.querySelectorAll('h2, .font-medium')].map((el) =>
+      el.textContent?.trim(),
+    )
+    for (const entry of SETTINGS_INDEX.filter((e) => e.macOnly))
+      expect(labels, entry.title).toContain(entry.title)
+  })
+
+  it('finds them inside the Mac app only', () => {
+    const found = (mac: boolean) =>
+      searchSettings('microphone', { admin: false, mac }).map((e) => e.id)
+    expect(found(true)).toContain('mac-permissions')
+    expect(found(false)).not.toContain('mac-permissions')
+  })
+})
+
+describe('Microphone for dictation (R14)', () => {
+  it('lists the Mac’s microphones and sends the choice, or the default', async () => {
+    const mac = new FakeMac()
+    show(mac)
+    await ready()
+    const picker = screen.getByLabelText('Microphone for dictation')
+    expect(picker).toHaveValue('')
+    expect(
+      within(picker)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Mac’s default', 'MacBook Pro Microphone', 'Yeti Stereo Microphone'])
+    await userEvent.selectOptions(picker, 'usb-yeti')
+    expect(picker).toHaveValue('usb-yeti')
+    await userEvent.selectOptions(picker, '')
+    expect(mac.requests).toContainEqual({ type: 'set', key: 'microphone', value: 'usb-yeti' })
+    expect(mac.requests).toContainEqual({ type: 'set', key: 'microphone', value: null })
+  })
+
+  it('says when the picked one is unplugged', async () => {
+    show(new FakeMac({ ...defaultMacSettings(), microphoneChoice: 'gone' }))
+    await ready()
+    expect(screen.getByLabelText('Microphone for dictation')).toHaveValue('gone')
+    expect(screen.getByText(/isn’t connected/)).toBeInTheDocument()
   })
 })

@@ -24,6 +24,8 @@ const settingsArb: fc.Arbitrary<MacSettings> = fc.record({
   showInMenuBar: fc.boolean(),
   menuBarIconHidden: fc.boolean(),
   historyDays: fc.constantFrom(...HISTORY_DAYS),
+  microphoneChoice: fc.option(fc.string(), { nil: null }),
+  microphones: fc.array(fc.record({ id: fc.string(), name: fc.string() })),
   permissions: fc.record({
     microphone: fc.boolean(),
     accessibility: fc.boolean(),
@@ -56,6 +58,9 @@ describe('parseMacSettings', () => {
         permissions: { ...defaultMacSettings().permissions, notifications: true },
       },
       { ...defaultMacSettings(), account: 42 },
+      { ...defaultMacSettings(), microphones: [{ id: 1, name: 'x' }] },
+      { ...defaultMacSettings(), microphones: undefined },
+      { ...defaultMacSettings(), microphoneChoice: 7 },
     ]
     for (const reply of bad) expect(parseMacSettings(reply)).toBeNull()
   })

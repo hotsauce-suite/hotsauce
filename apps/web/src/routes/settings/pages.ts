@@ -13,6 +13,9 @@ export const YOUR_PAGES: SettingsPage[] = [
   { id: 'apps', label: 'Apps', to: '/settings/apps' },
 ]
 
+/** Only inside the Mac app, first in the menu (docs/PLAN-one-settings.md R1). */
+export const MAC_PAGE: SettingsPage = { id: 'mac', label: 'This Mac', to: '/settings/mac' }
+
 export type OrgPageId = 'workspace' | 'brand' | 'people' | 'ai' | 'data' | 'usage'
 
 export const ORG_PAGES: (SettingsPage & { id: OrgPageId })[] = [

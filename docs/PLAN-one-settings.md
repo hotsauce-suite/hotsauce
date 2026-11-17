@@ -1,6 +1,6 @@
 # One Settings: the Mac app's settings move into Settings → This Mac
 
-Status (2026-11-17): planned; building. Morgan (Nov 17): "It's confusing that we have settings
+Status (2026-11-17): building. Morgan answered the questions: Q1, Q2, Q4, Q6 as recommended; Q3 add the microphone picker now; Q5 move the Dictate window into the app next. Morgan (Nov 17): "It's confusing that we have settings
 within the Hotsauce UI, but also a standalone settings for the app" → "do it".
 
 ## Why
@@ -52,7 +52,13 @@ over the bridge when it loads.
 
 R12. The first-launch "Set up Hotsauce" window is unchanged.
 
-R13. Settings search (another thread) covers This Mac's settings, only inside the Mac app.
+R13. Settings search covers every setting on This Mac (each section and each row), only inside the
+Mac app (Morgan, Nov 17: "include all the stuff we're moving").
+
+R14. Microphone for dictation: "Mac's default" or any input the Mac has, by its Core Audio UID. A
+picked microphone that's unplugged shows as "Not connected", and dictation uses the default until
+it's back. Meeting recording in the Mac app keeps the Mac's default (its echo cancelling is fussy
+about devices); the page says so. (Morgan, Q3: "add microphone picker now".)
 
 ## Slices
 
@@ -64,6 +70,7 @@ R13. Settings search (another thread) covers This Mac's settings, only inside th
 
 ## Not in this change
 
-- Choosing a microphone (Morgan, Q3: later, its own job).
 - Dictate's voice model: kept per member on the server, edited in Settings → Apps (its own thread).
-- The Dictate window's word counts, recent dictations and word lists stay where they are.
+- The Dictate window's word counts and recent dictations: the next step (Morgan, Q5: "move all the
+  dictate stuff into the app"). They go on the Dictate page inside the Mac app over the same kind of
+  bridge, and the Dictate window retires. Word lists are already on the Dictate page.

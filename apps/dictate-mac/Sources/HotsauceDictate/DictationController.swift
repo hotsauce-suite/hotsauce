@@ -41,6 +41,7 @@ final class DictationController {
         self.settings = settings
         self.history = history
         _ = NetworkWatch.shared // starts watching now, so the first key press has an answer
+        recorder.preferredInput = { [settings] in settings.microphoneUID }
         recorder.onLevel = { [weak self] level in
             self?.overlay.model.push(level: level)
             self?.glow.push(level: level)

@@ -151,6 +151,35 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
           </select>
         </Row>
         <Row
+          label="Microphone for dictation"
+          hint={
+            settings.microphoneChoice &&
+            !settings.microphones.some((m) => m.id === settings.microphoneChoice)
+              ? 'The one you picked isn’t connected, so dictation uses the Mac’s default until it is.'
+              : 'Meeting recording in the Mac app follows the Mac’s default microphone.'
+          }
+        >
+          <select
+            aria-label="Microphone for dictation"
+            data-testid="mac-microphone"
+            value={settings.microphoneChoice ?? ''}
+            disabled={busy}
+            onChange={(e) => void change('microphone', e.target.value || null)}
+            className="h-9 max-w-64 rounded-lg border border-ash-strong bg-paper-raised px-2 text-sm"
+          >
+            <option value="">Mac’s default</option>
+            {settings.microphones.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+            {settings.microphoneChoice &&
+            !settings.microphones.some((m) => m.id === settings.microphoneChoice) ? (
+              <option value={settings.microphoneChoice}>Not connected</option>
+            ) : null}
+          </select>
+        </Row>
+        <Row
           label="Mode"
           hint={
             settings.mode === 'clean'

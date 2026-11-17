@@ -18,6 +18,18 @@ public enum MacSettingsBridge {
         case openAtLogin(Bool)
         case showInMenuBar(Bool)
         case historyDays(Int)
+        /// A microphone's UID, or nil for the Mac's default.
+        case microphone(String?)
+    }
+
+    /// One of the Mac's microphones, as Settings lists it.
+    public struct Microphone: Equatable, Sendable {
+        public var id: String
+        public var name: String
+        public init(id: String, name: String) {
+            self.id = id
+            self.name = name
+        }
     }
 
     public enum Action: String, CaseIterable, Sendable {
@@ -59,6 +71,10 @@ public enum MacSettingsBridge {
         case "offerCallNotes": return flag(value).map(Change.offerCallNotes)
         case "openAtLogin": return flag(value).map(Change.openAtLogin)
         case "showInMenuBar": return flag(value).map(Change.showInMenuBar)
+        case "microphone":
+            if value is NSNull { return .microphone(nil) }
+            guard let uid = value as? String, !uid.isEmpty, uid.count <= 512 else { return nil }
+            return .microphone(uid)
         case "historyDays":
             guard let days = number(value), historyDays.contains(days) else { return nil }
             return .historyDays(days)
@@ -99,6 +115,9 @@ public enum MacSettingsBridge {
         public var showInMenuBar: Bool
         public var menuBarIconHidden: Bool
         public var historyDays: Int
+        /// The picked microphone's UID; nil is the Mac's default.
+        public var microphoneChoice: String?
+        public var microphones: [Microphone]
         public var microphone: Bool
         public var accessibility: Bool
         public var location: Bool
@@ -108,6 +127,7 @@ public enum MacSettingsBridge {
         public init(
             hotkey: Hotkey, mode: DictationMode, edgeGlow: Bool, meetingReminders: Bool, offerCallNotes: Bool, callNotesSupported: Bool,
             openAtLogin: Bool, showInMenuBar: Bool, menuBarIconHidden: Bool, historyDays: Int,
+            microphoneChoice: String?, microphones: [Microphone],
             microphone: Bool, accessibility: Bool, location: Bool, notifications: NotificationsBridge.State, account: String?
         ) {
             self.hotkey = hotkey
@@ -120,6 +140,8 @@ public enum MacSettingsBridge {
             self.showInMenuBar = showInMenuBar
             self.menuBarIconHidden = menuBarIconHidden
             self.historyDays = historyDays
+            self.microphoneChoice = microphoneChoice
+            self.microphones = microphones
             self.microphone = microphone
             self.accessibility = accessibility
             self.location = location
@@ -140,6 +162,8 @@ public enum MacSettingsBridge {
                 "showInMenuBar": showInMenuBar,
                 "menuBarIconHidden": menuBarIconHidden,
                 "historyDays": historyDays,
+                "microphoneChoice": microphoneChoice.map { $0 as Any } ?? NSNull(),
+                "microphones": microphones.map { ["id": $0.id, "name": $0.name] },
                 "permissions": [
                     "microphone": microphone,
                     "accessibility": accessibility,

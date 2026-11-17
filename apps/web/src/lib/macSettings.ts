@@ -33,6 +33,10 @@ export interface MacSettings {
   /** On in Settings but macOS hides it (the notch, or turned off in System Settings → Menu Bar). */
   menuBarIconHidden: boolean
   historyDays: HistoryDays
+  /** The microphone dictation records from, by its id; null is the Mac's default. */
+  microphoneChoice: string | null
+  /** The microphones this Mac has now. */
+  microphones: { id: string; name: string }[]
   permissions: {
     microphone: boolean
     accessibility: boolean
@@ -53,6 +57,7 @@ export interface MacSettingValues {
   openAtLogin: boolean
   showInMenuBar: boolean
   historyDays: HistoryDays
+  microphone: string | null
 }
 
 export type MacSettingKey = keyof MacSettingValues
@@ -114,6 +119,19 @@ export function parseMacSettings(reply: unknown): MacSettings | null {
   if (p.notifications !== 'on' && p.notifications !== 'off' && p.notifications !== 'undecided')
     return null
   if (r.account !== null && r.account !== undefined && typeof r.account !== 'string') return null
+  if (r.microphoneChoice !== null && typeof r.microphoneChoice !== 'string') return null
+  const mics = r.microphones
+  if (
+    !Array.isArray(mics) ||
+    !mics.every(
+      (m) =>
+        m &&
+        typeof m === 'object' &&
+        typeof (m as Record<string, unknown>).id === 'string' &&
+        typeof (m as Record<string, unknown>).name === 'string',
+    )
+  )
+    return null
   return {
     hotkey: r.hotkey as HotkeyId,
     mode: r.mode,
@@ -125,6 +143,8 @@ export function parseMacSettings(reply: unknown): MacSettings | null {
     showInMenuBar: r.showInMenuBar as boolean,
     menuBarIconHidden: r.menuBarIconHidden as boolean,
     historyDays: r.historyDays as HistoryDays,
+    microphoneChoice: r.microphoneChoice as string | null,
+    microphones: (mics as { id: string; name: string }[]).map(({ id, name }) => ({ id, name })),
     permissions: {
       microphone: p.microphone,
       accessibility: p.accessibility,

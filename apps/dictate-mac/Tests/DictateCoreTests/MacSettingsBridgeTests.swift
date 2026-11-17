@@ -26,6 +26,8 @@ import Testing
         #expect(set("showInMenuBar", NSNumber(value: false)) == .set(.showInMenuBar(false)))
         #expect(set("historyDays", NSNumber(value: 7)) == .set(.historyDays(7)))
         #expect(set("historyDays", NSNumber(value: 90.0)) == .set(.historyDays(90)))
+        #expect(set("microphone", "BuiltInMicrophoneDevice") == .set(.microphone("BuiltInMicrophoneDevice")))
+        #expect(set("microphone", NSNull()) == .set(.microphone(nil)))
     }
 
     @Test func refusesAnythingElse() {
@@ -41,6 +43,8 @@ import Testing
             ["type": "set", "key": "historyDays", "value": NSNumber(value: true)],
             ["type": "set", "key": "suiteServer", "value": "https://evil.example"],
             ["type": "set", "key": "hotkey"],
+            ["type": "set", "key": "microphone", "value": ""],
+            ["type": "set", "key": "microphone", "value": NSNumber(value: 3)],
             ["type": "delete"],
         ]
         for body in bad { #expect(MacSettingsBridge.parse(body) == nil) }
@@ -50,6 +54,7 @@ import Testing
         let snapshot = MacSettingsBridge.Snapshot(
             hotkey: .rightShift, mode: .clean, edgeGlow: true, meetingReminders: false, offerCallNotes: true, callNotesSupported: false,
             openAtLogin: false, showInMenuBar: true, menuBarIconHidden: true, historyDays: 30,
+            microphoneChoice: "usb-1", microphones: [.init(id: "usb-1", name: "USB Mic")],
             microphone: true, accessibility: false, location: true, notifications: .undecided, account: nil
         )
         let reply = snapshot.reply
@@ -60,6 +65,8 @@ import Testing
         let permissions = reply["permissions"] as? [String: Any]
         #expect(permissions?["notifications"] as? String == "undecided")
         #expect(permissions?["accessibility"] as? Bool == false)
+        #expect(reply["microphoneChoice"] as? String == "usb-1")
+        #expect((reply["microphones"] as? [[String: String]])?.first?["name"] == "USB Mic")
         #expect(JSONSerialization.isValidJSONObject(reply))
     }
 

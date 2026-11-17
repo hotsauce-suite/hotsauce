@@ -238,6 +238,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 case let .openAtLogin(on): model.setLaunchAtLogin(on)
                 case let .showInMenuBar(on): model.setShowInMenuBar(on)
                 case let .historyDays(days): model.setRetention(days)
+                case let .microphone(uid):
+                    // Only one this Mac has now; anything else keeps the choice as it was.
+                    if uid == nil || AudioInputs.all().contains(where: { $0.id == uid }) { self.settings.microphoneUID = uid }
                 }
                 answer()
             case let .action(action):
@@ -287,6 +290,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 showInMenuBar: self.settings.showInMenuBar,
                 menuBarIconHidden: self.settings.showInMenuBar && !self.menuBarIconShown,
                 historyDays: self.settings.retentionDays,
+                microphoneChoice: self.settings.microphoneUID,
+                microphones: AudioInputs.all(),
                 microphone: Permissions.microphoneGranted,
                 accessibility: Permissions.accessibilityGranted,
                 location: Permissions.locationAllowed,

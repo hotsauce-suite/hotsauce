@@ -17,7 +17,9 @@ export class FakeMac implements MacSettingsBridge {
     this.requests.push(request)
     if (this.silent) return null
     if (request.type === 'set' && !this.refuse.has(request.key)) {
-      this.settings = { ...this.settings, [request.key]: request.value }
+      if (request.key === 'microphone')
+        this.settings.microphoneChoice = request.value as string | null
+      else this.settings = { ...this.settings, [request.key]: request.value }
     }
     if (request.type === 'action') {
       const p = this.settings.permissions
@@ -44,6 +46,11 @@ export function defaultMacSettings(): MacSettings {
     showInMenuBar: true,
     menuBarIconHidden: false,
     historyDays: 30,
+    microphoneChoice: null,
+    microphones: [
+      { id: 'BuiltInMicrophoneDevice', name: 'MacBook Pro Microphone' },
+      { id: 'usb-yeti', name: 'Yeti Stereo Microphone' },
+    ],
     permissions: { microphone: true, accessibility: true, location: true, notifications: 'on' },
     account: 'sam@example.com',
   }
