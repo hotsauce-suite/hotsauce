@@ -1,9 +1,9 @@
 # Plan: Sign (send a PDF for signature)
 
-Status (2026-11-17): slices 1 and 2 shipped (0.34.0). Slice 3 (people outside the team sign
-from an emailed link) built and tested (R10–R18), merging now. Morgan owes the Resend setup (steps page
-https://claude.ai/artifact/MpyyxKxoCZBAUCszkF52wN). Morgan accepted all seven recommendations
-(Q1 to Q7) on 2026-11-16. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
+Status (2026-11-17): slices 1 to 3 shipped and live (0.35.0; darker ink 0.39.1). Email via
+Resend is on at Haven; Morgan's test email worked on 2026-11-17. Morgan called the plan done for
+now: slices 4 and 5 (deadlines, reminders, cancelling, templates) are the next Sign work, not yet
+started. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
 
 Send a PDF for signature from Hotsauce. People inside or outside the organization sign it from a
 link on any device, with no account. The sealed PDF and its audit certificate are kept in Files.
