@@ -70,8 +70,10 @@ public enum AppUpdate {
     public static func runningRequirement() -> SecRequirement? {
         var me: SecCode?
         guard SecCodeCopySelf([], &me) == errSecSuccess, let me else { return nil }
+        var onDisk: SecStaticCode?
+        guard SecCodeCopyStaticCode(me, [], &onDisk) == errSecSuccess, let onDisk else { return nil }
         var requirement: SecRequirement?
-        guard SecCodeCopyDesignatedRequirement(me, [], &requirement) == errSecSuccess else { return nil }
+        guard SecCodeCopyDesignatedRequirement(onDisk, [], &requirement) == errSecSuccess else { return nil }
         return requirement
     }
 
