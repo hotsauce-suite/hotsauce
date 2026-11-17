@@ -6,6 +6,8 @@ import { boardsApi } from '../api/boards'
 import { notesBus } from '../apps/notes/useNotes'
 import { boardUrl, DOCS_ROOT, docUrl } from '../lib/paths'
 import { chooseTheme } from '../lib/theme'
+import type { FindState } from '../routes/settings/SettingsSearch'
+import { SETTINGS_INDEX } from '../routes/settings/searchIndex'
 import { useSession } from '../state/session'
 import { untitledDocPath } from '../state/treeStore'
 import { type Command, useCommands } from './commands'
@@ -22,11 +24,15 @@ function focusWhenReady(selector: string) {
   requestAnimationFrame(tick)
 }
 
+/** Settings sections that already have a command of their own. */
+const OWN_ROWS = new Set(['ai-tools', 'mac-app'])
+
 export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => void }): void {
   const navigate = useNavigate()
   const session = useSession()
   const singleKeys = useSingleKeys()
   const { notify } = session
+  const isAdmin = session.me?.principal.isAdmin === true
 
   const commands: Command[] = [
     // Create
@@ -216,7 +222,23 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       shortcut: 'global.help',
       run: openShortcuts,
     },
+
+    // Every Settings section, once something is typed (docs/PLAN-settings-search.md S8). AI tools
+    // and the Mac app already have their own rows above.
+    ...SETTINGS_INDEX.filter(
+      (entry) => (!entry.admin || isAdmin) && !entry.macOnly && !OWN_ROWS.has(entry.id),
+    ).map(
+      (entry): Command => ({
+        id: `setting-${entry.id}`,
+        title: `${entry.title} · Settings`,
+        group: 'go',
+        icon: 'gear',
+        keywords: [entry.page, entry.summary, ...entry.words],
+        typedOnly: true,
+        run: () => navigate(entry.to, { state: { settingsFind: entry.title } satisfies FindState }),
+      }),
+    ),
   ]
 
-  useCommands(commands, String(singleKeys))
+  useCommands(commands, `${singleKeys}:${isAdmin}`)
 }

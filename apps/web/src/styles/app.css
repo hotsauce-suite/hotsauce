@@ -1304,3 +1304,28 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
     padding: 0 1rem 30vh;
   }
 }
+
+/* Settings search: the section a result opened, marked for a moment (docs/PLAN-settings-search.md S5). */
+@keyframes settings-found {
+  from {
+    background-color: color-mix(in srgb, var(--color-ember) 14%, transparent);
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-ember) 14%, transparent);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+[data-settings-found] {
+  border-radius: 0.75rem;
+  animation: settings-found 2.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-settings-found] {
+    animation-duration: 1ms;
+    outline: 2px solid var(--color-ember);
+    outline-offset: 6px;
+  }
+}
