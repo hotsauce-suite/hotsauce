@@ -11,6 +11,8 @@ public enum MeetingAudio {
     public static let eventName = "hearth-mac-audio"
     /// The script message handler the page posts to.
     public static let handlerName = "hearthMeetingAudio"
+    /// `window.hearthMac.meetingAudio`: 2 adds `follow-call` and `open-audio-settings`.
+    public static let bridgeVersion = 2
 
     public enum Track: String, Sendable { case me, them }
 
@@ -21,6 +23,12 @@ public enum MeetingAudio {
         /// Pause releases the mic and the Mac's audio; resume takes them again.
         case pause(session: String)
         case resume(session: String)
+        /// A meeting started from the call notice in a mode the app doesn't record (mic only, the
+        /// Meet tab) belongs to that call: when the call ends the app sends `call-ended` with this
+        /// session, as it does for its own recordings. `stop` with the same session lets go.
+        case followCall(session: String)
+        /// Opens System Settings at Screen & System Audio Recording, which a page can't open itself.
+        case openAudioSettings
 
         /// Strict: anything but these exact shapes is refused.
         public static func parse(_ body: Any) -> Command? {
@@ -28,9 +36,16 @@ public enum MeetingAudio {
             switch type {
             case "start" where dict.count == 1:
                 return .start
-            case "stop", "pause", "resume":
-                guard dict.count == 2, let session = dict["session"] as? String, !session.isEmpty else { return nil }
-                return type == "stop" ? .stop(session: session) : type == "pause" ? .pause(session: session) : .resume(session: session)
+            case "open-audio-settings" where dict.count == 1:
+                return .openAudioSettings
+            case "stop", "pause", "resume", "follow-call":
+                guard dict.count == 2, let session = dict["session"] as? String, !session.isEmpty, session.count <= 100 else { return nil }
+                switch type {
+                case "stop": return .stop(session: session)
+                case "pause": return .pause(session: session)
+                case "resume": return .resume(session: session)
+                default: return .followCall(session: session)
+                }
             default:
                 return nil
             }

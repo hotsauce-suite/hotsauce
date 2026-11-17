@@ -31,6 +31,12 @@ export type StartEvent =
 
 export const INITIAL_START: StartState = { step: 'choose' }
 
+/** What each track in the sound check is, for the way the meeting listens. */
+export function trackLabel(track: Track, mode: CaptureMode | null): string {
+  if (track === 'me') return 'You, on the microphone'
+  return mode === 'mac' ? 'The call, from apps on this Mac' : 'The call, from the Meet tab'
+}
+
 /** All tracks heard: ok. Any still listening: waiting. Otherwise one stayed silent: failed. */
 export function overallCheck(tracks: TrackChecks): CheckState {
   const states = Object.values(tracks)

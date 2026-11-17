@@ -25,16 +25,18 @@ if CommandLine.arguments.contains("--call-probe") {
         var left = seconds
         while left > 0 {
             MainActor.assumeIsolated {
-                let users = CallDetector.micUsers().map { user in
+                let snapshot = CallDetector.micUsers()
+                let users = snapshot.map { user in
                     let candidate = MicApps.isCallCandidate(user.bundleID, ownBundleID: Bundle.main.bundleIdentifier)
                     return "\(user.pid):\(user.bundleID ?? "?"):\(candidate ? "candidate" : "ignored"):\(CallDetector.appName(of: user) ?? "no app")"
                 }
-                print("\(CallDetector.callAppUsingMic() ?? "-")  [\(users.joined(separator: ", "))]")
+                print("\(CallDetector.callAppUsingMic(snapshot) ?? "-")  [\(users.joined(separator: ", "))]")
             }
             fflush(stdout)
             Thread.sleep(forTimeInterval: 2)
             left -= 2
         }
+        print("last decision: \(UserDefaults.standard.string(forKey: CallDetector.decisionKey) ?? "none yet")")
         exit(0)
     }
     print("needs macOS 14.2")

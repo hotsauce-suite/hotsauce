@@ -99,7 +99,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         // Meetings' "Any app on this Mac" (docs/PLAN-record-any-call.md): process taps need 14.2.
         if #available(macOS 14.2, *) {
             configuration.userContentController.addUserScript(WKUserScript(
-                source: "window.hearthMac = Object.freeze({ meetingAudio: 1 })", injectionTime: .atDocumentStart, forMainFrameOnly: true
+                source: "window.hearthMac = Object.freeze({ meetingAudio: \(MeetingAudio.bridgeVersion) })", injectionTime: .atDocumentStart, forMainFrameOnly: true
             ))
             configuration.userContentController.addScriptMessageHandler(MeetingAudioHandler(self), contentWorld: .page, name: MeetingAudio.handlerName)
         }
@@ -270,8 +270,17 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         if command == .start, !isOnMeetingsPage { return MeetingAudio.failed(.unsupported, message: "Start from Meetings.") }
         let current = meetingCapture as? MeetingCapture
         switch command {
+        case .followCall(let session):
+            guard isOnMeetingsPage else { return nil }
+            followedCallSession = session
+            return ["ok": true]
+        case .openAudioSettings:
+            guard isOnMeetingsPage else { return nil }
+            Permissions.openAudioCaptureSettings()
+            return nil
         case .stop(let session):
             if current?.session == session { stopMeetingCapture() }
+            if followedCallSession == session { followedCallSession = nil }
             return nil
         case .pause(let session):
             if current?.session == session { current?.setPaused(true) }
@@ -372,18 +381,29 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         return MeetingAudio.isMeetingsPath(current.path)
     }
 
-    /// The "Any app on this Mac" recording of a live meeting (paused counts), by its session. Nil
+    /// A live meeting started from the call notice in a mode this app doesn't record (mic only,
+    /// the Meet tab), by the session its page gave (`follow-call`). Cleared by its `stop` or when
+    /// the page goes away.
+    private var followedCallSession: String?
+
+    /// The meeting recording in this window (paused counts), by its session: the "Any app on this
+    /// Mac" recording, or else a meeting that follows the call. The "Any app" capture doesn't count
     /// while the Start page only checks the sound: nothing is recorded there yet.
     var recordingMeetingSession: String? {
-        guard #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture else { return nil }
-        if let current = webView.url, isSuite(current), current.path == "/meetings/start" { return nil }
-        return capture.session
+        if #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture,
+           !(webView.url.map { isSuite($0) && $0.path == "/meetings/start" } ?? false) {
+            return capture.session
+        }
+        return followedCallSession
     }
 
     /// Tells the recording page its call ended (`CallDetector`), if that recording still runs.
     func meetingCallEnded(session: String) {
-        guard #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture, capture.session == session else { return }
-        sendMeetingEvent(MeetingAudio.callEndedEvent(session: session))
+        if #available(macOS 14.2, *), let capture = meetingCapture as? MeetingCapture, capture.session == session {
+            sendMeetingEvent(MeetingAudio.callEndedEvent(session: session))
+        } else if followedCallSession == session {
+            sendMeetingEvent(MeetingAudio.callEndedEvent(session: session))
+        }
     }
 
     /// Ends any meeting recording: the page stopped it, or the page itself went away.
@@ -649,10 +669,12 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         if webView.url?.path != DictateHandoff.finishPath { handoffOpenedAt = nil }
         pageSaidHello = false
         stopMeetingCapture()
+        followedCallSession = nil
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         stopMeetingCapture()
+        followedCallSession = nil
         // At most once a minute, so a page that keeps crashing doesn't loop.
         guard Date().timeIntervalSince(lastCrashReload) > 60 else { return }
         lastCrashReload = Date()

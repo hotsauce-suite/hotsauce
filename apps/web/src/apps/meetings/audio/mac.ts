@@ -29,6 +29,60 @@ export function supportsMacCapture(win: Window = window): boolean {
   return macBridge(win) !== null
 }
 
+/** The bridge, when the app also takes `follow-call` and `open-audio-settings` (version 2). */
+function macBridgeV2(win: Window): MacBridge | null {
+  const bridge = macBridge(win)
+  return bridge && ((win as MacWindow).hearthMac?.meetingAudio ?? 0) >= 2 ? bridge : null
+}
+
+/** Whether the app can open System Settings at Screen & System Audio Recording for this page. */
+export function canOpenMacAudioSettings(win: Window = window): boolean {
+  return macBridgeV2(win) !== null
+}
+
+/** Opens Screen & System Audio Recording in System Settings (the page can't open that link). */
+export function openMacAudioSettings(win: Window = window): void {
+  void macBridgeV2(win)
+    ?.postMessage({ type: 'open-audio-settings' })
+    .catch(() => {})
+}
+
+/**
+ * A meeting started from the Mac app's call notice in a mode the app doesn't record (mic only,
+ * the Meet tab) still ends with the call: the app is told this meeting belongs to the call and
+ * sends `call-ended` for it, like for its own recordings. Captures that already hear the call's
+ * end (the app's own), or pages outside an app that can, are returned unchanged.
+ */
+export function followMacCall(capture: Capture, meeting: string, win: Window = window): Capture {
+  const bridge = macBridgeV2(win)
+  if (!bridge || capture.onCallEnded || !meeting) return capture
+  const listeners = new Set<() => void>()
+  const onEvent = (event: Event) => {
+    const detail = (event as CustomEvent<MacEvent>).detail
+    if (detail?.session === meeting && detail.type === 'call-ended') {
+      for (const listener of listeners) listener()
+    }
+  }
+  win.addEventListener(MAC_AUDIO_EVENT, onEvent)
+  void bridge.postMessage({ type: 'follow-call', session: meeting }).catch(() => {})
+  let stopped = false
+  return {
+    ...capture,
+    onCallEnded: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    stop: () => {
+      capture.stop()
+      if (stopped) return
+      stopped = true
+      win.removeEventListener(MAC_AUDIO_EVENT, onEvent)
+      listeners.clear()
+      void bridge.postMessage({ type: 'stop', session: meeting }).catch(() => {})
+    },
+  }
+}
+
 type StartReply = { ok: true; session: string } | { ok: false; reason?: string; message?: string }
 
 type MacEvent =
