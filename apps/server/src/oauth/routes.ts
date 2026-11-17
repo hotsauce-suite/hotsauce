@@ -9,7 +9,7 @@ import { sessionOnly } from '../api/tokens.js'
 import type { Config } from '../config.js'
 import { HotsauceError } from '../errors.js'
 import { type ClientMetadataResolver, isMetadataUrl } from './clientMetadata.js'
-import { type OAuthClient, OAuthError, type OAuthStore } from './store.js'
+import { ConnectionAccess, type OAuthClient, OAuthError, type OAuthStore } from './store.js'
 
 export interface OAuthDeps {
   config: Pick<Config, 'PUBLIC_URL' | 'PRODUCT_NAME'>
@@ -236,11 +236,17 @@ export function oauthApiRoutes(deps: OAuthDeps) {
       const params = new URLSearchParams()
       for (const [k, v] of Object.entries(body)) if (typeof v === 'string') params.set(k, v)
       const req = await checkAuthorization(deps, params)
+      // What the member chose on the Allow page; an older page sends nothing, which is `full`.
+      const access = ConnectionAccess.safeParse(body.access ?? 'full')
+      if (!access.success) {
+        throw new HotsauceError('bad_request', 'access must be "full" or "team-read"')
+      }
       const code = oauth.issueCode({
         client: req.client,
         redirectUri: req.redirectUri,
         challenge: req.challenge,
         principal,
+        access: access.data,
       })
       c.header('Cache-Control', 'no-store')
       return c.json({ redirect: redirectWith(deps, req.redirectUri, { code, state: req.state }) })

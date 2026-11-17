@@ -15,6 +15,12 @@ export interface AuthorizationCheck {
   cancelUrl: string
 }
 
+/**
+ * What a connection may reach: everything the member sees, or the team space only, read only,
+ * for a tool a group shares, like a team chat's assistant (ARCHITECTURE §8.5).
+ */
+export type ConnectionAccess = 'full' | 'team-read'
+
 /** An AI tool the member connected by signing in (Settings → Connected apps). */
 export interface Connection {
   id: string
@@ -22,6 +28,7 @@ export interface Connection {
   redirectHost: string
   createdAt: string
   lastUsedAt: string | null
+  access: ConnectionAccess
 }
 
 export const oauthApi = {
@@ -29,10 +36,10 @@ export const oauthApi = {
     request<AuthorizationCheck>(
       `/api/oauth/authorize${search.startsWith('?') ? search : `?${search}`}`,
     ),
-  allow: (search: string) =>
+  allow: (search: string, access: ConnectionAccess) =>
     request<{ redirect: string }>('/api/oauth/authorize', {
       method: 'POST',
-      json: Object.fromEntries(new URLSearchParams(search)),
+      json: { ...Object.fromEntries(new URLSearchParams(search)), access },
     }),
   connections: () => request<Connection[]>('/api/oauth/connections'),
   disconnect: (id: string) =>

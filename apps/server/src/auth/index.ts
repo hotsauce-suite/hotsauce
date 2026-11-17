@@ -12,6 +12,7 @@ export {
   type Authenticator,
   deriveHandle,
   isAllowedEmailDomain,
+  isTeamOnly,
   type Principal,
   signInAllowance,
 } from './principal.js'

@@ -113,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         onboarding.onClose = { [weak self] in self?.settings.hasOnboarded = true }
         wireMainWindow()
+        wireMacSettings()
         controller.onHistoryChange = { [weak self] in
             if self?.mainWindow.isVisible == true { self?.mainWindow.model.reloadRecords() }
         }
@@ -214,6 +215,97 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func pruneHistory() {
         historyStore.prune(retentionDays: settings.retentionDays)
+    }
+
+    /// Settings → This Mac (docs/PLAN-one-settings.md): the page changes the app's settings through
+    /// the same actions the Dictate window's Settings had, confirmations included (R7), then reads
+    /// them all back.
+    private func wireMacSettings() {
+        let model = mainWindow.model
+        suite.macSettings = { [weak self] request, reply in
+            guard let self else { return reply(nil) }
+            let answer = { self.macSettingsSnapshot { reply($0.reply) } }
+            switch request {
+            case .hello, .get:
+                answer()
+            case let .set(change):
+                switch change {
+                case let .hotkey(hotkey): model.setHotkey(hotkey)
+                case let .mode(mode): model.setMode(mode)
+                case let .edgeGlow(on): model.setEdgeGlow(on)
+                case let .meetingReminders(on): model.setMeetingReminders(on)
+                case let .offerCallNotes(on): model.setOfferCallNotes(on)
+                case let .openAtLogin(on): model.setLaunchAtLogin(on)
+                case let .showInMenuBar(on):
+                    model.setShowInMenuBar(on)
+                    // macOS places the icon a moment later; read whether it's hidden after that.
+                    if on { return DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { answer() } }
+                case let .historyDays(days): model.setRetention(days)
+                case let .microphone(uid):
+                    // Only one this Mac has now; anything else keeps the choice as it was.
+                    if uid == nil || AudioInputs.all().contains(where: { $0.id == uid }) { self.settings.microphoneUID = uid }
+                }
+                answer()
+            case let .action(action):
+                switch action {
+                case .allowMicrophone:
+                    Permissions.requestMicrophone { _ in answer() }
+                case .allowAccessibility:
+                    Permissions.requestAccessibility()
+                    answer()
+                case .allowLocation:
+                    // Answer now: the position can take minutes (an unanswered prompt). The page
+                    // reads again when the window comes back to the front after macOS's prompt.
+                    self.setupLocation.request { _ in }
+                    answer()
+                case .allowNotifications, .openNotificationSettings:
+                    Permissions.notificationsState { state in
+                        if action == .allowNotifications, NotificationsBridge.step(for: state) == .ask {
+                            Permissions.requestNotifications { _ in answer() }
+                        } else {
+                            Permissions.openNotificationSettings()
+                            answer()
+                        }
+                    }
+                case .runSetup:
+                    self.onboarding.replay()
+                    answer()
+                case .clearHistory:
+                    model.clearHistory()
+                    answer()
+                case .disconnect:
+                    model.disconnect()
+                    answer()
+                }
+            }
+        }
+    }
+
+    /// The settings as This Mac shows them, read now.
+    private func macSettingsSnapshot(_ done: @escaping (MacSettingsBridge.Snapshot) -> Void) {
+        Permissions.notificationsState { [weak self] notifications in
+            guard let self else { return }
+            done(MacSettingsBridge.Snapshot(
+                hotkey: self.settings.hotkey,
+                mode: self.settings.mode,
+                edgeGlow: self.settings.edgeGlow,
+                meetingReminders: self.settings.meetingReminders,
+                offerCallNotes: self.settings.offerCallNotes,
+                callNotesSupported: { if #available(macOS 14.2, *) { return true } else { return false } }(),
+                openAtLogin: SMAppService.mainApp.status == .enabled,
+                showInMenuBar: self.settings.showInMenuBar,
+                menuBarIconHidden: self.settings.showInMenuBar && !self.menuBarIconShown,
+                historyDays: self.settings.retentionDays,
+                microphoneChoice: self.settings.microphoneUID,
+                microphones: AudioInputs.all(),
+                microphone: Permissions.microphoneGranted,
+                accessibility: Permissions.accessibilityGranted,
+                location: Permissions.locationAllowed,
+                notifications: notifications,
+                connected: ConnectionStore.connection() != nil,
+                account: ConnectionStore.connection()?.account
+            ))
+        }
     }
 
     private func wireMainWindow() {
@@ -323,6 +415,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.reload()
         }
         model.openWeb = { [weak self] in self?.openDictatePage() }
+        model.openSuite = { [weak self] in self?.suite.show() }
         model.setSuiteServer = { [weak self] text in
             guard let self else { return nil }
             guard let server = Workspace.origin(fromInput: text) else {
@@ -580,7 +673,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Open \(Brand.name)", #selector(showSuite)))
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
-        menu.addItem(item("Dictate settings…", #selector(openMainWindow)))
+        menu.addItem(item("Dictate…", #selector(openMainWindow)))
         let login = item("Launch at login", #selector(toggleLaunchAtLogin))
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)

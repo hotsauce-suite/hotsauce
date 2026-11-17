@@ -6,7 +6,7 @@
 // team file `people/<email>.md`.
 
 import { stringify as toYaml } from 'yaml'
-import type { Principal } from '../auth/index.js'
+import { isTeamOnly, type Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, type GitStore, withVia } from '../git/index.js'
 import type { Index } from '../index/index.js'
@@ -364,11 +364,14 @@ export class People {
     for (const a of byEmail.values()) a.history.sort(byNewest)
 
     const now = this.#now().getTime()
+    // A team-only connection never reads the member's own calendar (ARCHITECTURE §8.5).
     try {
-      const events = await calendar.upcoming(principal, {
-        from: new Date(now).toISOString(),
-        to: new Date(now + NEXT_DAYS * DAY_MS).toISOString(),
-      })
+      const events = isTeamOnly(principal)
+        ? []
+        : await calendar.upcoming(principal, {
+            from: new Date(now).toISOString(),
+            to: new Date(now + NEXT_DAYS * DAY_MS).toISOString(),
+          })
       for (const ev of [...events].sort((x, y) => x.start.localeCompare(y.start))) {
         for (const att of ev.attendees) {
           const a = acc(att.email)

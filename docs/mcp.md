@@ -142,6 +142,22 @@ Any MCP client that supports remote servers over Streamable HTTP and lets you se
 Give it the server address `https://office.example.com/mcp` and the header
 `Authorization: Bearer hth_…`. History shows the name the tool gives itself when it connects.
 
+## 2g. A tool many people share, like a team chat
+
+The Allow page asks what the tool may use: **Everything you can see** or **Team space only, read
+only**. Pick the second for a connection that answers a whole group, such as a team chat's AI
+assistant connected once by an admin. That connection:
+
+- sees the team space only: anyone's personal space is `forbidden`, and searches cover the team;
+- lists only tools that read what every member can see (search, docs, meetings, tasks, tables,
+  boards, people, files, clips, check-ins, pages, brand): no calendar, agent brief, saved links,
+  notes, and nothing that writes;
+- is marked **Team only** under Settings → Connections.
+
+Where the chat lets each person sign in for their own private conversation with the assistant,
+they pick **Everything you can see** for that sign-in. The design is in `docs/ARCHITECTURE.md`
+§8.5.
+
 ## What an AI tool can do
 
 Every tool works only on what you can see: the team space, your own personal space, your own

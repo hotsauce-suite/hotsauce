@@ -85,6 +85,8 @@ final class MainModel: ObservableObject {
     var clearHistory: () -> Void = {}
     var disconnect: () -> Void = {}
     var openWeb: () -> Void = {}
+    /// The main window, from the fallback Settings page.
+    var openSuite: () -> Void = {}
     var openSetup: () -> Void = {}
     /// Settings → Run setup again (docs/PLAN-replay-setup.md R1).
     var runSetupAgain: () -> Void = {}
@@ -115,7 +117,8 @@ final class MainWindow: NSObject, NSWindowDelegate {
     var isVisible: Bool { window?.isVisible ?? false }
 
     func show(page: MainModel.Page? = nil) {
-        if let page { model.page = page }
+        // Settings is only the fallback for ⌘, (docs/PLAN-one-settings.md R11): open on it only when asked.
+        if let page { model.page = page } else if model.page == .settings { model.page = .dictations }
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 980, height: 660),
@@ -162,7 +165,7 @@ struct MainView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(MainModel.Page.allCases, selection: Binding(get: { model.page }, set: { if let p = $0 { model.page = p } })) { page in
+            List(MainModel.Page.allCases.filter { $0 != .settings || model.page == .settings }, selection: Binding(get: { model.page }, set: { if let p = $0 { model.page = p } })) { page in
                 Label(page.rawValue, systemImage: page.symbol).tag(page)
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 190)
@@ -582,53 +585,15 @@ private struct Flow: Layout {
 private struct SettingsPage: View {
     @ObservedObject var model: MainModel
 
-    // Grouped by what each setting is about (docs/PLAN-mac-settings-ia.md): what you change most
-    // comes first, the workspace and setup sit together near the end, history last.
+    // The app's settings are in the main window, Settings → This Mac (docs/PLAN-one-settings.md).
+    // This page is the fallback for when that can't load (R11): the workspace's address, so the
+    // app can reach it again, and the permissions it needs.
     var body: some View {
         Form {
             Section {
-                Picker("Hotkey", selection: Binding(get: { model.hotkey }, set: model.setHotkey)) {
-                    ForEach(Hotkey.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                Described(model.mode == .clean ? "Removes ums and applies corrections." : "Types exactly what you said.") {
-                    Picker("Mode", selection: Binding(get: { model.mode }, set: model.setMode)) {
-                        Text("Clean up").tag(DictationMode.clean)
-                        Text("Literal").tag(DictationMode.literal)
-                    }
-                }
-                Described("A warm glow around the window you’re talking into, with flames that follow your voice. Still, with no flames, when Reduce motion is on.") {
-                    Toggle("Edge glow while dictating", isOn: Binding(get: { model.edgeGlow }, set: model.setEdgeGlow))
-                }
-            } header: {
-                Text("Dictation")
-            } footer: {
-                Text("With no connection, dictation still works with this Mac’s own speech recognition, as spoken and in your Mac’s language. The audio stays on this Mac.")
-                    .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-            }
-            Section("Meetings") {
-                Toggle("Meeting reminders", isOn: Binding(get: { model.meetingReminders }, set: model.setMeetingReminders))
-                if model.meetingReminders && !model.notificationsAllowed {
-                    HStack {
-                        Text("Notifications are off for \(Brand.name) in System Settings.")
-                            .font(.system(size: 11)).foregroundStyle(Hotsauce.ember)
-                        Button("Open Notifications settings") {
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.link).font(.system(size: 11))
-                    }
-                }
-                if #available(macOS 14.2, *) {
-                    Toggle("Offer to take notes when a call starts", isOn: Binding(get: { model.offerCallNotes }, set: model.setOfferCallNotes))
-                }
-            }
-            Section("This Mac") {
-                Toggle("Open at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
-                Toggle("Show in menu bar", isOn: Binding(get: { model.showInMenuBar }, set: model.setShowInMenuBar))
-                if model.showInMenuBar && !model.menuBarIconShown {
-                    MenuBarHint()
-                }
+                Text("Your \(Brand.name) settings are in the main window, under Settings → This Mac. These are here for when \(Brand.name) can’t load.")
+                    .font(.system(size: 12)).foregroundStyle(Hotsauce.inkSoft)
+                Button("Open \(Brand.name)", action: model.openSuite)
             }
             Section("Workspace") {
                 LabeledContent("Address") {
@@ -650,11 +615,6 @@ private struct SettingsPage: View {
                         Text(model.server).font(.system(size: 11, design: .monospaced)).foregroundStyle(Hotsauce.inkFaint)
                     }
                 }
-                HStack {
-                    Button("Open Dictate in \(Brand.name)", action: model.openWeb)
-                    Spacer()
-                    if model.account != nil { Button("Disconnect this Mac", role: .destructive, action: model.disconnect) }
-                }
             }
             Section("Setup") {
                 PermissionRow(title: "Microphone", granted: model.microphone, action: model.requestMicrophone)
@@ -669,41 +629,14 @@ private struct SettingsPage: View {
                     Text("Walks through them again. Nothing is reset.")
                 }
             }
-            Section {
-                Picker("Keep history for", selection: Binding(get: { model.retentionDays }, set: model.setRetention)) {
-                    Text("7 days").tag(7)
-                    Text("30 days").tag(30)
-                    Text("90 days").tag(90)
-                }
+            Section("History") {
+                // Dictation text is on this Mac only: clearing it can't wait for the workspace.
                 Button("Clear history…", action: model.clearHistory)
-            } header: {
-                Text("History")
-            } footer: {
-                Text("Dictation text stays on this Mac, readable only by you. It is never uploaded and never includes audio.")
-                    .font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .padding(.horizontal, 12)
-    }
-}
-
-/// A settings row with a line of explanation under it, in the form's caption style.
-private struct Described<Content: View>: View {
-    let text: String
-    let content: Content
-
-    init(_ text: String, @ViewBuilder content: () -> Content) {
-        self.text = text
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            content
-            Text(text).font(.system(size: 11)).foregroundStyle(Hotsauce.inkFaint)
-        }
     }
 }
 
