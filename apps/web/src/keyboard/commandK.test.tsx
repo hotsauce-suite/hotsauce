@@ -30,6 +30,36 @@ describe('matching (C2)', () => {
     expect(ids('oc')).toEqual([])
     expect(ids('')).toEqual(['a', 'b'])
   })
+
+  it('leaves typed-only commands out until something is typed', () => {
+    const list = [
+      ...commands,
+      { id: 'c', title: 'Backups', group: 'go', typedOnly: true, run: () => {} },
+    ] as const
+    const ids = (q: string) => matchCommands(list, q).map((c) => c.id)
+    expect(ids('')).toEqual(['a', 'b'])
+    expect(ids('back')).toEqual(['c'])
+  })
+})
+
+describe('Settings sections in Command-K (docs/PLAN-settings-search.md S8)', () => {
+  it('offers a section once typed, and opens it on its page', async () => {
+    const { user, router, palette } = await openPalette()
+    expect(within(palette).queryByTestId('cmdk-command-setting-appearance')).toBeNull()
+    await user.type(screen.getByTestId('cmdk-input'), 'dark mode')
+    await user.click(await screen.findByTestId('cmdk-command-setting-appearance'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
+    expect(router.state.location.state).toEqual({ settingsFind: 'Appearance' })
+    const picker = await screen.findByTestId('theme-picker')
+    await waitFor(() => expect(picker).toHaveAttribute('data-settings-found'))
+  })
+
+  it('offers organization sections only to admins', async () => {
+    const { user } = await openPalette()
+    await user.type(screen.getByTestId('cmdk-input'), 'backups')
+    await screen.findByTestId('cmdk-input')
+    expect(screen.queryByTestId('cmdk-command-setting-org-backups')).toBeNull()
+  })
 })
 
 describe('Command-K commands (C1)', () => {
