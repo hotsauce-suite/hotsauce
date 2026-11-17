@@ -70,3 +70,22 @@
   matches the start of a word, so one-word synonyms leak; prefer two-word phrases.
 - **A long list of ⌘K rows can be `typedOnly`**: they match once something is typed and stay out
   of the empty menu.
+
+## The Mac app's settings live in web Settings (This Mac, Nov 17)
+
+- A native settings window beside the web app's Settings confused people more than any single
+  setting did. One Settings, with a Mac-only page fed by a WKWebView bridge, costs little: the page
+  is ordinary React tested against a fake bridge (`apps/web/src/test/fakeMac.ts`), and the Swift side
+  is a pure parser plus a snapshot in DictateCore that runs in `swift test` without a window.
+- Have every bridge answer with the whole snapshot, and render what came back, not what was asked.
+  Native confirms (history retention, Clear history) can be cancelled, and the page then shows the
+  truth with no extra code.
+- A new Mac build can meet an older web app (self-hosted servers update on their own schedule). The
+  page says hello over the bridge on boot; the app routes ⌘, to the page only after that hello and
+  keeps a small native fallback otherwise. Reset the flag in `didCommit`, before the new document's
+  scripts run.
+- WebKit hands JS booleans and numbers over as NSNumber. Check `CFBooleanGetTypeID` to tell a real
+  `true` from `1`, or strict parsing silently accepts the wrong type.
+- No Swift toolchain in the cloud container: write the Swift, then compile and `swift test` on m5Box
+  in a throwaway worktree. Installing test builds there resets Morgan's permissions; it isn't needed
+  to check a build.
