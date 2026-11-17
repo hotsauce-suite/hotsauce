@@ -1,8 +1,8 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { McpServer, type RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { Hono } from 'hono'
 import type { AppEnv } from '../api/env.js'
-import type { Principal } from '../auth/index.js'
+import { isTeamOnly, type Principal } from '../auth/index.js'
 import { ClientNames, clientLabel } from './clients.js'
 import { type CalendarToolDeps, registerCalendarTools } from './tools/calendar.js'
 import { type CheckinToolDeps, registerCheckinTools } from './tools/checkins.js'
@@ -34,6 +34,45 @@ Before helping with anything about the member's work, call get_agent_brief: it s
 }
 
 /**
+ * What a team-only connection (ARCHITECTURE §8.5) may call: tools that only read, and only what
+ * every member can see. Calendar, agent brief, saved links, notes and every write are left out.
+ * Each must also be marked read-only, or it is left out too.
+ */
+export const TEAM_ONLY_TOOLS: ReadonlySet<string> = new Set([
+  'list_spaces',
+  'get_brand',
+  'search',
+  'list_files',
+  'read_file',
+  'file_history',
+  'list_meetings',
+  'get_meeting',
+  'ask_meetings',
+  'list_tasks',
+  'list_tables',
+  'read_table',
+  'list_boards',
+  'read_board',
+  'find_person',
+  'get_person',
+  'list_drive_files',
+  'get_drive_file',
+  'list_clips',
+  'get_clip',
+  'list_checkins',
+  'get_checkin',
+  'list_pages',
+  'get_page',
+])
+
+function teamOnlyInstructions(product: string, org: string): string {
+  const who = org ? `${org}'s workspace` : 'a workspace'
+  return `${product} is ${who}: Docs, Meetings, Tasks, Tables, Boards, Files, Clips and more, stored as files in Git. This connection is shared by a group, such as a team chat, so it is limited on purpose: it reads the team space only, which every member can already see, and it cannot change anything. Nobody's personal space, calendar, agent brief or saved links are reachable through it.
+
+Use search first, then read_file, get_meeting or the other read tools for what you find. Docs live under docs/ and meeting notes under meetings/ in the "team" space. ask_meetings answers a question from the team's meeting notes with citations. list_tasks lists the team's tasks; this connection is nobody's own, so pass mine only to see the tasks of the member who connected it. Call get_brand before writing anything for the organization. Everything you read here may be quoted to everyone in the conversation, which is why only team content is available. If someone asks for their own documents or calendar, tell them to connect ${product} with their own account instead.`
+}
+
+/**
  * A fresh MCP server for one member. Stateless: one is built per request (ARCHITECTURE §8.2).
  * `client` is the AI tool's friendly name, which its writes record.
  */
@@ -51,8 +90,13 @@ export function createMcpServer(
       icons: serverIcons(PUBLIC_URL),
       websiteUrl: PUBLIC_URL,
     },
-    { instructions: instructions(PRODUCT_NAME, ORG_NAME) },
+    {
+      instructions: isTeamOnly(principal)
+        ? teamOnlyInstructions(PRODUCT_NAME, ORG_NAME)
+        : instructions(PRODUCT_NAME, ORG_NAME),
+    },
   )
+  if (isTeamOnly(principal)) keepOnlyTeamTools(server)
   registerTools(server, deps, principal, client)
   registerFileTools(server, deps, principal, client)
   registerClipTools(server, deps, principal)
@@ -101,6 +145,25 @@ export function mcpRoutes(deps: AllMcpDeps) {
         { Allow: 'POST' },
       ),
     )
+}
+
+/**
+ * Every tool registered from here on that a team-only connection may not call is removed at once,
+ * so it is neither listed nor callable. A tool not marked read-only is removed whatever its name.
+ */
+function keepOnlyTeamTools(server: McpServer): void {
+  type Config = { annotations?: { readOnlyHint?: boolean } }
+  const register = server.registerTool.bind(server) as unknown as (
+    name: string,
+    config: Config,
+    callback: unknown,
+  ) => RegisteredTool
+  const filtered = (name: string, config: Config, callback: unknown) => {
+    const tool = register(name, config, callback)
+    if (!TEAM_ONLY_TOOLS.has(name) || config.annotations?.readOnlyHint !== true) tool.remove()
+    return tool
+  }
+  server.registerTool = filtered as unknown as typeof server.registerTool
 }
 
 /** The bottle, so clients that show a connector's icon (claude.ai, ChatGPT) show ours. */

@@ -65,14 +65,39 @@ describe('/oauth/authorize', () => {
     expect(screen.queryByTestId('oauth-unverified')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', check.cancelUrl)
     expect(allowed).toBeNull()
+    // Nothing is chosen for the member, so Allow waits for a choice.
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeDisabled()
+    await user.click(screen.getByRole('radio', { name: /Everything you can see/ }))
     await user.click(screen.getByRole('button', { name: 'Allow' }))
     expect(await screen.findByText(/You can close this tab/)).toBeInTheDocument()
     expect(allowed).toEqual({
       client_id: 'c1',
       redirect_uri: 'https://claude.ai/cb',
       state: 's1',
+      access: 'full',
     })
     expect(assign).toHaveBeenCalledWith('https://claude.ai/cb?code=htc_1&state=s1')
+  })
+
+  it('sends team-only when the member picks it for a shared tool', async () => {
+    let allowed: unknown = null
+    server.use(
+      http.get('/api/oauth/authorize', () => HttpResponse.json(check)),
+      http.post('/api/oauth/authorize', async ({ request }) => {
+        allowed = await request.json()
+        return HttpResponse.json({ redirect: 'https://claude.ai/cb?code=htc_2&state=s1' })
+      }),
+    )
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, assign },
+    })
+    const user = userEvent.setup()
+    renderAt(`/oauth/authorize${QS}`)
+    await user.click(await screen.findByRole('radio', { name: /Team space only, read only/ }))
+    await user.click(screen.getByRole('button', { name: 'Allow' }))
+    expect(await screen.findByText(/You can close this tab/)).toBeInTheDocument()
+    expect(allowed).toMatchObject({ access: 'team-read' })
   })
 
   it('leads with the return address when the app names itself', async () => {

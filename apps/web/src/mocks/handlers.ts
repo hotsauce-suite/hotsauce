@@ -165,6 +165,15 @@ function createHandlers(
       redirectHost: 'claude.ai',
       createdAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
       lastUsedAt: new Date(Date.now() - 3_600_000).toISOString(),
+      access: 'full',
+    },
+    {
+      id: 'conn_team_chat',
+      clientName: 'Team chat',
+      redirectHost: 'chat.example.com',
+      createdAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+      lastUsedAt: new Date(Date.now() - 600_000).toISOString(),
+      access: 'team-read',
     },
   ]
 

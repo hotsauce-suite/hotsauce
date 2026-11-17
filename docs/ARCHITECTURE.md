@@ -690,6 +690,35 @@ claude.ai, ChatGPT and Grok add a remote MCP server as a custom connector and si
 - **Storage.** Clients and connections in `DATA_DIR/oauth/oauth.json` (atomic write), hashes of tokens only; codes in memory (a restart mid-sign-in means pressing Connect again). An unreadable file refuses every connection rather than being replaced. Not in Git, not in the index.
 - **Tests.** `test/integration/oauth.test.ts` (discovery, registration, the Allow checks, PKCE, code reuse, rotation and replay, `/api` refusing `hto_`, connections, revoke, and the MCP SDK's own OAuth client end to end); `routes/OAuthAuthorizeRoute.test.tsx`; `e2e/mcp-oauth.spec.ts` (Allow in a real browser, refresh, an SDK client on `/mcp`, Disconnect in Settings stops it).
 
+### 8.5 Team-only connections
+
+A connection a group shares (a team chat's assistant, connected once by an admin) must not read
+through the personal space of whoever signed it in. Plan: `docs/PLAN-team-connection.md`.
+
+- The Allow page asks for `access`: `full` (everything the member sees, as before) or `team-read`.
+  Nothing is preselected. `POST /api/oauth/authorize` takes it (missing is `full`, for an older
+  page; anything else is 400), the code carries it, and the connection keeps it
+  (`StoredConnection.access`, default `full`), through every refresh. `GET /api/oauth/connections`
+  returns it; Settings shows "Team only".
+- A team-only connection's token hashes are salted (`sha256("team-read:" + token)`), so a release
+  that predates this section, which looks tokens up by their plain hash and drops `access`, refuses
+  the connection rather than treating it as full; after rolling forward it stays refused, and the
+  admin connects again.
+- `TokenAuth` puts it on the principal: `via.access = 'team-read'`, tested by `isTeamOnly`.
+- `SpaceService.visibleSpaces` is the team space only and `canAccess` refuses any other space, so
+  everything built on them (search, files, meetings, Ask about meetings, tasks, tables, boards,
+  pages, files) covers the team only. Things that belong to one member outside the spaces are cut
+  where they are read: People skips the member's calendar, Clips shows only the team's finished
+  clips (never the member's own failed or `mine` ones).
+- `list_tasks` defaults `mine` to false: the connection answers a group, not its owner.
+- `createMcpServer` registers only `TEAM_ONLY_TOOLS` (mcp/server.ts), and only those marked
+  `readOnlyHint`; a tool registered later that isn't on the list is removed at once, so a new tool
+  is left out until someone adds it on purpose. Its instructions say the view is shared and
+  limited.
+- Personal access tokens are always `full`.
+- Tests: `test/integration/team-connection.test.ts`, `routes/OAuthAuthorizeRoute.test.tsx`,
+  `e2e/mcp-oauth.spec.ts` (both choices end to end).
+
 ## 9. Hotsauce Dictate
 
 System-wide dictation for the Mac: hold Right Option, speak, release, and cleaned-up text is pasted where the cursor is. Three parts: a server module, a setup page, and a menu bar app.
