@@ -115,6 +115,7 @@ export function serveOrg({ admin }: { admin: boolean }) {
     http.get('/api/admin/org/updates', () => new HttpResponse(null, { status: 404 })),
     http.get('/api/admin/org/backups', () => new HttpResponse(null, { status: 404 })),
     http.get('/api/sharing', () => HttpResponse.json({ publicShareLinks: false })),
+    http.get('/api/share-links', () => HttpResponse.json({ links: [] })),
     http.get('/api/forms/rooms', () => HttpResponse.json({ rooms: [] })),
   )
   return saves

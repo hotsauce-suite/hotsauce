@@ -9,6 +9,13 @@ import { isTeamOnly, type Principal } from '../auth/index.js'
 import { HotsauceError } from '../errors.js'
 import { type AudioStore, LocalAudioStore, R2AudioStore } from '../meetings/audio/index.js'
 import type { LLM } from '../meetings/llm/types.js'
+import {
+  checkLinkOptions,
+  type LinkOptions,
+  type LinkPolicy,
+  type LinkStore,
+  wantsNewLink,
+} from '../shares/links.js'
 import { type Cut, keptRanges, MAX_CUTS, MIN_KEPT_MS, normalizeCuts } from './cuts.js'
 import {
   COMPOSITE_MAX_HEIGHT,
@@ -121,8 +128,35 @@ export interface ClipView {
   downloadUrl: string | null
 }
 
+export interface ClipShareState {
+  token: string | null
+  url: string | null
+  link: LinkPolicy | null
+}
+
+/** A clip as its read-only link shows it. */
+export interface SharedClip {
+  kind: 'clip'
+  title: string
+  summary: string | null
+  durationMs: number | null
+  width: number | null
+  height: number | null
+  mimeType: string
+  videoUrl: string | null
+  thumbUrl: string | null
+  transcript: { start: number; end: number; text: string; speaker?: string }[]
+  /** When it was recorded, and by whom. */
+  updated: string
+  updatedBy: string
+}
+
 export interface ClipsOptions {
   store: ClipStore
+  /** Read-only links to clips (docs/PLAN-outside-links.md); without it clips can't be shared. */
+  links?: LinkStore
+  /** Whether members may make links anyone can open (Settings → Organization). */
+  allowAnyone?: () => boolean
   /** Where videos and thumbnails go; null means Clips isn't available on this server. */
   media: AudioStore | null
   dataDir: string
@@ -436,6 +470,7 @@ export class Clips {
   async delete(principal: Principal, id: string): Promise<void> {
     const clip = this.#owned(principal, id)
     this.store.delete(id)
+    this.#opts.links?.deleteRef({ clip: id })
     await this.#removeFiles(clip.id, clip.container, [clip.appliedVersion, clip.editVersion])
     this.#log(`clip ${id} deleted by ${principal.email}`)
   }
@@ -665,6 +700,87 @@ export class Clips {
       throw new HotsauceError('not_found', 'No such clip')
     }
     return { clip: await this.view(clip, principal), transcript: clip.transcript }
+  }
+
+  /** The clip's read-only link, if any (any member who can watch it may see it). */
+  shareState(principal: Principal, id: string): ClipShareState {
+    const clip = this.#get(id)
+    if (clip.status === 'recording' && clip.ownerId !== principal.userId) {
+      throw new HotsauceError('not_found', 'No such clip')
+    }
+    return this.#shareStateOf(id)
+  }
+
+  #shareStateOf(id: string): ClipShareState {
+    const row = this.#opts.links?.forRef({ clip: id }) ?? null
+    if (!row || !this.#opts.links) return { token: null, url: null, link: null }
+    return {
+      token: row.token,
+      url: `/s/${row.token}`,
+      link: { anyone: row.anyone, expiresAt: row.expiresAt, ended: this.#opts.links.ended(row) },
+    }
+  }
+
+  /** Turns the clip's read-only link on or off; owner only. An ended link is replaced. */
+  setShared(principal: Principal, id: string, on: boolean, opts: LinkOptions = {}): ClipShareState {
+    const links = this.#opts.links
+    if (!links) throw new HotsauceError('not_configured', 'Clips can’t be shared on this server')
+    const clip = this.#owned(principal, id)
+    const current = this.#shareStateOf(id)
+    if (!on) {
+      links.deleteRef({ clip: id })
+      return { token: null, url: null, link: null }
+    }
+    if (current.link && !current.link.ended && !wantsNewLink(current.link, opts)) return current
+    if (clip.status !== 'ready') throw new HotsauceError('conflict', 'This clip isn’t ready yet')
+    const allowAnyone = this.#opts.allowAnyone?.() ?? false
+    checkLinkOptions(opts, allowAnyone)
+    links.deleteRef({ clip: id })
+    links.create(
+      principal,
+      {
+        token: randomBytes(18).toString('base64url'),
+        kind: 'clip',
+        ref: { clip: id },
+        title: clip.title,
+      },
+      opts,
+      allowAnyone,
+    )
+    this.#log(`clip ${id} shared by ${principal.email}`)
+    return this.#shareStateOf(id)
+  }
+
+  /**
+   * What someone holding the clip's link sees: the video, title, summary and transcript. Never the
+   * AI notes, action items, a download or who else is in the organization. The caller has checked
+   * the link may be opened by this person.
+   */
+  async sharedView(id: string): Promise<SharedClip> {
+    const clip = this.store.get(id)
+    if (!clip || clip.status !== 'ready') throw new HotsauceError('not_found', 'No such clip')
+    const anyone = { userId: '' } as Principal
+    const view = await this.view(clip, anyone)
+    const names = new Map(speakersOf(clip).map((s) => [s.id, s.name]))
+    return {
+      kind: 'clip',
+      title: clip.title,
+      summary: clip.summary,
+      durationMs: view.durationMs,
+      width: clip.width,
+      height: clip.height,
+      mimeType: view.mimeType,
+      videoUrl: view.videoUrl,
+      thumbUrl: view.thumbUrl,
+      transcript: clip.transcript.map((s) => ({
+        start: s.start,
+        end: s.end,
+        text: s.text,
+        ...(s.speaker === undefined ? {} : { speaker: names.get(s.speaker) ?? 'Speaker' }),
+      })),
+      updated: clip.createdAt,
+      updatedBy: clip.ownerName,
+    }
   }
 
   list(

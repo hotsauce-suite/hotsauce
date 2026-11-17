@@ -48,7 +48,8 @@ describe('attachments', () => {
     })
     const spy = vi.spyOn(filesApi, 'share').mockResolvedValue(shared)
     const a = await attachmentFor(file({ space: 'alice', url: `/files/alice/${ID}` }), 'team')
-    expect(spy).toHaveBeenCalledWith('alice', ID, true)
+    // Members only and never ending: the page's readers keep it (PLAN-outside-links).
+    expect(spy).toHaveBeenCalledWith('alice', ID, true, { anyone: false, expiresDays: 0 })
     expect(a.url).toBe('/files/s/tok_tok_tok_tok_1')
     expect(attachmentsIn(a.markdown)[0]?.url).toBe(a.url)
     spy.mockRestore()

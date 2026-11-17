@@ -9,6 +9,7 @@ import { Dialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
 import { MenuItem, menuItemClass } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
+import { clipLink, ReadOnlyLinkItems, useLink } from '../../components/ReadOnlyLink'
 import { ShareButton } from '../../components/ShareButton'
 import { SidePanel } from '../../components/SidePanel'
 import { IconButton } from '../../components/TopBar'
@@ -72,6 +73,8 @@ export default function ClipPage() {
   const video = useRef<HTMLVideoElement>(null)
   const { notify } = useSession()
   const { compact } = useShell()
+  // Its read-only link, for people outside too (docs/PLAN-outside-links.md); the owner's to make.
+  const outside = useLink(useMemo(() => clipLink(id), [id]))
   // Beside the video on a wide screen, as a meeting's transcript is; on a phone it opens on a tap.
   const roomy = useMediaQuery(PANES_QUERY)
   const [transcriptOpen, setTranscriptOpen] = useState(roomy)
@@ -312,16 +315,21 @@ export default function ClipPage() {
   }
 
   const shareItems = (close: () => void) => (
-    <MenuItem
-      icon="link"
-      testId="clip-copy-link"
-      onSelect={() => {
-        close()
-        void copyLink()
-      }}
-    >
-      Copy link
-    </MenuItem>
+    <>
+      <MenuItem
+        icon="link"
+        testId="clip-copy-link"
+        onSelect={() => {
+          close()
+          void copyLink()
+        }}
+      >
+        Copy link
+      </MenuItem>
+      {clip.isOwner && clip.status === 'ready' ? (
+        <ReadOnlyLinkItems link={outside} close={close} />
+      ) : null}
+    </>
   )
 
   return (
@@ -354,7 +362,9 @@ export default function ClipPage() {
       >
         {compact ? null : (
           <>
-            <ShareButton testId="clip-share">{shareItems}</ShareButton>
+            <ShareButton testId="clip-share" onOpen={() => outside.refresh()}>
+              {shareItems}
+            </ShareButton>
             {canTrim && !trimming ? (
               <button
                 type="button"
@@ -371,6 +381,7 @@ export default function ClipPage() {
             ) : null}
           </>
         )}
+        {outside.dialog}
         <IconButton
           icon="transcript"
           label="Transcript"
@@ -379,7 +390,7 @@ export default function ClipPage() {
           onClick={() => setTranscriptOpen((open) => !open)}
         />
         {compact || clip.downloadUrl || clip.isOwner ? (
-          <MoreMenu>
+          <MoreMenu onOpen={() => outside.refresh()}>
             {(close) => (
               <>
                 {compact ? (
