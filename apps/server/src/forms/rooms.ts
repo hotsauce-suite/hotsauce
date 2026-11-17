@@ -14,7 +14,13 @@ import { HotsauceError } from '../errors.js'
 
 export const MAX_ROOMS = 20
 
-const Room = z.object({ id: z.string(), name: z.string(), url: z.string() })
+const Room = z.object({
+  id: z.string(),
+  name: z.string(),
+  url: z.string(),
+  /** Hotsauce keeps a searchable copy of the room (docs/PLAN-chat-context.md). */
+  read: z.boolean().default(false),
+})
 const RoomsFile = z.object({ rooms: z.array(Room).default([]) })
 
 export interface ChatRoom {
@@ -22,7 +28,42 @@ export interface ChatRoom {
   name: string
   /** The webhook's last four characters, so an admin can tell two apart. */
   last4: string
+  /** The link is a bot's room address, so Hotsauce can read the room too. */
+  readable: boolean
+  /** Hotsauce reads the room for context. */
+  read: boolean
 }
+
+/** A room Hotsauce reads: where its messages are, which carries the bot's key, so never sent out. */
+export interface ReadTarget {
+  id: string
+  name: string
+  messagesUrl: string
+}
+
+/**
+ * A Campfire-style bot's room address (Campfire, Ember): `/rooms/<room>/<bot key>/slack` posts, and
+ * `/rooms/<room>/<bot key>/messages` reads the room. Null for any other link (Slack's can't read).
+ */
+export function messagesUrlOf(url: string): string | null {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+  const m = /^\/rooms\/([^/.]+)\/([^/.]+)\/slack\/?$/.exec(parsed.pathname)
+  if (!m || parsed.protocol !== 'https:') return null
+  return `${parsed.origin}/rooms/${m[1]}/${m[2]}/messages`
+}
+
+const view = (r: z.infer<typeof Room>): ChatRoom => ({
+  id: r.id,
+  name: r.name,
+  last4: r.url.slice(-4),
+  readable: messagesUrlOf(r.url) !== null,
+  read: r.read && messagesUrlOf(r.url) !== null,
+})
 
 export class ChatRooms {
   readonly #file: string
@@ -45,7 +86,38 @@ export class ChatRooms {
   }
 
   list(): ChatRoom[] {
-    return this.#read().map((r) => ({ id: r.id, name: r.name, last4: r.url.slice(-4) }))
+    return this.#read().map(view)
+  }
+
+  /** Switches reading a room for context on or off; only a bot's room address can be read. */
+  setRead(id: string, read: boolean): ChatRoom {
+    const rooms = this.#read()
+    const room = rooms.find((r) => r.id === id)
+    if (!room) throw new HotsauceError('not_found', 'No such room')
+    if (read && messagesUrlOf(room.url) === null) {
+      throw new HotsauceError(
+        'bad_request',
+        'Hotsauce can only read rooms whose link is a chat bot’s room address (it has /rooms/ in it). Slack webhook links can only post.',
+      )
+    }
+    const next = { ...room, read }
+    this.#write(rooms.map((r) => (r.id === id ? next : r)))
+    return view(next)
+  }
+
+  /** The rooms to read, with their read addresses; a file that can't be read means none. */
+  readTargets(): ReadTarget[] {
+    let rooms: z.infer<typeof Room>[]
+    try {
+      rooms = this.#read()
+    } catch (err) {
+      this.#log(`chat: chat rooms file can't be read: ${err}`)
+      return []
+    }
+    return rooms.flatMap((r) => {
+      const messagesUrl = r.read ? messagesUrlOf(r.url) : null
+      return messagesUrl ? [{ id: r.id, name: r.name, messagesUrl }] : []
+    })
   }
 
   has(id: string): boolean {
@@ -112,9 +184,14 @@ export class ChatRooms {
         `That link didn’t take a test message (it answered ${status}). Copy the bot’s Slack-compatible webhook URL and try again.`,
       )
     }
-    const room = { id: randomBytes(6).toString('base64url'), name: clean, url: parsed.toString() }
+    const room = {
+      id: randomBytes(6).toString('base64url'),
+      name: clean,
+      url: parsed.toString(),
+      read: false,
+    }
     this.#write([...rooms, room])
-    return { id: room.id, name: room.name, last4: room.url.slice(-4) }
+    return view(room)
   }
 
   remove(id: string): void {

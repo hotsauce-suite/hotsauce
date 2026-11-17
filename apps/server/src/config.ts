@@ -145,6 +145,10 @@ export const ConfigSchema = z
     ASSISTANT_MODEL: z.string().min(1).optional(),
     ASSISTANT_MONTHLY_LIMIT_USD: z.coerce.number().min(0).optional(),
     BRIEF_HOUR: z.coerce.number().int().min(0).max(23).default(4),
+    // Chat as context (docs/PLAN-chat-context.md): how often the rooms an admin switched on are
+    // read (0 never), and how many days back each pass re-reads threads.
+    CHAT_READ_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
+    CHAT_THREAD_DAYS: z.coerce.number().int().min(0).max(90).default(7),
     BRIEF_REFRESH_GAP_SECONDS: z.coerce.number().int().min(0).default(60),
     // Briefcast (docs/plans/2026-11-12-briefcast.md): the morning audio briefing. The script
     // model, the voice (OpenAI text to speech; fake in development and test), and the local hour

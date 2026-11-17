@@ -2,6 +2,7 @@ import { product } from '../brand/product'
 import { reportReachable, reportUnreachable } from '../lib/connection'
 import type {
   ApiErrorBody,
+  ChatSearchHit,
   Commit,
   CommitResult,
   ConflictDetail,
@@ -262,6 +263,8 @@ export const api = {
 
   search: (q: string, spaces: string[]) =>
     request<SearchResult[]>('/api/search', { query: { q, spaces: spaces.join(',') } }),
+
+  chatSearch: (q: string) => request<ChatSearchHit[]>('/api/chat/search', { query: { q } }),
 
   recents: () => request<RecentItem[]>('/api/recents'),
   addRecent: (space: string, path: string) =>

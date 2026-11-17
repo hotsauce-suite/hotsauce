@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { type ChatRoom, formsApi } from '../../api/forms'
 import { primaryButton } from '../../apps/meetings/components/common'
-import { chat } from '../../brand/product'
+import { chat, product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
+import { relativeTime } from '../../lib/time'
 import { inputClass } from './fields'
 
+/** How often the list is asked again while a room's first copy is being made. */
+const COPYING_POLL_MS = 3000
+
 /**
- * Settings → Organization: chat rooms that Forms posts new answers to (ARCHITECTURE §21.5). Each is
- * a Slack-compatible incoming webhook (Slack and compatible chat apps give each bot one per room). Saved at once;
- * the link is kept on the server and only its last four characters come back.
+ * Settings → Organization: chat rooms that Forms and Check-ins post to (ARCHITECTURE §21.5), and
+ * that Hotsauce may read for context (docs/PLAN-chat-context.md). Each is a Slack-compatible
+ * incoming webhook (Slack and compatible chat apps give each bot one per room). Saved at once; the
+ * link is kept on the server and only its last four characters come back.
  */
 export function ChatRoomsSection() {
   const [rooms, setRooms] = useState<ChatRoom[] | null>(null)
@@ -16,12 +21,34 @@ export function ChatRoomsSection() {
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const load = useCallback(
+    () =>
+      formsApi.rooms().then(
+        (r) => setRooms(r.rooms),
+        () => setRooms((old) => old ?? []),
+      ),
+    [],
+  )
   useEffect(() => {
-    formsApi.rooms().then(
-      (r) => setRooms(r.rooms),
-      () => setRooms([]),
-    )
-  }, [])
+    void load()
+  }, [load])
+  // A room switched on is copied in the background: ask again until its first copy is done.
+  const copying = rooms?.some((r) => r.read && !r.copy?.complete && !r.copy?.error) ?? false
+  useEffect(() => {
+    if (!copying) return
+    const timer = setInterval(() => void load(), COPYING_POLL_MS)
+    return () => clearInterval(timer)
+  }, [copying, load])
+  const setRead = async (id: string, read: boolean) => {
+    setError(null)
+    try {
+      const room = await formsApi.setRoomRead(id, read)
+      setRooms((r) => (r ?? []).map((x) => (x.id === id ? { ...x, ...room, copy: undefined } : x)))
+      void load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Couldn’t change the room')
+    }
+  }
   const add = async () => {
     setBusy(true)
     setError(null)
@@ -54,10 +81,11 @@ export function ChatRoomsSection() {
     >
       <div>
         <h2 className="font-display text-[1.6rem] leading-tight font-semibold tracking-tight text-ink">
-          Chat rooms for form answers
+          Chat rooms
         </h2>
         <p className="mt-2 text-ink-soft">
-          A form can post each new answer to a chat room. Make a bot in your team chat
+          Forms and Check-ins can post to a chat room, and {product()} can read a room so search,
+          Ask and AI tools know what the team said there. Make a bot in your team chat
           {chatHome ? (
             <>
               {' '}
@@ -70,8 +98,16 @@ export function ChatRoomsSection() {
           ) : null}
           , and under the room you want, copy its <b>Slack-compatible webhook URL</b> (it ends in
           /slack) and paste it here. The link decides the room; the name is only how forms list it.
-          Hotsauce posts a test message to check the link before saving it. Slack webhook links work
-          too.
+          {product()} posts a test message to check the link before saving it. Slack webhook links
+          work too, for posting only.
+        </p>
+        <p className="mt-2 text-ink-soft">
+          To read a room, add the bot to it and switch on <b>Read for context</b>. {product()}{' '}
+          copies the room’s history, then reads new messages every few minutes, thread replies
+          included. Everyone in {product()} can search what a read room says, so read only rooms
+          everyone in your organization may read. Direct messages are never read. Edits and
+          deletions made later in the chat aren’t picked up; switch reading off and on to copy a
+          room again.
         </p>
       </div>
       {rooms && rooms.length > 0 ? (
@@ -79,20 +115,38 @@ export function ChatRoomsSection() {
           {rooms.map((r) => (
             <li
               key={r.id}
-              className="flex items-center gap-3 px-3 py-2 text-sm"
+              className="flex flex-col gap-1 px-3 py-2 text-sm"
               data-testid="chat-room"
             >
-              <Icon name="chat" className="size-4 text-ink-faint" />
-              <span className="flex-1 text-ink">{r.name}</span>
-              <span className="text-ink-faint">…{r.last4}</span>
-              <button
-                type="button"
-                className="text-ink-faint hover:text-ink"
-                aria-label={`Remove ${r.name}`}
-                onClick={() => void remove(r.id)}
-              >
-                <Icon name="trash" className="size-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                <Icon name="chat" className="size-4 text-ink-faint" />
+                <span className="min-w-0 flex-1 truncate text-ink">{r.name}</span>
+                <span className="text-ink-faint">…{r.last4}</span>
+                {r.readable ? (
+                  <label className="flex items-center gap-2 text-ink-soft">
+                    Read for context
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      aria-checked={r.read === true}
+                      aria-label={`Read ${r.name} for context`}
+                      data-testid="chat-room-read"
+                      checked={r.read === true}
+                      onChange={(e) => void setRead(r.id, e.target.checked)}
+                      className="size-4 accent-ember"
+                    />
+                  </label>
+                ) : null}
+                <button
+                  type="button"
+                  className="text-ink-faint hover:text-ink"
+                  aria-label={`Remove ${r.name}`}
+                  onClick={() => void remove(r.id)}
+                >
+                  <Icon name="trash" className="size-4" />
+                </button>
+              </div>
+              {r.read ? <CopyStatus room={r} /> : null}
             </li>
           ))}
         </ul>
@@ -137,5 +191,29 @@ export function ChatRoomsSection() {
         </p>
       ) : null}
     </section>
+  )
+}
+
+/** How much of a read room is copied and when it was last read, or why it couldn't be. */
+function CopyStatus({ room }: { room: ChatRoom }) {
+  const copy = room.copy
+  const count = (n: number) => `${n.toLocaleString()} message${n === 1 ? '' : 's'}`
+  let text: string
+  let failed = false
+  if (!copy || (!copy.complete && !copy.error)) {
+    text = copy?.messages ? `Copying… ${count(copy.messages)} so far` : 'Copying the room…'
+  } else if (copy.error) {
+    failed = true
+    text = `${copy.error}${copy.messages ? ` ${count(copy.messages)} copied earlier are kept.` : ''}`
+  } else {
+    text = `${count(copy.messages)} copied${copy.readAt ? `, read ${relativeTime(copy.readAt)}` : ''}`
+  }
+  return (
+    <p
+      data-testid="chat-room-copy"
+      className={`pl-7 ${failed ? 'text-ember-strong' : 'text-ink-faint'}`}
+    >
+      {text}
+    </p>
   )
 }

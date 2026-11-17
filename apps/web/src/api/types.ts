@@ -133,6 +133,18 @@ export interface SearchResult {
   score: number
 }
 
+/** A chat message from a room read for context (docs/PLAN-chat-context.md). */
+export interface ChatSearchHit {
+  room: string
+  id: string
+  author: string
+  createdAt: string
+  /** Matched terms are wrapped in \u0002 … \u0003. */
+  snippet: string
+  /** The message in the chat, or empty when the chat gave no link. */
+  url: string
+}
+
 export interface RecentItem {
   space: string
   path: string
