@@ -302,6 +302,8 @@ function StartForm() {
     if (!autoChose.current || autoStarted.current || !eventSettled || !canStart(state)) return
     // Only the Mac listening it chose: a member who picked another way presses Start themselves.
     if (state.step !== 'check' || state.mode !== 'mac') return
+    // The event's name has replaced the call's ("Zoom call"), unless the member typed one.
+    if (event && !titleTouched.current && title !== event.title) return
     autoStarted.current = true
     void start()
   })

@@ -6,9 +6,9 @@ the call itself starts, call detection doesn't add a second offer on top.
 
 ## Status
 
-Slice 1 (reminder joins and starts notes) built on `claude/project-thread-xu6qxn`. Slice 2 (one
-offer, not two) waits for the call-detection changes in PR #169 to merge, since both touch
-`CallWatch`/`CallDetector`.
+Both slices built on `claude/project-thread-xu6qxn` (PR #174): the reminder joins and starts notes,
+and the call offer replaces a reminded meeting's reminder. `swift test` and the Mac build run on
+the owner's Mac before merge; the notification buttons are checked there by hand.
 
 ## Decisions (owner, 2026-11-17)
 
@@ -41,6 +41,10 @@ offer, not two) waits for the call-detection changes in PR #169 to merge, since 
    hold it up. *(tests: `StartMeeting.test.tsx` "calendar reminder", "call notice")*
 6. **Outside the Mac app, nothing records by itself.** The same link in a browser only fills in
    the page. *(test: "opened outside the Mac app")*
-7. **One offer, not two** (slice 2). When a call starts within a meeting that was reminded and no
-   notes are running, the reminder is withdrawn and the call offer names the meeting and opens
-   its Start page. *(test: `CallWatch`/planner unit test, after #169)*
+7. **One offer, not two** (slice 2). When a call starts from 5 minutes before a reminded meeting
+   to its end (30 minutes when the invite has no end) and no notes are running, the reminder is
+   withdrawn and the call offer is titled for the meeting, opening
+   `/meetings/start?event=<id>&via=mac-call&app=<app>`: named for the event, started at once, and
+   ending with the call. Notes already running: the reminder is withdrawn and nothing is offered.
+   *(tests: `matchesACallToTheMeetingItWasRemindedFor`, `callStartPathNamesTheEventAndTheApp`,
+   `StartMeeting.test.tsx` "call notice for a reminded meeting")*

@@ -143,7 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func finishLaunching() {
         reminders.start()
         if #available(macOS 14.2, *) {
-            let detector = CallDetector(suite: suite) { [weak self] in self?.settings.offerCallNotes ?? false }
+            let detector = CallDetector(suite: suite, reminders: reminders) { [weak self] in self?.settings.offerCallNotes ?? false }
             detector.start()
             callDetector = detector
         }

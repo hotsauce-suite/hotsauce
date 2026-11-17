@@ -83,6 +83,20 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// The meeting a call starting now belongs to, when it was reminded (CallDetector).
+    func remindedMeeting(at now: Date) -> UpcomingMeeting? {
+        planner.remindedMeeting(at: now)
+    }
+
+    /// Takes a meeting's reminder out of Notification Center: the call offer replaces it.
+    func withdraw(_ meeting: UpcomingMeeting) {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [Self.identifier(meeting)])
+    }
+
+    private static func identifier(_ meeting: UpcomingMeeting) -> String {
+        "meeting \(ReminderPlanner.key(meeting))"
+    }
+
     private func updateActivity() {
         if isEnabled(), activity == nil {
             activity = ProcessInfo.processInfo.beginActivity(options: .userInitiatedAllowingIdleSystemSleep, reason: "Meeting reminders")
@@ -105,7 +119,7 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
             content.categoryIdentifier = Self.withoutLink
             content.userInfo = ["path": meeting.startPath]
         }
-        let request = UNNotificationRequest(identifier: "meeting \(ReminderPlanner.key(meeting))", content: content, trigger: nil)
+        let request = UNNotificationRequest(identifier: Self.identifier(meeting), content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
             let outcome = error.map { "failed: \($0.localizedDescription)" } ?? "posted"
             DispatchQueue.main.async {

@@ -11,6 +11,7 @@ import UserNotifications
 @MainActor
 final class CallDetector {
     private let suite: SuiteWindow
+    private let reminders: Reminders
     private let isEnabled: () -> Bool
     private var watch = CallWatch()
     /// The app on the current call, for the decision log: when a call ends no app holds the mic.
@@ -18,8 +19,9 @@ final class CallDetector {
     private var timer: Timer?
     private static let tick: TimeInterval = 2
 
-    init(suite: SuiteWindow, isEnabled: @escaping () -> Bool) {
+    init(suite: SuiteWindow, reminders: Reminders, isEnabled: @escaping () -> Bool) {
         self.suite = suite
+        self.reminders = reminders
         self.isEnabled = isEnabled
     }
 
@@ -40,10 +42,19 @@ final class CallDetector {
         switch action {
         case .offerNotes(let name):
             callApp = name
-            record(name, "offered")
-            notify(id: Self.offerID, title: "Take notes on this \(name) call?",
-                   body: "\(Brand.name) records your mic and the call’s audio once you start.",
-                   path: MicApps.startPath(app: name), app: name)
+            if let meeting = reminders.remindedMeeting(at: Date()) {
+                // The calendar reminder for this meeting goes; one offer, named for the meeting.
+                reminders.withdraw(meeting)
+                record(name, "offered for “\(meeting.title)”")
+                notify(id: Self.offerID, title: "Take notes for “\(meeting.title)”?",
+                       body: "Your \(name) call started. \(Brand.name) records your mic and the call’s audio.",
+                       path: meeting.callStartPath(app: name), app: name)
+            } else {
+                record(name, "offered")
+                notify(id: Self.offerID, title: "Take notes on this \(name) call?",
+                       body: "\(Brand.name) records your mic and the call’s audio.",
+                       path: MicApps.startPath(app: name), app: name)
+            }
         case .callEnded(let session):
             record(callApp, "call ended while recording")
             withdrawOffer()
@@ -56,6 +67,8 @@ final class CallDetector {
             withdrawOffer()
         case .skipped(let name, .recording):
             callApp = name
+            // Already taking notes: the meeting's reminder has nothing left to offer.
+            if let meeting = reminders.remindedMeeting(at: Date()) { reminders.withdraw(meeting) }
             record(name, "not offered: a meeting was already recording")
         case .skipped(let name, .cooldown):
             callApp = name

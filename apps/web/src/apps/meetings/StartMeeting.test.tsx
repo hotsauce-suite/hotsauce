@@ -330,6 +330,29 @@ describe('Start screen', () => {
     }
   })
 
+  it('from the call notice for a reminded meeting: named for the event, and it ends with the call', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    const postMessage = vi.fn(async (_message: unknown) => null)
+    w.hearthMac = { meetingAudio: 2 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage } } }
+    try {
+      const { router } = renderApp('/meetings/start?event=evt-acme-sync&via=mac-call&app=Zoom')
+      await waitFor(() => expect(router.state.location.pathname).toMatch(/^\/meetings\/live\//))
+      const id = router.state.location.pathname.split('/').pop() ?? ''
+      expect(mockApi().meetings.sessions.get(id)).toMatchObject({
+        title: 'Acme sync',
+        calendarEventId: 'evt-acme-sync',
+      })
+      await waitFor(() =>
+        expect(postMessage).toHaveBeenCalledWith({ type: 'follow-call', session: id }),
+      )
+    } finally {
+      await currentLive()?.dispose()
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
   it('a reminder opened on a Start page that is already showing starts for the new event', async () => {
     const w = window as { hearthMac?: unknown; webkit?: unknown }
     w.hearthMac = { meetingAudio: 1 }

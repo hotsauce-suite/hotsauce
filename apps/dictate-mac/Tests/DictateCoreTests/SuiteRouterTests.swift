@@ -131,6 +131,7 @@ import Testing
         let list = try UpcomingMeeting.decodeList(Data(json.utf8))
         #expect(list.map(\.id) == ["e1", "e2"])
         #expect(list[0].start == ISO8601DateFormatter().date(from: "2026-11-11T19:00:00Z"))
+        #expect(list[0].end == ISO8601DateFormatter().date(from: "2026-11-11T19:30:00Z"))
         #expect(list[1].attendees.count == 0)
         #expect(list[0].joinURL == URL(string: "https://meet.google.com/x"))
         #expect(list[1].meetLink == nil)
@@ -177,6 +178,31 @@ import Testing
         _ = planner.due([meeting("m", in: 60)], now: now)
         _ = planner.due([], now: now.addingTimeInterval(2 * 3_600))
         #expect(planner.sent.isEmpty)
+    }
+
+    @Test func matchesACallToTheMeetingItWasRemindedFor() {
+        var planner = ReminderPlanner()
+        let standup = UpcomingMeeting(id: "standup", title: "Standup", start: now.addingTimeInterval(60),
+                                      end: now.addingTimeInterval(16 * 60), attendees: [.init(email: "a@b.com")])
+        let review = UpcomingMeeting(id: "review", title: "Review", start: now.addingTimeInterval(60),
+                                     attendees: [.init(email: "a@b.com")])
+        // Nothing reminded yet: a call is just a call.
+        #expect(planner.remindedMeeting(at: now) == nil)
+        _ = planner.due([standup], now: now)
+        #expect(planner.remindedMeeting(at: now)?.id == "standup")                       // joined early
+        #expect(planner.remindedMeeting(at: now.addingTimeInterval(10 * 60))?.id == "standup")
+        #expect(planner.remindedMeeting(at: now.addingTimeInterval(17 * 60)) == nil)     // after its end
+        #expect(planner.remindedMeeting(at: now.addingTimeInterval(-5 * 60)) == nil)     // too early
+        // No end on the invite: half an hour.
+        var other = ReminderPlanner()
+        _ = other.due([review], now: now)
+        #expect(other.remindedMeeting(at: now.addingTimeInterval(30 * 60))?.id == "review")
+        #expect(other.remindedMeeting(at: now.addingTimeInterval(32 * 60)) == nil)
+    }
+
+    @Test func callStartPathNamesTheEventAndTheApp() {
+        #expect(meeting("a&b", in: 0).callStartPath(app: "Microsoft Teams")
+            == "/meetings/start?event=a%26b&via=mac-call&app=Microsoft%20Teams")
     }
 
     @Test func startPathEncodesTheId() {
