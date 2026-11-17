@@ -108,7 +108,17 @@ extension AppDelegate: NSMenuItemValidation {
             mainWindow.show(page: .settings)
         }
     }
-    @objc func openDictateWindow() { mainWindow.show(page: .dictations) }
+    /// Dictate → On this Mac in the main window; the old Dictate window only when the main window
+    /// can't show it (docs/PLAN-dictations-page.md R7).
+    @objc func openDictateWindow() {
+        switch suite.dictationsDestination {
+        case .thisMacPage:
+            suite.show()
+            suite.open(path: SettingsDestination.dictationsPath)
+        case .fallbackWindow:
+            mainWindow.show(page: .dictations)
+        }
+    }
     @objc func showSuiteWindow() { suite.show() }
     @objc func reloadSuite() { suite.reload() }
     @objc func goBack() { suite.goBack() }
