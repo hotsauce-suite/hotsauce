@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.42.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Click the weather on Today to see the next 12 hours and the next 7 days, with rain or snow on the days that have more than a trace."
+        }
+      ]
+    },
+    {
       "version": "0.41.0",
       "date": "2026-11-17",
       "notes": [
