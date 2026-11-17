@@ -1,3 +1,4 @@
+import type { LinkChoice, LinkPolicy } from './shares'
 // Client for `/api/files` (ARCHITECTURE §18.2): Hotsauce Files.
 
 import type { PreviewKind } from '@hotsauce/format'
@@ -25,6 +26,8 @@ export interface DriveFile {
   contentUrl: string
   downloadUrl: string
   shareUrl: string | null
+  /** Who the link is for and when it ends (docs/PLAN-outside-links.md). */
+  shareLink?: LinkPolicy | null
 }
 
 /** What someone opening a share link sees: the file only, not where it lives. */
@@ -69,8 +72,8 @@ export const filesApi = {
   shared: (token: string) => request<SharedFile>(`${BASE}/shared/${encodeURIComponent(token)}`),
   update: (space: string, id: string, patch: { name?: string; folder?: string }) =>
     request<DriveFile>(item(space, id), { method: 'PATCH', json: patch }),
-  share: (space: string, id: string, on: boolean) =>
-    request<DriveFile>(`${item(space, id)}/share`, { method: 'POST', json: { on } }),
+  share: (space: string, id: string, on: boolean, choice?: LinkChoice) =>
+    request<DriveFile>(`${item(space, id)}/share`, { method: 'POST', json: { on, ...choice } }),
   move: (space: string, id: string, to: string) =>
     request<DriveFile>(`${item(space, id)}/move`, { method: 'POST', json: { to } }),
   remove: (space: string, id: string) => request<void>(item(space, id), { method: 'DELETE' }),

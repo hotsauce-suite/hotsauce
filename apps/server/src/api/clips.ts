@@ -15,6 +15,7 @@ import { HotsauceError } from '../errors.js'
 import { formatCommitMessage, withVia } from '../git/index.js'
 import { contentDisposition } from '../meetings/audio/index.js'
 import { type AppDeps, type AppEnv, authorOf } from './env.js'
+import { LinkChoice, linkOptions } from './link-choice.js'
 import { afterCommit, saveFile } from './save.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'
@@ -121,6 +122,27 @@ export function clipRoutes(deps: AppDeps) {
         if (range) headers['Content-Range'] = `bytes ${start}-${end}/${media.size}`
         return c.body(body as ReadableStream<Uint8Array>, range ? 206 : 200, headers)
       })
+      // The clip's read-only link (docs/PLAN-outside-links.md): any member may see it; the owner
+      // turns it on or off.
+      .get('/:id/share', valid('param', z.object({ id: ClipId })), (c) =>
+        c.json(clips.shareState(c.get('principal'), c.req.valid('param').id)),
+      )
+      .post(
+        '/:id/share',
+        valid('param', z.object({ id: ClipId })),
+        valid('json', z.object({ on: z.boolean(), ...LinkChoice })),
+        (c) => {
+          const body = c.req.valid('json')
+          return c.json(
+            clips.setShared(
+              c.get('principal'),
+              c.req.valid('param').id,
+              body.on,
+              linkOptions(body),
+            ),
+          )
+        },
+      )
       .get('/:id', valid('param', z.object({ id: ClipId })), async (c) => {
         c.header('Cache-Control', 'no-store')
         return c.json(await clips.get(c.get('principal'), c.req.valid('param').id))

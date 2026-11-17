@@ -12,6 +12,13 @@ import { normalizeRepoPath } from '../git/validate.js'
 import { extractDoc, type FileKind, type Index, kindOf } from '../index/index.js'
 import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
+import {
+  checkLinkOptions,
+  type LinkOptions,
+  type LinkPolicy,
+  type LinkStore,
+  linkEnded,
+} from './links.js'
 
 /**
  * Read-only links (ARCHITECTURE §20): `share: <token>` in a doc's, meeting note's, note's or
@@ -43,6 +50,8 @@ const IMAGE_TYPES: Record<string, string> = {
 export interface ShareState {
   token: string | null
   url: string | null
+  /** Who can open it and when it ends; null while there's no link. */
+  link: LinkPolicy | null
 }
 
 /** What anyone holding the link sees: never the space or the path. */
@@ -72,11 +81,15 @@ export interface SharesDeps {
   index: Pick<Index, 'filesByShareToken'>
   spaces: Pick<SpaceService, 'canAccess'>
   syncer: Pick<Syncer, 'afterHeadChanged'>
+  links: LinkStore
+  /** Whether members may make links anyone can open (Settings → Organization). */
+  allowAnyone: () => boolean
 }
 
-export const shareUrl = (token: string | null): ShareState => ({
+export const shareUrl = (token: string | null, link: LinkPolicy | null = null): ShareState => ({
   token,
   url: token ? `/s/${token}` : null,
+  link: token ? link : null,
 })
 
 export class Shares {
@@ -87,21 +100,36 @@ export class Shares {
 
   async state(principal: Principal, space: string, rawPath: string): Promise<ShareState> {
     const { content } = await this.#readShareable(principal, space, rawPath)
-    return shareUrl(tokenOf(content))
+    return this.#stateOf(tokenOf(content))
   }
 
-  /** Turns the link on (a fresh random token) or off; a repeat changes nothing. */
+  #stateOf(token: string | null): ShareState {
+    return shareUrl(token, this.#deps.links.policy(token))
+  }
+
+  /**
+   * Turns the link on (a fresh random token, with who it's for and when it ends) or off. A repeat
+   * changes nothing; turning on a link that has ended makes a new one.
+   */
   async set(
     principal: Principal,
     space: string,
     rawPath: string,
     on: boolean,
     via?: string,
+    opts: LinkOptions = {},
   ): Promise<ShareState> {
+    // Checked before any commit, so a refusal changes nothing.
+    if (on) checkLinkOptions(opts, this.#deps.allowAnyone())
     for (let attempt = 1; ; attempt++) {
-      const { path, content, blobOid, app } = await this.#readShareable(principal, space, rawPath)
+      const { path, content, blobOid, app, kind } = await this.#readShareable(
+        principal,
+        space,
+        rawPath,
+      )
       const current = tokenOf(content)
-      if (on === (current !== null)) return shareUrl(current)
+      const live = current !== null && !this.#deps.links.policy(current)?.ended
+      if (on ? live : current === null) return this.#stateOf(current)
       const token = on ? randomBytes(18).toString('base64url') : null
       let text: string
       try {
@@ -129,13 +157,22 @@ export class Shares {
         throw err
       }
       await this.#deps.syncer.afterHeadChanged(space)
-      return shareUrl(token)
+      if (current) this.#deps.links.delete(current)
+      if (!token) return this.#stateOf(null)
+      this.#deps.links.create(
+        principal,
+        { token, kind, ref: { space, path }, title: titleOf(path, content) },
+        opts,
+        this.#deps.allowAnyone(),
+      )
+      return this.#stateOf(token)
     }
   }
 
   /** The file a link opens, re-read from Git so turning it off counts before the index catches up. */
   async open(token: string): Promise<SharedFile> {
     if (!SHARE_TOKEN.test(token)) throw notShared()
+    if (this.#deps.links.policy(token)?.ended) throw linkEnded()
     for (const row of this.#deps.index.filesByShareToken(token)) {
       const target = this.#shareable(row.path)
       if (!target) continue

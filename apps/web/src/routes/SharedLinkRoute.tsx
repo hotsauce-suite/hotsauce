@@ -5,9 +5,13 @@ import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 import { HotsauceApiError } from '../api/client'
 import { type SharedItem, sharesApi } from '../api/shares'
+import { SharedClipView } from '../apps/clips/SharedClipView'
+import { FilePreview } from '../apps/files/Preview'
+import { primaryButton } from '../apps/meetings/components/common'
 import { useAuthState } from '../auth/AuthContext'
 import { org, product } from '../brand/product'
 import { BrandMark } from '../components/BrandMark'
+import { Icon } from '../components/Icon'
 import { PageFrame } from '../components/PageFrame'
 import { isExternalHref } from '../lib/paths'
 import { remarkCallouts } from '../lib/remarkCallouts'
@@ -17,6 +21,7 @@ type Load =
   | { status: 'ready'; item: SharedItem }
   | { status: 'sign-in' }
   | { status: 'missing' }
+  | { status: 'ended' }
   | { status: 'error'; message: string }
 
 const KIND_LABEL: Record<SharedItem['kind'], string> = {
@@ -24,6 +29,8 @@ const KIND_LABEL: Record<SharedItem['kind'], string> = {
   meeting: 'Meeting notes',
   note: 'Note',
   page: 'Page',
+  clip: 'Clip',
+  file: 'File',
 }
 
 /**
@@ -51,6 +58,7 @@ export default function SharedLinkRoute() {
         if (err instanceof HotsauceApiError && err.status === 401) setLoad({ status: 'sign-in' })
         else if (err instanceof HotsauceApiError && err.status === 404)
           setLoad({ status: 'missing' })
+        else if (err instanceof HotsauceApiError && err.status === 410) setLoad({ status: 'ended' })
         else setLoad({ status: 'error', message: err instanceof Error ? err.message : 'Failed' })
       },
     )
@@ -74,7 +82,32 @@ export default function SharedLinkRoute() {
           </Link>
         ) : null}
       </header>
-      {item?.kind === 'page' ? (
+      {item?.kind === 'clip' ? (
+        <main className="w-full flex-1">
+          <Meta item={item} className="mx-auto max-w-5xl px-4 pt-6 md:px-6" />
+          <SharedClipView clip={item} />
+        </main>
+      ) : item?.kind === 'file' ? (
+        <main className="flex w-full flex-1 flex-col">
+          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-3 px-4 pt-6 md:px-6">
+            <h1 className="min-w-0 flex-1 font-display text-2xl font-semibold break-words text-ink">
+              {item.title}
+            </h1>
+            <a
+              href={item.file.downloadUrl}
+              className={`${primaryButton} h-9`}
+              data-testid="shared-download"
+            >
+              <Icon name="download" />
+              Download
+            </a>
+          </div>
+          <Meta item={item} className="mx-auto w-full max-w-5xl px-4 pt-1 md:px-6" />
+          <div className="mx-auto flex min-h-[60vh] w-full max-w-5xl flex-1 items-center justify-center px-4 py-6 md:px-6">
+            <FilePreview file={{ ...item.file, id: token }} />
+          </div>
+        </main>
+      ) : item?.kind === 'page' ? (
         <main className="flex min-h-0 flex-1 flex-col">
           <Meta item={item} className="px-4 py-2 md:px-6" />
           <PageFrame html={item.html ?? ''} title={item.title} />
@@ -85,7 +118,9 @@ export default function SharedLinkRoute() {
             <>
               {/* Lined up with the article, which brings its own width and padding. */}
               <Meta item={item} className="mx-auto max-w-[var(--measure)] px-4 pt-8 md:px-6" />
-              <SharedMarkdown token={token} markdown={item.markdown} />
+              {'markdown' in item ? (
+                <SharedMarkdown token={token} markdown={item.markdown} />
+              ) : null}
             </>
           ) : load.status === 'sign-in' ? (
             <Notice title="Sign in to read this">
@@ -101,6 +136,10 @@ export default function SharedLinkRoute() {
                 </Link>{' '}
                 and it opens here.
               </p>
+            </Notice>
+          ) : load.status === 'ended' ? (
+            <Notice title="This link has ended">
+              <p>Links end after the time whoever made it chose. Ask them for a new one.</p>
             </Notice>
           ) : load.status === 'missing' ? (
             <Notice title="This link doesn’t open">

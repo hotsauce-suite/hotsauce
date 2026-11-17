@@ -218,7 +218,10 @@ export interface Attachment {
 export async function attachmentFor(file: DriveFile, targetSpace: string): Promise<Attachment> {
   let url = file.url
   if (needsShareLink(file, targetSpace)) {
-    const shared = file.shareUrl ? file : await filesApi.share(file.space, file.id, true)
+    // For the page's readers, so one that stays open to members and never ends.
+    const shared = file.shareUrl
+      ? file
+      : await filesApi.share(file.space, file.id, true, { anyone: false, expiresDays: 0 })
     url = shared.shareUrl ?? file.url
   }
   const label = file.name.replace(/([\\[\]])/g, '\\$1')

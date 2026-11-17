@@ -7,7 +7,8 @@ import { FakeLLM, scriptedResponse } from '../../src/meetings/index.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
 
-// Read-only links (docs/plans/2026-11-12-share-pages.md R1–R6, ARCHITECTURE §20).
+// Read-only links (docs/plans/2026-11-12-share-pages.md R1–R6, ARCHITECTURE §20; who a link is
+// for and when it ends: docs/PLAN-outside-links.md, also tested in outside-links.test.ts).
 
 const ALICE = 'alice@example.test'
 const BOB = 'bob@example.test'
@@ -111,7 +112,7 @@ describe('read-only links', () => {
     )
 
     const off = await share('team', 'docs/plan.md', false)
-    expect(off).toEqual({ token: null, url: null })
+    expect(off).toEqual({ token: null, url: null, link: null })
     expect(await lastCommit('team')).toBe('Alice|docs: unshare "Q4 plan"')
     await api('GET', `/api/shared/${on.token}`, { as: BOB, status: 404 })
   })
@@ -162,9 +163,14 @@ describe('read-only links', () => {
 
   it('is closed to signed-out people unless the organization allows it (R4, R6)', async () => {
     await writeDoc('team', 'docs/open.md', '# Open\n')
+    // Members may make an "anyone" link only once an admin allows them (PLAN-outside-links R5).
+    await api('POST', '/api/shares', {
+      json: { space: 'team', path: 'docs/open.md', on: true, anyone: true },
+      status: 400,
+    })
     const { token } = await share('team', 'docs/open.md', true)
     await api('GET', `/api/shared/${token}`, { as: null, status: 401 })
-    // A bad token is 404 whether or not anyone is signed in, so no guess learns anything.
+    // A bad token is 404 signed in and 401 signed out, so no guess learns anything.
     await api('GET', '/api/shared/AAAAAAAAAAAAAAAAAAAAAAAA', { as: null, status: 401 })
     await api('GET', '/api/shared/AAAAAAAAAAAAAAAAAAAAAAAA', { as: BOB, status: 404 })
 
@@ -175,14 +181,23 @@ describe('read-only links', () => {
       publicShareLinks: true,
     })
     expect(services.org.settings().publicShareLinks).toBe(true)
-    // At once, without a restart.
-    expect((await api('GET', `/api/shared/${token}`, { as: null })).title).toBe('Open')
-    await api('GET', '/api/shared/AAAAAAAAAAAAAAAAAAAAAAAA', { as: null, status: 404 })
+    // A link for people in the organization stays closed to signed-out people.
+    await api('GET', `/api/shared/${token}`, { as: null, status: 401 })
+    await api('GET', '/api/shared/AAAAAAAAAAAAAAAAAAAAAAAA', { as: null, status: 401 })
+    // An "anyone" link opens at once, without a restart.
+    await writeDoc('team', 'docs/wide.md', '# Wide\n')
+    const wide = await api('POST', '/api/shares', {
+      json: { space: 'team', path: 'docs/wide.md', on: true, anyone: true },
+    })
+    expect(wide.link).toMatchObject({ anyone: true, ended: false })
+    expect((await api('GET', `/api/shared/${wide.token}`, { as: null })).title).toBe('Wide')
     const health = await api('GET', '/api/health', { as: null })
     expect(JSON.stringify(health)).not.toContain('publicShareLinks')
 
+    // Turning the switch off stops every "anyone" link for signed-out people at once.
     await api('PUT', '/api/sharing', { json: { publicShareLinks: false } })
-    await api('GET', `/api/shared/${token}`, { as: null, status: 401 })
+    await api('GET', `/api/shared/${wide.token}`, { as: null, status: 401 })
+    expect((await api('GET', `/api/shared/${wide.token}`, { as: BOB })).title).toBe('Wide')
   })
 
   it('serves only the images the shared doc shows, from assets/ (R5)', async () => {

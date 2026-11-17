@@ -130,7 +130,7 @@ import {
   type RobotCheck,
   Turnstile,
 } from './scheduling/index.js'
-import { assertOwnShare, Shares } from './shares/index.js'
+import { assertOwnShare, LinkStore, Shares } from './shares/index.js'
 import { Sign } from './sign/index.js'
 import { SpaceService } from './spaces/index.js'
 import { ensureSealKey } from './state/seal-key.js'
@@ -240,6 +240,9 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ...(config.HOTSAUCE_MASTER_KEY ? { masterKey: config.HOTSAUCE_MASTER_KEY } : {}),
     })
   const brand = new BrandStore(org.dir)
+  // Who each read-only link is for and when it ends (docs/PLAN-outside-links.md).
+  const shareLinks = new LinkStore(path.join(config.DATA_DIR, 'links.sqlite'))
+  const allowAnyone = () => org.settings().publicShareLinks
   // Who each member is, whatever id the sign-in provider gives them (auth/identities.ts).
   const identities = new IdentityLedger({ dataDir: config.DATA_DIR })
   const auth = new TokenAuth(createAuthenticator(config, identities), tokens, oauth)
@@ -302,6 +305,8 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   // Clips keep their video beside kept meeting audio, under clips/ (ARCHITECTURE §10).
   const clips = new Clips({
     store: new ClipStore(path.join(config.DATA_DIR, 'clips.sqlite')),
+    links: shareLinks,
+    allowAnyone,
     media: meetings.audioStore,
     dataDir: config.DATA_DIR,
     transcriber:
@@ -547,7 +552,8 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       overrides.robotCheck,
     ),
     // Read-only links to docs, meeting notes and notes (ARCHITECTURE §20).
-    shares: new Shares({ git, index, spaces, syncer }),
+    shares: new Shares({ git, index, spaces, syncer, links: shareLinks, allowAnyone }),
+    shareLinks,
     // HTML pages Claude publishes over MCP, versioned in Git (§20.2).
     pages: new Pages({ git, index, spaces, syncer }),
     // Forms and their answers in Git; answers' files in Hotsauce Files (§21).

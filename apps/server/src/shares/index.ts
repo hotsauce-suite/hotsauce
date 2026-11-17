@@ -1,4 +1,17 @@
 export {
+  checkLinkOptions,
+  DEFAULT_EXPIRY_DAYS,
+  EXPIRY_DAYS,
+  type ExpiryDays,
+  type LinkKind,
+  type LinkOptions,
+  type LinkPolicy,
+  type LinkRecord,
+  type LinkRef,
+  LinkStore,
+  linkEnded,
+} from './links.js'
+export {
   assertOwnShare,
   SHARE_TOKEN,
   type SharedFile,

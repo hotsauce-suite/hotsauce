@@ -21,6 +21,10 @@ test('a read-only link opens for a teammate, not signed out, and stops when turn
   await page.goto(docUrl(user.team, file))
   await page.getByTestId('share-menu').click()
   await page.getByTestId('read-only-link-on').click()
+  // Members only and 30 days unless picked otherwise (docs/PLAN-outside-links.md).
+  await expect(page.getByTestId('link-who-org')).toBeChecked()
+  await expect(page.getByTestId('link-expiry')).toHaveValue('30')
+  await page.getByTestId('link-make').click()
   await expect(page.getByText('Read-only link copied.')).toBeVisible()
   const request = await playwright.request.newContext({
     baseURL: baseURL ?? '',
@@ -53,6 +57,56 @@ test('a read-only link opens for a teammate, not signed out, and stops when turn
   await expect(other.getByText('This link doesn’t open')).toBeVisible()
   await teammate.close()
   await outside.close()
+})
+
+test('an "anyone" link opens for someone signed out, once an admin allows it', async ({
+  page,
+  api,
+  user,
+  browser,
+  baseURL,
+  playwright,
+}) => {
+  const id = uid()
+  const file = `docs/e2e-outside-${id}.md`
+  await api.writeFile(user.team, file, `# Outside ${id}\n\nFor our partners.\n`)
+  const admin = await playwright.request.newContext({
+    baseURL: baseURL ?? '',
+    extraHTTPHeaders: { 'x-hearth-dev-user': 'e2e-admin@example.test' },
+  })
+  expect((await admin.put('/api/sharing', { data: { publicShareLinks: true } })).ok()).toBe(true)
+  try {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.goto(docUrl(user.team, file))
+    await page.getByTestId('share-menu').click()
+    await page.getByTestId('read-only-link-on').click()
+    await page.getByTestId('link-who-anyone').check()
+    await page.getByTestId('link-expiry').selectOption('7')
+    await page.getByTestId('link-make').click()
+    await expect(page.getByText('Read-only link copied. Anyone with the link · ends')).toBeVisible()
+    const url = await page.evaluate(() => navigator.clipboard.readText())
+    expect(url).toMatch(/\/s\/[A-Za-z0-9_-]{16,}$/)
+
+    const outside = await browser.newContext()
+    const stranger = await outside.newPage()
+    await stranger.goto(url)
+    await expect(stranger.getByTestId('shared-markdown')).toContainText('For our partners.')
+
+    // The menu now says who it's for and when it ends.
+    await page.getByTestId('share-menu').click()
+    await expect(page.getByTestId('link-about')).toContainText('Anyone with the link · ends')
+    await page.keyboard.press('Escape')
+
+    // An admin turns it off from Settings, and it stops at once.
+    const token = url.split('/s/')[1] ?? ''
+    expect((await admin.delete(`/api/share-links/${token}`)).status()).toBe(204)
+    await stranger.reload()
+    await expect(stranger.getByText('This link has ended')).toBeVisible()
+    await outside.close()
+  } finally {
+    await admin.put('/api/sharing', { data: { publicShareLinks: false } })
+    await admin.dispose()
+  }
 })
 
 test('a page Claude publishes over MCP shows in Pages, walled off, with its versions', async ({

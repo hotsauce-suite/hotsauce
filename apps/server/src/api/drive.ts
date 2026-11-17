@@ -10,8 +10,10 @@ import {
   MAX_CHUNKS,
 } from '../files/index.js'
 import { contentDisposition } from '../meetings/audio/index.js'
+import { checkLinkOptions, type LinkStore, linkEnded } from '../shares/index.js'
 import { parseRange } from './clips.js'
 import type { AppDeps, AppEnv } from './env.js'
+import { LinkChoice, linkOptions } from './link-choice.js'
 import { viaFor } from './tokens.js'
 import { valid } from './validate.js'
 
@@ -23,8 +25,8 @@ const Folder = z.string().max(2000)
 
 /** Hotsauce Files (ARCHITECTURE §18.2). Spaces are checked in the service, as for Notes. */
 export function driveRoutes(deps: AppDeps) {
-  const { files } = deps
-  const view = (v: FileView) => withUrls(files, v)
+  const { files, shareLinks, org } = deps
+  const view = (v: FileView) => withUrls(files, v, shareLinks)
   return new Hono<AppEnv>()
     .basePath('/files')
     .get('/config', (c) =>
@@ -130,7 +132,9 @@ export function driveRoutes(deps: AppDeps) {
       },
     )
     .get('/shared/:token', valid('param', z.object({ token: Token })), async (c) => {
-      const v = await files.shared(c.req.valid('param').token)
+      const { token } = c.req.valid('param')
+      if (shareLinks.policy(token)?.ended) throw linkEnded()
+      const v = await files.shared(token)
       c.header('Cache-Control', 'no-store')
       // Someone holding the link sees this file only: never where it sits or the owner's space.
       return c.json({ ...sharedView(v), ...(await files.urls(v)) })
@@ -191,17 +195,36 @@ export function driveRoutes(deps: AppDeps) {
     .post(
       '/item/:space/:id/share',
       valid('param', SpaceId),
-      valid('json', z.object({ on: z.boolean() })),
+      valid('json', z.object({ on: z.boolean(), ...LinkChoice })),
       async (c) => {
         const { space, id } = c.req.valid('param')
         const principal = c.get('principal')
-        const v = await files.setShared(
-          principal,
-          space,
-          id,
-          c.req.valid('json').on,
-          viaFor(principal),
-        )
+        const body = c.req.valid('json')
+        const via = viaFor(principal)
+        const before = await files.get(principal, space, id)
+        const old = before.shareToken
+        if (!body.on) {
+          const v = await files.setShared(principal, space, id, false, via)
+          if (old) shareLinks.delete(old)
+          return c.json(await view(v))
+        }
+        const opts = linkOptions(body)
+        checkLinkOptions(opts, org.settings().publicShareLinks)
+        // A link that has ended is replaced by a fresh one (a new token).
+        if (old && !shareLinks.policy(old)?.ended) return c.json(await view(before))
+        if (old) {
+          await files.setShared(principal, space, id, false, via)
+          shareLinks.delete(old)
+        }
+        const v = await files.setShared(principal, space, id, true, via)
+        if (v.shareToken) {
+          shareLinks.create(
+            principal,
+            { token: v.shareToken, kind: 'file', ref: { space, id }, title: v.name },
+            opts,
+            org.settings().publicShareLinks,
+          )
+        }
         return c.json(await view(v))
       },
     )
@@ -228,12 +251,18 @@ export function driveRoutes(deps: AppDeps) {
 }
 
 /** The file plus where the web app opens it and where its bytes are. */
-export async function withUrls(files: Files, v: FileView) {
+export async function withUrls(files: Files, v: FileView, links?: LinkStore) {
   const { key: _key, ...rest } = v
   return {
     ...rest,
     url: `/files/${encodeURIComponent(v.space)}/${v.id}`,
-    shareUrl: v.shareToken ? `/files/s/${v.shareToken}` : null,
+    // Members open a file's link inside the app; one for anyone opens on its own page.
+    shareUrl: v.shareToken
+      ? links?.policy(v.shareToken)?.anyone
+        ? `/s/${v.shareToken}`
+        : `/files/s/${v.shareToken}`
+      : null,
+    shareLink: links ? links.policy(v.shareToken) : null,
     ...(await files.urls(v)),
   }
 }
