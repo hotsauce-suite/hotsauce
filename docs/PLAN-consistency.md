@@ -11,10 +11,12 @@ The narrated tour video and the Clips player video are re-cut from the new scree
 site; the copy on YouTube is the old cut until Morgan uploads the new file (his to-do list).
 The three leftovers from the round 3 review are done: the list is a tab panel named by its tab
 (`ListPanel`), and tests cover dragging being off while Tasks is searched and Meetings filters
-with a search. Round 4 (the page of one thing) is in progress: Morgan accepted Q1 to Q8 on Nov 16; slice 1
+with a search. Round 4 (the page of one thing) is shipped in full: Morgan accepted Q1 to Q8 on Nov 16; slice 1
 (the top bar, requirements 20 to 23) shipped in 0.31.0 (PR #158); slice 2 (the side panel and
-the widths, 24 and 25) shipped (PR #159); slice 3 (task, note, file and the Briefcast episode,
-26 and 27) is in review.
+the widths, 24 and 25) in 0.32.0 (PR #159); slice 3 (task, note, file and the Briefcast episode,
+26 and 27) in 0.33.0 (PR #161); slice 4 (requirement 28) re-recorded the nine app loops whose
+pages changed and re-cut the narrated tour on the site. The README screenshots show list pages
+only and did not change; the help pages were updated in each slice.
 Morgan accepted all seven patterns on Nov 15 ("yes" to Q1 to Q7).
 
 Every app built its own top bar, empty screen and error message, so the same moment looks and

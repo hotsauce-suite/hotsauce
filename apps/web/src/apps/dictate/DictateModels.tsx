@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HotsauceApiError } from '../../api/client'
-import { type CleanupChoice, type DictationSettings, dictationApi } from '../../api/dictation'
+import {
+  type CleanupChoice,
+  type DictationSettings,
+  dictationApi,
+  type SpeechChoice,
+} from '../../api/dictation'
 import { secondaryButton } from '../meetings/components/common'
 
 /**
- * The Dictate page's Models section (docs/PLAN-dictate-models.md, R5): what hears a dictation and
- * what tidies it, and the member's own cleanup choice, saved as soon as it's picked.
+ * The Dictate page's Models section (docs/PLAN-dictate-models.md, R5, R7): what hears a dictation
+ * and what tidies it, and the member's own speech and cleanup choices, saved as soon as picked.
  */
 export function DictateModels() {
   const [settings, setSettings] = useState<DictationSettings | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  // The newest pick: an older save that answers late must not undo it.
-  const latest = useRef(0)
+  // The newest pick in each group: an older save that answers late must not undo it, and a
+  // failed save in one group isn't hidden by the other group's answer.
+  const latest = useRef({ speech: 0, cleanup: 0 })
 
   const load = useCallback(() => {
     setLoadError(null)
@@ -40,6 +46,19 @@ export function DictateModels() {
   }
 
   const { models, cleanupAvailable } = settings
+  const onMac = settings.speech === 'device'
+  const speechChoices: Array<{ id: SpeechChoice; label: string; detail: string }> = [
+    {
+      id: 'online',
+      label: 'Online',
+      detail: `${models.speech}. The most accurate, and it hears your word list.`,
+    },
+    {
+      id: 'device',
+      label: 'On this Mac only',
+      detail: `${models.offline}. Your voice never leaves the Mac; a little less accurate.`,
+    },
+  ]
   const cleanupName = !cleanupAvailable
     ? 'Off (needs an Anthropic key)'
     : settings.cleanup === 'off'
@@ -59,21 +78,35 @@ export function DictateModels() {
 
   // Saved at once, and never disabled meanwhile: arrow keys move through a radio group, and a
   // disabled radio would throw the keyboard's focus out of it.
-  const choose = async (cleanup: CleanupChoice) => {
-    if (cleanup === settings.cleanup) return
-    const before = settings.cleanup
-    const pick = ++latest.current
-    setSettings({ ...settings, cleanup })
+  const choose = async (choice: { cleanup: CleanupChoice } | { speech: SpeechChoice }) => {
+    if (
+      'cleanup' in choice ? choice.cleanup === settings.cleanup : choice.speech === settings.speech
+    )
+      return
+    const group = 'cleanup' in choice ? 'cleanup' : 'speech'
+    const before = { [group]: settings[group] }
+    const pick = ++latest.current[group]
+    setSettings({ ...settings, ...choice })
     setSaved(false)
     setError(null)
     try {
-      const next = await dictationApi.setCleanup(cleanup)
-      if (pick !== latest.current) return
-      setSettings(next)
+      const next = await dictationApi.setChoice(choice)
+      if (pick !== latest.current[group]) return
+      // Only this group's answer: the other group may have a newer pick on its way.
+      setSettings((s) =>
+        s
+          ? {
+              ...next,
+              [group === 'speech' ? 'cleanup' : 'speech']:
+                s[group === 'speech' ? 'cleanup' : 'speech'],
+            }
+          : next,
+      )
       setSaved(true)
     } catch (err) {
-      if (pick !== latest.current) return
-      setSettings((s) => (s ? { ...s, cleanup: before } : s))
+      if (pick !== latest.current[group]) return
+      setSettings((s) => (s ? { ...s, ...before } : s))
+      setSaved(false)
       setError(messageOf(err))
     }
   }
@@ -84,34 +117,45 @@ export function DictateModels() {
       className="mt-4 rounded-xl border border-ash bg-paper-raised/60 p-4"
     >
       <dl data-testid="dictate-models-line" className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
-        <Model term="Speech" value={models.speech} />
+        <Model term="Speech" value={onMac ? `${models.offline} only` : models.speech} />
         <Model term="Offline" value={models.offline} />
         <Model term="Cleanup" value={cleanupName} />
       </dl>
+
+      <fieldset className="mt-5">
+        <legend className="font-display text-base font-semibold text-ink">Speech</legend>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {speechChoices.map((c) => (
+            <Choice
+              key={c.id}
+              group="dictate-speech"
+              testId={`dictate-speech-${c.id}`}
+              {...c}
+              checked={settings.speech === c.id}
+              onPick={() => void choose({ speech: c.id })}
+            />
+          ))}
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-ink-faint">
+          For the Mac app. On this Mac only, the Mac app writes your words up itself and sends only
+          the text to be tidied (nothing at all with Cleanup off). Dictating in the browser still
+          uses {models.speech}.
+        </p>
+      </fieldset>
 
       {cleanupAvailable ? (
         <fieldset className="mt-5">
           <legend className="font-display text-base font-semibold text-ink">Cleanup</legend>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {choices.map((c) => (
-              <label
+              <Choice
                 key={c.id}
-                data-testid={`dictate-cleanup-${c.id}`}
-                className="flex cursor-pointer gap-2 rounded-lg border border-ash bg-paper p-3 text-sm has-[:checked]:border-ember has-[:checked]:bg-ember-wash/40"
-              >
-                <input
-                  type="radio"
-                  name="dictate-cleanup"
-                  value={c.id}
-                  checked={settings.cleanup === c.id}
-                  onChange={() => void choose(c.id)}
-                  className="mt-0.5 accent-ember"
-                />
-                <span>
-                  <span className="block font-medium text-ink">{c.label}</span>
-                  <span className="block text-ink-soft">{c.detail}</span>
-                </span>
-              </label>
+                group="dictate-cleanup"
+                testId={`dictate-cleanup-${c.id}`}
+                {...c}
+                checked={settings.cleanup === c.id}
+                onPick={() => void choose({ cleanup: c.id })}
+              />
             ))}
           </div>
         </fieldset>
@@ -123,8 +167,8 @@ export function DictateModels() {
       )}
 
       <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-        When a Mac can’t reach the server, it writes the dictation up itself and the audio never
-        leaves it. The Mac app’s Literal mode skips the tidying on that Mac whatever you pick here.
+        Online, a Mac that can’t reach the server writes the dictation up itself too. The Mac app’s
+        Literal mode skips the tidying on that Mac whatever you pick here.
       </p>
       <p aria-live="polite" className="mt-2 min-h-4 text-xs text-ink-soft">
         {saved ? 'Saved. Your next dictation uses it.' : ''}
@@ -135,6 +179,44 @@ export function DictateModels() {
         </p>
       ) : null}
     </div>
+  )
+}
+
+function Choice({
+  id,
+  group,
+  testId,
+  label,
+  detail,
+  checked,
+  onPick,
+}: {
+  id: string
+  group: string
+  testId: string
+  label: string
+  detail: string
+  checked: boolean
+  onPick: () => void
+}) {
+  return (
+    <label
+      data-testid={testId}
+      className="flex cursor-pointer items-start gap-2 rounded-lg border border-ash bg-paper p-3 text-sm has-[:checked]:border-ember has-[:checked]:bg-ember-wash/40"
+    >
+      <input
+        type="radio"
+        name={group}
+        value={id}
+        checked={checked}
+        onChange={onPick}
+        className="mt-1 accent-ember"
+      />
+      <span>
+        <span className="block font-medium text-ink">{label}</span>
+        <span className="block text-ink-soft">{detail}</span>
+      </span>
+    </label>
   )
 }
 

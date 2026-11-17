@@ -186,7 +186,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
           label="Mode"
           hint={
             settings.mode === 'clean'
-              ? 'Clean up removes ums and applies corrections.'
+              ? 'Clean up tidies your words the way you chose in Dictate → Models (Fast, Careful or Off).'
               : 'Literal types exactly what you said.'
           }
         >

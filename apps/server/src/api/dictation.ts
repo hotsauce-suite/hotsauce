@@ -5,6 +5,7 @@ import {
   DICTATION_MIME_TYPES,
   MAX_WORD_LENGTH,
   MAX_WORDS_PER_LIST,
+  SPEECH_CHOICES,
 } from '../dictation/index.js'
 import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
@@ -18,6 +19,20 @@ const WordList = z
       .refine((w) => !/[\r\n<>]/.test(w), 'a word has no line breaks or angle brackets'),
   )
   .max(MAX_WORDS_PER_LIST)
+
+// A long dictation is a few thousand words; anything far longer isn't one.
+const MAX_CLEAN_TEXT = 40_000
+
+const CleanBody = z.strictObject({
+  text: z.string().max(MAX_CLEAN_TEXT),
+  mode: z.enum(['clean', 'literal']).default('clean'),
+  app_name: z.string().max(200).optional(),
+  app_bundle: z.string().max(200).optional(),
+  language: z
+    .string()
+    .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/)
+    .optional(),
+})
 
 const TranscribeQuery = z.object({
   mode: z.enum(['clean', 'literal']).default('clean'),
@@ -52,6 +67,8 @@ export function dictationRoutes(deps: AppDeps) {
             },
           )
         }
+        // A Mac must keep this member's audio to itself (R8); the browser's own dictation may send it.
+        if (c.get('deviceId')) dictation.refuseMacAudio(c.get('principal'))
         const audio = new Uint8Array(await c.req.arrayBuffer())
         const result = await dictation.dictate(c.get('principal'), {
           audio,
@@ -64,14 +81,37 @@ export function dictationRoutes(deps: AppDeps) {
         c.header('Cache-Control', 'no-store')
         return c.json(result)
       })
-      // The models in use and the member's cleanup choice (docs/PLAN-dictate-models.md, R1, R2).
+      // Text the Mac heard itself, tidied the same way (docs/PLAN-dictate-models.md, R8).
+      .post('/clean', valid('json', CleanBody), async (c) => {
+        const body = c.req.valid('json')
+        const result = await dictation.cleanText(c.get('principal'), {
+          text: body.text,
+          mode: body.mode,
+          appName: body.app_name,
+          appBundle: body.app_bundle,
+          language: body.language,
+        })
+        c.header('Cache-Control', 'no-store')
+        return c.json(result)
+      })
+      // The models in use and the member's choices (docs/PLAN-dictate-models.md, R1, R2, R7).
       .get('/settings', (c) => c.json(dictation.settings(c.get('principal').userId)))
       .put(
         '/settings',
-        valid('json', z.strictObject({ cleanup: z.enum(CLEANUP_CHOICES) })),
+        valid(
+          'json',
+          z
+            .strictObject({
+              cleanup: z.enum(CLEANUP_CHOICES).optional(),
+              speech: z.enum(SPEECH_CHOICES).optional(),
+            })
+            .refine((b) => b.cleanup || b.speech, 'Send cleanup or speech'),
+        ),
         (c) => {
           const { userId } = c.get('principal')
-          store.setCleanupChoice(userId, c.req.valid('json').cleanup)
+          const body = c.req.valid('json')
+          if (body.cleanup) store.setCleanupChoice(userId, body.cleanup)
+          if (body.speech) store.setSpeechChoice(userId, body.speech)
           return c.json(dictation.settings(userId))
         },
       )

@@ -225,6 +225,7 @@ export class DictationSocketServer {
       const device = await authenticateDevice(this.#auth, this.#dictation.store, message.token)
       if (phase !== 'starting') return // closed while we checked the token
       principal = device.principal
+      this.#dictation.refuseMacAudio(principal)
       this.#dictation.takeSlot(principal)
       stillHearing()
       session = await this.#transcriber.start({

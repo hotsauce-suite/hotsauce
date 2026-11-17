@@ -510,6 +510,7 @@ describe('models and the cleanup choice (docs/PLAN-dictate-models.md)', () => {
 
   it('names the models in use, and everyone starts on Fast (R1, R2)', async () => {
     expect(await json(await call('GET', '/api/dictation/settings', { as: ALICE }))).toEqual({
+      speech: 'online',
       cleanup: 'fast',
       cleanupAvailable: true,
       models: {
@@ -564,5 +565,67 @@ describe('models and the cleanup choice (docs/PLAN-dictate-models.md)', () => {
     expect(
       (await call('PUT', '/api/dictation/settings', { token, json: { cleanup: 'off' } })).status,
     ).toBe(401)
+  })
+})
+
+describe('"On this Mac only" (docs/PLAN-dictate-models.md, R7, R8)', () => {
+  it('saves the speech choice beside the cleanup one, and refuses an empty change', async () => {
+    await json(
+      await call('PUT', '/api/dictation/settings', { as: ALICE, json: { cleanup: 'careful' } }),
+    )
+    expect(
+      await json(
+        await call('PUT', '/api/dictation/settings', { as: ALICE, json: { speech: 'device' } }),
+      ),
+    ).toMatchObject({ speech: 'device', cleanup: 'careful' })
+    expect(await json(await call('GET', '/api/dictation/settings', { as: BOB }))).toMatchObject({
+      speech: 'online',
+    })
+    await json(await call('PUT', '/api/dictation/settings', { as: ALICE, json: {} }), 400)
+    await json(
+      await call('PUT', '/api/dictation/settings', { as: ALICE, json: { speech: 'cloud' } }),
+      400,
+    )
+  })
+
+  it('refuses a Mac’s audio for that member, but not the browser’s', async () => {
+    const { token } = await connect()
+    await call('PUT', '/api/dictation/settings', { as: ALICE, json: { speech: 'device' } })
+    const refused = await json<{ error: { message: string } }>(
+      await call('POST', '/api/dictation/transcribe', { token, type: 'audio/wav', body: wav(500) }),
+      403,
+    )
+    expect(refused.error.message).toContain('On this Mac only')
+    expect(asr.calls).toHaveLength(0)
+    await json(
+      await call('POST', '/api/dictation/transcribe', {
+        as: ALICE,
+        type: 'audio/wav',
+        body: wav(500),
+      }),
+    )
+  })
+
+  it('tidies text the Mac heard, with the member’s choice; a device token may send it', async () => {
+    const { token } = await connect()
+    const text = 'um so this is a fake dictation, uh, of 1.5 seconds'
+    const body = await json(
+      await call('POST', '/api/dictation/clean', { token, json: { text, app_name: 'Slack' } }),
+    )
+    expect(body).toMatchObject({
+      text: 'So this is a fake dictation of 1.5 seconds.',
+      raw: text,
+      cleaned: true,
+    })
+    expect(llm.calls[0]?.model).toBe('claude-haiku-5-5')
+    await call('PUT', '/api/dictation/settings', { as: ALICE, json: { cleanup: 'off' } })
+    expect(
+      await json(await call('POST', '/api/dictation/clean', { token, json: { text } })),
+    ).toMatchObject({ text, cleaned: false })
+    expect(llm.calls).toHaveLength(1)
+    await json(
+      await call('POST', '/api/dictation/clean', { token, json: { text: 'x'.repeat(40_001) } }),
+      400,
+    )
   })
 })

@@ -35,6 +35,11 @@ final class DictationController {
     private var route: SpeechRoute = .server
     /// When the server last couldn't be reached; the device is used for a minute after.
     private var serverFailedAt: Date?
+    /// This dictation stays on the Mac because the member chose "On this Mac only"
+    /// (docs/PLAN-dictate-models.md, R8): written up here, and only its text sent to be tidied.
+    private var keptOnMac = false
+    /// With `keptOnMac`: whether the text is sent to be tidied (not with Cleanup off).
+    private var tidyOnMac = true
     var onChange: () -> Void = {}
 
     init(settings: Settings, history: HistoryStore) {
@@ -46,6 +51,29 @@ final class DictationController {
             self?.overlay.model.push(level: level)
             self?.glow.push(level: level)
         }
+        refreshChoices()
+    }
+
+    /// Asks the server for the member's Dictate choices and remembers them for the next key
+    /// press. A failure keeps the last known ones. `newConnection` forgets the old ones first:
+    /// they were another account's, and until these are known a dictation stays on the Mac.
+    func refreshChoices(newConnection: Bool = false) {
+        if newConnection { SpeechPreference.forget() }
+        guard let connection = ConnectionStore.connection() else { return }
+        let client = DictationClient(server: connection.server, token: connection.token)
+        Task { @MainActor in
+            if let choices = try? await client.choices() {
+                SpeechPreference.set(choices.known)
+            }
+        }
+    }
+
+    /// The choices for this key press. Not known yet (a new connection the server hasn't
+    /// answered for): kept on the Mac, so a voice is never sent before the choice is known.
+    private func loadChoices() {
+        let known = SpeechPreference.known()
+        keptOnMac = known?.keepOnMac ?? true
+        tidyOnMac = known?.tidy ?? true
     }
 
     var isRecording: Bool { machine.isRecording }
@@ -103,7 +131,10 @@ final class DictationController {
             return
         }
         target = NSWorkspace.shared.frontmostApplication
-        route = SpeechRouting.choose(networkUp: NetworkWatch.shared.isUp, serverFailedAt: serverFailedAt, now: Date())
+        loadChoices()
+        route = SpeechRouting.choose(networkUp: NetworkWatch.shared.isUp, serverFailedAt: serverFailedAt, now: Date(), keepOnMac: keptOnMac)
+        // For the next one: the member may have changed it on the web since.
+        refreshChoices()
         // Stream while the member speaks; the recording is kept too, for the upload fallback.
         // Offline, nothing is sent anywhere (A2.6).
         if route == .server, let connection = ConnectionStore.connection() {
@@ -128,7 +159,7 @@ final class DictationController {
             return
         }
         status = .recording
-        overlay.showRecording(onDevice: route == .onDevice)
+        overlay.showRecording(onDevice: route == .onDevice, label: keptOnMac ? "On this Mac" : "Offline: on-device")
         // After the microphone has started, so the glow never delays the recording.
         if settings.edgeGlow { glow.listen(pid: target?.processIdentifier) }
         if route == .server { prewarm() }
@@ -184,8 +215,10 @@ final class DictationController {
         guard let failed, inFlight == nil else { return }
         // A retry uploads the kept recording; the stream that carried it is gone.
         keyUpAt = nil // a retry's timings aren't measured from the original key-up
-        // Retry is for the server: the member pressed it because they're back online.
-        send(failed.request, to: failed.target, samples: failed.samples, route: .server)
+        // Retry is for the server: the member pressed it because they're back online. Unless they
+        // chose "On this Mac only": then it's written up here again, and the audio never goes.
+        loadChoices()
+        send(failed.request, to: failed.target, samples: failed.samples, route: keptOnMac ? .onDevice : .server)
     }
 
     private func send(
@@ -199,8 +232,9 @@ final class DictationController {
             status = .processing
             overlay.showProcessing()
             glow.think()
+            let tidy = keptOnMac && tidyOnMac
             inFlight = Task { @MainActor [weak self] in
-                await self?.writeUpOnDevice(samples, request: request, to: target)
+                await self?.writeUpOnDevice(samples, request: request, to: target, tidy: tidy)
             }
             return
         }
@@ -232,6 +266,20 @@ final class DictationController {
                 self?.deliver(result, request: request, timings: timings, to: target)
             } catch {
                 let dictationError = error as? DictationError ?? .network(error.localizedDescription)
+                // Refused because the member just chose "On this Mac only" on the web: honour it now.
+                if SpeechRouting.mayBeKeptOnMac(after: dictationError) {
+                    if let choices = try? await client.choices() {
+                        SpeechPreference.set(choices.known)
+                        if choices.keepsSpeechOnMac {
+                            await self?.writeUpOnDevice(samples, request: request, to: target, tidy: choices.tidiesText)
+                            return
+                        }
+                    } else if case let .server(_, message) = dictationError, message.contains("On this Mac only") {
+                        SpeechPreference.set(.init(keepOnMac: true, tidy: false))
+                        await self?.writeUpOnDevice(samples, request: request, to: target)
+                        return
+                    }
+                }
                 guard SpeechRouting.fallsBackOnDevice(after: dictationError) else {
                     self?.fail(dictationError, request: request, target: target, samples: samples)
                     return
@@ -244,8 +292,11 @@ final class DictationController {
     }
 
     /// The Mac's own speech recognition (A2.6 to A2.9). If it can't write it up either, the
-    /// recording is kept for Retry, which sends it to the server once the connection is back.
-    private func writeUpOnDevice(_ samples: [Int16], request: DictationRequest, to target: NSRunningApplication?, afterServer: Bool = false) async {
+    /// recording is kept for Retry, which sends it to the server once the connection is back
+    /// (or, for a member on "On this Mac only", tries the Mac again).
+    /// `tidy`: the member chose "On this Mac only", so the text (never the audio) goes to the
+    /// server to be tidied; if that fails, the text is pasted as heard.
+    private func writeUpOnDevice(_ samples: [Int16], request: DictationRequest, to target: NSRunningApplication?, afterServer: Bool = false, tidy: Bool = false) async {
         let started = Date()
         do {
             let text = try await OnDeviceSpeech.transcribe(samples)
@@ -259,8 +310,17 @@ final class DictationController {
                 return
             }
             let ms = { (from: Date?) in from.map { Int(Date().timeIntervalSince($0) * 1000) } ?? -1 }
-            let timings = ["audioMs": samples.count / 16, "onDeviceMs": ms(started), "keyUpToTextMs": ms(keyUpAt)]
-            let result = DictationResult(text: text, raw: text, cleaned: false, durationMs: samples.count / 16, ms: .init(asr: 0, llm: 0))
+            let heardMs = ms(started)
+            var result = DictationResult(text: text, raw: text, cleaned: false, durationMs: samples.count / 16, ms: .init(asr: 0, llm: 0))
+            if tidy, request.mode == .clean,
+               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let connection = ConnectionStore.connection() {
+                let client = DictationClient(server: connection.server, token: connection.token)
+                if let tidied = try? await client.clean(text, like: request) {
+                    result = DictationResult(text: tidied.text, raw: text, cleaned: tidied.cleaned, durationMs: samples.count / 16, ms: tidied.ms)
+                }
+            }
+            let timings = ["audioMs": samples.count / 16, "onDeviceMs": heardMs, "serverLlmMs": result.ms.llm, "keyUpToTextMs": ms(keyUpAt)]
             deliver(result, request: request, timings: timings, to: target, onDevice: true)
         } catch {
             inFlight = nil

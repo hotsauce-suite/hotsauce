@@ -110,3 +110,22 @@ Plan: `docs/PLAN-consistency.md`. Shared pieces: `apps/web/src/components/LoadEr
   with a slow zoom as the camera, `docs.mp4` as the screen, joined by the server's own
   `composite()`. Re-encode the cut at `-crf 27` for the site. YouTube cannot swap a video in
   place, so a new cut means a new upload and a new link in `site/public/index.html`.
+
+## Round 4: the page of one thing (Nov 16)
+
+- **Delete goes in ⋯ More, and More sits before the ×.** A pop-up's own buttons go in `Dialog`'s
+  `actions` slot; the first-focus rule skips that slot, so the cursor still lands in the pop-up's
+  first field.
+- **A pop-up that opens a pop-up: Escape closes only the top one.** `Dialog` now checks it is the
+  last open modal before closing. Rename-from-More in the file pop-up found this.
+- **A side panel must close itself on a phone after a choice.** The clip transcript is a full
+  screen sheet on a phone; picking a line has to close it and hand focus back to the video, or
+  the video you just jumped is hidden behind the list.
+- **Widths come from one class.** `components/ItemColumn.ts` (`readingColumn`) gives a link, a
+  form, a check-in, a person and a Briefcast episode the doc's width; a `data-item-width` mark
+  lets one e2e measure them all.
+- **`TOUR_CLOCK` needs the Pacific offset.** `rec.mjs` pins the page to `America/Los_Angeles`, so
+  `07:50-05:00` is 4:50 AM there and Today says "Good evening" (it greets the night as evening).
+  Use `-08:00`. Check the Today frame of the contact sheet before cutting.
+- **Re-cutting without new words is quick.** When the script is unchanged, re-record the shots and
+  run only `build.py cut`; the voice, captions and overlays in the work folder still fit.

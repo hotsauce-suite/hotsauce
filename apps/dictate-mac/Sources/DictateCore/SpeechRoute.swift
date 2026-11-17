@@ -11,8 +11,10 @@ public enum SpeechRouting {
     /// A server that didn't answer is left alone this long before it's tried again (A2.1).
     public static let serverDownFor: TimeInterval = 60
 
-    /// At the key press: the device when the Mac has no network or the server just failed.
-    public static func choose(networkUp: Bool, serverFailedAt: Date?, now: Date) -> SpeechRoute {
+    /// At the key press: the device when the member chose "On this Mac only"
+    /// (docs/PLAN-dictate-models.md, R8), the Mac has no network, or the server just failed.
+    public static func choose(networkUp: Bool, serverFailedAt: Date?, now: Date, keepOnMac: Bool = false) -> SpeechRoute {
+        if keepOnMac { return .onDevice }
         guard networkUp else { return .onDevice }
         if let failed = serverFailedAt, now.timeIntervalSince(failed) < serverDownFor { return .onDevice }
         return .server
@@ -23,6 +25,13 @@ public enum SpeechRouting {
     /// about the connection, and the device wouldn't give the member what they asked for.
     public static func fallsBackOnDevice(after error: DictationError) -> Bool {
         if case .network = error { return true }
+        return false
+    }
+
+    /// A refusal that may mean the member just chose "On this Mac only" on the web: the Mac asks
+    /// for their choices, and if so writes this one up itself instead of failing it.
+    public static func mayBeKeptOnMac(after error: DictationError) -> Bool {
+        if case .server(status: 403, _) = error { return true }
         return false
     }
 

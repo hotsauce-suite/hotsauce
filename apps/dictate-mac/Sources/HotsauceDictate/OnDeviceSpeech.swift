@@ -15,11 +15,11 @@ enum OnDeviceSpeech {
         var errorDescription: String? {
             switch self {
             case .notAllowed:
-                "Offline dictation needs Speech Recognition: System Settings → Privacy & Security"
+                "Dictating on this Mac needs Speech Recognition: System Settings → Privacy & Security"
             case let .noModel(language):
-                "No offline dictation for \(language) yet: System Settings → Keyboard → Dictation"
+                "This Mac can’t write up \(language) itself yet: System Settings → Keyboard → Dictation"
             case let .failed(detail):
-                "Offline dictation didn’t work (\(detail))"
+                "This Mac couldn’t write it up (\(detail))"
             }
         }
     }
