@@ -28,6 +28,12 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
     nonisolated private static let withoutLink = "meeting"
     nonisolated private static let joinAction = "join"
     nonisolated private static let notesAction = "notes"
+    nonisolated private static let updateCategory = "app-update"
+    nonisolated private static let updateAction = "update"
+    /// "Restart to update" on the update notification (docs/PLAN-mac-self-update.md U10).
+    var installUpdate: () -> Void = {}
+    /// A click on the update notification itself: Settings → Apps, no restart.
+    var showUpdate: () -> Void = {}
 
     func start() {
         UNUserNotificationCenter.current().delegate = self
@@ -36,6 +42,11 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().setNotificationCategories([
             UNNotificationCategory(identifier: Self.withLink, actions: [join, notes], intentIdentifiers: []),
             UNNotificationCategory(identifier: Self.withoutLink, actions: [notes], intentIdentifiers: []),
+            UNNotificationCategory(
+                identifier: Self.updateCategory,
+                actions: [UNNotificationAction(identifier: Self.updateAction, title: "Restart to update", options: [])],
+                intentIdentifiers: []
+            ),
         ])
         if isEnabled() { requestAuthorization() }
         updateActivity()
@@ -128,6 +139,16 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
+    /// Says once that a new version is ready; its button (or a click) restarts into it.
+    func postUpdateReady(version: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "\(Brand.name) \(version) is ready"
+        content.body = "Restart to update. Your settings and permissions stay as they are."
+        content.categoryIdentifier = Self.updateCategory
+        let request = UNNotificationRequest(identifier: "app-update-\(version)", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { _ in }
+    }
+
     // MARK: UNUserNotificationCenterDelegate
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -136,6 +157,16 @@ final class Reminders: NSObject, UNUserNotificationCenterDelegate {
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if response.notification.request.content.categoryIdentifier == Self.updateCategory {
+            let action = response.actionIdentifier
+            DispatchQueue.main.async { [weak self] in
+                // Only the button restarts; a click on the banner just shows the update.
+                if action == Self.updateAction { self?.installUpdate() }
+                else if action == UNNotificationDefaultActionIdentifier { self?.showUpdate() }
+                completionHandler()
+            }
+            return
+        }
         let info = response.notification.request.content.userInfo
         let path = info["path"] as? String
         // A click on the notice itself joins too; "Just take notes" doesn't.

@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.47.0",
+      "date": "2026-11-17",
+      "notes": [
+        {
+          "text": "Updates itself. When a new version has downloaded, click Restart to update in the menu bar, the notification or Settings → Apps; your permissions and sign-in stay.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.46.0",
       "date": "2026-11-17",
       "notes": [
