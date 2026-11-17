@@ -42,7 +42,20 @@ public enum MacSettingsBridge {
         case get
         case set(Change)
         case action(Action)
+        /// This web app's Dictate page has "On this Mac" (docs/PLAN-dictations-page.md R7).
+        case helloDictations
+        /// The numbers and recent dictations (R1, R2).
+        case dictations(DictationRange, search: String)
+        /// Copy or paste one dictation (R3).
+        case dictation(UUID, DictationAction)
     }
+
+    public enum DictationAction: String, CaseIterable, Sendable {
+        case copy, paste
+    }
+
+    /// The longest search the page may send.
+    public static let searchLimit = 200
 
     /// How long dictation history can be kept, as Settings has always offered.
     public static let historyDays = [7, 30, 90]
@@ -58,6 +71,19 @@ public enum MacSettingsBridge {
         case "set":
             guard message.count == 3, let key = message["key"] as? String, let value = message["value"] else { return nil }
             return change(key: key, value: value).map(Request.set)
+        case "helloDictations": return message.count == 1 ? .helloDictations : nil
+        case "dictations":
+            guard message.count == 3,
+                  let range = (message["range"] as? String).flatMap(DictationRange.init(rawValue:)),
+                  let search = message["search"] as? String, search.count <= searchLimit
+            else { return nil }
+            return .dictations(range, search: search)
+        case "dictation":
+            guard message.count == 3,
+                  let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)),
+                  let action = (message["action"] as? String).flatMap(DictationAction.init(rawValue:))
+            else { return nil }
+            return .dictation(id, action)
         default: return nil
         }
     }
@@ -193,4 +219,7 @@ public enum SettingsDestination: Equatable, Sendable {
 
     /// The suite's address for This Mac.
     public static let path = "/settings/mac"
+
+    /// The suite's address for the Dictate page's "On this Mac" (docs/PLAN-dictations-page.md R7).
+    public static let dictationsPath = "/dictate/mac#dictations"
 }

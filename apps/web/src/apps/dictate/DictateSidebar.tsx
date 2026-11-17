@@ -1,11 +1,15 @@
 import { Link } from 'react-router'
 import { Icon, type IconName } from '../../components/Icon'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
+import { hasMacSettings } from '../../lib/macSettings'
 
-/** Hotsauce Dictate's sidebar: voice notes, the Mac page's sections, then the app's download. */
+/** Hotsauce Dictate's sidebar: in the Mac app this Mac's dictations; voice notes, the Mac page's sections, then the app's download. */
 export function DictateSidebar() {
   return (
     <nav aria-label="Dictate" className="mt-1 px-2">
+      {hasMacSettings() ? (
+        <Item href="/dictate/mac#dictations" icon="laptop" label="On this Mac" />
+      ) : null}
       <Item href="/dictate/voice" icon="mic" label="Voice notes" />
       <Item href="/dictate/mac#get-it" icon="check" label="Connect this Mac" />
       <Item href="/dictate/mac#devices" icon="tab" label="Connected Macs" />

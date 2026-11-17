@@ -45,4 +45,26 @@ enum AppIcons {
         cache[bundle] = icon
         return icon
     }
+
+    private static var urls: [String: String] = [:]
+
+    /// The icon as a small PNG data URL, for the Dictate page's "On this Mac"
+    /// (docs/PLAN-dictations-page.md R8).
+    static func dataURL(for bundle: String) -> String? {
+        if let cached = urls[bundle] { return cached }
+        guard let image = icon(for: bundle),
+              let rep = NSBitmapImageRep(
+                  bitmapDataPlanes: nil, pixelsWide: 64, pixelsHigh: 64, bitsPerSample: 8, samplesPerPixel: 4,
+                  hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+              )
+        else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        image.draw(in: NSRect(x: 0, y: 0, width: 64, height: 64))
+        NSGraphicsContext.restoreGraphicsState()
+        guard let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        let url = "data:image/png;base64," + png.base64EncodedString()
+        urls[bundle] = url
+        return url
+    }
 }

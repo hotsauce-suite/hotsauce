@@ -79,6 +79,10 @@ export type MacSettingsRequest =
   | { type: 'get' }
   | { type: 'set'; key: MacSettingKey; value: MacSettingValues[MacSettingKey] }
   | { type: 'action'; action: MacSettingsAction }
+  // The Dictate page's "On this Mac" (lib/macDictations.ts, docs/PLAN-dictations-page.md).
+  | { type: 'helloDictations' }
+  | { type: 'dictations'; range: 'week' | 'month' | 'all'; search: string }
+  | { type: 'dictation'; id: string; action: 'copy' | 'paste' }
 
 export interface MacSettingsBridge {
   postMessage(message: MacSettingsRequest): Promise<unknown> | undefined
@@ -198,9 +202,13 @@ export function macSettingsAction(
  * window (R11). Sent once per page load; harmless in an app that doesn't listen.
  */
 export function sayHelloToMac(bridge = macSettingsBridge()): void {
-  try {
-    void bridge?.postMessage({ type: 'hello' })?.catch?.(() => {})
-  } catch {
-    // An older app, or none: nothing to tell.
+  for (const type of ['hello', 'helloDictations'] as const) {
+    try {
+      // helloDictations: the Dictate page has "On this Mac" too, so the app's "Dictate…" can open
+      // it (docs/PLAN-dictations-page.md R7). Sent separately: an app that predates it ignores it.
+      void bridge?.postMessage({ type })?.catch?.(() => {})
+    } catch {
+      // An older app, or none: nothing to tell.
+    }
   }
 }
