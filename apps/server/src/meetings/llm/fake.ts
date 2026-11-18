@@ -1,4 +1,4 @@
-import { sampleThemeFor } from '@hotsauce/format'
+import { sampleThemeFor, Theme } from '@hotsauce/format'
 import type { LLM, LLMRequest, LLMUsage } from './types.js'
 
 export type Respond = (req: LLMRequest) => string | Promise<string>
@@ -133,7 +133,14 @@ export function scriptedResponse(req: LLMRequest): string {
   }
   // A Hotsauce Tasks ramble: one quick-add line per sentence of what was said.
   const themeWords = tagged(prompt, 'description')
-  if (themeWords !== null) return `<theme>${JSON.stringify(sampleThemeFor(themeWords))}</theme>`
+  if (themeWords !== null) {
+    const current = tagged(prompt, 'current')
+    const base = current
+      ? Theme.safeParse(safeJson(current.replace(/‹/g, '<').replace(/›/g, '>')))
+      : null
+    const theme = sampleThemeFor(themeWords, base?.success ? base.data : undefined)
+    return `<theme>${JSON.stringify(theme)}</theme>`
+  }
   const ramble = tagged(prompt, 'ramble')
   if (ramble !== null) return `<tasks>\n${rambleLines(ramble).join('\n')}\n</tasks>`
   const transcript = tagged(prompt, 'transcript')
@@ -170,4 +177,12 @@ function firstWords(transcript: string): string {
   const line = transcript.split('\n').find((l) => /\S/.test(l) && l !== '(empty)') ?? ''
   const text = line.replace(/^\[[\d:]+\]\s*(\*\*[^*]+:\*\*\s*)?/, '')
   return text.split(/\s+/).slice(0, 5).join(' ') || 'nothing much'
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
 }

@@ -34,8 +34,13 @@ const UI_OPTIONS = { canvasActions: { loadScene: false, saveToActiveFile: false 
 
 type Elements = NonNullable<Parameters<ExcalidrawImperativeAPI['updateScene']>[0]['elements']>
 
-/** Follows Hotsauce's light/dark choice (data-theme on <html>, else the system setting). */
+/**
+ * Follows Hotsauce's light/dark choice (data-theme on <html>; a theme of your own's data-scheme;
+ * else the system setting).
+ */
 function isDark(): boolean {
+  const scheme = document.documentElement.getAttribute('data-scheme')
+  if (scheme === 'dark' || scheme === 'light') return scheme === 'dark'
   const set = document.documentElement.getAttribute('data-theme')
   if (set === 'dark') return true
   if (set === 'light') return false
@@ -49,7 +54,7 @@ function useDark(): boolean {
     const observer = new MutationObserver(update)
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['data-theme'],
+      attributeFilter: ['data-theme', 'data-scheme'],
     })
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
     media?.addEventListener('change', update)

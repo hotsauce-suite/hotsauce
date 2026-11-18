@@ -24,6 +24,7 @@ import { BUILD_VERSION, takeUpdatedVersion } from '../lib/appUpdate'
 import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
 import { SessionProvider, useSession } from '../state/session'
+import { forgetDeletedTheme } from './AppearanceSettings'
 import { AppRail, rememberAppLocation } from './AppRail'
 import { AssistantHost } from './assistant/AssistantHost'
 import { Icon } from './Icon'
@@ -134,6 +135,11 @@ function ShellLayout() {
     const updated = takeUpdatedVersion(BUILD_VERSION, store)
     if (updated) notify(`${product()} updated to ${updated}`)
   }, [notify])
+
+  // A theme of your own deleted on another device stops showing here too (PLAN-ai-themes R9).
+  useEffect(() => {
+    void forgetDeletedTheme()
+  }, [])
 
   // The sidebar follows the open doc's space.
   useEffect(() => {

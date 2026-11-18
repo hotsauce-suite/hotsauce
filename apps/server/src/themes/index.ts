@@ -44,7 +44,7 @@ function quote(text: string): string {
 }
 
 export function buildThemePrompt(prompt: string, base?: Theme): string {
-  const current = base ? `<current>${JSON.stringify(base)}</current>\n\n` : ''
+  const current = base ? `<current>${quote(JSON.stringify(base))}</current>\n\n` : ''
   return `${current}<description>\n${quote(prompt)}\n</description>`
 }
 
@@ -81,14 +81,21 @@ export class Themes {
 
   list(email: string): SavedTheme[] {
     return this.#account.listThemes(email).flatMap((row) => {
-      const parsed = Theme.safeParse(JSON.parse(row.theme))
+      let json: unknown
+      try {
+        json = JSON.parse(row.theme)
+      } catch {
+        return []
+      }
+      const parsed = Theme.safeParse(json)
       if (!parsed.success) return []
       return [
         {
           id: row.id,
           name: row.name,
           prompt: row.prompt,
-          theme: parsed.data,
+          // The name may have been changed since; the column is the one kept current.
+          theme: { ...parsed.data, name: row.name },
           createdAt: row.createdAt,
         },
       ]

@@ -30,10 +30,10 @@ export function themeHandlers(opts: {
     http.post('/api/themes/generate', async ({ request }) => {
       const user = opts.principal(request)
       if (user instanceof Response) return user
-      const { prompt } = (await request.json()) as { prompt: string; base?: Theme }
+      const { prompt, base } = (await request.json()) as { prompt: string; base?: Theme }
       // Long enough to see "Designing…", as a real model takes a few seconds.
       await delay(Math.max(opts.latencyMs, 600))
-      return HttpResponse.json({ theme: sampleThemeFor(prompt) })
+      return HttpResponse.json({ theme: sampleThemeFor(prompt, base) })
     }),
 
     http.post('/api/themes', async ({ request }) => {

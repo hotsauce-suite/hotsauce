@@ -46,6 +46,21 @@ function Swatch({ theme }: { theme: Theme }) {
   )
 }
 
+/**
+ * When this browser shows a theme of the member's own that their account no longer has (deleted
+ * on another device), goes back to the device's look. Quiet when offline.
+ */
+export async function forgetDeletedTheme(): Promise<void> {
+  const id = customIdOf(currentTheme())
+  if (!id) return
+  try {
+    const { themes } = await themesApi.list()
+    if (!themes.some((t) => t.id === id) && customIdOf(currentTheme()) === id) chooseTheme('system')
+  } catch {
+    // Offline or signed out: keep what's painted.
+  }
+}
+
 export function AppearanceSettings() {
   const [choice, setChoice] = useState<ThemeChoice>(currentTheme)
   const [themes, setThemes] = useState<SavedTheme[] | null>(null)
@@ -74,9 +89,12 @@ export function AppearanceSettings() {
     void load()
   }, [load])
 
+  // Bumped whenever the member picks a look, which ends any preview (and drops one still coming).
+  const [picks, setPicks] = useState(0)
   const pick = (value: ThemeChoice, theme?: Theme) => {
     chooseTheme(value, theme)
     setChoice(value)
+    setPicks((n) => n + 1)
   }
 
   return (
@@ -142,6 +160,7 @@ export function AppearanceSettings() {
 
       {themes ? (
         <MakeTheme
+          picks={picks}
           canGenerate={canGenerate}
           full={themes.length >= MAX_THEMES}
           onKept={(saved) => {
@@ -296,6 +315,8 @@ function OwnTheme(props: {
 
 /** The description box, the preview, and Keep or Discard. */
 function MakeTheme(props: {
+  /** Changes when the member picks a look elsewhere: the preview is over. */
+  picks: number
   canGenerate: boolean
   full: boolean
   onKept: (saved: SavedTheme) => void
@@ -305,14 +326,27 @@ function MakeTheme(props: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const previewing = useRef(false)
+  // Which make is current: an answer for an older one (or after leaving Settings) is dropped.
+  const seq = useRef(0)
 
-  // Leaving Settings mid-preview puts the member's look back.
+  // Leaving Settings mid-preview puts the member's look back, and drops a theme still coming.
   useEffect(
     () => () => {
+      seq.current += 1
       if (previewing.current) endPreview()
     },
     [],
   )
+
+  // Picking another look ends the preview; that look is already on screen.
+  const { picks } = props
+  useEffect(() => {
+    if (picks === 0) return
+    seq.current += 1
+    previewing.current = false
+    setPreview(null)
+    setBusy(false)
+  }, [picks])
 
   if (!props.canGenerate) {
     return (
@@ -333,16 +367,18 @@ function MakeTheme(props: {
     if (!words || busy) return
     setBusy(true)
     setError(null)
+    const mine = ++seq.current
     try {
       const { theme } = await themesApi.generate(words, preview?.theme)
+      if (mine !== seq.current) return
       previewTheme(theme)
       previewing.current = true
       setPreview({ theme, prompts: [...(preview?.prompts ?? []), words] })
       setPrompt('')
     } catch (err) {
-      setError(messageOf(err))
+      if (mine === seq.current) setError(messageOf(err))
     } finally {
-      setBusy(false)
+      if (mine === seq.current) setBusy(false)
     }
   }
 

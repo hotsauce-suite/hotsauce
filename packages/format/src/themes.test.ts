@@ -155,3 +155,11 @@ describe('sample themes (R11)', () => {
     expect(sampleThemeFor('zzz').name).toBeTruthy()
   })
 })
+
+describe('sample theme follow-ups', () => {
+  it('"darker" picks a dark sample, and words that pick none keep the theme being changed', async () => {
+    const { sampleThemeFor } = await import('./themes.js')
+    expect(sampleThemeFor('darker please').scheme).toBe('dark')
+    expect(sampleThemeFor('a bit bolder', dusk).name).toBe('Dusk')
+  })
+})

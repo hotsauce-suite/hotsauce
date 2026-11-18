@@ -485,10 +485,17 @@ export const SAMPLE_THEMES: ReadonlyArray<{ words: readonly string[]; theme: The
   },
 ]
 
-/** The sample theme a description's words pick (else one chosen by the description's length). */
-export function sampleThemeFor(prompt: string): Theme {
-  const words = prompt.toLowerCase().split(/[^a-z]+/)
-  const hit = SAMPLE_THEMES.find((s) => s.words.some((w) => words.includes(w)))
+/**
+ * The sample theme a description's words pick ("darker" picks a dark one); with none, the theme
+ * being changed stays as it is, else one is chosen by the description's length.
+ */
+export function sampleThemeFor(prompt: string, base?: Theme): Theme {
+  const words = prompt
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean)
+  const hit = SAMPLE_THEMES.find((s) => s.words.some((w) => words.some((x) => x.startsWith(w))))
+  if (!hit && base) return fixContrast(base)
   const sample = hit ?? SAMPLE_THEMES[prompt.length % SAMPLE_THEMES.length]
   return fixContrast(sample?.theme ?? DEFAULT_LIGHT_THEME)
 }

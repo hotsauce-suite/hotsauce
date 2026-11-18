@@ -97,6 +97,60 @@ describe('Appearance: themes of your own', () => {
     expect(root.hasAttribute('data-theme')).toBe(false)
   })
 
+  it('marks a theme light or dark for the styles that follow the scheme', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings')
+    await make(user, 'midnight')
+    expect(root.dataset.scheme).toBe('dark')
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(root.hasAttribute('data-scheme')).toBe(false)
+  })
+
+  it('picking another look ends the preview', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings')
+    await make(user, 'midnight')
+    await user.click(screen.getByTestId('theme-light'))
+    expect(screen.queryByTestId('theme-preview')).toBeNull()
+    expect(root.dataset.theme).toBe('light')
+    expect(customCss()).toBe('')
+  })
+
+  it('drops a theme that arrives after leaving Settings', async () => {
+    let answer: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    server.use(
+      http.post('/api/themes/generate', async () => {
+        await gate
+        const { sampleThemeFor } = await import('@hotsauce/format')
+        return HttpResponse.json({ theme: sampleThemeFor('midnight') })
+      }),
+    )
+    const user = userEvent.setup()
+    const { router } = renderApp('/settings')
+    await user.type(await screen.findByTestId('theme-prompt'), 'midnight')
+    await user.click(screen.getByTestId('theme-make'))
+    await router.navigate('/tasks')
+    await screen.findByTestId('tasks-app', {}, { timeout: 3000 }).catch(() => undefined)
+    answer?.()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(root.hasAttribute('data-theme')).toBe(false)
+    expect(customCss()).toBe('')
+  })
+
+  it('forgets a theme in use here that was deleted on another device (R9)', async () => {
+    const { DEFAULT_LIGHT_THEME } = await import('@hotsauce/format')
+    const { chooseTheme } = await import('../lib/theme')
+    const { forgetDeletedTheme } = await import('./AppearanceSettings')
+    chooseTheme('custom:01GONE0000000000000000000', DEFAULT_LIGHT_THEME)
+    expect(root.dataset.theme).toBe('custom')
+    await forgetDeletedTheme()
+    expect(currentTheme()).toBe('system')
+    expect(root.hasAttribute('data-theme')).toBe(false)
+  })
+
   it('shows why when the instance has no AI, and no box (R10)', async () => {
     server.use(http.get('/api/themes', () => HttpResponse.json({ themes: [], canGenerate: false })))
     renderApp('/settings')

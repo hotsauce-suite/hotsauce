@@ -19,6 +19,7 @@ interface CachedTheme {
   id: string
   css: string
   fonts: string
+  scheme: Theme['scheme']
 }
 
 function cached(): CachedTheme | null {
@@ -28,7 +29,8 @@ function cached(): CachedTheme | null {
     const value = JSON.parse(raw) as Partial<CachedTheme>
     return typeof value.id === 'string' &&
       typeof value.css === 'string' &&
-      typeof value.fonts === 'string'
+      typeof value.fonts === 'string' &&
+      (value.scheme === 'light' || value.scheme === 'dark')
       ? (value as CachedTheme)
       : null
   } catch {
@@ -60,7 +62,12 @@ export function chooseTheme(choice: ThemeChoice, theme?: Theme): void {
   const id = customIdOf(choice)
   try {
     if (id && theme) {
-      const entry: CachedTheme = { id, css: themeCss(theme), fonts: themeFontsHref(theme) }
+      const entry: CachedTheme = {
+        id,
+        css: themeCss(theme),
+        fonts: themeFontsHref(theme),
+        scheme: theme.scheme,
+      }
       localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(entry))
     }
     if (!id) localStorage.removeItem(CUSTOM_THEME_KEY)
@@ -68,11 +75,13 @@ export function chooseTheme(choice: ThemeChoice, theme?: Theme): void {
   } catch {
     // No storage (private window): the choice lasts until the page reloads.
   }
-  if (id && theme) paintCustom(themeCss(theme), themeFontsHref(theme))
+  if (id && theme) paintCustom(themeCss(theme), themeFontsHref(theme), theme.scheme)
   applyTheme(choice)
 }
 
-function paintCustom(css: string, fonts: string): void {
+/** `data-scheme` tells styles and Boards whether the theme is a light or a dark one. */
+function paintCustom(css: string, fonts: string, scheme: Theme['scheme']): void {
+  document.documentElement.setAttribute('data-scheme', scheme)
   let style = document.getElementById(STYLE_ID)
   if (!style) {
     style = document.createElement('style')
@@ -91,6 +100,7 @@ function paintCustom(css: string, fonts: string): void {
 }
 
 function unpaintCustom(): void {
+  document.documentElement.removeAttribute('data-scheme')
   document.getElementById(STYLE_ID)?.remove()
   document.getElementById(FONTS_ID)?.remove()
 }
@@ -101,7 +111,7 @@ export function applyTheme(choice: ThemeChoice): void {
   if (id) {
     const entry = cached()
     if (entry?.id === id) {
-      if (!document.getElementById(STYLE_ID)) paintCustom(entry.css, entry.fonts)
+      if (!document.getElementById(STYLE_ID)) paintCustom(entry.css, entry.fonts, entry.scheme)
       root.setAttribute('data-theme', 'custom')
     } else {
       // The palette isn't here (storage was cleared): show the system's look.
@@ -130,7 +140,7 @@ function syncBrowserBar(system: boolean): void {
  * `endPreview` puts back the member's choice.
  */
 export function previewTheme(theme: Theme): void {
-  paintCustom(themeCss(theme), themeFontsHref(theme))
+  paintCustom(themeCss(theme), themeFontsHref(theme), theme.scheme)
   document.documentElement.setAttribute('data-theme', 'custom')
   syncBrowserBar(false)
 }
