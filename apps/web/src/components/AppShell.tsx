@@ -23,6 +23,7 @@ import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
 import { BUILD_VERSION, takeUpdatedVersion } from '../lib/appUpdate'
 import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
+import { music } from '../music/player'
 import { SessionProvider, useSession } from '../state/session'
 import { AppRail, rememberAppLocation } from './AppRail'
 import { AssistantHost } from './assistant/AssistantHost'
@@ -134,6 +135,10 @@ function ShellLayout() {
     const updated = takeUpdatedVersion(BUILD_VERSION, store)
     if (updated) notify(`${product()} updated to ${updated}`)
   }, [notify])
+
+  // Background music (docs/PLAN-background-music.md): watches recordings, and resumes at the first
+  // click if it was left on.
+  useEffect(() => music().start(), [])
 
   // The sidebar follows the open doc's space.
   useEffect(() => {

@@ -306,7 +306,16 @@ function serveWebApp(
         // must be revalidated so a deploy shows up.
         // Excalidraw's fonts carry a content hash in their names too.
         const immutable = c.req.path.startsWith('/assets/') || c.req.path.startsWith('/excalidraw/')
-        c.header('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-cache')
+        // The background music changes only with a release; a day's cache spares a re-download.
+        const music = c.req.path.startsWith('/music/')
+        c.header(
+          'Cache-Control',
+          immutable
+            ? 'public, max-age=31536000, immutable'
+            : music
+              ? 'public, max-age=86400'
+              : 'no-cache',
+        )
       },
     }),
   )
@@ -329,6 +338,7 @@ function serveWebApp(
   })
   app.get('/downloads/*', (c) => c.notFound())
   app.get('/excalidraw/*', (c) => c.notFound())
+  app.get('/music/*', (c) => c.notFound())
   app.get('*', sendShell)
 }
 

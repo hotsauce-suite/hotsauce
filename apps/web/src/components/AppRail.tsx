@@ -27,6 +27,7 @@ import { useAuthState } from '../auth/AuthContext'
 import { feedbackLink, onFeedbackClick, openFeedback } from '../feedback/pageShot'
 import { GO_KEYS } from '../keyboard/catalog'
 import { useOnline } from '../lib/connection'
+import { MusicButton } from '../music/MusicButton'
 import { useSession } from '../state/session'
 import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
@@ -190,6 +191,7 @@ export function AppRail({ orientation }: { orientation: Orientation }) {
         </RailApps>
         <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
           <LauncherButton active={active} className={itemClass('vertical', false)} />
+          <MusicButton className={itemClass('vertical', false)} />
           {feedback}
           {settings}
           <AccountButton />
