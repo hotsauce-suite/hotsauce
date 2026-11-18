@@ -12,6 +12,7 @@ export const MUSIC_HELP = 'https://hotsauce.work/help/music'
 export function musicStatus(s: ReturnType<typeof useMusic>): string {
   if (!s.on) return 'Off'
   if (s.held) return 'Paused while recording'
+  if (s.failed) return 'Couldn’t load the music'
   if (s.waiting) return 'Starts when you click'
   return s.playing ? 'Playing' : 'Starting…'
 }
@@ -27,7 +28,6 @@ export function MusicPanel({ autoFocus = false }: { autoFocus?: boolean }) {
           // biome-ignore lint/a11y/noAutofocus: the panel opens to its main control
           autoFocus={autoFocus}
           onClick={() => player.toggle()}
-          aria-pressed={s.on}
           data-testid="music-toggle"
           className="grid size-9 shrink-0 place-items-center rounded-full bg-ember text-paper-raised hover:bg-ember-strong"
         >
@@ -61,20 +61,26 @@ export function MusicPanel({ autoFocus = false }: { autoFocus?: boolean }) {
           </label>
         ))}
       </fieldset>
-      <label className="flex items-center gap-2 text-xs text-ink-soft">
-        <span className="shrink-0">Volume</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={Math.round(s.volume * 100)}
-          onChange={(e) => player.setVolume(Number(e.currentTarget.value) / 100)}
-          aria-label="Music volume"
-          data-testid="music-volume"
-          className="min-w-0 flex-1 accent-ember"
-        />
-      </label>
+      {s.fixedVolume ? (
+        <p className="text-xs text-ink-soft" data-testid="music-volume-device">
+          Set the volume with your device’s buttons.
+        </p>
+      ) : (
+        <label className="flex items-center gap-2 text-xs text-ink-soft">
+          <span className="shrink-0">Volume</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(s.volume * 100)}
+            onChange={(e) => player.setVolume(Number(e.currentTarget.value) / 100)}
+            aria-label="Music volume"
+            data-testid="music-volume"
+            className="min-w-0 flex-1 accent-ember"
+          />
+        </label>
+      )}
       <p className="text-xs text-ink-faint">
         Only you hear it. It pauses while you record.{' '}
         <a

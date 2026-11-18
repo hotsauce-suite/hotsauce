@@ -41,4 +41,6 @@ test('M8: the music files answer a range request, so Safari can play them', asyn
   expect(r.status()).toBe(206)
   expect(r.headers()['content-type']).toContain('audio/mpeg')
   expect((await r.body()).length).toBe(100)
+  // A track that isn't there is a 404, not the app's page.
+  expect((await request.get('/music/missing.mp3')).status()).toBe(404)
 })

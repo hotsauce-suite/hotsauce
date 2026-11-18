@@ -8,8 +8,8 @@ recommendation and added "an option to turn it on in onboarding").
 ## Decisions
 
 - A **music button** at the foot of the desktop rail (above Settings); on phones and tablets, a
-  **Music** row in the Apps sheet. Tapping the button plays or pauses; a small panel beside it
-  holds the track choice and a volume slider. Music keeps playing while you move between apps
+  **Music** row in the Apps sheet. The button opens a small panel with play/pause, the track
+  choice and a volume slider; a dot on the button shows while music is on. Music keeps playing while you move between apps
   (the player lives outside the routes).
 - Four calm instrumental tracks shipped with Hotsauce, every one **CC0** (public domain, so anyone
   may reuse and share them, no attribution required; we credit them anyway on the help page):
@@ -38,14 +38,19 @@ Each maps to a test, named in brackets.
 - M2. Play and pause from the rail button; the panel changes track and volume; the choice, track
   and volume persist in this browser, and a bad stored value falls back to the defaults.
   [music/player.test, MusicButton.test]
-- M3. After a reload with music on, it starts at the first click or key press, not before.
+- M3. After a reload with music on, it starts at the first click, tap or key press, not before. A
+  start the browser refuses later (after a recording) waits for the next one; a start cut short by
+  a track change isn't mistaken for that; a track that won't load says so.
   [music/player.test]
 - M4. While any microphone, camera or screen capture the page opened is live, the music is held
-  (paused); it resumes when every captured track has ended, unless the member turned it off
+  (silenced at once, no fade); it resumes when every captured track has ended, unless the member turned it off
   meanwhile. [music/player.test]
 - M5. The Getting started tile offers Turn on / No thanks until answered here; Turn on starts the
   music, either answer removes the line, and the step count is unchanged. [StartTile.test]
 - M6. On phones the Apps sheet has a Music row that opens the same controls. [MusicButton.test]
+- M6a. A device that ignores the page's volume (iPhone, iPad) shows "use your device's buttons"
+  instead of the slider. [music/player.test]
 - M7. Every track file exists, is an MP3 and is credited (title, author, CC0, source link) on the
-  help page. The offline cache never includes `music/`. [music/tracks.test]
+  help page. The offline cache never includes `music/`; the server and demo.hotsauce.work serve the
+  files in byte ranges and a missing one is a 404. [music/tracks.test, site worker.test, e2e music.spec]
 - M8. The rail button, played and paused, in a real browser. [e2e music.spec]

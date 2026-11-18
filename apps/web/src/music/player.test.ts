@@ -13,12 +13,27 @@ import {
 class FakeAudio implements AudioLike {
   src = ''
   loop = false
-  volume = 1
+  /** Like an iPhone: the page can't change the volume. */
+  fixed = false
+  private v = 1
+  get volume() {
+    return this.v
+  }
+  set volume(x: number) {
+    if (!this.fixed) this.v = x
+  }
   preload = ''
   paused = true
   /** The browser refuses to start sound until a click (after a reload). */
   blocked = false
+  /** The next play() fails this way instead. */
+  failWith: string | null = null
   play = vi.fn(async () => {
+    if (this.failWith) {
+      const name = this.failWith
+      this.failWith = null
+      throw new DOMException('failed', name)
+    }
     if (this.blocked) throw new DOMException('needs a click', 'NotAllowedError')
     this.paused = false
   })
@@ -39,7 +54,7 @@ function fakeStream() {
   return { stream: { getTracks: () => tracks } as unknown as MediaStream, tracks }
 }
 
-function setup(stored?: unknown) {
+function setup(stored?: unknown, opts: { fixed?: boolean } = {}) {
   const store = new Map<string, string>()
   if (stored !== undefined) store.set(MUSIC_KEY, JSON.stringify(stored))
   const audios: FakeAudio[] = []
@@ -55,6 +70,7 @@ function setup(stored?: unknown) {
     createAudio: () => {
       const a = new FakeAudio()
       a.blocked = blocked
+      a.fixed = opts.fixed === true
       audios.push(a)
       return a
     },
@@ -214,5 +230,80 @@ describe('background music', () => {
     t.player.decline()
     expect(t.player.getState()).toMatchObject({ asked: true, on: false })
     expect(t.saved()).toMatchObject({ asked: true, on: false })
+  })
+
+  it('M3: on a phone, a tap (click or touchend, not only pointerdown) starts it after a reload', async () => {
+    const t = setup({ on: true, track: 'rain', volume: 0.5, asked: true })
+    t.block(true)
+    t.player.start()
+    t.block(false)
+    t.events.dispatchEvent(new Event('touchend'))
+    await t.settle()
+    expect(t.player.getState().playing).toBe(true)
+  })
+
+  it('M3: a resume the browser refuses after a recording waits for the next click', async () => {
+    const t = setup()
+    t.player.start()
+    t.player.play()
+    await t.settle()
+    await t.mediaDevices.getUserMedia({ audio: true })
+    await t.settle()
+    t.block(true)
+    for (const tr of t.captured.tracks) tr.stop()
+    await t.settle()
+    await t.settle()
+    expect(t.player.getState()).toMatchObject({ playing: false, waiting: true })
+    t.block(false)
+    t.events.dispatchEvent(new Event('click'))
+    await t.settle()
+    expect(t.player.getState()).toMatchObject({ playing: true, waiting: false })
+  })
+
+  it('M3: a play cut short by a track change is not mistaken for needing a click', async () => {
+    const t = setup()
+    t.player.start()
+    t.player.play()
+    await t.settle()
+    const a = t.audios[0] as FakeAudio
+    a.failWith = 'AbortError'
+    t.player.setTrack('lofi')
+    await t.settle()
+    await t.settle()
+    expect(t.player.getState()).toMatchObject({ waiting: false, playing: true, failed: false })
+    expect(a.src).toBe('/music/lo-fi.mp3')
+  })
+
+  it('M2: a track that fails to load says so instead of waiting for a click', async () => {
+    const t = setup()
+    t.player.start()
+    t.player.play()
+    await t.settle()
+    t.player.stop()
+    await t.settle()
+    ;(t.audios[0] as FakeAudio).failWith = 'NotSupportedError'
+    t.player.play()
+    await t.settle()
+    expect(t.player.getState()).toMatchObject({ failed: true, waiting: false, playing: false })
+  })
+
+  it('M4: a recording silences the music at once, without a fade', async () => {
+    const t = setup()
+    t.player.start()
+    t.player.play()
+    await t.settle()
+    const a = t.audios[0] as FakeAudio
+    await t.mediaDevices.getUserMedia({ audio: true })
+    // No timers run: it is already silent.
+    expect(a.paused).toBe(true)
+    expect(a.volume).toBe(0)
+  })
+
+  it('M2: a device that ignores the page volume (iPhone) says so', async () => {
+    const t = setup(undefined, { fixed: true })
+    t.player.start()
+    t.player.play()
+    await t.settle()
+    expect(t.player.getState()).toMatchObject({ playing: true, fixedVolume: true })
   })
 })

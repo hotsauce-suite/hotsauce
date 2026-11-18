@@ -24,6 +24,10 @@ export interface MusicState extends MusicPrefs {
   held: boolean
   /** On, but the browser needs a click or key press before it may start. */
   waiting: boolean
+  /** The track couldn't be loaded (no connection, file missing). */
+  failed: boolean
+  /** This device ignores the page's volume (iPhone, iPad): its own buttons set it. */
+  fixedVolume: boolean
 }
 
 export const DEFAULT_PREFS: MusicPrefs = {
@@ -64,6 +68,11 @@ const FADE_MS = 600
 const FADE_STEPS = 12
 /** How often a held recording is checked for having ended (a stopped track fires no event). */
 const HOLD_POLL_MS = 1000
+/**
+ * What counts as the click a browser needs before sound may start. A touch's pointerdown doesn't
+ * count on phones, so the later events are heard too.
+ */
+const GESTURES = ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown'] as const
 
 export function readPrefs(storage: StorageLike | null): MusicPrefs {
   try {
@@ -108,6 +117,11 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   let audio: AudioLike | null = null
   let playing = false
   let waiting = false
+  let failed = false
+  let fixedVolume = false
+  /** A play() is out: don't start another. */
+  let starting = false
+  let listening = false
   const listeners = new Set<() => void>()
   const captures = new Set<MediaStream>()
   let holdTimer: unknown = null
@@ -116,7 +130,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   let state = snapshot()
 
   function snapshot(): MusicState {
-    return { ...prefs, playing, held: captures.size > 0, waiting }
+    return { ...prefs, playing, held: captures.size > 0, waiting, failed, fixedVolume }
   }
   function emit() {
     state = snapshot()
@@ -135,6 +149,9 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
       audio = deps.createAudio()
       audio.loop = true
       audio.preload = 'auto'
+      // iPhone and iPad keep the volume at 1 whatever the page sets.
+      audio.volume = 0.5
+      fixedVolume = audio.volume !== 0.5
       audio.volume = 0
       audio.src = trackById(prefs.track).file
     }
@@ -164,10 +181,13 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   function sync() {
     const want = prefs.on && captures.size === 0
     if (want && !playing) {
+      if (starting) return
+      starting = true
       const a = ensureAudio()
       // Older browsers return nothing from play().
       Promise.resolve(a.play()).then(
         () => {
+          starting = false
           // Turned off or held while the browser was starting it.
           if (!prefs.on || captures.size > 0) {
             a.pause()
@@ -175,16 +195,40 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
           }
           playing = true
           waiting = false
+          failed = false
           stopListening()
           emit()
           fadeTo(prefs.volume)
         },
-        () => {
-          // The browser wants a click first (after a reload). Try again on the next one.
-          waiting = prefs.on
+        (err: unknown) => {
+          starting = false
+          const name = err instanceof Error || err instanceof DOMException ? err.name : ''
+          // A newer pause or track change cut this one short; that change starts its own.
+          if (name === 'AbortError') {
+            if (prefs.on && captures.size === 0 && a.paused) sync()
+            return
+          }
+          if (name === 'NotAllowedError') {
+            // The browser wants a click first. Try again on the next one.
+            waiting = prefs.on
+            if (waiting) startListening()
+          } else {
+            waiting = false
+            failed = prefs.on
+          }
           emit()
         },
       )
+    } else if (!want && playing && captures.size > 0) {
+      // A recording is starting: silence now, so none of it is recorded.
+      playing = false
+      if (fadeTimer !== null) deps.clearTimer(fadeTimer)
+      fadeTimer = null
+      if (audio) {
+        audio.volume = 0
+        audio.pause()
+      }
+      emit()
     } else if (!want && playing) {
       playing = false
       emit()
@@ -212,11 +256,17 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   }
 
   function onFirstGesture() {
-    if (prefs.on && !playing) sync()
+    if (prefs.on && !playing && captures.size === 0) sync()
+  }
+  function startListening() {
+    if (listening) return
+    listening = true
+    for (const g of GESTURES) deps.events?.addEventListener(g, onFirstGesture, { capture: true })
   }
   function stopListening() {
-    deps.events?.removeEventListener('pointerdown', onFirstGesture, { capture: true })
-    deps.events?.removeEventListener('keydown', onFirstGesture, { capture: true })
+    if (!listening) return
+    listening = false
+    for (const g of GESTURES) deps.events?.removeEventListener(g, onFirstGesture, { capture: true })
   }
 
   function checkCaptures() {
@@ -266,6 +316,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
       return () => listeners.delete(listener)
     },
     play() {
+      failed = false
       setPrefs({ on: true, asked: true })
       sync()
     },
@@ -280,6 +331,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
     setTrack(id) {
       const track = trackById(id)
       if (track.id === prefs.track) return
+      failed = false
       setPrefs({ track: track.id })
       if (audio) {
         const wasPlaying = playing
@@ -306,8 +358,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
       if (prefs.on) {
         waiting = true
         emit()
-        deps.events?.addEventListener('pointerdown', onFirstGesture, { capture: true })
-        deps.events?.addEventListener('keydown', onFirstGesture, { capture: true })
+        startListening()
       }
     },
   }
