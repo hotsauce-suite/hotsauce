@@ -6,7 +6,7 @@ import {
   fixContrast,
   parseTheme,
   readableOn,
-  type Theme,
+  Theme,
   themeCss,
   themeFontsHref,
   themeTokens,
@@ -88,9 +88,20 @@ describe('parseTheme (R3)', () => {
     expect(parseTheme('<theme>{"name": "x"}</theme>')).toBeNull()
     expect(parseTheme('<theme>{not json}</theme>')).toBeNull()
   })
-  it('refuses a font name that could break out of CSS (R7)', () => {
+  it('swaps a font name that could break out of CSS for a safe one (R7)', () => {
     const bad = { ...dusk, fonts: { display: 'Inter"; } body { x', ui: 'Inter' } }
-    expect(parseTheme(`<theme>${JSON.stringify(bad)}</theme>`)).toBeNull()
+    expect(parseTheme(`<theme>${JSON.stringify(bad)}</theme>`)?.fonts.display).toBe('Fraunces')
+    expect(Theme.safeParse(bad).success).toBe(false)
+  })
+  it('forgives short colours and long names', () => {
+    const loose = {
+      ...dusk,
+      name: 'A Very Long Theme Name That Goes On And On Forever',
+      colors: { ...dusk.colors, glow: '#fa0' },
+    }
+    const theme = parseTheme(`<theme>${JSON.stringify(loose)}</theme>`)
+    expect(theme?.colors.glow).toBe('#ffaa00')
+    expect(theme?.name.length).toBeLessThanOrEqual(40)
   })
 })
 

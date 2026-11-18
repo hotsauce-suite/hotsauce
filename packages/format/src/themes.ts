@@ -8,8 +8,12 @@ import { z } from 'zod'
 
 const Hex = z
   .string()
-  .regex(/^#?[0-9a-fA-F]{6}$/, 'a colour like #1a2b3c')
-  .transform((v) => (v.startsWith('#') ? v : `#${v}`).toLowerCase())
+  .trim()
+  .regex(/^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'a colour like #1a2b3c')
+  .transform((v) => {
+    const digits = v.replace('#', '').toLowerCase()
+    return `#${digits.length === 3 ? [...digits].map((d) => d + d).join('') : digits}`
+  })
 
 /** A Google Fonts family name: letters, digits and single spaces. */
 const FontName = z
@@ -239,8 +243,24 @@ export function parseTheme(text: string): Theme | null {
   } catch {
     return null
   }
-  const parsed = Theme.safeParse(json)
+  const parsed = Theme.safeParse(lenient(json))
   return parsed.success ? fixContrast(parsed.data) : null
+}
+
+/** A model's small slips forgiven: a long name is cut, a font that isn't a plain family name falls back. */
+function lenient(json: unknown): unknown {
+  if (!json || typeof json !== 'object') return json
+  const t = json as { name?: unknown; fonts?: { display?: unknown; ui?: unknown } }
+  const font = (f: unknown, fallback: string) =>
+    typeof f === 'string' && FontName.safeParse(f).success ? f : fallback
+  return {
+    ...t,
+    name: typeof t.name === 'string' ? t.name.trim().slice(0, MAX_THEME_NAME) : t.name,
+    fonts: {
+      display: font(t.fonts?.display, DEFAULT_LIGHT_THEME.fonts.display),
+      ui: font(t.fonts?.ui, 'Inter'),
+    },
+  }
 }
 
 function alpha(hex: string, a: number): string {
