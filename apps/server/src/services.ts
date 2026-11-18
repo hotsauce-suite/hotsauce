@@ -6,6 +6,7 @@ import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hotsauce/format'
 import dotenv from 'dotenv'
 import { AccountStore, accountPath } from './account/index.js'
+import { Themes } from './themes/index.js'
 import {
   AnthropicAssistantModel,
   Assistant,
@@ -523,8 +524,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     publicUrl: config.PUBLIC_URL,
     busy: () => meetings.sessions.openCount > 0,
   })
+  const themes = new Themes({
+    account,
+    llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+    model: config.THEMES_MODEL,
+  })
   const services = {
     config,
+    themes,
     git,
     updates,
     host,

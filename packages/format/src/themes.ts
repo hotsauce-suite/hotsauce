@@ -341,3 +341,134 @@ export const DEFAULT_LIGHT_THEME: Theme = {
   },
   fonts: { display: 'Fraunces', ui: 'IBM Plex Sans' },
 }
+
+/**
+ * Ready-made themes for when there is no model: the fake one in development and tests, and the
+ * live demo (docs/PLAN-ai-themes.md R11). Each lists words that pick it.
+ */
+export const SAMPLE_THEMES: ReadonlyArray<{ words: readonly string[]; theme: Theme }> = [
+  {
+    words: ['midnight', 'night', 'blue', 'navy', 'ocean', 'dark'],
+    theme: {
+      name: 'Midnight Harbor',
+      scheme: 'dark',
+      colors: {
+        paper: '#141a2a',
+        paperRaised: '#1c2337',
+        paperSunk: '#0f1421',
+        ash: '#2c3550',
+        ink: '#e4e9f5',
+        inkSoft: '#aab4cc',
+        inkFaint: '#7b86a0',
+        accent: '#6ea8ff',
+        accentStrong: '#9cc3ff',
+        glow: '#ffc773',
+        moss: '#8fd19e',
+        codeBg: '#192036',
+        codeKeyword: '#ff9e8a',
+        codeString: '#a5d98b',
+        codeNumber: '#f5c06b',
+        codeComment: '#7983a0',
+        codeFunction: '#9cc3ff',
+        codeType: '#7fd6d0',
+        codeProperty: '#d9b8ff',
+      },
+      fonts: { display: 'Space Grotesk', ui: 'Inter' },
+    },
+  },
+  {
+    words: ['terminal', 'hacker', 'retro', 'green', 'matrix', 'code', 'mono'],
+    theme: {
+      name: 'Green Phosphor',
+      scheme: 'dark',
+      colors: {
+        paper: '#0d140f',
+        paperRaised: '#142018',
+        paperSunk: '#09100b',
+        ash: '#22382a',
+        ink: '#c8f5d2',
+        inkSoft: '#8fd3a0',
+        inkFaint: '#5f9c70',
+        accent: '#4ef08a',
+        accentStrong: '#7dffab',
+        glow: '#ffd166',
+        moss: '#9be564',
+        codeBg: '#111b14',
+        codeKeyword: '#7dffab',
+        codeString: '#e6f59a',
+        codeNumber: '#ffd166',
+        codeComment: '#5f9c70',
+        codeFunction: '#9be8ff',
+        codeType: '#b8f5c9',
+        codeProperty: '#d2ffb0',
+      },
+      fonts: { display: 'IBM Plex Mono', ui: 'IBM Plex Mono' },
+    },
+  },
+  {
+    words: ['pastel', 'soft', 'pink', 'notebook', 'light', 'spring', 'calm'],
+    theme: {
+      name: 'Pastel Notebook',
+      scheme: 'light',
+      colors: {
+        paper: '#fbf3f4',
+        paperRaised: '#fffafa',
+        paperSunk: '#f3e6e9',
+        ash: '#e6d1d6',
+        ink: '#3a2b33',
+        inkSoft: '#6a5560',
+        inkFaint: '#9a8590',
+        accent: '#b04a78',
+        accentStrong: '#963a64',
+        glow: '#f2a7c3',
+        moss: '#4d7a5c',
+        codeBg: '#f6eaee',
+        codeKeyword: '#9c3567',
+        codeString: '#3f7050',
+        codeNumber: '#8a5a12',
+        codeComment: '#9a8590',
+        codeFunction: '#6b4aa0',
+        codeType: '#2f6a7a',
+        codeProperty: '#7a4a5e',
+      },
+      fonts: { display: 'Playfair Display', ui: 'Nunito' },
+    },
+  },
+  {
+    words: ['forest', 'moss', 'earth', 'woods', 'autumn', 'warm', 'cabin'],
+    theme: {
+      name: 'Forest Cabin',
+      scheme: 'light',
+      colors: {
+        paper: '#eef0e6',
+        paperRaised: '#f7f8f1',
+        paperSunk: '#e2e6d6',
+        ash: '#c9cfb8',
+        ink: '#1f2a1d',
+        inkSoft: '#4a5944',
+        inkFaint: '#7a8873',
+        accent: '#3f6b35',
+        accentStrong: '#2f5527',
+        glow: '#d99a3c',
+        moss: '#4a6a3a',
+        codeBg: '#e6eadb',
+        codeKeyword: '#8a3b1d',
+        codeString: '#3f6b35',
+        codeNumber: '#8a5a12',
+        codeComment: '#7a8873',
+        codeFunction: '#5c4a1f',
+        codeType: '#2f5f66',
+        codeProperty: '#5a4a32',
+      },
+      fonts: { display: 'Fraunces', ui: 'Source Sans 3' },
+    },
+  },
+]
+
+/** The sample theme a description's words pick (else one chosen by the description's length). */
+export function sampleThemeFor(prompt: string): Theme {
+  const words = prompt.toLowerCase().split(/[^a-z]+/)
+  const hit = SAMPLE_THEMES.find((s) => s.words.some((w) => words.includes(w)))
+  const sample = hit ?? SAMPLE_THEMES[prompt.length % SAMPLE_THEMES.length]
+  return fixContrast(sample?.theme ?? DEFAULT_LIGHT_THEME)
+}

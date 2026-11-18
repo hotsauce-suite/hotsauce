@@ -1,3 +1,4 @@
+import { sampleThemeFor } from '@hotsauce/format'
 import type { LLM, LLMRequest, LLMUsage } from './types.js'
 
 export type Respond = (req: LLMRequest) => string | Promise<string>
@@ -29,7 +30,8 @@ export class FakeLLM implements LLM {
  * headings with the raw notes kept verbatim under the first and one AI bullet under each; a
  * chat request (it carries `<excerpts>`) gets an answer citing the first excerpt; a dictation
  * cleanup (it carries `<transcript>`) gets the transcript without "um" and "uh"; a Tasks ramble
- * (it carries `<ramble>`) gets one task line per sentence.
+ * (it carries `<ramble>`) gets one task line per sentence; a theme (it carries `<description>`)
+ * gets the sample theme its words pick.
  */
 export function scriptedResponse(req: LLMRequest): string {
   const prompt = req.messages.at(-1)?.content ?? ''
@@ -130,6 +132,8 @@ export function scriptedResponse(req: LLMRequest): string {
     return `<result>${JSON.stringify({ ready: true, title, summary: `Summary: ${feedback.trim()}` })}</result>`
   }
   // A Hotsauce Tasks ramble: one quick-add line per sentence of what was said.
+  const themeWords = tagged(prompt, 'description')
+  if (themeWords !== null) return `<theme>${JSON.stringify(sampleThemeFor(themeWords))}</theme>`
   const ramble = tagged(prompt, 'ramble')
   if (ramble !== null) return `<tasks>\n${rambleLines(ramble).join('\n')}\n</tasks>`
   const transcript = tagged(prompt, 'transcript')

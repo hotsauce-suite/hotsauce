@@ -136,6 +136,8 @@ export const ConfigSchema = z
     CLIPS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
     // Hotsauce Tasks (ARCHITECTURE §12.2): Ramble turns a voice note into quick-add lines.
     TASKS_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+    // Themes from a prompt (docs/PLAN-ai-themes.md): the model that designs a member's theme.
+    THEMES_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     // Saved links (ARCHITECTURE §23): how pages are fetched (fake in development and test), and
     // the model that summarizes and tags them.
     LINK_FETCH: z.enum(['live', 'fake']).optional(),

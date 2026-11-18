@@ -394,6 +394,8 @@ export {
   mix,
   parseTheme,
   readableOn,
+  SAMPLE_THEMES,
+  sampleThemeFor,
   type SavedTheme,
   THEME_COLOR_KEYS,
   Theme,

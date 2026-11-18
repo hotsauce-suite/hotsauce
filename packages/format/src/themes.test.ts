@@ -134,3 +134,13 @@ describe('themeCss', () => {
     )
   })
 })
+
+describe('sample themes (R11)', () => {
+  it('are picked by the words in a description and read well', async () => {
+    const { sampleThemeFor } = await import('./themes.js')
+    expect(sampleThemeFor('a dark midnight look').name).toBe('Midnight Harbor')
+    expect(sampleThemeFor('Retro terminal please').scheme).toBe('dark')
+    expect(passes(sampleThemeFor('something soft and pastel'))).toBe(true)
+    expect(sampleThemeFor('zzz').name).toBeTruthy()
+  })
+})
