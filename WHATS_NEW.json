@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.51.0",
+      "date": "2026-11-18",
+      "notes": [
+        {
+          "text": "Settings → Appearance: describe a theme in words, preview it across the app, keep it as your own (colours and fonts), rename or delete it."
+        }
+      ]
+    },
+    {
       "version": "0.50.0",
       "date": "2026-11-18",
       "notes": [
