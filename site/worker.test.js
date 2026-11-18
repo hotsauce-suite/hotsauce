@@ -65,6 +65,19 @@ describe('hotsauce.work', () => {
     expect(res.headers.get('x-frame-options')).toBe('DENY')
   })
 
+  it('serves the background music from /demo/, in byte ranges for Safari', async () => {
+    const e = env()
+    const whole = await get('https://demo.hotsauce.work/music/rain.mp3', e)
+    expect(e.asked).toEqual(['/demo/music/rain.mp3'])
+    expect(whole.headers.get('accept-ranges')).toBe('bytes')
+    const part = await get('https://demo.hotsauce.work/music/rain.mp3', env(), {
+      Range: 'bytes=0-3',
+    })
+    expect(part.status).toBe(206)
+    expect(await part.text()).toBe('file')
+    expect(part.headers.get('content-range')).toBe('bytes 0-3/25')
+  })
+
   it('does not serve the demo build at /demo/', async () => {
     const e = env()
     await get('https://hotsauce.work/demo/index.html', e)

@@ -4,7 +4,7 @@ import {
   type TodayLayout,
   updateTile,
 } from '@hotsauce/format'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { MemoryRouter } from 'react-router'
@@ -421,5 +421,36 @@ describe('Getting started: replay from Settings (R1, R2)', () => {
     await screen.findByTestId('today-start')
     await waitFor(() => expect(router.state.location.search).toBe(''))
     expect(saves).toHaveLength(0)
+  })
+})
+
+describe('the music offer on Getting started (docs/PLAN-background-music.md M5)', () => {
+  it('M5: Turn on starts the music and the line goes; the step count is unchanged', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    renderApp('/today')
+    const tile = await screen.findByTestId('today-start')
+    const offer = await within(tile).findByTestId('today-start-music')
+    expect(offer).toHaveTextContent('Play calm music while you work?')
+    await waitFor(() => expect(screen.getByTestId('today-start-count')).toHaveTextContent('1 of 3'))
+    await userEvent.click(within(offer).getByTestId('today-start-music-on'))
+    await waitFor(() => expect(within(tile).queryByTestId('today-start-music')).toBeNull())
+    expect(JSON.parse(localStorage.getItem('hotsauce:music') ?? '{}')).toMatchObject({
+      on: true,
+      asked: true,
+    })
+    expect(screen.getByTestId('today-start-count')).toHaveTextContent('1 of 3')
+  })
+
+  it('M5: No thanks removes the line, plays nothing, and it stays gone', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    renderApp('/today')
+    const offer = await screen.findByTestId('today-start-music')
+    await userEvent.click(within(offer).getByTestId('today-start-music-no'))
+    await waitFor(() => expect(screen.queryByTestId('today-start-music')).toBeNull())
+    expect(play).not.toHaveBeenCalled()
+    cleanup()
+    renderApp('/today')
+    await screen.findByTestId('today-start')
+    expect(screen.queryByTestId('today-start-music')).toBeNull()
   })
 })

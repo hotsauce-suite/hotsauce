@@ -14,6 +14,8 @@ import { TOUCH_QUERY, useMediaQuery } from '../../../hooks/useMediaQuery'
 import { desktopSignInBridge } from '../../../lib/desktop'
 import { installContext } from '../../../lib/install'
 import { docUrl } from '../../../lib/paths'
+import { music } from '../../../music/player'
+import { useMusic } from '../../../music/useMusic'
 import { Card } from './Card'
 
 const CALENDARS = '/settings/connections#calendars'
@@ -256,6 +258,51 @@ export function StartTile({
           </li>
         ))}
       </ul>
+      <MusicOffer />
     </Card>
+  )
+}
+
+/**
+ * The background music offer (docs/PLAN-background-music.md M5): an extra line under the steps,
+ * not a counted step, until it's answered in this browser.
+ */
+function MusicOffer() {
+  const s = useMusic()
+  if (s.asked || s.on) return null
+  return (
+    <div
+      data-testid="today-start-music"
+      className="mt-1 flex items-center gap-3 border-t border-ash/70 pt-2.5"
+    >
+      <span
+        aria-hidden="true"
+        className="flex size-5 shrink-0 items-center justify-center text-ink-faint"
+      >
+        <Icon name="music" className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-ink">Play calm music while you work?</span>
+        <span className="block text-xs text-ink-soft">
+          Soft piano, lo-fi, ambient or rain. Only you hear it, and you can change it any time.
+        </span>
+      </span>
+      <button
+        type="button"
+        className="shrink-0 text-xs text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink"
+        data-testid="today-start-music-no"
+        onClick={() => music().decline()}
+      >
+        No thanks
+      </button>
+      <button
+        type="button"
+        className={stepButton}
+        data-testid="today-start-music-on"
+        onClick={() => music().play()}
+      >
+        Turn on
+      </button>
+    </div>
   )
 }

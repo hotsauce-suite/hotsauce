@@ -82,6 +82,10 @@ export function DictateButton({
       setPhase('recording')
       timer.current = setTimeout(() => rec.state === 'recording' && rec.stop(), DICTATE_MAX_MS)
     } catch {
+      // A microphone that opened before the recorder failed is let go, so nothing (the background
+      // music, the browser's mic light) thinks it's still recording.
+      if (recorder.current?.state !== 'recording')
+        for (const t of stream.current?.getTracks() ?? []) t.stop()
       onError('Couldn’t use the microphone. Allow it in the browser and try again.')
       setPhase('idle')
     }

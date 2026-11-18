@@ -13,6 +13,8 @@ import {
 } from '../apps/pins'
 import { APPS, type AppId, railLinks } from '../apps/registry'
 import { openFeedback } from '../feedback/pageShot'
+import { MusicPanel, musicStatus } from '../music/MusicPanel'
+import { useMusic } from '../music/useMusic'
 import { useSession } from '../state/session'
 import { AccountHeader, appHref, itemClass, useFeedbackEnabled } from './AppRail'
 import { Icon, type IconName } from './Icon'
@@ -281,6 +283,7 @@ function AppsSheet({
 
           <div className="mt-3 flex flex-col gap-0.5 border-t border-ash/70 pt-2">
             <AccountHeader name={principal?.name} email={principal?.email} />
+            <MusicRow className={row} />
             <button
               type="button"
               data-testid="settings-link"
@@ -447,4 +450,30 @@ function entryLabel(entry: RailEntry): string {
 
 function entryIcon(entry: RailEntry): IconName {
   return entry.kind === 'app' ? entry.app.icon : entry.link.icon
+}
+
+/** Background music on phones (docs/PLAN-background-music.md): a row that opens the controls. */
+function MusicRow({ className }: { className: string }) {
+  const s = useMusic()
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        data-testid="music-row"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={className}
+      >
+        <Icon name="music" className="size-4 text-ink-faint" />
+        <span className="flex-1 text-left">Music</span>
+        <span className="text-xs text-ink-faint">{musicStatus(s)}</span>
+      </button>
+      {open ? (
+        <div className="px-2.5 pt-1 pb-3">
+          <MusicPanel />
+        </div>
+      ) : null}
+    </>
+  )
 }

@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "0.50.0",
+      "date": "2026-11-18",
+      "notes": [
+        {
+          "text": "A music button at the bottom of the left bar plays calm music while you work: soft piano, lo-fi, ambient or rain, with a volume slider. On phones it's under Apps → Music."
+        },
+        {
+          "text": "The music pauses on its own while you take meeting notes, dictate or record a clip."
+        },
+        {
+          "text": "Getting started on Today asks once whether you'd like music."
+        },
+        {
+          "text": "New help page: Background music, with the track credits."
+        }
+      ]
+    },
+    {
       "version": "0.49.0",
       "date": "2026-11-17",
       "notes": [

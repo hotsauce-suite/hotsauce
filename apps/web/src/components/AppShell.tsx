@@ -23,6 +23,7 @@ import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
 import { BUILD_VERSION, takeUpdatedVersion } from '../lib/appUpdate'
 import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
+import { music } from '../music/player'
 import { SessionProvider, useSession } from '../state/session'
 import { forgetDeletedTheme } from './AppearanceSettings'
 import { AppRail, rememberAppLocation } from './AppRail'
@@ -140,6 +141,10 @@ function ShellLayout() {
   useEffect(() => {
     void forgetDeletedTheme()
   }, [])
+
+  // Background music (docs/PLAN-background-music.md): watches recordings, and resumes at the first
+  // click if it was left on.
+  useEffect(() => music().start(), [])
 
   // The sidebar follows the open doc's space.
   useEffect(() => {
