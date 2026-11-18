@@ -382,3 +382,24 @@ export {
   updateTile,
 } from './today.js'
 export { daysSinceMonday, endOfWeek, monthGrid, startOfWeek, WEEK_DAY_NAMES } from './weeks.js'
+export {
+  CONTRAST_PAIRS,
+  contrast,
+  DEFAULT_LIGHT_THEME,
+  fixContrast,
+  luminance,
+  MAX_THEME_NAME,
+  MAX_THEME_PROMPT,
+  MAX_THEMES,
+  mix,
+  parseTheme,
+  readableOn,
+  type SavedTheme,
+  THEME_COLOR_KEYS,
+  Theme,
+  ThemeColors,
+  type ThemeColorKey,
+  themeCss,
+  themeFontsHref,
+  themeTokens,
+} from './themes.js'
