@@ -76,6 +76,8 @@ const PATHS = {
   phone: 'M4.75 1.75h6.5v12.5h-6.5zM7.25 12h1.5',
   headphones:
     'M2.75 11.5V8a5.25 5.25 0 0 1 10.5 0v3.5M2.75 9.75h2.5v4h-2.5zM10.75 9.75h2.5v4h-2.5z',
+  music:
+    'M6 12.25v-9l7.25-1.5v9M6 12.25a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0zM13.25 10.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0zM6 5.75l7.25-1.5',
 } as const
 
 export type IconName = keyof typeof PATHS
