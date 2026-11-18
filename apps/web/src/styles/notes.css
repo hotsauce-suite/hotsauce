@@ -17,7 +17,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  /* A theme of your own says which it is in data-scheme (lib/theme.ts). */
+  :root:not([data-theme="light"]):not([data-scheme="light"]) {
     --note-red: #7a2a2b;
     --note-orange: #73391c;
     --note-yellow: #6d5212;
@@ -33,7 +34,8 @@
   }
 }
 
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+:root[data-scheme="dark"] {
   --note-red: #7a2a2b;
   --note-orange: #73391c;
   --note-yellow: #6d5212;

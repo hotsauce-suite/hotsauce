@@ -33,6 +33,7 @@ import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import type { Tables } from '../tables/index.js'
 import type { TaskServices } from '../tasks/index.js'
+import type { Themes } from '../themes/index.js'
 import type { TokenStore } from '../tokens/index.js'
 import type { Updater } from '../updates/index.js'
 import type { Usage } from '../usage/index.js'
@@ -55,6 +56,8 @@ export interface AppDeps {
   assistant: Assistant
   clips: Clips
   tasks: TaskServices
+  /** Each member's own themes (docs/PLAN-ai-themes.md). */
+  themes: Themes
   notes: Notes
   files: Files
   briefs: AgentBriefs

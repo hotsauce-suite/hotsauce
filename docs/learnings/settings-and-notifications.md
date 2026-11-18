@@ -98,3 +98,11 @@
   not when the bridge merely exists: older apps have the handler but not every request.
 - Let the Mac compute numbers it already computes (DictationStats, MonthActivity) and send them;
   porting the sums to TypeScript would give two answers to one question.
+
+## Themes from a prompt (2026-11-18)
+
+- Don't trust a model's colours: run every answer through `fixContrast`. Pushing backgrounds to their scheme's end first (luminance ≥ 0.4 light, ≤ 0.05 dark) is what makes "any palette reads" provable; without it a mid-grey paper can leave no foreground that reaches 4.5 against all three papers.
+- A custom theme has to beat both tokens.css's dark-mode rule (`:root:not([data-theme=light])`) and the brand's `:root` style. `html:root[data-theme="custom"]` has one more element in its specificity than either, so source order stops mattering.
+- To avoid a flash of the old look on reload, cache the finished CSS string, not the theme JSON: `index.html`'s inline script can't import the code that turns one into the other.
+- Be lenient where the model slips harmlessly (3-digit hex, long names, odd font names fall back) and strict where the browser sends it back (the API validates the theme exactly).
+- e2e here needs `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium` in the cloud container; the pinned Playwright's headless shell isn't installed.

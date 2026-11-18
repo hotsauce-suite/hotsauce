@@ -140,6 +140,7 @@ import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
 import { Tables } from './tables/index.js'
 import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from './tasks/index.js'
+import { Themes } from './themes/index.js'
 import { TokenAuth, TokenStore } from './tokens/index.js'
 import {
   type FlyApi,
@@ -523,8 +524,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     publicUrl: config.PUBLIC_URL,
     busy: () => meetings.sessions.openCount > 0,
   })
+  const themes = new Themes({
+    account,
+    llm: overrides.llm || config.LLM_PROVIDER !== 'none' ? llm : null,
+    model: config.THEMES_MODEL,
+  })
   const services = {
     config,
+    themes,
     git,
     updates,
     host,

@@ -39,3 +39,20 @@ describe('theme choice', () => {
     expect(currentTheme()).toBe('system')
   })
 })
+
+describe('a theme of your own', () => {
+  it('is painted from this browser’s copy, and forgotten when its copy is gone', async () => {
+    const { DEFAULT_LIGHT_THEME } = await import('@hotsauce/format')
+    const { applyTheme, CUSTOM_THEME_KEY } = await import('./theme')
+    chooseTheme('custom:01ABC', { ...DEFAULT_LIGHT_THEME, name: 'Mine' })
+    expect(document.documentElement.dataset.theme).toBe('custom')
+    expect(storedTheme()).toBe('custom:01ABC')
+    document.getElementById('hotsauce-custom-theme')?.remove()
+    applyTheme('custom:01ABC')
+    expect(document.getElementById('hotsauce-custom-theme')?.textContent).toContain('--paper')
+    localStorage.removeItem(CUSTOM_THEME_KEY)
+    expect(storedTheme()).toBeNull()
+    applyTheme('custom:01ABC')
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
+  })
+})

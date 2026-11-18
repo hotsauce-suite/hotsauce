@@ -20,6 +20,7 @@ import { peopleHandlers } from './peopleHandlers'
 import { seed, seedPersonal } from './seed'
 import { FakeSign, seedSign, signHandlers } from './signHandlers'
 import { FakeTasks, seedTasksOnce, taskHandlers } from './taskHandlers'
+import { themeHandlers } from './themeHandlers'
 import { todayHandlers } from './todayHandlers'
 
 const ALLOWED_DOMAIN = 'example.test'
@@ -585,6 +586,7 @@ function createHandlers(
     ...linkHandlers({ links: work.links, files: work.files, repo, latencyMs, principal }),
   )
   handlers.push(...todayHandlers())
+  handlers.push(...themeHandlers({ principal, latencyMs }))
   handlers.push(...checkinHandlers({ principal }))
   handlers.push(
     ...commentHandlers({

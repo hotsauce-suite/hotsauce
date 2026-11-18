@@ -8,12 +8,29 @@
     <meta name="theme-color" content="#f2eadf" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#1d1815" media="(prefers-color-scheme: dark)" />
     <script>
-      // The member's light or dark choice (src/lib/theme.ts), applied before the first paint.
+      // The member's light, dark or own theme (src/lib/theme.ts), applied before the first paint.
       var theme = null
+      var own = null
+      var style = null
+      var fonts = null
       try {
         theme = localStorage.getItem('hearth:theme')
+        own = JSON.parse(localStorage.getItem('hotsauce:custom-theme') || 'null')
       } catch {}
       if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
+      if (theme && own && theme === 'custom:' + own.id && typeof own.css === 'string') {
+        document.documentElement.dataset.scheme = own.scheme === 'dark' ? 'dark' : 'light'
+        style = document.createElement('style')
+        style.id = 'hotsauce-custom-theme'
+        style.textContent = own.css
+        document.head.appendChild(style)
+        fonts = document.createElement('link')
+        fonts.id = 'hotsauce-custom-theme-fonts'
+        fonts.rel = 'stylesheet'
+        fonts.href = own.fonts
+        document.head.appendChild(fonts)
+        document.documentElement.dataset.theme = 'custom'
+      }
     </script>
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

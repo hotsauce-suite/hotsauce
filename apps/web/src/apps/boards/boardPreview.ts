@@ -37,7 +37,9 @@ export async function boardPreviewUrl(space: string, path: string): Promise<stri
       }
     }),
   )
-  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+  const root = document.documentElement
+  const dark =
+    root.getAttribute('data-theme') === 'dark' || root.getAttribute('data-scheme') === 'dark'
   const svg = await exportToSvg({
     elements: liveElements(board.scene) as unknown as ExportArgs['elements'],
     appState: {

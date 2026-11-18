@@ -60,7 +60,29 @@ const MIGRATIONS = [
     apps TEXT NOT NULL
   );
   `,
+  `
+  -- Each member's own themes (docs/PLAN-ai-themes.md): the theme as JSON (@hotsauce/format Theme),
+  -- the words they asked for it with, and its name (renamable apart from the theme).
+  CREATE TABLE themes (
+    user       TEXT NOT NULL,
+    id         TEXT NOT NULL,
+    name       TEXT NOT NULL,
+    prompt     TEXT NOT NULL,
+    theme      TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user, id)
+  );
+  `,
 ]
+
+/** A saved theme as stored; `theme` is JSON. */
+export interface ThemeRow {
+  id: string
+  name: string
+  prompt: string
+  theme: string
+  createdAt: string
+}
 
 const INDEX_PRINT = 'index-lists-fingerprint'
 
@@ -188,6 +210,32 @@ export class AccountStore {
     this.#q.setPhonePins.run(user, JSON.stringify(apps))
   }
 
+  /** The member's themes, newest first. `theme` is the stored JSON. */
+  listThemes(user: string): ThemeRow[] {
+    return this.#q.listThemes.all(user)
+  }
+
+  /** Saves a theme unless the member already has `max`; false when they do. */
+  addTheme(user: string, row: ThemeRow, max: number): boolean {
+    return this.#db
+      .transaction((): boolean => {
+        if ((this.#q.countThemes.get(user)?.n ?? 0) >= max) return false
+        this.#q.addTheme.run(user, row.id, row.name, row.prompt, row.theme, row.createdAt)
+        return true
+      })
+      .immediate()
+  }
+
+  /** False when the member has no theme with that id. */
+  renameTheme(user: string, id: string, name: string): boolean {
+    return this.#q.renameTheme.run(name, user, id).changes > 0
+  }
+
+  /** False when the member has no theme with that id. */
+  deleteTheme(user: string, id: string): boolean {
+    return this.#q.deleteTheme.run(user, id).changes > 0
+  }
+
   /**
    * The member's pins with each of `offers` added once, right after the app it names (first when
    * that isn't pinned): a member still on the defaults already has them, and an offer made once is
@@ -263,6 +311,19 @@ function prepare(db: Database.Database) {
     addOffer: db.prepare<[string, string]>(
       'INSERT OR IGNORE INTO pin_offers (user, app) VALUES (?, ?)',
     ),
+    listThemes: db.prepare<[string], ThemeRow>(`
+      SELECT id, name, prompt, theme, created_at AS createdAt FROM themes
+      WHERE user = ? ORDER BY created_at DESC, id DESC`),
+    countThemes: db.prepare<[string], { n: number }>(
+      'SELECT count(*) AS n FROM themes WHERE user = ?',
+    ),
+    addTheme: db.prepare<[string, string, string, string, string, string]>(
+      'INSERT INTO themes (user, id, name, prompt, theme, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ),
+    renameTheme: db.prepare<[string, string, string]>(
+      'UPDATE themes SET name = ? WHERE user = ? AND id = ?',
+    ),
+    deleteTheme: db.prepare<[string, string]>('DELETE FROM themes WHERE user = ? AND id = ?'),
     // A member who already saved pins here keeps them over the old copy.
     keepPins: db.prepare<[string, string]>('INSERT OR IGNORE INTO pins (user, apps) VALUES (?, ?)'),
   }
