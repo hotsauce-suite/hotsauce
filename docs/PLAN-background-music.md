@@ -2,7 +2,7 @@
 
 ## Status
 
-2026-11-18: building. Decisions settled with the owner on 2026-11-18 (he accepted every
+2026-11-18: built in PR #194; every requirement has a passing test. Decisions settled with the owner on 2026-11-18 (he accepted every
 recommendation and added "an option to turn it on in onboarding").
 
 ## Decisions
