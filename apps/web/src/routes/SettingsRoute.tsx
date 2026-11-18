@@ -8,6 +8,7 @@ import { primaryButton, secondaryButton } from '../apps/meetings/components/comm
 import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { NewToken } from '../components/AiToolSetup'
+import { AppearanceSettings } from '../components/AppearanceSettings'
 import { initials, useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
 import { ConnectedApps } from '../components/ConnectedApps'
@@ -18,7 +19,6 @@ import { NotificationsSection } from '../components/NotificationsSection'
 import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
 import { useInstallPrompt } from '../lib/install'
-import { chooseTheme, currentTheme, type ThemeChoice } from '../lib/theme'
 import { useSession } from '../state/session'
 
 const when = (iso: string | null) =>
@@ -52,7 +52,7 @@ export function GeneralSettings() {
         On this device
       </p>
       <div className="mt-12">
-        <AppearancePicker />
+        <AppearanceSettings />
       </div>
       <NotificationsSection />
       <KeyboardSettings />
@@ -434,54 +434,6 @@ function CalendarPicker() {
 
 function messageOf(err: unknown): string {
   return err instanceof HotsauceApiError || err instanceof Error ? err.message : String(err)
-}
-
-const THEMES: { value: ThemeChoice; label: string }[] = [
-  { value: 'system', label: 'Match my device' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-]
-
-/** Light, dark, or whatever the device uses; this browser remembers it. */
-function AppearancePicker() {
-  const [theme, setTheme] = useState<ThemeChoice>(currentTheme)
-  return (
-    <fieldset data-testid="theme-picker">
-      <legend className="font-display text-[1.6rem] font-semibold tracking-tight">
-        Appearance
-      </legend>
-      <p className="mt-2 text-ink-soft">Light or dark, on this device.</p>
-      <div className="mt-4 inline-flex flex-wrap rounded-xl border border-ash bg-paper-sunk p-1">
-        {THEMES.map((option) => {
-          const on = theme === option.value
-          return (
-            <label
-              key={option.value}
-              className={`cursor-pointer rounded-lg px-3.5 py-1.5 text-sm transition-colors has-[:focus-visible]:shadow-[var(--focus-ring)] ${
-                on
-                  ? 'bg-paper-raised font-medium text-ink shadow-sm'
-                  : 'text-ink-soft hover:text-ink'
-              }`}
-            >
-              <input
-                type="radio"
-                name="theme"
-                value={option.value}
-                checked={on}
-                data-testid={`theme-${option.value}`}
-                onChange={() => {
-                  chooseTheme(option.value)
-                  setTheme(option.value)
-                }}
-                className="sr-only"
-              />
-              {option.label}
-            </label>
-          )
-        })}
-      </div>
-    </fieldset>
-  )
 }
 
 /** Single-key shortcuts on or off (WCAG 2.1.4), and the way to the full list. */

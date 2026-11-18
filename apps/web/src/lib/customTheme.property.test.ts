@@ -1,11 +1,15 @@
-import { CONTRAST_PAIRS, contrast, fixContrast, THEME_COLOR_KEYS, type Theme } from '@hotsauce/format'
+import {
+  CONTRAST_PAIRS,
+  contrast,
+  fixContrast,
+  THEME_COLOR_KEYS,
+  type Theme,
+} from '@hotsauce/format'
 import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 
 // docs/PLAN-ai-themes.md R4: whatever palette the AI answers with, the fixed theme reads.
-const hex = fc
-  .integer({ min: 0, max: 0xffffff })
-  .map((n) => `#${n.toString(16).padStart(6, '0')}`)
+const hex = fc.integer({ min: 0, max: 0xffffff }).map((n) => `#${n.toString(16).padStart(6, '0')}`)
 
 const theme: fc.Arbitrary<Theme> = fc.record({
   name: fc.constant('Any'),

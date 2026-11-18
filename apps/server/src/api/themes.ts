@@ -32,7 +32,10 @@ export function themeRoutes(deps: AppDeps) {
     )
     .post(
       '/themes',
-      valid('json', z.object({ name: Name, prompt: z.string().max(MAX_THEME_PROMPT), theme: Theme })),
+      valid(
+        'json',
+        z.object({ name: Name, prompt: z.string().max(MAX_THEME_PROMPT), theme: Theme }),
+      ),
       (c) => c.json({ theme: themes.save(c.get('principal').email, c.req.valid('json')) }),
     )
     .patch('/themes/:id', valid('param', Id), valid('json', z.object({ name: Name })), (c) => {

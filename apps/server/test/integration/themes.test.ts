@@ -1,5 +1,5 @@
-import { DEFAULT_LIGHT_THEME, MAX_THEMES } from '@hotsauce/format'
 import { join } from 'node:path'
+import { DEFAULT_LIGHT_THEME, MAX_THEMES } from '@hotsauce/format'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../src/app.js'
 import { type Config, loadConfig } from '../../src/config.js'
@@ -56,6 +56,7 @@ async function call(method: string, path: string, json?: unknown, user = ALICE) 
     },
     ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
   })
+  // biome-ignore lint/suspicious/noExplicitAny: test reads loosely shaped JSON
   return { status: res.status, body: (await res.json()) as any }
 }
 
@@ -94,7 +95,10 @@ describe('themes', () => {
 
   it('makes unreadable colours readable before saving (R4)', async () => {
     await start()
-    const bad = { ...DEFAULT_LIGHT_THEME, colors: { ...DEFAULT_LIGHT_THEME.colors, ink: '#f0f0f0' } }
+    const bad = {
+      ...DEFAULT_LIGHT_THEME,
+      colors: { ...DEFAULT_LIGHT_THEME.colors, ink: '#f0f0f0' },
+    }
     const saved = await call('POST', '/api/themes', { name: 'Faint', prompt: 'x', theme: bad })
     expect(saved.status).toBe(200)
     expect(saved.body.theme.theme.colors.ink).not.toBe('#f0f0f0')
@@ -145,7 +149,12 @@ describe('themes', () => {
     expect(over.status).toBe(409)
     expect(over.body.error.message).toMatch(/Delete one/)
     // Someone else still has room.
-    const bob = await call('POST', '/api/themes', { name: 'B', prompt: '', theme: DEFAULT_LIGHT_THEME }, BOB)
+    const bob = await call(
+      'POST',
+      '/api/themes',
+      { name: 'B', prompt: '', theme: DEFAULT_LIGHT_THEME },
+      BOB,
+    )
     expect(bob.status).toBe(200)
   })
 
@@ -159,7 +168,11 @@ describe('themes', () => {
     await start({ LLM_PROVIDER: 'none' })
     expect((await call('GET', '/api/themes')).body.canGenerate).toBe(false)
     expect((await call('POST', '/api/themes/generate', { prompt: 'blue' })).status).toBe(503)
-    const saved = await call('POST', '/api/themes', { name: 'L', prompt: '', theme: DEFAULT_LIGHT_THEME })
+    const saved = await call('POST', '/api/themes', {
+      name: 'L',
+      prompt: '',
+      theme: DEFAULT_LIGHT_THEME,
+    })
     expect(saved.status).toBe(200)
   })
 

@@ -6,7 +6,6 @@ import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hotsauce/format'
 import dotenv from 'dotenv'
 import { AccountStore, accountPath } from './account/index.js'
-import { Themes } from './themes/index.js'
 import {
   AnthropicAssistantModel,
   Assistant,
@@ -141,6 +140,7 @@ import type { ObjectStore } from './storage/s3.js'
 import { Broadcaster, Syncer } from './sync/index.js'
 import { Tables } from './tables/index.js'
 import { Ramble, TaskReminders, type TaskServices, Tasks, TodoistImport } from './tasks/index.js'
+import { Themes } from './themes/index.js'
 import { TokenAuth, TokenStore } from './tokens/index.js'
 import {
   type FlyApi,

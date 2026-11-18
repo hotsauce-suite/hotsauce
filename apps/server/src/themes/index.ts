@@ -3,8 +3,8 @@ import {
   MAX_THEMES,
   parseTheme,
   type SavedTheme,
-  Theme,
   THEME_COLOR_KEYS,
+  Theme,
 } from '@hotsauce/format'
 import { ulid } from 'ulid'
 import type { AccountStore } from '../account/index.js'
@@ -150,11 +150,7 @@ export class Themes {
       theme,
       createdAt: this.#now().toISOString(),
     }
-    const ok = this.#account.addTheme(
-      email,
-      { ...saved, theme: JSON.stringify(theme) },
-      MAX_THEMES,
-    )
+    const ok = this.#account.addTheme(email, { ...saved, theme: JSON.stringify(theme) }, MAX_THEMES)
     if (!ok) {
       throw new HotsauceError(
         'conflict',
