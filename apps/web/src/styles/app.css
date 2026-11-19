@@ -1445,6 +1445,13 @@ details[data-testid="voice-words"] > summary::-webkit-details-marker {
     background: var(--paper-raised);
     box-shadow: var(--shadow-float);
   }
+  /* The pane is placed against the page area, so a bar above it (Install the app) never puts it
+     over the top bar. The page's entrance animation does this by the way, as any transform makes
+     an element the box its fixed children are placed in; say it outright, so reduced motion,
+     which skips the animation, lays the pane out the same. */
+  .shell-main {
+    contain: layout;
+  }
   /* A live meeting's recording strip (h-9) sits above the top bar on other pages. */
   main[data-strip] .side-pane {
     top: calc(var(--topbar-height) + 2.25rem);

@@ -374,7 +374,7 @@ Test IDs (used by e2e, keep stable): `sidebar`, `space-switcher`, `file-tree`, `
 | --- | --- | --- | --- |
 | Unit | Vitest | `packages/format/src/**/*.test.ts`, `apps/server/src/**/*.test.ts`, `apps/web/src/**/*.test.tsx` (jsdom + Testing Library) | Pure logic, components with logic |
 | Integration | Vitest | `apps/server/test/integration/` | GitStore against file:// bare repos; Index with real SQLite; hosts against LocalHost always, Forgejo when `FORGEJO_URL` is set, GitHub when `GITHUB_TOKEN` is set; API routes with `app.request()` in dev-auth mode over a temp data dir |
-| E2E | Playwright | `e2e/` | Full stack: server started by Playwright with `AUTH_MODE=dev HOST_KIND=local POLL_INTERVAL_MS=1000 IDLE_COMMIT_MS=500` and a temp `DATA_DIR`; Chromium desktop + a mobile viewport project |
+| E2E | Playwright | `e2e/` | Full stack: server started by Playwright with `AUTH_MODE=dev HOST_KIND=local POLL_INTERVAL_MS=1000 IDLE_COMMIT_MS=500` and a temp `DATA_DIR`; Chromium desktop + a mobile viewport project. Pages run with reduced motion (endless decoration would starve the server on a CI runner); a spec about motion opts back in with `test.use({ reducedMotion: 'no-preference' })` |
 
 E2E flows for Phase 0/1: sign in; create doc → type → committed (history shows the commit with the right author); edit from "outside" (the test pushes to the bare remote) → appears within 2 s; concurrent edit → `merged` adopts content; true conflict → banner → resolver → resolved commit; move a doc → links still resolve; share to team; Cmd-K finds by title and by body; image paste → appears; reading view renders; mobile viewport can open and edit.
 

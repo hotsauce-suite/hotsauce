@@ -4,6 +4,8 @@ import { expect, signIn, test, uid } from './fixtures'
 // an app's loop from the built app, in place.
 
 test.use({ signedIn: false })
+// The loop only plays by itself when the device allows motion (playwright.config.ts asks for less).
+test.use({ reducedMotion: 'no-preference' })
 
 test('Hotsauce 101 shows every app and plays its video', async ({ page }) => {
   await signIn(page, `guide-${uid()}@example.test`)
