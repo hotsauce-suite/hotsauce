@@ -436,6 +436,30 @@ struct SeededGenerator: RandomNumberGenerator {
         }
     }
 
+    @Test func mosaicCellsTileTheRegionWithNoSlivers() {
+        for rect in [CGRect(x: 0, y: 0, width: 17, height: 17), CGRect(x: 3, y: 5, width: 100, height: 20), CGRect(x: 0, y: 0, width: 250, height: 70)] {
+            let cells = ShotRenderer.mosaicCells(rect)
+            let block = ShotRenderer.mosaicBlock(for: rect)
+            #expect(cells.reduce(0) { $0 + $1.width * $1.height } == rect.width * rect.height)
+            #expect(cells.allSatisfy { $0.width >= min(rect.width, block / 2) && $0.height >= min(rect.height, block / 2) })
+            #expect(cells.allSatisfy { rect.contains($0) })
+        }
+    }
+
+    @Test func copyTextSeesRedactionsAsSolidBlocksAndNothingElse() throws {
+        var d = ShotDocument(sourceWidth: 60, sourceHeight: 60)
+        d.add(.arrow(from: .zero, to: CGPoint(x: 50, y: 50)), color: ShotPalette.defaultColor, width: 6)
+        d.add(.redact(CGRect(x: 10, y: 10, width: 20, height: 20), style: .mosaic), color: ShotPalette.redactColor, width: 6)
+        d.setCrop(CGRect(x: 5, y: 5, width: 40, height: 40))
+        let masked = d.redactionsOnly
+        #expect(masked.layers.count == 1)
+        #expect(masked.layers.first?.shape == .redact(CGRect(x: 10, y: 10, width: 20, height: 20), style: .fill))
+        #expect(masked.crop == d.crop)
+        let out = try pixels(try #require(ShotRenderer.exportPNG(masked, source: try image(60, 60, checker))))
+        let inside = region(out, CGRect(x: 5, y: 5, width: 20, height: 20))
+        #expect(stride(from: 0, to: inside.count, by: 3).allSatisfy { inside[$0] == 0x1D })
+    }
+
     @Test func aRedactionOverFractionalPixelsCoversTheWholePixels() throws {
         let source = try image(20, 20, checker)
         var d = ShotDocument(sourceWidth: 20, sourceHeight: 20)

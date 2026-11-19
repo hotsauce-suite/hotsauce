@@ -50,9 +50,13 @@ enum EditorRender {
         guard let after = ShotRenderer.exportPNG(redacted, source: secret) else { return fail("couldn’t redact") }
         try? after.write(to: out.appendingPathComponent("screenshot-redact-after.png"))
 
-        // Copy Text on the unredacted picture, as the editor would.
+        // Copy Text on the picture with no redactions.
         let text = TextRecognition.read(secret)
         try? text.write(to: out.appendingPathComponent("screenshot-copy-text.txt"), atomically: true, encoding: .utf8)
+        // And as the editor does it, with the redactions on: their text must not come back.
+        if let masked = ShotRenderer.export(redacted.redactionsOnly, source: secret) {
+            try? TextRecognition.read(masked).write(to: out.appendingPathComponent("screenshot-copy-text-redacted.txt"), atomically: true, encoding: .utf8)
+        }
         return 0
     }
 

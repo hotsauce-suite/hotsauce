@@ -213,6 +213,19 @@ public struct ShotDocument: Codable, Equatable, Sendable {
         }
     }
 
+    /// The same crop with only the redactions, as solid blocks: what Copy Text reads over the
+    /// untouched capture, so text under a redaction is never read back out.
+    public var redactionsOnly: ShotDocument {
+        var copy = self
+        copy.layers = layers.compactMap { layer in
+            guard case let .redact(rect, _) = layer.shape else { return nil }
+            var solid = layer
+            solid.shape = .redact(rect, style: .fill)
+            return solid
+        }
+        return copy
+    }
+
     /// Whole pixels inside the capture; the whole capture (or nothing usable) clears it.
     public mutating func setCrop(_ rect: CGRect?) {
         guard let rect else { crop = nil; return }

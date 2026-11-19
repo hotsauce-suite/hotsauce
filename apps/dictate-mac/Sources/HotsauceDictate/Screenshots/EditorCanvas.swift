@@ -62,7 +62,7 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
     private var drag = Drag.none
 
     private var textView: NSTextView?
-    private var editingText: (id: Int?, origin: CGPoint, fontSize: CGFloat, before: ShotDocument)?
+    private var editingText: (id: Int?, origin: CGPoint, fontSize: CGFloat, color: ShotColor, before: ShotDocument)?
 
     static let handleSize: CGFloat = 9
     static let textSize: CGFloat = 36
@@ -100,29 +100,47 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         if document != before { history.record(before) }
     }
 
+    /// A move or resize under way is kept as its own undo step before anything else happens.
+    private func finishDrag() {
+        switch drag {
+        case let .moving(before, _), let .resizing(before, _, _): commit(from: before)
+        default: break
+        }
+        drag = .none
+    }
+
     func undo() {
+        finishDrag()
         commitText()
         if let previous = history.undo(document) { document = previous; refit(keepZoom: true) }
     }
 
     func redo() {
+        finishDrag()
         commitText()
         if let next = history.redo(document) { document = next; refit(keepZoom: true) }
     }
 
     func applyColor(_ color: ShotColor) {
         self.color = color
+        // While typing, the colour belongs to the text being typed (kept when it is committed).
+        if let textView, editingText != nil {
+            editingText?.color = color
+            textView.textColor = NSColor(cgColor: color.cgColor)
+            return
+        }
         if !selection.isEmpty { change { $0.setColor(selection, color) } }
-        if let textView { textView.textColor = NSColor(cgColor: color.cgColor) }
     }
 
     func applyWidth(_ width: CGFloat) {
         self.width = width
+        guard editingText == nil else { return }
         if !selection.isEmpty { change { $0.setWidth(selection, width) } }
     }
 
     func applyRedactStyle(_ style: RedactStyle) {
         redactStyle = style
+        guard editingText == nil else { return }
         let redactions = selection.filter { if case .redact = document.layer($0)?.shape { true } else { false } }
         guard !redactions.isEmpty else { return }
         change { doc in
@@ -344,9 +362,10 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
             } else if cropRect.contains(p) {
                 drag = .cropping(start: cropRect, handle: nil, from: p)
             } else {
-                // A fresh crop from here.
-                self.cropRect = CGRect(origin: p, size: .zero)
-                drag = .cropping(start: CGRect(origin: p, size: .zero), handle: .bottomRight, from: p)
+                // A fresh crop from here (from the nearest edge when outside the capture).
+                let bounds = document.sourceBounds
+                let corner = CGPoint(x: min(max(p.x, bounds.minX), bounds.maxX), y: min(max(p.y, bounds.minY), bounds.maxY))
+                drag = .cropping(start: CGRect(origin: corner, size: .zero), handle: .bottomRight, from: corner)
             }
             return
         }
@@ -361,8 +380,12 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         switch tool {
         case .select:
             if let hit = ShotGeometry.layer(at: p, in: document, tolerance: tolerance) {
-                if shift {
-                    if selection.contains(hit.id) { selection.remove(hit.id) } else { selection.insert(hit.id) }
+                if shift, selection.contains(hit.id) {
+                    // Shift-click takes it out of the selection; nothing to drag.
+                    selection.remove(hit.id)
+                    return
+                } else if shift {
+                    selection.insert(hit.id)
                 } else if !selection.contains(hit.id) {
                     selection = [hit.id]
                 }
@@ -412,7 +435,9 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         case let .cropping(start, handle, from):
             let bounds = document.sourceBounds
             if let handle {
-                cropRect = ShotGeometry.resize(start, handle, to: p, constraint: shift ? .square : .free, minSize: 8).intersection(bounds)
+                let resized = ShotGeometry.resize(start, handle, to: p, constraint: shift ? .square : .free, minSize: 8).intersection(bounds)
+                // Dragged wholly outside the capture: keep the last good crop.
+                if !resized.isNull { cropRect = resized }
             } else {
                 var moved = start.offsetBy(dx: p.x - from.x, dy: p.y - from.y)
                 moved.origin.x = min(max(moved.minX, bounds.minX), bounds.maxX - moved.width)
@@ -440,7 +465,7 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         case let .moving(before, _), let .resizing(before, _, _):
             commit(from: before)
         case .cropping:
-            if let crop = cropRect, crop.width < 8 || crop.height < 8 { cropRect = document.visibleRect }
+            if let crop = cropRect, crop.isNull || crop.width < 8 || crop.height < 8 { cropRect = document.visibleRect }
             needsDisplay = true
         case .none:
             break
@@ -453,6 +478,7 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         let shift = event.modifierFlags.contains(.shift)
         switch event.keyCode {
         case 53: // Esc
+            finishDrag()
             if tool == .crop { cancelCrop() } else if !selection.isEmpty { selection = [] } else { drag = .none; needsDisplay = true }
         case 36, 76: // Return
             if tool == .crop { applyCrop() }
@@ -500,14 +526,14 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
     // MARK: Text
 
     private func beginNewText(at point: CGPoint) {
-        editingText = (nil, point, max(Self.textSize, width * 5), document)
+        editingText = (nil, point, max(Self.textSize, width * 5), color, document)
         showTextView(string: "", color: color)
     }
 
     private func beginEditingText(_ layer: ShotLayer) {
         guard case let .text(origin, string, size) = layer.shape else { return }
         selection = [layer.id]
-        editingText = (layer.id, origin, size, document)
+        editingText = (layer.id, origin, size, layer.color, document)
         showTextView(string: string, color: layer.color)
         needsDisplay = true
     }
@@ -562,10 +588,11 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
                 after.delete([id])
             } else {
                 layer.shape = .text(origin: editing.origin, string: string, fontSize: editing.fontSize)
+                layer.color = editing.color
                 after.update(layer)
             }
         } else if !trimmed.isEmpty {
-            let id = after.add(.text(origin: editing.origin, string: string, fontSize: editing.fontSize), color: color, width: width)
+            let id = after.add(.text(origin: editing.origin, string: string, fontSize: editing.fontSize), color: editing.color, width: width)
             selection = [id]
         }
         if after != editing.before {

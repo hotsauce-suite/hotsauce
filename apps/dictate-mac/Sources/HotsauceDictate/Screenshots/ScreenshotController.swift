@@ -31,6 +31,12 @@ final class ScreenshotController {
         overlay.onPick = { [weak self] display, selection in self?.keep(selection, of: display) }
         preview.onCopy = { [weak self] shot in self?.copy(shot) }
         preview.onEdit = { [weak self] shot in self?.edit(shot) }
+        // Quitting with an editor open saves it as closing it would.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                for editor in self?.editors.values.map({ $0 }) ?? [] { editor.window.close() }
+            }
+        }
     }
 
     /// Opens a capture in the editor (one window each), with its layers from last time.

@@ -246,7 +246,7 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         onShare?(png)
     }
 
-    /// The flattened, redacted picture: the only thing that leaves the editor.
+    /// The flattened, redacted picture: the only picture that leaves the editor.
     func flattened() -> Data? {
         ShotRenderer.exportPNG(canvas.document, source: shot.image, pixels: canvas.pixels)
     }
@@ -292,10 +292,12 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Copy Text (R13): Vision reads the crop of the untouched capture, off the main thread.
+    /// Copy Text (R13): Vision reads the crop of the untouched capture (not the arrows and text
+    /// drawn on it), with redactions blacked out so their text never reaches the clipboard. Off
+    /// the main thread.
     @objc func copyText() {
-        let visible = canvas.document.visibleRect
-        guard let image = shot.image.cropping(to: visible) else { return }
+        canvas.commitText()
+        guard let image = ShotRenderer.export(canvas.document.redactionsOnly, source: shot.image) else { return }
         flash("Reading…", hold: true)
         Task.detached(priority: .userInitiated) {
             let text = TextRecognition.read(image)

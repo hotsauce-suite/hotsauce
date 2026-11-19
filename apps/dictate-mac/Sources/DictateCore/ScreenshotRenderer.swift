@@ -27,8 +27,21 @@ public final class ShotPixels: @unchecked Sendable {
         self.bytes = bytes
     }
 
+    /// Averages already worked out, so a mosaic doesn't redo them on every redraw.
+    private struct Cell: Hashable { let x, y, width, height: Int }
+    private var averages: [Cell: ShotColor] = [:]
+
     /// The average colour of a whole-pixel rectangle (clamped to the image).
     func average(_ rect: CGRect) -> ShotColor {
+        let key = Cell(x: Int(rect.minX), y: Int(rect.minY), width: Int(rect.width), height: Int(rect.height))
+        if let known = averages[key] { return known }
+        let color = computeAverage(rect)
+        if averages.count > 20_000 { averages.removeAll() }
+        averages[key] = color
+        return color
+    }
+
+    private func computeAverage(_ rect: CGRect) -> ShotColor {
         let r = rect.intersection(CGRect(x: 0, y: 0, width: width, height: height))
         guard !r.isNull, r.width >= 1, r.height >= 1 else { return ShotColor(red: 0, green: 0, blue: 0) }
         var sum = (0.0, 0.0, 0.0)
@@ -136,19 +149,29 @@ public enum ShotRenderer {
             context.fill(rect)
             return
         }
-        let block = mosaicBlock(for: rect)
-        var y = rect.minY
-        while y < rect.maxY {
-            var x = rect.minX
-            let height = min(block, rect.maxY - y)
-            while x < rect.maxX {
-                let cell = CGRect(x: x, y: y, width: min(block, rect.maxX - x), height: height)
-                context.setFillColor(pixels.average(cell).cgColor)
-                context.fill(cell)
-                x += block
-            }
-            y += block
+        for cell in mosaicCells(rect) {
+            context.setFillColor(pixels.average(cell).cgColor)
+            context.fill(cell)
         }
+    }
+
+    /// The mosaic's cells: whole blocks across the region, with a thin leftover row or column
+    /// folded into its neighbour, so no cell is a sliver of a few raw pixels.
+    public static func mosaicCells(_ rect: CGRect) -> [CGRect] {
+        let block = mosaicBlock(for: rect)
+        func edges(_ start: CGFloat, _ end: CGFloat) -> [CGFloat] {
+            var cuts: [CGFloat] = [start]
+            var position = start + block
+            while position < end { cuts.append(position); position += block }
+            if cuts.count > 1, end - cuts[cuts.count - 1] < block / 2 { cuts.removeLast() }
+            return cuts + [end]
+        }
+        let xs = edges(rect.minX, rect.maxX), ys = edges(rect.minY, rect.maxY)
+        var cells: [CGRect] = []
+        for (y0, y1) in zip(ys, ys.dropFirst()) {
+            for (x0, x1) in zip(xs, xs.dropFirst()) { cells.append(CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)) }
+        }
+        return cells
     }
 
     /// Head length and half-width grow with the stroke, so a thick arrow keeps its shape.
