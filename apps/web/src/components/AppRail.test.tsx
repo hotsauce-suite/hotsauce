@@ -580,6 +580,11 @@ describe('the account menu (R6 to R10)', () => {
     await userEvent.click(within(menu).getByTestId('menu-theme-system'))
     expect(document.documentElement).not.toHaveAttribute('data-theme')
     expect(storedTheme()).toBe('system')
+    // Follow the sun (docs/PLAN-today-sky.md R9): light or dark by the sun.
+    await userEvent.click(within(menu).getByTestId('menu-theme-sun'))
+    expect(storedTheme()).toBe('sun')
+    expect(document.documentElement.getAttribute('data-theme')).toMatch(/^(light|dark)$/)
+    await userEvent.click(within(menu).getByTestId('menu-theme-system'))
   })
 
   it('R7: the menu opens on the theme switch, and Appearance in Settings follows it', async () => {
