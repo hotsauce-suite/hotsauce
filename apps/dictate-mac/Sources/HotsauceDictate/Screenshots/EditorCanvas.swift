@@ -43,6 +43,10 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
     var onToolChange: () -> Void = {}
     var onCopy: () -> Void = {}
     var onSave: (_ saveAs: Bool) -> Void = { _ in }
+    var onShareRequest: () -> Void = {}
+
+    /// File → Share Screenshot, through the responder chain to the editor in front.
+    @objc func shareScreenshot(_ sender: Any?) { onShareRequest() }
 
     private(set) var transform = ShotViewTransform(content: .zero, zoom: 1, origin: .zero)
     /// Until the person zooms or scrolls, a resize refits the picture.

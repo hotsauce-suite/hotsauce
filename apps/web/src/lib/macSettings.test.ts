@@ -7,6 +7,7 @@ import {
   hasMacSettings,
   type MacSettings,
   parseMacSettings,
+  parseScreenshotSettings,
   readMacSettings,
   setMacSetting,
 } from './macSettings'
@@ -34,6 +35,17 @@ const settingsArb: fc.Arbitrary<MacSettings> = fc.record({
   }),
   connected: fc.boolean(),
   account: fc.option(fc.emailAddress(), { nil: null }),
+  screenshots: fc.option(
+    fc.record({
+      shortcut: fc.constantFrom('⌥⇧4', '⌃⌥S', '⇧⌘F12'),
+      defaultShortcut: fc.constant('⌥⇧4'),
+      folder: fc.string({ minLength: 1 }),
+      copy: fc.boolean(),
+      save: fc.boolean(),
+      preview: fc.boolean(),
+    }),
+    { nil: null },
+  ),
 })
 
 describe('parseMacSettings', () => {
@@ -64,6 +76,32 @@ describe('parseMacSettings', () => {
       { ...defaultMacSettings(), microphoneChoice: 7 },
     ]
     for (const reply of bad) expect(parseMacSettings(reply)).toBeNull()
+  })
+})
+
+describe('the Screenshots group (docs/PLAN-screenshots.md R15)', () => {
+  it('is null from an app that predates it, and the rest of the page still reads', () => {
+    const { screenshots: _, ...older } = defaultMacSettings()
+    const parsed = parseMacSettings(older)
+    expect(parsed).not.toBeNull()
+    expect(parsed?.screenshots).toBeNull()
+    expect(parsed?.hotkey).toBe('rightOption')
+  })
+
+  it('hides just the group when it is malformed', () => {
+    const shots = defaultMacSettings().screenshots
+    for (const bad of [
+      'on',
+      { ...shots, shortcut: '' },
+      { ...shots, copy: 'yes' },
+      { ...shots, folder: 7 },
+      { ...shots, preview: undefined },
+    ]) {
+      expect(parseScreenshotSettings(bad)).toBeNull()
+      expect(
+        parseMacSettings({ ...defaultMacSettings(), screenshots: bad })?.screenshots,
+      ).toBeNull()
+    }
   })
 })
 
