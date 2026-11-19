@@ -1,6 +1,31 @@
 {
   "releases": [
     {
+      "version": "0.55.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Click the logo at the top of the left bar to widen it, so every icon has its name beside it. Click again to narrow it."
+        },
+        {
+          "text": "Rest the pointer on an app in the left bar to see what it is for and its shortcut."
+        },
+        {
+          "text": "Settings, music and feedback moved into the account menu at the bottom of the left bar, which also switches between light and dark and links to keyboard shortcuts and help."
+        },
+        {
+          "text": "Add a photo of yourself from the account menu or Settings."
+        },
+        {
+          "text": "The account menu shows which version you are running."
+        },
+        {
+          "text": "The account menu shows the Mac app's version too.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.54.0",
       "date": "2026-11-19",
       "notes": [
