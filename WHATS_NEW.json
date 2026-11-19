@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.56.1",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Files: a file that is set to delete itself shows the date on its row, with a Keep button to stop it."
+        }
+      ]
+    },
+    {
       "version": "0.56.0",
       "date": "2026-11-19",
       "notes": [
