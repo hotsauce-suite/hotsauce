@@ -9,7 +9,9 @@
 - Slice 3 (editor; R11 to R13) merged as #213. Tests in
   `apps/dictate-mac/Tests/DictateCoreTests/ScreenshotEditorTests.swift`. A Pixelate redaction was
   built and removed: averages of hidden pixels can be matched back to text.
-- Slice 4 (Share, Settings → This Mac; R14, R15) in progress. Help page
+- Slice 4 (Share, Settings → This Mac; R14, R15) merged as #215. Tests in
+  `apps/dictate-mac/Tests/DictateCoreTests/ScreenshotShareTests.swift` and
+  `apps/web/src/routes/settings/ThisMacPage.test.tsx`. Help page
   `site/public/help/screenshots.html`.
 - Not yet checked on a real screen by a person: live capture, the editor's mouse and keys, Share.
 
