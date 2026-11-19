@@ -4,6 +4,7 @@
 import { useNavigate } from 'react-router'
 import { boardsApi } from '../api/boards'
 import { notesBus } from '../apps/notes/useNotes'
+import { GUIDE } from '../guide/appGuide'
 import { boardUrl, DOCS_ROOT, docUrl } from '../lib/paths'
 import { chooseTheme } from '../lib/theme'
 import type { FindState } from '../routes/settings/SettingsSearch'
@@ -156,6 +157,18 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       keywords: ['walkthrough', 'welcome', 'help', 'onboarding', 'getting started', 'tips'],
       run: () => navigate(TOUR_REPLAY),
     },
+    // "What is Clips?" opens that app's card in Hotsauce 101 (docs/PLAN-tour-and-101.md H5).
+    ...GUIDE.map(
+      (entry): Command => ({
+        id: `guide-${entry.id}`,
+        title: `What is ${entry.name}? · Hotsauce 101`,
+        group: 'go',
+        icon: 'help',
+        keywords: ['explain', 'learn', 'guide', 'video', entry.line],
+        typedOnly: true,
+        run: () => navigate(`/settings/101#${entry.id}`),
+      }),
+    ),
     {
       id: 'go-agent-brief',
       title: 'Agent brief',

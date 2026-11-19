@@ -3,7 +3,7 @@
 ## Status
 
 2026-11-19: decisions settled with the owner (plan page https://claude.ai/artifact/P6cuHvEqMBaBK6BNfG1qUa;
-he accepted every recommendation, Q1 to Q10). Building. Slice 1 (server) done.
+he accepted every recommendation, Q1 to Q10). Building. Slices 1 to 3 done (server, the tour, Hotsauce 101 with For you and Tables added to hotsauce.work); slice 4 is checks, review and the Mac check.
 
 Asked for by the owner: "a tooltip walkthrough when the user logs in for the first time, on both web
 and desktop, and enable them to trigger it again from settings", and "a page in settings that's a
