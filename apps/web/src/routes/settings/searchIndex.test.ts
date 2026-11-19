@@ -45,7 +45,7 @@ describe('searching settings', () => {
   })
 
   it('ignores case, accents and curly quotes', () => {
-    expect(ids('APPEARANCE')).toEqual(['appearance'])
+    expect(ids('APPEARANCE')).toEqual(['appearance', 'today-sky'])
     expect(ids('notificátions')).toEqual(['notifications'])
     expect(ids('what’s new')).toEqual(ids("what's new"))
     expect(ids('whats new')[0]).toBe('whats-new')

@@ -20,6 +20,7 @@ export interface SettingEntry {
 
 const MAC = { page: 'This Mac', to: '/settings/mac', macOnly: true as const }
 const GENERAL = { page: 'General', to: '/settings' }
+const APPEARANCE = { page: 'Appearance', to: '/settings/appearance' }
 const CONNECTIONS = { page: 'Connections', to: '/settings/connections' }
 const APPS = { page: 'Apps', to: '/settings/apps' }
 const org = (page: string, path = '') => ({
@@ -184,7 +185,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   {
     id: 'appearance',
     title: 'Appearance',
-    ...GENERAL,
+    ...APPEARANCE,
     summary: 'Light, dark, or a theme of your own made from a description.',
     words: [
       'dark mode',
@@ -198,12 +199,16 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
       'fonts',
       'custom theme',
       'ai theme',
+      'ripple',
+      'animation',
+      'motion',
+      'click sound',
     ],
   },
   {
     id: 'today-sky',
     title: 'Today’s sky',
-    ...GENERAL,
+    ...APPEARANCE,
     summary:
       'The picture behind your greeting on Today: the sky with the sun or moon, a sun path, or none.',
     words: ['sun', 'moon', 'sunrise', 'sunset', 'sky', 'scene', 'today', 'animation', 'daylight'],

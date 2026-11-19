@@ -2,7 +2,7 @@ import { expect, test } from './fixtures'
 
 test('a member picks light or dark in Settings, and it sticks across reloads', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
-  await page.goto('/settings')
+  await page.goto('/settings/appearance')
   const html = page.locator('html')
   await expect(page.getByTestId('theme-system')).toBeChecked()
   await expect(html).not.toHaveAttribute('data-theme')
@@ -27,8 +27,9 @@ test('a member picks light or dark in Settings, and it sticks across reloads', a
   expect(await paper()).toBe(dark)
 })
 
-test('the Settings link shows a gear', async ({ page }) => {
+test('Settings in the account menu shows a gear', async ({ page }) => {
   await page.goto('/docs')
-  const path = await page.getByTestId('settings-link').first().locator('path').getAttribute('d')
+  await page.getByTestId('account-menu').click()
+  const path = await page.getByTestId('menu-settings').locator('path').getAttribute('d')
   expect(path).toMatch(/^M6\.74 3\.32/)
 })

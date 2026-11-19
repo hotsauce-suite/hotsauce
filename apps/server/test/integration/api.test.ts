@@ -146,6 +146,8 @@ describe('health and identity', () => {
         { name: 'alice', kind: 'personal', label: 'Personal' },
       ],
       settings: { idleCommitMs: 1500 },
+      // No profile photo yet (docs/PLAN-rail-account-menu.md, requirement 12).
+      photo: null,
     })
     const config = await services.git.readFile('alice', '.hearth/space.yaml')
     expect(parseSpaceConfig(config.content)).toMatchObject({ kind: 'personal', owner: ALICE })

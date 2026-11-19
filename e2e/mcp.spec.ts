@@ -40,7 +40,8 @@ test('a token made in Settings connects an MCP client that searches, reads and w
 }) => {
   const id = uid()
   await page.goto('/docs')
-  await page.getByTestId('settings-link').click()
+  await page.getByTestId('account-menu').click()
+  await page.getByTestId('menu-settings').click()
   await expect(page).toHaveURL(/\/settings$/)
   await page.getByTestId('settings-nav-connections').click()
   await expect(page).toHaveURL(/\/settings\/connections$/)

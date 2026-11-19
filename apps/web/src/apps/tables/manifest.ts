@@ -9,6 +9,7 @@ export const tablesApp: AppManifest = {
     return `${product()} Tables`
   },
   label: 'Tables',
+  about: 'Spreadsheets with formulas.',
   icon: 'table',
   codename: 'Tables',
   route: '/tables',

@@ -45,7 +45,8 @@ test('a new doc left right after its heading is typed still takes the name', asy
   await expect(page.getByTestId('editor-content')).toBeVisible()
   await page.keyboard.type(`Quick note ${id}`)
 
-  await page.getByTestId('settings-link').first().click()
+  await page.getByTestId('account-menu').click()
+  await page.getByTestId('menu-settings').click()
   await expect(page).toHaveURL(/\/settings$/)
   await expect
     .poll(async () => (await api.readFile(space, `docs/quick-note-${id}.md`))?.content ?? '')

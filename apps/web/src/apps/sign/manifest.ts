@@ -9,6 +9,7 @@ export const signApp: AppManifest = {
     return `${product()} Sign`
   },
   label: 'Sign',
+  about: 'Send documents to be signed.',
   icon: 'sign',
   codename: 'Sign',
   route: '/sign',

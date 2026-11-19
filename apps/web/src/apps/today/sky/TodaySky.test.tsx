@@ -107,7 +107,7 @@ describe('on Today', () => {
 
   it('R1: Settings → Appearance has the same choice', async () => {
     localStorage.setItem(SKY_SCENE_KEY, 'off')
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     const radio = await screen.findByTestId('settings-today-sky-sky')
     expect(screen.getByTestId('settings-today-sky-off')).toBeChecked()
     await userEvent.click(radio)

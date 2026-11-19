@@ -82,10 +82,11 @@ describe('Settings: access tokens', () => {
     expect(await tokensApi.list()).toEqual([])
   })
 
-  it('is linked from the sidebar', async () => {
-    renderApp('/docs')
-    const link = await screen.findByTestId('settings-link')
-    expect(link).toHaveAttribute('href', '/settings')
+  it('is linked from the account menu', async () => {
+    const { router } = renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-settings'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
   })
 })
 
@@ -256,7 +257,6 @@ describe('Settings: General, Apps, and the help strip', () => {
     const order = [
       'settings-account',
       'settings-device-label',
-      'theme-picker',
       'settings-notifications',
       'single-keys',
       'settings-weather',
@@ -270,8 +270,25 @@ describe('Settings: General, Apps, and the help strip', () => {
     }
     expect(screen.getByTestId('settings-device-label')).toHaveTextContent('On this device')
     // What moved to other pages isn't here any more.
-    for (const gone of ['settings-install', 'token-name', 'calendar-choice', 'mac-app'])
+    for (const gone of [
+      'settings-install',
+      'token-name',
+      'calendar-choice',
+      'mac-app',
+      'theme-picker',
+    ])
       expect(screen.queryByTestId(gone)).toBeNull()
+  })
+
+  it('gives Appearance a page of its own, next in the menu after General', async () => {
+    renderApp('/settings/appearance')
+    const page = await screen.findByTestId('settings-appearance')
+    expect(within(page).getByTestId('theme-picker')).toBeInTheDocument()
+    const nav = screen.getByTestId('settings-nav')
+    const labels = within(nav)
+      .getAllByRole('link')
+      .map((a) => a.textContent?.trim())
+    expect(labels.slice(0, 2)).toEqual(['General', 'Appearance'])
   })
 
   // G2: calendars first, then AI tools.

@@ -12,7 +12,7 @@ sunrise, sunset and the length of the day. Web and the Mac app (the app shows th
 
 ## Requirements
 - **R1** Three looks, per device: Sky (default), Sun path, Off. Picked in Edit Today and in
-  Settings → General → Today's sky; it applies at once. Off leaves Today as it was.
+  Settings → Appearance → Today's sky; it applies at once. Off leaves Today as it was.
   Tests: `sky/TodaySky.test.tsx` (on Today).
 - **R2** Sky colours for dawn, day, dusk and night, mixed into the theme's paper so text keeps its
   contrast and any theme (light, dark, a member's own) gets a matching sky. The sun sits at its

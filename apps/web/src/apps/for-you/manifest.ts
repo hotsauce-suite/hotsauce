@@ -5,6 +5,7 @@ export const forYouApp: AppManifest = {
   id: 'for-you',
   name: 'For you',
   label: 'For you',
+  about: 'Mentions, replies and tasks waiting for you.',
   icon: 'at',
   codename: 'For you',
   route: '/for-you',

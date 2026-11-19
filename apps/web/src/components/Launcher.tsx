@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
 import { allEntries, entryId, pinnedEntries, type RailEntry, savePins, usePins } from '../apps/pins'
 import type { AppId } from '../apps/registry'
+import { useRailTip } from '../rail/RailTip'
 import { useSession } from '../state/session'
 import { appHref } from './AppRail'
 import { Icon, type IconName } from './Icon'
@@ -13,7 +14,20 @@ import { usePinDrag } from './usePinDrag'
  * Its top row is the member's pinned apps; the pencil turns on editing, where a click pins or
  * unpins an app and the pinned ones drag (or Alt+arrow) into a new order.
  */
-export function LauncherButton({ active, className }: { active: AppId | null; className: string }) {
+export function LauncherButton({
+  active,
+  className,
+  wide = false,
+}: {
+  active: AppId | null
+  className: string
+  /** The wide rail: the icon beside its name. */
+  wide?: boolean
+}) {
+  const tip = useRailTip({
+    title: 'All apps',
+    about: 'Every app, and the ones you pin to this menu.',
+  })
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   // Focus goes back to the button, except when an app was opened: then it's that page's.
@@ -27,19 +41,24 @@ export function LauncherButton({ active, className }: { active: AppId | null; cl
         type="button"
         ref={buttonRef}
         aria-label="All apps"
-        title="All apps"
         aria-haspopup="dialog"
         aria-expanded={anchor !== null}
         data-testid="launcher-button"
+        {...tip.handlers}
         // While open, the popover's outside-click close would race this button's toggle.
-        onPointerDown={(event) => anchor && event.stopPropagation()}
+        onPointerDown={(event) => {
+          tip.handlers.onPointerDown()
+          if (anchor) event.stopPropagation()
+        }}
         onClick={(event) =>
           anchor ? close() : setAnchor(event.currentTarget.getBoundingClientRect())
         }
         className={className}
       >
-        <Icon name="apps" className="size-6.25" />
+        <Icon name="apps" className={wide ? 'size-5.5' : 'size-6.25'} />
+        {wide ? <span className="truncate text-sm font-medium">All apps</span> : null}
       </button>
+      {anchor ? null : tip.node}
       {anchor ? <Launcher anchor={anchor} active={active} onClose={close} /> : null}
     </>
   )

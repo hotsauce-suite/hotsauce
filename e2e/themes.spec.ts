@@ -5,7 +5,7 @@ import { expect, test } from './fixtures'
 test('a theme made from a description restyles the app and stays after a reload', async ({
   page,
 }) => {
-  await page.goto('/settings')
+  await page.goto('/settings/appearance')
   const html = page.locator('html')
   const paper = () =>
     page.evaluate(() =>

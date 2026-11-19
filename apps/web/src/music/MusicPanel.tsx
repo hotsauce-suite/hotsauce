@@ -1,5 +1,5 @@
 // The music controls (docs/PLAN-background-music.md): play or pause, the track and the volume.
-// Shown in a small panel beside the rail's music button, and in the Apps sheet on phones.
+// Shown in a small panel under Music in the account menu, and in the Apps sheet on phones.
 
 import { Icon } from '../components/Icon'
 import { music } from './player'

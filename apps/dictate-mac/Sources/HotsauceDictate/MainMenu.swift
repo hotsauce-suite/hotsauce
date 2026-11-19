@@ -64,6 +64,9 @@ extension AppDelegate: NSMenuItemValidation {
             go.addItem(item)
         }
 
+        // Background music (docs/PLAN-background-music.md M9): filled when it opens.
+        main.addItem(withTitle: "Music", action: nil, keyEquivalent: "").submenu = musicMenu.makeMenu()
+
         let window = submenu("Window", in: main)
         window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         window.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")

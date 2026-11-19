@@ -73,7 +73,25 @@ const MIGRATIONS = [
     PRIMARY KEY (user, id)
   );
   `,
+  `
+  -- Each member's profile photo (docs/PLAN-rail-account-menu.md): a small square image the web app
+  -- made, its type as the server read it from the bytes, and a tag that changes with the photo.
+  CREATE TABLE photos (
+    user       TEXT PRIMARY KEY,
+    type       TEXT NOT NULL,
+    bytes      BLOB NOT NULL,
+    tag        TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  `,
 ]
+
+/** A member's profile photo as stored. */
+export interface PhotoRow {
+  type: string
+  bytes: Buffer
+  tag: string
+}
 
 /** A saved theme as stored; `theme` is JSON. */
 export interface ThemeRow {
@@ -210,6 +228,26 @@ export class AccountStore {
     this.#q.setPhonePins.run(user, JSON.stringify(apps))
   }
 
+  /** The tag of the member's photo (it changes with the photo), or null without one. */
+  photoTag(user: string): string | null {
+    return this.#q.photoTag.get(user)?.tag ?? null
+  }
+
+  getPhoto(user: string): PhotoRow | null {
+    return this.#q.getPhoto.get(user) ?? null
+  }
+
+  /** Replaces the member's photo; returns its tag. */
+  setPhoto(user: string, type: string, bytes: Uint8Array, now: Date): string {
+    const tag = createHash('sha256').update(bytes).digest('hex').slice(0, 16)
+    this.#q.setPhoto.run(user, type, Buffer.from(bytes), tag, now.toISOString())
+    return tag
+  }
+
+  deletePhoto(user: string): void {
+    this.#q.deletePhoto.run(user)
+  }
+
   /** The member's themes, newest first. `theme` is the stored JSON. */
   listThemes(user: string): ThemeRow[] {
     return this.#q.listThemes.all(user)
@@ -311,6 +349,14 @@ function prepare(db: Database.Database) {
     addOffer: db.prepare<[string, string]>(
       'INSERT OR IGNORE INTO pin_offers (user, app) VALUES (?, ?)',
     ),
+    photoTag: db.prepare<[string], { tag: string }>('SELECT tag FROM photos WHERE user = ?'),
+    getPhoto: db.prepare<[string], PhotoRow>('SELECT type, bytes, tag FROM photos WHERE user = ?'),
+    setPhoto: db.prepare<[string, string, Buffer, string, string]>(`
+      INSERT INTO photos (user, type, bytes, tag, updated_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (user) DO UPDATE SET
+        type = excluded.type, bytes = excluded.bytes, tag = excluded.tag,
+        updated_at = excluded.updated_at`),
+    deletePhoto: db.prepare<[string]>('DELETE FROM photos WHERE user = ?'),
     listThemes: db.prepare<[string], ThemeRow>(`
       SELECT id, name, prompt, theme, created_at AS createdAt FROM themes
       WHERE user = ? ORDER BY created_at DESC, id DESC`),

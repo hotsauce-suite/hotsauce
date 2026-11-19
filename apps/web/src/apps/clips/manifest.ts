@@ -9,6 +9,7 @@ export const clipsApp: AppManifest = {
     return `${product()} Clips`
   },
   label: 'Clips',
+  about: 'Record your screen and share it with a link.',
   icon: 'video',
   codename: 'Clips',
   route: '/clips',

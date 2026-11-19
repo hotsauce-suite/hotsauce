@@ -9,6 +9,7 @@ export const briefcastApp: AppManifest = {
     return `${product()} Briefcast`
   },
   label: 'Briefcast',
+  about: 'A short audio briefing made from your work.',
   icon: 'headphones',
   codename: 'Briefcast',
   route: '/briefcast',

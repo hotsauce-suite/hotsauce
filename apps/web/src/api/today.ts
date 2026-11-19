@@ -103,6 +103,11 @@ export const todayApi = {
       place ? { query: { lat: String(place.lat), lon: String(place.lon) } } : {},
     ),
   places: (q: string) => request<{ places: WeatherPlace[] }>('/api/today/places', { query: { q } }),
+  /** The named place a shared location is in, or null where nothing is named. */
+  placeAt: (lat: number, lon: number) =>
+    request<{ place: WeatherPlace | null }>('/api/today/places/at', {
+      query: { lat: String(lat), lon: String(lon) },
+    }),
   /** The doc Getting started opens for its last step, or null (docs/PLAN-getting-started.md H1). */
   startHere: () => request<{ doc: StartHereDoc | null }>('/api/today/start-here'),
   /** `link` is a doc's link or address as pasted; null clears it. Admins only. */

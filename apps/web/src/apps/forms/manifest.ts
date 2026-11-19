@@ -9,6 +9,7 @@ export const formsApp: AppManifest = {
     return `${product()} Forms`
   },
   label: 'Forms',
+  about: 'Build a form and collect the answers.',
   icon: 'form',
   codename: 'Forms',
   route: '/forms',

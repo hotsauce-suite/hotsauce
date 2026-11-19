@@ -8,6 +8,7 @@ export const todayApp: AppManifest = {
     return `${product()} Today`
   },
   label: 'Today',
+  about: "Your day on one page: calendar, tasks, weather and what's new.",
   icon: 'today',
   codename: 'Today',
   route: '/today',
