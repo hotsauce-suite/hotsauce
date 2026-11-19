@@ -613,6 +613,49 @@ describe('the account menu (R6 to R10)', () => {
     expect(screen.queryByRole('menu', { name: 'Account' })).toBeNull()
   })
 
+  it('R11: What’s new and Edit pinned apps are in the menu, and there is no Sign out', async () => {
+    const { router } = renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    const menu = screen.getByRole('menu', { name: 'Account' })
+    expect(within(menu).queryByText(/sign out/i)).toBeNull()
+
+    await userEvent.click(screen.getByTestId('menu-edit-pins'))
+    expect(screen.queryByRole('menu', { name: 'Account' })).toBeNull()
+    // The app grid opens ready to change the pins.
+    const launcher = await screen.findByTestId('launcher')
+    expect(launcher).toHaveAttribute('data-editing', 'true')
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(screen.getByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-whats-new'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/whats-new'))
+  })
+
+  it('R11: Get the Mac app shows on a Mac in a browser, and not inside the Mac app or elsewhere', async () => {
+    const agent = vi.spyOn(navigator, 'userAgent', 'get')
+    agent.mockReturnValue('Mozilla/5.0 (X11; Linux x86_64)')
+    renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    expect(screen.queryByTestId('menu-mac-app')).toBeNull()
+    cleanup()
+
+    agent.mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')
+    Object.assign(window, { hotsauceMacApp: { version: '0.51.0', build: '131' } })
+    try {
+      renderApp('/docs')
+      await userEvent.click(await screen.findByTestId('account-menu'))
+      expect(screen.queryByTestId('menu-mac-app')).toBeNull()
+      cleanup()
+    } finally {
+      delete (window as { hotsauceMacApp?: unknown }).hotsauceMacApp
+    }
+
+    const { router } = renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-mac-app'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/apps'))
+  })
+
   it('R10: shows the version, which opens What’s new; the Mac app adds its own', async () => {
     Object.assign(window, { hotsauceMacApp: { version: '0.51.0', build: '131' } })
     try {

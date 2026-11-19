@@ -285,4 +285,38 @@ describe('ClerkAuth.createSignInTicket', () => {
     expect(await auth.createSignInTicket('user_1')).toBe('tkt_123')
     expect(createSignInToken).toHaveBeenCalledWith({ userId: 'user_1', expiresInSeconds: 60 })
   })
+
+  it("tells who asked about each member's sign-in picture, and nothing for a placeholder", async () => {
+    const seen: [string, string | null][] = []
+    const withPhoto = fakeClerk({
+      userId: 'u1',
+      user: user('jo@example.test', { imageUrl: 'https://img.example/jo', hasImage: true }),
+    })
+    const auth = new ClerkAuth({
+      clerk: withPhoto.clerk,
+      allowedDomains: ['example.test'],
+      adminEmails: [],
+      authorizedParties: [],
+      onPhoto: (email, url) => seen.push([email, url]),
+    })
+    await auth.authenticate(request())
+    const placeholder = fakeClerk({
+      userId: 'u2',
+      user: user('al@example.test', { imageUrl: 'https://img.example/default', hasImage: false }),
+    })
+    await new ClerkAuth({
+      clerk: placeholder.clerk,
+      allowedDomains: ['example.test'],
+      adminEmails: [],
+      authorizedParties: [],
+      onPhoto: (email, url) => {
+        seen.push([email, url])
+        throw new Error('a photo never stops a sign-in')
+      },
+    }).authenticate(request())
+    expect(seen).toEqual([
+      ['jo@example.test', 'https://img.example/jo'],
+      ['al@example.test', null],
+    ])
+  })
 })

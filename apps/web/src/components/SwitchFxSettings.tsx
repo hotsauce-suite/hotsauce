@@ -1,3 +1,4 @@
+import { setDelight, useDelight } from '../lib/delight'
 import { writeSwitchFx } from '../lib/switchFx'
 import { useSwitchFxPrefs } from './useSwitchFx'
 
@@ -38,6 +39,7 @@ function Switch({
 
 export function SwitchFxSettings() {
   const prefs = useSwitchFxPrefs()
+  const delight = useDelight()
   return (
     <div data-testid="switch-fx-settings" className="mt-6 grid gap-2">
       <Switch
@@ -53,6 +55,14 @@ export function SwitchFxSettings() {
         checked={prefs.sound}
         testId="switch-fx-sound"
         onChange={(sound) => writeSwitchFx({ sound })}
+      />
+      {/* The pepper and the logo's wobble (docs/PLAN-rail-account-menu.md, requirement 17). */}
+      <Switch
+        title="Pepper in the left bar"
+        detail="A small pepper keeps you company at the bottom of the left bar and hops when you finish a task or a recording, and the logo wobbles under your pointer. Movement is skipped when your device is set to reduce motion."
+        checked={delight}
+        testId="delight-switch"
+        onChange={setDelight}
       />
     </div>
   )

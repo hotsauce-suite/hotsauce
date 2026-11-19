@@ -23,11 +23,15 @@ const WEBP = Uint8Array.from([
   ...Buffer.from('VP8 '),
 ])
 
+/** What the member's sign-in has for a picture; null for none. */
+let signInPicture: Uint8Array | null = null
+
 let root: string
 let services: Services
 let app: ReturnType<typeof createApp>
 
 beforeEach(async () => {
+  signInPicture = null
   root = await makeTempDir('hotsauce-photo-')
   const config: Config = loadConfig({
     NODE_ENV: 'test',
@@ -37,7 +41,7 @@ beforeEach(async () => {
     LOCAL_HOST_DIR: join(root, 'remotes'),
     ALLOWED_EMAIL_DOMAINS: 'acme.example',
   })
-  services = createServices(config, {})
+  services = createServices(config, { photoFetch: async () => signInPicture })
   await services.spaces.ensureTeamSpace()
   app = createApp(services)
 })
@@ -140,5 +144,33 @@ describe('profile photos', () => {
       headers: as(ALICE),
     })
     expect(res.status).toBe(404)
+  })
+
+  it('R14: the sign-in picture stands in until an upload, and comes back when the upload is removed', async () => {
+    signInPicture = JPEG
+    await services.signInPhotos.offer(ALICE, 'https://img.example/alice')
+    const first = (await me()).photo
+    expect(first).toMatch(/photo\?v=/)
+    const got = await app.request(first as string, { headers: as(BOB) })
+    expect(new Uint8Array(await got.arrayBuffer())).toEqual(JPEG)
+
+    const { photo: own } = (await (await put(PNG, 'image/png')).json()) as { photo: string }
+    expect(own).not.toBe(first)
+    // Sign-in saying so again changes nothing while her own photo is there.
+    await services.signInPhotos.offer(ALICE, 'https://img.example/alice')
+    expect((await me()).photo).toBe(own)
+
+    const res = await app.request('/api/me/photo', { method: 'DELETE', headers: as(ALICE) })
+    expect(await res.json()).toEqual({ photo: first })
+    expect((await me()).photo).toBe(first)
+  })
+
+  it('R15: members can see who has a photo, and nobody else can', async () => {
+    const list = async (user?: string) =>
+      app.request('/api/members/photos', user ? { headers: as(user) } : {})
+    expect(await (await list(BOB)).json()).toEqual({ photos: {} })
+    const { photo } = (await (await put(PNG, 'image/png')).json()) as { photo: string }
+    expect(await (await list(BOB)).json()).toEqual({ photos: { [ALICE]: photo } })
+    expect((await list()).status).toBe(401)
   })
 })

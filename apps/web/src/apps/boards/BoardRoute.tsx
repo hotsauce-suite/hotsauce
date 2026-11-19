@@ -8,6 +8,7 @@ import { ItemStatus } from '../../components/ItemStatus'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
 import { ShareButton } from '../../components/ShareButton'
+import { PersonPhoto } from '../../profile/MemberFace'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader } from '../meetings/components/common'
 import { BoardCanvas, type BoardCanvasHandle } from './BoardCanvas'
@@ -202,13 +203,14 @@ export default function BoardRoute() {
                     key={p.id}
                     role="img"
                     aria-label={`${p.name} is here`}
-                    className="inline-flex size-6 items-center justify-center rounded-full border-2 border-paper-raised text-[10px] font-semibold"
+                    className="relative inline-flex size-6 items-center justify-center rounded-full border-2 border-paper-raised text-[10px] font-semibold"
                     style={{
                       background: peerColor(p.email).background,
                       color: peerColor(p.email).stroke,
                     }}
                   >
                     {initials(p.name)}
+                    <PersonPhoto email={p.email} />
                   </span>
                 ))}
                 {peers.length > 5 ? (

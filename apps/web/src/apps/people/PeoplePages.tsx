@@ -24,6 +24,7 @@ import { ListBar, ListColumn } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { useListKeys } from '../../keyboard/listKeys'
 import { meetingUrl, taskUrl } from '../../lib/paths'
+import { PersonPhoto } from '../../profile/MemberFace'
 import { MeetingsPageHeader } from '../meetings/components/common'
 import { dayLabel, timeLabel } from '../meetings/format'
 
@@ -170,9 +171,10 @@ function Avatar({ person, size = 'size-9' }: { person: PersonSummary; size?: str
   return (
     <span
       aria-hidden="true"
-      className={`${size} inline-flex shrink-0 items-center justify-center rounded-full bg-ember-wash font-medium text-ember-strong text-xs`}
+      className={`${size} relative inline-flex shrink-0 items-center justify-center rounded-full bg-ember-wash font-medium text-ember-strong text-xs`}
     >
       {initials(person)}
+      <PersonPhoto email={person.email} />
     </span>
   )
 }

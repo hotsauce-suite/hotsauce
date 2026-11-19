@@ -14,6 +14,9 @@ import { usePinDrag } from './usePinDrag'
  * Its top row is the member's pinned apps; the pencil turns on editing, where a click pins or
  * unpins an app and the pinned ones drag (or Alt+arrow) into a new order.
  */
+/** Sent on `window` to open the app grid ready to change the pins (the account menu's row). */
+export const EDIT_PINS = 'hotsauce:edit-pins'
+
 export function LauncherButton({
   active,
   className,
@@ -30,9 +33,21 @@ export function LauncherButton({
   })
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const [editFirst, setEditFirst] = useState(false)
+  useEffect(() => {
+    const edit = () => {
+      const button = buttonRef.current
+      if (!button) return
+      setEditFirst(true)
+      setAnchor(button.getBoundingClientRect())
+    }
+    window.addEventListener(EDIT_PINS, edit)
+    return () => window.removeEventListener(EDIT_PINS, edit)
+  }, [])
   // Focus goes back to the button, except when an app was opened: then it's that page's.
   const close = (restoreFocus = true) => {
     setAnchor(null)
+    setEditFirst(false)
     if (restoreFocus) buttonRef.current?.focus()
   }
   return (
@@ -59,7 +74,9 @@ export function LauncherButton({
         {wide ? <span className="truncate text-sm font-medium">All apps</span> : null}
       </button>
       {anchor ? null : tip.node}
-      {anchor ? <Launcher anchor={anchor} active={active} onClose={close} /> : null}
+      {anchor ? (
+        <Launcher anchor={anchor} active={active} onClose={close} editFirst={editFirst} />
+      ) : null}
     </>
   )
 }
@@ -68,15 +85,18 @@ function Launcher({
   anchor,
   active,
   onClose,
+  editFirst = false,
 }: {
   anchor: DOMRect
   active: AppId | null
   onClose: (restoreFocus?: boolean) => void
+  /** Opens already changing the pins. */
+  editFirst?: boolean
 }) {
   const location = useLocation()
   const session = useSession()
   const saved = usePins()
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(editFirst)
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose

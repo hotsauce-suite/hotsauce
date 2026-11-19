@@ -277,6 +277,13 @@ function createHandlers(
       mockPhotos.delete(user.email)
       return HttpResponse.json({ photo: null })
     }),
+    http.get('/api/members/photos', ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const photos: Record<string, string> = {}
+      for (const email of mockPhotos.keys()) photos[email] = mockPhotoUrl(email) as string
+      return HttpResponse.json({ photos })
+    }),
     http.get('/api/members/:email/photo', ({ request, params }) => {
       const user = principal(request)
       if (user instanceof Response) return user

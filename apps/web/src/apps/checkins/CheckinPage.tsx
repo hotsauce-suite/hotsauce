@@ -16,6 +16,7 @@ import { Icon } from '../../components/Icon'
 import { readingColumn } from '../../components/ItemColumn'
 import { MenuItem } from '../../components/Menu'
 import { MoreMenu } from '../../components/PageHeader'
+import { PersonFace } from '../../profile/MemberFace'
 import { inputClass } from '../../routes/org/fields'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { CheckinForm } from './CheckinForm'
@@ -392,6 +393,11 @@ function AnswerCard({
       data-testid="checkin-answer-card"
     >
       <div className="mb-1 flex items-baseline gap-2">
+        <PersonFace
+          name={answer.name}
+          email={answer.email}
+          className="size-6 self-center text-[0.625rem]"
+        />
         <span className="font-medium text-ink">{answer.mine ? 'You' : answer.name}</span>
         <span className="text-xs text-ink-faint">
           {whenLabel(answer.submitted)}

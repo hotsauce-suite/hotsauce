@@ -1,6 +1,7 @@
 // Client for `/api/tasks` (ARCHITECTURE §12.3). The shapes are the server's: TaskView is §12.2.
 
 import type { ParsedTask, TaskSource } from '@hotsauce/format'
+import { cheer } from '../lib/delight'
 import { request } from './client'
 import type { MeetingActionItems } from './types'
 
@@ -155,7 +156,13 @@ export const tasksApi = {
     }),
 
   complete: (space: string, id: string, tz: string) =>
-    request<TaskView>(`${one(space, id)}/complete`, { method: 'POST', json: { tz } }),
+    request<TaskView>(`${one(space, id)}/complete`, { method: 'POST', json: { tz } }).then(
+      (task) => {
+        // Something got done: the pepper in the left bar hops (lib/delight.ts).
+        cheer()
+        return task
+      },
+    ),
 
   reopen: (space: string, id: string) =>
     request<TaskView>(`${one(space, id)}/reopen`, { method: 'POST', json: {} }),

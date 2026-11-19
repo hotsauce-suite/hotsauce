@@ -1,3 +1,4 @@
+import { useMemberPhoto } from './memberPhotos'
 import { usePhotoSrc } from './photo'
 
 /** Initials for a face: "Ada Lovelace" → "AL"; the email's first letter without a name. */
@@ -33,6 +34,46 @@ export function MemberFace({
       className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-ash-strong font-semibold text-paper-raised ${className}`}
     >
       {src ? <img src={src} alt="" className="size-full object-cover" /> : initials(name, email)}
+    </span>
+  )
+}
+
+/**
+ * The photo of whoever has this email, over whatever stands for them without one (their
+ * initials, in the colours of the place they are shown). Fills its parent, which sets the size
+ * and the round shape.
+ */
+export function PersonPhoto({ email }: { email: string | null | undefined }) {
+  const src = usePhotoSrc(useMemberPhoto(email))
+  if (!src) return null
+  return (
+    <img
+      src={src}
+      alt=""
+      data-testid="person-photo"
+      className="absolute inset-0 size-full rounded-full object-cover"
+    />
+  )
+}
+
+/** A small face beside a name (a comment, a check-in answer): photo, or initials. */
+export function PersonFace({
+  name,
+  email,
+  className = 'size-5 text-[0.5625rem]',
+}: {
+  name: string | undefined
+  email: string | undefined
+  className?: string
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="person-face"
+      className={`relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-ash-strong font-semibold text-paper-raised ${className}`}
+    >
+      {initials(name, email)}
+      <PersonPhoto email={email} />
     </span>
   )
 }
