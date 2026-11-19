@@ -42,7 +42,7 @@ export function SwitchFxSettings() {
     <div data-testid="switch-fx-settings" className="mt-6 grid gap-2">
       <Switch
         title="Ripple when switching tools"
-        detail="A soft ripple spreads from your click when you open another tool. Skipped when your device is set to reduce motion."
+        detail="A liquid ripple runs from your click across the window when you open another tool. Skipped when your device is set to reduce motion."
         checked={prefs.ripple}
         testId="switch-fx-ripple"
         onChange={(ripple) => writeSwitchFx({ ripple })}

@@ -12,6 +12,8 @@ function Harness({ first }: { first: string | null }) {
   return null
 }
 
+const centreX = (el: HTMLElement) =>
+  Number.parseFloat(el.style.left) + Number.parseFloat(el.style.width) / 2
 const ripples = () => document.querySelectorAll('[data-testid="switch-ripple"]')
 
 beforeEach(() => localStorage.removeItem(SWITCH_FX_KEY))
@@ -29,7 +31,7 @@ describe('useSwitchFx', () => {
     document.dispatchEvent(new MouseEvent('pointerdown', { clientX: 30, clientY: 200 }))
     act(() => setApp('meetings'))
     expect(ripples()).toHaveLength(1)
-    expect((ripples()[0] as HTMLElement).style.left).toBe(`${30 - 180}px`)
+    expect(centreX(ripples()[0] as HTMLElement)).toBeCloseTo(30)
   })
 
   it('does not ripple coming back to the same tool from Settings', () => {
@@ -52,7 +54,7 @@ describe('useSwitchFx', () => {
     document.dispatchEvent(new MouseEvent('pointerdown', { clientX: 300, clientY: 300 }))
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }))
     act(() => setApp('tasks'))
-    expect((ripples()[0] as HTMLElement).style.left).toBe(`${25 - 180}px`)
+    expect(centreX(ripples()[0] as HTMLElement)).toBeCloseTo(25)
     icon.remove()
   })
 
