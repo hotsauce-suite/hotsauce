@@ -2,11 +2,13 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { secondaryButton } from '../../apps/meetings/components/common'
 import { product } from '../../brand/product'
+import { chordFromKey, chordRefusal } from '../../lib/macScreenshotShortcut'
 import {
   HISTORY_DAYS,
   type HistoryDays,
   HOTKEYS,
   type HotkeyId,
+  type MacScreenshotSettings,
   type MacSettingKey,
   type MacSettings,
   type MacSettingsAction,
@@ -87,12 +89,15 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
     }
   }, [bridge, take])
 
-  const run = async (ask: () => Promise<MacSettings | null>) => {
-    if (busyRef.current) return
+  /** The Mac's answer, or null when it didn't answer or another change was under way. */
+  const run = async (ask: () => Promise<MacSettings | null>): Promise<MacSettings | null> => {
+    if (busyRef.current) return null
     busyRef.current = true
     setBusy(true)
     try {
-      take(await ask(), 'change')
+      const next = await ask()
+      take(next, 'change')
+      return next
     } finally {
       busyRef.current = false
       setBusy(false)
@@ -213,6 +218,10 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
           onChange={(v) => void change('edgeGlow', v)}
         />
       </Section>
+
+      {settings.screenshots ? (
+        <ScreenshotsSection shots={settings.screenshots} busy={busy} change={change} act={act} />
+      ) : null}
 
       <Section id="meetings" title="Meetings">
         <SwitchRow
@@ -362,6 +371,142 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
         </Row>
       </Section>
     </div>
+  )
+}
+
+/**
+ * Screenshots (docs/PLAN-screenshots.md R15): the shortcut, recorded by pressing it; the folder;
+ * and what happens after a capture. Shown only by a Mac app that reports them.
+ */
+function ScreenshotsSection({
+  shots,
+  busy,
+  change,
+  act,
+}: {
+  shots: MacScreenshotSettings
+  busy: boolean
+  change: <K extends MacSettingKey>(
+    key: K,
+    value: MacSettingValues[K],
+  ) => Promise<MacSettings | null>
+  act: (action: MacSettingsAction) => Promise<MacSettings | null>
+}) {
+  const [recording, setRecording] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const record = (e: React.KeyboardEvent) => {
+    if (!recording) return
+    // Tab on its own still moves on, so the keyboard is never trapped here.
+    if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      setRecording(false)
+      return
+    }
+    e.preventDefault()
+    if (e.key === 'Escape') {
+      setRecording(false)
+      setProblem(null)
+      return
+    }
+    const chord = chordFromKey(e)
+    if (!chord) return // modifiers only so far
+    const refusal = chordRefusal(chord)
+    if (refusal) {
+      setProblem(refusal)
+      return
+    }
+    setRecording(false)
+    setProblem(null)
+    if (chord === shots.shortcut) return
+    void change('screenshotShortcut', chord).then((next) => {
+      // The Mac has the last word: say so if it kept the old shortcut.
+      const kept = next?.screenshots?.shortcut
+      if (kept && kept !== chord) setProblem(`That shortcut can’t be used, so it’s still ${kept}.`)
+    })
+  }
+
+  return (
+    <Section id="screenshots" title="Screenshots">
+      <Row
+        label="Screenshot shortcut"
+        hint="Press it in any app, then drag, click a window, or click the desktop. Press it again to stop."
+      >
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            data-testid="mac-screenshot-shortcut"
+            aria-label={
+              recording
+                ? 'Press the new screenshot shortcut'
+                : `Screenshot shortcut ${shots.shortcut}. Change`
+            }
+            aria-pressed={recording}
+            aria-disabled={busy}
+            onClick={() => {
+              setProblem(null)
+              setRecording((r) => !r)
+            }}
+            onKeyDown={record}
+            onBlur={() => setRecording(false)}
+            className={`${secondaryButton} h-9 min-w-24 font-mono ${recording ? 'ring-2 ring-ember' : ''}`}
+          >
+            {recording ? 'Press keys…' : shots.shortcut}
+          </button>
+          {shots.shortcut !== shots.defaultShortcut ? (
+            <ActionButton action="resetScreenshotShortcut" busy={busy} onAct={act}>
+              Reset to {shots.defaultShortcut}
+            </ActionButton>
+          ) : null}
+        </div>
+      </Row>
+      {problem ? (
+        <p
+          role="alert"
+          data-testid="mac-screenshot-shortcut-problem"
+          className="border-ash border-t px-4 py-2 text-sm text-ember"
+        >
+          {problem}
+        </p>
+      ) : null}
+      <Row label="Save screenshots to" hint={shots.folder} testId="mac-screenshot-folder">
+        <div className="flex shrink-0 items-center gap-2">
+          <ActionButton
+            action="chooseScreenshotFolder"
+            busy={busy}
+            onAct={act}
+            label="Choose the screenshots folder"
+          >
+            Choose…
+          </ActionButton>
+          <ActionButton action="showScreenshotFolder" busy={busy} onAct={act}>
+            Show in Finder
+          </ActionButton>
+        </div>
+      </Row>
+      <SwitchRow
+        id="screenshotCopy"
+        label="Copy to the clipboard"
+        hint="Ready to paste the moment you take it."
+        on={shots.copy}
+        busy={busy}
+        onChange={(v) => void change('screenshotCopy', v)}
+      />
+      <SwitchRow
+        id="screenshotSave"
+        label="Save to the folder"
+        on={shots.save}
+        busy={busy}
+        onChange={(v) => void change('screenshotSave', v)}
+      />
+      <SwitchRow
+        id="screenshotPreview"
+        label="Show the preview"
+        hint="A small preview in the corner for a few seconds, with Edit, Copy, Share and Pin."
+        on={shots.preview}
+        busy={busy}
+        onChange={(v) => void change('screenshotPreview', v)}
+      />
+    </Section>
   )
 }
 

@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var controller = DictationController(settings: settings, history: historyStore)
     private lazy var monitor = HotkeyMonitor(hotkey: settings.hotkey)
     lazy var screenshots = ScreenshotController()
+    lazy var recentScreenshotsMenu = RecentScreenshotsMenu { [unowned self] in self.screenshots }
     private let onboarding = OnboardingWindow()
     /// The setup window's Location button: asks macOS the way Today's weather does.
     private let setupLocation = LocationService()
@@ -98,6 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         monitor.screenshotShortcut = screenshots.shortcut
         monitor.screenshotHandler = { [weak self] key in self?.screenshots.handle(key) ?? false }
         screenshots.showMessage = { [weak self] in self?.controller.showMessage($0) }
+        screenshots.sharePage = { [weak self] name, png in await self?.suite.shareScreenshot(name: name, png: png) }
+        screenshots.suiteHost = { [weak self] in self?.suite.server?.host }
         startMonitor()
 
         onboarding.model.connect = { [weak self] code, done in self?.connect(code: code, fromLink: false, done: done) }
@@ -287,6 +290,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 case let .microphone(uid):
                     // Only one this Mac has now; anything else keeps the choice as it was.
                     if uid == nil || AudioInputs.all().contains(where: { $0.id == uid }) { self.settings.microphoneUID = uid }
+                case .screenshotShortcut, .screenshotCopy, .screenshotSave, .screenshotPreview:
+                    self.screenshots.apply(change)
+                    self.monitor.screenshotShortcut = self.screenshots.shortcut
                 }
                 answer()
             case let .action(action):
@@ -319,6 +325,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 case .disconnect:
                     model.disconnect()
                     answer()
+                case .resetScreenshotShortcut, .chooseScreenshotFolder, .showScreenshotFolder:
+                    self.screenshots.perform(action) {
+                        self.monitor.screenshotShortcut = self.screenshots.shortcut
+                        answer()
+                    }
                 }
             }
         }
@@ -328,7 +339,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func macSettingsSnapshot(_ done: @escaping (MacSettingsBridge.Snapshot) -> Void) {
         Permissions.notificationsState { [weak self] notifications in
             guard let self else { return }
-            done(MacSettingsBridge.Snapshot(
+            var snapshot = MacSettingsBridge.Snapshot(
                 hotkey: self.settings.hotkey,
                 mode: self.settings.mode,
                 edgeGlow: self.settings.edgeGlow,
@@ -347,7 +358,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 notifications: notifications,
                 connected: ConnectionStore.connection() != nil,
                 account: ConnectionStore.connection()?.account
-            ))
+            )
+            snapshot.screenshots = self.screenshots.settingsSnapshot
+            done(snapshot)
         }
     }
 

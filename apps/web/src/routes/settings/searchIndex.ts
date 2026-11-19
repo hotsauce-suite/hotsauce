@@ -61,6 +61,27 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     words: ['hotkey', 'key', 'option', 'command', 'fn', 'globe', 'control', 'shift'],
   },
   {
+    id: 'mac-screenshots',
+    title: 'Screenshots',
+    ...MAC,
+    summary: 'The screenshot shortcut, where shots are saved, and what happens after one.',
+    words: ['screenshot', 'screen shot', 'capture', 'snap', 'shortcut', 'clipboard', 'preview'],
+  },
+  {
+    id: 'mac-screenshot-shortcut',
+    title: 'Screenshot shortcut',
+    ...MAC,
+    summary: 'The keys that take a screenshot, ⌥⇧4 unless you change it.',
+    words: ['screenshot', 'capture', 'shortcut', 'keys', 'option shift 4'],
+  },
+  {
+    id: 'mac-screenshot-folder',
+    title: 'Save screenshots to',
+    ...MAC,
+    summary: 'The folder screenshots are saved in on this Mac.',
+    words: ['screenshot', 'folder', 'pictures', 'finder', 'location'],
+  },
+  {
     id: 'mac-microphone',
     title: 'Microphone for dictation',
     ...MAC,

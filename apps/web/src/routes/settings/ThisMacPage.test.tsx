@@ -218,3 +218,92 @@ describe('while the Mac answers', () => {
     ])
   })
 })
+
+describe('Screenshots (docs/PLAN-screenshots.md R15)', () => {
+  it('shows the shortcut, the folder and what happens after a capture', async () => {
+    show(new FakeMac())
+    await ready()
+    expect(screen.getByTestId('mac-screenshot-shortcut')).toHaveTextContent('⌥⇧4')
+    expect(screen.getByTestId('mac-screenshot-folder')).toHaveTextContent(
+      '~/Pictures/Hotsauce Screenshots',
+    )
+    expect(screen.getByTestId('mac-screenshotCopy')).toBeChecked()
+    expect(screen.getByTestId('mac-screenshotSave')).toBeChecked()
+    expect(screen.getByTestId('mac-screenshotPreview')).toBeChecked()
+    // At the default there is nothing to reset.
+    expect(screen.queryByTestId('mac-action-resetScreenshotShortcut')).toBeNull()
+  })
+
+  it('is left out for a Mac app that predates it, and the rest of the page works', async () => {
+    const { screenshots: _, ...older } = defaultMacSettings()
+    show(new FakeMac(older as never))
+    await ready()
+    expect(screen.queryByTestId('mac-screenshot-shortcut')).toBeNull()
+    expect(screen.getByLabelText('Dictation shortcut')).toHaveValue('rightOption')
+  })
+
+  it('records a new shortcut by pressing it, and can reset it', async () => {
+    const mac = new FakeMac()
+    show(mac)
+    await ready()
+    const button = screen.getByTestId('mac-screenshot-shortcut')
+    await userEvent.click(button)
+    expect(button).toHaveTextContent('Press keys…')
+    // Modifiers alone wait for a key.
+    fireEvent.keyDown(button, { code: 'ControlLeft', key: 'Control', ctrlKey: true })
+    expect(mac.requests).not.toContainEqual(expect.objectContaining({ key: 'screenshotShortcut' }))
+    fireEvent.keyDown(button, { code: 'KeyS', key: 's', ctrlKey: true, altKey: true })
+    expect(await screen.findByText('⌃⌥S')).toBeInTheDocument()
+    expect(mac.requests).toContainEqual({ type: 'set', key: 'screenshotShortcut', value: '⌃⌥S' })
+    await userEvent.click(screen.getByTestId('mac-action-resetScreenshotShortcut'))
+    expect(screen.getByTestId('mac-screenshot-shortcut')).toHaveTextContent('⌥⇧4')
+  })
+
+  it('refuses a chord that would get in the way, without asking the Mac', async () => {
+    const mac = new FakeMac()
+    show(mac)
+    await ready()
+    const button = screen.getByTestId('mac-screenshot-shortcut')
+    await userEvent.click(button)
+    fireEvent.keyDown(button, { code: 'KeyC', key: 'c', metaKey: true })
+    expect(screen.getByTestId('mac-screenshot-shortcut-problem')).toHaveTextContent('⌘C')
+    fireEvent.keyDown(button, { code: 'Digit4', key: '4' })
+    expect(screen.getByTestId('mac-screenshot-shortcut-problem')).toHaveTextContent('Add ⌘, ⌥ or ⌃')
+    expect(mac.requests).not.toContainEqual(expect.objectContaining({ key: 'screenshotShortcut' }))
+    // Esc stops recording and keeps the old one.
+    fireEvent.keyDown(button, { code: 'Escape', key: 'Escape' })
+    expect(button).toHaveTextContent('⌥⇧4')
+    // Tab on its own leaves rather than being taken as the key.
+    await userEvent.click(button)
+    fireEvent.keyDown(button, { code: 'Tab', key: 'Tab' })
+    expect(button).toHaveTextContent('⌥⇧4')
+    expect(screen.queryByText('Press keys…')).toBeNull()
+  })
+
+  it('says so when the Mac keeps its old shortcut', async () => {
+    const mac = new FakeMac()
+    mac.refuse.add('screenshotShortcut')
+    show(mac)
+    await ready()
+    const button = screen.getByTestId('mac-screenshot-shortcut')
+    await userEvent.click(button)
+    fireEvent.keyDown(button, { code: 'KeyX', key: 'x', ctrlKey: true, shiftKey: true })
+    expect(await screen.findByTestId('mac-screenshot-shortcut-problem')).toHaveTextContent(
+      'still ⌥⇧4',
+    )
+  })
+
+  it('chooses a folder on the Mac and switches what happens after a capture', async () => {
+    const mac = new FakeMac()
+    show(mac)
+    await ready()
+    await userEvent.click(screen.getByTestId('mac-action-chooseScreenshotFolder'))
+    expect(screen.getByTestId('mac-screenshot-folder')).toHaveTextContent('~/Desktop/Shots')
+    await userEvent.click(screen.getByTestId('mac-action-showScreenshotFolder'))
+    expect(mac.requests).toContainEqual({ type: 'action', action: 'showScreenshotFolder' })
+    await userEvent.click(screen.getByTestId('mac-screenshotPreview'))
+    expect(screen.getByTestId('mac-screenshotPreview')).not.toBeChecked()
+    expect(mac.requests).toContainEqual({ type: 'set', key: 'screenshotPreview', value: false })
+    await act(async () => {})
+  })
+})

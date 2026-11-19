@@ -44,6 +44,7 @@ const PAGES = [
   { slug: 'briefcast', title: 'Daily briefing', group: 'apps' },
   { slug: 'sharing', title: 'Share links and pages', group: 'apps' },
   { slug: 'mac-app', title: 'Mac app', group: 'devices' },
+  { slug: 'screenshots', title: 'Screenshots', group: 'devices' },
   { slug: 'chrome-extension', title: 'Chrome extension', group: 'devices' },
   { slug: 'agents', title: 'Connect an AI tool', group: 'devices' },
   { slug: 'admin', title: 'Run Hotsauce for your team', group: 'admin' },

@@ -43,10 +43,13 @@ enum ScreenshotRender {
               let png = ScreenshotImage.png(crop)
         else { return fail("couldn’t crop") }
         let shot = Screenshot(image: crop, png: png, fileURL: nil, takenAt: Date())
-        for (name, appearance, hovered) in [("screenshot-preview-light", NSAppearance.Name.aqua, true), ("screenshot-preview-dark", .darkAqua, true), ("screenshot-preview-resting", .aqua, false)] {
+        let shared = ScreenshotShare.message(.shared(url: URL(string: "https://example.com/s/x")!, anyone: true, deleteAfter: Date(timeIntervalSince1970: 1_797_724_800)))
+        for (name, appearance, hovered) in [("screenshot-preview-light", NSAppearance.Name.aqua, true), ("screenshot-preview-dark", .darkAqua, true), ("screenshot-preview-resting", .aqua, false), ("screenshot-preview-sharing", .aqua, true), ("screenshot-preview-shared", .aqua, false), ("screenshot-preview-shared-dark", .darkAqua, false)] {
             let view = ScreenshotPreviewView(shot: shot)
-            view.editEnabled = false
-            view.hasShare = false
+            view.editEnabled = true
+            view.hasShare = true
+            view.sharing = name.hasSuffix("sharing")
+            if name.contains("shared") { view.note = shared }
             view.showsControls = hovered
             view.appearance = NSAppearance(named: appearance)
             view.layoutSubtreeIfNeeded()

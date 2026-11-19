@@ -1,6 +1,49 @@
 {
   "releases": [
     {
+      "version": "0.62.3",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Share on a screenshot (the corner preview, the editor, or File → Share Screenshot) uploads it and copies a link. Anyone can open the link for 30 days, or only signed-in members when your organization keeps links private.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Settings → This Mac → Screenshots lets you press a new screenshot shortcut, choose the folder, and pick whether a capture is copied, saved and previewed.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Edit on a screenshot opens an editor with arrows, rectangles, ellipses, text, a highlighter, numbered steps, redaction and crop. Everything stays editable and undoable.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Redact blacks out what's underneath for good in what you copy, save or share, and Copy Text skips it.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Copy Text copies the words in a screenshot.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Save writes your changes over the screenshot. Closing the editor or quitting saves them too, and if a save fails you're told and the changes stay open. Once saved, the edited picture also replaces the original on the clipboard if you haven't copied anything else.",
+          "area": "Mac app"
+        },
+        {
+          "text": "File → Edit Last Screenshot and Recent Screenshots reopen your last five shots with their layers still editable.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.62.2",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "The welcome tour mentions What's new in the account menu"
+        }
+      ]
+    },
+    {
       "version": "0.62.1",
       "date": "2026-11-19",
       "notes": [

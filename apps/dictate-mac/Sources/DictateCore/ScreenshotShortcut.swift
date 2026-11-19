@@ -123,7 +123,7 @@ public enum ScreenshotSettings {
     /// The saved chord, or ⌥⇧4 when none is saved or the saved one can't be used.
     public static func shortcut(_ defaults: UserDefaults) -> ScreenshotShortcut {
         guard let text = defaults.string(forKey: shortcutKey),
-              let shortcut = ScreenshotShortcut(parsing: text), shortcut.isUsable
+              let shortcut = ScreenshotShortcut(parsing: text), shortcut.isUsable, shortcut.refusal == nil
         else { return .default }
         return shortcut
     }
@@ -138,6 +138,13 @@ public enum ScreenshotSettings {
             return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
         }
         return home.appendingPathComponent("Pictures/Hotsauce Screenshots", isDirectory: true)
+    }
+
+    /// The folder as people read it: ~ for the home folder.
+    public static func displayPath(_ folder: URL, home: URL) -> String {
+        let path = folder.standardizedFileURL.path, homePath = home.standardizedFileURL.path
+        if path == homePath { return "~" }
+        return path.hasPrefix(homePath + "/") ? "~" + path.dropFirst(homePath.count) : path
     }
 
     public static func setFolder(_ folder: URL, in defaults: UserDefaults) {

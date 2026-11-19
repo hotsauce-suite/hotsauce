@@ -33,6 +33,8 @@ extension AppDelegate: NSMenuItemValidation {
 
         let file = submenu("File", in: main)
         file.addItem(screenshotMenuItem(title: "Take Screenshot"))
+        for item in screenshotEditItems() { file.addItem(item) }
+        file.addItem(withTitle: "Share Screenshot", action: #selector(EditorCanvas.shareScreenshot(_:)), keyEquivalent: "")
         file.addItem(.separator())
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
 
@@ -103,6 +105,8 @@ extension AppDelegate: NSMenuItemValidation {
         case #selector(goBack): return suite.isKey && suite.canGoBack
         case #selector(goForward): return suite.isKey && suite.canGoForward
         case #selector(reloadSuite), #selector(actualSize), #selector(zoomIn), #selector(zoomOut): return suite.isKey
+        case #selector(editLastScreenshot): return screenshots.recent.newest != nil
+        case #selector(takeScreenshot): return refreshScreenshotItem(item)
         default: return true
         }
     }
