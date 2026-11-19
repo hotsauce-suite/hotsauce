@@ -179,7 +179,28 @@ public enum ScreenshotImage {
         guard let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { return nil }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { return nil }
-        return data as Data
+        return stripMetadata(data as Data)
+    }
+
+    /// The chunks a picture needs: its header, colour space, pixels and end. ImageIO adds an eXIf
+    /// chunk on its own; that and any other ancillary chunk (text, time, thumbnails) are dropped,
+    /// so a shot carries nothing but its pixels.
+    static let keptChunks: Set<String> = ["IHDR", "PLTE", "IDAT", "IEND", "sRGB", "iCCP", "gAMA", "cHRM", "pHYs"]
+
+    static func stripMetadata(_ png: Data) -> Data {
+        let bytes = [UInt8](png)
+        guard bytes.count > 8 else { return png }
+        var out = Array(bytes[0..<8])
+        var offset = 8
+        while offset + 12 <= bytes.count {
+            let length = Int(bytes[offset]) << 24 | Int(bytes[offset + 1]) << 16 | Int(bytes[offset + 2]) << 8 | Int(bytes[offset + 3])
+            let end = offset + 12 + length
+            guard end <= bytes.count else { return png }
+            let type = String(decoding: bytes[offset + 4..<offset + 8], as: UTF8.self)
+            if keptChunks.contains(type) { out += bytes[offset..<end] }
+            offset = end
+        }
+        return Data(out)
     }
 }
 

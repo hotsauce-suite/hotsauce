@@ -17,6 +17,12 @@ final class ScreenshotController {
     private let prompt = ScreenRecordingPrompt()
     private(set) var recent = RecentCaptures<Screenshot>()
     private let defaults: UserDefaults
+    /// The editor's layers for the recent captures, so reopening one keeps them editable
+    /// (in memory only).
+    private var documents: [UUID: ShotDocument] = [:]
+    private var editors: [UUID: ScreenshotEditor] = [:]
+    /// Slice 4 sets this to share a flattened picture; until then Share stays hidden.
+    var onShare: ((Data) -> Void)?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -24,6 +30,34 @@ final class ScreenshotController {
         overlay.onCancel = { [weak self] in self?.cancel() }
         overlay.onPick = { [weak self] display, selection in self?.keep(selection, of: display) }
         preview.onCopy = { [weak self] shot in self?.copy(shot) }
+        preview.onEdit = { [weak self] shot in self?.edit(shot) }
+    }
+
+    /// Opens a capture in the editor (one window each), with its layers from last time.
+    func edit(_ shot: Screenshot) {
+        preview.dismiss(animated: false)
+        if let open = editors[shot.id] {
+            open.show()
+            return
+        }
+        let editor = ScreenshotEditor(shot: shot, document: documents[shot.id])
+        editor.onShare = onShare
+        editor.showError = { [weak self] in self?.showMessage($0) }
+        editor.onClose = { [weak self] shot, document in
+            guard let self else { return }
+            self.editors[shot.id] = nil
+            self.documents[shot.id] = document
+            // Only the recent captures keep their layers.
+            let kept = Set(self.recent.items.map(\.id))
+            self.documents = self.documents.filter { kept.contains($0.key) }
+        }
+        editors[shot.id] = editor
+        editor.show()
+    }
+
+    /// File → Edit Last Screenshot.
+    func editLast() {
+        if let newest = recent.newest { edit(newest) }
     }
 
     var shortcut: ScreenshotShortcut { ScreenshotSettings.shortcut(defaults) }

@@ -45,6 +45,9 @@ if CommandLine.arguments.contains("--call-probe") {
 if let index = CommandLine.arguments.firstIndex(of: "--render-edge-glow"), index + 1 < CommandLine.arguments.count {
     exit(MainActor.assumeIsolated { EdgeGlowPreview.render(to: CommandLine.arguments[index + 1]) })
 }
+if let index = CommandLine.arguments.firstIndex(of: "--render-screenshot-editor"), index + 1 < CommandLine.arguments.count {
+    exit(MainActor.assumeIsolated { EditorRender.render(to: CommandLine.arguments[index + 1]) })
+}
 if let index = CommandLine.arguments.firstIndex(of: "--render-screenshot-overlay"), index + 1 < CommandLine.arguments.count {
     exit(MainActor.assumeIsolated { ScreenshotRender.render(to: CommandLine.arguments[index + 1]) })
 }
