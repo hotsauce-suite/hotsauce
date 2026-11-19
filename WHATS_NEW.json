@@ -1,6 +1,42 @@
 {
   "releases": [
     {
+      "version": "0.58.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "A few hot sauce surprises are now hidden around the app. 🌶"
+        },
+        {
+          "text": "An address that leads nowhere now says so, with a button back to Docs."
+        },
+        {
+          "text": "Something spicy hides in the Hotsauce menu.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Press ⌥⇧4 to take a screenshot: drag for an area, click a window for that window, or click the desktop for the whole screen. Esc cancels.",
+          "area": "Mac app"
+        },
+        {
+          "text": "The size in pixels follows the pointer while you choose.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A screenshot is copied at once and saved to Pictures → Hotsauce Screenshots.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A small preview shows in the corner for 7 seconds; hover to keep it, Copy, Pin, Close, or drag it into another app as a file.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Take Screenshot is also in the File menu and the menu bar menu.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.57.0",
       "date": "2026-11-19",
       "notes": [
