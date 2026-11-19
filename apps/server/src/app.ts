@@ -35,6 +35,7 @@ import {
   orgPublicRoutes,
   pageRoutes,
   peopleRoutes,
+  photoRoutes,
   publicBookingRoutes,
   publicRoutes,
   searchRoutes,
@@ -77,6 +78,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', adminOrgRoutes(deps))
     .route('/api', usageRoutes(deps))
     .route('/api', accountRoutes(deps))
+    .route('/api', photoRoutes(deps))
     .route('/api', themeRoutes(deps))
     .route('/api', searchRoutes(deps))
     .route('/api', chatRoutes(deps))

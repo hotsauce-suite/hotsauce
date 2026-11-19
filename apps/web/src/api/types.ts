@@ -57,6 +57,8 @@ export interface Space {
 
 export interface Me {
   principal: Principal
+  /** Where their profile photo is served, or null without one (absent when started offline). */
+  photo?: string | null
   spaces: Space[]
   settings: { idleCommitMs: number }
 }

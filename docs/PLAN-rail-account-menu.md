@@ -1,8 +1,8 @@
 # Plan: a tidier rail and a fuller account menu
 
 **Status:** in progress (started Nov 19, 2026). Built and tested: the rail (1 to 5) and the account
-menu (6 to 10). Not built yet: the extra shortcuts (11), profile photos (12 to 16) and the delight
-(17). Requirements marked *(open)* wait on Morgan's answers and may change.
+menu (6 to 10), and a member's own profile photo (12, 13, 16). Not built yet: the extra shortcuts
+(11), the sign-in photo as a default (14), photos shown to other members (15) and the delight (17). Requirements marked *(open)* wait on Morgan's answers and may change.
 
 Morgan, Nov 19: clean up the left rail. The logo expands it so each icon sits beside its title,
 every tool explains itself on hover, and Settings, music and feedback move into the account menu,
@@ -48,13 +48,18 @@ Shared files this touches: `apps/web/src/components/AppRail.tsx`, `AppShell.tsx`
 
 ### Profile photo
 
-12. A member uploads a photo (JPEG, PNG or WebP), which the server crops square and keeps small.
-    It shows on the account button and in the menu at once.
-13. A member removes their photo and gets their initials back.
+12. A member picks a picture from the account menu (the face, or Add a photo) or from Settings,
+    General. The browser crops its middle to a 256 px square before sending, the server keeps it
+    in the account store (so backups hold it), and it shows on the account button and in the menu
+    at once. *(profile/photo.test: three "R12" tests; server profile-photo.test: "R12"; e2e
+    profile-photo)*
+13. A member removes their photo and gets their initials back. *(profile/photo.test "R13";
+    server profile-photo.test "R13"; e2e profile-photo)*
 14. *(open)* Until a member uploads one, their sign-in photo (Google) shows.
 15. *(open)* Other members see the photo wherever initials show today (People, comments, check-ins).
-16. Only the member changes their own photo; an upload that isn't an image, or is too big, is
-    refused with a plain message.
+16. Only the member changes their own photo; an upload that isn't a JPEG, PNG or WebP by its bytes,
+    or is over 500 KB, is refused with a plain message, and no photo is served without a session.
+    *(server profile-photo.test: three "R16" tests; profile/photo.test: two "R16" tests)*
 
 ### Delight
 

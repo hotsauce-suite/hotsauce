@@ -1,4 +1,5 @@
 import { forgetForYou } from '../apps/for-you/store'
+import { forgetPhotos } from '../profile/photo'
 import { reloadRailWide } from '../rail/railWide'
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
@@ -46,6 +47,7 @@ afterEach(() => {
   setUnauthorizedHandler(null)
   localStorage.clear()
   reloadRailWide()
+  forgetPhotos()
   resetMusicForTests()
   forgetPins()
   forgetForYou()

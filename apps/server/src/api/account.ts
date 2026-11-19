@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { HotsauceError } from '../errors.js'
 import type { AppDeps, AppEnv } from './env.js'
+import { photoUrl } from './photo.js'
 import { PathParam, valid } from './validate.js'
 
 const Item = z.object({ space: z.string().min(1), path: PathParam })
@@ -49,6 +50,8 @@ export function accountRoutes(deps: AppDeps) {
       const principal = c.get('principal')
       return c.json({
         principal,
+        // Their profile photo's address, or null (docs/PLAN-rail-account-menu.md).
+        photo: photoUrl(account, principal.email),
         spaces: await spaces.visibleSpaces(principal),
         settings: { idleCommitMs: config.IDLE_COMMIT_MS },
       })

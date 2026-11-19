@@ -1,7 +1,9 @@
 import {
+  createContext,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -34,6 +36,8 @@ import { installedMacAppVersion, macVersionLabel } from '../lib/macAppVersion'
 import { chooseTheme, currentTheme, customIdOf, type ThemeChoice } from '../lib/theme'
 import { MusicPanel, musicStatus } from '../music/MusicPanel'
 import { useMusic } from '../music/useMusic'
+import { initials, MemberFace } from '../profile/MemberFace'
+import { usePhotoPicker } from '../profile/usePhotoPicker'
 import { type Tip, type TipHandlers, useRailTip } from '../rail/RailTip'
 import { setRailWide, useRailWide } from '../rail/railWide'
 import { useSession } from '../state/session'
@@ -62,16 +66,8 @@ export function appHref(app: AppManifest): string {
   return lastLocation.get(app.id) ?? app.route
 }
 
-/** Initials for the account button: "Ada Lovelace" → "AL"; the email's first letter without a name. */
-export function initials(name: string | undefined, email: string | undefined): string {
-  const words = (name ?? '').trim().split(/\s+/).filter(Boolean)
-  if (words.length > 0) {
-    const first = words[0]?.[0] ?? ''
-    const last = words.length > 1 ? (words.at(-1)?.[0] ?? '') : ''
-    return (first + last).toUpperCase()
-  }
-  return (email?.[0] ?? '?').toUpperCase()
-}
+// The account button's initials live with the face that shows them.
+export { initials }
 
 type Orientation = 'vertical' | 'horizontal'
 
@@ -468,26 +464,6 @@ export function useSignOut(): () => void {
   }
 }
 
-/** The member's face on the account button and in its menu: their initials, on a disc. */
-function AccountFace({
-  name,
-  email,
-  className = 'size-7.5 text-[0.6875rem]',
-}: {
-  name: string | undefined
-  email: string | undefined
-  className?: string
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`grid shrink-0 place-items-center rounded-full bg-ash-strong font-semibold text-paper-raised ${className}`}
-    >
-      {initials(name, email)}
-    </span>
-  )
-}
-
 /**
  * The account button at the foot of the desktop rail, and its menu: who's signed in, the theme,
  * music, Settings, the keyboard shortcuts, help, feedback and the versions
@@ -514,6 +490,8 @@ function AccountButton({
   const principal = session.me?.principal
   const feedbackOn = useFeedbackEnabled()
   const label = principal ? `Account: ${principal.email}` : 'Account'
+  // Outside the menu, so a pick still lands if the menu closed while the file dialog was open.
+  const photos = usePhotoPicker()
   const tip = useRailTip({
     title: principal?.name || 'Account',
     about: 'Settings, light and dark, music, help and feedback.',
@@ -548,9 +526,10 @@ function AccountButton({
         onClick={(event) => (anchor ? close() : open(event.currentTarget))}
         className={itemClass('vertical', onSettings, wide)}
       >
-        <AccountFace
+        <MemberFace
           name={principal?.name}
           email={principal?.email}
+          photo={session.me?.photo}
           className={wide ? 'size-6 text-[0.625rem]' : 'size-7.5 text-[0.6875rem]'}
         />
         {wide ? (
@@ -560,51 +539,68 @@ function AccountButton({
         ) : null}
       </button>
       {anchor ? null : tip.node}
+      {photos.input}
       {anchor ? (
         <Menu anchor={anchor} onClose={close} label="Account">
-          <div className="w-64" data-testid="account-menu-body">
-            <AccountHeader name={principal?.name} email={principal?.email} face />
-            <ThemeSwitch onMore={go(() => navigate('/settings#appearance'))} />
-            <MusicMenuRow />
-            <MenuDivider />
-            <MenuItem
-              icon="gear"
-              testId="menu-settings"
-              keys={`g ${GO_KEYS.settings}`}
-              onSelect={go(() => navigate('/settings'))}
-            >
-              Settings
-            </MenuItem>
-            {onShortcuts ? (
-              <MenuItem icon="keyboard" testId="menu-shortcuts" keys="?" onSelect={go(onShortcuts)}>
-                Keyboard shortcuts
-              </MenuItem>
-            ) : null}
-            <a
-              role="menuitem"
-              href={HELP_DOCS}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid="menu-help"
-              onClick={() => setAnchor(null)}
-              className={menuItemClass}
-            >
-              <Icon name="help" className="size-4 text-ink-faint" />
-              <span className="flex-1">Help</span>
-              <Icon name="external" className="size-3 text-ink-faint" />
-            </a>
-            {feedbackOn ? (
+          <PhotoPicker.Provider value={photos}>
+            <div className="w-64" data-testid="account-menu-body">
+              <AccountHeader name={principal?.name} email={principal?.email} face />
+              {photos.error ? (
+                <p
+                  role="alert"
+                  data-testid="photo-error"
+                  className="px-2.5 pb-1.5 text-xs text-ember-strong"
+                >
+                  {photos.error}
+                </p>
+              ) : null}
+              <ThemeSwitch onMore={go(() => navigate('/settings#appearance'))} />
+              <MusicMenuRow />
+              <MenuDivider />
               <MenuItem
-                icon="chat"
-                testId="menu-feedback"
-                onSelect={go(() => void openFeedback(navigate, window.location.pathname))}
+                icon="gear"
+                testId="menu-settings"
+                keys={`g ${GO_KEYS.settings}`}
+                onSelect={go(() => navigate('/settings'))}
               >
-                Send feedback
+                Settings
               </MenuItem>
-            ) : null}
-            <MenuDivider />
-            <Versions onOpen={go(() => navigate('/settings/whats-new'))} />
-          </div>
+              {onShortcuts ? (
+                <MenuItem
+                  icon="keyboard"
+                  testId="menu-shortcuts"
+                  keys="?"
+                  onSelect={go(onShortcuts)}
+                >
+                  Keyboard shortcuts
+                </MenuItem>
+              ) : null}
+              <a
+                role="menuitem"
+                href={HELP_DOCS}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="menu-help"
+                onClick={() => setAnchor(null)}
+                className={menuItemClass}
+              >
+                <Icon name="help" className="size-4 text-ink-faint" />
+                <span className="flex-1">Help</span>
+                <Icon name="external" className="size-3 text-ink-faint" />
+              </a>
+              {feedbackOn ? (
+                <MenuItem
+                  icon="chat"
+                  testId="menu-feedback"
+                  onSelect={go(() => void openFeedback(navigate, window.location.pathname))}
+                >
+                  Send feedback
+                </MenuItem>
+              ) : null}
+              <MenuDivider />
+              <Versions onOpen={go(() => navigate('/settings/whats-new'))} />
+            </div>
+          </PhotoPicker.Provider>
         </Menu>
       ) : null}
     </>
@@ -737,6 +733,11 @@ function Versions({ onOpen }: { onOpen: () => void }) {
   )
 }
 
+/**
+ * Who's signed in, at the top of the account menu and of the phone's Apps sheet. With `face`, their
+ * photo beside their name: clicking it picks a new one, and Remove photo brings the initials back
+ * (docs/PLAN-rail-account-menu.md, requirements 12 and 13).
+ */
 export function AccountHeader({
   name,
   email,
@@ -744,19 +745,82 @@ export function AccountHeader({
 }: {
   name: string | undefined
   email: string | undefined
-  /** With the member's face beside their name (the desktop menu). */
+  /** With the member's face beside their name, which they can change (the desktop menu). */
   face?: boolean
 }): ReactNode {
   return (
     <div className="mb-1 flex max-w-72 items-center gap-2.5 border-b border-ash/70 px-2.5 pt-1.5 pb-2">
-      {face ? <AccountFace name={name} email={email} className="size-9 text-xs" /> : null}
+      {face ? <FaceButton name={name} email={email} /> : null}
       <div className="min-w-0">
         {name ? <p className="truncate text-sm font-medium text-ink">{name}</p> : null}
         <p data-testid="account-email" className="truncate text-xs text-ink-faint" title={email}>
           {email ?? ' '}
         </p>
+        {face ? <PhotoLinks /> : null}
       </div>
     </div>
+  )
+}
+
+/** The picker the account menu shares between the face, its links and its error line. */
+const PhotoPicker = createContext<ReturnType<typeof usePhotoPicker> | null>(null)
+
+function FaceButton({ name, email }: { name: string | undefined; email: string | undefined }) {
+  const session = useSession()
+  const photos = useContext(PhotoPicker)
+  const has = Boolean(session.me?.photo)
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      data-testid="photo-change"
+      aria-label={has ? 'Change your photo' : 'Add a photo of yourself'}
+      title={has ? 'Change your photo' : 'Add a photo of yourself'}
+      disabled={!photos || photos.busy}
+      onClick={() => photos?.choose()}
+      className="group relative shrink-0 rounded-full focus-visible:shadow-[var(--focus-ring)] focus-visible:outline-none disabled:opacity-60"
+    >
+      <MemberFace name={name} email={email} photo={session.me?.photo} className="size-9 text-xs" />
+      <span
+        aria-hidden="true"
+        className="absolute inset-0 grid place-items-center rounded-full bg-ink/55 text-paper-raised opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+      >
+        <Icon name="image" className="size-4" />
+      </span>
+    </button>
+  )
+}
+
+function PhotoLinks() {
+  const session = useSession()
+  const photos = useContext(PhotoPicker)
+  if (!photos) return null
+  const link =
+    'rounded text-xs text-ink-faint underline decoration-ash-strong underline-offset-2 hover:text-ink focus-visible:shadow-[var(--focus-ring)] focus-visible:outline-none disabled:opacity-60'
+  return (
+    <p className="mt-0.5 flex items-center gap-2.5">
+      <button
+        type="button"
+        role="menuitem"
+        data-testid="photo-add"
+        disabled={photos.busy}
+        onClick={photos.choose}
+        className={link}
+      >
+        {photos.busy ? 'Saving…' : session.me?.photo ? 'Change photo' : 'Add a photo'}
+      </button>
+      {session.me?.photo && !photos.busy ? (
+        <button
+          type="button"
+          role="menuitem"
+          data-testid="photo-remove"
+          onClick={() => void photos.remove()}
+          className={link}
+        >
+          Remove
+        </button>
+      ) : null}
+    </p>
   )
 }
 

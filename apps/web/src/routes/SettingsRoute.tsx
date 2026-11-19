@@ -9,7 +9,7 @@ import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { NewToken } from '../components/AiToolSetup'
 import { AppearanceSettings } from '../components/AppearanceSettings'
-import { initials, useSignOut } from '../components/AppRail'
+import { useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
 import { ConnectedApps } from '../components/ConnectedApps'
 import { Icon } from '../components/Icon'
@@ -19,6 +19,8 @@ import { NotificationsSection } from '../components/NotificationsSection'
 import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
 import { useInstallPrompt } from '../lib/install'
+import { MemberFace } from '../profile/MemberFace'
+import { usePhotoPicker } from '../profile/usePhotoPicker'
 import { useSession } from '../state/session'
 
 const when = (iso: string | null) =>
@@ -239,18 +241,22 @@ function AccountSection() {
   const session = useSession()
   const signOut = useSignOut()
   const principal = session.me?.principal
+  const photos = usePhotoPicker()
+  const has = Boolean(session.me?.photo)
+  const photoLink =
+    'text-sm text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink disabled:opacity-60'
   return (
     <section aria-labelledby="account-title" data-testid="settings-account">
       <h2 id="account-title" className={sectionTitle}>
         Account
       </h2>
       <div className={card}>
-        <span
-          aria-hidden="true"
-          className="grid size-11 shrink-0 place-items-center rounded-full bg-ash-strong text-sm font-semibold text-paper-raised"
-        >
-          {initials(principal?.name, principal?.email)}
-        </span>
+        <MemberFace
+          name={principal?.name}
+          email={principal?.email}
+          photo={session.me?.photo}
+          className="size-11 text-sm"
+        />
         <span className="min-w-0 flex-1">
           {principal?.name ? (
             <span className="block truncate font-medium text-ink">{principal.name}</span>
@@ -258,6 +264,34 @@ function AccountSection() {
           <span data-testid="settings-email" className="block truncate text-sm text-ink-soft">
             {principal?.email ?? ''}
           </span>
+          {/* Their profile photo (docs/PLAN-rail-account-menu.md, requirements 12 and 13). */}
+          <span className="mt-1 flex items-center gap-3">
+            {photos.input}
+            <button
+              type="button"
+              data-testid="settings-photo-change"
+              disabled={photos.busy}
+              onClick={photos.choose}
+              className={photoLink}
+            >
+              {photos.busy ? 'Saving…' : has ? 'Change photo' : 'Add a photo'}
+            </button>
+            {has && !photos.busy ? (
+              <button
+                type="button"
+                data-testid="settings-photo-remove"
+                onClick={() => void photos.remove()}
+                className={photoLink}
+              >
+                Remove photo
+              </button>
+            ) : null}
+          </span>
+          {photos.error ? (
+            <span role="alert" className="mt-1 block text-sm text-ember-strong">
+              {photos.error}
+            </span>
+          ) : null}
         </span>
         <button
           type="button"
