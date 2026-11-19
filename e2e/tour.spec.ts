@@ -17,17 +17,20 @@ test('J1: the tour greets a new member once and replays from the account menu', 
 
   const stop = page.getByTestId('tour-stop')
   await expect(stop).toContainText('Your apps')
-  // Keyboard: the right arrow moves on, the left goes back.
+  // Keyboard: the right arrow moves on, the left goes back (once the stop has settled in).
+  await page.waitForTimeout(500)
   await page.keyboard.press('ArrowRight')
   await expect(stop).toContainText('Today is your home page')
+  await page.waitForTimeout(500)
   await page.keyboard.press('ArrowLeft')
   await expect(stop).toContainText('Your apps')
 
-  // To the end: the last stop's button says Done.
-  for (let i = 0; i < 20; i++) {
-    const next = page.getByTestId('tour-next')
-    if ((await next.textContent())?.trim() === 'Done') break
-    await next.click()
+  // To the end, one stop at a time: the last stop's button says Done.
+  const total = Number((await stop.textContent())?.match(/1 of (\d+)/)?.[1])
+  expect(total).toBeGreaterThan(8)
+  for (let at = 2; at <= total; at++) {
+    await page.getByTestId('tour-next').click()
+    await expect(stop).toContainText(`${at} of ${total}`)
   }
   await expect(page.getByTestId('tour-next')).toHaveText('Done')
   await page.getByTestId('tour-next').click()
