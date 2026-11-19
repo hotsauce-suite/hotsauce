@@ -34,6 +34,9 @@ function optional<T extends z.ZodType>(schema: T) {
   return z.preprocess((v) => v ?? undefined, schema.optional())
 }
 
+/** `delete_after` as Hotsauce writes it: a whole UTC time, nothing looser. */
+export const DELETE_AFTER = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
+
 export const FileFrontmatter = z.looseObject({
   id: z.string().min(1),
   type: z.literal('file'),
@@ -49,6 +52,12 @@ export const FileFrontmatter = z.looseObject({
   updated: optional(z.string()),
   /** A share link's token: any signed-in member who has it may open this one file. */
   share: optional(z.string().regex(/^[A-Za-z0-9_-]{16,64}$/)),
+  /** When the server deletes this file by itself (ISO time); absent for a file that stays. */
+  delete_after: z.preprocess(
+    // Only a strict UTC time counts: this field deletes for good, so anything else means "stays".
+    (v) => (typeof v === 'string' && DELETE_AFTER.test(v) ? v : undefined),
+    z.string().optional(),
+  ),
   text: z.preprocess(
     (v) => (v === 'extracted' || v === 'failed' ? v : 'none'),
     z.enum(['extracted', 'none', 'failed']),
@@ -65,6 +74,8 @@ export interface NewFilePointer {
   mime: string
   createdBy: string
   created?: string
+  /** When the file deletes itself (ISO time), for one that shouldn't stay. */
+  deleteAfter?: string | undefined
   text: string | null
   textStatus: 'extracted' | 'none' | 'failed'
 }
@@ -85,6 +96,7 @@ export function newFilePointer(p: NewFilePointer): { id: string; path: string; t
     created: now,
     created_by: p.createdBy.toLowerCase(),
     updated: now,
+    ...(p.deleteAfter ? { delete_after: p.deleteAfter } : {}),
     text: p.textStatus,
   }
   return { id, path: filePointerPath(id), text: patchFrontmatter(fileBodyText(p.text), fields) }

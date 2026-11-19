@@ -105,6 +105,20 @@
 - After `pnpm install` in a fresh container, build `@hotsauce/format` before running web tests,
   or Vite can't resolve it.
 
+## The sky (2026-11-19, docs/PLAN-today-sky.md)
+
+- The usual sunrise formula (suncalc's) picks the solar noon nearest the instant you give it, not
+  the calendar day. Just after midnight, west of a zone's centre or in summer time, that is
+  yesterday, and a value memoized per day then shows night all day. Always pass the local day's
+  noon. Tests with midday UTC instants hide this; test 00:05 local.
+- `color-mix(in oklab, sky N%, var(--paper))` makes any theme get a matching sky for free, but
+  dark text over a 55% night sky in the light theme fell to 1.6:1. Keep day mixes near 25 to 30%
+  and give the night band its own light `--ink` tokens. Check the numbers with a small oklab
+  script rather than by eye.
+- A `title` hover target placed before the text in the DOM is covered by it; give it `z-10`.
+- Playwright's `clock.install` stalls the mocked app; `clock.setFixedTime` freezes Date only and
+  is enough for time-of-day screenshots.
+
 ## The welcome tour and Hotsauce 101 (2026-11-19)
 
 - **Driver.js's popover reads the next step's text before its re-render finishes.** An e2e test that read the progress text and then clicked Next raced to Done early. Wait for "N of total" before each click; and give Driver ~500 ms after it opens before arrow keys, which it ignores mid-transition.

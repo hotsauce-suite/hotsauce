@@ -7,6 +7,8 @@ import { HotsauceApiError } from '../../../api/client'
 import { memberTimeZone, type TaskView, tasksApi } from '../../../api/tasks'
 import type { TodayMeeting, TodayView } from '../../../api/today'
 import { Icon } from '../../../components/Icon'
+import { isSpicy } from '../../../eggs/logic'
+import { burstFromLastClick } from '../../../eggs/peppers'
 import { docUrl, fileUrl, meetingUrl, noteUrl } from '../../../lib/paths'
 import { useSession } from '../../../state/session'
 import { formatWhen } from '../../clips/format'
@@ -270,6 +272,7 @@ function TaskLine({ task, onDone }: { task: TaskView; onDone: (task: TaskView) =
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const complete = async () => {
+    if (isSpicy(task.title)) burstFromLastClick()
     setBusy(true)
     setFailed(false)
     try {

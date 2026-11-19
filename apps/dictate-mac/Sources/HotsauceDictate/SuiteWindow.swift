@@ -403,6 +403,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         SettingsDestination.choose(pageSaidHello: pageSaidDictationsHello, pageLoaded: isOnSuitePage && failedURL == nil)
     }
 
+    /// The hidden "Add more heat 🌶" menu item: the page's pepper shower (docs/PLAN-easter-eggs.md E9).
+    func addMoreHeat() {
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('hotsauce:more-heat'))", in: nil, in: .page) { _ in }
+    }
+
     /// Tells the page the history changed, so "On this Mac" reads it again (R5).
     func dictationsChanged() {
         guard pageSaidDictationsHello else { return }

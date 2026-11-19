@@ -8,5 +8,6 @@ export {
   type FolderListing,
   type LocalMedia,
   MAX_CHUNKS,
+  MAX_DELETE_AFTER_DAYS,
   MAX_FILE_BYTES,
 } from './service.js'
