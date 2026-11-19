@@ -73,6 +73,9 @@ final class ScreenshotPreview {
         closeTimer?.invalidate()
         closeTimer = nil
         guard let panel else { return }
+        // A fading card's hover mustn't reach the next shot's countdown.
+        content?.hoverChanged = { _ in }
+        content?.dragChanged = { _ in }
         self.panel = nil
         content = nil
         shot = nil
@@ -303,6 +306,12 @@ final class ScreenshotPreviewView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        // The pointer may have left during the drag without an exit event.
+        let inside = window?.frame.contains(NSEvent.mouseLocation) ?? false
+        if !inside, showsControls {
+            showsControls = false
+            hoverChanged(false)
+        }
         dragChanged(false)
     }
 }

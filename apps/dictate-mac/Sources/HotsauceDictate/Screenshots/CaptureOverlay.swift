@@ -199,6 +199,9 @@ final class CaptureOverlay {
 
     func close() {
         for panel in panels { panel.orderOut(nil) }
+        // Closed from inside a panel's own mouseUp: keep them alive until that event is done.
+        let closed = panels
+        DispatchQueue.main.async { _ = closed }
         panels = []
         if cursorPushed {
             NSCursor.pop()

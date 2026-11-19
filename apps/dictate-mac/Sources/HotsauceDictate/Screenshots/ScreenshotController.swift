@@ -10,6 +10,8 @@ final class ScreenshotController {
     var showMessage: (String) -> Void = { _ in }
 
     private var session = ScreenshotSession()
+    /// Bumped by each capture and each cancel, so a grab that finishes late can't act on a newer one.
+    private var generation = 0
     private let overlay = CaptureOverlay()
     let preview = ScreenshotPreview()
     private let prompt = ScreenRecordingPrompt()
@@ -56,17 +58,21 @@ final class ScreenshotController {
             prompt.show()
             return
         }
+        generation += 1
+        let mine = generation
         Task { @MainActor in
             do {
                 let frozen = try await ScreenCapture.grab(excluding: preview.windowNumbers.union(overlay.windowNumbers))
-                // Esc during the grab: never show the overlay.
-                guard session.phase == .capturing else { return }
+                // Esc during the grab (or a newer capture since): never show this one.
+                guard mine == generation, session.phase == .capturing else { return }
                 session.captured()
                 overlay.show(frozen, ownPID: ProcessInfo.processInfo.processIdentifier)
             } catch ScreenCapture.Failure.notAllowed {
+                guard mine == generation else { return }
                 session.end()
                 prompt.show()
             } catch {
+                guard mine == generation else { return }
                 session.end()
                 showMessage("Couldn’t take the screenshot")
             }
@@ -74,6 +80,7 @@ final class ScreenshotController {
     }
 
     private func cancel() {
+        generation += 1
         session.end()
         overlay.close()
     }
