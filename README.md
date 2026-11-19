@@ -47,7 +47,8 @@ saved links and files as you, with the same permissions you have. History shows 
 
 ### Today
 
-The home page: a live clock, what's next and (if you turn it on) the weather up top, then tiles you
+The home page: a live clock, what's next and (if you turn it on) the weather up top, a sky behind
+your greeting with the sun or moon and today's sunrise and sunset, then tiles you
 arrange yourself. Out of the box they're your meetings for the day with one click to take notes, tasks
 due and overdue, to-dos from your meeting notes that aren't tasks yet, docs that changed since
 yesterday, and your agent brief. Edit Today adds starred docs, Dictate and clip shortcuts, people,

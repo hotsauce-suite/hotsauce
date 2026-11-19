@@ -84,6 +84,7 @@ export {
 export {
   cleanFileName,
   cleanFolder,
+  DELETE_AFTER,
   FILES_FOLDER,
   FILES_FOLDERS_PATH,
   FileFrontmatter,

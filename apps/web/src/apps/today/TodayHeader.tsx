@@ -16,6 +16,7 @@ import {
   forecastHours,
   rainLabel,
 } from './forecast'
+import { publishSkyWeather } from './sky/skyState'
 import { askLocation, inMacApp, useDeviceWeather, writeDeviceWeather } from './weatherPlace'
 
 export { WEATHER_PLACE_KEY } from './weatherPlace'
@@ -152,6 +153,10 @@ function useWeather() {
     device.kind === 'off' ? { kind: 'off' } : { kind: 'asking' },
   )
   const [picking, setPicking] = useState(false)
+  // Today's sky draws the weather shown here.
+  useEffect(() => {
+    publishSkyWeather(state.kind === 'shown' ? state.weather.symbol : null)
+  }, [state])
   /** A failed "Use my location" while weather was showing: said briefly, the weather kept. */
   const [notice, setNotice] = useState<string | null>(null)
   /** While the position is being asked for, a refresh doesn't change what the chip shows. */

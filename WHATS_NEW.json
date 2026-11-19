@@ -1,6 +1,33 @@
 {
   "releases": [
     {
+      "version": "0.56.1",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Files: a file that is set to delete itself shows the date on its row, with a Keep button to stop it."
+        }
+      ]
+    },
+    {
+      "version": "0.56.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Today: a sky behind your greeting changes from dawn to day to dusk to night, in your theme's colours, with the sun where it really is or the moon in its real phase."
+        },
+        {
+          "text": "Today: sunrise, sunset and hours of daylight under the greeting, using your weather place or your team's city."
+        },
+        {
+          "text": "Today: clouds, rain, snow and fog from the current weather drift lightly across the sky; it stays still with \"reduce motion\"."
+        },
+        {
+          "text": "Today: pick Sky, Sun path or Off in Edit Today or Settings → General → Today's sky."
+        }
+      ]
+    },
+    {
       "version": "0.55.0",
       "date": "2026-11-19",
       "notes": [
