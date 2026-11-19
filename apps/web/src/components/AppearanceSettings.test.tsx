@@ -175,3 +175,20 @@ describe('Appearance: themes of your own', () => {
     expect(root.hasAttribute('data-theme')).toBe(false)
   })
 })
+
+describe('Appearance: switching tools (PLAN-switch-ripple R6)', () => {
+  it('has the ripple on and the sound off, and remembers a change', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings')
+    const ripple = await screen.findByTestId('switch-fx-ripple')
+    const sound = screen.getByTestId('switch-fx-sound')
+    expect(ripple).toBeChecked()
+    expect(sound).not.toBeChecked()
+    await user.click(sound)
+    expect(sound).toBeChecked()
+    expect(JSON.parse(localStorage.getItem('hotsauce:switch-fx') ?? '{}')).toEqual({
+      ripple: true,
+      sound: true,
+    })
+  })
+})
