@@ -14,7 +14,7 @@ they aren't set up. Keys can be set in the environment or pasted into setup; the
 ## The apps (the rail, in order)
 
 ### Today
-The home page: clock, next meeting, optional weather (click it for the next 12 hours and 7 days), and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
+The home page: clock, next meeting, a sky behind the greeting that follows the time of day with the sun or moon and today's sunrise and sunset (Sky, Sun path or Off per device, plus a "Follow the sun" look for the whole app; `docs/PLAN-today-sky.md`), optional weather (click it for the next 12 hours and 7 days), and tiles you arrange (meetings, tasks, to-dos from notes, changed docs, agent brief). A new member's Today starts with a Getting started tile (connect the calendar, get the Mac app, see the docs) that goes once done or hidden, and comes back from Settings. An admin can pick the doc its last step opens (Settings → Workspace).
 Needs nothing extra; the agent brief tile needs the AI key. Weather uses the team's place, or one the member picks or shares; a shared location is named after the town it's in (OpenStreetMap's Nominatim, through the server, rounded to ~1 km, cached).
 
 ### For you
@@ -54,7 +54,7 @@ Everyone you meet with, from the calendar and meeting notes, with a short team n
 Needs the Google calendar connection to fill itself; without it, only meeting attendees and task assignees.
 
 ### Files
-Upload and share files and folders with previews and search inside them; Git keeps a pointer, the bytes live elsewhere.
+Upload and share files and folders with previews and search inside them; Git keeps a pointer, the bytes live elsewhere. A file can carry a date it deletes itself on (shown on its row, with Keep to stop it).
 Needs nothing extra on the server's volume; R2/S3 when configured.
 
 ### Forms
@@ -102,6 +102,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Settings search** (the box above the Settings menu, or `/` on a Settings page): finds any section by its name or everyday words and opens it on its page; the same sections are in ⌘K once typed. One list, `apps/web/src/routes/settings/searchIndex.ts`; a test fails if a listed section is missing from its page. Needs nothing extra.
 - **Themes of your own** (Settings → Appearance, its own page, `docs/PLAN-ai-themes.md`): a member describes a look and the whole app previews it; Keep saves it beside System, Light and Dark. Colours and fonts only, one fixed light or dark look, text kept readable by `fixContrast` (`@hotsauce/format`). Themes are personal, kept in the account store (`account.sqlite`, backed up), at most 12 a member; which look is on stays per browser. Uses `THEMES_MODEL` (default Sonnet); without an Anthropic key the box is hidden and saved themes still work. The live demo answers with sample themes.
 - **Tool-switch ripple** (Settings → Appearance, `docs/PLAN-switch-ripple.md`): opening another tool draws a soft accent ring from the click (or that tool's rail icon), about 0.4 s, over the page and never blocking it. On by default, skipped under reduced motion. An optional soft tick (off by default) is made in the page with Web Audio and stays silent while a meeting records or any capture is open. Both choices are per browser (`hotsauce:switch-fx`). The Mac app gets it through its web view.
+- **Easter eggs** (`apps/web/src/eggs`, `docs/PLAN-easter-eggs.md`): hot sauce surprises, undocumented on purpose (the list is in the plan). Quick, never blocking, still under reduced motion, sound only with the tool-switch tick on. Unknown addresses show a lost-sauce page with a way to Docs. The Mac app's Option-held About item starts the pepper shower. Needs nothing extra.
 - **Usage** (Settings → Usage, admins): each app's items made or changed and people per week for 12 weeks, counted from Git history, Clips' list and Dictate's connected Macs. Nothing is tracked; numbers only. Needs nothing extra.
 
 ## Outside the web app
@@ -130,6 +131,7 @@ production refuses the test stand-ins, so nothing pretends to work.
 Open pull requests on `main` at the date above (release numbers are taken at merge, not here):
 
 - **#134** For you: one list of every mention.
+- **Screenshots in the Mac app** (`docs/PLAN-screenshots.md`): the server and web half is in (files that delete themselves, and the page function the app shares through); the Mac app's capture, editor and Share are being built.
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 

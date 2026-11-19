@@ -1,0 +1,129 @@
+/* Today's sky (docs/PLAN-today-sky.md). Colours come from the theme's tokens, mixed with fixed
+   sky colours, so a dark or custom theme gets a matching sky. Slow, and still under reduce motion; browsers
+   already stop animations in a background tab or a hidden Mac app window. */
+
+/* Where the sun and moon travel: a strip above the greeting on phones, the right of the band
+   on wider screens, so they never sit behind the words. */
+.sky-art {
+  inset: 0 0 auto 0;
+  height: 4.5rem;
+}
+@media (min-width: 48rem) {
+  .sky-art {
+    inset: 0 0 0 auto;
+    height: auto;
+    width: 58%;
+  }
+}
+
+.sky-body {
+  translate: -50% -50%;
+  transition:
+    left 60s linear,
+    top 60s linear;
+}
+
+.sky-sun {
+  background: radial-gradient(
+    circle at 40% 40%,
+    #fff6d6 0%,
+    color-mix(in oklab, var(--glow) 70%, #ffd25e) 55%,
+    transparent 72%
+  );
+  box-shadow: 0 0 36px 10px color-mix(in oklab, var(--glow) 45%, transparent);
+  animation: sky-breathe 7s ease-in-out infinite;
+}
+
+.sky-moon {
+  color: color-mix(in oklab, #f4efe2 85%, var(--paper));
+  filter: drop-shadow(0 0 10px rgb(244 239 226 / 0.35));
+}
+
+.sky-star {
+  background: #fdf8ec;
+  animation: sky-twinkle 4s ease-in-out infinite;
+}
+
+.sky-cloud {
+  left: -30%;
+  width: 7rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, #ffffff 55%, var(--paper));
+  opacity: 0.7;
+  box-shadow: 1.6rem -0.7rem 0 0.2rem color-mix(in oklab, #ffffff 55%, var(--paper));
+  animation: sky-drift linear infinite;
+}
+[data-phase="night"] .sky-cloud,
+[data-phase="dusk"] .sky-cloud {
+  opacity: 0.3;
+}
+
+.sky-drop,
+.sky-flake {
+  top: -10%;
+  animation: sky-fall 1.6s linear infinite;
+}
+.sky-drop {
+  width: 1px;
+  height: 0.7rem;
+  background: color-mix(in oklab, var(--ink-soft) 40%, transparent);
+}
+.sky-flake {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in oklab, #ffffff 80%, var(--paper));
+  animation-duration: 5s;
+}
+
+.sky-fog {
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in oklab, var(--paper) 70%, transparent)
+  );
+  animation: sky-breathe 12s ease-in-out infinite;
+}
+
+@keyframes sky-breathe {
+  50% {
+    opacity: 0.82;
+  }
+}
+@keyframes sky-twinkle {
+  50% {
+    opacity: 0.25;
+  }
+}
+@keyframes sky-drift {
+  to {
+    left: 110%;
+  }
+}
+@keyframes sky-fall {
+  to {
+    top: 110%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-body,
+  .sky-sun,
+  .sky-star,
+  .sky-cloud,
+  .sky-drop,
+  .sky-flake,
+  .sky-fog {
+    animation: none;
+    transition: none;
+  }
+  /* Still: rain and snow would hang at the top, so they go; clouds stay where they start. */
+  .sky-drop,
+  .sky-flake {
+    display: none;
+  }
+  .sky-cloud {
+    left: 55%;
+  }
+}

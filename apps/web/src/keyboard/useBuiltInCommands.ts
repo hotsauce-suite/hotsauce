@@ -206,6 +206,14 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       run: () => chooseTheme('system'),
     },
     {
+      id: 'theme-sun',
+      title: 'Follow the sun (light by day, dark at night)',
+      group: 'prefs',
+      icon: 'palette',
+      keywords: ['appearance', 'mode', 'auto', 'sunrise', 'sunset', 'colors'],
+      run: () => chooseTheme('sun'),
+    },
+    {
       id: 'single-keys',
       title: singleKeys ? 'Turn off single-key shortcuts' : 'Turn on single-key shortcuts',
       group: 'prefs',

@@ -5,6 +5,7 @@ import { HotsauceApiError } from '../api/client'
 import { type AccessToken, tokensApi } from '../api/tokens'
 import type { CalendarChoice } from '../api/types'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
+import { SkySceneSettings } from '../apps/today/sky/SkyScenePicker'
 import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { BreaksSettings } from '../breaks/BreaksSettings'
@@ -68,6 +69,7 @@ export function AppearancePage() {
   return (
     <div data-testid="settings-appearance">
       <AppearanceSettings />
+      <SkySceneSettings />
     </div>
   )
 }

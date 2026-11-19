@@ -7,6 +7,7 @@ import { type TodayView, type TodayWeather, todayApi, type WeatherPlace } from '
 import { Dialog } from '../../components/Dialog'
 import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { PlaceSearch } from '../../components/PlaceSearch'
+import { HOT_SAUCE_DAY_LINE, isHotSauceDay } from '../../eggs/logic'
 import { timeLabel } from '../meetings/format'
 import {
   type ForecastDay,
@@ -15,6 +16,7 @@ import {
   forecastHours,
   rainLabel,
 } from './forecast'
+import { publishSkyWeather } from './sky/skyState'
 import { askLocation, inMacApp, useDeviceWeather, writeDeviceWeather } from './weatherPlace'
 
 export { WEATHER_PLACE_KEY } from './weatherPlace'
@@ -151,6 +153,10 @@ function useWeather() {
     device.kind === 'off' ? { kind: 'off' } : { kind: 'asking' },
   )
   const [picking, setPicking] = useState(false)
+  // Today's sky draws the weather shown here.
+  useEffect(() => {
+    publishSkyWeather(state.kind === 'shown' ? state.weather.symbol : null)
+  }, [state])
   /** A failed "Use my location" while weather was showing: said briefly, the weather kept. */
   const [notice, setNotice] = useState<string | null>(null)
   /** While the position is being asked for, a refresh doesn't change what the chip shows. */
@@ -554,6 +560,14 @@ export function TodayGreeting({
       >
         {greeting(now, name)}
       </p>
+      {isHotSauceDay(now) ? (
+        <p
+          className="mt-0.5 text-sm font-medium text-ember-strong"
+          data-testid="today-hot-sauce-day"
+        >
+          {HOT_SAUCE_DAY_LINE}
+        </p>
+      ) : null}
       {next ? (
         <p
           className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-ink-soft"

@@ -213,6 +213,14 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     ],
   },
   {
+    id: 'today-sky',
+    title: 'Today’s sky',
+    ...APPEARANCE,
+    summary:
+      'The picture behind your greeting on Today: the sky with the sun or moon, a sun path, or none.',
+    words: ['sun', 'moon', 'sunrise', 'sunset', 'sky', 'scene', 'today', 'animation', 'daylight'],
+  },
+  {
     id: 'notifications',
     title: 'Notifications',
     ...GENERAL,

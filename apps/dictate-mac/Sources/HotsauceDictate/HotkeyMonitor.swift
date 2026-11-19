@@ -3,7 +3,8 @@ import CoreGraphics
 import DictateCore
 
 /// Watches the keyboard everywhere with a CGEventTap (needs Accessibility) and turns the hotkey
-/// into the state machine's events. Swallows Esc only while a dictation is recording.
+/// into the state machine's events. Swallows Esc only while a dictation is recording or a
+/// screenshot is being taken, and always swallows the screenshot shortcut.
 final class HotkeyMonitor {
     enum Event {
         case keyDown(TimeInterval)
@@ -15,6 +16,17 @@ final class HotkeyMonitor {
     var hotkey: Hotkey
     /// Called on the main thread. For `.escape`, return true to swallow the key.
     var handler: (Event) -> Bool = { _ in false }
+
+    /// The screenshot chord (docs/PLAN-screenshots.md R7). A keyDown that matches it is always
+    /// swallowed, so the front app never types it.
+    var screenshotShortcut: ScreenshotShortcut?
+    enum ScreenshotKey {
+        case shortcut
+        case escape
+    }
+    /// Called on the main thread. For `.escape`, return true when it cancelled a capture (and is
+    /// swallowed); otherwise Esc goes on to Dictate.
+    var screenshotHandler: (ScreenshotKey) -> Bool = { _ in false }
 
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
@@ -92,11 +104,21 @@ final class HotkeyMonitor {
             return Unmanaged.passUnretained(event)
         case .keyDown:
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            let repeated = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            if let shortcut = screenshotShortcut, shortcut.matches(keyCode: keyCode, flags: event.flags.rawValue) {
+                if !repeated {
+                    // A chord made with the dictation key (Right ⌥⇧4) is a shortcut, not a dictation.
+                    if hotkeyIsDown { _ = handler(.otherKey) }
+                    _ = screenshotHandler(.shortcut)
+                }
+                return nil
+            }
             if keyCode == Self.escapeKeyCode {
+                if screenshotHandler(.escape) { return nil }
                 return handler(.escape) ? nil : Unmanaged.passUnretained(event)
             }
             // Key repeats of a held key aren't new shortcuts.
-            if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 { _ = handler(.otherKey) }
+            if !repeated { _ = handler(.otherKey) }
             return Unmanaged.passUnretained(event)
         default:
             return Unmanaged.passUnretained(event)
