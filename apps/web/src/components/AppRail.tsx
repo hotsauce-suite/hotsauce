@@ -499,6 +499,7 @@ function AccountButton({
 
   const open = (button: HTMLElement) => {
     const rect = button.getBoundingClientRect()
+    photos.clearError()
     setAnchor({ x: rect.right + 8, y: rect.bottom, above: true })
   }
   /** Leaves the menu for somewhere else: focus goes with it, not back to the button. */
@@ -516,6 +517,7 @@ function AccountButton({
         aria-expanded={anchor !== null}
         data-testid="account-menu"
         data-current={onSettings ? '' : undefined}
+        aria-current={onSettings ? 'page' : undefined}
         ref={buttonRef}
         {...tip.handlers}
         // While open, the menu's outside-click close would race this button's toggle.
@@ -773,6 +775,7 @@ function FaceButton({ name, email }: { name: string | undefined; email: string |
     <button
       type="button"
       role="menuitem"
+      data-menu-extra=""
       data-testid="photo-change"
       aria-label={has ? 'Change your photo' : 'Add a photo of yourself'}
       title={has ? 'Change your photo' : 'Add a photo of yourself'}
@@ -802,6 +805,7 @@ function PhotoLinks() {
       <button
         type="button"
         role="menuitem"
+        data-menu-extra=""
         data-testid="photo-add"
         disabled={photos.busy}
         onClick={photos.choose}
@@ -813,6 +817,7 @@ function PhotoLinks() {
         <button
           type="button"
           role="menuitem"
+          data-menu-extra=""
           data-testid="photo-remove"
           onClick={() => void photos.remove()}
           className={link}

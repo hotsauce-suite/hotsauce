@@ -23,6 +23,7 @@ import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
 import { BUILD_VERSION, takeUpdatedVersion } from '../lib/appUpdate'
 import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
+import { connectMacMusic } from '../music/macBridge'
 import { music } from '../music/player'
 import { SessionProvider, useSession } from '../state/session'
 import { forgetDeletedTheme } from './AppearanceSettings'
@@ -144,7 +145,11 @@ function ShellLayout() {
 
   // Background music (docs/PLAN-background-music.md): watches recordings, and resumes at the first
   // click if it was left on.
-  useEffect(() => music().start(), [])
+  useEffect(() => {
+    music().start()
+    // Inside the Mac app, its menus play and pause it (M9).
+    return connectMacMusic(music())
+  }, [])
 
   // The sidebar follows the open doc's space.
   useEffect(() => {

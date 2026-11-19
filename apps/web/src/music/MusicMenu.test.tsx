@@ -41,6 +41,13 @@ describe('background music controls', () => {
     fireEvent.change(within(panel).getByTestId('music-volume'), { target: { value: '60' } })
     await waitFor(() => expect(saved().volume).toBeCloseTo(0.6))
 
+    // The tracks keep the arrow keys: the menu doesn't take them for its own rows.
+    const rain = within(panel).getByTestId('music-track-rain')
+    rain.focus()
+    await userEvent.keyboard('{ArrowUp}')
+    expect(panel).toContainElement(document.activeElement as HTMLElement)
+    expect(screen.getByTestId('photo-add')).not.toHaveFocus()
+
     await userEvent.click(within(panel).getByTestId('music-toggle'))
     await waitFor(() => expect(screen.getByTestId('music-status')).toHaveTextContent('Off'))
     expect(saved().on).toBe(false)

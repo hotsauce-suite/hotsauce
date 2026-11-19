@@ -50,7 +50,9 @@ export function Menu({
   }, [anchor])
 
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>(ITEMS)?.focus()
+    // Start on the first thing a member came for, not on an extra like the photo button.
+    const all = [...(ref.current?.querySelectorAll<HTMLElement>(ITEMS) ?? [])]
+    ;(all.find((el) => !el.hasAttribute('data-menu-extra')) ?? all[0])?.focus()
     const onPointer = (event: PointerEvent) => {
       if (!ref.current?.contains(event.target as Node)) onCloseRef.current()
     }
@@ -62,6 +64,16 @@ export function Menu({
         onCloseRef.current()
       }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        // Controls of their own inside the menu (a slider, a list of tracks) keep their arrows.
+        const active = document.activeElement
+        if (
+          active instanceof HTMLElement &&
+          ref.current?.contains(active) &&
+          active !== ref.current &&
+          !active.matches(ITEMS)
+        ) {
+          return
+        }
         const items = [...(ref.current?.querySelectorAll<HTMLElement>(ITEMS) ?? [])]
         const index = items.indexOf(document.activeElement as HTMLElement)
         const next = event.key === 'ArrowDown' ? index + 1 : index - 1

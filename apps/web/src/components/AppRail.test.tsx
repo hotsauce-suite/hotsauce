@@ -582,6 +582,18 @@ describe('the account menu (R6 to R10)', () => {
     expect(storedTheme()).toBe('system')
   })
 
+  it('R7: the menu opens on the theme switch, and Appearance in Settings follows it', async () => {
+    renderApp('/settings')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    expect(screen.getByTestId('menu-theme-light')).toHaveFocus()
+    await userEvent.click(screen.getByTestId('menu-theme-more'))
+    const dark = await screen.findByTestId('theme-dark')
+    expect(dark).not.toBeChecked()
+    await userEvent.click(screen.getByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-theme-dark'))
+    await waitFor(() => expect(dark).toBeChecked())
+  })
+
   it('R7: More themes opens Appearance in Settings', async () => {
     const { router } = renderApp('/docs')
     await userEvent.click(await screen.findByTestId('account-menu'))

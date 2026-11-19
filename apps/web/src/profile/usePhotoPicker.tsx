@@ -14,6 +14,8 @@ export function usePhotoPicker(square: Square = squarePhoto): {
   remove: () => Promise<void>
   busy: boolean
   error: string | null
+  /** Forgets the last refusal (a menu opening again starts clean). */
+  clearError: () => void
 } {
   const session = useSession()
   const ref = useRef<HTMLInputElement>(null)
@@ -66,8 +68,7 @@ export function usePhotoPicker(square: Square = squarePhoto): {
       accept="image/jpeg,image/png,image/webp,image/heic,image/*"
       aria-label="Choose a profile photo"
       data-testid="photo-input"
-      className="sr-only"
-      tabIndex={-1}
+      hidden
       onChange={(event) => {
         const file = event.currentTarget.files?.[0]
         // The same file can be picked again after a failure.
@@ -82,5 +83,6 @@ export function usePhotoPicker(square: Square = squarePhoto): {
     remove: () => run(() => photoApi.remove(), 'Couldn’t remove the photo. Try again.'),
     busy,
     error,
+    clearError: () => setError(null),
   }
 }

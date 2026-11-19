@@ -76,7 +76,8 @@ export function useRailTip(tip: Tip): { handlers: TipHandlers; node: ReactNode }
     },
     onBlur: hide,
     onKeyDown: (event) => {
-      if (event.key === 'Escape' && at) hide()
+      // Escape dismisses it; Enter or Space acts on the entry, and the tip is in the way after.
+      if (event.key === 'Escape' ? at : event.key === 'Enter' || event.key === ' ') hide()
     },
     'aria-describedby': at ? id : undefined,
   }
