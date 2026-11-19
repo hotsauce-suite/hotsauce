@@ -92,6 +92,14 @@ export function accountRoutes(deps: AppDeps) {
       account.setPins(c.get('principal').email, pins)
       return c.json({ pins })
     })
+    .get('/tour', (c) => {
+      // The first-run tour (docs/PLAN-tour-and-101.md S1, S2): seen once per member, anywhere.
+      return c.json({ seen: account.hasSeenTour(c.get('principal').email) })
+    })
+    .post('/tour/seen', (c) => {
+      account.markTourSeen(c.get('principal').email, new Date())
+      return c.json({ seen: true as const })
+    })
     .get('/phone-pins', (c) => c.json({ pins: account.getPhonePins(c.get('principal').email) }))
     .put('/phone-pins', valid('json', PhonePins), (c) => {
       const { pins } = c.req.valid('json')

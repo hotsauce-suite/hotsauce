@@ -118,3 +118,10 @@
 - A `title` hover target placed before the text in the DOM is covered by it; give it `z-10`.
 - Playwright's `clock.install` stalls the mocked app; `clock.setFixedTime` freezes Date only and
   is enough for time-of-day screenshots.
+
+## The welcome tour and Hotsauce 101 (2026-11-19)
+
+- **Driver.js's popover reads the next step's text before its re-render finishes.** An e2e test that read the progress text and then clicked Next raced to Done early. Wait for "N of total" before each click; and give Driver ~500 ms after it opens before arrow keys, which it ignores mid-transition.
+- **A first-run card breaks every other test.** Default the mock API's tour to "seen", let the live demo keep its own seen flag in localStorage, and have the e2e `signIn` mark the tour seen unless a test asks for it.
+- **One list for the site and the app.** `site/public/apps.json` feeds both hotsauce.work's app windows (`node site/sync-apps.mjs`) and Settings → Hotsauce 101; `site/apps.test.js` fails when they drift or a card or loop is missing. The app imports the loops with `import.meta.glob('…/video/apps/*', { query: '?url' })`, so Vite fingerprints them and the PWA precache (js/css/svg/png only) leaves them out.
+- **Tables has no in-browser mock**, so its demo window has no "Try it yourself" and its loop was filmed against the dev server (import a CSV before `startCapture`).

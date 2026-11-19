@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "version": "0.59.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "A short welcome tour the first time you open Hotsauce on a computer; take it again any time from your account menu"
+        },
+        {
+          "text": "Settings → Hotsauce 101: what every app is for, with a short video of each"
+        },
+        {
+          "text": "For you and Tables now have their own cards and videos on hotsauce.work"
+        },
+        {
+          "text": "The tour and Hotsauce 101 show in the Mac app window too",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.58.0",
       "date": "2026-11-19",
       "notes": [
