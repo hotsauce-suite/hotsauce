@@ -29,6 +29,7 @@
     "@lezer/highlight": "^1.2.5",
     "@lezer/markdown": "^1.8.0",
     "cmdk": "^1.1.1",
+    "driver.js": "1.10.2",
     "mammoth": "^1.13.0",
     "modern-screenshot": "4.7.0",
     "pdfjs-dist": "5.4.296",

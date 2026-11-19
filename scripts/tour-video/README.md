@@ -18,7 +18,7 @@ The demo data (neutral names, a realistic agent brief and briefing) lives in `ap
    cd apps/web && VITE_MOCK_API=1 npx vite --port 5191 --strictPort
    ```
 2. Record every shot. Each makes `<shot>.mp4` and a contact sheet:
-   `DEMO_FILES=$PWD/scripts/tour-video/demo-files DEMO_CLIP=/tmp/demo-clip scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask assistant tasks notes checkins clipsRecorder clipsPlayer dictate macSetup feedback boards people files forms booking briefcast links`
+   `DEMO_FILES=$PWD/scripts/tour-video/demo-files DEMO_CLIP=/tmp/demo-clip scripts/tour-video/run.sh /tmp/tour-shots today docs meetings ask assistant tasks notes checkins clipsRecorder clipsPlayer dictate macSetup feedback boards people files forms booking briefcast links forYou tables`
 
    The `files` shot uploads the sample files in `demo-files/` into a new folder, so use a fresh `DATA_DIR` or change the folder name in `shots.mjs`.
 3. Voice, captions, overlays and the cut (needs `OPENAI_API_KEY`):
@@ -45,4 +45,5 @@ The demo data (neutral names, a realistic agent brief and briefing) lives in `ap
 
 - **The website's app windows** use the same shots. Re-encode each for `site/public/video/apps/` with
   `ffmpeg -i <shot>.mp4 -an -vf scale=1280:-2 -c:v libx264 -crf 27 -preset slow -pix_fmt yuv420p -movflags +faststart`,
-  plus a poster from the last frame (`-sseof -0.1 -frames:v 1`).
+  plus a poster from the last frame (`-sseof -0.1 -frames:v 1`). Name the file by its `video` in `site/public/apps.json` (the `forYou` shot is `for-you.mp4`).
+- **`site/public/apps.json`** is the one list of apps: the landing page's windows (`node site/sync-apps.mjs` rewrites them) and the app's Settings → Hotsauce 101 page both read it, and the app bundles these loops. A new app needs an entry there, a card in `index.html`, and a loop here.
