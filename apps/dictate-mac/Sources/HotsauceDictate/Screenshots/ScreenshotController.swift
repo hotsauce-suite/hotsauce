@@ -26,6 +26,11 @@ final class ScreenshotController {
     private var copiedCapture: (id: UUID, changeCount: Int)?
     /// Hands a picture to the suite's page to share: (name, base64 PNG) → the page's answer.
     var sharePage: (String, String) async -> Any? = { _, _ in nil }
+    /// The suite's host: a link pointing anywhere else is not taken.
+    var suiteHost: () -> String? = { nil }
+    /// Each share's number, so one that answers after giving up can't act.
+    private var shareGeneration = 0
+    static let shareTimeout: TimeInterval = 180
     /// One share at a time; a second press while one uploads is ignored.
     private var sharing = false
 
@@ -63,6 +68,8 @@ final class ScreenshotController {
         editor.showError = { [weak self] in self?.showMessage($0) }
         editor.folder = { [weak self] in self?.folder ?? FileManager.default.homeDirectoryForCurrentUser }
         editor.onSaved = { [weak self] shot, png in self?.saved(shot, png) }
+        editor.onFlattened = { [weak self] shot, png in self?.swapClipboard(shot, png) }
+        editor.createsFiles = { [weak self] in self.map { ScreenshotAfterCapture.load($0.defaults).save } ?? true }
         editor.onClose = { [weak self] shot, document in
             guard let self else { return }
             self.editors[shot.id] = nil
@@ -79,6 +86,11 @@ final class ScreenshotController {
     /// holding the unedited capture gets the edited one instead, so redacted pixels don't linger.
     private func saved(_ shot: Screenshot, _ png: Data) {
         recent.update(where: { $0.id == shot.id }) { $0.fileURL = shot.fileURL }
+        swapClipboard(shot, png)
+    }
+
+    /// A clipboard still holding this shot's unedited capture gets the edited picture instead.
+    private func swapClipboard(_ shot: Screenshot, _ png: Data) {
         let pasteboard = NSPasteboard.general
         guard let copied = copiedCapture, copied.id == shot.id, pasteboard.changeCount == copied.changeCount else { return }
         pasteboard.clearContents()
@@ -183,7 +195,10 @@ final class ScreenshotController {
     /// Uploads through the signed-in page, copies the link, and says what happened. The shot on
     /// this Mac is untouched whatever the answer. Neither the picture nor the link is logged.
     func share(_ png: Data, name: String, progress: @escaping (Bool) -> Void, done: @escaping (String) -> Void) {
-        guard !sharing else { return }
+        guard !sharing else {
+            done("Still sharing the last one. Try again in a moment.")
+            return
+        }
         let base64: String
         switch ScreenshotShare.payload(png) {
         case let .failure(failure):
@@ -193,9 +208,23 @@ final class ScreenshotController {
             base64 = text
         }
         sharing = true
+        shareGeneration += 1
+        let mine = shareGeneration
         progress(true)
+        // A page that never answers mustn't leave Share stuck.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.shareTimeout) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.sharing, self.shareGeneration == mine else { return }
+                self.shareGeneration += 1
+                self.sharing = false
+                progress(false)
+                done("Sharing took too long. Check the connection and press Share again.")
+            }
+        }
         Task { @MainActor in
-            let outcome = ScreenshotShare.parse(await self.sharePage(name, base64))
+            let answer = await self.sharePage(name, base64)
+            guard self.shareGeneration == mine else { return }
+            let outcome = ScreenshotShare.parse(answer, expectedHost: self.suiteHost())
             self.sharing = false
             progress(false)
             if case let .shared(url, _, _) = outcome {
@@ -237,7 +266,7 @@ final class ScreenshotController {
             done()
         case .showScreenshotFolder:
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            NSWorkspace.shared.activateFileViewerSelecting([folder])
+            NSWorkspace.shared.open(folder)
             done()
         case .chooseScreenshotFolder:
             let panel = NSOpenPanel()

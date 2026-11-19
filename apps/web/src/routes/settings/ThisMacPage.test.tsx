@@ -273,6 +273,11 @@ describe('Screenshots (docs/PLAN-screenshots.md R15)', () => {
     // Esc stops recording and keeps the old one.
     fireEvent.keyDown(button, { code: 'Escape', key: 'Escape' })
     expect(button).toHaveTextContent('⌥⇧4')
+    // Tab on its own leaves rather than being taken as the key.
+    await userEvent.click(button)
+    fireEvent.keyDown(button, { code: 'Tab', key: 'Tab' })
+    expect(button).toHaveTextContent('⌥⇧4')
+    expect(screen.queryByText('Press keys…')).toBeNull()
   })
 
   it('says so when the Mac keeps its old shortcut', async () => {

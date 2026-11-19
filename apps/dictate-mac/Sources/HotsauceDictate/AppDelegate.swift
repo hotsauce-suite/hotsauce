@@ -100,6 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         monitor.screenshotHandler = { [weak self] key in self?.screenshots.handle(key) ?? false }
         screenshots.showMessage = { [weak self] in self?.controller.showMessage($0) }
         screenshots.sharePage = { [weak self] name, png in await self?.suite.shareScreenshot(name: name, png: png) }
+        screenshots.suiteHost = { [weak self] in self?.suite.server?.host }
         startMonitor()
 
         onboarding.model.connect = { [weak self] code, done in self?.connect(code: code, fromLink: false, done: done) }

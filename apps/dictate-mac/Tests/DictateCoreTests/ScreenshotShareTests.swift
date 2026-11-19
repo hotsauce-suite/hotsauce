@@ -55,6 +55,13 @@ import Testing
         }
     }
 
+    @Test func aLinkToAnotherHostIsNotTaken() {
+        let answer: [String: Any] = ["ok": true, "url": "https://evil.example/s/x", "anyone": true]
+        guard case .failed = ScreenshotShare.parse(answer, expectedHost: "hotsauce.example.com") else { Issue.record("took it"); return }
+        let ours: [String: Any] = ["ok": true, "url": "https://Hotsauce.example.com/s/x", "anyone": true]
+        guard case .shared = ScreenshotShare.parse(ours, expectedHost: "hotsauce.example.com") else { Issue.record("refused ours"); return }
+    }
+
     @Test func theSizeCheckMatchesThePages() {
         #expect(ScreenshotShare.payload(Data([1, 2, 3])) == .success("AQID"))
         #expect(ScreenshotShare.payload(Data(count: ScreenshotShare.maxBytes + 1)) == .failure(.tooLarge))

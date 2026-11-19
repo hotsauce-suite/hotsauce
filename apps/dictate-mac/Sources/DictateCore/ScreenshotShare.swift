@@ -35,12 +35,13 @@ public enum ScreenshotShare {
     """
 
     /// The page's answer, checked. Anything malformed is a plain failure, never a link.
-    public static func parse(_ answer: Any?) -> Outcome {
+    public static func parse(_ answer: Any?, expectedHost: String? = nil) -> Outcome {
         guard let answer = answer as? [String: Any] else { return .failed(.notSignedIn) }
         if answer["missing"] as? Bool == true { return .failed(.notSignedIn) }
         if isTrue(answer["ok"]) {
             guard let text = answer["url"] as? String, let url = URL(string: text),
-                  url.scheme == "https" || url.scheme == "http", url.host?.isEmpty == false
+                  url.scheme == "https" || url.scheme == "http", url.host?.isEmpty == false,
+                  expectedHost.map({ url.host?.lowercased() == $0.lowercased() }) ?? true
             else { return .failed(.page("The link Hotsauce sent back didn’t work.")) }
             let anyone = isTrue(answer["anyone"])
             let deleteAfter = (answer["deleteAfter"] as? String).flatMap(date(from:))
@@ -65,7 +66,7 @@ public enum ScreenshotShare {
         case .failed(.notSignedIn):
             return "Open Hotsauce and sign in, then press Share again."
         case .failed(.tooLarge):
-            return "This screenshot is too large to share. It’s still saved on this Mac."
+            return "This screenshot is too large to share."
         case let .failed(.page(error)):
             return error
         }

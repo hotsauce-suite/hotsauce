@@ -397,6 +397,11 @@ function ScreenshotsSection({
 
   const record = (e: React.KeyboardEvent) => {
     if (!recording) return
+    // Tab on its own still moves on, so the keyboard is never trapped here.
+    if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      setRecording(false)
+      return
+    }
     e.preventDefault()
     if (e.key === 'Escape') {
       setRecording(false)

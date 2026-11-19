@@ -439,7 +439,12 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// when the window isn't showing the suite's page, so a picture never goes anywhere else.
     func shareScreenshot(name: String, png: String) async -> Any? {
         guard isOnSuitePage, failedURL == nil else { return nil }
-        return try? await webView.callAsyncJavaScript(ScreenshotShare.script, arguments: ["name": name, "png": png], in: nil, contentWorld: .page)
+        do {
+            return try await webView.callAsyncJavaScript(ScreenshotShare.script, arguments: ["name": name, "png": png], in: nil, contentWorld: .page)
+        } catch {
+            // The page was there but the call broke (it reloaded, or the picture was too much for it).
+            return ["ok": false, "error": "Couldn’t share the screenshot. Press Share again."]
+        }
     }
 
     private var isOnMeetingsPage: Bool {

@@ -20,6 +20,11 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
     var onSaved: (Screenshot, Data) -> Void = { _, _ in }
     /// The screenshots folder, for a shot with no file (or whose file has moved).
     var folder: () -> URL = { FileManager.default.homeDirectoryForCurrentUser }
+    /// Whether closing or quitting may make a file for a shot that has none (Settings → This Mac →
+    /// Screenshots → Save to the folder). ⌘S always saves.
+    var createsFiles: () -> Bool = { true }
+    /// Closed with changes but no file made: the flattened picture, so the clipboard can follow.
+    var onFlattened: (Screenshot, Data) -> Void = { _, _ in }
 
     /// What the file on disk holds, so closing knows whether there is anything to save.
     private var savedDocument: ShotDocument
@@ -350,7 +355,14 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
     /// Before closing or quitting: saves changes if there are any.
     func saveIfNeeded() -> Bool {
         canvas.commitText()
-        return hasUnsavedChanges ? saveInPlace() : true
+        guard hasUnsavedChanges else { return true }
+        // Saving is off and this shot has no file: don't make one. The layers stay in memory, and
+        // a clipboard still holding the capture gets the edited picture.
+        if shot.fileURL == nil, !createsFiles() {
+            if let png = flattened() { onFlattened(shot, png) }
+            return true
+        }
+        return saveInPlace()
     }
 
     private func write(_ png: Data, to url: URL, note: String?) -> Bool {

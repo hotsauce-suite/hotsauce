@@ -8,7 +8,7 @@ struct Screenshot {
     /// The capture as taken: the editor's untouched source.
     let image: CGImage
     let png: Data
-    /// Nil when saving failed; the clipboard still has it.
+    /// Nil when saving failed or is switched off (Settings → This Mac → Screenshots).
     var fileURL: URL?
     let takenAt: Date
 }
