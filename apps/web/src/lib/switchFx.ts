@@ -118,7 +118,8 @@ export function drawRipple(x: number, y: number, doc: Document = document): HTML
 
 let context: AudioContext | null = null
 
-function audioContext(): AudioContext | null {
+/** The page's one audio context, shared by the tick and the Easter eggs' sizzle. */
+export function audioContext(): AudioContext | null {
   if (context) return context
   const Ctor =
     window.AudioContext ??

@@ -1,5 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
-import { Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router'
+import {
+  Navigate,
+  Outlet,
+  useLocation,
+  useMatches,
+  useOutletContext,
+  useParams,
+} from 'react-router'
 import { BoardsSidebar } from '../apps/boards/BoardsSidebar'
 import { BriefcastSidebar } from '../apps/briefcast/BriefcastSidebar'
 import { ClipsSidebar } from '../apps/clips/ClipsSidebar'
@@ -14,6 +21,7 @@ import { appForPath, ownerOfPath } from '../apps/registry'
 import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
 import { product } from '../brand/product'
+import { useEggs } from '../eggs/useEggs'
 import { useMacScreenshots } from '../hooks/useMacScreenshots'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSpec } from '../keyboard/keys'
@@ -26,6 +34,7 @@ import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
 import { connectMacMusic } from '../music/macBridge'
 import { music } from '../music/player'
+import { NOT_FOUND_ROUTE_ID } from '../routes/notFound'
 import { SessionProvider, useSession } from '../state/session'
 import { forgetDeletedTheme } from './AppearanceSettings'
 import { AppRail, rememberAppLocation } from './AppRail'
@@ -165,9 +174,11 @@ function ShellLayout() {
     setDrawerOpen(false)
   }, [location.key])
 
+  // An address no page owns isn't a place to come back to from the rail.
+  const lost = useMatches().some((m) => m.id === NOT_FOUND_ROUTE_ID)
   useEffect(() => {
-    rememberAppLocation(location.pathname, location.search)
-  }, [location.pathname, location.search])
+    if (!lost) rememberAppLocation(location.pathname, location.search)
+  }, [lost, location.pathname, location.search])
 
   // A ripple from the click when the open tool changes (docs/PLAN-switch-ripple.md).
   useSwitchFx(ownerOfPath(location.pathname)?.id ?? null)
@@ -205,6 +216,7 @@ function ShellLayout() {
   })
   useAppShortcuts({ app: app.id, openSearch })
   useBuiltInCommands({ openShortcuts: () => setShortcutsOpen(true) })
+  useEggs()
 
   // Warm the palette's chunk while idle so the first Cmd-K opens instantly.
   useEffect(() => {
