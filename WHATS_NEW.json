@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.57.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "A new look, \"Follow the sun\": Hotsauce turns light at sunrise and dark at sunset where you are. Pick By sun in the account menu or Follow the sun in Settings → Appearance."
+        }
+      ]
+    },
+    {
       "version": "0.56.1",
       "date": "2026-11-19",
       "notes": [
