@@ -818,6 +818,18 @@ describe('phone pins', () => {
   })
 })
 
+describe('the first-run tour (docs/PLAN-tour-and-101.md)', () => {
+  it('starts unseen for every member and remembers seen per member (S1, S2)', async () => {
+    expect(await json('GET', '/api/tour')).toEqual({ seen: false })
+    expect(await json('GET', '/api/tour', { as: BOB })).toEqual({ seen: false })
+    expect(await json('POST', '/api/tour/seen')).toEqual({ seen: true })
+    // Safe to repeat.
+    expect(await json('POST', '/api/tour/seen')).toEqual({ seen: true })
+    expect(await json('GET', '/api/tour')).toEqual({ seen: true })
+    expect(await json('GET', '/api/tour', { as: BOB })).toEqual({ seen: false })
+  })
+})
+
 describe('webhooks', () => {
   function signedPush(body: string, secret = WEBHOOK_SECRET): Record<string, string> {
     return {
