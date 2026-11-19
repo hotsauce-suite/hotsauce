@@ -68,6 +68,9 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// The page's background music, as it last said (docs/PLAN-background-music.md M9); nil until
     /// a page with the player has loaded.
     private(set) var music: MusicBridge.State?
+    /// Screen breaks (docs/PLAN-breaks.md): what the page posts, and the app's own recordings.
+    var breaksMessage: ((BreaksBridge.Message) -> Void)?
+    var holdBreaks: ((String, Bool) -> Void)?
     /// What the app is recording itself, so the page's music stays held (M10).
     private var musicHolds: Set<MusicBridge.HoldReason> = []
     /// A new document hasn't been told the app's holds yet.
@@ -109,6 +112,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.add(WeakScriptHandler(self), name: "hearthSignIn")
         // The background music's player tells the app what it's doing, for the menus (M9).
         configuration.userContentController.add(WeakScriptHandler(self), name: MusicBridge.handlerName)
+        // Screen breaks: the page's settings and recording state; the app keeps the timer.
+        configuration.userContentController.add(WeakScriptHandler(self), name: BreaksBridge.handlerName)
         // /desktop/finish takes the ticket the app received, once (never from its URL).
         configuration.userContentController.addScriptMessageHandler(TicketHandler(self), contentWorld: .page, name: "hearthTicket")
         // /desktop/finish, once signed in, connects Dictate with a token it hands over here (R8).
@@ -490,6 +495,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     /// The app started or stopped recording something the page can't see: the page's music waits.
     func holdMusic(_ reason: MusicBridge.HoldReason, _ on: Bool) {
+        // Screen breaks wait for the same recordings (docs/PLAN-breaks.md B12).
+        holdBreaks?(reason.rawValue, on)
         guard on != musicHolds.contains(reason) else { return }
         if on { musicHolds.insert(reason) } else { musicHolds.remove(reason) }
         sendMusicHold(reason, on)
@@ -869,6 +876,10 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         else { return }
         if message.name == "hearthSignIn" { return signInWithBrowser() }
         if message.name == MusicBridge.handlerName { return musicPosted(message.body) }
+        if message.name == BreaksBridge.handlerName {
+            if let parsed = BreaksBridge.parse(message.body) { breaksMessage?(parsed) }
+            return
+        }
         guard message.name == "hearthDownload",
               let text = message.body as? String, let url = URL(string: text),
               ["http", "https"].contains(url.scheme?.lowercased() ?? "")
