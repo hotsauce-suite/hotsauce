@@ -27,7 +27,9 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('Easter eggs in the app', () => {
+// Each test here renders the whole app, and renderApp lets a findBy wait up to 5 s, as long as
+// vitest's default test timeout: on a slow runner the first render can use it all (CI, Nov 19).
+describe('Easter eggs in the app', { timeout: 15_000 }, () => {
   it('E1: the Konami code starts the pepper shower, but not while typing in a field', async () => {
     const user = userEvent.setup()
     renderApp('/tasks')
