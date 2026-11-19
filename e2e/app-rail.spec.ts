@@ -197,18 +197,16 @@ test('the logo widens the rail, and the account menu switches the theme', async 
   const narrow = (await rail.boundingBox())?.width ?? 0
   await rail.getByTestId('rail-toggle').click()
   await expect(rail).toHaveAttribute('data-wide', '')
-  await expect
-    .poll(async () => (await rail.boundingBox())?.width ?? 0)
-    .toBeGreaterThan(narrow * 2)
+  await expect.poll(async () => (await rail.boundingBox())?.width ?? 0).toBeGreaterThan(narrow * 2)
   // The name sits beside the icon, on one line.
   const docs = rail.getByTestId('app-switch-docs')
   const icon = await docs.locator('svg').first().boundingBox()
   const name = await docs.getByText('Docs', { exact: true }).boundingBox()
   expect(name && icon && name.x > icon.x + icon.width).toBe(true)
   // The page beside the rail still fits: nothing scrolls sideways.
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-  ).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
 
   await page.reload()
   await expect(page.getByTestId('app-rail')).toHaveAttribute('data-wide', '')
