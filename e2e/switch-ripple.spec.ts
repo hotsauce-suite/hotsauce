@@ -31,6 +31,11 @@ test('a ripple spreads from the rail click when switching tools, and clears itse
   if (process.env.RIPPLE_SHOT) await page.screenshot({ path: process.env.RIPPLE_SHOT })
   await expect(page.getByTestId('switch-ripple')).toHaveCount(0)
   await expect(page.getByTestId('meetings-home')).toBeVisible()
+  // The liquid wave never leaves the page bent (R7, R8).
+  await expect(page.getByTestId('switch-wave')).toHaveCount(0)
+  await expect
+    .poll(() => page.evaluate(() => document.getElementById('root')?.style.filter ?? ''))
+    .toBe('')
 })
 
 test('no ripple when the device asks for reduced motion', async ({ page }) => {

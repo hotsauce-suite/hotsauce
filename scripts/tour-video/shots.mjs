@@ -579,6 +579,55 @@ export const shots = {
   },
 
   // Links: reading progress in the list, a highlight with a note, then a paper's details.
+  async forYou({ page, signIn, startCapture, wait, moveTo, point, click }) {
+    await signIn()
+    await page.goto(`${B}/today`)
+    await wait(1800)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(500)
+    // The rail counts what's new; For you lists every @mention, newest first.
+    await click(page.getByRole('link', { name: /^For you/ }), { after: 1400 })
+    await point(page.getByText('Priya Natarajan mentioned you').first(), { ms: 700 })
+    await wait(900)
+    await click(page.getByRole('button', { name: 'Later: Ship the pilot report' }), { after: 1200 })
+    await click(page.getByRole('link', { name: /^Q4 plan/ }), { after: 1000 })
+    await page.locator('.cm-line').first().waitFor()
+    await wait(2200)
+  },
+
+  async tables({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
+    const DIR = process.env.DEMO_FILES
+    await signIn()
+    await page.goto(`${B}/tables`)
+    await wait(1500)
+    // Import the sample before filming; the shot starts on the table.
+    await page.getByTestId('import-table-button').click()
+    const inTeam = page.getByTestId('import-table-button-in-team')
+    const chooser = page.waitForEvent('filechooser')
+    if (await inTeam.isVisible().catch(() => false)) await inTeam.click()
+    await (await chooser).setFiles([`${DIR}/Field visits.csv`])
+    await page.getByTestId('table-grid').waitFor()
+    await wait(1500)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(500)
+    const cell = (a) => page.locator(`[data-cell="${a}"]`)
+    await click(cell('A6'), { after: 300 })
+    await type('Total', 70)
+    await page.keyboard.press('Tab')
+    await type('=SUM(B2:B5)', 70)
+    await page.keyboard.press('Tab')
+    await type('=SUM(C2:C5)', 70)
+    await page.keyboard.press('Enter')
+    await wait(900)
+    await click(cell('C6'), { after: 300 })
+    await point(page.getByTestId('formula-bar'), { ms: 700 })
+    await wait(1200)
+    await point(cell('C6'), { ms: 700 })
+    await wait(1800)
+  },
+
   async links({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
     await signIn()
     await page.goto(`${B}/links`)

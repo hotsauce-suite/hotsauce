@@ -1,0 +1,94 @@
+/* Screen breaks (docs/PLAN-breaks.md B7): the calming animations. Slow on purpose. */
+
+.break-scene {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+}
+
+/* Breathing circle: in for 4 seconds, out for 6. */
+.break-breathe {
+  animation: break-breathe 10s ease-in-out infinite;
+  background: radial-gradient(
+    circle at 50% 45%,
+    color-mix(in oklab, var(--break-glow) 85%, white) 0%,
+    var(--break-glow) 45%,
+    color-mix(in oklab, var(--break-glow) 0%, transparent) 72%
+  );
+}
+@keyframes break-breathe {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.65;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.55);
+    opacity: 0.65;
+  }
+}
+
+/* Drifting clouds over a soft sky. */
+.break-sky {
+  background: linear-gradient(180deg, #7fb2d9 0%, #b9d7ea 60%, #f3e3cf 100%);
+}
+.break-cloud {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.85);
+  filter: blur(6px);
+  animation: break-drift linear infinite;
+}
+@keyframes break-drift {
+  from {
+    transform: translateX(-60%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+/* Slow waves over a sea at dusk. */
+.break-sea {
+  background: linear-gradient(180deg, #2b3a63 0%, #496a8f 55%, #88aec6 100%);
+}
+.break-wave {
+  position: absolute;
+  left: 0;
+  width: 200%;
+  animation: break-swell linear infinite;
+}
+@keyframes break-swell {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .break-breathe,
+  .break-cloud,
+  .break-wave {
+    animation: none;
+  }
+  .break-breathe {
+    transform: scale(0.85);
+  }
+}
+
+.break-fade-in {
+  animation: break-fade 0.8s ease-out both;
+}
+@keyframes break-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

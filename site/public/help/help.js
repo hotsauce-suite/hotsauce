@@ -21,6 +21,7 @@ const PAGES = [
   { slug: 'install-app', title: 'Install it on your phone and computer', group: 'start' },
   { slug: 'settings', title: 'Settings and notifications', group: 'start' },
   { slug: 'music', title: 'Background music', group: 'start' },
+  { slug: 'breaks', title: 'Screen breaks', group: 'start' },
   { slug: 'shortcuts', title: 'Keyboard shortcuts and Command-K', group: 'start' },
   { slug: 'assistant', title: 'Ask: the AI assistant', group: 'start' },
   { slug: 'comments', title: 'Comments and mentions', group: 'start' },

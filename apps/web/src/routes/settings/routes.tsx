@@ -27,6 +27,11 @@ export const settingsRoute: RouteObject = {
       lazy: async () => ({ Component: (await import('../SettingsRoute')).AppsSettings }),
     },
     {
+      // What each app is for, with its loop (docs/PLAN-tour-and-101.md H1-H5).
+      path: '101',
+      lazy: async () => ({ Component: (await import('./GuidePage')).default }),
+    },
+    {
       // Release notes, from the version under the menu (docs/PLAN-mac-version-and-whats-new.md N5).
       path: 'whats-new',
       lazy: async () => ({ Component: (await import('./WhatsNewPage')).default }),

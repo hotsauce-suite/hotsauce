@@ -16,7 +16,7 @@ const nav = async () => within(await screen.findByTestId('settings-nav'))
 const page = (id: string) => screen.findByTestId(id)
 
 describe('Settings: the menu', () => {
-  it('gives a member General, Appearance, Connections and Apps, and no organization pages', async () => {
+  it('gives a member General, Appearance, Connections, Apps and Hotsauce 101, and no organization pages', async () => {
     serveOrg({ admin: false })
     renderApp('/settings')
     const menu = await nav()
@@ -26,6 +26,7 @@ describe('Settings: the menu', () => {
       ['Appearance', '/settings/appearance'],
       ['Connections', '/settings/connections'],
       ['Apps', '/settings/apps'],
+      ['Hotsauce 101', '/settings/101'],
     ])
     expect(screen.queryByTestId('settings-nav-org')).toBeNull()
   })
@@ -48,6 +49,7 @@ describe('Settings: the menu', () => {
       ['Appearance', '/settings/appearance'],
       ['Connections', '/settings/connections'],
       ['Apps', '/settings/apps'],
+      ['Hotsauce 101', '/settings/101'],
       ['Workspace', '/settings/organization'],
       ['Brand', '/settings/organization/brand'],
       ['People and access', '/settings/organization/people'],

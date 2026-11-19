@@ -5,7 +5,9 @@
 @import "./notes.css";
 @import "./boards.css";
 @import "./links.css";
+@import "./breaks.css";
 @import "./sign.css";
+@import "./sky.css";
 
 @theme inline {
   --color-paper: var(--paper);
@@ -174,13 +176,17 @@ button {
   z-index: 40;
   pointer-events: none;
   border-radius: 9999px;
+  /* Light caught by the wave's front: a soft shadow just behind a bright glint. */
   background: radial-gradient(
     circle,
-    color-mix(in oklab, var(--ember) 0%, transparent) 35%,
-    color-mix(in oklab, var(--ember) 22%, transparent) 62%,
-    color-mix(in oklab, var(--ember) 0%, transparent) 72%
+    transparent 58%,
+    rgb(0 0 0 / 0.06) 69%,
+    color-mix(in oklab, var(--ember) 12%, transparent) 73%,
+    rgb(255 255 255 / 0.32) 77%,
+    rgb(255 255 255 / 0.08) 80%,
+    transparent 84%
   );
-  transform: scale(0.08);
+  transform: scale(0.02);
   opacity: 0;
   will-change: transform, opacity;
 }
@@ -189,6 +195,33 @@ button {
   .switch-ripple {
     display: none;
   }
+}
+
+/* docs/PLAN-easter-eggs.md: chili peppers that fall, burst or sit still, above everything and
+   never in the way. */
+.egg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  overflow: hidden;
+}
+.egg-pepper {
+  position: absolute;
+  line-height: 1;
+  will-change: transform, opacity;
+}
+.egg-badge {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0.5rem 0.9rem;
+  border-radius: 9999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  border: 1px solid var(--ash);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.15);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------- ember dot */

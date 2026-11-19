@@ -8,7 +8,11 @@ import { PRIYA } from './seed'
  * `window.hotsauceMock.outsideEdit(space, path, find, replace)` simulates a teammate's push.
  */
 export async function startMockApi(): Promise<void> {
-  const mock = createMockApi({ latencyMs: 90 })
+  const mock = createMockApi({
+    latencyMs: 90,
+    // The live demo shows the tour on a visitor's first visit (docs/PLAN-tour-and-101.md T7).
+    tour: import.meta.env.MODE === 'demo' ? 'browser' : 'seen',
+  })
   // In the static demo there is no server behind the mock: answer anything it doesn't cover
   // here instead of letting the request reach the network.
   const fallback =

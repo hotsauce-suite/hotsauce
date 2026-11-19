@@ -28,6 +28,8 @@ import { forgetTaskLists } from '../apps/tasks/useTaskList'
 import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
 import { org, product } from '../brand/product'
+import { breaksStatus, saveBreakSettings } from '../breaks/settings'
+import { useBreakSettings } from '../breaks/useBreakSettings'
 import { feedbackLink, openFeedback } from '../feedback/pageShot'
 import { GO_KEYS } from '../keyboard/catalog'
 import { useOnline } from '../lib/connection'
@@ -41,6 +43,7 @@ import { usePhotoPicker } from '../profile/usePhotoPicker'
 import { type Tip, type TipHandlers, useRailTip } from '../rail/RailTip'
 import { setRailWide, useRailWide } from '../rail/railWide'
 import { useSession } from '../state/session'
+import { TOUR_REPLAY } from '../tour/replay'
 import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
 import { Icon, type IconName } from './Icon'
@@ -557,6 +560,7 @@ function AccountButton({
               ) : null}
               <ThemeSwitch onMore={go(() => navigate('/settings/appearance'))} />
               <MusicMenuRow />
+              <BreaksMenuRow />
               <MenuDivider />
               <MenuItem
                 icon="gear"
@@ -589,6 +593,9 @@ function AccountButton({
                 <span className="flex-1">Help</span>
                 <Icon name="external" className="size-3 text-ink-faint" />
               </a>
+              <MenuItem icon="flag" testId="menu-tour" onSelect={go(() => navigate(TOUR_REPLAY))}>
+                Take the tour
+              </MenuItem>
               {feedbackOn ? (
                 <MenuItem
                   icon="chat"
@@ -616,6 +623,7 @@ const THEMES: { value: ThemeChoice; label: string; icon: IconName }[] = [
   { value: 'light', label: 'Light', icon: 'sun' },
   { value: 'dark', label: 'Dark', icon: 'moon' },
   { value: 'system', label: 'Auto', icon: 'laptop' },
+  { value: 'sun', label: 'By sun', icon: 'sunrise' },
 ]
 
 /**
@@ -632,7 +640,7 @@ function ThemeSwitch({ onMore }: { onMore: () => void }) {
         role="group"
         aria-label="Theme"
         data-testid="menu-theme"
-        className="grid grid-cols-3 gap-0.5 rounded-lg bg-paper-sunk p-0.5"
+        className="grid grid-cols-4 gap-0.5 rounded-lg bg-paper-sunk p-0.5"
       >
         {THEMES.map((theme) => {
           const on = choice === theme.value
@@ -643,7 +651,13 @@ function ThemeSwitch({ onMore }: { onMore: () => void }) {
               role="menuitemradio"
               aria-checked={on}
               data-testid={`menu-theme-${theme.value}`}
-              title={theme.value === 'system' ? 'Follows your computer' : undefined}
+              title={
+                theme.value === 'system'
+                  ? 'Follows your computer'
+                  : theme.value === 'sun'
+                    ? 'Light from sunrise to sunset, dark after'
+                    : undefined
+              }
               onClick={() => {
                 chooseTheme(theme.value)
                 setChoice(theme.value)
@@ -703,6 +717,37 @@ function MusicMenuRow() {
         </div>
       ) : null}
     </>
+  )
+}
+
+/**
+ * Screen breaks in the menu (docs/PLAN-breaks.md B10): one press turns them on or off, saved at
+ * once; the row says how often. The rest is in Settings → General → Breaks.
+ */
+function BreaksMenuRow() {
+  const { settings } = useBreakSettings()
+  return (
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={settings.on}
+      data-testid="menu-breaks"
+      title="Reminders to look away from the screen. Change them in Settings."
+      onClick={() => void saveBreakSettings({ on: !settings.on })}
+      className={menuItemClass}
+    >
+      <Icon name="eye" className="size-4 text-ink-faint" />
+      <span className="flex-1">Breaks</span>
+      <span className="text-xs text-ink-faint">{breaksStatus(settings)}</span>
+      <span
+        aria-hidden="true"
+        className={`relative h-4 w-7 rounded-full transition-colors ${settings.on ? 'bg-ember' : 'bg-ash-strong'}`}
+      >
+        <span
+          className={`absolute top-0.5 size-3 rounded-full bg-paper transition-transform ${settings.on ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+        />
+      </span>
+    </button>
   )
 }
 

@@ -45,6 +45,24 @@ export {
   zonedTimeToUtc,
 } from './booking.js'
 export {
+  BREAK_ANIMATIONS,
+  BREAK_EVERY_MAX,
+  BREAK_EVERY_MIN,
+  BREAK_LENGTH_MAX,
+  BREAK_LENGTH_MIN,
+  BREAKS_PATH,
+  type BreakAnimation,
+  type BreakSettings,
+  BreakSettingsError,
+  DEFAULT_WORKING_HOURS,
+  defaultBreakSettings,
+  parseBreakSettings,
+  readBreakSettings,
+  serializeBreakSettings,
+  type WorkingHours,
+  withinWorkingHours,
+} from './breaks.js'
+export {
   CHECKINS_FOLDER,
   CheckinAnswerFrontmatter,
   CheckinFrontmatter,
@@ -84,6 +102,7 @@ export {
 export {
   cleanFileName,
   cleanFolder,
+  DELETE_AFTER,
   FILES_FOLDER,
   FILES_FOLDERS_PATH,
   FileFrontmatter,

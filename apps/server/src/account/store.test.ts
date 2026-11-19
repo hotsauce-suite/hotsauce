@@ -57,6 +57,20 @@ describe('AccountStore (R1)', () => {
     again.close()
   })
 
+  it('remembers who has seen the first-run tour, across a restart (tour plan S2)', () => {
+    const file = path.join(dir, 'account.sqlite')
+    const s = new AccountStore(file)
+    expect(s.hasSeenTour(A)).toBe(false)
+    s.markTourSeen(A, new Date('2026-11-19T12:00:00Z'))
+    s.markTourSeen(A, new Date('2026-11-20T12:00:00Z'))
+    expect(s.hasSeenTour(A)).toBe(true)
+    expect(s.hasSeenTour(B)).toBe(false)
+    s.close()
+    const again = new AccountStore(file)
+    expect(again.hasSeenTour(A)).toBe(true)
+    again.close()
+  })
+
   it('never lowers the saved schema version (a rollback keeps a newer file)', () => {
     const file = path.join(dir, 'account.sqlite')
     new AccountStore(file).close()

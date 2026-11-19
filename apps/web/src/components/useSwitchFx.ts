@@ -31,7 +31,7 @@ export function useSwitchFxPrefs(): SwitchFxPrefs {
   return useSyncExternalStore(subscribe, snapshot)
 }
 
-function reducedMotion(): boolean {
+export function reducedMotion(): boolean {
   try {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   } catch {
@@ -39,7 +39,7 @@ function reducedMotion(): boolean {
   }
 }
 
-function recording(): boolean {
+export function recording(): boolean {
   const live = getLive()
   if (live && (live.state === 'recording' || live.state === 'paused')) return true
   try {

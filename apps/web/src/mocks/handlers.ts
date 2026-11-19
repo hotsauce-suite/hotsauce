@@ -4,6 +4,7 @@ import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
 import { assistantHandlers } from './assistantHandlers'
 import { boardHandlers, FakeBoards, seedBoards } from './boardHandlers'
 import { bookingHandlers } from './bookingHandlers'
+import { breakHandlers } from './breakHandlers'
 import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
 import { briefHandlers, FakeBriefs } from './briefHandlers'
 import { checkinHandlers } from './checkinHandlers'
@@ -22,6 +23,7 @@ import { FakeSign, seedSign, signHandlers } from './signHandlers'
 import { FakeTasks, seedTasksOnce, taskHandlers } from './taskHandlers'
 import { themeHandlers } from './themeHandlers'
 import { todayHandlers } from './todayHandlers'
+import { type FakeTour, type TourMode, tourHandlers } from './tourHandlers'
 
 const ALLOWED_DOMAIN = 'example.test'
 const MAX_ASSET_BYTES = 10 * 1024 * 1024
@@ -67,6 +69,8 @@ export interface MockApi {
   files: FakeFiles
   forms: FakeForms
   links: FakeLinks
+  /** The first-run tour's seen flag; tests flip it to see the welcome card. */
+  tour: FakeTour
   handlers: AnyHandler[]
   /** Pushes a server event to every authenticated socket, like the real broadcaster. */
   broadcast: (event: ServerEvent) => void
@@ -85,7 +89,10 @@ function createHandlers(
   work: { boards: FakeBoards; files: FakeFiles; forms: FakeForms; links: FakeLinks },
   latencyMs: number,
   seeded: boolean,
-): Omit<MockApi, 'repo' | 'meetings' | 'tasks' | 'notes' | 'boards' | 'files' | 'forms' | 'links'> {
+): Omit<
+  MockApi,
+  'repo' | 'meetings' | 'tasks' | 'notes' | 'boards' | 'files' | 'forms' | 'links' | 'tour'
+> {
   const ready = new Set<{ send: (data: string) => void }>()
 
   const broadcast = (event: ServerEvent) => {
@@ -631,6 +638,7 @@ function createHandlers(
     ...linkHandlers({ links: work.links, files: work.files, repo, latencyMs, principal }),
   )
   handlers.push(...todayHandlers())
+  handlers.push(...breakHandlers())
   handlers.push(...themeHandlers({ principal, latencyMs }))
   handlers.push(...checkinHandlers({ principal }))
   handlers.push(
@@ -674,7 +682,9 @@ function createHandlers(
   return { handlers, broadcast, dropMeetingSockets: meetingRoutes.dropSockets }
 }
 
-export function createMockApi(opts: { latencyMs?: number; seeded?: boolean } = {}): MockApi {
+export function createMockApi(
+  opts: { latencyMs?: number; seeded?: boolean; tour?: TourMode } = {},
+): MockApi {
   const repo = new FakeRepo()
   if (opts.seeded ?? true) seed(repo)
   const meetings = new FakeMeetings(repo)
@@ -693,13 +703,17 @@ export function createMockApi(opts: { latencyMs?: number; seeded?: boolean } = {
     seedForms(work.forms)
     seedFakeLinks(work.links, work.files)
   }
+  const api = createHandlers(repo, meetings, tasks, notes, work, opts.latencyMs ?? 0, seeded)
+  const tour = tourHandlers(opts.tour ?? 'seen')
   return {
     repo,
     meetings,
     tasks,
     notes,
     ...work,
-    ...createHandlers(repo, meetings, tasks, notes, work, opts.latencyMs ?? 0, seeded),
+    ...api,
+    tour: tour.tour,
+    handlers: [...tour.handlers, ...api.handlers],
   }
 }
 
