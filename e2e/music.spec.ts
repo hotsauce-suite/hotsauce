@@ -1,15 +1,16 @@
 import { expect, test } from './fixtures'
 
-// Background music in a real browser (docs/PLAN-background-music.md, M8): the rail button plays
+// Background music in a real browser (docs/PLAN-background-music.md, M8): Music in the account menu plays
 // and pauses, the file is served so the browser can seek in it, and opening the microphone holds
 // the music until the recording ends. The browser runs headless, so nothing is heard.
 
-test('M8: plays from the rail, holds while the microphone is open, and pauses', async ({
+test('M8: plays from the account menu, holds while the microphone is open, and pauses', async ({
   page,
 }) => {
   await page.goto('/docs')
-  const button = page.getByTestId('music-button')
-  await expect(button).toHaveAttribute('aria-label', 'Background music: Off')
+  await page.getByTestId('account-menu').click()
+  const button = page.getByTestId('menu-music')
+  await expect(button).toContainText('Off')
 
   const served = page.waitForResponse((r) => r.url().endsWith('/music/soft-piano.mp3'))
   await button.click()

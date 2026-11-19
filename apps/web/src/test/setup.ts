@@ -1,4 +1,6 @@
 import { forgetForYou } from '../apps/for-you/store'
+import { forgetPhotos } from '../profile/photo'
+import { reloadRailWide } from '../rail/railWide'
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
@@ -44,6 +46,8 @@ afterEach(() => {
   hotsauceSocket.stop()
   setUnauthorizedHandler(null)
   localStorage.clear()
+  reloadRailWide()
+  forgetPhotos()
   resetMusicForTests()
   forgetPins()
   forgetForYou()

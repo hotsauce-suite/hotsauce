@@ -29,6 +29,8 @@ export interface Notice {
 
 export interface Session {
   me: Me | null
+  /** Their profile photo changed here: show it at once, without asking the server again. */
+  setPhoto: (photo: string | null) => void
   spaces: Space[]
   /** The space shown in the sidebar. */
   space: string
@@ -196,9 +198,14 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
   // A remembered personal space from another account falls back to Team.
   const visibleSpace = me && !spaces.some((s) => s.name === space) ? 'team' : space
 
+  const setPhoto = useCallback((photo: string | null) => {
+    setMe((current) => (current ? { ...current, photo } : current))
+  }, [])
+
   const value = useMemo<Session>(
     () => ({
       me,
+      setPhoto,
       spaces,
       space: visibleSpace,
       setSpace,
@@ -216,6 +223,7 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
     }),
     [
       me,
+      setPhoto,
       spaces,
       visibleSpace,
       setSpace,

@@ -46,6 +46,15 @@ interface MockToken {
 }
 const publicToken = ({ email: _email, ...t }: MockToken) => t
 
+/** What an image's first bytes say it is, as the server reads them. */
+function mockPhotoType(bytes: Uint8Array): string | null {
+  const starts = (sig: number[], at = 0) => sig.every((b, i) => bytes[at + i] === b)
+  if (starts([0x89, 0x50, 0x4e, 0x47])) return 'image/png'
+  if (starts([0xff, 0xd8, 0xff])) return 'image/jpeg'
+  if (starts([0x52, 0x49, 0x46, 0x46]) && starts([0x57, 0x45, 0x42, 0x50], 8)) return 'image/webp'
+  return null
+}
+
 const error = (status: number, code: string, message: string) =>
   HttpResponse.json({ error: { code, message } }, { status })
 
@@ -159,6 +168,15 @@ function createHandlers(
 
   // Access tokens live as long as this mock API (one test, or one page load).
   const mockTokens: MockToken[] = []
+  const mockPhotos = new Map<
+    string,
+    { type: string; bytes: Uint8Array<ArrayBuffer>; tag: string }
+  >()
+  let mockPhotoTag = 0
+  const mockPhotoUrl = (email: string): string | null => {
+    const photo = mockPhotos.get(email)
+    return photo ? `/api/members/${encodeURIComponent(email)}/photo?v=${photo.tag}` : null
+  }
   const mockConnections: Connection[] = [
     {
       id: 'conn_demo',
@@ -236,8 +254,35 @@ function createHandlers(
           { name: user.handle, kind: 'personal', label: 'Personal' },
         ],
         settings: { idleCommitMs: repo.idleCommitMs },
+        photo: mockPhotoUrl(user.email),
       }
       return HttpResponse.json(me)
+    }),
+
+    // Profile photos, kept in memory per page (the server keeps them in its account store).
+    http.put('/api/me/photo', async ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const bytes = new Uint8Array(await request.arrayBuffer())
+      const type = mockPhotoType(bytes)
+      if (!type) {
+        return error(400, 'bad_request', 'A profile photo must be a JPEG, PNG or WebP image')
+      }
+      mockPhotos.set(user.email, { type, bytes, tag: (++mockPhotoTag).toString(16) })
+      return HttpResponse.json({ photo: mockPhotoUrl(user.email) })
+    }),
+    http.delete('/api/me/photo', ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      mockPhotos.delete(user.email)
+      return HttpResponse.json({ photo: null })
+    }),
+    http.get('/api/members/:email/photo', ({ request, params }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const photo = mockPhotos.get(String(params.email).toLowerCase())
+      if (!photo) return error(404, 'not_found', 'No photo')
+      return new HttpResponse(photo.bytes, { headers: { 'content-type': photo.type } })
     }),
 
     // Access tokens (ARCHITECTURE §8.1), kept in memory per page.

@@ -10,6 +10,7 @@ import {
   customIdOf,
   endPreview,
   previewTheme,
+  THEME_CHOSEN,
   type ThemeChoice,
 } from '../lib/theme'
 import { SwitchFxSettings } from './SwitchFxSettings'
@@ -92,11 +93,16 @@ export function AppearanceSettings() {
 
   // Bumped whenever the member picks a look, which ends any preview (and drops one still coming).
   const [picks, setPicks] = useState(0)
-  const pick = (value: ThemeChoice, theme?: Theme) => {
-    chooseTheme(value, theme)
-    setChoice(value)
-    setPicks((n) => n + 1)
-  }
+  const pick = (value: ThemeChoice, theme?: Theme) => chooseTheme(value, theme)
+  // Every choice lands here, the account menu's switch included.
+  useEffect(() => {
+    const chosen = () => {
+      setChoice(currentTheme())
+      setPicks((n) => n + 1)
+    }
+    window.addEventListener(THEME_CHOSEN, chosen)
+    return () => window.removeEventListener(THEME_CHOSEN, chosen)
+  }, [])
 
   return (
     <>

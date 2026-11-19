@@ -8,6 +8,7 @@ export const docsApp: AppManifest = {
     return `${product()} Docs`
   },
   label: 'Docs',
+  about: 'Write and share documents with your team.',
   icon: 'docs',
   codename: 'Mantle',
   route: '/docs',

@@ -21,7 +21,7 @@ for connecting an AI tool from outside.
 
 ## 1. Make a token
 
-Open Hotsauce, open **Settings → Connections** (the gear at the bottom of the sidebar), find
+Open Hotsauce, open **Settings → Connections** (your initials at the bottom of the left bar, then Settings), find
 **Connect an AI tool**, give the token a name (say "Cursor on my laptop") and press **Create token**. Hotsauce shows the token
 once; pick your tool and it shows that tool's steps with the address and token already filled in.
 Copy it then; it can't be shown again. Revoke it on the same page when you stop using it; it stops

@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Keys } from '../keyboard/KeyCaps'
 import { Icon, type IconName } from './Icon'
 
 export interface MenuAnchor {
@@ -8,6 +9,9 @@ export interface MenuAnchor {
   /** Open upward, the menu's bottom edge at `y` (for buttons at the foot of the screen). */
   above?: boolean
 }
+
+/** What the arrow keys move between: items, and the choices of a switch inside the menu. */
+const ITEMS = '[role="menuitem"], [role="menuitemradio"]'
 
 /** A floating menu at a point (context menu) or under a button. Closes on outside click or Escape. */
 export function Menu({
@@ -26,20 +30,29 @@ export function Menu({
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
-  // Keep the menu on screen.
+  // Keep the menu on screen, and again when it grows (a row that opens controls under itself).
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const { width, height } = el.getBoundingClientRect()
-    const y = anchor.above ? anchor.y - height : anchor.y
-    setPosition({
-      x: Math.max(8, Math.min(anchor.x, window.innerWidth - width - 8)),
-      y: Math.max(8, Math.min(y, window.innerHeight - height - 8)),
-    })
+    const place = () => {
+      const { width, height } = el.getBoundingClientRect()
+      const y = anchor.above ? anchor.y - height : anchor.y
+      setPosition({
+        x: Math.max(8, Math.min(anchor.x, window.innerWidth - width - 8)),
+        y: Math.max(8, Math.min(y, window.innerHeight - height - 8)),
+      })
+    }
+    place()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(place)
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [anchor])
 
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+    // Start on the first thing a member came for, not on an extra like the photo button.
+    const all = [...(ref.current?.querySelectorAll<HTMLElement>(ITEMS) ?? [])]
+    ;(all.find((el) => !el.hasAttribute('data-menu-extra')) ?? all[0])?.focus()
     const onPointer = (event: PointerEvent) => {
       if (!ref.current?.contains(event.target as Node)) onCloseRef.current()
     }
@@ -51,7 +64,17 @@ export function Menu({
         onCloseRef.current()
       }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        const items = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
+        // Controls of their own inside the menu (a slider, a list of tracks) keep their arrows.
+        const active = document.activeElement
+        if (
+          active instanceof HTMLElement &&
+          ref.current?.contains(active) &&
+          active !== ref.current &&
+          !active.matches(ITEMS)
+        ) {
+          return
+        }
+        const items = [...(ref.current?.querySelectorAll<HTMLElement>(ITEMS) ?? [])]
         const index = items.indexOf(document.activeElement as HTMLElement)
         const next = event.key === 'ArrowDown' ? index + 1 : index - 1
         items[(next + items.length) % items.length]?.focus()
@@ -73,7 +96,7 @@ export function Menu({
       role="menu"
       aria-label={label}
       style={{ left: position.x, top: position.y }}
-      className="fixed z-50 min-w-48 rounded-lg border border-ash bg-paper-raised p-1 shadow-float"
+      className="fixed z-50 max-h-[calc(100dvh-1rem)] min-w-48 overflow-y-auto rounded-lg border border-ash bg-paper-raised p-1 shadow-float"
     >
       {children}
     </div>,
@@ -92,12 +115,15 @@ export function MenuItem({
   onSelect,
   testId,
   danger = false,
+  keys,
 }: {
   icon?: IconName
   children: ReactNode
   onSelect: () => void
   testId?: string
   danger?: boolean
+  /** Its shortcut, shown at the row's end ("g s"). */
+  keys?: string
 }) {
   return (
     <button
@@ -108,7 +134,8 @@ export function MenuItem({
       className={`${menuItemBase} ${danger ? 'text-ember-strong' : 'text-ink'}`}
     >
       {icon ? <Icon name={icon} className="size-4 text-ink-faint" /> : null}
-      {children}
+      {keys ? <span className="flex-1">{children}</span> : children}
+      {keys ? <Keys spec={keys} className="opacity-80" /> : null}
     </button>
   )
 }

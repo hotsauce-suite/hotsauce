@@ -9,6 +9,7 @@ export const tasksApp: AppManifest = {
     return `${product()} Tasks`
   },
   label: 'Tasks',
+  about: 'To-dos for you and the team.',
   icon: 'tasks',
   codename: 'Tasks',
   route: '/tasks',

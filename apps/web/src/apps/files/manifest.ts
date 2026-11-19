@@ -9,6 +9,7 @@ export const filesApp: AppManifest = {
     return `${product()} Files`
   },
   label: 'Files',
+  about: 'Keep and share PDFs, decks and spreadsheets.',
   icon: 'drive',
   codename: 'Files',
   route: '/files',

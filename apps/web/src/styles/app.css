@@ -125,6 +125,22 @@ button {
   animation: hotsauce-sidebar-in 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
+/* Widening from the logo is quick and eased; the page beside the rail follows its width. */
+.shell-rail {
+  transition: width 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.rail-tip {
+  animation: hotsauce-tip-in 120ms ease-out both;
+}
+
+@keyframes hotsauce-tip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
 .shell-tabbar {
   animation: hotsauce-main-in 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
@@ -142,8 +158,12 @@ button {
   .shell-tabbar,
   .shell-sidebar,
   .shell-main,
-  .hotsauce-glow {
+  .hotsauce-glow,
+  .rail-tip {
     animation: none;
+  }
+  .shell-rail {
+    transition: none;
   }
 }
 

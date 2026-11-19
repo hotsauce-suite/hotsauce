@@ -39,7 +39,7 @@ Each maps to a test, named in brackets.
   [music/player.test]
 - M2. Play and pause from the rail button; the panel changes track and volume; the choice, track
   and volume persist in this browser, and a bad stored value falls back to the defaults.
-  [music/player.test, MusicButton.test]
+  [music/player.test, MusicMenu.test]
 - M3. After a reload with music on, it starts at the first click, tap or key press, not before. A
   start the browser refuses later (after a recording) waits for the next one; a start cut short by
   a track change isn't mistaken for that; a track that won't load says so.
@@ -49,7 +49,7 @@ Each maps to a test, named in brackets.
   meanwhile. [music/player.test]
 - M5. The Getting started tile offers Turn on / No thanks until answered here; Turn on starts the
   music, either answer removes the line, and the step count is unchanged. [StartTile.test]
-- M6. On phones the Apps sheet has a Music row that opens the same controls. [MusicButton.test]
+- M6. On phones the Apps sheet has a Music row that opens the same controls. [MusicMenu.test]
 - M6a. A device that ignores the page's volume (iPhone, iPad) shows "use your device's buttons"
   instead of the slider. [music/player.test]
 - M7. Every track file exists, is an MP3 and is credited (title, author, CC0, source link) on the

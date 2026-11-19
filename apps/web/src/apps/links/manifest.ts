@@ -9,6 +9,7 @@ export const linksApp: AppManifest = {
     return `${product()} Links`
   },
   label: 'Links',
+  about: 'Save web pages and PDFs to read later.',
   icon: 'bookmark',
   codename: 'Links',
   route: '/links',

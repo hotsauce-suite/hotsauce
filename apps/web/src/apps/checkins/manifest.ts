@@ -16,6 +16,7 @@ export const checkinsApp: AppManifest = {
     return `${product()} Check-ins`
   },
   label: 'Check-ins',
+  about: 'Regular questions the whole team answers.',
   icon: 'checklist',
   codename: 'Check-ins',
   route: '/checkins',

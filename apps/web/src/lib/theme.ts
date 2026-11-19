@@ -38,6 +38,9 @@ function cached(): CachedTheme | null {
   }
 }
 
+/** Sent on `window` whenever a look is chosen, so every switch on screen shows the same one. */
+export const THEME_CHOSEN = 'hotsauce:theme-chosen'
+
 export const customChoice = (id: string): ThemeChoice => `custom:${id}`
 export const customIdOf = (choice: ThemeChoice): string | null =>
   choice.startsWith('custom:') ? choice.slice('custom:'.length) : null
@@ -77,6 +80,7 @@ export function chooseTheme(choice: ThemeChoice, theme?: Theme): void {
   }
   if (id && theme) paintCustom(themeCss(theme), themeFontsHref(theme), theme.scheme)
   applyTheme(choice)
+  window.dispatchEvent(new Event(THEME_CHOSEN))
 }
 
 /** `data-scheme` tells styles and Boards whether the theme is a light or a dark one. */
