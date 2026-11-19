@@ -517,7 +517,6 @@ function AccountButton({
         aria-expanded={anchor !== null}
         data-testid="account-menu"
         data-current={onSettings ? '' : undefined}
-        aria-current={onSettings ? 'page' : undefined}
         ref={buttonRef}
         {...tip.handlers}
         // While open, the menu's outside-click close would race this button's toggle.
