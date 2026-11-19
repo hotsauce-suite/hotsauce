@@ -42,9 +42,14 @@ export function photoRoutes(deps: AppDeps) {
       })
       .delete('/me/photo', async (c) => {
         const { email } = c.get('principal')
-        account.deletePhoto(email)
-        // Back to the picture from their sign-in, when they have one (requirement 14).
-        await signInPhotos?.restore(email)
+        if (account.photoOrigin(email)?.source === 'sign-in') {
+          // Removing the picture from their sign-in: they want none, so it stays away.
+          account.hidePhoto(email, new Date())
+        } else {
+          account.deletePhoto(email)
+          // Removing their own: back to the picture from their sign-in, when they have one.
+          await signInPhotos?.restore(email)
+        }
         return c.json({ photo: photoUrl(account, email) })
       })
       // Who has a photo, so a face can be shown wherever a member is named (requirement 15).

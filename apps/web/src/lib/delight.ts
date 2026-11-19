@@ -12,7 +12,11 @@ export const CHEER = 'hotsauce:cheer'
 
 const listeners = new Set<() => void>()
 
+/** The choice when storage can't hold it (a private window): it lasts until the page reloads. */
+let unsaved: boolean | null = null
+
 export function delightOn(): boolean {
+  if (unsaved !== null) return unsaved
   try {
     return localStorage.getItem(DELIGHT_KEY) !== 'off'
   } catch {
@@ -30,8 +34,9 @@ export function setDelight(on: boolean): void {
   try {
     if (on) localStorage.removeItem(DELIGHT_KEY)
     else localStorage.setItem(DELIGHT_KEY, 'off')
+    unsaved = null
   } catch {
-    // No storage (a private window): the choice lasts until the page reloads.
+    unsaved = on
   }
   paint()
   for (const listener of listeners) listener()
@@ -39,6 +44,7 @@ export function setDelight(on: boolean): void {
 
 /** Reads the choice again (tests, after storage was cleared). */
 export function reloadDelight(): void {
+  unsaved = null
   paint()
   for (const listener of listeners) listener()
 }

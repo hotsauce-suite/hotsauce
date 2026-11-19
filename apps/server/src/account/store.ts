@@ -261,12 +261,22 @@ export class AccountStore {
     return tag
   }
 
-  /** Whether the member's photo is their own upload or their sign-in picture; null without one. */
-  photoOrigin(user: string): { source: 'upload' | 'sign-in'; origin: string | null } | null {
+  /**
+   * Whether the member's photo is their own upload or their sign-in picture, or `none` when they
+   * chose to have no photo at all (so the sign-in picture stays away); null when nothing is kept.
+   */
+  photoOrigin(
+    user: string,
+  ): { source: 'upload' | 'sign-in' | 'none'; origin: string | null } | null {
     const row = this.#q.photoOrigin.get(user)
-    return row
-      ? { source: row.source === 'sign-in' ? 'sign-in' : 'upload', origin: row.origin }
-      : null
+    if (!row) return null
+    const source = row.source === 'sign-in' || row.source === 'none' ? row.source : 'upload'
+    return { source, origin: row.origin }
+  }
+
+  /** The member wants no photo: their sign-in picture is not used either, until they upload one. */
+  hidePhoto(user: string, now: Date): void {
+    this.#q.setPhoto.run(user, '', Buffer.alloc(0), '', now.toISOString(), 'none', null)
   }
 
   /** Every member with a photo, and its tag. */
@@ -379,8 +389,12 @@ function prepare(db: Database.Database) {
     addOffer: db.prepare<[string, string]>(
       'INSERT OR IGNORE INTO pin_offers (user, app) VALUES (?, ?)',
     ),
-    photoTag: db.prepare<[string], { tag: string }>('SELECT tag FROM photos WHERE user = ?'),
-    getPhoto: db.prepare<[string], PhotoRow>('SELECT type, bytes, tag FROM photos WHERE user = ?'),
+    photoTag: db.prepare<[string], { tag: string }>(
+      "SELECT tag FROM photos WHERE user = ? AND source != 'none'",
+    ),
+    getPhoto: db.prepare<[string], PhotoRow>(
+      "SELECT type, bytes, tag FROM photos WHERE user = ? AND source != 'none'",
+    ),
     setPhoto: db.prepare<[string, string, Buffer, string, string, string, string | null]>(`
       INSERT INTO photos (user, type, bytes, tag, updated_at, source, origin)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -391,7 +405,7 @@ function prepare(db: Database.Database) {
       'SELECT source, origin FROM photos WHERE user = ?',
     ),
     photoTags: db.prepare<[], { user: string; tag: string }>(
-      'SELECT user, tag FROM photos ORDER BY user',
+      "SELECT user, tag FROM photos WHERE source != 'none' ORDER BY user",
     ),
     deletePhoto: db.prepare<[string]>('DELETE FROM photos WHERE user = ?'),
     listThemes: db.prepare<[string], ThemeRow>(`

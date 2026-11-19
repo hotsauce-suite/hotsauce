@@ -80,6 +80,10 @@ If a release changes lines you changed too, it opens an issue instead of a pull 
 1. A copy made by the Deploy button has no `.github` folder: add `update-hotsauce.yml` (and `deploy-fly.yml` on Fly) from Hotsauce's repository.
 2. In your repository's **Settings → Actions → General**, tick "Allow GitHub Actions to create and approve pull requests".
 
+## Profile photos from sign-in
+
+Until a member adds a photo of their own, Hotsauce uses the picture on their sign-in account (their Google picture). The server fetches a small copy from Clerk's image host (`img.clerk.com`) over https and keeps it in `account.sqlite` with the rest of the member's settings; allow that host if your server's outbound traffic is restricted. A member who removes that picture keeps their initials.
+
 ## Moving sign-in to another Clerk application
 
 You can change the Clerk application your server uses at any time, for example from a development instance to a production one on your own domain. Clerk gives everyone a new account id in the new application, but Hotsauce knows each member by their verified email, so their clips, conversations, tokens, connected apps and settings stay theirs. Nothing needs migrating.

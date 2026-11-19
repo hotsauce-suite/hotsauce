@@ -163,6 +163,18 @@ describe('profile photos', () => {
     const res = await app.request('/api/me/photo', { method: 'DELETE', headers: as(ALICE) })
     expect(await res.json()).toEqual({ photo: first })
     expect((await me()).photo).toBe(first)
+
+    // Removing the sign-in picture too leaves her initials, and sign-in can't bring it back.
+    const again = await app.request('/api/me/photo', { method: 'DELETE', headers: as(ALICE) })
+    expect(await again.json()).toEqual({ photo: null })
+    await services.signInPhotos.offer(ALICE, 'https://img.example/alice-new')
+    expect((await me()).photo).toBeNull()
+    expect((await app.request(first as string, { headers: as(BOB) })).status).toBe(404)
+    const list = await app.request('/api/members/photos', { headers: as(BOB) })
+    expect(await list.json()).toEqual({ photos: {} })
+    // Her own upload still works after that.
+    expect((await put(PNG, 'image/png')).status).toBe(200)
+    expect((await me()).photo).toBe(own)
   })
 
   it('R15: members can see who has a photo, and nobody else can', async () => {

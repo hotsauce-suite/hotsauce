@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { api } from '../api/client'
 import { meetingsApi } from '../api/meetings'
 import { AudioRing } from '../apps/meetings/audio/ring-buffer'
@@ -633,11 +633,26 @@ describe('the account menu (R6 to R10)', () => {
 
   it('R11: Get the Mac app shows on a Mac in a browser, and not inside the Mac app or elsewhere', async () => {
     const agent = vi.spyOn(navigator, 'userAgent', 'get')
-    agent.mockReturnValue('Mozilla/5.0 (X11; Linux x86_64)')
-    renderApp('/docs')
-    await userEvent.click(await screen.findByTestId('account-menu'))
-    expect(screen.queryByTestId('menu-mac-app')).toBeNull()
-    cleanup()
+    // This test browser has no touch screen at all, so the count is put there for the test.
+    let points = 0
+    Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, get: () => points })
+    onTestFinished(() => {
+      Reflect.deleteProperty(navigator, 'maxTouchPoints')
+    })
+    // Not on Linux, not on an iPhone, and not on an iPad (which calls itself a Mac).
+    for (const [ua, touches] of [
+      ['Mozilla/5.0 (X11; Linux x86_64)', 0],
+      ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 5],
+      ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 5],
+    ] as const) {
+      agent.mockReturnValue(ua)
+      points = touches
+      renderApp('/docs')
+      await userEvent.click(await screen.findByTestId('account-menu'))
+      expect(screen.queryByTestId('menu-mac-app'), ua).toBeNull()
+      cleanup()
+    }
+    points = 0
 
     agent.mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')
     Object.assign(window, { hotsauceMacApp: { version: '0.51.0', build: '131' } })

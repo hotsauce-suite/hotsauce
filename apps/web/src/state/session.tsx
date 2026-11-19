@@ -204,9 +204,10 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
   }, [])
   // Wherever this member is shown among others (comments, People), their own change shows at once.
   const myEmail = me?.principal.email
-  const myPhoto = me?.photo ?? null
+  const myPhoto = me?.photo
   useEffect(() => {
-    if (myEmail) setMemberPhoto(myEmail, myPhoto)
+    // `undefined` is "not known yet" (signed out, or an older server): say nothing then.
+    if (myEmail && myPhoto !== undefined) setMemberPhoto(myEmail, myPhoto)
   }, [myEmail, myPhoto])
 
   const value = useMemo<Session>(

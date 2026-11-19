@@ -61,7 +61,8 @@ Shared files this touches: `apps/web/src/components/AppRail.tsx`, `AppShell.tsx`
     server profile-photo.test "R13"; e2e profile-photo)*
 14. Until a member uploads one, the picture from their sign-in (their Google photo) is their
     photo: the server fetches a 256 px copy when it reads their account and keeps it like an
-    upload. An upload is never replaced by it, and removing the upload brings it back.
+    upload. An upload is never replaced by it, and removing the upload brings it back; removing the
+    sign-in picture itself leaves initials, and it stays away until the member uploads a photo.
     *(server account/signInPhotos.test: four "R14" tests; auth/clerk.test: "sign-in picture";
     server profile-photo.test "R14")*
 15. Other members see the photo wherever a member is shown: People, comments, check-in answers and

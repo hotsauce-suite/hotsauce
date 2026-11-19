@@ -44,15 +44,35 @@ const fetchSmallImage: PhotoFetch = async (url) => {
     headers: { Accept: 'image/webp,image/jpeg,image/png' },
     signal: AbortSignal.timeout(5000),
   })
-  if (!res.ok) return null
+  // Wherever it ended up after redirects must still be https.
+  if (!res.ok || !res.url.startsWith('https://')) return null
   if (Number(res.headers.get('content-length') ?? 0) > MAX_PHOTO_BYTES) return null
-  return new Uint8Array(await res.arrayBuffer())
+  if (!res.body) return null
+  // Read no further than the limit, whatever the server said about the length.
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    size += chunk.byteLength
+    if (size > MAX_PHOTO_BYTES) return null
+    chunks.push(chunk)
+  }
+  const bytes = new Uint8Array(size)
+  let at = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, at)
+    at += chunk.byteLength
+  }
+  return bytes
 }
+
+/** How long a picture that couldn't be used (too big, not an image, unreachable) is left alone. */
+const RETRY_MS = 60 * 60 * 1000
 
 /**
  * The photo a member has where they sign in (their Google picture), kept as their profile photo
  * until they upload one of their own (docs/PLAN-rail-account-menu.md, requirement 14). An upload
- * is never touched; removing it brings this one back.
+ * is never touched; removing it brings this one back, and removing this one leaves the member
+ * with their initials (the account store remembers that they want none).
  */
 export class SignInPhotos {
   readonly #account: AccountStore
@@ -60,6 +80,8 @@ export class SignInPhotos {
   /** Email → the sign-in photo's address as last heard, null for none. */
   readonly #known = new Map<string, string | null>()
   readonly #busy = new Map<string, Promise<void>>()
+  /** Address → when a picture that couldn't be used may be tried again. */
+  readonly #unusable = new Map<string, number>()
 
   constructor(account: AccountStore, fetchPhoto: PhotoFetch = fetchSmallImage) {
     this.#account = account
@@ -88,17 +110,29 @@ export class SignInPhotos {
   async #apply(user: string, url: string | null): Promise<void> {
     const mine = () => this.#account.photoOrigin(user)
     const now = mine()
-    if (now?.source === 'upload') return
+    // Their own upload, or their choice to have none, is never touched.
+    if (now?.source === 'upload' || now?.source === 'none') return
     if (!url) {
       if (now) this.#account.deletePhoto(user)
       return
     }
     if (now?.origin === url) return
-    const bytes = await this.#fetch(url)
-    if (!bytes || bytes.byteLength > MAX_PHOTO_BYTES) return
-    const type = photoType(bytes)
-    // The member may have uploaded their own while this was on its way.
-    if (!type || mine()?.source === 'upload') return
+    if ((this.#unusable.get(url) ?? 0) > Date.now()) return
+    let bytes: Uint8Array | null = null
+    try {
+      bytes = await this.#fetch(url)
+    } catch {
+      bytes = null
+    }
+    const type = bytes && bytes.byteLength <= MAX_PHOTO_BYTES ? photoType(bytes) : null
+    if (!bytes || !type) {
+      this.#unusable.set(url, Date.now() + RETRY_MS)
+      return
+    }
+    this.#unusable.delete(url)
+    // The member may have uploaded their own, or chosen none, while this was on its way.
+    const after = mine()
+    if (after && after.source !== 'sign-in') return
     this.#account.setPhoto(user, type, bytes, new Date(), url)
   }
 }

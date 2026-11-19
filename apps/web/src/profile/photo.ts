@@ -57,7 +57,8 @@ export const photoApi = {
       body: square,
       contentType: square.type || 'image/jpeg',
     }),
-  remove: () => request<{ photo: null }>('/api/me/photo', { method: 'DELETE' }),
+  // Removing your own photo can bring back the picture from your sign-in.
+  remove: () => request<{ photo: string | null }>('/api/me/photo', { method: 'DELETE' }),
 }
 
 /** Why a picked file can't be a photo, in words for the member; null when it can. */

@@ -637,7 +637,10 @@ function AccountButton({
 
 /** On a Mac, in a browser: the one place the Mac app is worth offering. */
 function offerMacApp(): boolean {
-  return !installedMacAppVersion() && /Macintosh|Mac OS X/.test(navigator.userAgent)
+  if (installedMacAppVersion()) return false
+  const ua = navigator.userAgent
+  // iPadOS calls itself a Mac; a "Mac" with a touch screen is an iPad (lib/install.ts).
+  return /Macintosh/.test(ua) && !/iPhone|iPad|iPod/.test(ua) && !(navigator.maxTouchPoints > 1)
 }
 
 /** The pepper, greeting the member by name. */

@@ -12,6 +12,16 @@ let photos: PhotoMap = NONE
 let asked: Promise<void> | null = null
 let askedAt = 0
 const listeners = new Set<() => void>()
+/** This member's own photo as last set here: it wins over a list that was asked for earlier. */
+let own: { email: string; photo: string | null } | null = null
+
+function withOwn(list: PhotoMap): PhotoMap {
+  if (!own) return list
+  const next = { ...list }
+  if (own.photo) next[own.email] = own.photo
+  else delete next[own.email]
+  return next
+}
 
 /** How long the list is trusted before a returning window asks again. */
 const FRESH_MS = 60_000
@@ -26,7 +36,7 @@ function ask(): void {
   askedAt = Date.now()
   asked = request<{ photos: Record<string, string> }>('/api/members/photos')
     .then(
-      (res) => set(res.photos ?? NONE),
+      (res) => set(withOwn(res.photos ?? NONE)),
       // Offline or signed out: initials, and another try later.
       () => {
         askedAt = 0
@@ -55,17 +65,15 @@ function onVisible(): void {
 
 /** The member's own photo changed here: everyone on screen shows it without asking again. */
 export function setMemberPhoto(email: string, photo: string | null): void {
-  const key = email.toLowerCase()
-  const next = { ...photos }
-  if (photo) next[key] = photo
-  else delete next[key]
-  set(next)
+  own = { email: email.toLowerCase(), photo }
+  set(withOwn(photos))
 }
 
-/** Forgets the list (tests, and signing out). */
+/** Forgets the list (tests). */
 export function forgetMemberPhotos(): void {
-  photos = NONE
+  own = null
   askedAt = 0
+  set(NONE)
 }
 
 /** The address of this person's photo, or null: no photo, not a member, or not known yet. */

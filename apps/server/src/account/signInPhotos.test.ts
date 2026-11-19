@@ -59,6 +59,32 @@ describe('sign-in photos', () => {
     expect(account.getPhoto(ADA)?.type).toBe('image/png')
   })
 
+  it('R14: a member who removed their sign-in picture keeps none, until they upload', async () => {
+    const fetchPhoto = vi.fn(async () => PNG)
+    const photos = new SignInPhotos(account, fetchPhoto)
+    await photos.offer(ADA, URL_A)
+    account.hidePhoto(ADA, new Date())
+    expect(account.getPhoto(ADA)).toBeNull()
+    expect(account.photoTag(ADA)).toBeNull()
+    expect(account.photoTags()).toEqual([])
+    await photos.offer(ADA, URL_B)
+    await photos.offer(ADA, null)
+    expect(account.getPhoto(ADA)).toBeNull()
+    expect(account.photoOrigin(ADA)?.source).toBe('none')
+    account.setPhoto(ADA, 'image/jpeg', JPEG, new Date())
+    expect(account.getPhoto(ADA)?.type).toBe('image/jpeg')
+  })
+
+  it('R14: a picture that could not be used is not fetched again straight away', async () => {
+    const fetchPhoto = vi.fn(async () => null)
+    const photos = new SignInPhotos(account, fetchPhoto)
+    await photos.offer(ADA, URL_A)
+    await photos.offer(ADA, URL_A)
+    expect(fetchPhoto).toHaveBeenCalledTimes(1)
+    await photos.offer(ADA, URL_B)
+    expect(fetchPhoto).toHaveBeenCalledTimes(2)
+  })
+
   it('R14: restoring with no sign-in photo known leaves none', async () => {
     const photos = new SignInPhotos(account, async () => PNG)
     await photos.restore(ADA)
