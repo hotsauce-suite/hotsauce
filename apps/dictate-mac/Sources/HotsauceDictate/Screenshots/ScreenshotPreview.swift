@@ -4,10 +4,12 @@ import SwiftUI
 
 /// One capture: the picture, its PNG, and where it was saved.
 struct Screenshot {
+    let id = UUID()
+    /// The capture as taken: the editor's untouched source.
     let image: CGImage
     let png: Data
     /// Nil when saving failed; the clipboard still has it.
-    let fileURL: URL?
+    var fileURL: URL?
     let takenAt: Date
 }
 
@@ -16,7 +18,7 @@ struct Screenshot {
 /// drags out as a file. The countdown is `ScreenshotPreviewTimer` in DictateCore.
 @MainActor
 final class ScreenshotPreview {
-    /// Slice 3 supplies the editor; until then Edit is shown disabled ("Coming next").
+    /// The editor; while none is wired, Edit is shown disabled ("Coming next").
     var onEdit: ((Screenshot) -> Void)?
     /// Slice 4 supplies sharing; until then Share is hidden.
     var onShare: ((Screenshot) -> Void)?

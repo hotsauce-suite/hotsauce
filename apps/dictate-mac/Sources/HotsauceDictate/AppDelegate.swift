@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var controller = DictationController(settings: settings, history: historyStore)
     private lazy var monitor = HotkeyMonitor(hotkey: settings.hotkey)
     lazy var screenshots = ScreenshotController()
+    lazy var recentScreenshotsMenu = RecentScreenshotsMenu { [unowned self] in self.screenshots }
     private let onboarding = OnboardingWindow()
     /// The setup window's Location button: asks macOS the way Today's weather does.
     private let setupLocation = LocationService()
