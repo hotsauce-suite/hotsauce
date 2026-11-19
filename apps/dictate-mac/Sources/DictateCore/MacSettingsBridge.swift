@@ -20,6 +20,11 @@ public enum MacSettingsBridge {
         case historyDays(Int)
         /// A microphone's UID, or nil for the Mac's default.
         case microphone(String?)
+        /// Screenshots (docs/PLAN-screenshots.md R15). A chord the Mac refuses changes nothing.
+        case screenshotShortcut(ScreenshotShortcut)
+        case screenshotCopy(Bool)
+        case screenshotSave(Bool)
+        case screenshotPreview(Bool)
     }
 
     /// One of the Mac's microphones, as Settings lists it.
@@ -35,6 +40,7 @@ public enum MacSettingsBridge {
     public enum Action: String, CaseIterable, Sendable {
         case allowMicrophone, allowAccessibility, allowLocation, allowNotifications
         case openNotificationSettings, runSetup, clearHistory, disconnect
+        case resetScreenshotShortcut, chooseScreenshotFolder, showScreenshotFolder
     }
 
     public enum Request: Equatable, Sendable {
@@ -101,6 +107,12 @@ public enum MacSettingsBridge {
             if value is NSNull { return .microphone(nil) }
             guard let uid = value as? String, !uid.isEmpty, uid.count <= 512 else { return nil }
             return .microphone(uid)
+        case "screenshotShortcut":
+            guard let text = value as? String, text.count <= 16 else { return nil }
+            return ScreenshotShortcut(parsing: text).map(Change.screenshotShortcut)
+        case "screenshotCopy": return flag(value).map(Change.screenshotCopy)
+        case "screenshotSave": return flag(value).map(Change.screenshotSave)
+        case "screenshotPreview": return flag(value).map(Change.screenshotPreview)
         case "historyDays":
             guard let days = number(value), historyDays.contains(days) else { return nil }
             return .historyDays(days)
@@ -151,6 +163,32 @@ public enum MacSettingsBridge {
         /// Whether this Mac's Dictate is connected, and as whom when the connection says.
         public var connected: Bool
         public var account: String?
+        /// The Screenshots group; nil leaves it out of the answer.
+        public var screenshots: Screenshots?
+
+        public struct Screenshots: Equatable, Sendable {
+            public var shortcut: ScreenshotShortcut
+            /// The folder as people read it ("~/Pictures/Hotsauce Screenshots").
+            public var folder: String
+            public var afterCapture: ScreenshotAfterCapture
+
+            public init(shortcut: ScreenshotShortcut, folder: String, afterCapture: ScreenshotAfterCapture) {
+                self.shortcut = shortcut
+                self.folder = folder
+                self.afterCapture = afterCapture
+            }
+
+            var reply: [String: Any] {
+                [
+                    "shortcut": shortcut.display,
+                    "defaultShortcut": ScreenshotShortcut.default.display,
+                    "folder": folder,
+                    "copy": afterCapture.copy,
+                    "save": afterCapture.save,
+                    "preview": afterCapture.preview,
+                ]
+            }
+        }
 
         public init(
             hotkey: Hotkey, mode: DictationMode, edgeGlow: Bool, meetingReminders: Bool, offerCallNotes: Bool, callNotesSupported: Bool,
@@ -180,6 +218,12 @@ public enum MacSettingsBridge {
 
         /// As the page reads it (apps/web/src/lib/macSettings.ts parseMacSettings).
         public var reply: [String: Any] {
+            var reply = base
+            if let screenshots { reply["screenshots"] = screenshots.reply }
+            return reply
+        }
+
+        private var base: [String: Any] {
             [
                 "hotkey": hotkey.rawValue,
                 "mode": mode.rawValue,

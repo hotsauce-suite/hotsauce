@@ -11,7 +11,7 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
     private(set) var shot: Screenshot
     let canvas: EditorCanvas
     let window: NSWindow
-    /// Slice 4 shares the flattened picture; until then the button is hidden.
+    /// Share (R14): the flattened picture, uploaded through the page; hidden while none is wired.
     var onShare: ((Data) -> Void)? { didSet { shareButton.isHidden = onShare == nil } }
     /// Closed: hands back the document (and the shot, with its file) to keep for next time.
     var onClose: (Screenshot, ShotDocument) -> Void = { _, _ in }
@@ -28,6 +28,9 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
     private let widths = NSSegmentedControl()
     private let shareButton = NSButton()
     private let status = NSTextField(labelWithString: "")
+    private let shareSpinner = NSProgressIndicator()
+    private let banner = NSTextField(wrappingLabelWithString: "")
+    private var bannerWork: DispatchWorkItem?
     private var statusWork: DispatchWorkItem?
 
     init(shot: Screenshot, document: ShotDocument?) {
@@ -49,6 +52,7 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         window.contentView = makeContent()
         window.center()
         canvas.onCopy = { [weak self] in self?.copyPicture() }
+        canvas.onShareRequest = { [weak self] in self?.sharePressed() }
         canvas.onSave = { [weak self] saveAs in self?.save(as: saveAs) }
         canvas.onToolChange = { [weak self] in self?.refreshControls() }
         canvas.onSelectionChange = { [weak self] in self?.refreshControls() }
@@ -138,10 +142,15 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         shareButton.target = self
         shareButton.action = #selector(sharePressed)
         shareButton.isHidden = true
+        shareButton.toolTip = "Upload this picture and copy a link to it"
+        shareSpinner.style = .spinning
+        shareSpinner.controlSize = .small
+        shareSpinner.isDisplayedWhenStopped = false
+        shareSpinner.setAccessibilityLabel("Sharing")
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let row = NSStackView(views: [tools, divider(), colors, widths, spacer, status, copyText, copy, save, shareButton])
+        let row = NSStackView(views: [tools, divider(), colors, widths, spacer, status, copyText, copy, save, shareSpinner, shareButton])
         row.spacing = 10
         row.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -151,7 +160,55 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
             row.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
             row.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
         ])
+        // What Share did, over the bottom of the picture.
+        banner.font = .systemFont(ofSize: 13, weight: .medium)
+        banner.textColor = NSColor(Hotsauce.ink)
+        banner.alignment = .center
+        banner.drawsBackground = true
+        banner.backgroundColor = NSColor(Hotsauce.raised)
+        banner.wantsLayer = true
+        banner.layer?.cornerRadius = 8
+        banner.layer?.borderWidth = 1
+        banner.layer?.borderColor = NSColor(Hotsauce.ash).cgColor
+        banner.isHidden = true
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        banner.setAccessibilityRole(.staticText)
+        root.addSubview(banner)
+        NSLayoutConstraint.activate([
+            banner.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            banner.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -16),
+            banner.widthAnchor.constraint(lessThanOrEqualToConstant: 560),
+        ])
         return root
+    }
+
+    /// The name the shared picture gets.
+    var shareName: String {
+        shot.fileURL?.deletingPathExtension().lastPathComponent ?? ScreenshotFiles.baseName(for: shot.takenAt)
+    }
+
+    /// Share is uploading: the button waits and a spinner turns.
+    func setSharing(_ on: Bool) {
+        shareButton.isEnabled = !on
+        if on { shareSpinner.startAnimation(nil) } else { shareSpinner.stopAnimation(nil) }
+    }
+
+    /// What Share did, for a few seconds over the picture.
+    func showNote(_ text: String) {
+        bannerWork?.cancel()
+        banner.stringValue = "  \(text)  "
+        banner.isHidden = false
+        banner.alphaValue = 1
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                self.banner.isHidden = true
+            } else {
+                NSAnimationContext.runAnimationGroup({ $0.duration = 0.3; self.banner.animator().alphaValue = 0 }) { self.banner.isHidden = true }
+            }
+        }
+        bannerWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 7, execute: work)
     }
 
     private func divider() -> NSView {
@@ -225,7 +282,8 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
     @objc private func copyPressed() { copyPicture() }
     @objc private func savePressed() { save(as: false) }
 
-    @objc private func sharePressed() {
+    @objc func sharePressed() {
+        guard shareButton.isEnabled, onShare != nil else { return }
         canvas.commitText()
         guard let png = flattened() else { return }
         onShare?(png)

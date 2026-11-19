@@ -20,7 +20,7 @@ struct Screenshot {
 final class ScreenshotPreview {
     /// The editor; while none is wired, Edit is shown disabled ("Coming next").
     var onEdit: ((Screenshot) -> Void)?
-    /// Slice 4 supplies sharing; until then Share is hidden.
+    /// Share (R14); Share is hidden while none is wired.
     var onShare: ((Screenshot) -> Void)?
     var onCopy: (Screenshot) -> Void = { _ in }
 
@@ -69,6 +69,28 @@ final class ScreenshotPreview {
         content = view
         timer = ScreenshotPreviewTimer(shownAt: Self.now)
         schedule()
+    }
+
+    /// Share is uploading: a spinner in place of the button.
+    func setSharing(_ on: Bool) {
+        content?.sharing = on
+    }
+
+    /// What Share did, under the picture, with the countdown started again so it can be read.
+    /// False when the preview has gone (the caller says it another way).
+    @discardableResult
+    func showNote(_ text: String) -> Bool {
+        guard let panel, let content else { return false }
+        content.note = text
+        let size = content.fittingSize
+        let old = panel.frame
+        panel.setFrame(NSRect(x: old.maxX - size.width, y: old.minY, width: size.width, height: size.height), display: true)
+        let pinned = timer.isPinned, hovered = timer.isHovered
+        timer = ScreenshotPreviewTimer(shownAt: Self.now)
+        if pinned { timer.togglePin(at: Self.now) }
+        if hovered { timer.hover(true, at: Self.now) }
+        schedule()
+        return true
     }
 
     func dismiss(animated: Bool = true) {
@@ -146,6 +168,12 @@ final class ScreenshotPreviewView: NSView, NSDraggingSource {
     var editEnabled = false { didSet { rebuildBar() } }
     var hasShare = false { didSet { rebuildBar() } }
     var pinned = false { didSet { rebuildBar() } }
+    var sharing = false { didSet { rebuildBar() } }
+    /// A line under the picture after Share.
+    var note: String? {
+        didSet { layoutNote() }
+    }
+    private let noteLabel = NSTextField(wrappingLabelWithString: "")
     /// Shown while the pointer is over the card (and forced on by the self-test render).
     var showsControls = false {
         didSet { bar.isHidden = !showsControls }
@@ -178,10 +206,16 @@ final class ScreenshotPreviewView: NSView, NSDraggingSource {
         bar.isHidden = true
         bar.translatesAutoresizingMaskIntoConstraints = false
         addSubview(bar)
+        noteLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        noteLabel.textColor = NSColor(Hotsauce.ink)
+        noteLabel.isHidden = true
+        noteLabel.preferredMaxLayoutWidth = thumbnailSize.width
+        noteLabel.setAccessibilityRole(.staticText)
+        addSubview(noteLabel)
         NSLayoutConstraint.activate([
             bar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.inset + 6),
             bar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.inset - 6),
-            bar.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.inset - 6),
+            bar.bottomAnchor.constraint(equalTo: topAnchor, constant: Self.inset + thumbnailSize.height - 6),
             bar.heightAnchor.constraint(equalToConstant: 30),
         ])
         rebuildBar()
@@ -192,6 +226,17 @@ final class ScreenshotPreviewView: NSView, NSDraggingSource {
 
     override var isFlipped: Bool { true }
     override var fittingSize: NSSize { frame.size }
+
+    private func layoutNote() {
+        noteLabel.stringValue = note ?? ""
+        noteLabel.isHidden = note == nil
+        let base = CGSize(width: thumbnailSize.width + Self.inset * 2, height: thumbnailSize.height + Self.inset * 2)
+        guard note != nil else { setFrameSize(base); return }
+        let height = ceil(noteLabel.sizeThatFits(NSSize(width: thumbnailSize.width - 4, height: 400)).height)
+        noteLabel.frame = CGRect(x: Self.inset + 2, y: Self.inset + thumbnailSize.height + 6, width: thumbnailSize.width - 4, height: height)
+        setFrameSize(CGSize(width: base.width, height: base.height + height + 8))
+        needsDisplay = true
+    }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     private func rebuildBar() {
@@ -204,7 +249,20 @@ final class ScreenshotPreviewView: NSView, NSDraggingSource {
         }
         let copied = copiedUntil.map { $0 > Date() } ?? false
         bar.addArrangedSubview(button(copied ? "checkmark" : "doc.on.doc", copied ? "Copied" : "Copy", .copy))
-        if hasShare { bar.addArrangedSubview(button("square.and.arrow.up", "Share", .share)) }
+        if hasShare {
+            if sharing {
+                let spinner = NSProgressIndicator()
+                spinner.style = .spinning
+                spinner.controlSize = .small
+                spinner.appearance = NSAppearance(named: .darkAqua)
+                spinner.startAnimation(nil)
+                spinner.setAccessibilityLabel("Sharing")
+                spinner.widthAnchor.constraint(equalToConstant: 28).isActive = true
+                bar.addArrangedSubview(spinner)
+            } else {
+                bar.addArrangedSubview(button("square.and.arrow.up", "Share as a link", .share))
+            }
+        }
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         bar.addArrangedSubview(spacer)

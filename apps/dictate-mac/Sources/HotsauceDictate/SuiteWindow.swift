@@ -435,6 +435,13 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         return isSuite(current)
     }
 
+    /// Hands a screenshot to the suite's own page to share (docs/PLAN-screenshots.md R14). Nil
+    /// when the window isn't showing the suite's page, so a picture never goes anywhere else.
+    func shareScreenshot(name: String, png: String) async -> Any? {
+        guard isOnSuitePage, failedURL == nil else { return nil }
+        return try? await webView.callAsyncJavaScript(ScreenshotShare.script, arguments: ["name": name, "png": png], in: nil, contentWorld: .page)
+    }
+
     private var isOnMeetingsPage: Bool {
         guard let current = webView.url, isSuite(current) else { return false }
         return MeetingAudio.isMeetingsPath(current.path)
