@@ -30,7 +30,7 @@ const when = (iso: string | null) =>
       })
     : 'Never'
 
-// The three pages of Settings everyone has (docs/PLAN-settings-pages.md, G1–G3). The menu, Help and
+// The four pages of Settings everyone has (docs/PLAN-settings-pages.md, G1–G3). The menu, Help and
 // the version are SettingsLayout's; the organization's pages are OrgSettingsRoute's.
 
 function usePageTitle(page: string) {
@@ -51,12 +51,19 @@ export function GeneralSettings() {
       >
         On this device
       </p>
-      <div className="mt-12">
-        <AppearanceSettings />
-      </div>
       <NotificationsSection />
       <KeyboardSettings />
       <WeatherSettingsSection />
+    </div>
+  )
+}
+
+/** `/settings/appearance`: light, dark, or a theme of the member's own (docs/PLAN-ai-themes.md). */
+export function AppearancePage() {
+  usePageTitle('Appearance')
+  return (
+    <div data-testid="settings-appearance">
+      <AppearanceSettings />
     </div>
   )
 }

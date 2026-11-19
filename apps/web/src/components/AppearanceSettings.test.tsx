@@ -27,7 +27,7 @@ async function make(user: ReturnType<typeof userEvent.setup>, words: string) {
 describe('Appearance: themes of your own', () => {
   it('previews a described theme across the app, and Discard puts the old look back (R2)', async () => {
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     await make(user, 'midnight blue')
     expect(screen.getByTestId('theme-preview')).toHaveTextContent('Previewing Midnight Harbor')
     expect(root.dataset.theme).toBe('custom')
@@ -46,7 +46,7 @@ describe('Appearance: themes of your own', () => {
     server.events.on('request:start', async ({ request }) => {
       if (request.url.endsWith('/api/themes/generate')) sent.push(await request.clone().json())
     })
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     await make(user, 'midnight')
     await user.type(screen.getByTestId('theme-prompt'), 'a pastel take')
     await user.click(screen.getByTestId('theme-make'))
@@ -57,7 +57,7 @@ describe('Appearance: themes of your own', () => {
 
   it('keeps a theme: it joins the list, is in use, and is ready to paint on reload (R5, R8)', async () => {
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     await make(user, 'retro terminal')
     await user.click(screen.getByTestId('theme-keep'))
     const card = await screen.findByTestId('own-theme')
@@ -79,7 +79,7 @@ describe('Appearance: themes of your own', () => {
 
   it('renames and deletes a theme; deleting the one in use goes back to the device’s look (R9)', async () => {
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     await make(user, 'forest')
     await user.click(screen.getByTestId('theme-keep'))
     const card = await screen.findByTestId('own-theme')
@@ -99,7 +99,7 @@ describe('Appearance: themes of your own', () => {
 
   it('marks a theme light or dark for the styles that follow the scheme', async () => {
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     await make(user, 'midnight')
     expect(root.dataset.scheme).toBe('dark')
     await user.click(screen.getByRole('button', { name: 'Discard' }))
@@ -108,7 +108,7 @@ describe('Appearance: themes of your own', () => {
 
   it('picking another look ends the preview', async () => {
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     await make(user, 'midnight')
     await user.click(screen.getByTestId('theme-light'))
     expect(screen.queryByTestId('theme-preview')).toBeNull()
@@ -129,7 +129,7 @@ describe('Appearance: themes of your own', () => {
       }),
     )
     const user = userEvent.setup()
-    const { router } = renderApp('/settings')
+    const { router } = renderApp('/settings/appearance')
     await user.type(await screen.findByTestId('theme-prompt'), 'midnight')
     await user.click(screen.getByTestId('theme-make'))
     await router.navigate('/tasks')
@@ -153,7 +153,7 @@ describe('Appearance: themes of your own', () => {
 
   it('shows why when the instance has no AI, and no box (R10)', async () => {
     server.use(http.get('/api/themes', () => HttpResponse.json({ themes: [], canGenerate: false })))
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     expect(await screen.findByTestId('theme-no-ai')).toHaveTextContent('Anthropic key')
     expect(screen.queryByTestId('theme-prompt')).toBeNull()
   })
@@ -168,7 +168,7 @@ describe('Appearance: themes of your own', () => {
       ),
     )
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     await user.type(await screen.findByTestId('theme-prompt'), 'hmm')
     await user.click(screen.getByTestId('theme-make'))
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't make a theme")
@@ -179,7 +179,7 @@ describe('Appearance: themes of your own', () => {
 describe('Appearance: switching tools (PLAN-switch-ripple R6)', () => {
   it('has the ripple on and the sound off, and remembers a change', async () => {
     const user = userEvent.setup()
-    renderApp('/settings')
+    renderApp('/settings/appearance')
     const ripple = await screen.findByTestId('switch-fx-ripple')
     const sound = screen.getByTestId('switch-fx-sound')
     expect(ripple).toBeChecked()

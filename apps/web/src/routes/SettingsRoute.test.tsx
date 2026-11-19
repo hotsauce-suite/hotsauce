@@ -256,7 +256,6 @@ describe('Settings: General, Apps, and the help strip', () => {
     const order = [
       'settings-account',
       'settings-device-label',
-      'theme-picker',
       'settings-notifications',
       'single-keys',
       'settings-weather',
@@ -270,8 +269,25 @@ describe('Settings: General, Apps, and the help strip', () => {
     }
     expect(screen.getByTestId('settings-device-label')).toHaveTextContent('On this device')
     // What moved to other pages isn't here any more.
-    for (const gone of ['settings-install', 'token-name', 'calendar-choice', 'mac-app'])
+    for (const gone of [
+      'settings-install',
+      'token-name',
+      'calendar-choice',
+      'mac-app',
+      'theme-picker',
+    ])
       expect(screen.queryByTestId(gone)).toBeNull()
+  })
+
+  it('gives Appearance a page of its own, next in the menu after General', async () => {
+    renderApp('/settings/appearance')
+    const page = await screen.findByTestId('settings-appearance')
+    expect(within(page).getByTestId('theme-picker')).toBeInTheDocument()
+    const nav = screen.getByTestId('settings-nav')
+    const labels = within(nav)
+      .getAllByRole('link')
+      .map((a) => a.textContent?.trim())
+    expect(labels.slice(0, 2)).toEqual(['General', 'Appearance'])
   })
 
   // G2: calendars first, then AI tools.

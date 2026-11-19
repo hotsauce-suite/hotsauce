@@ -2,7 +2,7 @@ import { expect, test } from './fixtures'
 
 test('a member picks light or dark in Settings, and it sticks across reloads', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
-  await page.goto('/settings')
+  await page.goto('/settings/appearance')
   const html = page.locator('html')
   await expect(page.getByTestId('theme-system')).toBeChecked()
   await expect(html).not.toHaveAttribute('data-theme')

@@ -151,6 +151,15 @@ export function todayHandlers(): AnyHandler[] {
         q.length < 2 ? [] : SAMPLE_PLACES.filter((p) => p.name.toLowerCase().startsWith(q))
       return HttpResponse.json({ places })
     }),
+    // The demo names a shared location after the nearest sample city.
+    http.get('/api/today/places/at', ({ request }) => {
+      const url = new URL(request.url)
+      const lat = Number(url.searchParams.get('lat'))
+      const lon = Number(url.searchParams.get('lon'))
+      const far = (p: { lat: number; lon: number }) => (p.lat - lat) ** 2 + (p.lon - lon) ** 2
+      const nearest = [...SAMPLE_PLACES].sort((a, b) => far(a) - far(b))[0]
+      return HttpResponse.json({ place: nearest ? { ...nearest, lat, lon } : null })
+    }),
     http.get('/api/today/start-here', () => HttpResponse.json({ doc: startHere })),
     http.put('/api/today/start-here', async ({ request }) => {
       const { link } = (await request.json()) as { link: string | null }

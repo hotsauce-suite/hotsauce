@@ -139,7 +139,7 @@ type WeatherState =
   | { kind: 'denied' }
   | { kind: 'oldMacApp' }
   | { kind: 'error'; message: string }
-  | { kind: 'shown'; weather: TodayWeather; where: string }
+  | { kind: 'shown'; weather: TodayWeather; where: string; osm: boolean }
 
 /**
  * H5, W1–W8: the device's own place (a shared position or a typed city), else the team's
@@ -179,7 +179,7 @@ function useWeather() {
             return
           }
           const where = place ? (place.name ?? 'your location') : (weather.place ?? 'your team')
-          setState({ kind: 'shown', weather, where })
+          setState({ kind: 'shown', weather, where, osm: place?.osm === true })
         },
         (err) => {
           if (!cancelled && !asking.current)
@@ -376,6 +376,19 @@ function WeatherChip({
                 data-testid="today-weather-where"
               >
                 Weather for {state.where}
+                {state.osm ? (
+                  <span className="block" data-testid="today-weather-osm">
+                    Place name ©{' '}
+                    <a
+                      href="https://www.openstreetmap.org/copyright"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      OpenStreetMap contributors
+                    </a>
+                  </span>
+                ) : null}
               </p>
               <MenuItem
                 testId="today-weather-use-location"

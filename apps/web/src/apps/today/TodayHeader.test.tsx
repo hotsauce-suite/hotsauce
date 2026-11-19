@@ -112,15 +112,22 @@ describe('Today weather (H5)', () => {
     renderApp('/today')
     await userEvent.click(await screen.findByTestId('today-weather-on'))
     expect(await screen.findByTestId('today-weather')).toHaveTextContent(/\d+°/)
-    expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({
-      lat: 44.48,
-      lon: -73.21,
-    })
+    // The shared position, rounded, then named after the place it's in.
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({
+        lat: 44.48,
+        lon: -73.21,
+        name: 'Burlington',
+        detail: 'Vermont, United States',
+        osm: true,
+      }),
+    )
     // W8: its menu names the place and hides it, which this device remembers.
     await userEvent.click(screen.getByTestId('today-weather'))
     expect(await screen.findByTestId('today-weather-where')).toHaveTextContent(
-      'Weather for your location',
+      'Weather for Burlington',
     )
+    expect(screen.getByTestId('today-weather-osm')).toHaveTextContent('OpenStreetMap')
     await userEvent.click(screen.getByTestId('today-weather-hide'))
     expect(await screen.findByTestId('today-weather-on')).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({ off: true })
@@ -236,10 +243,15 @@ describe('Today weather (H5)', () => {
       expect(await screen.findByTestId('today-weather')).toBeInTheDocument()
       expect(postMessage).toHaveBeenCalledWith('position')
       expect(getCurrentPosition).not.toHaveBeenCalled()
-      expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({
-        lat: 44.48,
-        lon: -73.21,
-      })
+      await waitFor(() =>
+        expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({
+          lat: 44.48,
+          lon: -73.21,
+          name: 'Burlington',
+          detail: 'Vermont, United States',
+          osm: true,
+        }),
+      )
     } finally {
       delete (window as unknown as { webkit?: unknown }).webkit
     }
