@@ -6,6 +6,7 @@
 @import "./boards.css";
 @import "./links.css";
 @import "./sign.css";
+@import "./sky.css";
 
 @theme inline {
   --color-paper: var(--paper);
