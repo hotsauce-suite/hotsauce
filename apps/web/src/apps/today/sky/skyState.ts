@@ -4,6 +4,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { todayApi, type WeatherPlace } from '../../../api/today'
 import { useDeviceWeather } from '../weatherPlace'
+import { rememberTeamPlace } from './followSun'
 import type { Place } from './sunMoon'
 
 export type SkyScene = 'sky' | 'path' | 'off'
@@ -65,6 +66,7 @@ export function useSkyPlace(): Place | null | undefined {
     let cancelled = false
     todayApi.defaultPlace().then(
       (r) => {
+        rememberTeamPlace(r.place)
         if (!cancelled) setTeam(r.place)
       },
       () => {

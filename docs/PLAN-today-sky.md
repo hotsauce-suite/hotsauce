@@ -1,9 +1,8 @@
 # Today's sky
 
 ## Status
-In progress (2026-11-19). Built on the recommended answers while Morgan reviews the questions in
-the project thread. "Follow the sun" for the whole app (Q6) is a later follow-up, after the
-account-menu light/dark switch lands.
+R1 to R8 shipped in 0.56.0 (2026-11-19, #199); Morgan said yes to every recommendation. R9
+("Follow the sun") follows in its own PR, after the account menu's light/dark switch (#197).
 
 ## What
 A band behind Today's greeting whose sky follows the time of day and the member's theme, with the
@@ -31,9 +30,15 @@ sunrise, sunset and the length of the day. Web and the Mac app (the app shows th
   Worked out on the device, no service, no key. Tests: `sky/sunMoon.test.ts` (with fast-check).
 - **R7** Slow and calm; with "reduce motion" on it is a still picture (no drift, rain or
   twinkle). Browsers already pause it in a background tab or hidden Mac app window.
+- **R9** Follow the sun: a look in the account menu ("By sun") and Settings → Appearance ("Follow the
+  sun") that is light from sunrise to sunset and dark otherwise, at the same place as the sky
+  (the team's place is remembered on the device once Today has fetched it; without a place,
+  light from 7:00 to 17:00). Checked each minute and on waking; the last answer is kept so the
+  first paint matches. Tests: `sky/followSun.test.ts`, `components/AppRail.test.tsx`.
 - **R8** On phones the sun and moon travel in a strip above the greeting, never behind the words.
 
 ## Pieces
 - `apps/web/src/apps/today/sky/sunMoon.ts`: the almanac maths.
+- `apps/web/src/apps/today/sky/followSun.ts` and `lib/theme.ts` (`sun`): Follow the sun.
 - `apps/web/src/apps/today/sky/skyState.ts`: the scene choice, the place, the header's weather.
 - `apps/web/src/apps/today/sky/TodaySky.tsx`, `SkyScenePicker.tsx`, `styles/sky.css`.

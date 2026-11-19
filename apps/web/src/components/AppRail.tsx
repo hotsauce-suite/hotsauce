@@ -616,6 +616,7 @@ const THEMES: { value: ThemeChoice; label: string; icon: IconName }[] = [
   { value: 'light', label: 'Light', icon: 'sun' },
   { value: 'dark', label: 'Dark', icon: 'moon' },
   { value: 'system', label: 'Auto', icon: 'laptop' },
+  { value: 'sun', label: 'By sun', icon: 'sunrise' },
 ]
 
 /**
@@ -632,7 +633,7 @@ function ThemeSwitch({ onMore }: { onMore: () => void }) {
         role="group"
         aria-label="Theme"
         data-testid="menu-theme"
-        className="grid grid-cols-3 gap-0.5 rounded-lg bg-paper-sunk p-0.5"
+        className="grid grid-cols-4 gap-0.5 rounded-lg bg-paper-sunk p-0.5"
       >
         {THEMES.map((theme) => {
           const on = choice === theme.value
@@ -643,7 +644,13 @@ function ThemeSwitch({ onMore }: { onMore: () => void }) {
               role="menuitemradio"
               aria-checked={on}
               data-testid={`menu-theme-${theme.value}`}
-              title={theme.value === 'system' ? 'Follows your computer' : undefined}
+              title={
+                theme.value === 'system'
+                  ? 'Follows your computer'
+                  : theme.value === 'sun'
+                    ? 'Light from sunrise to sunset, dark after'
+                    : undefined
+              }
               onClick={() => {
                 chooseTheme(theme.value)
                 setChoice(theme.value)

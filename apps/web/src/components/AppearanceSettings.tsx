@@ -22,6 +22,7 @@ const BUILT_IN: { value: ThemeChoice; label: string }[] = [
   { value: 'system', label: 'Match my device' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
+  { value: 'sun', label: 'Follow the sun' },
 ]
 
 function messageOf(err: unknown): string {
