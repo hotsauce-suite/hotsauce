@@ -10,3 +10,15 @@
 - **An open single-page app never picks up a new build by itself.** `skipWaiting` + `clientsClaim` swap the service worker, but the page already running keeps its old code, and since it never navigates the browser doesn't even look for the new worker. Ask the server for its release (`/api/health`), and before reloading call `registration.update()` and wait for `controllerchange`, or the reload is served the old cached shell (`lib/appUpdate.ts`).
 - **"Would leaving lose something?" already has one answer: `beforeunload`.** Every editor and recorder calls `preventDefault()` on it while dirty or recording, so dispatching a synthetic cancelable `beforeunload` and reading `defaultPrevented` asks all of them at once, including ones added later (`lib/safeToReload.ts`). Ask the live meeting first: its handler also flushes notes. Anything that a reload would cut must add a guard (`hooks/useLeaveGuard.ts`); the dictate button and Ramble had none.
 - **Bake the release into the build with `define`, not from `/api/health` at boot.** At boot the page may be running a cached old build against a new server, so "the version I saw at boot" would already be the new one and nothing would ever reload.
+
+## Effects on tool switches (switch ripple, Nov 19)
+
+- React Router commits a navigation in a transition, so an effect that reacts to the new route runs
+  outside the click. WebKit (Safari, the Mac app's web view) only starts an `AudioContext` inside a
+  user gesture: create or resume it from a capture `pointerdown`/`keydown` listener, then play later.
+  Chromium tests pass either way, so they won't catch this.
+- `/settings` and `/feedback` live in the shell but no app owns them (`ownerOfPath` is null). Anything
+  keyed on "the app changed" should skip null rather than treat it as a tool, or Docs → Settings →
+  Docs counts as a switch.
+- In this cloud container Playwright's pinned headless shell isn't installed; run e2e with
+  `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium` (playwright.config.ts reads it).

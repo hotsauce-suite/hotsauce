@@ -65,6 +65,13 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     private var meetingCapture: AnyObject?
     /// Today's weather asks the app for its position (the web view can't ask macOS itself).
     private let location = LocationService()
+    /// The page's background music, as it last said (docs/PLAN-background-music.md M9); nil until
+    /// a page with the player has loaded.
+    private(set) var music: MusicBridge.State?
+    /// What the app is recording itself, so the page's music stays held (M10).
+    private var musicHolds: Set<MusicBridge.HoldReason> = []
+    /// A new document hasn't been told the app's holds yet.
+    private var musicHoldsUnsent = false
 
     init(server: URL?) {
         router = server.map(SuiteRouter.init(server:))
@@ -100,6 +107,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.add(WeakScriptHandler(self), name: "hearthDownload")
         // The sign-in page's "Sign in with your browser" (apps/web/src/lib/desktop.ts).
         configuration.userContentController.add(WeakScriptHandler(self), name: "hearthSignIn")
+        // The background music's player tells the app what it's doing, for the menus (M9).
+        configuration.userContentController.add(WeakScriptHandler(self), name: MusicBridge.handlerName)
         // /desktop/finish takes the ticket the app received, once (never from its URL).
         configuration.userContentController.addScriptMessageHandler(TicketHandler(self), contentWorld: .page, name: "hearthTicket")
         // /desktop/finish, once signed in, connects Dictate with a token it hands over here (R8).
@@ -312,11 +321,15 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             capture.onEnded = { [weak self] track in
                 self?.sendMeetingEvent(MeetingAudio.endedEvent(session: session, track: track))
             }
+            // Held before the capture starts, so no music reaches the recording (music M10).
+            holdMusic(.meeting, true)
             do {
                 try capture.start()
             } catch MeetingCapture.CaptureError.failed(let reason, let text) {
+                holdMusic(.meeting, false)
                 return MeetingAudio.failed(reason, message: text)
             } catch {
+                holdMusic(.meeting, false)
                 return MeetingAudio.failed(.unsupported, message: "\(Brand.name) couldn’t start recording.")
             }
             meetingCapture = capture
@@ -446,11 +459,45 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     func stopMeetingCapture() {
         guard let capture = meetingCapture else { return }
         meetingCapture = nil
+        holdMusic(.meeting, false)
         if #available(macOS 14.2, *), let capture = capture as? MeetingCapture {
             capture.onFrames = { _, _ in }
             capture.onEnded = { _ in }
             capture.stop()
         }
+    }
+
+    // MARK: Background music (docs/PLAN-background-music.md, M9 and M10)
+
+    private func musicPosted(_ body: Any) {
+        guard let state = MusicBridge.state(body) else { return }
+        // A page that loaded again forgot the app's holds: tell it again.
+        if musicHoldsUnsent {
+            musicHoldsUnsent = false
+            for reason in musicHolds { sendMusicHold(reason, true) }
+        }
+        music = state
+    }
+
+    /// Plays, pauses or picks a track from the menus. A page without the player ignores it.
+    func musicCommand(_ command: MusicBridge.Command) {
+        guard isOnSuitePage, let argument = command.argument else { return }
+        Task {
+            guard isOnSuitePage else { return }
+            _ = try? await webView.callAsyncJavaScript(MusicBridge.commandScript, arguments: ["command": argument], in: nil, contentWorld: .page)
+        }
+    }
+
+    /// The app started or stopped recording something the page can't see: the page's music waits.
+    func holdMusic(_ reason: MusicBridge.HoldReason, _ on: Bool) {
+        guard on != musicHolds.contains(reason) else { return }
+        if on { musicHolds.insert(reason) } else { musicHolds.remove(reason) }
+        sendMusicHold(reason, on)
+    }
+
+    private func sendMusicHold(_ reason: MusicBridge.HoldReason, _ on: Bool) {
+        guard isOnSuitePage else { return }
+        webView.callAsyncJavaScript(MusicBridge.holdScript, arguments: ["reason": reason.rawValue, "on": on], in: nil, in: .page) { _ in }
     }
 
     /// Audio goes only to the suite's page, checked again as each batch is sent. Not only its
@@ -707,11 +754,16 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         pageSaidDictationsHello = false
         stopMeetingCapture()
         followedCallSession = nil
+        // The old page's music is gone; a page with the player says so again (music M9).
+        music = nil
+        musicHoldsUnsent = true
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         stopMeetingCapture()
         followedCallSession = nil
+        music = nil
+        musicHoldsUnsent = true
         // At most once a minute, so a page that keeps crashing doesn't loop.
         guard Date().timeIntervalSince(lastCrashReload) > 60 else { return }
         lastCrashReload = Date()
@@ -816,6 +868,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
               isSuite(page)
         else { return }
         if message.name == "hearthSignIn" { return signInWithBrowser() }
+        if message.name == MusicBridge.handlerName { return musicPosted(message.body) }
         guard message.name == "hearthDownload",
               let text = message.body as? String, let url = URL(string: text),
               ["http", "https"].contains(url.scheme?.lowercased() ?? "")

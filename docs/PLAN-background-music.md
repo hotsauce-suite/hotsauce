@@ -25,9 +25,11 @@ recommendation and added "an option to turn it on in onboarding").
   Turn on and No thanks, until it's answered in that browser. It is an extra line, not a counted
   step, so it never keeps the tile from finishing.
 
-Not covered: the Mac app's own dictation and call recording happen outside the web page, so the
-music doesn't pause for them (the Mac records the microphone, not the speakers; headphones avoid
-any bleed).
+**The Mac app** (owner, 2026-11-19: "add the sound to the desktop app"): its window shows the page,
+so the page keeps the one player. The app adds "Play music" / "Pause music" to its menu bar menu
+and a Music menu with the tracks to its top menu, and holds the music while it dictates or records
+a call itself (those never open a capture in the page). It keeps playing with the window closed;
+at login it stays off until asked.
 
 ## Requirements
 
@@ -53,4 +55,12 @@ Each maps to a test, named in brackets.
 - M7. Every track file exists, is an MP3 and is credited (title, author, CC0, source link) on the
   help page. The offline cache never includes `music/`; the server and demo.hotsauce.work serve the
   files in byte ranges and a missing one is a 404. [music/tracks.test, site worker.test, e2e music.spec]
+- M9. Inside the Mac app (its `hotsauceMusic` handler is there) the page posts the player's state
+  on every change and answers `window.hotsauceMusic.command('toggle' | 'play' | 'stop' |
+  'track:<id>')`; it refuses anything else. The app reads only that exact state, sends only those
+  commands, and shows them in its menus. [music/macBridge.test, MusicBridgeTests]
+- M10. `window.hotsauceMusic.hold('dictate' | 'meeting', on)` holds the music like a capture in the
+  page; the app sends it while it dictates and while it records a call, and again if the page
+  reloads meanwhile. [music/macBridge.test]
+- M11. Opened at login with music left on, it stays silent until asked. [music/macBridge.test]
 - M8. The rail button, played and paused, in a real browser. [e2e music.spec]

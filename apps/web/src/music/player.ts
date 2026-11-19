@@ -110,6 +110,11 @@ export interface MusicPlayer {
   decline(): void
   /** Starts watching captures and, if music was left on, waits for the first click. Once. */
   start(): void
+  /**
+   * A recording outside the page started or stopped (the Mac app's dictation, `reason`
+   * "dictate", or its call recording, "meeting"): held while any is on.
+   */
+  holdFor(reason: string, on: boolean): void
 }
 
 export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
@@ -117,6 +122,8 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   let audio: AudioLike | null = null
   let playing = false
   let waiting = false
+  /** Left on from last time: nothing sounds until the member clicks or asks (M3, M11). */
+  let needsGesture = false
   let failed = false
   let fixedVolume = false
   /** A play() is out: don't start another. */
@@ -127,10 +134,16 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   let holdTimer: unknown = null
   let fadeTimer: unknown = null
   let started = false
+  /** Recordings outside the page (the Mac app's dictation and call recording), by name. */
+  const outside = new Set<string>()
   let state = snapshot()
 
+  function isHeld(): boolean {
+    return captures.size > 0 || outside.size > 0
+  }
+
   function snapshot(): MusicState {
-    return { ...prefs, playing, held: captures.size > 0, waiting, failed, fixedVolume }
+    return { ...prefs, playing, held: isHeld(), waiting, failed, fixedVolume }
   }
   function emit() {
     state = snapshot()
@@ -179,8 +192,15 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
 
   /** Make the sound match the wishes: on, not held → playing; else paused. */
   function sync() {
-    const want = prefs.on && captures.size === 0
-    if (want && !playing) {
+    const want = prefs.on && !isHeld()
+    if (want && !playing && needsGesture) {
+      // A recording ending (or any other change) never starts it before the member asks.
+      if (!waiting) {
+        waiting = true
+        emit()
+      }
+      startListening()
+    } else if (want && !playing) {
       if (starting) return
       starting = true
       const a = ensureAudio()
@@ -189,7 +209,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
         () => {
           starting = false
           // Turned off or held while the browser was starting it.
-          if (!prefs.on || captures.size > 0) {
+          if (!prefs.on || isHeld()) {
             a.pause()
             return
           }
@@ -205,7 +225,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
           const name = err instanceof Error || err instanceof DOMException ? err.name : ''
           // A newer pause or track change cut this one short; that change starts its own.
           if (name === 'AbortError') {
-            if (prefs.on && captures.size === 0 && a.paused) sync()
+            if (prefs.on && !isHeld() && a.paused) sync()
             return
           }
           if (name === 'NotAllowedError') {
@@ -219,7 +239,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
           emit()
         },
       )
-    } else if (!want && playing && captures.size > 0) {
+    } else if (!want && playing && isHeld()) {
       // A recording is starting: silence now, so none of it is recorded.
       playing = false
       if (fadeTimer !== null) deps.clearTimer(fadeTimer)
@@ -235,7 +255,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
       const a = audio
       fadeTo(0, () => {
         // Turned back on during the fade: keep playing.
-        if (prefs.on && captures.size === 0) {
+        if (prefs.on && !isHeld()) {
           playing = true
           emit()
           fadeTo(prefs.volume)
@@ -244,7 +264,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
         a?.pause()
       })
     } else if (!want) {
-      waiting = false
+      waiting = prefs.on && needsGesture
       emit()
     }
   }
@@ -256,7 +276,8 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   }
 
   function onFirstGesture() {
-    if (prefs.on && !playing && captures.size === 0) sync()
+    needsGesture = false
+    if (prefs.on && !playing && !isHeld()) sync()
   }
   function startListening() {
     if (listening) return
@@ -317,6 +338,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
     },
     play() {
       failed = false
+      needsGesture = false
       setPrefs({ on: true, asked: true })
       sync()
     },
@@ -351,12 +373,20 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
     decline() {
       setPrefs({ asked: true })
     },
+    holdFor(reason, on) {
+      if (on === outside.has(reason)) return
+      if (on) outside.add(reason)
+      else outside.delete(reason)
+      emit()
+      sync()
+    },
     start() {
       if (started) return
       started = true
       watchCaptures()
       if (prefs.on) {
         waiting = true
+        needsGesture = true
         emit()
         startListening()
       }

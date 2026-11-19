@@ -23,6 +23,7 @@ import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
 import { BUILD_VERSION, takeUpdatedVersion } from '../lib/appUpdate'
 import { isOnline, useOnline } from '../lib/connection'
 import { displayName } from '../lib/paths'
+import { connectMacMusic } from '../music/macBridge'
 import { music } from '../music/player'
 import { SessionProvider, useSession } from '../state/session'
 import { forgetDeletedTheme } from './AppearanceSettings'
@@ -32,6 +33,7 @@ import { Icon } from './Icon'
 import { InstallBar } from './InstallBar'
 import { OfflineBar, OfflineEmpty } from './Offline'
 import { Sidebar, SidebarFrame } from './Sidebar'
+import { useSwitchFx } from './useSwitchFx'
 
 const CommandK = lazy(() => import('./CommandK'))
 
@@ -144,7 +146,11 @@ function ShellLayout() {
 
   // Background music (docs/PLAN-background-music.md): watches recordings, and resumes at the first
   // click if it was left on.
-  useEffect(() => music().start(), [])
+  useEffect(() => {
+    music().start()
+    // Inside the Mac app, its menus play and pause it (M9).
+    return connectMacMusic(music())
+  }, [])
 
   // The sidebar follows the open doc's space.
   useEffect(() => {
@@ -160,6 +166,9 @@ function ShellLayout() {
   useEffect(() => {
     rememberAppLocation(location.pathname, location.search)
   }, [location.pathname, location.search])
+
+  // A ripple from the click when the open tool changes (docs/PLAN-switch-ripple.md).
+  useSwitchFx(ownerOfPath(location.pathname)?.id ?? null)
 
   const openSearch = useCallback(() => {
     setSearchLoaded(true)

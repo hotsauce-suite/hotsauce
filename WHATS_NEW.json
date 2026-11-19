@@ -1,6 +1,32 @@
 {
   "releases": [
     {
+      "version": "0.53.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Switching tools plays a soft ripple from your click (Settings → Appearance turns it off; skipped when your device reduces motion)."
+        },
+        {
+          "text": "An optional quiet tick when switching tools, off by default, silent while anything is recording."
+        }
+      ]
+    },
+    {
+      "version": "0.52.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Play music / Pause music in the menu bar menu, and a Music menu with the four tracks.",
+          "area": "Mac app"
+        },
+        {
+          "text": "The music pauses while you dictate or record a call, and keeps playing with the window closed.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.51.0",
       "date": "2026-11-18",
       "notes": [
