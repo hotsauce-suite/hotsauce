@@ -33,7 +33,12 @@ export function useEggs(): void {
     const konami = konamiTracker()
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || typing(e.target)) return
-      if (konami(e.key)) pepperShower()
+      if (!konami(e.key)) return
+      // The last key ("a") is also a shortcut on some pages (archive a note, mark a link done):
+      // the code finishing must not do that too. The shortcuts listen on window, after us.
+      e.preventDefault()
+      e.stopPropagation()
+      pepperShower()
     }
     const onMac = () => pepperShower()
     document.addEventListener('keydown', onKey)

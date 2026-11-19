@@ -75,10 +75,6 @@ export function renderApp(
           { path: '/for-you', children: forYouRoutes },
           { path: '/people', children: peopleRoutes },
           { path: '/briefcast', children: briefcastRoutes },
-          {
-            path: '*',
-            lazy: async () => ({ Component: (await import('../routes/NotFoundRoute')).default }),
-          },
         ],
       },
     ],

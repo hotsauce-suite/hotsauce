@@ -35,18 +35,26 @@ describe('Ghost Pepper (E3, E4)', () => {
     expect(document.documentElement.getAttribute('data-scheme')).toBe('dark')
     // Twice in a row still remembers the light look, not Ghost Pepper itself.
     moreHeat()
-    expect(localStorage.getItem(BEFORE_HEAT_KEY)).toBe('light')
+    expect(JSON.parse(localStorage.getItem(BEFORE_HEAT_KEY) ?? '{}')).toEqual({ choice: 'light' })
     lessHeat()
     expect(currentTheme()).toBe('light')
     expect(localStorage.getItem(THEME_KEY)).toBe('light')
     expect(localStorage.getItem(BEFORE_HEAT_KEY)).toBeNull()
   })
 
-  it('from a theme of their own, cooling down goes to the device look', () => {
-    chooseTheme(customChoice('01ABC'), GHOST_PEPPER_THEME)
+  it('from a theme of their own, cooling down puts that theme back, palette and all', () => {
+    const own = { ...GHOST_PEPPER_THEME, name: 'Mine', scheme: 'light' as const }
+    chooseTheme(customChoice('01ABC'), own)
     moreHeat()
     lessHeat()
-    expect(currentTheme()).toBe('system')
+    expect(currentTheme()).toBe('custom:01ABC')
+    expect(document.documentElement.getAttribute('data-scheme')).toBe('light')
+  })
+
+  it('less heat changes nothing when Ghost Pepper is off', () => {
+    chooseTheme('dark')
+    lessHeat()
+    expect(currentTheme()).toBe('dark')
   })
 
   it('is never mistaken for a deleted saved theme', () => {

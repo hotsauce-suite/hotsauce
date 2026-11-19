@@ -139,10 +139,10 @@ if (typeof document !== 'undefined') {
   )
 }
 
-/** Bursts from the latest click (within the last 2 s), or does nothing when it came from a key. */
+/** Bursts from the click that completed the task (within the last second); nothing from a key. */
 export function burstFromLastClick(): void {
   const p = lastPointer
-  if (!p || Date.now() - p.at > 2000) return
+  if (!p || Date.now() - p.at > 1000) return
   pepperBurst(p.x, p.y)
 }
 

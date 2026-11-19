@@ -22,3 +22,15 @@
   Docs counts as a switch.
 - In this cloud container Playwright's pinned headless shell isn't installed; run e2e with
   `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium` (playwright.config.ts reads it).
+- A catch-all `*` route inside the pathless shell layout beats the root-level one, so unknown
+  addresses render inside the app. Give it a route `id` and check `useMatches()` for it: otherwise
+  `rememberAppLocation` stores `/tasks/typo` and the rail sends people back to the 404. Don't add the
+  catch-all to `test/renderApp`: there every route is inside the shell, so a signed-out redirect to
+  `/sign-in` lands on it and loops.
+- Page shortcuts listen on `window`; a `document` keydown listener runs first and can
+  `stopPropagation()` to keep a key (the Konami code's final "a") from also archiving a note.
+- Hidden themes can ride the member-theme cache (`custom:<id>` + `hotsauce:custom-theme`), but
+  Appearance drops any `custom:` id the account doesn't list, so exempt built-in ids there.
+  `chooseTheme('system')` deletes the cached palette: restore a palette after calling it, not before.
+- `matchCommands` has a `secret` field: a ⌘K command shown only for an exact phrase, never in the
+  empty menu.
