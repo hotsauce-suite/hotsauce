@@ -18,6 +18,7 @@ function setup(responses: Array<Response | Error>) {
     }) as unknown as typeof fetch,
     now: () => clock,
     maxAgeMs: 1000,
+    infoMaxAgeMs: 100,
   })
   return { downloads, calls, advance: (ms: number) => (clock += ms) }
 }
@@ -82,6 +83,48 @@ describe('MacAppDownloads', () => {
     await downloads.file('Hotsauce.dmg')
     await downloads.file('Hotsauce.dmg')
     expect(calls).toHaveLength(2)
+  })
+
+  it('asks for the version file again after its own short wait, so a new build shows soon', async () => {
+    const { downloads, calls, advance } = setup([
+      new Response('{"version":"0.51.0"}'),
+      new Response('{"version":"0.61.0"}'),
+    ])
+    await downloads.file('mac-app.json')
+    advance(50)
+    await downloads.file('mac-app.json')
+    expect(calls).toHaveLength(1)
+    advance(100)
+    const info = await downloads.file('mac-app.json')
+    expect(info && readFileSync(info, 'utf8')).toBe('{"version":"0.61.0"}')
+    expect(calls).toHaveLength(2)
+  })
+
+  it('does not fetch the app again while the version file says the same', async () => {
+    const { downloads, calls, advance } = setup([
+      new Response('{"version":"0.51.0"}'),
+      new Response('dmg-1'),
+      new Response('{"version":"0.51.0"}'),
+      new Error('offline'),
+      new Response('{"version":"0.61.0"}'),
+      new Response('dmg-2'),
+    ])
+    await downloads.file('mac-app.json')
+    await new Promise((r) => setTimeout(r, 30))
+    await downloads.file('Hotsauce.dmg')
+    await new Promise((r) => setTimeout(r, 30))
+    advance(150)
+    await downloads.file('mac-app.json') // unchanged
+    await downloads.file('Hotsauce.dmg')
+    advance(150)
+    await downloads.file('mac-app.json') // GitHub can't be reached
+    const same = await downloads.file('Hotsauce.dmg')
+    expect(same && readFileSync(same, 'utf8')).toBe('dmg-1')
+    expect(calls).toHaveLength(4)
+    advance(150)
+    await downloads.file('mac-app.json') // a new build
+    const newer = await downloads.file('Hotsauce.dmg')
+    expect(newer && readFileSync(newer, 'utf8')).toBe('dmg-2')
   })
 
   it('asks GitHub once for two requests at the same time', async () => {

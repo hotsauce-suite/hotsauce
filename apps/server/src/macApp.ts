@@ -2,6 +2,7 @@ import {
   createWriteStream,
   existsSync,
   mkdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   statSync,
@@ -73,6 +74,9 @@ export class MacAppDownloads {
   readonly #fetch: typeof fetch
   readonly #now: () => number
   readonly #maxAgeMs: number
+  readonly #infoMaxAgeMs: number
+  /** When the version file was last asked for, in memory: its date on disk says when it changed. */
+  #infoCheckedAt: number | null = null
   readonly #inFlight = new Map<string, Promise<string | null>>()
 
   constructor(opts: {
@@ -82,6 +86,7 @@ export class MacAppDownloads {
     fetchFn?: typeof fetch
     now?: () => number
     maxAgeMs?: number
+    infoMaxAgeMs?: number
   }) {
     this.#dir = opts.cacheDir
     this.#base = opts.base ?? null
@@ -89,11 +94,13 @@ export class MacAppDownloads {
     this.#fetch = opts.fetchFn ?? fetch
     this.#now = opts.now ?? Date.now
     this.#maxAgeMs = opts.maxAgeMs ?? 6 * 60 * 60_000
+    this.#infoMaxAgeMs = Math.min(opts.infoMaxAgeMs ?? 10 * 60_000, this.#maxAgeMs)
   }
 
   /**
-   * A local copy of `Hotsauce.dmg`, `.zip` or `mac-app.json`, fetched when missing or older than
-   * six hours.
+   * A local copy of `Hotsauce.dmg`, `.zip` or `mac-app.json`. The small version file is asked for
+   * again after ten minutes, so a new build is offered soon after it is published; the app and its
+   * zip are fetched when missing, older than six hours, or older than a version file that changed.
    */
   async file(asset: string): Promise<string | null> {
     const local = path.join(this.#dir, asset)
@@ -106,7 +113,11 @@ export class MacAppDownloads {
       existsSync(info) &&
       statSync(info).mtimeMs > statSync(local).mtimeMs
     const fresh =
-      !behindInfo && existsSync(local) && this.#now() - statSync(local).mtimeMs < this.#maxAgeMs
+      asset === MAC_APP_INFO
+        ? existsSync(local) &&
+          this.#infoCheckedAt !== null &&
+          this.#now() - this.#infoCheckedAt < this.#infoMaxAgeMs
+        : !behindInfo && existsSync(local) && this.#now() - statSync(local).mtimeMs < this.#maxAgeMs
     if (fresh) return local
     let pending = this.#inFlight.get(asset)
     if (!pending) {
@@ -119,8 +130,11 @@ export class MacAppDownloads {
   async #download(asset: string, local: string): Promise<string | null> {
     // A failed fetch keeps serving the copy we have, and waits the usual time before asking again.
     const fallback = existsSync(local) ? local : null
+    const isInfo = asset === MAC_APP_INFO
+    if (isInfo) this.#infoCheckedAt = this.#now()
     const keep = () => {
-      if (fallback) {
+      // The version file's date is left alone: a newer date would send the app to be fetched again.
+      if (fallback && !isInfo) {
         const t = new Date(this.#now())
         utimesSync(fallback, t, t)
       }
@@ -145,6 +159,12 @@ export class MacAppDownloads {
         },
       )
       await pipeline(limited, createWriteStream(tmp))
+      // The same version file as before is not a change: keep its date, so the app isn't fetched
+      // again every ten minutes.
+      if (isInfo && fallback && readFileSync(tmp).equals(readFileSync(fallback))) {
+        rmSync(tmp, { force: true })
+        return fallback
+      }
       renameSync(tmp, local)
       return local
     } catch (err) {
@@ -157,11 +177,11 @@ export class MacAppDownloads {
     }
   }
 
-  /** Where the newest build is: looked up at most once per refresh period, so the app, its zip
+  /** Where the newest build is: looked up at most once every ten minutes, so the app, its zip
    * and its version file come from the same release. A failed lookup keeps the last answer. */
   async #baseUrl(): Promise<string> {
     if (this.#base) return this.#base
-    if (!this.#tag || this.#now() - this.#tag.at >= this.#maxAgeMs) {
+    if (!this.#tag || this.#now() - this.#tag.at >= this.#infoMaxAgeMs) {
       let name = this.#tag?.name ?? LEGACY_TAG
       try {
         const res = await this.#fetch(this.#api, {
