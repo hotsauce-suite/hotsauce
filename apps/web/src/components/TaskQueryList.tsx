@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { memberTimeZone, type TaskView, taskKey, tasksApi } from '../api/tasks'
 import { dueWords, isOverdue, todayIn } from '../apps/tasks/logic'
 import { tasksBus, useTasksChanged } from '../apps/tasks/useTaskList'
+import { isSpicy } from '../eggs/logic'
+import { burstFromLastClick } from '../eggs/peppers'
 import { taskUrl } from '../lib/paths'
 import { applyTaskQuery, parseTaskQuery } from '../lib/taskQuery'
 
@@ -66,7 +68,10 @@ export function TaskQueryList({ source, personalSpace, onOpen }: TaskQueryListPr
     )
     try {
       if (task.status === 'done') await tasksApi.reopen(task.space, task.id)
-      else await tasksApi.complete(task.space, task.id, timeZone())
+      else {
+        if (isSpicy(task.title)) burstFromLastClick()
+        await tasksApi.complete(task.space, task.id, timeZone())
+      }
     } catch {
       setError(true)
     }

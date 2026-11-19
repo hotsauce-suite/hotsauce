@@ -10,6 +10,7 @@ import {
   authorizeSpace,
   boardRoutes,
   bookingRoutes,
+  breakRoutes,
   briefcastRoutes,
   briefRoutes,
   calendarRoutes,
@@ -98,6 +99,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', feedbackRoutes(deps))
     .route('/api', boardRoutes(deps))
     .route('/api', todayRoutes(deps))
+    .route('/api', breakRoutes(deps))
     .route('/api', peopleRoutes(deps))
     .route('/api', bookingRoutes(deps))
     .route('/api', driveRoutes(deps))

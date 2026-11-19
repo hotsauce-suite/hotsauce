@@ -1,6 +1,110 @@
 {
   "releases": [
     {
+      "version": "0.60.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Screen breaks: turn on Breaks in the account menu (or from the Getting started tile) for a reminder to look away from the screen. You choose how often, how long, a breathing circle, clouds or waves, an end chime and working hours in Settings → General. Breaks wait while you record or are in a meeting, and time away counts as a break."
+        },
+        {
+          "text": "Screen breaks show over every display, above all apps, even with the Hotsauce window closed. They wait while you dictate or record a call, and a locked or sleeping Mac counts as a break.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.59.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "A short welcome tour the first time you open Hotsauce on a computer; take it again any time from your account menu"
+        },
+        {
+          "text": "Settings → Hotsauce 101: what every app is for, with a short video of each"
+        },
+        {
+          "text": "For you and Tables now have their own cards and videos on hotsauce.work"
+        },
+        {
+          "text": "The tour and Hotsauce 101 show in the Mac app window too",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.58.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "A few hot sauce surprises are now hidden around the app. 🌶"
+        },
+        {
+          "text": "An address that leads nowhere now says so, with a button back to Docs."
+        },
+        {
+          "text": "Something spicy hides in the Hotsauce menu.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Press ⌥⇧4 to take a screenshot: drag for an area, click a window for that window, or click the desktop for the whole screen. Esc cancels.",
+          "area": "Mac app"
+        },
+        {
+          "text": "The size in pixels follows the pointer while you choose.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A screenshot is copied at once and saved to Pictures → Hotsauce Screenshots.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A small preview shows in the corner for 7 seconds; hover to keep it, Copy, Pin, Close, or drag it into another app as a file.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Take Screenshot is also in the File menu and the menu bar menu.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.57.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "A new look, \"Follow the sun\": Hotsauce turns light at sunrise and dark at sunset where you are. Pick By sun in the account menu or Follow the sun in Settings → Appearance."
+        }
+      ]
+    },
+    {
+      "version": "0.56.1",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Files: a file that is set to delete itself shows the date on its row, with a Keep button to stop it."
+        }
+      ]
+    },
+    {
+      "version": "0.56.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Today: a sky behind your greeting changes from dawn to day to dusk to night, in your theme's colours, with the sun where it really is or the moon in its real phase."
+        },
+        {
+          "text": "Today: sunrise, sunset and hours of daylight under the greeting, using your weather place or your team's city."
+        },
+        {
+          "text": "Today: clouds, rain, snow and fog from the current weather drift lightly across the sky; it stays still with \"reduce motion\"."
+        },
+        {
+          "text": "Today: pick Sky, Sun path or Off in Edit Today or Settings → General → Today's sky."
+        }
+      ]
+    },
+    {
       "version": "0.55.0",
       "date": "2026-11-19",
       "notes": [

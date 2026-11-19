@@ -8,6 +8,8 @@ import { Link, useNavigate } from 'react-router'
 import { dictationApi } from '../../../api/dictation'
 import { type StartHereDoc, type TodayView, todayApi } from '../../../api/today'
 import { product } from '../../../brand/product'
+import { saveBreakSettings } from '../../../breaks/settings'
+import { useBreakSettings } from '../../../breaks/useBreakSettings'
 import { Icon } from '../../../components/Icon'
 import { MAC_APP_SETTINGS, useMacAppBuild } from '../../../components/MacApp'
 import { TOUCH_QUERY, useMediaQuery } from '../../../hooks/useMediaQuery'
@@ -259,6 +261,7 @@ export function StartTile({
         ))}
       </ul>
       <MusicOffer />
+      <BreaksOffer />
     </Card>
   )
 }
@@ -300,6 +303,51 @@ function MusicOffer() {
         className={stepButton}
         data-testid="today-start-music-on"
         onClick={() => music().play()}
+      >
+        Turn on
+      </button>
+    </div>
+  )
+}
+
+/**
+ * The screen breaks offer (docs/PLAN-breaks.md B12a): like the music one, an extra line under the
+ * steps until it's answered. Either answer saves the member's settings, so it's asked once for
+ * every device.
+ */
+function BreaksOffer() {
+  const { settings, saved, loaded } = useBreakSettings()
+  if (!loaded || saved || settings.on) return null
+  return (
+    <div
+      data-testid="start-breaks-offer"
+      className="mt-1 flex items-center gap-3 border-t border-ash/70 pt-2.5"
+    >
+      <span
+        aria-hidden="true"
+        className="flex size-5 shrink-0 items-center justify-center text-ink-faint"
+      >
+        <Icon name="eye" className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-ink">Take screen breaks?</span>
+        <span className="block text-xs text-ink-soft">
+          Every 20 minutes, a 20-second reminder to look away. Change it any time in Settings.
+        </span>
+      </span>
+      <button
+        type="button"
+        className="shrink-0 text-xs text-ink-soft underline decoration-ash-strong underline-offset-2 hover:text-ink"
+        data-testid="start-breaks-no"
+        onClick={() => void saveBreakSettings({ on: false })}
+      >
+        No thanks
+      </button>
+      <button
+        type="button"
+        className={stepButton}
+        data-testid="start-breaks-on"
+        onClick={() => void saveBreakSettings({ on: true })}
       >
         Turn on
       </button>

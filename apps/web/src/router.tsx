@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter } from 'react-router'
 import { boardsRoutes } from './apps/boards/routes'
 import { briefcastRoutes } from './apps/briefcast/routes'
 import { checkinsRoutes } from './apps/checkins/routes'
@@ -20,6 +20,7 @@ import { AuthRoot, BootError } from './auth/AuthRoot'
 import { loadBoot } from './brand/boot'
 import AppShell from './components/AppShell'
 import { Launch } from './routes/Launch'
+import { NOT_FOUND_ROUTE_ID } from './routes/notFound'
 import { settingsRoute } from './routes/settings/routes'
 
 // Route-level code splitting: the shell ships in the entry chunk so the sidebar paints at
@@ -133,9 +134,14 @@ export const createAppRouter = () =>
             { path: '/links', children: linksRoutes },
             { path: '/briefcast', children: briefcastRoutes },
             { path: '/pages', children: pagesRoutes },
+            {
+              // An address no page owns: the lost-sauce page (docs/PLAN-easter-eggs.md E6).
+              id: NOT_FOUND_ROUTE_ID,
+              path: '*',
+              lazy: async () => ({ Component: (await import('./routes/NotFoundRoute')).default }),
+            },
           ],
         },
-        { path: '*', element: <Navigate to="/docs" replace /> },
       ],
     },
   ])

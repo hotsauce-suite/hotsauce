@@ -5,7 +5,9 @@
 @import "./notes.css";
 @import "./boards.css";
 @import "./links.css";
+@import "./breaks.css";
 @import "./sign.css";
+@import "./sky.css";
 
 @theme inline {
   --color-paper: var(--paper);
@@ -193,6 +195,33 @@ button {
   .switch-ripple {
     display: none;
   }
+}
+
+/* docs/PLAN-easter-eggs.md: chili peppers that fall, burst or sit still, above everything and
+   never in the way. */
+.egg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  overflow: hidden;
+}
+.egg-pepper {
+  position: absolute;
+  line-height: 1;
+  will-change: transform, opacity;
+}
+.egg-badge {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0.5rem 0.9rem;
+  border-radius: 9999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  border: 1px solid var(--ash);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.15);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------- ember dot */

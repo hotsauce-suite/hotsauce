@@ -6,12 +6,16 @@
 // Hotsauce's.
 
 import { type Theme, themeCss, themeFontsHref } from '@hotsauce/format'
+import { sunPlace, sunScheme } from '../apps/today/sky/followSun'
 
-export type ThemeChoice = 'system' | 'light' | 'dark' | `custom:${string}`
+/** `sun`: light from sunrise to sunset, dark otherwise (docs/PLAN-today-sky.md R9). */
+export type ThemeChoice = 'system' | 'light' | 'dark' | 'sun' | `custom:${string}`
 
 export const THEME_KEY = 'hearth:theme'
 /** The member's own theme in use here, ready to paint: `{ id, css, fonts }` (index.html reads it). */
 export const CUSTOM_THEME_KEY = 'hotsauce:custom-theme'
+/** Under "Follow the sun", the look last worked out, so index.html paints it before the first frame. */
+export const SUN_SCHEME_KEY = 'hotsauce:sun-scheme'
 const STYLE_ID = 'hotsauce-custom-theme'
 const FONTS_ID = 'hotsauce-custom-theme-fonts'
 
@@ -49,7 +53,7 @@ export const customIdOf = (choice: ThemeChoice): string | null =>
 export function storedTheme(): ThemeChoice | null {
   try {
     const value = localStorage.getItem(THEME_KEY)
-    if (value === 'system' || value === 'light' || value === 'dark') return value
+    if (value === 'system' || value === 'light' || value === 'dark' || value === 'sun') return value
     // One of the member's own themes, if this browser still has it ready to paint.
     if (value?.startsWith('custom:') && cached()?.id === value.slice('custom:'.length)) {
       return value as ThemeChoice
@@ -125,9 +129,54 @@ export function applyTheme(choice: ThemeChoice): void {
   } else {
     unpaintCustom()
     if (choice === 'system') root.removeAttribute('data-theme')
+    else if (choice === 'sun') root.setAttribute('data-theme', followTheSun())
     else root.setAttribute('data-theme', choice)
   }
+  if (choice === 'sun') startSunWatch()
+  else stopSunWatch()
   syncBrowserBar(choice === 'system')
+}
+
+/** Light or dark for now under "Follow the sun", remembered for the next first paint. */
+function followTheSun(now = new Date()): 'light' | 'dark' {
+  const scheme = sunScheme(now, sunPlace())
+  try {
+    localStorage.setItem(SUN_SCHEME_KEY, scheme)
+  } catch {
+    // No storage: worked out again on the next load.
+  }
+  return scheme
+}
+
+let sunWatch: ReturnType<typeof setInterval> | undefined
+
+/** Checks once a minute (and on waking) whether the sun has risen or set. */
+function startSunWatch(): void {
+  if (sunWatch !== undefined) return
+  const check = () => {
+    if (storedTheme() !== 'sun') return stopSunWatch()
+    const root = document.documentElement
+    // A theme being tried in Settings stays up until Keep or Discard.
+    if (root.getAttribute('data-theme') === 'custom') return
+    const scheme = followTheSun()
+    if (root.getAttribute('data-theme') !== scheme) {
+      root.setAttribute('data-theme', scheme)
+      syncBrowserBar(false)
+    }
+  }
+  sunWatch = setInterval(check, 60_000)
+  document.addEventListener('visibilitychange', check)
+  sunWatchCheck = check
+}
+
+let sunWatchCheck: (() => void) | undefined
+
+function stopSunWatch(): void {
+  if (sunWatch === undefined) return
+  clearInterval(sunWatch)
+  sunWatch = undefined
+  if (sunWatchCheck) document.removeEventListener('visibilitychange', sunWatchCheck)
+  sunWatchCheck = undefined
 }
 
 /** The browser's own bar (and the installed app's title bar) follows the page's paper colour. */

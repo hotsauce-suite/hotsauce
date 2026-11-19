@@ -5,8 +5,10 @@ import { HotsauceApiError } from '../api/client'
 import { type AccessToken, tokensApi } from '../api/tokens'
 import type { CalendarChoice } from '../api/types'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
+import { SkySceneSettings } from '../apps/today/sky/SkyScenePicker'
 import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
+import { BreaksSettings } from '../breaks/BreaksSettings'
 import { NewToken } from '../components/AiToolSetup'
 import { AppearanceSettings } from '../components/AppearanceSettings'
 import { useSignOut } from '../components/AppRail'
@@ -47,6 +49,7 @@ export function GeneralSettings() {
   return (
     <div data-testid="settings-general">
       <AccountSection />
+      <BreaksSettings />
       <p
         data-testid="settings-device-label"
         className="mt-12 -mb-6 text-xs font-semibold tracking-wide text-ink-faint uppercase"
@@ -66,6 +69,7 @@ export function AppearancePage() {
   return (
     <div data-testid="settings-appearance">
       <AppearanceSettings />
+      <SkySceneSettings />
     </div>
   )
 }
