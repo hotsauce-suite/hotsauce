@@ -2,10 +2,10 @@
 
 ## Status
 
-2026-11-19: plan written on the recommended answers to the owner's seven questions (asked in the
-thread at 17:5xZ; building on the recommendations while the answers are pending). Nothing built yet.
+2026-11-19: decisions settled with the owner (he accepted every recommendation and added "add it
+to onboarding"). Building.
 
-## Decisions (recommended, pending the owner's yes)
+## Decisions
 
 - **Where it lives**: no rail item. A **Breaks** section on Settings → General, and a **Breaks** row
   next to Music in the account menu that turns breaks on and off and shows "Every 20 min".
@@ -20,6 +20,8 @@ thread at 17:5xZ; building on the recommendations while the answers are pending)
   meeting on your calendar. Away from the computer for at least a break's length counts as the
   break: the timer starts over. On the Mac it also stops while the screen is locked or asleep.
 - A soft **chime when the break ends**, on by default, can be turned off.
+- **Onboarding**: the Getting started tile on Today offers "Take screen breaks?" with Turn on and
+  No thanks, like the music offer: an extra line, not a counted step.
 - Optional **working hours** (e.g. 9:00 to 18:00, Monday to Friday), off to start.
 - Settings are the member's, kept in their personal space (`.hearth/breaks.json`, like the Today
   layout), so the Mac app and every browser share them.
@@ -59,5 +61,7 @@ Each maps to a test, named in brackets when built.
 - B12. The Mac app shows the break on every display above all apps, with the window closed; it
   holds while dictating or recording a call, stops while the screen is locked or the Mac sleeps,
   and counts idle time as a break.
+- B12a. The Getting started tile offers Turn on / No thanks until answered; Turn on saves breaks
+  on at the defaults, either answer removes the line, and the step count is unchanged.
 - B13. The demo (demo.hotsauce.work) answers `/api/breaks`; help, README, STATUS and the landing
   page describe Breaks.
