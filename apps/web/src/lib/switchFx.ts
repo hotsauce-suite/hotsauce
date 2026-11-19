@@ -1,6 +1,8 @@
-// A small ripple (and, if the member turns it on, a soft tick) when they switch tools
+// A ripple (and, if the member turns it on, a soft tick) when they switch tools
 // (docs/PLAN-switch-ripple.md). Both are chosen per browser; the ripple is skipped when the
 // device asks for reduced motion, and the tick stays silent while anything is recording.
+
+import { playWave, WAVE_MS } from './liquidWave'
 
 export const SWITCH_FX_KEY = 'hotsauce:switch-fx'
 
@@ -77,36 +79,50 @@ export function switchEffects(
   }
 }
 
-/** How long the ripple runs (R2): short enough never to feel like waiting. */
-export const RIPPLE_MS = 420
-/** How far it spreads, in CSS pixels. */
-export const RIPPLE_RADIUS = 180
+/** How long the ripple runs (R2): about as long as the wave takes to cross the window. */
+export const RIPPLE_MS = WAVE_MS
+
+/** How far the ripple must spread from (x, y) to clear every corner of the window. */
+export function reachFrom(x: number, y: number, w: number, h: number): number {
+  return (
+    Math.max(
+      Math.hypot(x, y),
+      Math.hypot(w - x, y),
+      Math.hypot(x, h - y),
+      Math.hypot(w - x, h - y),
+    ) * 1.3
+  )
+}
 
 /**
- * Draws one ripple centred on (x, y): a ring in the accent colour that grows and fades. It sits
- * above the page, ignores the pointer and removes itself, so it never delays or blocks anything.
+ * Draws one ripple from (x, y) (R2, R7): the whole window bends like water as a wave runs out to
+ * every corner, with a band of light riding its front. It sits above the page, ignores the
+ * pointer and removes itself, so it never delays or blocks anything.
  */
 export function drawRipple(x: number, y: number, doc: Document = document): HTMLElement | null {
   const body = doc.body
   if (!body) return null
+  const view = doc.defaultView
+  const radius = reachFrom(x, y, view?.innerWidth ?? 1280, view?.innerHeight ?? 800)
   const ring = doc.createElement('span')
   ring.setAttribute('aria-hidden', 'true')
   ring.dataset.testid = 'switch-ripple'
   ring.className = 'switch-ripple'
-  const size = RIPPLE_RADIUS * 2
-  ring.style.left = `${x - RIPPLE_RADIUS}px`
-  ring.style.top = `${y - RIPPLE_RADIUS}px`
-  ring.style.width = `${size}px`
-  ring.style.height = `${size}px`
+  ring.style.left = `${x - radius}px`
+  ring.style.top = `${y - radius}px`
+  ring.style.width = `${radius * 2}px`
+  ring.style.height = `${radius * 2}px`
   body.appendChild(ring)
+  playWave(x, y, doc.getElementById('root'), doc)
   const done = () => ring.remove()
   if (typeof ring.animate === 'function') {
     const anim = ring.animate(
       [
-        { transform: 'scale(0.08)', opacity: 0.55 },
+        { transform: 'scale(0.02)', opacity: 1 },
+        { transform: 'scale(0.75)', opacity: 0.85, offset: 0.55 },
         { transform: 'scale(1)', opacity: 0 },
       ],
-      { duration: RIPPLE_MS, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)', fill: 'forwards' },
+      { duration: RIPPLE_MS, easing: 'cubic-bezier(0.3, 0.85, 0.45, 1)', fill: 'forwards' },
     )
     anim.onfinish = done
     anim.oncancel = done

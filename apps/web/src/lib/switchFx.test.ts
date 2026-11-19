@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_SWITCH_FX,
   drawRipple,
+  reachFrom,
   readSwitchFx,
   SWITCH_FX_KEY,
   switchEffects,
@@ -56,10 +57,40 @@ describe('tool switch effects (PLAN-switch-ripple)', () => {
     const ring = drawRipple(100, 50)
     expect(ring).not.toBeNull()
     expect(ring?.getAttribute('aria-hidden')).toBe('true')
-    expect(ring?.style.left).toBe(`${100 - 180}px`)
-    expect(ring?.style.top).toBe(`${50 - 180}px`)
+    const r = Number.parseFloat(ring?.style.width ?? '0') / 2
+    expect(Number.parseFloat(ring?.style.left ?? '') + r).toBeCloseTo(100)
+    expect(Number.parseFloat(ring?.style.top ?? '') + r).toBeCloseTo(50)
+    // R7: big enough to clear the farthest corner of the window.
+    expect(r).toBeGreaterThanOrEqual(
+      reachFrom(100, 50, window.innerWidth, window.innerHeight) - 0.01,
+    )
     expect(document.querySelectorAll('[data-testid="switch-ripple"]')).toHaveLength(1)
-    await new Promise((r) => setTimeout(r, 600))
+    await new Promise((r) => setTimeout(r, 950))
     expect(document.querySelectorAll('[data-testid="switch-ripple"]')).toHaveLength(0)
+  })
+})
+
+describe('reachFrom (R7)', () => {
+  it('clears every corner of the window from any click inside it', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 200, max: 4000 }),
+        fc.integer({ min: 200, max: 3000 }),
+        fc.double({ min: 0, max: 1, noNaN: true }),
+        fc.double({ min: 0, max: 1, noNaN: true }),
+        (w, h, fx, fy) => {
+          const x = w * fx
+          const y = h * fy
+          const r = reachFrom(x, y, w, h)
+          for (const [cx, cy] of [
+            [0, 0],
+            [w, 0],
+            [0, h],
+            [w, h],
+          ] as const)
+            expect(r).toBeGreaterThan(Math.hypot(cx - x, cy - y))
+        },
+      ),
+    )
   })
 })

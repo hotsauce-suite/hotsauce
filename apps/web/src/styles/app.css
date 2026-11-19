@@ -174,13 +174,17 @@ button {
   z-index: 40;
   pointer-events: none;
   border-radius: 9999px;
+  /* Light caught by the wave's front: a soft shadow just behind a bright glint. */
   background: radial-gradient(
     circle,
-    color-mix(in oklab, var(--ember) 0%, transparent) 35%,
-    color-mix(in oklab, var(--ember) 22%, transparent) 62%,
-    color-mix(in oklab, var(--ember) 0%, transparent) 72%
+    transparent 58%,
+    rgb(0 0 0 / 0.06) 69%,
+    color-mix(in oklab, var(--ember) 12%, transparent) 73%,
+    rgb(255 255 255 / 0.32) 77%,
+    rgb(255 255 255 / 0.08) 80%,
+    transparent 84%
   );
-  transform: scale(0.08);
+  transform: scale(0.02);
   opacity: 0;
   will-change: transform, opacity;
 }
