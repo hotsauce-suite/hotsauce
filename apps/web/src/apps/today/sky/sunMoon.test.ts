@@ -50,6 +50,16 @@ describe('sunTimes', () => {
       ),
     )
   })
+
+  it('gives the calendar day’s sun just after midnight too', () => {
+    // 00:05 on the device's 19 November, whatever its zone: still the 19th's sunrise.
+    const early = new Date(2026, 10, 19, 0, 5)
+    const t = sunTimes(early, { lat: 37.77, lon: -122.42 })
+    const noon = sunTimes(new Date(2026, 10, 19, 12), { lat: 37.77, lon: -122.42 })
+    if (t.kind !== 'normal' || noon.kind !== 'normal') throw new Error('kind')
+    expect(t.sunrise.getTime()).toBe(noon.sunrise.getTime())
+    expect(t.sunset.getTime()).toBeGreaterThan(early.getTime())
+  })
 })
 
 describe('sunProgress', () => {

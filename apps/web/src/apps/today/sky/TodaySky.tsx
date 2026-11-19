@@ -3,7 +3,7 @@
 // moon in its real phase. The weather the header shows drifts across it lightly. Everything is
 // still under "reduce motion".
 
-import { type ReactNode, useMemo } from 'react'
+import { type CSSProperties, type ReactNode, useMemo } from 'react'
 import { Link } from 'react-router'
 import { timeLabel } from '../../meetings/format'
 import { type SkyScene, useSkyPlace, useSkyScene, useSkyWeather } from './skyState'
@@ -17,13 +17,24 @@ import {
   sunTimes,
 } from './sunMoon'
 
-/** Each time of day as two sky colours, blended into the theme's paper so text stays readable. */
-const SKY: Record<SkyPhase, { top: string; bottom: string; mix: number }> = {
-  dawn: { top: '#7f8fd6', bottom: '#f6a87a', mix: 42 },
-  day: { top: '#5fa8e8', bottom: '#bfe0f5', mix: 38 },
-  dusk: { top: '#5b4d9e', bottom: '#f08a5d', mix: 44 },
-  night: { top: '#0d1636', bottom: '#2b3466', mix: 55 },
+/**
+ * Each time of day as two sky colours and how much of each goes into the theme's paper. The day
+ * mixes are light enough that the theme's own text keeps 4.5:1 or better in Hotsauce's light and
+ * dark looks; the night sky is dark in every theme and gets light text of its own (NIGHT_TEXT).
+ */
+const SKY: Record<SkyPhase, { top: string; bottom: string; topMix: number; bottomMix: number }> = {
+  dawn: { top: '#7f8fd6', bottom: '#f6a87a', topMix: 30, bottomMix: 24 },
+  day: { top: '#5fa8e8', bottom: '#bfe0f5', topMix: 32, bottomMix: 24 },
+  dusk: { top: '#5b4d9e', bottom: '#f08a5d', topMix: 24, bottomMix: 20 },
+  night: { top: '#0d1636', bottom: '#2b3466', topMix: 88, bottomMix: 88 },
 }
+
+/** Light text over the night sky, whatever the theme. */
+const NIGHT_TEXT = {
+  '--ink': '#f4efe6',
+  '--ink-soft': '#d6cdbf',
+  '--ink-faint': '#b3aa9c',
+} as CSSProperties
 
 const blend = (color: string, mix: number) => `color-mix(in oklab, ${color} ${mix}%, var(--paper))`
 
@@ -62,10 +73,10 @@ export function sunLine(now: Date, today: SunTimes, tomorrow: SunTimes): string 
 /** Where along the night the moon is drawn: 0 at sunset, 1 at the next sunrise. */
 function nightProgress(now: Date, place: Place | null): number {
   if (!place) {
-    // No place: a night from 19:30 to 06:00 by the clock.
+    // No place: the night runs from 17:00 to 7:00 by the clock, as clockSun's day ends and starts.
     const h = now.getHours() + now.getMinutes() / 60
-    const since = (h - 19.5 + 24) % 24
-    return Math.min(1, since / 10.5)
+    const since = (h - 17 + 24) % 24
+    return Math.min(1, since / 14)
   }
   const yesterday = sunTimes(new Date(now.getTime() - 86_400_000), place)
   const today = sunTimes(now, place)
@@ -150,7 +161,7 @@ export function SkyBand({
     const sunP = times ? sunProgress(now, times.today) : clockSun(now)
     const moon = moonPhase(now)
     return { phase, sunP, moon, moonP: sunP === null ? nightProgress(now, place ?? null) : null }
-  }, [minute, times, place])
+  }, [minute, times, place?.lat, place?.lon])
   const sky = SKY[view.phase]
   const weather = weatherKind(symbol)
   const night = view.phase === 'night' || view.phase === 'dusk'
@@ -167,7 +178,8 @@ export function SkyBand({
         style={
           scene === 'sky'
             ? {
-                background: `linear-gradient(180deg, ${blend(sky.top, sky.mix)} 0%, ${blend(sky.bottom, sky.mix - 8)} 100%)`,
+                background: `linear-gradient(180deg, ${blend(sky.top, sky.topMix)} 0%, ${blend(sky.bottom, sky.bottomMix)} 100%)`,
+                ...(view.phase === 'night' ? NIGHT_TEXT : {}),
               }
             : { background: 'var(--paper-raised)', border: '1px solid var(--ash)' }
         }
@@ -287,9 +299,9 @@ export function SkyBand({
             : null}
           {scene === 'sky' && weather.fog ? <span className="sky-fog absolute inset-0" /> : null}
         </div>
-        {/* Hover targets sit above the text so the title tooltip shows, without blocking it. */}
+        {/* Hover targets sit above the text so the title tooltip shows; only the body itself takes the pointer. */}
         {sunAt || moonAt ? (
-          <div aria-hidden className="sky-art pointer-events-none absolute">
+          <div aria-hidden className="sky-art pointer-events-none absolute z-10">
             <span
               title={sunAt ? sunTitle : moonTitle}
               className="pointer-events-auto absolute size-11 -translate-x-1/2 -translate-y-1/2"
@@ -297,13 +309,15 @@ export function SkyBand({
             />
           </div>
         ) : null}
-        <div className="relative">{children}</div>
+        {/* On wider screens the words keep to the left, clear of the sun's arc. */}
+        <div className="relative md:max-w-[56%]">{children}</div>
         <p className="relative mt-2 text-xs text-ink-soft" data-testid="today-sun-line">
           {line ? (
             <span>{line}</span>
           ) : place === null ? (
             <Link
               to="/settings"
+              state={{ settingsFind: 'Weather' }}
               className="underline hover:text-ink"
               data-testid="today-sky-set-place"
             >

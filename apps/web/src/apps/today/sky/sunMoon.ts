@@ -59,11 +59,16 @@ function crossing(date: Date, place: Place, angle: number) {
   return { kind: 'normal' as const, rise: fromJulian(rise), set: fromJulian(set) }
 }
 
-/** The sun's day around `date` at `place`; the upper edge touching the horizon, with refraction. */
+/**
+ * The sun on `date`'s calendar day on this device, at `place`: the upper edge touching the
+ * horizon, with refraction. Worked out from that day's noon, so a time just after midnight
+ * doesn't land on the solar day before.
+ */
 export function sunTimes(date: Date, place: Place): SunTimes {
-  const sun = crossing(date, place, -0.833)
+  const noon = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12)
+  const sun = crossing(noon, place, -0.833)
   if (sun.kind !== 'normal') return sun
-  const civil = crossing(date, place, -6)
+  const civil = crossing(noon, place, -6)
   return civil.kind === 'normal'
     ? { kind: 'normal', sunrise: sun.rise, sunset: sun.set, dawn: civil.rise, dusk: civil.set }
     : { kind: 'normal', sunrise: sun.rise, sunset: sun.set }

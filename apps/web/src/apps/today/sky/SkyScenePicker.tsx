@@ -1,4 +1,4 @@
-// The picture behind Today's greeting, on this device: in Edit Today and Settings → Appearance
+// The picture behind Today's greeting, on this device: in Edit Today and Settings → General
 // (docs/PLAN-today-sky.md R1). It applies at once.
 
 import { SKY_SCENES, type SkyScene, useSkyScene, writeSkyScene } from './skyState'
@@ -26,7 +26,7 @@ export function SkyScenePicker() {
   )
 }
 
-/** Settings → Appearance: the same choice with a line about each. */
+/** Settings → General: the same choice with a line about each. */
 export function SkySceneSettings() {
   const scene = useSkyScene()
   return (

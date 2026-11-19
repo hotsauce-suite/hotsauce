@@ -90,12 +90,13 @@ export function publishSkyWeather(next: string | null) {
   for (const l of listeners) l()
 }
 
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
 export function useSkyWeather(): string | null {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l)
-      return () => listeners.delete(l)
-    },
-    () => symbol,
-  )
+  return useSyncExternalStore(subscribe, () => symbol)
 }
