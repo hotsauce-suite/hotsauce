@@ -184,6 +184,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     words: ['sign out', 'log out', 'email', 'profile', 'name', 'me'],
   },
   {
+    id: 'breaks',
+    title: 'Breaks',
+    ...GENERAL,
+    summary: 'Reminders to look away from the screen: how often, how long, and how it looks.',
+    words: ['break', 'rest', 'eyes', '20-20-20', 'pomodoro', 'reminder', 'screen time', 'stretch'],
+  },
+  {
     id: 'appearance',
     title: 'Appearance',
     ...APPEARANCE,

@@ -4,6 +4,7 @@ import type { Author, CommitResult, Me, ServerEvent } from '../api/types'
 import { assistantHandlers } from './assistantHandlers'
 import { boardHandlers, FakeBoards, seedBoards } from './boardHandlers'
 import { bookingHandlers } from './bookingHandlers'
+import { breakHandlers } from './breakHandlers'
 import { briefcastHandlers, FakeBriefcasts } from './briefcastHandlers'
 import { briefHandlers, FakeBriefs } from './briefHandlers'
 import { checkinHandlers } from './checkinHandlers'
@@ -637,6 +638,7 @@ function createHandlers(
     ...linkHandlers({ links: work.links, files: work.files, repo, latencyMs, principal }),
   )
   handlers.push(...todayHandlers())
+  handlers.push(...breakHandlers())
   handlers.push(...themeHandlers({ principal, latencyMs }))
   handlers.push(...checkinHandlers({ principal }))
   handlers.push(

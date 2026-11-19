@@ -25,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Background music in the menus (docs/PLAN-background-music.md M9).
     lazy var musicMenu = MusicMenu(suite: { [unowned self] in self.suite })
     private lazy var reminders = Reminders(suite: suite) { [weak self] in self?.settings.meetingReminders ?? false }
+    /// Screen breaks over every display, with or without the window (docs/PLAN-breaks.md B12).
+    private let breaks = BreakController()
     /// A `CallDetector` on macOS 14.2+ (stored untyped for the availability check).
     private var callDetector: AnyObject?
 
@@ -50,6 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = makeMainMenu()
         suite.showMessage = { [weak self] in self?.controller.showMessage($0) }
+        suite.breaksMessage = { [weak self] in self?.breaks.received($0) }
+        suite.holdBreaks = { [weak self] in self?.breaks.hold($0, $1) }
+        breaks.start()
         suite.updateState = { [weak self] in self?.updater.state ?? .none }
         suite.installUpdate = { [weak self] in self?.installUpdate() }
         updater.onChange = { [weak self] in self?.updateStateChanged($0) }

@@ -28,6 +28,8 @@ import { forgetTaskLists } from '../apps/tasks/useTaskList'
 import { forgetTaskMeta } from '../apps/tasks/useTaskMeta'
 import { useAuthState } from '../auth/AuthContext'
 import { org, product } from '../brand/product'
+import { breaksStatus, saveBreakSettings } from '../breaks/settings'
+import { useBreakSettings } from '../breaks/useBreakSettings'
 import { feedbackLink, openFeedback } from '../feedback/pageShot'
 import { GO_KEYS } from '../keyboard/catalog'
 import { useOnline } from '../lib/connection'
@@ -558,6 +560,7 @@ function AccountButton({
               ) : null}
               <ThemeSwitch onMore={go(() => navigate('/settings/appearance'))} />
               <MusicMenuRow />
+              <BreaksMenuRow />
               <MenuDivider />
               <MenuItem
                 icon="gear"
@@ -714,6 +717,37 @@ function MusicMenuRow() {
         </div>
       ) : null}
     </>
+  )
+}
+
+/**
+ * Screen breaks in the menu (docs/PLAN-breaks.md B10): one press turns them on or off, saved at
+ * once; the row says how often. The rest is in Settings → General → Breaks.
+ */
+function BreaksMenuRow() {
+  const { settings } = useBreakSettings()
+  return (
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={settings.on}
+      data-testid="menu-breaks"
+      title="Reminders to look away from the screen. Change them in Settings."
+      onClick={() => void saveBreakSettings({ on: !settings.on })}
+      className={menuItemClass}
+    >
+      <Icon name="eye" className="size-4 text-ink-faint" />
+      <span className="flex-1">Breaks</span>
+      <span className="text-xs text-ink-faint">{breaksStatus(settings)}</span>
+      <span
+        aria-hidden="true"
+        className={`relative h-4 w-7 rounded-full transition-colors ${settings.on ? 'bg-ember' : 'bg-ash-strong'}`}
+      >
+        <span
+          className={`absolute top-0.5 size-3 rounded-full bg-paper transition-transform ${settings.on ? 'translate-x-3.5' : 'translate-x-0.5'}`}
+        />
+      </span>
+    </button>
   )
 }
 
