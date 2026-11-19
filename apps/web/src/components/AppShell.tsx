@@ -33,6 +33,7 @@ import { Icon } from './Icon'
 import { InstallBar } from './InstallBar'
 import { OfflineBar, OfflineEmpty } from './Offline'
 import { Sidebar, SidebarFrame } from './Sidebar'
+import { useSwitchFx } from './useSwitchFx'
 
 const CommandK = lazy(() => import('./CommandK'))
 
@@ -165,6 +166,9 @@ function ShellLayout() {
   useEffect(() => {
     rememberAppLocation(location.pathname, location.search)
   }, [location.pathname, location.search])
+
+  // A ripple from the click when the open tool changes (docs/PLAN-switch-ripple.md).
+  useSwitchFx(ownerOfPath(location.pathname)?.id ?? null)
 
   const openSearch = useCallback(() => {
     setSearchLoaded(true)

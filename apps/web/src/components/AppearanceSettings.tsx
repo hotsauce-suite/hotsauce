@@ -12,6 +12,7 @@ import {
   previewTheme,
   type ThemeChoice,
 } from '../lib/theme'
+import { SwitchFxSettings } from './SwitchFxSettings'
 
 // Settings → Appearance: light, dark, the device's, or a theme of the member's own made from a
 // description (docs/PLAN-ai-themes.md).
@@ -98,78 +99,83 @@ export function AppearanceSettings() {
   }
 
   return (
-    <fieldset data-testid="theme-picker">
-      <legend className="font-display text-[1.6rem] font-semibold tracking-tight">
-        Appearance
-      </legend>
-      <p className="mt-2 text-ink-soft">
-        Light, dark, or a theme of your own. Your themes follow you to every device; which look is
-        on is up to each device.
-      </p>
-      <div className="mt-4 inline-flex flex-wrap rounded-xl border border-ash bg-paper-sunk p-1">
-        {BUILT_IN.map((option) => {
-          const on = choice === option.value
-          return (
-            <label
-              key={option.value}
-              className={`cursor-pointer rounded-lg px-3.5 py-1.5 text-sm transition-colors has-[:focus-visible]:shadow-[var(--focus-ring)] ${
-                on
-                  ? 'bg-paper-raised font-medium text-ink shadow-sm'
-                  : 'text-ink-soft hover:text-ink'
-              }`}
-            >
-              <input
-                type="radio"
-                name="theme"
-                value={option.value}
-                checked={on}
-                data-testid={`theme-${option.value}`}
-                onChange={() => pick(option.value)}
-                className="sr-only"
-              />
-              {option.label}
-            </label>
-          )
-        })}
-      </div>
-
-      {themes && themes.length > 0 ? (
-        <ul data-testid="own-themes" className="mt-4 grid gap-2 sm:grid-cols-2">
-          {themes.map((t) => (
-            <OwnTheme
-              key={t.id}
-              saved={t}
-              on={choice === customChoice(t.id)}
-              onPick={() => pick(customChoice(t.id), t.theme)}
-              onRenamed={(name) =>
-                setThemes((list) => list?.map((x) => (x.id === t.id ? { ...x, name } : x)) ?? null)
-              }
-              onDeleted={() => {
-                setThemes((list) => list?.filter((x) => x.id !== t.id) ?? null)
-                if (choice === customChoice(t.id)) pick('system')
-              }}
-            />
-          ))}
-        </ul>
-      ) : null}
-      {loadError ? (
-        <p role="alert" className="mt-3 text-sm text-ember-strong">
-          Couldn't load your themes: {loadError}
+    <>
+      <fieldset data-testid="theme-picker">
+        <legend className="font-display text-[1.6rem] font-semibold tracking-tight">
+          Appearance
+        </legend>
+        <p className="mt-2 text-ink-soft">
+          Light, dark, or a theme of your own. Your themes follow you to every device; which look is
+          on is up to each device.
         </p>
-      ) : null}
+        <div className="mt-4 inline-flex flex-wrap rounded-xl border border-ash bg-paper-sunk p-1">
+          {BUILT_IN.map((option) => {
+            const on = choice === option.value
+            return (
+              <label
+                key={option.value}
+                className={`cursor-pointer rounded-lg px-3.5 py-1.5 text-sm transition-colors has-[:focus-visible]:shadow-[var(--focus-ring)] ${
+                  on
+                    ? 'bg-paper-raised font-medium text-ink shadow-sm'
+                    : 'text-ink-soft hover:text-ink'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value={option.value}
+                  checked={on}
+                  data-testid={`theme-${option.value}`}
+                  onChange={() => pick(option.value)}
+                  className="sr-only"
+                />
+                {option.label}
+              </label>
+            )
+          })}
+        </div>
 
-      {themes ? (
-        <MakeTheme
-          picks={picks}
-          canGenerate={canGenerate}
-          full={themes.length >= MAX_THEMES}
-          onKept={(saved) => {
-            setThemes((list) => [saved, ...(list ?? [])])
-            pick(customChoice(saved.id), saved.theme)
-          }}
-        />
-      ) : null}
-    </fieldset>
+        {themes && themes.length > 0 ? (
+          <ul data-testid="own-themes" className="mt-4 grid gap-2 sm:grid-cols-2">
+            {themes.map((t) => (
+              <OwnTheme
+                key={t.id}
+                saved={t}
+                on={choice === customChoice(t.id)}
+                onPick={() => pick(customChoice(t.id), t.theme)}
+                onRenamed={(name) =>
+                  setThemes(
+                    (list) => list?.map((x) => (x.id === t.id ? { ...x, name } : x)) ?? null,
+                  )
+                }
+                onDeleted={() => {
+                  setThemes((list) => list?.filter((x) => x.id !== t.id) ?? null)
+                  if (choice === customChoice(t.id)) pick('system')
+                }}
+              />
+            ))}
+          </ul>
+        ) : null}
+        {loadError ? (
+          <p role="alert" className="mt-3 text-sm text-ember-strong">
+            Couldn't load your themes: {loadError}
+          </p>
+        ) : null}
+
+        {themes ? (
+          <MakeTheme
+            picks={picks}
+            canGenerate={canGenerate}
+            full={themes.length >= MAX_THEMES}
+            onKept={(saved) => {
+              setThemes((list) => [saved, ...(list ?? [])])
+              pick(customChoice(saved.id), saved.theme)
+            }}
+          />
+        ) : null}
+      </fieldset>
+      <SwitchFxSettings />
+    </>
   )
 }
 

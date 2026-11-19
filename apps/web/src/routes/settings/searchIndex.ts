@@ -198,6 +198,10 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
       'fonts',
       'custom theme',
       'ai theme',
+      'ripple',
+      'animation',
+      'motion',
+      'click sound',
     ],
   },
   {
