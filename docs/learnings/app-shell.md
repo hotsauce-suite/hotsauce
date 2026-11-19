@@ -34,3 +34,14 @@
   `chooseTheme('system')` deletes the cached palette: restore a palette after calling it, not before.
 - `matchCommands` has a `secret` field: a ⌘K command shown only for an exact phrase, never in the
   empty menu.
+- **A whole-window "liquid" effect needs no screenshot.** An SVG `feDisplacementMap` applied with
+  `filter: url(#id)` to `#root` bends the live page; move and grow an `feImage` (a canvas-made ring
+  normal map) each frame and ease the `scale` down (`lib/liquidWave.ts`). Use
+  `color-interpolation-filters="sRGB"` so mid-grey 128 means "still", flood grey under the image so
+  outside it nothing moves, and taper the map to grey before its rim or the wave's edge tears.
+- **Guard expensive visual effects by measuring, not guessing.** Headless Chromium here (no GPU)
+  draws that filter at ~25 fps; WebKit draws it on the CPU. Judge the median of the first few frame
+  gaps, stop the effect if slow, and turn it off per browser only after repeated slow runs, with a
+  timeout backstop so a hidden tab never leaves the page filtered.
+- **renderApp's `asyncUtilTimeout` is 5 s, the same as vitest's test timeout.** A whole-app test
+  that waits on a first slow render can run out of time on CI; give such describes 15 s.
