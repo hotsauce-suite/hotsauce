@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.54.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Appearance has its own page in Settings, right under General."
+        },
+        {
+          "text": "Weather in Settings and on Today names the town you're in when you share your location."
+        }
+      ]
+    },
+    {
       "version": "0.53.0",
       "date": "2026-11-19",
       "notes": [
