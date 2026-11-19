@@ -153,6 +153,25 @@ describe('Places.at', () => {
     expect((await places.at(44.476, -73.212))?.name).toBe('Burlington')
   })
 
+  it('shares one lookup for the same spot, and backs off after a failure', async () => {
+    let now = NOW
+    const fetch = fakeFetch(REVERSE)
+    const places = new Places({ fetch, now: () => now, wait: noWait })
+    const [a, b] = await Promise.all([places.at(44.476, -73.212), places.at(44.476, -73.212)])
+    expect(a).toEqual(b)
+    expect(fetch).toHaveBeenCalledTimes(1)
+
+    fetch.mockImplementation(async () => Response.json({}, { status: 429 }))
+    await expect(places.at(10, 10)).rejects.toBeInstanceOf(HotsauceError)
+    // Refused: Nominatim isn't asked again for ten minutes.
+    now += 5 * 60_000
+    await expect(places.at(11, 11)).rejects.toBeInstanceOf(HotsauceError)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    now += 6 * 60_000
+    fetch.mockImplementation(async () => Response.json(REVERSE))
+    expect((await places.at(11, 11))?.name).toBe('Burlington')
+  })
+
   it('limits one member’s lookups', async () => {
     const places = new Places({ fetch: fakeFetch(REVERSE), now: () => NOW, wait: noWait })
     for (let i = 0; i < 10; i++) await places.at(40 + i, -70, 'a@x.com')

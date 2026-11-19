@@ -8,12 +8,16 @@ import { todayApi } from '../../api/today'
 export const WEATHER_PLACE_KEY = 'hotsauce.today.weatherPlace'
 const CHANGED = 'hotsauce:weather-place'
 
-/** A position; `name` and `detail` when it's a city picked by name. */
+/**
+ * A position; `name` and `detail` when it's a city picked by name, or a shared location named
+ * after the place it's in (then `osm`: the name is OpenStreetMap's, which wants credit).
+ */
 export interface DevicePlace {
   lat: number
   lon: number
   name?: string
   detail?: string
+  osm?: true
 }
 
 export type DeviceWeather =
@@ -31,6 +35,7 @@ export function readDeviceWeather(): DeviceWeather {
     const place: DevicePlace = { lat: p.lat, lon: p.lon }
     if (typeof p.name === 'string' && p.name) place.name = p.name
     if (typeof p.detail === 'string' && p.detail) place.detail = p.detail
+    if (place.name && p.osm === true) place.osm = true
     return { kind: 'place', place }
   } catch {
     return { kind: 'unset' }
@@ -72,7 +77,7 @@ export async function nameDevicePlace(place: DevicePlace): Promise<void> {
       now.place.lat === place.lat &&
       now.place.lon === place.lon
     ) {
-      const named: DevicePlace = { ...now.place, name: found.name }
+      const named: DevicePlace = { ...now.place, name: found.name, osm: true }
       if (found.detail) named.detail = found.detail
       writeDeviceWeather({ kind: 'place', place: named })
     }

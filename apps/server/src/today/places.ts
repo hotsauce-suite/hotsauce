@@ -16,6 +16,15 @@ export const PLACE_NAME_TTL_MS = 30 * 24 * 3_600_000
 export const PLACE_NAMES_PER_MINUTE = 10
 /** Nominatim's usage policy: at most one request a second from the whole server. */
 const REVERSE_GAP_MS = 1_100
+/** After a failure Nominatim isn't asked for a minute; after a refusal (403, 429), ten. */
+const REVERSE_BACKOFF_MS = 60_000
+const REVERSE_REFUSED_MS = 10 * 60_000
+/** Lookups waiting their turn; more answer at once. A lookup that waited this long is dropped. */
+const MAX_REVERSE_QUEUE = 20
+const MAX_REVERSE_WAIT_MS = 15_000
+
+/** Nominatim turned us down (403 or 429): back off longer. */
+class Refused extends Error {}
 export const PLACES_TTL_MS = 24 * 3_600_000
 const MAX_QUERIES = 500
 /** Uncached searches per member per minute: typing a name searches as it goes. */
@@ -78,6 +87,9 @@ export class Places {
   readonly #searches = new Map<string, number[]>()
   readonly #names = new Map<string, { at: number; place: PlaceView | null }>()
   readonly #lookups = new Map<string, number[]>()
+  readonly #inflight = new Map<string, Promise<PlaceView | null>>()
+  #queued = 0
+  #downUntil = 0
   #lastReverse: Promise<unknown> = Promise.resolve()
   readonly #wait: (ms: number) => Promise<void>
 
@@ -90,7 +102,9 @@ export class Places {
 
   /**
    * The named place a position is in (rounded to about 1 km first), or null when it's nowhere
-   * named (the open sea). `who` is the member asking; their misses are limited.
+   * named (the open sea). `who` is the member asking; their misses are limited. Requests for the
+   * same spot share one lookup; after a failure Nominatim isn't asked again for a minute (ten
+   * after a refusal), and a full queue answers at once rather than waiting.
    */
   async at(lat: number, lon: number, who = ''): Promise<PlaceView | null> {
     const pos = roundPlace(lat, lon)
@@ -98,6 +112,18 @@ export class Places {
     const now = this.#now()
     const hit = this.#names.get(key)
     if (hit && now - hit.at < PLACE_NAME_TTL_MS) return hit.place
+    const shared = this.#inflight.get(key)
+    if (shared) return shared
+
+    const unavailable = () => {
+      if (hit) {
+        // Keep the old name for a while instead of asking again on every visit.
+        this.#names.set(key, { at: now - PLACE_NAME_TTL_MS + REVERSE_BACKOFF_MS, place: hit.place })
+        return hit.place
+      }
+      throw new HotsauceError('host_error', 'The place lookup didn’t answer. Try again later.')
+    }
+    if (now < this.#downUntil || this.#queued >= MAX_REVERSE_QUEUE) return unavailable()
 
     const recent = (this.#lookups.get(who) ?? []).filter((t) => now - t < 60_000)
     if (recent.length >= PLACE_NAMES_PER_MINUTE) {
@@ -107,27 +133,45 @@ export class Places {
     this.#lookups.set(who, recent)
     if (this.#lookups.size > MAX_QUERIES) this.#lookups.clear()
 
-    // One request at a time, a second apart, from the whole server.
-    const turn = this.#lastReverse.then(() => this.#reverse(pos.lat, pos.lon))
-    this.#lastReverse = turn.then(
-      () => this.#wait(REVERSE_GAP_MS),
-      () => this.#wait(REVERSE_GAP_MS),
-    )
-    let named: { name: string; detail: string } | null
+    const lookup = (async () => {
+      this.#queued++
+      // One request at a time, a second apart, from the whole server.
+      const turn = this.#lastReverse.then(() =>
+        // Waited too long, or Nominatim went down meanwhile: don't ask.
+        this.#now() - now > MAX_REVERSE_WAIT_MS || this.#now() < this.#downUntil
+          ? Promise.reject(new Error('skipped'))
+          : this.#reverse(pos.lat, pos.lon),
+      )
+      this.#lastReverse = turn.then(
+        () => this.#wait(REVERSE_GAP_MS),
+        () => this.#wait(REVERSE_GAP_MS),
+      )
+      let named: { name: string; detail: string } | null
+      try {
+        named = await turn
+      } catch (err) {
+        if (err instanceof Refused) this.#downUntil = this.#now() + REVERSE_REFUSED_MS
+        else if ((err as Error).message !== 'skipped')
+          this.#downUntil = this.#now() + REVERSE_BACKOFF_MS
+        return unavailable()
+      } finally {
+        this.#queued--
+      }
+      const place = named ? { ...named, ...pos } : null
+      this.#names.delete(key)
+      if (this.#names.size >= MAX_QUERIES) {
+        const oldest = this.#names.keys().next().value
+        if (oldest !== undefined) this.#names.delete(oldest)
+      }
+      this.#names.set(key, { at: now, place })
+      return place
+    })()
+    this.#inflight.set(key, lookup)
     try {
-      named = await turn
-    } catch {
-      if (hit) return hit.place
-      throw new HotsauceError('host_error', 'The place lookup didn’t answer. Try again later.')
+      return await lookup
+    } finally {
+      this.#inflight.delete(key)
     }
-    const place = named ? { ...named, ...pos } : null
-    this.#names.delete(key)
-    if (this.#names.size >= MAX_QUERIES) {
-      const oldest = this.#names.keys().next().value
-      if (oldest !== undefined) this.#names.delete(oldest)
-    }
-    this.#names.set(key, { at: now, place })
-    return place
   }
 
   async #reverse(lat: number, lon: number): Promise<{ name: string; detail: string } | null> {
@@ -141,6 +185,7 @@ export class Places {
       headers: { 'User-Agent': this.#agent, Accept: 'application/json' },
       signal: AbortSignal.timeout(8_000),
     })
+    if (res.status === 403 || res.status === 429) throw new Refused()
     if (!res.ok) throw new Error(`Nominatim answered ${res.status}`)
     return nameOf((await res.json()) as ReverseResponse)
   }

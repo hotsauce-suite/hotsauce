@@ -68,6 +68,19 @@ export function WeatherSettingsSection() {
       <p className="mt-3 text-sm text-ink" data-testid="settings-weather-now">
         {now}
       </p>
+      {device.kind === 'place' && device.place.osm ? (
+        <p className="mt-1 text-xs text-ink-faint" data-testid="settings-weather-osm">
+          Place name ©{' '}
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            OpenStreetMap contributors
+          </a>
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"

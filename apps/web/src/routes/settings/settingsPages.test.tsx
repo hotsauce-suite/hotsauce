@@ -90,6 +90,7 @@ describe('Settings: addresses from before the pages', () => {
     expect(movedSection('/settings', '#mac-app')).toBe('/settings/apps#mac-app')
     expect(movedSection('/settings', '#calendars')).toBe('/settings/connections#calendars')
     expect(movedSection('/settings', '#ai-tools')).toBe('/settings/connections#ai-tools')
+    expect(movedSection('/settings', '#appearance')).toBe('/settings/appearance#appearance')
     // Still on General.
     expect(movedSection('/settings', '#notifications')).toBeNull()
     expect(movedSection('/settings', '#keyboard')).toBeNull()

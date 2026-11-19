@@ -43,7 +43,11 @@ describe('Settings → General → Weather', () => {
       lon: -73.2,
       name: 'Burlington',
       detail: 'Vermont, United States',
+      osm: true,
     })
+    expect(screen.getByTestId('settings-weather-osm')).toHaveTextContent(
+      'Place name © OpenStreetMap contributors',
+    )
   })
 
   it('says so when a city has no matches', async () => {
