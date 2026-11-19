@@ -139,6 +139,7 @@ tools can all read what you saved. [More in the help center](https://hotsauce.wo
 | **Share pages** | Share a read-only link to a doc, note, meeting, clip or file with your team or someone outside, ending when you choose, or publish a page. |
 | **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, trimming, one-click Summarize and Action items, speed control and a shared library. |
 | **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is; a warm glow around the window shows it’s listening. Team word lists keep names spelled right. |
+| **Screenshots** | One shortcut in the Mac app captures an area, a window or the whole screen. Add arrows, numbered steps and redactions, copy the text in the picture, and share a link that deletes itself after 30 days. |
 | **Briefcast** | A five-minute audio briefing each weekday morning: your meetings, what changed and what's due, in your podcast app. |
 
 <picture>

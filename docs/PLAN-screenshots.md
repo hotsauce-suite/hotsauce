@@ -2,10 +2,16 @@
 
 ## Status
 
-- 2026-11-19: decisions settled with the owner (below). Slice 1 (server and web) built: R1 to R3 in
+- 2026-11-19: decisions settled with the owner (below). Slice 1 (server and web) live: R1 to R3 in
   `apps/server/test/integration/files-expiry.test.ts`, R4 and R5 in `e2e/screenshots.spec.ts` and
   `apps/web/src/lib/macScreenshots.test.ts`, R6 already held (`outside-links.test.ts` R7).
-- Slices 2 to 4 (the Mac app) not started.
+- Slice 2 (capture, clipboard, save, preview; R7 to R10) merged as #208, in Mac app 0.58.0.
+- Slice 3 (editor; R11 to R13) merged as #213. Tests in
+  `apps/dictate-mac/Tests/DictateCoreTests/ScreenshotEditorTests.swift`. A Pixelate redaction was
+  built and removed: averages of hidden pixels can be matched back to text.
+- Slice 4 (Share, Settings → This Mac; R14, R15) in progress. Help page
+  `site/public/help/screenshots.html`.
+- Not yet checked on a real screen by a person: live capture, the editor's mouse and keys, Share.
 
 ## What it is
 
