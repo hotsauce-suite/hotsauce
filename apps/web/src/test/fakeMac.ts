@@ -1,3 +1,4 @@
+import { chordRefusal } from '../lib/macScreenshotShortcut'
 import type { MacSettings, MacSettingsBridge, MacSettingsRequest } from '../lib/macSettings'
 
 /**
@@ -22,9 +23,20 @@ export class FakeMac implements MacSettingsBridge {
     this.requests.push(request)
     if (this.silent) return null
     if (request.type === 'set' && !this.refuse.has(request.key)) {
+      const shots = this.settings.screenshots
       if (request.key === 'microphone')
         this.settings.microphoneChoice = request.value as string | null
-      else this.settings = { ...this.settings, [request.key]: request.value }
+      else if (request.key === 'screenshotShortcut') {
+        // As the Mac does: a chord it refuses leaves the old one.
+        if (shots && chordRefusal(request.value as string) === null)
+          this.settings.screenshots = { ...shots, shortcut: request.value as string }
+      } else if (request.key.startsWith('screenshot') && shots) {
+        const field = request.key.replace('screenshot', '').toLowerCase() as
+          | 'copy'
+          | 'save'
+          | 'preview'
+        this.settings.screenshots = { ...shots, [field]: request.value as boolean }
+      } else this.settings = { ...this.settings, [request.key]: request.value }
     }
     if (request.type === 'action') {
       const p = this.settings.permissions
@@ -32,6 +44,15 @@ export class FakeMac implements MacSettingsBridge {
         this.settings.permissions = { ...p, microphone: true }
       if (request.action === 'allowNotifications')
         this.settings.permissions = { ...p, notifications: 'on' }
+      const shots = this.settings.screenshots
+      if (request.action === 'resetScreenshotShortcut' && shots)
+        this.settings.screenshots = { ...shots, shortcut: shots.defaultShortcut }
+      if (
+        request.action === 'chooseScreenshotFolder' &&
+        shots &&
+        !this.refuse.has('chooseScreenshotFolder')
+      )
+        this.settings.screenshots = { ...shots, folder: '~/Desktop/Shots' }
       if (request.action === 'disconnect' && !this.refuse.has('disconnect')) {
         this.settings.account = null
         this.settings.connected = false
@@ -159,5 +180,13 @@ export function defaultMacSettings(): MacSettings {
     permissions: { microphone: true, accessibility: true, location: true, notifications: 'on' },
     connected: true,
     account: 'sam@example.com',
+    screenshots: {
+      shortcut: '⌥⇧4',
+      defaultShortcut: '⌥⇧4',
+      folder: '~/Pictures/Hotsauce Screenshots',
+      copy: true,
+      save: true,
+      preview: true,
+    },
   }
 }

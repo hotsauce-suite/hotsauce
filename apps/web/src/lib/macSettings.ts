@@ -47,6 +47,20 @@ export interface MacSettings {
   connected: boolean
   /** Who it's connected as, when the connection says; null otherwise. */
   account: string | null
+  /** Screenshots (docs/PLAN-screenshots.md R15); null from an app that predates them. */
+  screenshots: MacScreenshotSettings | null
+}
+
+export interface MacScreenshotSettings {
+  /** The chord, as the Mac shows it ("⌥⇧4"). */
+  shortcut: string
+  defaultShortcut: string
+  /** Where shots are saved, as people read it ("~/Pictures/Hotsauce Screenshots"). */
+  folder: string
+  /** After a capture: copy it, save it, show the preview. */
+  copy: boolean
+  save: boolean
+  preview: boolean
 }
 
 /** The settings the page can change, and what each takes. */
@@ -60,6 +74,10 @@ export interface MacSettingValues {
   showInMenuBar: boolean
   historyDays: HistoryDays
   microphone: string | null
+  screenshotShortcut: string
+  screenshotCopy: boolean
+  screenshotSave: boolean
+  screenshotPreview: boolean
 }
 
 export type MacSettingKey = keyof MacSettingValues
@@ -73,6 +91,9 @@ export type MacSettingsAction =
   | 'runSetup'
   | 'clearHistory'
   | 'disconnect'
+  | 'resetScreenshotShortcut'
+  | 'chooseScreenshotFolder'
+  | 'showScreenshotFolder'
 
 export type MacSettingsRequest =
   | { type: 'hello' }
@@ -102,6 +123,23 @@ export function hasMacSettings(win: Window = window): boolean {
 }
 
 const bool = (v: unknown): v is boolean => typeof v === 'boolean'
+const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0
+
+/** The Screenshots group, checked on its own: a malformed or missing one hides just the group. */
+export function parseScreenshotSettings(value: unknown): MacScreenshotSettings | null {
+  if (!value || typeof value !== 'object') return null
+  const s = value as Record<string, unknown>
+  if (!text(s.shortcut) || !text(s.defaultShortcut) || !text(s.folder)) return null
+  if (!bool(s.copy) || !bool(s.save) || !bool(s.preview)) return null
+  return {
+    shortcut: s.shortcut,
+    defaultShortcut: s.defaultShortcut,
+    folder: s.folder,
+    copy: s.copy,
+    save: s.save,
+    preview: s.preview,
+  }
+}
 
 /** The Mac's answer, checked: anything malformed is null, never a half-filled page. */
 export function parseMacSettings(reply: unknown): MacSettings | null {
@@ -160,6 +198,7 @@ export function parseMacSettings(reply: unknown): MacSettings | null {
     },
     connected: r.connected as boolean,
     account: typeof r.account === 'string' && r.account ? r.account : null,
+    screenshots: parseScreenshotSettings(r.screenshots),
   }
 }
 
