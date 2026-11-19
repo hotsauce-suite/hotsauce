@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.62.1",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "A new Mac app version is offered within about ten minutes of coming out, instead of up to six hours later."
+        }
+      ]
+    },
+    {
       "version": "0.62.0",
       "date": "2026-11-19",
       "notes": [
