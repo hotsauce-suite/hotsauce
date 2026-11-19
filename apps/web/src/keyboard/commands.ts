@@ -35,6 +35,8 @@ export interface Command {
   anyQuery?: boolean
   /** Offered only once something is typed, so a long list doesn't crowd the empty menu (Settings' sections). */
   typedOnly?: boolean
+  /** Offered only when the query is exactly one of these phrases (the Easter eggs, PLAN-easter-eggs E3). */
+  secret?: readonly string[]
   /** Gets what was typed, for commands that use it ("Ask the assistant: …"). */
   run: (query: string) => void
 }
@@ -110,8 +112,10 @@ const words = (text: string) =>
  */
 export function matchCommands(commands: readonly Command[], query: string): Command[] {
   const typed = words(query)
-  if (typed.length === 0) return commands.filter((command) => !command.typedOnly)
+  if (typed.length === 0) return commands.filter((command) => !command.typedOnly && !command.secret)
+  const phrase = typed.join(' ')
   return commands.filter((command) => {
+    if (command.secret) return command.secret.some((s) => words(s).join(' ') === phrase)
     if (command.anyQuery) return true
     const vocabulary = [
       ...words(command.title),

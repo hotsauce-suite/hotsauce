@@ -3,6 +3,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { HotsauceApiError } from '../api/client'
 import { type SavedTheme, themesApi } from '../api/themes'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
+import { GHOST_PEPPER_ID, isBuiltInThemeId } from '../eggs/ghostPepper'
 import {
   chooseTheme,
   currentTheme,
@@ -57,6 +58,7 @@ export async function forgetDeletedTheme(): Promise<void> {
   if (!id) return
   try {
     const { themes } = await themesApi.list()
+    if (isBuiltInThemeId(id)) return
     if (!themes.some((t) => t.id === id) && customIdOf(currentTheme()) === id) chooseTheme('system')
   } catch {
     // Offline or signed out: keep what's painted.
@@ -77,7 +79,7 @@ export function AppearanceSettings() {
       setLoadError(null)
       // The theme in use here was deleted on another device: back to the device's look (R9).
       const id = customIdOf(currentTheme())
-      if (id && !res.themes.some((t) => t.id === id)) {
+      if (id && !isBuiltInThemeId(id) && !res.themes.some((t) => t.id === id)) {
         chooseTheme('system')
         setChoice('system')
       }
@@ -140,6 +142,12 @@ export function AppearanceSettings() {
             )
           })}
         </div>
+
+        {choice === customChoice(GHOST_PEPPER_ID) ? (
+          <p data-testid="ghost-pepper-on" className="mt-3 text-sm text-ink-soft">
+            🌶 Ghost Pepper is on. Pick any look above, or type “less heat” in ⌘K, to cool down.
+          </p>
+        ) : null}
 
         {themes && themes.length > 0 ? (
           <ul data-testid="own-themes" className="mt-4 grid gap-2 sm:grid-cols-2">

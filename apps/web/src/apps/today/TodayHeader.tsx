@@ -7,6 +7,7 @@ import { type TodayView, type TodayWeather, todayApi, type WeatherPlace } from '
 import { Dialog } from '../../components/Dialog'
 import { below, Menu, type MenuAnchor, MenuItem } from '../../components/Menu'
 import { PlaceSearch } from '../../components/PlaceSearch'
+import { HOT_SAUCE_DAY_LINE, isHotSauceDay } from '../../eggs/logic'
 import { timeLabel } from '../meetings/format'
 import {
   type ForecastDay,
@@ -554,6 +555,14 @@ export function TodayGreeting({
       >
         {greeting(now, name)}
       </p>
+      {isHotSauceDay(now) ? (
+        <p
+          className="mt-0.5 text-sm font-medium text-ember-strong"
+          data-testid="today-hot-sauce-day"
+        >
+          {HOT_SAUCE_DAY_LINE}
+        </p>
+      ) : null}
       {next ? (
         <p
           className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-ink-soft"

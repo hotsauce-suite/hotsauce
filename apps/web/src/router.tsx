@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter } from 'react-router'
 import { boardsRoutes } from './apps/boards/routes'
 import { briefcastRoutes } from './apps/briefcast/routes'
 import { checkinsRoutes } from './apps/checkins/routes'
@@ -133,9 +133,13 @@ export const createAppRouter = () =>
             { path: '/links', children: linksRoutes },
             { path: '/briefcast', children: briefcastRoutes },
             { path: '/pages', children: pagesRoutes },
+            {
+              // An address no page owns: the lost-sauce page (docs/PLAN-easter-eggs.md E6).
+              path: '*',
+              lazy: async () => ({ Component: (await import('./routes/NotFoundRoute')).default }),
+            },
           ],
         },
-        { path: '*', element: <Navigate to="/docs" replace /> },
       ],
     },
   ])

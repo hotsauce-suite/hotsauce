@@ -14,6 +14,7 @@ import { appForPath, ownerOfPath } from '../apps/registry'
 import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
 import { product } from '../brand/product'
+import { useEggs } from '../eggs/useEggs'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSpec } from '../keyboard/keys'
 import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
@@ -203,6 +204,7 @@ function ShellLayout() {
   })
   useAppShortcuts({ app: app.id, openSearch })
   useBuiltInCommands({ openShortcuts: () => setShortcutsOpen(true) })
+  useEggs()
 
   // Warm the palette's chunk while idle so the first Cmd-K opens instantly.
   useEffect(() => {

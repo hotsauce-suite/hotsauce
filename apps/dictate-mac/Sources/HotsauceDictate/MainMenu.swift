@@ -9,6 +9,11 @@ extension AppDelegate: NSMenuItemValidation {
 
         let app = submenu(Brand.name, in: main)
         app.addItem(withTitle: "About \(Brand.name)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        // An Easter egg (docs/PLAN-easter-eggs.md E9): hold Option and About becomes this.
+        let heat = entry("Add more heat 🌶", #selector(addMoreHeat), "")
+        heat.keyEquivalentModifierMask = [.option]
+        heat.isAlternate = true
+        app.addItem(heat)
         app.addItem(.separator())
         app.addItem(entry("Settings…", #selector(openSettings), ","))
         app.addItem(entry("Dictate…", #selector(openDictateWindow), ""))
@@ -123,6 +128,10 @@ extension AppDelegate: NSMenuItemValidation {
         }
     }
     @objc func showSuiteWindow() { suite.show() }
+    @objc func addMoreHeat() {
+        suite.show()
+        suite.addMoreHeat()
+    }
     @objc func reloadSuite() { suite.reload() }
     @objc func goBack() { suite.goBack() }
     @objc func goForward() { suite.goForward() }
