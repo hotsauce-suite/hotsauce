@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.60.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Screen breaks: turn on Breaks in the account menu (or from the Getting started tile) for a reminder to look away from the screen. You choose how often, how long, a breathing circle, clouds or waves, an end chime and working hours in Settings → General. Breaks wait while you record or are in a meeting, and time away counts as a break."
+        },
+        {
+          "text": "Screen breaks show over every display, above all apps, even with the Hotsauce window closed. They wait while you dictate or record a call, and a locked or sleeping Mac counts as a break.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.59.0",
       "date": "2026-11-19",
       "notes": [
