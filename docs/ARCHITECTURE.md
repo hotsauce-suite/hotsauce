@@ -1345,6 +1345,7 @@ created: 2026-11-12T10:00:00Z
 created_by: ada@acme.example
 updated: 2026-11-12T10:00:00Z
 share: k3P...              # only while a share link is on
+delete_after: 2026-12-19T10:00:00Z   # only on a file that deletes itself (§18.6)
 text: extracted            # extracted | none | failed
 ---
 The text pulled out of the file, at most 200,000 characters (MAX_FILE_TEXT_CHARS).
@@ -1381,6 +1382,18 @@ The text pulled out of the file, at most 200,000 characters (MAX_FILE_TEXT_CHARS
 - Signed links last up to an hour: turning a share link off stops new views at once, but a link already handed out works until it expires.
 - Deleting a file moves its pointer to `.trash/`; the bytes stay in the store and there is no restore in the Files app yet. Folder rename and delete work from the index (at most 5,000 files a space) and take no per-file base check.
 - Files isn't on the default phone bar; on a phone it opens from the Apps sheet, links and attachments, or a member adds it to their bar.
+
+### 18.6 Files that delete themselves
+
+For things that are shared for a while and then only take up room, such as a screenshot shared from the Mac app (`docs/PLAN-screenshots.md`).
+
+- `POST /api/files/uploads` takes `deleteAfterDays` (1 to 365); the pointer then carries `delete_after`, and every view of the file has `deleteAfter`. `PATCH /item/:space/:id {keep: true}` removes the field.
+- `Files.expire()` runs a minute after start and every hour (`Files.start()` in `main.ts`; shutdown awaits `Files.close()`, which lets a pass in flight finish its commit). For each file past its time it reads the pointer from Git again (the index may be a moment behind a Keep), commits its removal (no stop in `.trash/`), deletes the bytes from the store, and drops the share link's row (`onExpired`). A file that fails stays for the next pass. This is the one background write with no member behind it: the commit's author is "Hotsauce" with the uploader's address.
+- Only a whole UTC time (`DELETE_AFTER` in `@hotsauce/format`) counts. Anything else in the field, such as a hand-edited `Dec 19` or `2026`, reads as no date at all, so the file stays.
+- A member deleting such a file removes it the same way at once (pointer, bytes and link), since it was never meant to be kept.
+- The web app shows "Deletes <date>" on the row and a Keep button in the file's dialog.
+- The Mac app shares a screenshot through the signed-in page in its window: it calls `window.hotsauceMac.shareScreenshot(name, pngBase64)` (`apps/web/src/lib/macScreenshots.ts`, installed by `useMacScreenshots` in the shell), which uploads to the personal space's `Screenshots` folder with 30 days to live, turns on a link that ends in 30 days (for anyone when the organization allows public links, else for members) and answers `{ok, url, anyone, deleteAfter}` or `{ok: false, error}`. It never throws.
+- Keep doesn't lengthen the link; the Share menu makes a new one.
 
 ## 19. Booking links (Scheduling)
 

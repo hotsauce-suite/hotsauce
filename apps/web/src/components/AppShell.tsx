@@ -14,6 +14,7 @@ import { appForPath, ownerOfPath } from '../apps/registry'
 import { TasksSidebar } from '../apps/tasks/TasksSidebar'
 import { useAuthState } from '../auth/AuthContext'
 import { product } from '../brand/product'
+import { useMacScreenshots } from '../hooks/useMacScreenshots'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSpec } from '../keyboard/keys'
 import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
@@ -110,6 +111,7 @@ function ShellLayout() {
   const params = useParams()
   const location = useLocation()
   const session = useSession()
+  useMacScreenshots()
   const compact = useMediaQuery(MOBILE_QUERY)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)

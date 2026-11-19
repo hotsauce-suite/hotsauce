@@ -54,7 +54,7 @@ Everyone you meet with, from the calendar and meeting notes, with a short team n
 Needs the Google calendar connection to fill itself; without it, only meeting attendees and task assignees.
 
 ### Files
-Upload and share files and folders with previews and search inside them; Git keeps a pointer, the bytes live elsewhere.
+Upload and share files and folders with previews and search inside them; Git keeps a pointer, the bytes live elsewhere. A file can carry a date it deletes itself on (shown on its row, with Keep to stop it).
 Needs nothing extra on the server's volume; R2/S3 when configured.
 
 ### Forms
@@ -129,6 +129,7 @@ production refuses the test stand-ins, so nothing pretends to work.
 Open pull requests on `main` at the date above (release numbers are taken at merge, not here):
 
 - **#134** For you: one list of every mention.
+- **Screenshots in the Mac app** (`docs/PLAN-screenshots.md`): the server and web half is in (files that delete themselves, and the page function the app shares through); the Mac app's capture, editor and Share are being built.
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
 
