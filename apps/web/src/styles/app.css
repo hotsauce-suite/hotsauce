@@ -147,6 +147,30 @@ button {
   }
 }
 
+/* ---------------------------------------------------- tool switch ripple */
+/* docs/PLAN-switch-ripple.md: a soft ring that spreads from the click when the tool changes. */
+.switch-ripple {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--ember) 0%, transparent) 35%,
+    color-mix(in oklab, var(--ember) 22%, transparent) 62%,
+    color-mix(in oklab, var(--ember) 0%, transparent) 72%
+  );
+  transform: scale(0.08);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-ripple {
+    display: none;
+  }
+}
+
 /* --------------------------------------------------------------- ember dot */
 /* The save state, as a coal: live and glowing while there are unsaved edits, ash once
    the text is in Git. */
