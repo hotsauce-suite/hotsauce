@@ -5,6 +5,7 @@ import { HotsauceApiError } from '../api/client'
 import { type AccessToken, tokensApi } from '../api/tokens'
 import type { CalendarChoice } from '../api/types'
 import { primaryButton, secondaryButton } from '../apps/meetings/components/common'
+import { SkySceneSettings } from '../apps/today/sky/SkyScenePicker'
 import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { NewToken } from '../components/AiToolSetup'
@@ -53,6 +54,7 @@ export function GeneralSettings() {
       </p>
       <div className="mt-12">
         <AppearanceSettings />
+        <SkySceneSettings />
       </div>
       <NotificationsSection />
       <KeyboardSettings />
