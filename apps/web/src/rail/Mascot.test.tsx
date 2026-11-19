@@ -32,9 +32,14 @@ describe('the pepper', () => {
     expect(pepper).toHaveAttribute('aria-hidden', 'true')
     expect(pepper).not.toHaveAttribute('data-hop')
     vi.setSystemTime(at(10))
-    act(() => cheer())
-    expect(pepper).toHaveAttribute('data-hop')
-    await waitFor(() => expect(pepper).not.toHaveAttribute('data-hop'), { timeout: 2000 })
+    // The bar can be drawn again while the page settles, so look the pepper up each time.
+    await waitFor(() => {
+      act(() => cheer())
+      expect(screen.getByTestId('rail-mascot')).toHaveAttribute('data-hop')
+    })
+    await waitFor(() => expect(screen.getByTestId('rail-mascot')).not.toHaveAttribute('data-hop'), {
+      timeout: 2000,
+    })
   })
 
   it('R17: keeps still when the device asks for less motion', () => {
