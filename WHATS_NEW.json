@@ -1,6 +1,24 @@
 {
   "releases": [
     {
+      "version": "0.62.0",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "Your Google account picture is your profile photo until you add your own."
+        },
+        {
+          "text": "Your teammates' photos show beside their names in People, comments, check-ins and whiteboards."
+        },
+        {
+          "text": "The account menu has Edit pinned apps, What's new and, on a Mac, Get the Mac app."
+        },
+        {
+          "text": "A small pepper keeps you company at the bottom of the left bar and hops when you finish a task or a recording. Turn it off in Settings, Appearance."
+        }
+      ]
+    },
+    {
       "version": "0.61.0",
       "date": "2026-11-19",
       "notes": [
