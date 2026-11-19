@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var healthTimer: Timer?
     /// The suite's window; its page also answers the meeting reminders' calendar calls.
     lazy var suite = SuiteWindow(server: suiteServer)
+    /// Background music in the menus (docs/PLAN-background-music.md M9).
+    lazy var musicMenu = MusicMenu(suite: { [unowned self] in self.suite })
     private lazy var reminders = Reminders(suite: suite) { [weak self] in self?.settings.meetingReminders ?? false }
     /// A `CallDetector` on macOS 14.2+ (stored untyped for the availability check).
     private var callDetector: AnyObject?
@@ -72,7 +74,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
-        controller.onChange = { [weak self] in self?.updateIcon() }
+        controller.onChange = { [weak self] in
+            guard let self else { return }
+            self.updateIcon()
+            // The page's music waits while this Mac dictates (M10); held from just before the
+            // microphone starts (willRecord) until the recording ends or fails.
+            if case .recording = self.controller.status {
+                self.suite.holdMusic(.dictate, true)
+            } else {
+                self.suite.holdMusic(.dictate, false)
+            }
+        }
+        controller.willRecord = { [weak self] in self?.suite.holdMusic(.dictate, true) }
         updateIcon()
 
         monitor.handler = { [weak self] event in self?.controller.handle(event) ?? false }
@@ -628,6 +641,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Paste last dictation", #selector(pasteLast), enabled: !history.isEmpty))
         if controller.failed != nil {
             menu.addItem(item("Retry last dictation", #selector(retryLast)))
+        }
+        let music = musicMenu.statusItems()
+        if !music.isEmpty {
+            menu.addItem(.separator())
+            for item in music { menu.addItem(item) }
         }
 
         let modeMenu = NSMenu()

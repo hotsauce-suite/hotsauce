@@ -6,3 +6,10 @@
 - **jsdom's `HTMLMediaElement.play` returns nothing.** Wrap the call in `Promise.resolve(...)` and stub `play` in component tests. userEvent can't move a range input with arrow keys in jsdom (it hangs the test until timeout); use `fireEvent.change`.
 - **Browsers refuse `play()` until a click.** Music left on across a reload waits for the first `pointerdown` or `keydown` and says "Starts when you click" meanwhile.
 - **`public/` files stay out of the offline cache** because the service worker's `globPatterns` only take root `*.svg`/`*.png`; a test in `music/tracks.test.ts` guards that. The Hono static server answers Range requests (206), which Safari needs for audio.
+
+## The Mac app (2026-11-19)
+
+- The Mac window is the web page, so the page keeps the one player and the app only remotes it: the page posts its state to a `hotsauceMusic` handler and exposes a frozen `window.hotsauceMusic`. Don't build a second player in Swift.
+- The app's own dictation and call capture never call getUserMedia in the page, so the page can't see them; the app sends `hold(reason, on)` and re-sends it if the page reloads mid-recording.
+- Always pass values to `callAsyncJavaScript` as arguments, never pasted into the script, and parse what the page posts strictly: any script on the page can post to the handler.
+- Swift can't compile in the cloud container; the mac-app.yml workflow (macos-latest) is the compile and test gate.
