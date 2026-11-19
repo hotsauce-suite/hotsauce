@@ -32,7 +32,10 @@ export function waveMapPixels(size = MAP_SIZE): Uint8ClampedArray {
       const d = Math.hypot(dx, dy)
       // One crest and trough around 80% of the radius, quiet elsewhere.
       const u = (d - 0.78) / 0.2
-      const a = d > 0 && d < 1 ? -u * Math.exp(-u * u) * 1.65 : 0
+      // Tapered to nothing before the edge, so the wave's outer rim has no seam.
+      const e = Math.min(1, Math.max(0, (d - 0.86) / 0.13))
+      const taper = 1 - e * e * (3 - 2 * e)
+      const a = d > 0 && d < 1 ? -u * Math.exp(-u * u) * 1.65 * taper : 0
       const k = d > 0 ? a / d : 0
       const at = (j * size + i) * 4
       px[at] = 128 + 127 * dx * k
@@ -68,7 +71,7 @@ interface WaveFilter {
   displace: SVGFEDisplacementMapElement
 }
 
-function buildFilter(doc: Document, url: string): WaveFilter {
+function buildFilter(doc: Document, url: string, w: number, h: number): WaveFilter {
   const svg = doc.createElementNS(SVG_NS, 'svg')
   svg.setAttribute('aria-hidden', 'true')
   svg.setAttribute('width', '0')
@@ -82,8 +85,8 @@ function buildFilter(doc: Document, url: string): WaveFilter {
   filter.setAttribute('color-interpolation-filters', 'sRGB')
   filter.setAttribute('x', '0')
   filter.setAttribute('y', '0')
-  filter.setAttribute('width', '100%')
-  filter.setAttribute('height', '100%')
+  filter.setAttribute('width', String(w))
+  filter.setAttribute('height', String(h))
   const flood = doc.createElementNS(SVG_NS, 'feFlood')
   flood.setAttribute('flood-color', 'rgb(128,128,128)')
   flood.setAttribute('result', 'still')
@@ -115,7 +118,7 @@ let running: (() => void) | null = null
  * here and the light band plays alone; a smooth wave sets it back to none.
  */
 export const WAVE_SLOW_KEY = 'hotsauce:switch-wave-slow'
-export const SLOW_LIMIT = 3
+export const SLOW_LIMIT = 2
 /** Frames slower than this, typically (about 22 a second), mean the device can't keep up. */
 const SLOW_FRAME_MS = 45
 
@@ -150,10 +153,10 @@ export function playWave(
   const url = waveMap(doc)
   if (!url) return false
   running?.()
-  const { svg, image, displace } = buildFilter(doc, url)
-  doc.body.append(svg)
   const w = view.innerWidth
   const h = view.innerHeight
+  const { svg, image, displace } = buildFilter(doc, url, w, h)
+  doc.body.append(svg)
   // Far enough that the ring's quiet edge clears the farthest corner.
   const reach =
     Math.max(
@@ -193,17 +196,17 @@ export function playWave(
     if (now > last) gaps.push(now - last)
     last = now
     // Too slow to look like water on this device: stop now and keep to the light ring after. The
-    // middle gap, so one long frame while the new tool draws doesn't count against it.
-    if (gaps.length === 7 && ([...gaps].sort((a, b) => a - b)[3] ?? 0) > SLOW_FRAME_MS) {
+    // second-fastest of the first four gaps, so one long frame while the new tool draws doesn't count against it.
+    if (gaps.length === 4 && ([...gaps].sort((a, b) => a - b)[1] ?? 0) > SLOW_FRAME_MS) {
       setSlowRuns(view, slowRuns(view) + 1)
       stop()
       return
     }
-    if (gaps.length === 7) setSlowRuns(view, 0)
+    if (gaps.length === 4) setSlowRuns(view, 0)
     if (t < 1) frame = view.requestAnimationFrame(step)
     else stop()
   }
-  step()
   target.style.filter = `url(#${FILTER_ID})`
+  step()
   return true
 }

@@ -43,6 +43,19 @@ describe('the wave map', () => {
     )
   })
 
+  it('fades to still just inside its rim, so the wave has no hard edge', () => {
+    const big = waveMapPixels(256)
+    const c = 255 / 2
+    for (let deg = 0; deg < 360; deg += 15) {
+      const t = (deg * Math.PI) / 180
+      const i = Math.round(c + Math.cos(t) * c * 0.99)
+      const j = Math.round(c + Math.sin(t) * c * 0.99)
+      const k = (j * 256 + i) * 4
+      expect(Math.abs((big[k] ?? 0) - 128)).toBeLessThanOrEqual(2)
+      expect(Math.abs((big[k + 1] ?? 0) - 128)).toBeLessThanOrEqual(2)
+    }
+  })
+
   it('has a real crest: some pixels push hard', () => {
     let max = 0
     for (let k = 0; k < px.length; k += 4) max = Math.max(max, Math.abs((px[k] ?? 128) - 128))
@@ -74,7 +87,7 @@ describe('playWave', () => {
     root.remove()
   })
 
-  it('stays off on a device where it ran too slowly three times in a row (R8)', () => {
+  it('stays off on a device where it ran too slowly twice in a row (R8)', () => {
     localStorage.setItem(WAVE_SLOW_KEY, String(SLOW_LIMIT))
     const root = document.createElement('div')
     expect(playWave(10, 10, root)).toBe(false)
