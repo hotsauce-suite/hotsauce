@@ -155,8 +155,10 @@ function startSunWatch(): void {
   if (sunWatch !== undefined) return
   const check = () => {
     if (storedTheme() !== 'sun') return stopSunWatch()
-    const scheme = followTheSun()
     const root = document.documentElement
+    // A theme being tried in Settings stays up until Keep or Discard.
+    if (root.getAttribute('data-theme') === 'custom') return
+    const scheme = followTheSun()
     if (root.getAttribute('data-theme') !== scheme) {
       root.setAttribute('data-theme', scheme)
       syncBrowserBar(false)

@@ -616,7 +616,7 @@ const THEMES: { value: ThemeChoice; label: string; icon: IconName }[] = [
   { value: 'light', label: 'Light', icon: 'sun' },
   { value: 'dark', label: 'Dark', icon: 'moon' },
   { value: 'system', label: 'Auto', icon: 'laptop' },
-  { value: 'sun', label: 'Sun', icon: 'sunrise' },
+  { value: 'sun', label: 'By sun', icon: 'sunrise' },
 ]
 
 /**

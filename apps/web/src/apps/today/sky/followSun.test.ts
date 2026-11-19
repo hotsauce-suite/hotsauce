@@ -46,6 +46,12 @@ describe('Follow the sun (R9)', () => {
     vi.advanceTimersByTime(60_000)
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(localStorage.getItem(SUN_SCHEME_KEY)).toBe('dark')
+    // A theme being tried in Settings isn't painted over.
+    document.documentElement.setAttribute('data-theme', 'custom')
+    vi.setSystemTime(new Date('2026-11-20T12:30:00Z'))
+    document.dispatchEvent(new Event('visibilitychange'))
+    vi.advanceTimersByTime(60_000)
+    expect(document.documentElement.dataset.theme).toBe('custom')
     // Choosing another look stops following.
     chooseTheme('light')
     vi.setSystemTime(new Date('2026-11-20T03:00:00Z'))
