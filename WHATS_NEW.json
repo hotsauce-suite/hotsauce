@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.62.2",
+      "date": "2026-11-19",
+      "notes": [
+        {
+          "text": "The welcome tour mentions What's new in the account menu"
+        }
+      ]
+    },
+    {
       "version": "0.62.1",
       "date": "2026-11-19",
       "notes": [
