@@ -100,6 +100,7 @@ async function main(): Promise<void> {
   services.briefcasts.start()
   services.checkinScheduler.start()
   services.chatReader.start()
+  services.files.start()
   // An update this server started either took or was rolled back; then keep checking.
   services.updates.reconcile()
   services.updates.startTimer()

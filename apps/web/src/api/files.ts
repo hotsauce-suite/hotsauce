@@ -19,6 +19,8 @@ export interface DriveFile {
   updatedAt: string
   textStatus: 'extracted' | 'none' | 'failed'
   shareToken: string | null
+  /** When the server deletes the file by itself (ISO), or null for a file that stays. */
+  deleteAfter?: string | null
   blobOid: string
   /** Where Hotsauce opens it. */
   url: string
@@ -72,6 +74,9 @@ export const filesApi = {
   shared: (token: string) => request<SharedFile>(`${BASE}/shared/${encodeURIComponent(token)}`),
   update: (space: string, id: string, patch: { name?: string; folder?: string }) =>
     request<DriveFile>(item(space, id), { method: 'PATCH', json: patch }),
+  /** Keeps a file that was going to delete itself. */
+  keep: (space: string, id: string) =>
+    request<DriveFile>(item(space, id), { method: 'PATCH', json: { keep: true } }),
   share: (space: string, id: string, on: boolean, choice?: LinkChoice) =>
     request<DriveFile>(`${item(space, id)}/share`, { method: 'POST', json: { on, ...choice } }),
   move: (space: string, id: string, to: string) =>
@@ -96,7 +101,7 @@ export interface UploadProgress {
  */
 export async function uploadFile(
   file: Blob & { name: string },
-  target: { space: string; folder: string },
+  target: { space: string; folder: string; deleteAfterDays?: number },
   opts: { onProgress?: (p: UploadProgress) => void; signal?: AbortSignal } = {},
 ): Promise<DriveFile> {
   const started = await request<{ id: string; chunkBytes: number; chunks: number }>(

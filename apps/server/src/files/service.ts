@@ -46,6 +46,9 @@ const MAX_OPEN_UPLOADS = 20
 const URL_WINDOW_SECONDS = 3600
 const WRITE_ATTEMPTS = 3
 const FILE_ID = /^[0-9A-Z]{26}$/
+/** The longest a file may ask to live before it deletes itself. */
+export const MAX_DELETE_AFTER_DAYS = 365
+const EXPIRE_EVERY_MS = 3_600_000
 
 export interface FileView {
   id: string
@@ -63,6 +66,8 @@ export interface FileView {
   textStatus: FileFrontmatter['text']
   /** The share link's token while sharing is on. */
   shareToken: string | null
+  /** When the server deletes the file by itself (ISO), or null for a file that stays. */
+  deleteAfter: string | null
   blobOid: string
   /** Where the bytes are in the object store. */
   key: string
@@ -85,6 +90,7 @@ interface UploadMeta {
   mime: string
   size: number
   createdAt: number
+  deleteAfterDays?: number
 }
 
 export interface FilesDeps {
@@ -97,6 +103,8 @@ export interface FilesDeps {
   dataDir: string
   now?: () => Date
   freeBytes?: () => Promise<number>
+  /** Told about each file the server deleted because its time was up (its link goes too). */
+  onExpired?: (file: FileView) => void
 }
 
 /** Hotsauce Files' locally stored bytes: the path every signed request to them starts with. */
@@ -120,6 +128,8 @@ export class Files {
   readonly #uploadRoot: string
   readonly #mediaKey = randomBytes(32)
   #swept = 0
+  #expireTimer: NodeJS.Timeout | null = null
+  #expiring: Promise<number> | null = null
   /** Uploads being finished now, and the last few finished, so a repeat complete is safe. */
   readonly #completing = new Map<string, Promise<FileView>>()
   readonly #completed = new Map<string, { owner: string; space: string; fileId: string }>()
@@ -277,10 +287,22 @@ export class Files {
       name: string
       size: number
       mime?: string | undefined
+      /** Days until the file deletes itself (docs/PLAN-screenshots.md R1); absent keeps it. */
+      deleteAfterDays?: number | undefined
     },
   ): Promise<{ id: string; chunkBytes: number; chunks: number }> {
     this.#store()
     this.#assertAccess(principal, input.space)
+    const days = input.deleteAfterDays
+    if (
+      days !== undefined &&
+      !(Number.isInteger(days) && days >= 1 && days <= MAX_DELETE_AFTER_DAYS)
+    ) {
+      throw new HotsauceError(
+        'bad_request',
+        `A file can delete itself after 1 to ${MAX_DELETE_AFTER_DAYS} days`,
+      )
+    }
     if (!Number.isInteger(input.size) || input.size < 0 || input.size > MAX_FILE_BYTES) {
       throw new HotsauceError('bad_request', 'A file can be at most 2 GB', { status: 413 })
     }
@@ -300,6 +322,7 @@ export class Files {
       mime: fileMimeType(name, input.mime),
       size: input.size,
       createdAt: this.#now().getTime(),
+      ...(days !== undefined ? { deleteAfterDays: days } : {}),
     }
     const dir = this.#uploadDir(meta.id)
     await mkdir(dir, { recursive: true })
@@ -384,6 +407,9 @@ export class Files {
         mime: meta.mime,
         createdBy: principal.email,
         created: isoNow(this.#now()),
+        deleteAfter: meta.deleteAfterDays
+          ? isoNow(new Date(this.#now().getTime() + meta.deleteAfterDays * 86_400_000))
+          : undefined,
         text: extracted.status === 'extracted' ? extracted.text : null,
         textStatus: extracted.status,
       })
@@ -533,6 +559,79 @@ export class Files {
         title: cur.view.name,
       }
     })
+  }
+
+  /** Keeps a file that was going to delete itself (docs/PLAN-screenshots.md R3). */
+  async keep(principal: Principal, space: string, id: string, via?: string): Promise<FileView> {
+    this.#assertAccess(principal, space)
+    return this.#edit(principal, space, id, via, (cur) => {
+      if (cur.view.deleteAfter === null) return null
+      return {
+        text: patchFrontmatter(cur.content, {
+          delete_after: undefined,
+          updated: isoNow(this.#now()),
+        }),
+        verb: 'keep',
+        title: cur.view.name,
+      }
+    })
+  }
+
+  /**
+   * Deletes every file whose time is up (R2): the pointer leaves Git without a stop in
+   * `.trash/`, and the bytes leave the store, since the point is the space. Returns how many
+   * went. A file that fails stays for the next pass.
+   */
+  async expire(): Promise<number> {
+    if (!this.available) return 0
+    if (this.#expiring) return this.#expiring
+    this.#expiring = this.#expire().finally(() => {
+      this.#expiring = null
+    })
+    return this.#expiring
+  }
+
+  async #expire(): Promise<number> {
+    const now = this.#now().getTime()
+    let gone = 0
+    for (const space of this.#allSpaceNames()) {
+      for (const listed of this.#records(space)) {
+        if (!isDue(listed.deleteAfter, now)) continue
+        try {
+          // Read from Git again: the index may be a moment behind a Keep.
+          const { view } = await this.#read(space, listed.id)
+          if (!isDue(view.deleteAfter, now)) continue
+          await this.#commit({ name: 'Hotsauce', email: view.createdBy }, space, {
+            changes: [{ path: view.path, content: null }],
+            verb: 'expire',
+            title: view.name,
+            via: undefined,
+            unchanged: { path: view.path, blobOid: view.blobOid },
+          })
+          await this.#store()
+            .delete(view.key)
+            .catch(() => {})
+          this.#deps.onExpired?.(view)
+          gone++
+        } catch (err) {
+          console.warn(`[files] couldn't delete expired file ${listed.id} in ${space}`, err)
+        }
+      }
+    }
+    return gone
+  }
+
+  /** Deletes expired files now and every hour. */
+  start(): void {
+    if (this.#expireTimer) return
+    void this.expire()
+    this.#expireTimer = setInterval(() => void this.expire(), EXPIRE_EVERY_MS)
+    this.#expireTimer.unref()
+  }
+
+  close(): void {
+    if (this.#expireTimer) clearInterval(this.#expireTimer)
+    this.#expireTimer = null
   }
 
   /** Moves the pointer between the team space and the member's personal space. */
@@ -941,6 +1040,12 @@ function isoNow(d: Date): string {
   return d.toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
 
+function isDue(deleteAfter: string | null, now: number): boolean {
+  if (deleteAfter === null) return false
+  const at = Date.parse(deleteAfter)
+  return Number.isFinite(at) && at <= now
+}
+
 function foldersJson(folders: string[]): string {
   const unique = [...new Set(folders.map(cleanFolder).filter(Boolean))].sort()
   return `${JSON.stringify({ folders: unique }, null, 2)}\n`
@@ -980,6 +1085,7 @@ function toView(
     updatedAt: fm.updated ?? fm.created,
     textStatus: fm.text,
     shareToken: fm.share ?? null,
+    deleteAfter: fm.delete_after ?? null,
     blobOid,
     // Always from the id: a pointer's own `key` is never trusted to name what it reads.
     key: fileStoreKey(fm.id),

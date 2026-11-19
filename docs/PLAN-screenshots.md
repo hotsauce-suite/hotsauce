@@ -2,7 +2,9 @@
 
 ## Status
 
-- 2026-11-19: decisions settled with the owner (below). Slice 1 (server and web) in progress.
+- 2026-11-19: decisions settled with the owner (below). Slice 1 (server and web) built: R1 to R3 in
+  `apps/server/test/integration/files-expiry.test.ts`, R4 and R5 in `e2e/screenshots.spec.ts` and
+  `apps/web/src/lib/macScreenshots.test.ts`, R6 already held (`outside-links.test.ts` R7).
 - Slices 2 to 4 (the Mac app) not started.
 
 ## What it is
@@ -44,8 +46,9 @@ only when asked. Nothing leaves the Mac until Share is pressed.
 - **Share** (Mac to web to server): the app has no server credentials of its own beyond
   Dictate's. The signed-in web app in the suite window does the upload: the app calls
   `window.hotsauceMac.shareScreenshot(name, pngBase64)` with `callAsyncJavaScript`, and the page
-  uploads through the Files API, turns the link on and answers `{ url, anyone, deleteAfter }`.
-  With no page loaded or nobody signed in, Share says to open Hotsauce and sign in.
+  uploads through the Files API, turns the link on and answers `{ ok, url, anyone, deleteAfter }`
+  or `{ ok: false, error }`. With no page loaded or nobody signed in, Share says to open Hotsauce
+  and sign in.
 - **Auto-delete** (server): a Files pointer may carry `delete_after: <ISO time>`. A sweep removes
   files past it (pointer, bytes and link) with a commit by the server. Keep clears the field.
 

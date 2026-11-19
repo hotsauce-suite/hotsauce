@@ -8,6 +8,7 @@ import {
   type FileView,
   type LocalMedia,
   MAX_CHUNKS,
+  MAX_DELETE_AFTER_DAYS,
 } from '../files/index.js'
 import { contentDisposition } from '../meetings/audio/index.js'
 import { checkLinkOptions, type LinkStore, linkEnded, wantsNewLink } from '../shares/index.js'
@@ -68,6 +69,7 @@ export function driveRoutes(deps: AppDeps) {
           name: Name,
           size: z.number().int().min(0),
           mime: z.string().max(200).optional(),
+          deleteAfterDays: z.number().int().min(1).max(MAX_DELETE_AFTER_DAYS).optional(),
         }),
       ),
       async (c) => c.json(await files.startUpload(c.get('principal'), c.req.valid('json')), 201),
@@ -181,15 +183,22 @@ export function driveRoutes(deps: AppDeps) {
     .patch(
       '/item/:space/:id',
       valid('param', SpaceId),
-      valid('json', z.object({ name: Name.optional(), folder: Folder.optional() })),
+      valid(
+        'json',
+        z.object({
+          name: Name.optional(),
+          folder: Folder.optional(),
+          /** Stops a file that was going to delete itself. */
+          keep: z.literal(true).optional(),
+        }),
+      ),
       async (c) => {
         const { space, id } = c.req.valid('param')
         const principal = c.get('principal')
-        return c.json(
-          await view(
-            await files.update(principal, space, id, c.req.valid('json'), viaFor(principal)),
-          ),
-        )
+        const { keep, ...patch } = c.req.valid('json')
+        const via = viaFor(principal)
+        if (keep) await files.keep(principal, space, id, via)
+        return c.json(await view(await files.update(principal, space, id, patch, via)))
       },
     )
     .post(
