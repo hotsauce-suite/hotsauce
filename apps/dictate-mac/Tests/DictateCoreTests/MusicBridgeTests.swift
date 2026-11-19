@@ -2,7 +2,7 @@ import DictateCore
 import Foundation
 import Testing
 
-/// docs/PLAN-background-music.md M9 and M10: the app's side of the music bridge.
+/// docs/PLAN-background-music.md M9 to M11: the app's side of the music bridge.
 struct MusicBridgeTests {
     private let tracks: [[String: Any]] = [
         ["id": "piano", "label": "Soft piano"],
@@ -25,6 +25,13 @@ struct MusicBridgeTests {
         #expect(off?.status == nil)
         let held = MusicBridge.state(["on": true, "playing": false, "held": true, "track": "piano", "tracks": tracks])
         #expect(held?.status == "Paused while recording")
+    }
+
+    @Test func offersPlayWhileWaitingForAClick() {
+        let waiting = MusicBridge.state(["on": true, "playing": false, "held": false, "waiting": true, "track": "piano", "tracks": tracks])
+        #expect(waiting?.waiting == true)
+        #expect(waiting?.toggleTitle == "Play music")
+        #expect(waiting?.status == nil)
     }
 
     @Test func refusesAnythingElse() {

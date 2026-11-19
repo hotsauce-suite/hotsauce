@@ -35,9 +35,7 @@ final class MusicMenu: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         guard let state = suite().music else {
-            let none = NSMenuItem(title: "Open \(Brand.name) to play music", action: nil, keyEquivalent: "")
-            none.isEnabled = false
-            menu.addItem(none)
+            menu.addItem(entry("Open \(Brand.name) to play music", #selector(openSuite)))
             return
         }
         menu.addItem(entry(state.toggleTitle, #selector(toggle)))
@@ -61,6 +59,8 @@ final class MusicMenu: NSObject, NSMenuDelegate {
         item.isEnabled = true
         return item
     }
+
+    @objc private func openSuite() { suite().show() }
 
     @objc private func toggle() { suite().musicCommand(.toggle) }
 

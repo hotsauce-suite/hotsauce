@@ -128,5 +128,60 @@ describe('the music in the Mac app', () => {
     p.start()
     await settle()
     expect(p.getState()).toMatchObject({ on: true, playing: false, waiting: true })
+    // A dictation or a call starting and ending isn't asking for music.
+    p.holdFor('dictate', true)
+    p.holdFor('dictate', false)
+    p.holdFor('meeting', true)
+    p.holdFor('meeting', false)
+    await settle()
+    expect(p.getState()).toMatchObject({ on: true, playing: false, waiting: true })
+  })
+
+  it('M11: waiting for a click, the menus offer Play, and Play or a track starts it', async () => {
+    const posted: { on: boolean; waiting: boolean; playing: boolean; track: string }[] = []
+    ;(window as W).webkit = {
+      messageHandlers: {
+        [MAC_MUSIC_HANDLER]: { postMessage: (m: never) => posted.push(m) },
+      },
+    }
+    const quiet = () => {
+      const audio: AudioLike = {
+        src: '',
+        loop: false,
+        volume: 1,
+        preload: '',
+        paused: true,
+        play: vi.fn(async () => {}),
+        pause: vi.fn(),
+      }
+      return createMusicPlayer({
+        storage: {
+          getItem: () => JSON.stringify({ on: true, track: 'piano', volume: 0.3, asked: true }),
+          setItem: () => {},
+        },
+        createAudio: () => audio,
+        mediaDevices: null,
+        events: new EventTarget(),
+        setTimer: (fn) => {
+          fn()
+          return 0
+        },
+        clearTimer: () => {},
+      })
+    }
+    const p = quiet()
+    p.start()
+    const off = connectMacMusic(p)
+    expect(posted.at(-1)).toMatchObject({ on: true, waiting: true, playing: false })
+    ;(window as W).hotsauceMusic?.command('toggle')
+    await settle()
+    expect(p.getState()).toMatchObject({ on: true, playing: true, waiting: false })
+    off()
+
+    const q = quiet()
+    q.start()
+    expect(runMacMusicCommand(q, 'track:rain')).toBe(true)
+    await settle()
+    expect(q.getState()).toMatchObject({ track: 'rain', playing: true })
   })
 })

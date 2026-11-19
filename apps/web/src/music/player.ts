@@ -122,6 +122,8 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   let audio: AudioLike | null = null
   let playing = false
   let waiting = false
+  /** Left on from last time: nothing sounds until the member clicks or asks (M3, M11). */
+  let needsGesture = false
   let failed = false
   let fixedVolume = false
   /** A play() is out: don't start another. */
@@ -191,7 +193,14 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   /** Make the sound match the wishes: on, not held → playing; else paused. */
   function sync() {
     const want = prefs.on && !isHeld()
-    if (want && !playing) {
+    if (want && !playing && needsGesture) {
+      // A recording ending (or any other change) never starts it before the member asks.
+      if (!waiting) {
+        waiting = true
+        emit()
+      }
+      startListening()
+    } else if (want && !playing) {
       if (starting) return
       starting = true
       const a = ensureAudio()
@@ -255,7 +264,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
         a?.pause()
       })
     } else if (!want) {
-      waiting = false
+      waiting = prefs.on && needsGesture
       emit()
     }
   }
@@ -267,6 +276,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
   }
 
   function onFirstGesture() {
+    needsGesture = false
     if (prefs.on && !playing && !isHeld()) sync()
   }
   function startListening() {
@@ -328,6 +338,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
     },
     play() {
       failed = false
+      needsGesture = false
       setPrefs({ on: true, asked: true })
       sync()
     },
@@ -375,6 +386,7 @@ export function createMusicPlayer(deps: PlayerDeps): MusicPlayer {
       watchCaptures()
       if (prefs.on) {
         waiting = true
+        needsGesture = true
         emit()
         startListening()
       }

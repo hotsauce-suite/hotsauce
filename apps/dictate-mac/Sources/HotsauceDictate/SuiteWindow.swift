@@ -68,10 +68,10 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// The page's background music, as it last said (docs/PLAN-background-music.md M9); nil until
     /// a page with the player has loaded.
     private(set) var music: MusicBridge.State?
-    /// Called when `music` changes, so the menus can follow.
-    var musicChanged: (() -> Void)?
     /// What the app is recording itself, so the page's music stays held (M10).
     private var musicHolds: Set<MusicBridge.HoldReason> = []
+    /// A new document hasn't been told the app's holds yet.
+    private var musicHoldsUnsent = false
 
     init(server: URL?) {
         router = server.map(SuiteRouter.init(server:))
@@ -321,15 +321,18 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             capture.onEnded = { [weak self] track in
                 self?.sendMeetingEvent(MeetingAudio.endedEvent(session: session, track: track))
             }
+            // Held before the capture starts, so no music reaches the recording (music M10).
+            holdMusic(.meeting, true)
             do {
                 try capture.start()
             } catch MeetingCapture.CaptureError.failed(let reason, let text) {
+                holdMusic(.meeting, false)
                 return MeetingAudio.failed(reason, message: text)
             } catch {
+                holdMusic(.meeting, false)
                 return MeetingAudio.failed(.unsupported, message: "\(Brand.name) couldn’t start recording.")
             }
             meetingCapture = capture
-            holdMusic(.meeting, true)
             return MeetingAudio.started(session: session)
         }
     }
@@ -469,12 +472,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     private func musicPosted(_ body: Any) {
         guard let state = MusicBridge.state(body) else { return }
         // A page that loaded again forgot the app's holds: tell it again.
-        if !state.held, !musicHolds.isEmpty {
+        if musicHoldsUnsent {
+            musicHoldsUnsent = false
             for reason in musicHolds { sendMusicHold(reason, true) }
         }
-        guard state != music else { return }
         music = state
-        musicChanged?()
     }
 
     /// Plays, pauses or picks a track from the menus. A page without the player ignores it.
@@ -495,7 +497,6 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 
     private func sendMusicHold(_ reason: MusicBridge.HoldReason, _ on: Bool) {
         guard isOnSuitePage else { return }
-        // Before anything else this run loop turn: dictation may start capturing at once.
         webView.callAsyncJavaScript(MusicBridge.holdScript, arguments: ["reason": reason.rawValue, "on": on], in: nil, in: .page) { _ in }
     }
 
@@ -753,11 +754,16 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         pageSaidDictationsHello = false
         stopMeetingCapture()
         followedCallSession = nil
+        // The old page's music is gone; a page with the player says so again (music M9).
+        music = nil
+        musicHoldsUnsent = true
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         stopMeetingCapture()
         followedCallSession = nil
+        music = nil
+        musicHoldsUnsent = true
         // At most once a minute, so a page that keeps crashing doesn't loop.
         guard Date().timeIntervalSince(lastCrashReload) > 60 else { return }
         lastCrashReload = Date()

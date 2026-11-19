@@ -41,6 +41,8 @@ final class DictationController {
     /// With `keptOnMac`: whether the text is sent to be tidied (not with Cleanup off).
     private var tidyOnMac = true
     var onChange: () -> Void = {}
+    /// Just before the microphone starts, so the page's music is already held (music M10).
+    var willRecord: () -> Void = {}
 
     init(settings: Settings, history: HistoryStore) {
         self.settings = settings
@@ -148,6 +150,7 @@ final class DictationController {
         }
         let stream = stream
         recorder.onSamples = { samples in stream?.send(samples) }
+        willRecord()
         do {
             try recorder.start()
         } catch {

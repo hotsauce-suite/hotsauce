@@ -21,23 +21,29 @@ public enum MusicBridge {
         public var on: Bool
         public var playing: Bool
         public var held: Bool
+        /// On, but silent until the member clicks or asks (after login): the menus offer Play.
+        public var waiting: Bool
         public var track: String
         public var tracks: [Track]
 
-        public init(on: Bool, playing: Bool, held: Bool, track: String, tracks: [Track]) {
+        public init(on: Bool, playing: Bool, held: Bool, waiting: Bool = false, track: String, tracks: [Track]) {
             self.on = on
             self.playing = playing
             self.held = held
+            self.waiting = waiting
             self.track = track
             self.tracks = tracks
         }
 
         /// The menu bar menu's line: "Play music" or "Pause music".
-        public var toggleTitle: String { on ? "Pause music" : "Play music" }
+        public var toggleTitle: String { on && !isWaiting ? "Pause music" : "Play music" }
+
+        /// Left on from last time but not started yet: nothing is heard.
+        var isWaiting: Bool { on && waiting && !playing && !held }
 
         /// A few words on what it's doing, under the toggle; nil while off.
         public var status: String? {
-            guard on else { return nil }
+            guard on, !isWaiting else { return nil }
             if held { return "Paused while recording" }
             let label = tracks.first { $0.id == track }?.label ?? "Music"
             return playing ? "Playing: \(label)" : "\(label): starting…"
@@ -62,7 +68,9 @@ public enum MusicBridge {
             else { return nil }
             tracks.append(Track(id: id, label: label))
         }
-        return State(on: on, playing: playing, held: held, track: track, tracks: tracks)
+        // Older pages don't say; they never wait in the app.
+        let waiting = dict["waiting"] as? Bool ?? false
+        return State(on: on, playing: playing, held: held, waiting: waiting, track: track, tracks: tracks)
     }
 
     /// What the app may ask the page to do.

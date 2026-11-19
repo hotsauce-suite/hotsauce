@@ -14,6 +14,8 @@ export interface MacMusicState {
   on: boolean
   playing: boolean
   held: boolean
+  /** On, but silent until the member clicks or asks: the menus offer Play. */
+  waiting: boolean
   track: string
   tracks: { id: string; label: string }[]
 }
@@ -34,6 +36,7 @@ export function macMusicState(s: MusicState): MacMusicState {
     on: s.on,
     playing: s.playing,
     held: s.held,
+    waiting: s.waiting,
     track: s.track,
     tracks: TRACKS.map((t) => ({ id: t.id, label: t.label })),
   }
@@ -41,14 +44,19 @@ export function macMusicState(s: MusicState): MacMusicState {
 
 /** Runs one of the app's commands; false for one it doesn't know. */
 export function runMacMusicCommand(player: MusicPlayer, command: unknown): boolean {
-  if (command === 'toggle') player.toggle()
-  else if (command === 'play') player.play()
+  const { on, playing, waiting } = player.getState()
+  // On but silent, waiting for a click: the menu shows Play, so Play it is.
+  if (command === 'toggle') {
+    if (on && waiting && !playing) player.play()
+    else player.toggle()
+  } else if (command === 'play') player.play()
   else if (command === 'stop') player.stop()
   else if (typeof command === 'string' && command.startsWith('track:')) {
     const id = command.slice('track:'.length)
     if (!TRACKS.some((t) => t.id === id)) return false
     player.setTrack(id)
-    if (!player.getState().on) player.play()
+    // Picking a track asks for music: off, or waiting for a click, it starts.
+    if (!on || waiting) player.play()
   } else return false
   return true
 }

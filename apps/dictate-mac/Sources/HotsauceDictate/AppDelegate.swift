@@ -77,9 +77,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.onChange = { [weak self] in
             guard let self else { return }
             self.updateIcon()
-            // The page's music waits while this Mac dictates (M10).
-            self.suite.holdMusic(.dictate, self.controller.isRecording)
+            // The page's music waits while this Mac dictates (M10); held from just before the
+            // microphone starts (willRecord) until the recording ends or fails.
+            if case .recording = self.controller.status {
+                self.suite.holdMusic(.dictate, true)
+            } else {
+                self.suite.holdMusic(.dictate, false)
+            }
         }
+        controller.willRecord = { [weak self] in self?.suite.holdMusic(.dictate, true) }
         updateIcon()
 
         monitor.handler = { [weak self] event in self?.controller.handle(event) ?? false }
@@ -639,7 +645,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let music = musicMenu.statusItems()
         if !music.isEmpty {
             menu.addItem(.separator())
-            music.forEach(menu.addItem)
+            for item in music { menu.addItem(item) }
         }
 
         let modeMenu = NSMenu()
