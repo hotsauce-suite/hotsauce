@@ -27,6 +27,8 @@ extension AppDelegate: NSMenuItemValidation {
         app.addItem(withTitle: "Quit \(Brand.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let file = submenu("File", in: main)
+        file.addItem(screenshotMenuItem(title: "Take Screenshot"))
+        file.addItem(.separator())
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
 
         let edit = submenu("Edit", in: main)
