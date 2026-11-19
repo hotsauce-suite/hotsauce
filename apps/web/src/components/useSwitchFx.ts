@@ -7,6 +7,7 @@ import {
   type SwitchFxPrefs,
   subscribeSwitchFx,
   switchEffects,
+  unlockAudio,
 } from '../lib/switchFx'
 import { music } from '../music/player'
 
@@ -68,15 +69,27 @@ export function useSwitchFx(activeApp: string | null): void {
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
       lastClick.current = { x: e.clientX, y: e.clientY, at: Date.now() }
+      if (readSwitchFx().sound) unlockAudio()
+    }
+    // A key press (⌘K, a g shortcut) switches from the keyboard: the ripple starts at the icon.
+    const onKey = () => {
+      lastClick.current = null
+      if (readSwitchFx().sound) unlockAudio()
     }
     document.addEventListener('pointerdown', onDown, { capture: true, passive: true })
-    return () => document.removeEventListener('pointerdown', onDown, { capture: true })
+    document.addEventListener('keydown', onKey, { capture: true })
+    return () => {
+      document.removeEventListener('pointerdown', onDown, { capture: true })
+      document.removeEventListener('keydown', onKey, { capture: true })
+    }
   }, [])
 
   useEffect(() => {
+    // Settings and Feedback belong to no tool: coming back to the same tool from them is no switch.
+    if (activeApp === null) return
     const before = previous.current
     previous.current = activeApp
-    if (before === undefined || activeApp === null || before === activeApp) return
+    if (before === undefined || before === activeApp) return
     const fx = switchEffects(readSwitchFx(), {
       reducedMotion: reducedMotion(),
       recording: recording(),

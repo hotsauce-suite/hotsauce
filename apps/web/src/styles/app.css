@@ -151,7 +151,7 @@ button {
 /* docs/PLAN-switch-ripple.md: a soft ring that spreads from the click when the tool changes. */
 .switch-ripple {
   position: fixed;
-  z-index: 60;
+  z-index: 40;
   pointer-events: none;
   border-radius: 9999px;
   background: radial-gradient(

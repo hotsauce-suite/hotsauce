@@ -32,6 +32,30 @@ describe('useSwitchFx', () => {
     expect((ripples()[0] as HTMLElement).style.left).toBe(`${30 - 180}px`)
   })
 
+  it('does not ripple coming back to the same tool from Settings', () => {
+    render(<Harness first="docs" />)
+    act(() => setApp(null))
+    document.dispatchEvent(new MouseEvent('pointerdown', { clientX: 30, clientY: 200 }))
+    act(() => setApp('docs'))
+    expect(ripples()).toHaveLength(0)
+    act(() => setApp(null))
+    act(() => setApp('tasks'))
+    expect(ripples()).toHaveLength(1)
+  })
+
+  it('a key press forgets the last click, so a keyboard switch does not start at it', () => {
+    const icon = document.createElement('a')
+    icon.dataset.testid = 'app-switch-tasks'
+    icon.getBoundingClientRect = () => ({ left: 0, top: 100, width: 50, height: 40 }) as DOMRect
+    document.body.appendChild(icon)
+    render(<Harness first="docs" />)
+    document.dispatchEvent(new MouseEvent('pointerdown', { clientX: 300, clientY: 300 }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }))
+    act(() => setApp('tasks'))
+    expect((ripples()[0] as HTMLElement).style.left).toBe(`${25 - 180}px`)
+    icon.remove()
+  })
+
   it('stays still when the member turned the ripple off', () => {
     localStorage.setItem(SWITCH_FX_KEY, JSON.stringify({ ripple: false, sound: false }))
     render(<Harness first="docs" />)

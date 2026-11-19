@@ -118,19 +118,41 @@ export function drawRipple(x: number, y: number, doc: Document = document): HTML
 
 let context: AudioContext | null = null
 
+function audioContext(): AudioContext | null {
+  if (context) return context
+  const Ctor =
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Ctor) return null
+  context = new Ctor()
+  return context
+}
+
+/**
+ * Lets the tick play in Safari and the Mac app, which only start audio while handling a click or
+ * key press: called from those, before the tool changes. Plays a silent blip to wake the audio.
+ */
+export function unlockAudio(): void {
+  try {
+    const ctx = audioContext()
+    if (!ctx || ctx.state === 'running') return
+    void ctx.resume()
+    const buffer = ctx.createBuffer(1, 1, 22050)
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(ctx.destination)
+    source.start(0)
+  } catch {}
+}
+
 /**
  * A soft wooden tick, made in the page (no file to fetch): a short sine blip that drops in pitch
- * and fades out in about 90 ms, quiet enough to sit under music.
+ * and fades out in about 90 ms, quiet enough to sit under music. Silent until audio was unlocked.
  */
 export function playTick(): void {
   try {
-    const Ctor =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!Ctor) return
-    context ??= new Ctor()
-    const ctx = context
-    if (ctx.state === 'suspended') void ctx.resume()
+    const ctx = audioContext()
+    if (!ctx || ctx.state !== 'running') return
     const now = ctx.currentTime
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
