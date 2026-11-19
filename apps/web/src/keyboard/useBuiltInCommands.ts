@@ -4,14 +4,14 @@
 import { useNavigate } from 'react-router'
 import { boardsApi } from '../api/boards'
 import { notesBus } from '../apps/notes/useNotes'
-import { GUIDE } from '../guide/appGuide'
+import { GUIDE_NAMES } from '../guide/guideNames'
 import { boardUrl, DOCS_ROOT, docUrl } from '../lib/paths'
 import { chooseTheme } from '../lib/theme'
 import type { FindState } from '../routes/settings/SettingsSearch'
 import { SETTINGS_INDEX } from '../routes/settings/searchIndex'
 import { useSession } from '../state/session'
 import { untitledDocPath } from '../state/treeStore'
-import { TOUR_REPLAY } from '../tour/TourHost'
+import { TOUR_REPLAY } from '../tour/replay'
 import { type Command, useCommands } from './commands'
 import { setSingleKeys, useSingleKeys } from './prefs'
 
@@ -158,13 +158,13 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       run: () => navigate(TOUR_REPLAY),
     },
     // "What is Clips?" opens that app's card in Hotsauce 101 (docs/PLAN-tour-and-101.md H5).
-    ...GUIDE.map(
+    ...GUIDE_NAMES.map(
       (entry): Command => ({
         id: `guide-${entry.id}`,
         title: `What is ${entry.name}? · Hotsauce 101`,
         group: 'go',
         icon: 'help',
-        keywords: ['explain', 'learn', 'guide', 'video', entry.line],
+        keywords: ['explain', 'learn', 'guide', 'video', 'what is', 'hotsauce 101'],
         typedOnly: true,
         run: () => navigate(`/settings/101#${entry.id}`),
       }),

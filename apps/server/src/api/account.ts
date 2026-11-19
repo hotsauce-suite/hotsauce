@@ -45,65 +45,65 @@ export function accountRoutes(deps: AppDeps) {
       throw new HotsauceError('forbidden', `You don't have access to the space "${space}"`)
     }
   }
-  return (
-    new Hono<AppEnv>()
-      .get('/me', async (c) => {
-        const principal = c.get('principal')
-        return c.json({
-          principal,
-          // Their profile photo's address, or null (docs/PLAN-rail-account-menu.md).
-          photo: photoUrl(account, principal.email),
-          spaces: await spaces.visibleSpaces(principal),
-          settings: { idleCommitMs: config.IDLE_COMMIT_MS },
-        })
+  return new Hono<AppEnv>()
+    .get('/me', async (c) => {
+      const principal = c.get('principal')
+      return c.json({
+        principal,
+        // Their profile photo's address, or null (docs/PLAN-rail-account-menu.md).
+        photo: photoUrl(account, principal.email),
+        spaces: await spaces.visibleSpaces(principal),
+        settings: { idleCommitMs: config.IDLE_COMMIT_MS },
       })
-      .get('/recents', (c) => {
-        const principal = c.get('principal')
-        const recents = account
-          .listRecents(principal.email, RECENTS_LIMIT)
-          .filter((r) => spaces.canAccess(principal, r.space))
-        return c.json(recents.map((r) => ({ ...r, title: index.titleOf(r.space, r.path) })))
-      })
-      .post('/recents', valid('json', Item), (c) => {
-        const principal = c.get('principal')
-        const { space, path } = c.req.valid('json')
-        assertAccess(principal, space)
-        account.touchRecent(principal.email, space, path)
-        return c.json({ ok: true as const })
-      })
-      .get('/stars', (c) => {
-        const principal = c.get('principal')
-        const stars = account
-          .listStars(principal.email)
-          .filter((s) => spaces.canAccess(principal, s.space))
-        return c.json(stars.map((s) => ({ ...s, title: index.titleOf(s.space, s.path) })))
-      })
-      .post('/stars', valid('json', Item.extend({ starred: z.boolean() })), (c) => {
-        const principal = c.get('principal')
-        const { space, path, starred } = c.req.valid('json')
-        assertAccess(principal, space)
-        account.setStarred(principal.email, space, path, starred)
-        return c.json({ ok: true as const })
-      })
-      .get('/pins', (c) =>
-        c.json({ pins: account.pinsWithOffers(c.get('principal').email, PIN_OFFERS) }),
-      )
-      .put('/pins', valid('json', Pins), (c) => {
-        const { pins } = c.req.valid('json')
-        account.setPins(c.get('principal').email, pins)
-        return c.json({ pins })
-      })
-      // The first-run tour (docs/PLAN-tour-and-101.md S1, S2): seen once per member, on any device.
-      .get('/tour', (c) => c.json({ seen: account.hasSeenTour(c.get('principal').email) }))
-      .post('/tour/seen', (c) => {
-        account.markTourSeen(c.get('principal').email, new Date())
-        return c.json({ seen: true as const })
-      })
-      .get('/phone-pins', (c) => c.json({ pins: account.getPhonePins(c.get('principal').email) }))
-      .put('/phone-pins', valid('json', PhonePins), (c) => {
-        const { pins } = c.req.valid('json')
-        account.setPhonePins(c.get('principal').email, pins)
-        return c.json({ pins })
-      })
-  )
+    })
+    .get('/recents', (c) => {
+      const principal = c.get('principal')
+      const recents = account
+        .listRecents(principal.email, RECENTS_LIMIT)
+        .filter((r) => spaces.canAccess(principal, r.space))
+      return c.json(recents.map((r) => ({ ...r, title: index.titleOf(r.space, r.path) })))
+    })
+    .post('/recents', valid('json', Item), (c) => {
+      const principal = c.get('principal')
+      const { space, path } = c.req.valid('json')
+      assertAccess(principal, space)
+      account.touchRecent(principal.email, space, path)
+      return c.json({ ok: true as const })
+    })
+    .get('/stars', (c) => {
+      const principal = c.get('principal')
+      const stars = account
+        .listStars(principal.email)
+        .filter((s) => spaces.canAccess(principal, s.space))
+      return c.json(stars.map((s) => ({ ...s, title: index.titleOf(s.space, s.path) })))
+    })
+    .post('/stars', valid('json', Item.extend({ starred: z.boolean() })), (c) => {
+      const principal = c.get('principal')
+      const { space, path, starred } = c.req.valid('json')
+      assertAccess(principal, space)
+      account.setStarred(principal.email, space, path, starred)
+      return c.json({ ok: true as const })
+    })
+    .get('/pins', (c) =>
+      c.json({ pins: account.pinsWithOffers(c.get('principal').email, PIN_OFFERS) }),
+    )
+    .put('/pins', valid('json', Pins), (c) => {
+      const { pins } = c.req.valid('json')
+      account.setPins(c.get('principal').email, pins)
+      return c.json({ pins })
+    })
+    .get('/tour', (c) => {
+      // The first-run tour (docs/PLAN-tour-and-101.md S1, S2): seen once per member, anywhere.
+      return c.json({ seen: account.hasSeenTour(c.get('principal').email) })
+    })
+    .post('/tour/seen', (c) => {
+      account.markTourSeen(c.get('principal').email, new Date())
+      return c.json({ seen: true as const })
+    })
+    .get('/phone-pins', (c) => c.json({ pins: account.getPhonePins(c.get('principal').email) }))
+    .put('/phone-pins', valid('json', PhonePins), (c) => {
+      const { pins } = c.req.valid('json')
+      account.setPhonePins(c.get('principal').email, pins)
+      return c.json({ pins })
+    })
 }

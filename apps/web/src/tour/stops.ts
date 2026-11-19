@@ -90,7 +90,7 @@ export function tourStops({ name, mac }: TourContext): TourStop[] {
       id: 'menu',
       target: 'account-menu',
       title: 'Your menu',
-      body: `Settings, Hotsauce 101, music, light or dark, shortcuts, help and feedback live here, and “Take the tour” too.${
+      body: `Settings, music, light or dark, shortcuts and help live here, and “Take the tour” too. Settings → Hotsauce 101 shows what every app is for.${
         mac ? ' This Mac has its own page in Settings.' : ''
       }`,
     },

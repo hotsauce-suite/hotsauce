@@ -9,7 +9,7 @@ import { DESKTOP, IPHONE, pretend } from '../test/devices'
 import { mockApi } from '../test/mockServer'
 import { stopTour } from './runTour'
 import { presentStops, tourStops } from './stops'
-import { TourHost } from './TourHost'
+import { forgetTourSeen, TourHost } from './TourHost'
 
 /** A page with some of the tour's controls: the rest are missing, so their stops are skipped. */
 function Page() {
@@ -48,6 +48,7 @@ function renderAt(path = '/today') {
 
 afterEach(() => {
   act(() => stopTour())
+  forgetTourSeen()
   vi.restoreAllMocks()
 })
 
@@ -159,5 +160,53 @@ describe('the tour', () => {
     await waitFor(() => expect(screen.getByTestId('tour-stop')).toBeInTheDocument())
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByTestId('tour-stop')).toBeNull())
+  })
+
+  it('can be finished by keyboard: Next has focus, Enter and the arrows move (T6)', async () => {
+    pretend({ ua: DESKTOP })
+    mockApi().tour.seen = false
+    renderAt()
+    await userEvent.click(await screen.findByTestId('tour-start'))
+    await waitFor(() => expect(screen.getByTestId('tour-next')).toHaveFocus())
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() =>
+      expect(screen.getByTestId('tour-stop')).toHaveTextContent('Today is your home page'),
+    )
+    await userEvent.keyboard('{ArrowLeft}')
+    await waitFor(() => expect(screen.getByTestId('tour-stop')).toHaveTextContent('Your apps'))
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() =>
+      expect(screen.getByTestId('tour-stop')).toHaveTextContent('Today is your home page'),
+    )
+  })
+
+  it('leaves the keys to another dialog open over it', async () => {
+    pretend({ ua: DESKTOP })
+    mockApi().tour.seen = false
+    renderAt()
+    await userEvent.click(await screen.findByTestId('tour-start'))
+    await waitFor(() => expect(screen.getByTestId('tour-stop')).toHaveTextContent('Your apps'))
+    const other = document.createElement('div')
+    other.setAttribute('role', 'dialog')
+    document.body.append(other)
+    // jsdom has no layout: say the dialog is on screen.
+    vi.spyOn(other, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
+    await userEvent.keyboard('{ArrowRight}{Escape}')
+    expect(screen.getByTestId('tour-stop')).toHaveTextContent('Your apps')
+    other.remove()
+  })
+
+  it('never starts once Today is left while it loads', async () => {
+    const { runTour } = await import('./runTour')
+    const onEnd = vi.fn()
+    const started = runTour(
+      [{ id: 'search', target: null, title: 'Find anything', body: 'x' }],
+      () => null,
+      onEnd,
+    )
+    stopTour()
+    await started
+    expect(onEnd).toHaveBeenCalledOnce()
+    expect(screen.queryByTestId('tour-stop')).toBeNull()
   })
 })

@@ -2,8 +2,13 @@
 import { describe, expect, it } from 'vitest'
 import { APPS } from '../apps/registry'
 import { GUIDE, posterOf, sortedForWorkspace, statusOf, videoOf } from './appGuide'
+import { GUIDE_NAMES } from './guideNames'
 
 describe('the guide', () => {
+  it('gives Command-K the same apps and names (H5)', () => {
+    expect(GUIDE_NAMES).toEqual(GUIDE.map((e) => ({ id: e.id, name: e.name })))
+  })
+
   it('has a card for every app in the suite (H1)', () => {
     const covered = new Set(GUIDE.map((e) => e.app))
     for (const app of APPS) expect(covered, `no card for ${app.id}`).toContain(app.id)

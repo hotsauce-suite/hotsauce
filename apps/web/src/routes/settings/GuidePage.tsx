@@ -84,6 +84,13 @@ function GuideCard({
   const poster = posterOf(entry)
   const video = videoOf(entry)
   const open = openLink(entry, mac)
+  // Closing the video puts focus back on the picture that opened it.
+  const play = useRef<HTMLButtonElement>(null)
+  const wasPlaying = useRef(false)
+  useEffect(() => {
+    if (wasPlaying.current && !playing) play.current?.focus()
+    wasPlaying.current = playing
+  }, [playing])
   return (
     <li
       id={`guide-${entry.id}`}
@@ -97,6 +104,7 @@ function GuideCard({
           <Player src={video} poster={poster} name={entry.name} onStop={onStop} />
         ) : poster ? (
           <button
+            ref={play}
             type="button"
             onClick={video ? onPlay : undefined}
             disabled={!video}

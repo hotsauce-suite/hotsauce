@@ -10,6 +10,13 @@ export function stopTour(): void {
   stopCurrent?.()
 }
 
+/** Another dialog (⌘K, Ask, a menu) is open over the page: the tour leaves the keys to it. */
+function otherDialogOpen(): boolean {
+  return [...document.querySelectorAll('[role="dialog"], dialog[open]')].some(
+    (el) => !el.classList.contains('driver-popover') && el.getClientRects().length > 0,
+  )
+}
+
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 /**
@@ -26,15 +33,26 @@ export async function runTour(
     onEnd()
     return
   }
+  // Leaving Today while Driver loads cancels the tour before it starts.
+  let cancelled = false
+  const cancel = () => {
+    cancelled = true
+  }
+  stopCurrent = cancel
   const [{ driver }] = await Promise.all([import('driver.js'), import('driver.js/dist/driver.css')])
   await import('./tour.css')
+  if (cancelled) {
+    onEnd()
+    return
+  }
   const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   let ended = false
   const tour = driver({
     animate: !still,
     smoothScroll: !still,
     allowClose: true,
-    allowKeyboardControl: true,
+    // Driver's own keys listen on the window; ours check first that no other dialog has them.
+    allowKeyboardControl: false,
     overlayClickBehavior: 'none',
     showProgress: true,
     progressText: '{{current}} of {{total}}',
@@ -54,10 +72,12 @@ export async function runTour(
       popover.nextButton.setAttribute('data-testid', 'tour-next')
       popover.previousButton.setAttribute('data-testid', 'tour-back')
       popover.closeButton.setAttribute('data-testid', 'tour-skip')
-      // The reader hears the stop, and Enter moves on.
-      popover.nextButton.focus()
+      // The reader hears the stop, and Enter moves on. Driver focuses the popover's first
+      // button (Skip) after this hook, so Next takes focus on the next frame.
+      requestAnimationFrame(() => popover.nextButton.focus())
     },
     onDestroyed: () => {
+      removeEventListener('keydown', onKey, true)
       if (stopCurrent === stop) stopCurrent = null
       if (ended) return
       ended = true
@@ -71,7 +91,17 @@ export async function runTour(
         : { element: () => find(target) ?? document.body, data: { id: s.id }, popover }
     }),
   })
+  function onKey(e: KeyboardEvent) {
+    if (otherDialogOpen()) return
+    if (e.key === 'Escape') tour.destroy()
+    else if (e.key === 'ArrowRight') tour.isLastStep() ? tour.destroy() : tour.moveNext()
+    else if (e.key === 'ArrowLeft') tour.movePrevious()
+    else return
+    e.preventDefault()
+    e.stopPropagation()
+  }
   const stop = () => tour.destroy()
   stopCurrent = stop
+  addEventListener('keydown', onKey, true)
   tour.drive()
 }

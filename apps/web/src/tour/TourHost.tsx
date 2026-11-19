@@ -12,8 +12,24 @@ import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { runTour, stopTour } from './runTour'
 import { findByTestId, presentStops, tourStops } from './stops'
 
-/** The address that replays the tour (account menu, Command-K). */
-export const TOUR_REPLAY = '/today?tour=1'
+export { TOUR_REPLAY } from './replay'
+
+/** Known seen for this page load, so later visits to Today don't ask the server again. */
+let seenHere = false
+
+/** For tests: forget what this page load knows. */
+export function forgetTourSeen(): void {
+  seenHere = false
+}
+
+/** Inside another page's frame (hotsauce.work's live demo windows): no welcome over the demo. */
+function framed(): boolean {
+  try {
+    return window.top !== window
+  } catch {
+    return true
+  }
+}
 
 export function TourHost({
   ready,
@@ -37,7 +53,7 @@ export function TourHost({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: asks once per visit, or once per replay
   useEffect(() => {
-    if (!ready || phone || recording) return
+    if (!ready) return
     if (replay) {
       setParams(
         (p) => {
@@ -46,16 +62,20 @@ export function TourHost({
         },
         { replace: true },
       )
+      // On a phone or mid-recording the ask is dropped, so it can't spring up later.
+      if (phone || recording) return
       stopTour()
       setWelcome(true)
       return
     }
+    if (phone || recording || seenHere || framed()) return
     if (asked.current) return
     asked.current = true
     let cancelled = false
     tourApi.get().then(
       ({ seen }) => {
-        if (!cancelled && !seen) setWelcome(true)
+        if (seen) seenHere = true
+        else if (!cancelled) setWelcome(true)
       },
       () => {
         // Can't tell: say nothing rather than show it twice.
@@ -69,7 +89,11 @@ export function TourHost({
   if (!welcome) return null
 
   // Any way out of the welcome counts as seen (T3); the server keeps it once.
-  const seen = () => void tourApi.markSeen().catch(() => {})
+  const seen = () => {
+    // Remembered for this page load even if the server can't be told, so it doesn't loop.
+    seenHere = true
+    void tourApi.markSeen().catch(() => {})
+  }
   const notNow = () => {
     setWelcome(false)
     seen()

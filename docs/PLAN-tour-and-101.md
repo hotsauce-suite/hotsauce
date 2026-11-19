@@ -30,7 +30,7 @@ screenshot and the animation". Everything here works in the Mac app too: it show
   it's for, whether it's ready here (or what it needs, in plain words), and Open. Every app shows,
   ready ones first. Clicking the picture plays that app's loop in place, muted.
 - The loops ship inside the app (about 4 MB, loaded only on click; never fetched from hotsauce.work).
-- hotsauce.work and Hotsauce 101 read one shared list of app descriptions. Tables and Pages get
+- hotsauce.work and Hotsauce 101 read one shared list of app descriptions. Tables and For you get
   cards and loops (on the site too).
 
 ## Requirements
@@ -81,7 +81,7 @@ Each maps to a test, named in brackets.
 
 **Support materials**
 
-- M1. Help pages for Today and Settings, the FAQ, What's new, the live demo, new Tables and Pages loops
+- M1. Help pages for Today and Settings, the FAQ, What's new, the live demo, new Tables and For you loops
   on hotsauce.work. [real-browser check]
 
 ## Slices
@@ -89,4 +89,4 @@ Each maps to a test, named in brackets.
 1. Server: the seen flag (S1, S2).
 2. The tour, replay and the demo (T1 to T7, R1, J1 part).
 3. Hotsauce 101 (H1 to H5, J1 part).
-4. Tables and Pages cards and loops, help pages, Mac check (M1, J2).
+4. Tables and For you cards and loops, help pages, Mac check (M1, J2).
