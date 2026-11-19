@@ -200,6 +200,7 @@ async function main(): Promise<void> {
     await services.checkinScheduler.close()
     await services.chatReader.close()
     services.chatReader.store.close()
+    await services.files.close()
     await services.backups?.close()
     await meetings.calendarSync?.close()
     // Requests that were mid-flight when shutdown began may queue a write after the first

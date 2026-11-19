@@ -41,7 +41,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  services.files.close()
+  await services.files.close()
   services.index.close()
   services.dictation.store.close()
   await removeDir(root)
@@ -66,12 +66,12 @@ async function api<T = any>(method: string, url: string, json?: unknown, status 
   return (text ? JSON.parse(text) : null) as T
 }
 
-async function upload(name: string, deleteAfterDays?: number) {
+async function upload(name: string, deleteAfterDays?: number, space = 'team') {
   const bytes = new TextEncoder().encode(`picture ${name}`)
   const started = await api(
     'POST',
     '/api/files/uploads',
-    { space: 'team', folder: 'Screenshots', name, size: bytes.length, deleteAfterDays },
+    { space, folder: 'Screenshots', name, size: bytes.length, deleteAfterDays },
     201,
   )
   expect(
@@ -144,5 +144,75 @@ describe('files that delete themselves', () => {
     // Keeping a file that already stays changes nothing.
     const again = await api('PATCH', `/api/files/item/team/${shot.id}`, { keep: true })
     expect(again.blobOid).toBe(kept.blobOid)
+  })
+
+  it('R2: expires a file in a personal space, and its link ends when it does', async () => {
+    const me = await api('GET', '/api/me')
+    const personal = me.spaces.find((s: { kind: string }) => s.kind === 'personal').name as string
+    const shot = await upload('mine.png', 30, personal)
+    const shared = await api('POST', `/api/files/item/${personal}/${shot.id}/share`, {
+      on: true,
+      expiresDays: 30,
+    })
+    // The link has its own 30 days (its store keeps its own clock).
+    expect(shared.shareLink.expiresAt).not.toBeNull()
+    // A rename keeps the date.
+    const renamed = await api('PATCH', `/api/files/item/${personal}/${shot.id}`, { name: 'b.png' })
+    expect(renamed.deleteAfter).toBe(shot.deleteAfter)
+    now = START + 31 * DAY
+    expect(await services.files.expire()).toBe(1)
+    await api('GET', `/api/files/item/${personal}/${shot.id}`, undefined, 404)
+  })
+
+  it('R2: only a strict UTC time deletes; anything else in the pointer means it stays', async () => {
+    const bare = join(root, 'remotes', 'team.git')
+    const kept: string[] = []
+    for (const value of ['Dec 19', '"1"', '2026', '12/19/2020', '2020-01-01T00:00:00', '2020']) {
+      const f = await upload(`odd-${kept.length}.png`, 30)
+      kept.push(f.id)
+      // Written the way someone with push access to the space could.
+      const work = join(root, `work-${kept.length}`)
+      await runGit(root, ['clone', '-q', bare, work])
+      const file = join(work, 'files', `${f.id}.md`)
+      const { readFile, writeFile } = await import('node:fs/promises')
+      const text = await readFile(file, 'utf8')
+      await writeFile(file, text.replace(/^delete_after: .*$/m, `delete_after: ${value}`))
+      await runGit(work, [
+        '-c',
+        'user.name=x',
+        '-c',
+        'user.email=x@example.test',
+        'commit',
+        '-qam',
+        'edit',
+      ])
+      await runGit(work, ['push', '-q', 'origin', 'HEAD:main'])
+    }
+    await services.syncer.syncSpace('team')
+    now = START + 3650 * DAY
+    expect(await services.files.expire()).toBe(0)
+    const listed = (await api('GET', '/api/files?space=team&folder=Screenshots')).files
+    expect(listed.map((f: { id: string }) => f.id).sort()).toEqual([...kept].sort())
+    expect(listed.every((f: { deleteAfter: string | null }) => f.deleteAfter === null)).toBe(true)
+  })
+
+  it('a member deleting a self-deleting file removes its bytes and link at once', async () => {
+    const shot = await upload('shot.png', 30)
+    const shared = await api('POST', `/api/files/item/team/${shot.id}/share`, { on: true })
+    expect((await call('DELETE', `/api/files/item/team/${shot.id}`)).status).toBe(204)
+    expect(await services.meetings.audioStore?.get(fileStoreKey(shot.id))).toBeNull()
+    expect(services.shareLinks.get(shared.shareToken)).toBeNull()
+    // An ordinary file still goes to the trash with its bytes kept.
+    const plain = await upload('plain.png')
+    expect((await call('DELETE', `/api/files/item/team/${plain.id}`)).status).toBe(204)
+    expect(await services.meetings.audioStore?.get(fileStoreKey(plain.id))).not.toBeNull()
+  })
+
+  it('a pass stops cleanly when the server closes', async () => {
+    await upload('shot.png', 30)
+    now = START + 31 * DAY
+    await services.files.close()
+    expect(await services.files.expire()).toBe(0)
+    expect(await names()).toEqual(['shot.png'])
   })
 })

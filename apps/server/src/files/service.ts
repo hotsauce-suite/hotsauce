@@ -7,6 +7,7 @@ import { finished } from 'node:stream/promises'
 import {
   cleanFileName,
   cleanFolder,
+  DELETE_AFTER,
   FILES_FOLDERS_PATH,
   FileFrontmatter,
   FrontmatterError,
@@ -49,6 +50,8 @@ const FILE_ID = /^[0-9A-Z]{26}$/
 /** The longest a file may ask to live before it deletes itself. */
 export const MAX_DELETE_AFTER_DAYS = 365
 const EXPIRE_EVERY_MS = 3_600_000
+/** The first pass waits a moment, so a server that starts with a wrong clock isn't trusted at once. */
+const FIRST_EXPIRE_MS = 60_000
 
 export interface FileView {
   id: string
@@ -120,7 +123,8 @@ export interface LocalMedia {
 
 /**
  * Hotsauce Files on the server (ARCHITECTURE §18): bytes in the object store, one pointer file
- * per file in Git, listed from the index. Every write is a commit authored by the member.
+ * per file in Git, listed from the index. Every write is a commit authored by the member, but
+ * for a file deleting itself (§18.6): that one is "Hotsauce" with the uploader's address.
  */
 export class Files {
   readonly #deps: FilesDeps
@@ -130,6 +134,8 @@ export class Files {
   #swept = 0
   #expireTimer: NodeJS.Timeout | null = null
   #expiring: Promise<number> | null = null
+  #first: NodeJS.Timeout | null = null
+  #stopping = false
   /** Uploads being finished now, and the last few finished, so a repeat complete is safe. */
   readonly #completing = new Map<string, Promise<FileView>>()
   readonly #completed = new Map<string, { owner: string; space: string; fileId: string }>()
@@ -595,23 +601,25 @@ export class Files {
     const now = this.#now().getTime()
     let gone = 0
     for (const space of this.#allSpaceNames()) {
-      for (const listed of this.#records(space)) {
-        if (!isDue(listed.deleteAfter, now)) continue
+      let due: FileView[]
+      try {
+        due = this.#records(space).filter((f) => isDue(f.deleteAfter, now))
+      } catch (err) {
+        console.warn(`[files] couldn't list ${space} for expired files`, err)
+        continue
+      }
+      for (const listed of due) {
+        if (this.#stopping) return gone
         try {
           // Read from Git again: the index may be a moment behind a Keep.
           const { view } = await this.#read(space, listed.id)
           if (!isDue(view.deleteAfter, now)) continue
-          await this.#commit({ name: 'Hotsauce', email: view.createdBy }, space, {
-            changes: [{ path: view.path, content: null }],
-            verb: 'expire',
-            title: view.name,
-            via: undefined,
-            unchanged: { path: view.path, blobOid: view.blobOid },
-          })
-          await this.#store()
-            .delete(view.key)
-            .catch(() => {})
-          this.#deps.onExpired?.(view)
+          await this.#discard(
+            { name: 'Hotsauce', email: view.createdBy },
+            view,
+            'expire',
+            undefined,
+          )
           gone++
         } catch (err) {
           console.warn(`[files] couldn't delete expired file ${listed.id} in ${space}`, err)
@@ -621,17 +629,48 @@ export class Files {
     return gone
   }
 
-  /** Deletes expired files now and every hour. */
+  /**
+   * Removes a file for good: the pointer leaves Git without a stop in `.trash/`, then the bytes
+   * leave the store and the link goes. The commit comes first, so a refusal changes nothing.
+   */
+  async #discard(
+    author: Pick<Principal, 'name' | 'email'>,
+    view: FileView,
+    verb: string,
+    via: string | undefined,
+  ): Promise<void> {
+    await this.#commit(author, view.space, {
+      changes: [{ path: view.path, content: null }],
+      verb,
+      title: view.name,
+      via,
+      unchanged: { path: view.path, blobOid: view.blobOid },
+    })
+    await this.#store()
+      .delete(view.key)
+      .catch((err) => console.warn(`[files] bytes of deleted file left at ${view.key}`, err))
+    this.#deps.onExpired?.(view)
+  }
+
+  /** Deletes expired files a minute after start and every hour. */
   start(): void {
     if (this.#expireTimer) return
-    void this.expire()
-    this.#expireTimer = setInterval(() => void this.expire(), EXPIRE_EVERY_MS)
+    const pass = () =>
+      void this.expire().catch((err) => console.warn('[files] expiry pass failed', err))
+    this.#first = setTimeout(pass, FIRST_EXPIRE_MS)
+    this.#first.unref()
+    this.#expireTimer = setInterval(pass, EXPIRE_EVERY_MS)
     this.#expireTimer.unref()
   }
 
-  close(): void {
+  /** Stops the passes and waits for one in flight, so shutdown never cuts a commit short. */
+  async close(): Promise<void> {
+    this.#stopping = true
+    if (this.#first) clearTimeout(this.#first)
     if (this.#expireTimer) clearInterval(this.#expireTimer)
+    this.#first = null
     this.#expireTimer = null
+    await this.#expiring?.catch(() => {})
   }
 
   /** Moves the pointer between the team space and the member's personal space. */
@@ -747,6 +786,11 @@ export class Files {
   async remove(principal: Principal, space: string, id: string, via?: string): Promise<void> {
     this.#assertAccess(principal, space)
     const file = await this.#read(space, id)
+    // A file that was going to delete itself anyway goes for good now, bytes and link too.
+    if (file.view.deleteAfter !== null) {
+      await this.#discard(principal, file.view, 'delete', via)
+      return
+    }
     await this.#commit(principal, space, {
       changes: trashChanges(file.view.path, file.content, this.#now()),
       verb: 'delete',
@@ -1041,7 +1085,7 @@ function isoNow(d: Date): string {
 }
 
 function isDue(deleteAfter: string | null, now: number): boolean {
-  if (deleteAfter === null) return false
+  if (deleteAfter === null || !DELETE_AFTER.test(deleteAfter)) return false
   const at = Date.parse(deleteAfter)
   return Number.isFinite(at) && at <= now
 }

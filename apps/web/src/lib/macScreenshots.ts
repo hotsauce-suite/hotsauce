@@ -10,8 +10,8 @@ import type { LinkChoice } from '../api/shares'
 
 export const SCREENSHOTS_FOLDER = 'Screenshots'
 export const SCREENSHOT_DAYS = 30
-/** Far above any screen's PNG; stops a runaway call from filling the server. */
-export const MAX_SCREENSHOT_BYTES = 60 * 1024 * 1024
+/** Above any screen's PNG; the page holds a few copies of it while it uploads. */
+export const MAX_SCREENSHOT_BYTES = 25 * 1024 * 1024
 
 export type ScreenshotShare =
   | {
@@ -90,10 +90,19 @@ export async function shareScreenshot(
       }),
       deps.publicLinksAllowed().catch(() => false),
     ])
-    const shared = await deps.share(stored.space, stored.id, true, {
-      anyone,
-      expiresDays: SCREENSHOT_DAYS,
-    })
+    const link = (toAnyone: boolean) =>
+      deps.share(stored.space, stored.id, true, {
+        anyone: toAnyone,
+        expiresDays: SCREENSHOT_DAYS,
+      })
+    // The organization's switch can flip between the two calls; a link for members still works.
+    let shared: DriveFile
+    try {
+      shared = await link(anyone)
+    } catch (err) {
+      if (!anyone) throw err
+      shared = await link(false)
+    }
     if (!shared.shareUrl) return { ok: false, error: 'Couldn’t make a link for the screenshot.' }
     return {
       ok: true,

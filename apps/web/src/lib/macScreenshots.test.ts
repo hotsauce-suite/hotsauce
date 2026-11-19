@@ -80,6 +80,21 @@ describe('sharing a screenshot from the Mac app', () => {
     }
   })
 
+  it('falls back to a members link when a public one is refused', async () => {
+    const share = vi.fn(
+      async (_s: string, _i: string, _on: boolean, choice: { anyone: boolean }) => {
+        if (choice.anyone) throw new Error('Links anyone can open are turned off')
+        return stored({
+          shareUrl: '/files/s/tok',
+          shareLink: { anyone: false, expiresAt: '2026-12-19T12:00:00Z', ended: false },
+        })
+      },
+    )
+    const result = await shareScreenshot(deps({ share }), 'a.png', PNG)
+    expect(result).toMatchObject({ ok: true, anyone: false })
+    expect(share).toHaveBeenCalledTimes(2)
+  })
+
   it('says why instead of throwing', async () => {
     expect(await shareScreenshot(deps({ personalSpace: async () => null }), 'a.png', PNG)).toEqual({
       ok: false,
