@@ -31,3 +31,19 @@
 - **A face for anyone is `PersonFace` or `PersonPhoto`** (`profile/MemberFace.tsx`). They read one app-wide list (`profile/memberPhotos.ts`, `GET /api/members/photos`), so a new place that names a member needs one element and no new request. Unit tests reset it in `test/setup.ts`.
 - **Sign-in pictures come through `ClerkAuth`'s `onPhoto`.** Clerk says `hasImage: false` for its placeholder avatar; only a real picture is fetched (`?width=256&height=256&fit=crop`), sniffed like an upload and stored with its source address so a changed picture is noticed. Dev sign-in has none, so e2e can't show it; `services.signInPhotos.offer()` is the seam for tests.
 - **Small celebrations go through `cheer()`** (`lib/delight.ts`): the pepper listens for it. Call it where something finishes; it does nothing when the pepper is off, asleep or the device asks for less motion.
+
+## Re-recording after the rail changed (Nov 19)
+
+- **A rail change is in every loop, the tour and every README screenshot.** All 19 site loops, the
+  narrated tour and 16 screenshots were re-shot in about 40 minutes in a cloud session, following
+  `scripts/tour-video/README.md` and the README-screenshot recipe in `website.md`.
+- **A shot that clicks something the change moved fails loudly, which is the prompt to fix it.**
+  The `feedback` shot pressed the old "Send feedback" rail link; it now opens the account menu
+  first. Record every shot with `run.sh` and read the log for the ones that threw.
+- **The `clipsPlayer` shot needs `DEMO_CLIP`** (a folder with `composite.mp4` and `thumb.jpg`);
+  the first 21 seconds of the fresh `docs.mp4`, scaled to 1920×1080, is enough.
+- **Film in the pepper's waking hours.** `TOUR_CLOCK` in the morning keeps it awake; at night it
+  sleeps in every frame.
+- **When several threads land the same afternoon, the last one re-merges for each of them.** Part
+  2 was green three times and conflicted three times in the same help page and `STATUS.md`
+  before it merged. Ask the coordinator for a short hold on those files as soon as checks start.
