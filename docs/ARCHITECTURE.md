@@ -1280,6 +1280,8 @@ The answer also carries `series`, the forecast from the current hour on (hourly 
 
 `GET /api/today/places?q=` (`apps/server/src/today/places.ts`) turns a typed name into up to five places through Open-Meteo's geocoding API (free, no key, GeoNames data). Only the name is sent; answers are cached a day and each member gets 20 uncached searches a minute.
 
+`GET /api/today/places/at?lat&lon` names a shared position (the same file) through OpenStreetMap's Nominatim reverse geocoding (free, no key; its policy wants a User-Agent, at most one request a second, caching and credit). Only the rounded position is sent. The server asks one at a time a second apart, shares lookups for the same spot, keeps names 30 days, gives each member 10 uncached lookups a minute, answers at once when 20 are waiting, and stops asking for a minute after a failure (ten after a 403 or 429). The browser asks for any shared position saved without a name (`nameDevicePlace` in `weatherPlace.ts`) and stores it with `osm: true`, which shows the "© OpenStreetMap contributors" credit beside the name.
+
 When location is refused, the header offers **Allow location** and **Use a city**. The Mac app's web view can't ask macOS for a position (WebKit turns `navigator.geolocation` down in an app without asking), so the page asks the app instead through `webkit.messageHandlers.hearthLocation.postMessage('position')`. The app answers with CoreLocation (`LocationService.swift`, `DictateCore/LocationBridge.swift`), rounded to 2 decimals, which shows macOS's own prompt the first time and opens System Settings → Location Services when location was already turned off. A Mac app from before 0.12 has no such bridge, and the header tells the member to update it or pick a city.
 
 

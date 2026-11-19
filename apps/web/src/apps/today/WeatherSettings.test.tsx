@@ -31,6 +31,25 @@ describe('Settings → General → Weather', () => {
     expect(screen.getByTestId('settings-weather-now')).toHaveTextContent('Hidden on this device.')
   })
 
+  it('names a shared location instead of saying “your location”', async () => {
+    localStorage.setItem(WEATHER_PLACE_KEY, JSON.stringify({ lat: 44.47, lon: -73.2 }))
+    render(<WeatherSettingsSection />)
+    expect(
+      await screen.findByText('Showing weather for Burlington, Vermont, United States.'),
+    ).toBeInTheDocument()
+    // Kept, with the position as shared.
+    expect(JSON.parse(localStorage.getItem(WEATHER_PLACE_KEY) ?? '')).toEqual({
+      lat: 44.47,
+      lon: -73.2,
+      name: 'Burlington',
+      detail: 'Vermont, United States',
+      osm: true,
+    })
+    expect(screen.getByTestId('settings-weather-osm')).toHaveTextContent(
+      'Place name © OpenStreetMap contributors',
+    )
+  })
+
   it('says so when a city has no matches', async () => {
     render(<WeatherSettingsSection />)
     await userEvent.click(await screen.findByTestId('settings-weather-pick'))

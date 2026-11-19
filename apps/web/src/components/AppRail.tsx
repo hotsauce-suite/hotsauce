@@ -556,7 +556,7 @@ function AccountButton({
                   {photos.error}
                 </p>
               ) : null}
-              <ThemeSwitch onMore={go(() => navigate('/settings#appearance'))} />
+              <ThemeSwitch onMore={go(() => navigate('/settings/appearance'))} />
               <MusicMenuRow />
               <MenuDivider />
               <MenuItem

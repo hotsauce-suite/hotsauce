@@ -598,7 +598,7 @@ describe('the account menu (R6 to R10)', () => {
     const { router } = renderApp('/docs')
     await userEvent.click(await screen.findByTestId('account-menu'))
     await userEvent.click(screen.getByTestId('menu-theme-more'))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/appearance'))
     expect(screen.queryByRole('menu', { name: 'Account' })).toBeNull()
   })
 

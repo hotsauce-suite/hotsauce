@@ -16,13 +16,14 @@ const nav = async () => within(await screen.findByTestId('settings-nav'))
 const page = (id: string) => screen.findByTestId(id)
 
 describe('Settings: the menu', () => {
-  it('gives a member General, Connections and Apps, and no organization pages', async () => {
+  it('gives a member General, Appearance, Connections and Apps, and no organization pages', async () => {
     serveOrg({ admin: false })
     renderApp('/settings')
     const menu = await nav()
     await screen.findByTestId('settings-account')
     expect(menu.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
       ['General', '/settings'],
+      ['Appearance', '/settings/appearance'],
       ['Connections', '/settings/connections'],
       ['Apps', '/settings/apps'],
     ])
@@ -44,6 +45,7 @@ describe('Settings: the menu', () => {
     ).toEqual(['Workspace', 'Brand', 'People and access', 'AI', 'Data and updates', 'Usage'])
     expect(menu.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
       ['General', '/settings'],
+      ['Appearance', '/settings/appearance'],
       ['Connections', '/settings/connections'],
       ['Apps', '/settings/apps'],
       ['Workspace', '/settings/organization'],
@@ -88,6 +90,7 @@ describe('Settings: addresses from before the pages', () => {
     expect(movedSection('/settings', '#mac-app')).toBe('/settings/apps#mac-app')
     expect(movedSection('/settings', '#calendars')).toBe('/settings/connections#calendars')
     expect(movedSection('/settings', '#ai-tools')).toBe('/settings/connections#ai-tools')
+    expect(movedSection('/settings', '#appearance')).toBe('/settings/appearance#appearance')
     // Still on General.
     expect(movedSection('/settings', '#notifications')).toBeNull()
     expect(movedSection('/settings', '#keyboard')).toBeNull()
