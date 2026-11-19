@@ -212,6 +212,8 @@ export function BreaksSettings() {
                       key={name}
                       type="button"
                       aria-pressed={on}
+                      // The last day stays: no days would mean no breaks at all.
+                      disabled={on && hours.days.length === 1}
                       data-testid={`breaks-day-${day}`}
                       onClick={() =>
                         setHours({
@@ -222,7 +224,7 @@ export function BreaksSettings() {
                         on
                           ? 'bg-ember text-paper'
                           : 'border border-ash text-ink-soft hover:text-ink'
-                      }`}
+                      } disabled:cursor-not-allowed`}
                     >
                       {name}
                     </button>

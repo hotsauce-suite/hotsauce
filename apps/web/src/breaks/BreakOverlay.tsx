@@ -41,22 +41,34 @@ export function BreakOverlay() {
   const endAt = phase.kind === 'break' ? phase.endsAt : null
   const warnLeft = useSecondsUntil(warnAt)
   const left = useSecondsUntil(endAt)
-  const skipRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (phase.kind !== 'break') return
-    skipRef.current?.focus()
+    // Focus the dialog itself, not Skip: a key pressed mid-sentence mustn't end the break.
+    const before = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialogRef.current?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
         breaks().skip()
+        return
       }
+      if (e.key !== 'Tab') return
+      // Keep Tab inside the break: nothing behind it is reachable.
+      const buttons = [...(dialogRef.current?.querySelectorAll('button') ?? [])]
+      if (!buttons.length) return
+      const at = buttons.indexOf(document.activeElement as HTMLButtonElement)
+      e.preventDefault()
+      const next = e.shiftKey ? (at <= 0 ? buttons.length - 1 : at - 1) : (at + 1) % buttons.length
+      buttons[next]?.focus()
     }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      before?.focus()
+    }
   }, [phase.kind])
-
-  if (!view.leader) return null
 
   if (phase.kind === 'warning') {
     return (
@@ -104,8 +116,10 @@ export function BreakOverlay() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="break-title"
+      ref={dialogRef}
+      tabIndex={-1}
       data-testid="break-overlay"
-      className="break-fade-in fixed inset-0 z-[70] flex flex-col items-center justify-center gap-8 bg-[#0f1424]/85 px-6 text-center text-white backdrop-blur-md"
+      className="break-fade-in fixed inset-0 z-[70] flex flex-col items-center justify-center gap-8 bg-[#0f1424]/85 px-6 text-center text-white backdrop-blur-md outline-none"
     >
       <BreakScene
         animation={view.settings.animation}
@@ -128,7 +142,6 @@ export function BreakOverlay() {
       <div className="flex gap-3">
         <button
           type="button"
-          ref={skipRef}
           data-testid="break-overlay-skip"
           onClick={() => breaks().skip()}
           className={quietButton}

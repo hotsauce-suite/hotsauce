@@ -1,6 +1,12 @@
 import { type BreakSettings, defaultBreakSettings } from '@hotsauce/format'
 import { describe, expect, it, vi } from 'vitest'
-import { createBreakRunner, type RunnerDeps, SCHEDULE_KEY } from './runner'
+import {
+  AWAY_GAP_MS,
+  BUSY_BEAT_MS,
+  createBreakRunner,
+  type RunnerDeps,
+  SCHEDULE_KEY,
+} from './runner'
 import { SNOOZE_MS, WARN_MS } from './schedule'
 
 const MIN = 60_000
@@ -20,7 +26,11 @@ function harness(over: Partial<RunnerDeps> = {}, settings: Partial<BreakSettings
     clearInterval: () => {
       tickFn = null
     },
-    storage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => void store.set(k, v) },
+    storage: {
+      getItem: (k) => store.get(k) ?? null,
+      setItem: (k, v) => void store.set(k, v),
+      removeItem: (k) => void store.delete(k),
+    },
     lock: null,
     busy: () => false,
     settings: () => current,
@@ -119,11 +129,61 @@ describe('break runner (PLAN-breaks B3, B7, B8, B11)', () => {
     const h = harness()
     h.runner.start()
     h.advance(15 * MIN)
-    h.sleep(MIN)
-    expect(JSON.parse(h.store.get(SCHEDULE_KEY) ?? '{}').dueAt).toBe(16 * MIN + 20 * MIN)
-    // A short nap (under the break length) doesn't.
+    h.sleep(AWAY_GAP_MS + 1000)
+    const woke = h.now
+    expect(JSON.parse(h.store.get(SCHEDULE_KEY) ?? '{}').dueAt).toBe(woke + 20 * MIN)
+    // A short nap doesn't.
     h.sleep(10_000)
-    expect(JSON.parse(h.store.get(SCHEDULE_KEY) ?? '{}').dueAt).toBe(36 * MIN)
+    expect(JSON.parse(h.store.get(SCHEDULE_KEY) ?? '{}').dueAt).toBe(woke + 20 * MIN)
+  })
+
+  it('B5: a hidden tab whose timer runs once a minute still takes its break', () => {
+    const h = harness()
+    h.runner.start()
+    let warned = false
+    for (let i = 0; i < 21; i++) {
+      h.sleep(MIN - 1000)
+      if (h.runner.getView().phase.kind !== 'counting') warned = true
+    }
+    expect(warned).toBe(true)
+  })
+
+  it('B3: turning breaks off and on again starts a fresh count', () => {
+    const h = harness()
+    h.runner.start()
+    h.advance(15 * MIN)
+    h.setSettings({ on: false })
+    h.advance(1000)
+    expect(h.store.has(SCHEDULE_KEY)).toBe(false)
+    h.setSettings({ on: true })
+    h.advance(1000)
+    expect(JSON.parse(h.store.get(SCHEDULE_KEY) ?? '{}').dueAt).toBe(h.now - 1000 + 20 * MIN)
+  })
+
+  it('B8: stopping lets go of the lock, and a lock granted after stopping is handed straight on', async () => {
+    const runs: Promise<void>[] = []
+    const h = harness({ lock: (run) => void runs.push(run()) })
+    const stop = h.runner.start()
+    expect(h.runner.getView().leader).toBe(true)
+    let released = false
+    void runs[0]?.then(() => {
+      released = true
+    })
+    stop()
+    await Promise.resolve()
+    expect(released).toBe(true)
+    expect(h.runner.getView().leader).toBe(false)
+
+    // Granted late, after the run that asked for it ended.
+    let grant: (() => Promise<void>) | null = null
+    const late = harness({
+      lock: (run) => {
+        grant = run
+      },
+    })
+    late.runner.start()()
+    await expect((grant as unknown as () => Promise<void>)()).resolves.toBeUndefined()
+    expect(late.runner.getView().leader).toBe(false)
   })
 
   it('B8: a new leader carries on with the count kept in this browser', () => {
@@ -133,13 +193,35 @@ describe('break runner (PLAN-breaks B3, B7, B8, B11)', () => {
     expect(JSON.parse(a.store.get(SCHEDULE_KEY) ?? '{}').dueAt).toBe(20 * MIN)
     // Another tab takes over with a count due in 5 minutes: it keeps it, not a fresh 20.
     const kept = JSON.stringify({ dueAt: 5 * MIN, phase: { kind: 'counting' } })
-    const b = harness({ storage: { getItem: () => kept, setItem: () => {} } })
+    const b = harness({ storage: { getItem: () => kept, setItem: () => {}, removeItem: () => {} } })
     b.runner.start()
     b.advance(5 * MIN - WARN_MS)
     expect(b.runner.getView().phase.kind).toBe('warning')
   })
 
-  it('B8: a tab that is not the leader shows nothing and asks the leader to start a break', () => {
+  it("B8: a tab that is not the leader shows the leader's break and asks it to skip", () => {
+    const post = vi.fn()
+    let send: ((m: unknown) => void) | null = null
+    const h = harness({
+      lock: () => {},
+      channel: {
+        post,
+        listen: (fn) => {
+          send = fn
+          return () => {}
+        },
+      },
+    })
+    h.runner.start()
+    const deliver = send as unknown as (m: unknown) => void
+    deliver({ type: 'schedule', schedule: { dueAt: 0, phase: { kind: 'break', endsAt: 20_000 } } })
+    expect(h.runner.getView()).toMatchObject({ leader: false, phase: { kind: 'break' } })
+    h.runner.skip()
+    expect(post).toHaveBeenCalledWith('skip')
+    expect(h.runner.getView().phase.kind).toBe('counting')
+  })
+
+  it('B8: a tab that is not the leader shows nothing on its own and asks the leader to start a break', () => {
     const post = vi.fn()
     const h = harness({
       lock: () => {}, // never granted
@@ -162,6 +244,11 @@ describe('break runner (PLAN-breaks B3, B7, B8, B11)', () => {
     busy = true
     h.advance(1000)
     expect(postMessage).toHaveBeenCalledWith({ type: 'busy', busy: true })
+    // Said again while it lasts, so the app can forget a page that closed mid-recording.
+    postMessage.mockClear()
+    h.advance(BUSY_BEAT_MS)
+    expect(postMessage).toHaveBeenCalledWith({ type: 'busy', busy: true })
+    busy = false
     h.setSettings({ everyMinutes: 30 })
     expect(postMessage).toHaveBeenLastCalledWith({
       type: 'settings',

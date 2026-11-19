@@ -46,6 +46,9 @@ struct BreaksTests {
         var badDay = page
         badDay["hours"] = ["start": "09:00", "end": "17:00", "days": [7]] as [String: Any]
         bad.append(["type": "settings", "settings": badDay])
+        var noDays = page
+        noDays["hours"] = ["start": "09:00", "end": "17:00", "days": [Int]()] as [String: Any]
+        bad.append(["type": "settings", "settings": noDays])
         for body in bad { #expect(BreaksBridge.parse(body) == nil) }
     }
 

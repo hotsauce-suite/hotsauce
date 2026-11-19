@@ -19,6 +19,16 @@ export const BREAKS_LOCK = 'hotsauce-breaks'
 export const SCHEDULE_KEY = 'hotsauce:breaks-schedule'
 export const MAC_BREAKS_HANDLER = 'hotsauceBreaks'
 const TICK_MS = 1000
+/**
+ * A gap between ticks this long means the computer slept. Shorter gaps are a hidden tab's timers
+ * being slowed down (Chrome runs them once a minute after a few minutes hidden), not time away.
+ */
+export const AWAY_GAP_MS = 3 * 60_000
+/** Inside the Mac app, "busy" is said again this often while it lasts, so a page that closes
+ * mid-recording can't hold breaks for good: the app forgets it after a few missed beats. */
+export const BUSY_BEAT_MS = 5000
+/** A heads-up this far past its start, sent by a leader that has since gone quiet, is stale. */
+const STALE_MS = 5000
 
 export interface BreakView {
   phase: BreakPhase
@@ -31,7 +41,7 @@ export interface RunnerDeps {
   now: () => number
   setInterval: (fn: () => void, ms: number) => unknown
   clearInterval: (id: unknown) => void
-  storage: Pick<Storage, 'getItem' | 'setItem'> | null
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null
   /** Waits for the one-tab lock; calls `run` once held, and holds it until the returned promise ends. */
   lock: ((run: () => Promise<void>) => void) | null
   /** A recording, dictation, screen share or calendar meeting is on. */
@@ -45,7 +55,10 @@ export interface RunnerDeps {
   /** The break started while the page was hidden. */
   notifyHidden: (settings: BreakSettings) => void
   hidden: () => boolean
-  /** Tells the other tabs (a non-leader tab asks the leader to start a break now). */
+  /**
+   * Talks to the other tabs: the leader sends its schedule so every tab shows the break, and the
+   * other tabs ask the leader to start, skip or snooze one.
+   */
   channel: {
     post(message: unknown): void
     listen(fn: (message: unknown) => void): () => void
@@ -61,13 +74,23 @@ export interface BreakRunner {
   snooze(): void
 }
 
+type ChannelMessage =
+  | 'startNow'
+  | 'skip'
+  | 'snooze'
+  | { type: 'schedule'; schedule: BreakSchedule | null }
+
+function isSchedule(s: unknown): s is BreakSchedule {
+  const v = s as BreakSchedule | null
+  return typeof v?.dueAt === 'number' && !!v.phase && typeof v.phase.kind === 'string'
+}
+
 function readSchedule(storage: RunnerDeps['storage']): BreakSchedule | null {
   try {
     const raw = storage?.getItem(SCHEDULE_KEY)
     if (!raw) return null
-    const s = JSON.parse(raw) as BreakSchedule
-    if (typeof s?.dueAt !== 'number' || !s.phase || typeof s.phase.kind !== 'string') return null
-    return s
+    const s: unknown = JSON.parse(raw)
+    return isSchedule(s) ? s : null
   } catch {
     return null
   }
@@ -77,24 +100,38 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
   const listeners = new Set<() => void>()
   let leader = false
   let schedule: BreakSchedule | null = null
+  /** In a tab that isn't the leader: the leader's schedule, as it last sent it. */
+  let shared: BreakSchedule | null = null
   let lastTick = 0
   let timer: unknown = null
   /** The every and length the count was started with: a change restarts it (B3). */
   let countedWith = ''
   let view: BreakView = { phase: { kind: 'counting' }, leader: false, settings: deps.settings() }
 
+  function shownPhase(): BreakPhase {
+    const s = leader ? schedule : shared
+    if (!s || !deps.settings().on) return { kind: 'counting' }
+    // A schedule from a leader that has since closed can be out of date.
+    if (!leader && s.phase.kind === 'break' && s.phase.endsAt <= deps.now())
+      return { kind: 'counting' }
+    if (!leader && s.phase.kind === 'warning' && s.phase.startsAt + STALE_MS <= deps.now())
+      return { kind: 'counting' }
+    return s.phase
+  }
+
   function emit() {
-    const phase = leader && schedule ? schedule.phase : ({ kind: 'counting' } as const)
-    view = { phase, leader, settings: deps.settings() }
+    view = { phase: shownPhase(), leader, settings: deps.settings() }
     for (const l of listeners) l()
   }
 
   function save() {
     try {
       if (schedule) deps.storage?.setItem(SCHEDULE_KEY, JSON.stringify(schedule))
+      else deps.storage?.removeItem(SCHEDULE_KEY)
     } catch {
       // Nowhere to keep it: a new tab starts a fresh count.
     }
+    deps.channel?.post({ type: 'schedule', schedule } satisfies ChannelMessage)
   }
 
   function key(s: BreakSettings) {
@@ -106,11 +143,14 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
     const now = deps.now()
     // A long gap between ticks: the computer slept, which counts as time away (B5).
     const gap = lastTick ? now - lastTick - TICK_MS : 0
+    const away = gap >= AWAY_GAP_MS ? gap : 0
     lastTick = now
     if (!settings.on) {
-      if (schedule) {
+      if (schedule || countedWith) {
+        // Off forgets the count: turning breaks on again starts a fresh one (B3).
         schedule = null
         countedWith = ''
+        save()
         emit()
       }
       return
@@ -128,7 +168,7 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
     const r = step(schedule, settings, {
       now,
       busy: deps.busy(),
-      idleMs: Math.max(0, gap),
+      idleMs: away,
       inHours: withinWorkingHours(settings.hours, new Date(now)),
     })
     const changed = r.schedule !== schedule
@@ -141,14 +181,23 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
     }
   }
 
-  function lead(): Promise<void> {
+  /** Ends the current run (the shell unmounted): lets go of the lock and the timer. */
+  let release: (() => void) | null = null
+  let run = 0
+
+  function lead(mine: number): Promise<void> {
+    // Granted after this run already ended (React's dev double effect): hand the lock straight on.
+    if (mine !== run) return Promise.resolve()
     leader = true
     lastTick = 0
+    countedWith = ''
     tick()
     emit()
     timer = deps.setInterval(tick, TICK_MS)
-    // Held until the tab closes.
-    return new Promise(() => {})
+    // Held until the tab closes or the shell unmounts.
+    return new Promise((resolve) => {
+      release = resolve
+    })
   }
 
   function act(next: (s: BreakSettings, now: number) => BreakSchedule) {
@@ -158,6 +207,14 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
     countedWith = key(settings)
     save()
     emit()
+  }
+
+  /** A tab that isn't the leader: hide the break here at once and ask the leader to act. */
+  function hideAndAsk(m: 'skip' | 'snooze') {
+    if (!shared) return
+    shared = null
+    emit()
+    deps.channel?.post(m satisfies ChannelMessage)
   }
 
   let started = false
@@ -170,6 +227,8 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
     start() {
       if (started) return () => {}
       started = true
+      const mine = ++run
+      shared = deps.mac ? null : readSchedule(deps.storage)
       const offSettings = deps.subscribeSettings(() => {
         if (deps.mac) deps.mac.postMessage({ type: 'settings', settings: deps.settings() })
         else if (leader) tick()
@@ -180,18 +239,29 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
         const mac = deps.mac
         mac.postMessage({ type: 'settings', settings: deps.settings() })
         let wasBusy = deps.busy()
+        let saidAt = deps.now()
         mac.postMessage({ type: 'busy', busy: wasBusy })
         timer = deps.setInterval(() => {
           const busy = deps.busy()
-          if (busy !== wasBusy) {
+          const now = deps.now()
+          if (busy !== wasBusy || (busy && now - saidAt >= BUSY_BEAT_MS)) {
             wasBusy = busy
+            saidAt = now
             mac.postMessage({ type: 'busy', busy })
           }
         }, TICK_MS)
-      } else if (deps.lock) deps.lock(lead)
-      else void lead()
-      const offChannel = deps.channel?.listen((m) => {
-        if (leader && m === 'startNow') act((st, now) => startNowSchedule(st, now))
+      } else if (deps.lock) deps.lock(() => lead(mine))
+      else void lead(mine)
+      const offChannel = deps.channel?.listen((raw) => {
+        const m = raw as ChannelMessage
+        if (leader) {
+          if (m === 'startNow') act((st, now) => startNowSchedule(st, now))
+          else if (m === 'skip') act(skipSchedule)
+          else if (m === 'snooze') act((_s, now) => snoozeSchedule(now))
+        } else if (typeof m === 'object' && m?.type === 'schedule') {
+          shared = m.schedule === null || isSchedule(m.schedule) ? m.schedule : shared
+          emit()
+        }
       })
       return () => {
         offSettings()
@@ -199,6 +269,11 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
         if (timer !== null) deps.clearInterval(timer)
         timer = null
         started = false
+        run++
+        leader = false
+        release?.()
+        release = null
+        emit()
       }
     },
     startNow() {
@@ -214,9 +289,11 @@ export function createBreakRunner(deps: RunnerDeps): BreakRunner {
     },
     skip() {
       if (leader) act(skipSchedule)
+      else hideAndAsk('skip')
     },
     snooze() {
       if (leader) act((_s, now) => snoozeSchedule(now))
+      else hideAndAsk('snooze')
     },
   }
 }

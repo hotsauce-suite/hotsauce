@@ -78,21 +78,28 @@ export function loadBreakSettings(force = false): Promise<void> {
   return loading
 }
 
+/** Saves go to the server one at a time, in order, so the last change is the one kept. */
+let queue: Promise<unknown> = Promise.resolve()
+let latest = 0
+
 /** Changes some settings and saves them; the page shows the change at once. */
 export async function saveBreakSettings(change: Partial<BreakSettings>): Promise<void> {
-  const before = state
+  // A change made before the member's saved settings arrive builds on those, not on defaults.
+  if (loading && !state.loaded) await loading
   edits++
+  const mine = ++latest
   const settings = { ...state.settings, ...change, schema: 1 as const }
   set({ settings, saved: true, error: null })
+  const sent = queue.then(() => breaksApi.save(settings))
+  queue = sent.catch(() => {})
   try {
-    const view = await breaksApi.save(settings)
-    set({ settings: view.settings, saved: true })
+    const view = await sent
+    if (mine === latest) set({ settings: view.settings, saved: true })
   } catch (err) {
-    set({
-      settings: before.settings,
-      saved: before.saved,
-      error: err instanceof Error ? err.message : 'Couldn’t save your break settings',
-    })
+    if (mine !== latest) return
+    set({ error: err instanceof Error ? err.message : 'Couldn’t save your break settings' })
+    // Show what the server really holds.
+    void loadBreakSettings(true)
   }
 }
 
@@ -101,6 +108,8 @@ export function resetBreakSettingsForTests(): void {
   state = { settings: defaultBreakSettings(), saved: false, loaded: false, error: null }
   loading = null
   edits = 0
+  latest = 0
+  queue = Promise.resolve()
   try {
     localStorage.removeItem(CACHE_KEY)
   } catch {

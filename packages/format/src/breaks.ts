@@ -72,7 +72,9 @@ function hoursOf(v: unknown): WorkingHours | null | undefined {
   if (typeof h.start !== 'string' || !TIME.test(h.start)) return undefined
   if (typeof h.end !== 'string' || !TIME.test(h.end)) return undefined
   if (h.start === h.end) return undefined
-  if (!Array.isArray(h.days) || !h.days.every((d) => isInt(d, 0, 6))) return undefined
+  // No days at all would mean breaks never come while still showing as on.
+  if (!Array.isArray(h.days) || !h.days.length || !h.days.every((d) => isInt(d, 0, 6)))
+    return undefined
   const days = [...new Set(h.days as number[])].sort((a, b) => a - b)
   return { start: h.start, end: h.end, days }
 }
@@ -144,7 +146,7 @@ export function parseBreakSettings(input: unknown): BreakSettings {
   const hours = r.hours === undefined ? null : hoursOf(r.hours)
   if (hours === undefined)
     throw new BreakSettingsError(
-      '"hours" must be null or {start: "HH:MM", end: "HH:MM", days: [0-6]} with different times',
+      '"hours" must be null or {start: "HH:MM", end: "HH:MM", days: [0-6], at least one} with different times',
     )
   return {
     schema: 1,

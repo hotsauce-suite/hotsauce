@@ -68,6 +68,7 @@ describe('break settings (PLAN-breaks B1, B2)', () => {
       { ...ok, hours: { start: '09:00', end: '09:00', days: [1] } },
       { ...ok, hours: { start: '9:00', end: '17:00', days: [1] } },
       { ...ok, hours: { start: '09:00', end: '17:00', days: [7] } },
+      { ...ok, hours: { start: '09:00', end: '17:00', days: [] } },
     ]
     for (const b of bad) expect(() => parseBreakSettings(b)).toThrow(BreakSettingsError)
   })

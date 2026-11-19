@@ -94,7 +94,7 @@ public enum BreaksBridge {
             guard let h = h as? [String: Any],
                   let start = (h["start"] as? String).flatMap(minutes),
                   let end = (h["end"] as? String).flatMap(minutes), start != end,
-                  let list = h["days"] as? [Any], list.count <= 7
+                  let list = h["days"] as? [Any], !list.isEmpty, list.count <= 7
             else { return nil }
             var days = Set<Int>()
             for d in list {

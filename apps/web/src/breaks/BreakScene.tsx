@@ -16,13 +16,19 @@ const CLOUDS = [
 ]
 
 const WAVES = [
-  { bottom: '30%', fill: 'rgb(255 255 255 / 0.10)', duration: 18 },
-  { bottom: '16%', fill: 'rgb(255 255 255 / 0.16)', duration: 13 },
-  { bottom: '0%', fill: 'rgb(255 255 255 / 0.24)', duration: 9 },
+  { rise: 30, fill: 'rgb(255 255 255 / 0.10)', duration: 18 },
+  { rise: 16, fill: 'rgb(255 255 255 / 0.16)', duration: 13 },
+  { rise: 0, fill: 'rgb(255 255 255 / 0.24)', duration: 9 },
 ]
 
-/** One wave's shape, repeated twice across 200% width so it can slide seamlessly. */
-const WAVE_PATH = 'M0 30 Q 50 10 100 30 T 200 30 T 300 30 T 400 30 V 60 H 0 Z'
+/**
+ * One wave's shape, repeated twice across 200% width so it can slide seamlessly. Each wave
+ * reaches the bottom of the sea (its crest band is 40% tall, plus however far it rises), so the
+ * see-through layers never show a hard edge where one ends.
+ */
+function wavePath(height: number) {
+  return `M0 30 Q 50 10 100 30 T 200 30 T 300 30 T 400 30 V ${height} H 0 Z`
+}
 
 export function BreakScene({
   animation,
@@ -67,14 +73,14 @@ export function BreakScene({
       >
         {WAVES.map((w) => (
           <svg
-            key={w.bottom}
+            key={w.rise}
             aria-hidden="true"
             className="break-wave"
-            style={{ bottom: w.bottom, height: '40%', animationDuration: `${w.duration}s` }}
-            viewBox="0 0 400 60"
+            style={{ bottom: 0, height: `${40 + w.rise}%`, animationDuration: `${w.duration}s` }}
+            viewBox={`0 0 400 ${(60 * (40 + w.rise)) / 40}`}
             preserveAspectRatio="none"
           >
-            <path d={WAVE_PATH} fill={w.fill} />
+            <path d={wavePath((60 * (40 + w.rise)) / 40)} fill={w.fill} />
           </svg>
         ))}
       </div>

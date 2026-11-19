@@ -10,6 +10,11 @@ import SwiftUI
 @MainActor
 final class BreakController {
     private static let defaultsKey = "breaks.settings"
+    /// A gap between ticks this long means the Mac slept; shorter ones are App Nap slowing the timer.
+    private static let awayGap: TimeInterval = 180
+    /// The page says "busy" again every 5 seconds while it lasts; after this long without, a page
+    /// that closed or reloaded mid-recording no longer holds breaks.
+    private static let busyLasts: TimeInterval = 15
 
     private(set) var settings: BreaksBridge.Settings
     private var schedule: BreakSchedule?
@@ -17,6 +22,9 @@ final class BreakController {
     private var lastTick: Date?
     /// The page's recording or calendar meeting.
     private var pageBusy = false
+    private var pageBusyAt = Date.distantPast
+    /// Keeps App Nap from slowing the timer while breaks are on.
+    private var activity: NSObjectProtocol?
     /// What the app records itself: dictation, a call.
     private var holds: Set<String> = []
     private var locked = false
@@ -68,6 +76,7 @@ final class BreakController {
             tick()
         case let .busy(busy):
             pageBusy = busy
+            pageBusyAt = Date()
         case .startNow:
             startNow()
         }
@@ -92,6 +101,7 @@ final class BreakController {
         // A gap between ticks means the Mac slept: that's time away too.
         let gap = lastTick.map { now.timeIntervalSince($0) - 1 } ?? 0
         lastTick = now
+        updateActivity()
         guard settings.on else {
             if schedule != nil {
                 schedule = nil
@@ -107,8 +117,9 @@ final class BreakController {
         }
         guard let current = schedule else { return }
         let (next, event) = current.step(
-            settings, now: now, busy: pageBusy || !holds.isEmpty,
-            idle: max(idle, gap),
+            settings, now: now,
+            busy: (pageBusy && now.timeIntervalSince(pageBusyAt) < Self.busyLasts) || !holds.isEmpty,
+            idle: max(idle, gap >= Self.awayGap ? gap : 0),
             inHours: settings.hours?.contains(now) ?? true
         )
         schedule = next
@@ -116,6 +127,15 @@ final class BreakController {
         if next != current || event != nil { show(next.phase) }
         if case let .onBreak(endsAt) = next.phase { model.secondsLeft = max(0, Int(endsAt.timeIntervalSince(now).rounded(.up))) }
         if case let .warning(startsAt) = next.phase { model.warningLeft = max(0, Int(startsAt.timeIntervalSince(now).rounded(.up))) }
+    }
+
+    private func updateActivity() {
+        if settings.on, activity == nil {
+            activity = ProcessInfo.processInfo.beginActivity(options: .userInitiatedAllowingIdleSystemSleep, reason: "Screen breaks")
+        } else if !settings.on, let current = activity {
+            ProcessInfo.processInfo.endActivity(current)
+            activity = nil
+        }
     }
 
     private func startNow() {
@@ -185,6 +205,10 @@ final class BreakController {
     }
 
     private func showBreak() {
+        // The buttons go on the display the member is looking at: the one with the pointer.
+        let mouse = NSEvent.mouseLocation
+        let primary = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.screens.first
+        var primaryPanel: NSPanel?
         if breakPanels.isEmpty {
             for screen in NSScreen.screens {
                 let panel = BreakPanel(
@@ -193,8 +217,9 @@ final class BreakController {
                 )
                 configure(panel, level: .screenSaver)
                 panel.setFrame(screen.frame, display: false)
-                panel.contentView = NSHostingView(rootView: BreakView(model: model, primary: screen == NSScreen.main))
+                panel.contentView = NSHostingView(rootView: BreakView(model: model, primary: screen == primary))
                 panel.onEscape = { [weak self] in self?.skip() }
+                if screen == primary { primaryPanel = panel }
                 breakPanels.append(panel)
             }
         }
@@ -207,7 +232,7 @@ final class BreakController {
             }
         }
         // Key, so Esc skips, without bringing Hotsauce's own window forward.
-        breakPanels.first { $0.screen == NSScreen.main }?.makeKey()
+        (primaryPanel ?? breakPanels.first)?.makeKey()
     }
 
     private func hideBreak() {
