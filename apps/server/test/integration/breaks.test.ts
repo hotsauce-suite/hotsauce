@@ -52,7 +52,6 @@ async function call(method: string, url: string, as = ALICE, json?: unknown): Pr
   })
 }
 
-
 describe('Screen break settings', () => {
   it('B2: are the defaults until saved, then the saved ones, per member', async () => {
     expect(await (await call('GET', '/api/breaks')).json()).toEqual({

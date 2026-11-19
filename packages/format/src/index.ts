@@ -45,6 +45,24 @@ export {
   zonedTimeToUtc,
 } from './booking.js'
 export {
+  BREAK_ANIMATIONS,
+  BREAK_EVERY_MAX,
+  BREAK_EVERY_MIN,
+  BREAK_LENGTH_MAX,
+  BREAK_LENGTH_MIN,
+  BREAKS_PATH,
+  type BreakAnimation,
+  type BreakSettings,
+  BreakSettingsError,
+  DEFAULT_WORKING_HOURS,
+  defaultBreakSettings,
+  parseBreakSettings,
+  readBreakSettings,
+  serializeBreakSettings,
+  type WorkingHours,
+  withinWorkingHours,
+} from './breaks.js'
+export {
   CHECKINS_FOLDER,
   CheckinAnswerFrontmatter,
   CheckinFrontmatter,
@@ -405,21 +423,3 @@ export {
   updateTile,
 } from './today.js'
 export { daysSinceMonday, endOfWeek, monthGrid, startOfWeek, WEEK_DAY_NAMES } from './weeks.js'
-export {
-  BREAK_ANIMATIONS,
-  BREAK_EVERY_MAX,
-  BREAK_EVERY_MIN,
-  BREAK_LENGTH_MAX,
-  BREAK_LENGTH_MIN,
-  type BreakAnimation,
-  type BreakSettings,
-  BreakSettingsError,
-  BREAKS_PATH,
-  DEFAULT_WORKING_HOURS,
-  defaultBreakSettings,
-  parseBreakSettings,
-  readBreakSettings,
-  serializeBreakSettings,
-  type WorkingHours,
-  withinWorkingHours,
-} from './breaks.js'

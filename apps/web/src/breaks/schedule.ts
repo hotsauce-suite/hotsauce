@@ -86,7 +86,10 @@ export function step(
   if (phase.kind === 'warning') {
     if (now >= phase.startsAt)
       return {
-        schedule: { dueAt: phase.startsAt, phase: { kind: 'break', endsAt: now + lengthMs(settings) } },
+        schedule: {
+          dueAt: phase.startsAt,
+          phase: { kind: 'break', endsAt: now + lengthMs(settings) },
+        },
         event: 'start',
       }
     return { schedule, event: null }

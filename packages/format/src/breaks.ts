@@ -116,7 +116,15 @@ export function parseBreakSettings(input: unknown): BreakSettings {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     throw new BreakSettingsError('Send the break settings as an object')
   const r = input as Record<string, unknown>
-  const known = new Set(['schema', 'on', 'everyMinutes', 'lengthSeconds', 'animation', 'chime', 'hours'])
+  const known = new Set([
+    'schema',
+    'on',
+    'everyMinutes',
+    'lengthSeconds',
+    'animation',
+    'chime',
+    'hours',
+  ])
   for (const key of Object.keys(r)) {
     if (!known.has(key)) throw new BreakSettingsError(`Unknown setting "${key}"`)
   }

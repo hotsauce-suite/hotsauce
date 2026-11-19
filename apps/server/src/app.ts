@@ -10,6 +10,7 @@ import {
   authorizeSpace,
   boardRoutes,
   bookingRoutes,
+  breakRoutes,
   briefcastRoutes,
   briefRoutes,
   calendarRoutes,
@@ -48,7 +49,6 @@ import {
   testRoutes,
   themeRoutes,
   todayRoutes,
-  breakRoutes,
   tokenRoutes,
   usageRoutes,
 } from './api/index.js'
