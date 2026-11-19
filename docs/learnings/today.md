@@ -104,3 +104,17 @@
   sample temperature next to a generated forecast looked broken in the first screenshot.
 - After `pnpm install` in a fresh container, build `@hotsauce/format` before running web tests,
   or Vite can't resolve it.
+
+## The sky (2026-11-19, docs/PLAN-today-sky.md)
+
+- The usual sunrise formula (suncalc's) picks the solar noon nearest the instant you give it, not
+  the calendar day. Just after midnight, west of a zone's centre or in summer time, that is
+  yesterday, and a value memoized per day then shows night all day. Always pass the local day's
+  noon. Tests with midday UTC instants hide this; test 00:05 local.
+- `color-mix(in oklab, sky N%, var(--paper))` makes any theme get a matching sky for free, but
+  dark text over a 55% night sky in the light theme fell to 1.6:1. Keep day mixes near 25 to 30%
+  and give the night band its own light `--ink` tokens. Check the numbers with a small oklab
+  script rather than by eye.
+- A `title` hover target placed before the text in the DOM is covered by it; give it `z-10`.
+- Playwright's `clock.install` stalls the mocked app; `clock.setFixedTime` freezes Date only and
+  is enough for time-of-day screenshots.

@@ -22,6 +22,8 @@ import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { desktopSignInBridge } from '../../lib/desktop'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader } from '../meetings/components/common'
+import { SkyScenePicker } from './sky/SkyScenePicker'
+import { TodaySky } from './sky/TodaySky'
 import { TodayClock, TodayGreeting, useMinuteClock } from './TodayHeader'
 import { AddTileMenu, TodayTiles } from './TodayTiles'
 import { Card } from './tiles/Card'
@@ -107,7 +109,9 @@ export default function TodayPage() {
         <div className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-8">
           {layouts.draft ? <EditBar {...layouts} /> : null}
           <div className="mb-5 flex flex-wrap items-start gap-3">
-            <TodayGreeting view={view} name={session.me?.principal.name} now={now} />
+            <TodaySky now={now}>
+              <TodayGreeting view={view} name={session.me?.principal.name} now={now} />
+            </TodaySky>
           </div>
           {failed ? <LoadError things="day" onRetry={() => void load()} className="mb-4" /> : null}
           {layouts.error ? (
@@ -304,6 +308,7 @@ function EditBar(l: ReturnType<typeof useLayout>) {
       data-testid="today-edit-bar"
     >
       <AddTileMenu layout={l.draft} onChange={l.change} />
+      <SkyScenePicker />
       <button
         type="button"
         onClick={l.reset}
