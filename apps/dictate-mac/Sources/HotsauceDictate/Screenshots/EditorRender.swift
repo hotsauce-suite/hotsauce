@@ -25,8 +25,7 @@ enum EditorRender {
         document.add(.text(origin: CGPoint(x: 1180, y: 160), string: "Click here first\nthen Save", fontSize: 44), color: ember, width: 6)
         document.add(.step(center: CGPoint(x: 1120, y: 560), radius: 26, number: 0), color: ember, width: 6)
         document.add(.step(center: CGPoint(x: 160, y: 590), radius: 26, number: 0), color: ShotPalette.colors[2].color, width: 6)
-        document.add(.redact(CGRect(x: 200, y: 330, width: 420, height: 60), style: .fill), color: ShotPalette.redactColor, width: 6)
-        document.add(.redact(CGRect(x: 200, y: 420, width: 420, height: 60), style: .mosaic), color: ShotPalette.redactColor, width: 6)
+        document.add(.redact(CGRect(x: 200, y: 330, width: 420, height: 60)), color: ShotPalette.redactColor, width: 6)
 
         for (name, appearance) in [("screenshot-editor-light", NSAppearance.Name.aqua), ("screenshot-editor-dark", .darkAqua)] {
             let editor = ScreenshotEditor(shot: shot, document: document)
@@ -45,8 +44,8 @@ enum EditorRender {
         guard let secret = textPicture(["Account 4421 9087 3310", "Password: hunter2-correct-horse", "Balance £12,408.17"]) else { return fail("couldn’t draw text") }
         _ = write(secret, to: out.appendingPathComponent("screenshot-redact-before.png"))
         var redacted = ShotDocument(sourceWidth: secret.width, sourceHeight: secret.height)
-        redacted.add(.redact(CGRect(x: 250, y: 10, width: 540, height: 70), style: .fill), color: ShotPalette.redactColor, width: 6)
-        redacted.add(.redact(CGRect(x: 280, y: 90, width: 700, height: 70), style: .mosaic), color: ShotPalette.redactColor, width: 6)
+        redacted.add(.redact(CGRect(x: 250, y: 10, width: 540, height: 70)), color: ShotPalette.redactColor, width: 6)
+        redacted.add(.redact(CGRect(x: 280, y: 92, width: 700, height: 86)), color: ShotPalette.redactColor, width: 6)
         guard let after = ShotRenderer.exportPNG(redacted, source: secret) else { return fail("couldn’t redact") }
         try? after.write(to: out.appendingPathComponent("screenshot-redact-after.png"))
 

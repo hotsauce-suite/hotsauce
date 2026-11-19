@@ -6,7 +6,6 @@ import DictateCore
 /// maths (hit testing, handles, resizing, history, zoom) is in DictateCore; this is the glue.
 final class EditorCanvas: NSView, NSTextViewDelegate {
     let source: CGImage
-    private(set) lazy var pixels = ShotPixels(image: source)
 
     private(set) var document: ShotDocument {
         didSet {
@@ -32,13 +31,12 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
             } else {
                 cropRect = nil
             }
-            refit()
+            refit(keepZoom: true)
             onToolChange()
         }
     }
     var color = ShotPalette.defaultColor
     var width = ShotPalette.defaultWidth
-    var redactStyle: RedactStyle = .fill
 
     var onChange: () -> Void = {}
     var onSelectionChange: () -> Void = {}
@@ -55,9 +53,11 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
     private enum Drag {
         case none
         case creating(start: CGPoint, end: CGPoint, path: [CGPoint], shift: Bool)
-        case moving(before: ShotDocument, last: CGPoint)
-        case resizing(before: ShotDocument, original: ShotLayer, handle: ShotHandle)
+        case moving(last: CGPoint)
+        case resizing(original: ShotLayer, handle: ShotHandle)
         case cropping(start: CGRect, handle: ShotHandle?, from: CGPoint)
+        /// A new crop, dragged out from where the mouse went down.
+        case newCrop(anchor: CGPoint)
     }
     private var drag = Drag.none
 
@@ -85,8 +85,9 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
 
     // MARK: Changes
 
-    /// One undoable change.
+    /// One undoable change. A drag under way ends first, so its step comes before this one.
     func change(_ body: (inout ShotDocument) -> Void) {
+        finishDrag()
         let before = document
         var after = document
         body(&after)
@@ -95,17 +96,10 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         document = after
     }
 
-    /// A change already shown live (a move, a resize) becomes one undo step.
-    private func commit(from before: ShotDocument) {
-        if document != before { history.record(before) }
-    }
-
     /// A move or resize under way is kept as its own undo step before anything else happens.
     private func finishDrag() {
-        switch drag {
-        case let .moving(before, _), let .resizing(before, _, _): commit(from: before)
-        default: break
-        }
+        history.endGesture(document)
+        if case .creating = drag { needsDisplay = true }
         drag = .none
     }
 
@@ -138,24 +132,6 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         if !selection.isEmpty { change { $0.setWidth(selection, width) } }
     }
 
-    func applyRedactStyle(_ style: RedactStyle) {
-        redactStyle = style
-        guard editingText == nil else { return }
-        let redactions = selection.filter { if case .redact = document.layer($0)?.shape { true } else { false } }
-        guard !redactions.isEmpty else { return }
-        change { doc in
-            for id in redactions {
-                guard var layer = doc.layer(id), case let .redact(rect, _) = layer.shape else { continue }
-                layer.shape = .redact(rect, style: style)
-                doc.update(layer)
-            }
-        }
-    }
-
-    var selectedRedactions: Bool {
-        selection.contains { if case .redact = document.layer($0)?.shape { true } else { false } }
-    }
-
     func deleteSelection() {
         guard !selection.isEmpty else { return }
         change { $0.delete(selection) }
@@ -185,7 +161,7 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
 
     func refit(keepZoom: Bool = false) {
         if keepZoom, userZoomed {
-            transform.content = content
+            transform = transform.withContent(content)
         } else {
             userZoomed = false
             transform = .fitted(content: content, in: bounds.size, margin: 24, backingScale: backingScale)
@@ -258,15 +234,9 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         if case let .creating(start, end, path, shift) = drag,
            let shape = ShotGeometry.shape(for: tool, from: start, to: end, shift: shift, path: path) {
             shownDocument.add(shape, color: tool == .redact ? ShotPalette.redactColor : color, width: width)
-            if case let .redact(rect, _) = shape, let last = shownDocument.layers.last?.id {
-                var layer = shownDocument.layer(last)!
-                layer.shape = .redact(rect, style: redactStyle)
-                shownDocument.update(layer)
-            }
         }
         let skipping: Set<Int> = editingText?.id.map { [$0] } ?? []
-        let needsPixels = shownDocument.layers.contains { if case .redact(_, .mosaic) = $0.shape { true } else { false } }
-        ShotRenderer.draw(shownDocument, source: source, pixels: needsPixels ? pixels : nil, in: context, skipping: skipping)
+        ShotRenderer.draw(shownDocument, source: source, in: context, skipping: skipping)
         context.restoreGState()
 
         if let cropRect { drawCrop(cropRect, in: context) }
@@ -362,10 +332,8 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
             } else if cropRect.contains(p) {
                 drag = .cropping(start: cropRect, handle: nil, from: p)
             } else {
-                // A fresh crop from here (from the nearest edge when outside the capture).
-                let bounds = document.sourceBounds
-                let corner = CGPoint(x: min(max(p.x, bounds.minX), bounds.maxX), y: min(max(p.y, bounds.minY), bounds.maxY))
-                drag = .cropping(start: CGRect(origin: corner, size: .zero), handle: .bottomRight, from: corner)
+                // A fresh crop from here, dragged any way (from the nearest edge when outside).
+                drag = .newCrop(anchor: p)
             }
             return
         }
@@ -373,7 +341,8 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         // A handle of the one selected layer wins with any tool.
         if selection.count == 1, let id = selection.first, let layer = document.layer(id),
            let handle = ShotGeometry.handle(at: p, of: layer, tolerance: handleTolerance) {
-            drag = .resizing(before: document, original: layer, handle: handle)
+            history.beginGesture(document)
+            drag = .resizing(original: layer, handle: handle)
             return
         }
 
@@ -390,7 +359,8 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
                     selection = [hit.id]
                 }
                 if event.clickCount == 2, case .text = hit.shape { beginEditingText(hit) ; return }
-                drag = .moving(before: document, last: p)
+                history.beginGesture(document)
+                drag = .moving(last: p)
             } else {
                 selection = []
             }
@@ -422,16 +392,18 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         case let .creating(start, _, path, _):
             drag = .creating(start: start, end: p, path: path + [p], shift: shift)
             needsDisplay = true
-        case let .moving(before, last):
+        case let .moving(last):
             var moved = document
             moved.move(selection, by: CGVector(dx: p.x - last.x, dy: p.y - last.y))
             document = moved
-            drag = .moving(before: before, last: p)
-        case let .resizing(before, original, handle):
+            drag = .moving(last: p)
+        case let .resizing(original, handle):
             var resized = document
             resized.update(original.resized(handle, to: p, shift: shift))
             document = resized
-            drag = .resizing(before: before, original: original, handle: handle)
+        case let .newCrop(anchor):
+            cropRect = ShotGeometry.cropRect(from: anchor, to: p, square: shift, in: document.sourceBounds)
+            needsDisplay = true
         case let .cropping(start, handle, from):
             let bounds = document.sourceBounds
             if let handle {
@@ -453,18 +425,17 @@ final class EditorCanvas: NSView, NSTextViewDelegate {
         drag = .none
         switch finished {
         case let .creating(start, end, path, shift):
-            guard var shape = ShotGeometry.shape(for: tool, from: start, to: end, shift: shift, path: path) else {
+            guard let shape = ShotGeometry.shape(for: tool, from: start, to: end, shift: shift, path: path) else {
                 needsDisplay = true
                 return
             }
-            if case let .redact(rect, _) = shape { shape = .redact(rect, style: redactStyle) }
             let layerColor = tool == .redact ? ShotPalette.redactColor : color
             var id = 0
             change { id = $0.add(shape, color: layerColor, width: width) }
             selection = [id]
-        case let .moving(before, _), let .resizing(before, _, _):
-            commit(from: before)
-        case .cropping:
+        case .moving, .resizing:
+            history.endGesture(document)
+        case .cropping, .newCrop:
             if let crop = cropRect, crop.isNull || crop.width < 8 || crop.height < 8 { cropRect = document.visibleRect }
             needsDisplay = true
         case .none:

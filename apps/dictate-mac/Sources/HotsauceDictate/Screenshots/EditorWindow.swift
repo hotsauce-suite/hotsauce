@@ -16,13 +16,16 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
     /// Closed: hands back the document (and the shot, with its file) to keep for next time.
     var onClose: (Screenshot, ShotDocument) -> Void = { _, _ in }
     var showError: (String) -> Void = { _ in }
+    /// A save landed: the shot (with its file) and the flattened picture.
+    var onSaved: (Screenshot, Data) -> Void = { _, _ in }
+    /// The screenshots folder, for a shot with no file (or whose file has moved).
+    var folder: () -> URL = { FileManager.default.homeDirectoryForCurrentUser }
 
     /// What the file on disk holds, so closing knows whether there is anything to save.
     private var savedDocument: ShotDocument
     private var toolButtons: [ShotTool: NSButton] = [:]
     private var swatches: [SwatchButton] = []
     private let widths = NSSegmentedControl()
-    private let redactStyle = NSSegmentedControl()
     private let shareButton = NSButton()
     private let status = NSTextField(labelWithString: "")
     private var statusWork: DispatchWorkItem?
@@ -119,18 +122,6 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         widths.setAccessibilityLabel("Line width")
         widths.controlSize = .small
 
-        redactStyle.segmentCount = 2
-        redactStyle.setLabel("Block", forSegment: 0)
-        redactStyle.setLabel("Pixelate", forSegment: 1)
-        redactStyle.setToolTip("Covers it with solid colour", forSegment: 0)
-        redactStyle.setToolTip("Covers it with coarse blocks of its average colours", forSegment: 1)
-        redactStyle.trackingMode = .selectOne
-        redactStyle.selectedSegment = 0
-        redactStyle.target = self
-        redactStyle.action = #selector(pickRedactStyle(_:))
-        redactStyle.controlSize = .small
-        redactStyle.setAccessibilityLabel("Redaction style")
-
         status.font = .systemFont(ofSize: 12, weight: .medium)
         status.textColor = .secondaryLabelColor
         status.lineBreakMode = .byTruncatingTail
@@ -150,7 +141,7 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let row = NSStackView(views: [tools, divider(), colors, widths, redactStyle, spacer, status, copyText, copy, save, shareButton])
+        let row = NSStackView(views: [tools, divider(), colors, widths, spacer, status, copyText, copy, save, shareButton])
         row.spacing = 10
         row.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -211,9 +202,7 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         for swatch in swatches { swatch.isChosen = swatch.color == shownColor }
         let shownWidth = selected.count == 1 ? selected[0].width : canvas.width
         widths.selectedSegment = ShotPalette.widths.firstIndex(of: shownWidth) ?? 1
-        redactStyle.isHidden = !(canvas.tool == .redact || canvas.selectedRedactions)
-        let edited = canvas.document != savedDocument
-        window.isDocumentEdited = edited
+        window.isDocumentEdited = hasUnsavedChanges
     }
 
     // MARK: Actions
@@ -233,10 +222,6 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         refreshControls()
     }
 
-    @objc private func pickRedactStyle(_ sender: NSSegmentedControl) {
-        canvas.applyRedactStyle(sender.selectedSegment == 1 ? .mosaic : .fill)
-    }
-
     @objc private func copyPressed() { copyPicture() }
     @objc private func savePressed() { save(as: false) }
 
@@ -248,7 +233,7 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
 
     /// The flattened, redacted picture: the only picture that leaves the editor.
     func flattened() -> Data? {
-        ShotRenderer.exportPNG(canvas.document, source: shot.image, pixels: canvas.pixels)
+        ShotRenderer.exportPNG(canvas.document, source: shot.image)
     }
 
     func copyPicture() {
@@ -262,34 +247,79 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         flash("Copied")
     }
 
-    /// ⌘S writes over the shot's file in the screenshots folder; ⇧⌘S (or no file yet) asks where.
+    var hasUnsavedChanges: Bool { canvas.document != savedDocument }
+
+    /// ⌘S writes over the shot's file in the screenshots folder; ⇧⌘S asks where.
     func save(as asking: Bool) {
         canvas.commitText()
+        guard asking else { saveInPlace(); return }
         guard let png = flattened() else { return }
-        if !asking, let url = shot.fileURL {
-            write(png, to: url)
-            return
-        }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
         panel.nameFieldStringValue = shot.fileURL?.lastPathComponent ?? ScreenshotFiles.fileName(for: shot.takenAt) { _ in false }
-        panel.directoryURL = shot.fileURL?.deletingLastPathComponent()
+        panel.directoryURL = shot.fileURL?.deletingLastPathComponent() ?? folder()
         panel.beginSheetModal(for: window) { [weak self] response in
             guard response == .OK, let url = panel.url, let self else { return }
-            self.write(png, to: url)
-            if self.shot.fileURL == nil { self.shot.fileURL = url }
+            _ = self.write(png, to: url, note: nil)
         }
     }
 
-    private func write(_ png: Data, to url: URL) {
-        do {
-            try png.write(to: url, options: .atomic)
-            if url == shot.fileURL { savedDocument = canvas.document }
-            refreshControls()
-            flash("Saved")
-        } catch {
-            showError("Couldn’t save to \(url.deletingLastPathComponent().lastPathComponent)")
+    /// Where ⌘S and closing write: the shot's file, or, when it has none or it was moved or
+    /// renamed while the editor was open, a new name in the screenshots folder (never the old
+    /// name recreated silently).
+    private func saveTarget() -> (url: URL, note: String?) {
+        let files = FileManager.default
+        if let url = shot.fileURL, files.fileExists(atPath: url.path) { return (url, nil) }
+        let directory = folder()
+        let name = ScreenshotFiles.fileName(for: Date()) { files.fileExists(atPath: directory.appendingPathComponent($0).path) }
+        let note = shot.fileURL.map { "\($0.lastPathComponent) had moved, so it was saved as \(name)" } ?? "Saved as \(name)"
+        return (directory.appendingPathComponent(name), note)
+    }
+
+    /// Saves the flattened picture where it belongs. False (and an alert) when it couldn't: the
+    /// changes then stay unsaved, and closing or quitting tries again.
+    @discardableResult
+    func saveInPlace() -> Bool {
+        canvas.commitText()
+        guard let png = flattened() else {
+            alert("Couldn’t make the picture to save.", detail: nil)
+            return false
         }
+        let target = saveTarget()
+        return write(png, to: target.url, note: target.note)
+    }
+
+    /// Before closing or quitting: saves changes if there are any.
+    func saveIfNeeded() -> Bool {
+        canvas.commitText()
+        return hasUnsavedChanges ? saveInPlace() : true
+    }
+
+    private func write(_ png: Data, to url: URL, note: String?) -> Bool {
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try png.write(to: url, options: .atomic)
+        } catch {
+            alert("Couldn’t save your changes to \(url.lastPathComponent).", detail: error.localizedDescription)
+            return false
+        }
+        // The saved file is now this shot's (Save As included), and it holds this document.
+        shot.fileURL = url
+        savedDocument = canvas.document
+        window.title = url.deletingPathExtension().lastPathComponent
+        refreshControls()
+        flash(note ?? "Saved")
+        if note != nil { showError(note!) }
+        onSaved(shot, png)
+        return true
+    }
+
+    private func alert(_ message: String, detail: String?) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = message
+        alert.informativeText = [detail, "Your changes are still in the editor; closing it tries again."].compactMap { $0 }.joined(separator: "\n\n")
+        alert.runModal()
     }
 
     /// Copy Text (R13): Vision reads the crop of the untouched capture (not the arrows and text
@@ -302,7 +332,8 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
         Task.detached(priority: .userInitiated) {
             let text = TextRecognition.read(image)
             await MainActor.run { [weak self] in
-                guard let self else { return }
+                // Closed while reading: leave the clipboard alone.
+                guard let self, self.window.isVisible else { return }
                 let words = TextReadingOrder.wordCount(text)
                 guard words > 0 else { self.flash("No text found"); return }
                 NSPasteboard.general.clearContents()
@@ -331,17 +362,14 @@ final class ScreenshotEditor: NSObject, NSWindowDelegate {
 
     // MARK: Closing
 
-    /// Unsaved changes are saved over the shot's file as the window closes.
+    /// Unsaved changes are saved over the shot's file before the window closes; if that fails
+    /// the window stays open with them.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        saveIfNeeded()
+    }
+
     func windowWillClose(_ notification: Notification) {
         canvas.commitText()
-        if canvas.document != savedDocument, let url = shot.fileURL, let png = flattened() {
-            do {
-                try png.write(to: url, options: .atomic)
-                savedDocument = canvas.document
-            } catch {
-                showError("Couldn’t save your changes to \(url.lastPathComponent)")
-            }
-        }
         onClose(shot, canvas.document)
     }
 }

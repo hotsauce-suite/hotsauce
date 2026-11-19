@@ -79,7 +79,7 @@ import Testing
         var d = document()
         d.add(.text(origin: CGPoint(x: 3, y: 4), string: "Hi\nthere", fontSize: 32), color: ember, width: 6)
         d.add(.highlighter(points: [.zero, CGPoint(x: 5, y: 5)]), color: ember, width: 6)
-        d.add(.redact(CGRect(x: 1, y: 2, width: 3, height: 4), style: .mosaic), color: ember, width: 6)
+        d.add(.redact(CGRect(x: 1, y: 2, width: 3, height: 4)), color: ember, width: 6)
         d.setCrop(CGRect(x: 1, y: 1, width: 20, height: 20))
         let back = try JSONDecoder().decode(ShotDocument.self, from: JSONEncoder().encode(d))
         #expect(back == d)
@@ -166,6 +166,33 @@ import Testing
         #expect(ShotGeometry.dragRect(from: CGPoint(x: 10, y: 10), to: CGPoint(x: 0, y: 40), square: true) == CGRect(x: -20, y: 10, width: 30, height: 30))
     }
 
+    @Test func zeroWidthOrHeightBoxesResizeToFiniteNumbers() {
+        let vertical = ShotLayer(id: 1, shape: .highlighter(points: [CGPoint(x: 10, y: 0), CGPoint(x: 10, y: 100)]), color: ember, width: 6)
+        for handle in ShotHandle.allCases {
+            let resized = vertical.resized(handle, to: CGPoint(x: 60, y: 140), shift: true)
+            guard case let .highlighter(points) = resized.shape else { Issue.record("highlighter"); continue }
+            #expect(points.allSatisfy { $0.x.isFinite && $0.y.isFinite })
+        }
+        let flat = CGRect(x: 0, y: 0, width: 100, height: 0)
+        for constraint in [ShotConstraint.free, .square, .proportional] {
+            let r = ShotGeometry.resize(flat, .bottomRight, to: CGPoint(x: 120, y: 30), constraint: constraint, minSize: 1)
+            #expect(r.width.isFinite && r.height.isFinite && r.minX.isFinite && r.minY.isFinite)
+        }
+    }
+
+    @Test func aFreshCropGrowsWhicheverWayItIsDragged() {
+        let bounds = CGRect(x: 0, y: 0, width: 400, height: 300)
+        let anchor = CGPoint(x: 200, y: 150)
+        #expect(ShotGeometry.cropRect(from: anchor, to: CGPoint(x: 100, y: 50), square: false, in: bounds) == CGRect(x: 100, y: 50, width: 100, height: 100))
+        #expect(ShotGeometry.cropRect(from: anchor, to: CGPoint(x: 300, y: 50), square: false, in: bounds) == CGRect(x: 200, y: 50, width: 100, height: 100))
+        #expect(ShotGeometry.cropRect(from: anchor, to: CGPoint(x: 100, y: 250), square: false, in: bounds) == CGRect(x: 100, y: 150, width: 100, height: 100))
+        // Past the capture's edge: clamped to it.
+        #expect(ShotGeometry.cropRect(from: anchor, to: CGPoint(x: -50, y: 999), square: false, in: bounds) == CGRect(x: 0, y: 150, width: 200, height: 150))
+        // Starting outside: from the nearest edge.
+        #expect(ShotGeometry.cropRect(from: CGPoint(x: -20, y: -20), to: CGPoint(x: 50, y: 40), square: false, in: bounds) == CGRect(x: 0, y: 0, width: 50, height: 40))
+        #expect(ShotGeometry.cropRect(from: anchor, to: CGPoint(x: 150, y: 140), square: true, in: bounds) == CGRect(x: 150, y: 100, width: 50, height: 50))
+    }
+
     @Test func arrowsSnapTo45Degrees() {
         let snapped = ShotGeometry.snap45(from: .zero, to: CGPoint(x: 100, y: 10))
         #expect(abs(snapped.y) < 0.001 && abs(snapped.x - hypot(100, 10)) < 0.001)
@@ -198,7 +225,7 @@ import Testing
     @Test func dragsMakeShapesAndTinyDragsMakeNothing() {
         #expect(ShotGeometry.shape(for: .rectangle, from: .zero, to: CGPoint(x: 2, y: 2), shift: false) == nil)
         #expect(ShotGeometry.shape(for: .ellipse, from: .zero, to: CGPoint(x: 30, y: 10), shift: true) == .ellipse(CGRect(x: 0, y: 0, width: 30, height: 30)))
-        #expect(ShotGeometry.shape(for: .redact, from: CGPoint(x: 0.5, y: 0.5), to: CGPoint(x: 10.2, y: 10.2), shift: false) == .redact(CGRect(x: 0, y: 0, width: 11, height: 11), style: .fill))
+        #expect(ShotGeometry.shape(for: .redact, from: CGPoint(x: 0.5, y: 0.5), to: CGPoint(x: 10.2, y: 10.2), shift: false) == .redact(CGRect(x: 0, y: 0, width: 11, height: 11)))
         #expect(ShotGeometry.shape(for: .arrow, from: .zero, to: CGPoint(x: 3, y: 3), shift: false) == nil)
         #expect(ShotGeometry.shape(for: .highlighter, from: .zero, to: CGPoint(x: 40, y: 40), shift: true) == .highlighter(points: [.zero, CGPoint(x: 40, y: 40)]))
         #expect(ShotGeometry.shape(for: .select, from: .zero, to: CGPoint(x: 40, y: 40), shift: false) == nil)
@@ -244,6 +271,58 @@ import Testing
             #expect(current == expected)
         }
         #expect(!history.canRedo)
+    }
+
+    @Test func aKeyEditDuringADragKeepsBothStepsInOrder() {
+        var history = ShotHistory()
+        let start = ShotDocument(sourceWidth: 100, sourceHeight: 100)
+        var d = start
+        let id = d.add(.rectangle(CGRect(x: 0, y: 0, width: 10, height: 10)), color: ember, width: 1)
+        let added = d
+        history.record(start)
+        // A drag starts and moves the box live.
+        history.beginGesture(d)
+        d.move([id], by: CGVector(dx: 5, dy: 0))
+        let dragged = d
+        // Delete pressed mid-drag: an ordinary change.
+        history.record(d)
+        d.delete([id])
+        // The drag ends after the delete; nothing more to record.
+        history.endGesture(d)
+        d = history.undo(d)!
+        #expect(d == dragged)
+        d = history.undo(d)!
+        #expect(d == added)
+        d = history.undo(d)!
+        #expect(d == start)
+        #expect(!history.canUndo)
+    }
+
+    @Test func aGestureIsOneStepAndAnEmptyOneIsNone() {
+        var history = ShotHistory()
+        var d = ShotDocument(sourceWidth: 100, sourceHeight: 100)
+        let id = d.add(.rectangle(CGRect(x: 0, y: 0, width: 10, height: 10)), color: ember, width: 1)
+        let before = d
+        history.beginGesture(d)
+        for _ in 0..<10 { d.move([id], by: CGVector(dx: 1, dy: 1)) }
+        history.endGesture(d)
+        history.beginGesture(d)
+        history.endGesture(d) // a click that moved nothing
+        #expect(history.undo(d) == before)
+        #expect(!history.canUndo)
+    }
+
+    @Test func undoMidGestureEndsItFirst() {
+        var history = ShotHistory()
+        var d = ShotDocument(sourceWidth: 100, sourceHeight: 100)
+        let id = d.add(.rectangle(CGRect(x: 0, y: 0, width: 10, height: 10)), color: ember, width: 1)
+        let before = d
+        history.beginGesture(d)
+        d.move([id], by: CGVector(dx: 7, dy: 0))
+        let moved = d
+        d = history.undo(d)!
+        #expect(d == before)
+        #expect(history.redo(d) == moved)
     }
 
     @Test func aNewEditDropsTheRedoStack() {
@@ -301,6 +380,16 @@ struct SeededGenerator: RandomNumberGenerator {
         #expect(small.origin == CGPoint(x: 475, y: 375))
         let narrow = ShotViewTransform.fitted(content: content, in: CGSize(width: 440, height: 800), margin: 20, backingScale: 1)
         #expect(narrow.zoom == 0.2)
+    }
+
+    @Test func changingTheContentKeepsZoomAndWhereThingsAre() {
+        let t = ShotViewTransform(content: CGRect(x: 100, y: 100, width: 400, height: 300), zoom: 1.5, origin: CGPoint(x: 30, y: 40))
+        let wider = t.withContent(CGRect(x: 0, y: 0, width: 2000, height: 1000))
+        #expect(wider.zoom == 1.5)
+        for p in [CGPoint(x: 100, y: 100), CGPoint(x: 333, y: 250)] {
+            let a = t.toView(p), b = wider.toView(p)
+            #expect(abs(a.x - b.x) < 0.0001 && abs(a.y - b.y) < 0.0001)
+        }
     }
 
     @Test func actualSizeIsOnePixelPerScreenPixel() {
@@ -397,7 +486,7 @@ struct SeededGenerator: RandomNumberGenerator {
         for pattern in [checker, stripes] {
             let source = try image(60, 60, pattern)
             var d = ShotDocument(sourceWidth: 60, sourceHeight: 60)
-            d.add(.redact(area, style: .fill), color: ShotPalette.redactColor, width: 6)
+            d.add(.redact(area), color: ShotPalette.redactColor, width: 6)
             let out = try pixels(try #require(ShotRenderer.exportPNG(d, source: source)))
             let inside = region(out, area)
             #expect(inside.count == 36 * 36 * 3)
@@ -410,50 +499,14 @@ struct SeededGenerator: RandomNumberGenerator {
         }
     }
 
-    @Test func aMosaicDependsOnlyOnBlockAverages() throws {
-        let area = CGRect(x: 4, y: 4, width: 48, height: 48)
-        #expect(ShotRenderer.mosaicBlock(for: area) == 16)
-        var d = ShotDocument(sourceWidth: 60, sourceHeight: 60)
-        d.add(.redact(area, style: .mosaic), color: ShotPalette.redactColor, width: 6)
-        let a = try pixels(try #require(ShotRenderer.exportPNG(d, source: try image(60, 60, checker))))
-        let b = try pixels(try #require(ShotRenderer.exportPNG(d, source: try image(60, 60, inverted))))
-        // Opposite patterns, same averages: the redacted region is identical, so the pattern is gone.
-        #expect(region(a, area) == region(b, area))
-        // And each 16×16 block is one flat colour.
-        let block = region(a, CGRect(x: 4, y: 4, width: 16, height: 16))
-        #expect(Set(stride(from: 0, to: block.count, by: 3).map { [block[$0], block[$0 + 1], block[$0 + 2]] }).count == 1)
-        // While outside it the two still differ.
-        #expect(region(a, CGRect(x: 0, y: 0, width: 4, height: 4)) != region(b, CGRect(x: 0, y: 0, width: 4, height: 4)))
-    }
-
-    @Test func mosaicBlocksGrowWithTheRegion() {
-        #expect(ShotRenderer.mosaicBlock(for: CGRect(x: 0, y: 0, width: 30, height: 30)) == 16)
-        #expect(ShotRenderer.mosaicBlock(for: CGRect(x: 0, y: 0, width: 600, height: 120)) == 30)
-        // Never finer than a sixth of the shorter side, nor 12 pixels.
-        for side in stride(from: 1, through: 2_000, by: 37) {
-            let block = ShotRenderer.mosaicBlock(for: CGRect(x: 0, y: 0, width: 3_000, height: CGFloat(side)))
-            #expect(block >= 12 && block >= CGFloat(side) / 6)
-        }
-    }
-
-    @Test func mosaicCellsTileTheRegionWithNoSlivers() {
-        for rect in [CGRect(x: 0, y: 0, width: 17, height: 17), CGRect(x: 3, y: 5, width: 100, height: 20), CGRect(x: 0, y: 0, width: 250, height: 70)] {
-            let cells = ShotRenderer.mosaicCells(rect)
-            let block = ShotRenderer.mosaicBlock(for: rect)
-            #expect(cells.reduce(0) { $0 + $1.width * $1.height } == rect.width * rect.height)
-            #expect(cells.allSatisfy { $0.width >= min(rect.width, block / 2) && $0.height >= min(rect.height, block / 2) })
-            #expect(cells.allSatisfy { rect.contains($0) })
-        }
-    }
-
-    @Test func copyTextSeesRedactionsAsSolidBlocksAndNothingElse() throws {
+    @Test func copyTextSeesRedactionsAndNothingElse() throws {
         var d = ShotDocument(sourceWidth: 60, sourceHeight: 60)
         d.add(.arrow(from: .zero, to: CGPoint(x: 50, y: 50)), color: ShotPalette.defaultColor, width: 6)
-        d.add(.redact(CGRect(x: 10, y: 10, width: 20, height: 20), style: .mosaic), color: ShotPalette.redactColor, width: 6)
+        d.add(.redact(CGRect(x: 10, y: 10, width: 20, height: 20)), color: ShotPalette.redactColor, width: 6)
         d.setCrop(CGRect(x: 5, y: 5, width: 40, height: 40))
         let masked = d.redactionsOnly
         #expect(masked.layers.count == 1)
-        #expect(masked.layers.first?.shape == .redact(CGRect(x: 10, y: 10, width: 20, height: 20), style: .fill))
+        #expect(masked.layers.first?.shape == .redact(CGRect(x: 10, y: 10, width: 20, height: 20)))
         #expect(masked.crop == d.crop)
         let out = try pixels(try #require(ShotRenderer.exportPNG(masked, source: try image(60, 60, checker))))
         let inside = region(out, CGRect(x: 5, y: 5, width: 20, height: 20))
@@ -463,7 +516,7 @@ struct SeededGenerator: RandomNumberGenerator {
     @Test func aRedactionOverFractionalPixelsCoversTheWholePixels() throws {
         let source = try image(20, 20, checker)
         var d = ShotDocument(sourceWidth: 20, sourceHeight: 20)
-        d.add(.redact(CGRect(x: 4.5, y: 4.5, width: 5, height: 5), style: .fill), color: ShotPalette.redactColor, width: 6)
+        d.add(.redact(CGRect(x: 4.5, y: 4.5, width: 5, height: 5)), color: ShotPalette.redactColor, width: 6)
         let out = try pixels(try #require(ShotRenderer.exportPNG(d, source: source)))
         let inside = region(out, CGRect(x: 4, y: 4, width: 6, height: 6))
         #expect(stride(from: 0, to: inside.count, by: 3).allSatisfy { inside[$0] == 0x1D })
@@ -502,5 +555,72 @@ struct SeededGenerator: RandomNumberGenerator {
         // On the top edge of the rectangle: blue. In its middle: still white.
         #expect(region(out, CGRect(x: 30, y: 10, width: 1, height: 1)) == [0x0A, 0x84, 0xFF])
         #expect(region(out, CGRect(x: 35, y: 35, width: 1, height: 1)) == [255, 255, 255])
+    }
+}
+
+@Suite struct RecentCapturesUpdateTests {
+    struct Item: Equatable { var id: Int; var name: String }
+
+    @Test func aSavedAsCaptureIsUpdatedInPlace() {
+        var recent = RecentCaptures<Item>()
+        recent.add(Item(id: 1, name: "a"))
+        recent.add(Item(id: 2, name: "b"))
+        recent.update(where: { $0.id == 1 }) { $0.name = "renamed" }
+        #expect(recent.items == [Item(id: 2, name: "b"), Item(id: 1, name: "renamed")])
+        recent.update(where: { $0.id == 9 }) { $0.name = "nothing" }
+        #expect(recent.items.count == 2)
+    }
+}
+
+@Suite struct RedactionEdgeTests {
+    func image(_ width: Int, _ height: Int) throws -> CGImage {
+        var bytes = [UInt8](repeating: 255, count: width * height * 4)
+        for i in stride(from: 0, to: bytes.count, by: 4) { bytes[i] = UInt8((i / 4) % 251); bytes[i + 1] = UInt8((i / 4) % 7 * 30) }
+        let context = try #require(CGContext(
+            data: &bytes, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        return try #require(context.makeImage())
+    }
+
+    /// Every exported pixel inside `rect` (export coordinates) is the redaction fill, 0x1D1815.
+    func allFill(_ png: Data, _ rect: CGRect) throws -> Bool {
+        let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+        let decoded = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        var bytes = [UInt8](repeating: 0, count: decoded.width * decoded.height * 4)
+        let context = try #require(CGContext(
+            data: &bytes, width: decoded.width, height: decoded.height, bitsPerComponent: 8, bytesPerRow: decoded.width * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.draw(decoded, in: CGRect(x: 0, y: 0, width: decoded.width, height: decoded.height))
+        let clipped = rect.intersection(CGRect(x: 0, y: 0, width: decoded.width, height: decoded.height))
+        for y in Int(clipped.minY)..<Int(clipped.maxY) {
+            for x in Int(clipped.minX)..<Int(clipped.maxX) {
+                let i = (y * decoded.width + x) * 4
+                if bytes[i] != 0x1D || bytes[i + 1] != 0x18 || bytes[i + 2] != 0x15 { return false }
+            }
+        }
+        return true
+    }
+
+    @Test func aRedactionAcrossTheCropEdgeCoversItsPartInTheExport() throws {
+        var d = ShotDocument(sourceWidth: 80, sourceHeight: 60)
+        d.add(.redact(CGRect(x: 30, y: 20, width: 40, height: 30)), color: ShotPalette.redactColor, width: 6)
+        d.setCrop(CGRect(x: 10, y: 10, width: 40, height: 30))
+        let png = try #require(ShotRenderer.exportPNG(d, source: try image(80, 60)))
+        // In the export, the redaction runs from (20, 10) to the crop's right and bottom edges.
+        #expect(try allFill(png, CGRect(x: 20, y: 10, width: 20, height: 20)))
+    }
+
+    @Test func aRedactionOffTheImageEdgeAndOverlappingOnesAreAllFill() throws {
+        var d = ShotDocument(sourceWidth: 50, sourceHeight: 50)
+        d.add(.redact(CGRect(x: 30, y: -10, width: 40, height: 30)), color: ShotPalette.redactColor, width: 6)
+        d.add(.redact(CGRect(x: 10.5, y: 10.5, width: 25, height: 25)), color: ShotPalette.redactColor, width: 6)
+        d.add(.redact(CGRect(x: 20, y: 5, width: 20, height: 20)), color: ShotPalette.redactColor, width: 6)
+        let png = try #require(ShotRenderer.exportPNG(d, source: try image(50, 50)))
+        #expect(try allFill(png, CGRect(x: 30, y: 0, width: 20, height: 20)))
+        #expect(try allFill(png, CGRect(x: 10, y: 10, width: 26, height: 26)))
+        #expect(try allFill(png, CGRect(x: 20, y: 5, width: 20, height: 20)))
+        #expect(try !allFill(png, CGRect(x: 0, y: 40, width: 5, height: 5)))
     }
 }

@@ -238,6 +238,11 @@ public struct RecentCaptures<Capture> {
 
     public var newest: Capture? { items.first }
 
+    /// Changes the captures that match (a Save As gives a shot its file).
+    public mutating func update(where matches: (Capture) -> Bool, _ change: (inout Capture) -> Void) {
+        for index in items.indices where matches(items[index]) { change(&items[index]) }
+    }
+
     public mutating func add(_ capture: Capture) {
         items.insert(capture, at: 0)
         if items.count > capacity { items.removeLast(items.count - capacity) }

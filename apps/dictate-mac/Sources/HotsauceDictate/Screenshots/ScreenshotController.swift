@@ -21,6 +21,9 @@ final class ScreenshotController {
     /// (in memory only).
     private var documents: [UUID: ShotDocument] = [:]
     private var editors: [UUID: ScreenshotEditor] = [:]
+    /// The clipboard's change count right after a capture was copied, so a later save can swap in
+    /// the edited picture only if nothing else has been copied since.
+    private var copiedCapture: (id: UUID, changeCount: Int)?
     /// Slice 4 sets this to share a flattened picture; until then Share stays hidden.
     var onShare: ((Data) -> Void)?
 
@@ -34,7 +37,10 @@ final class ScreenshotController {
         // Quitting with an editor open saves it as closing it would.
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                for editor in self?.editors.values.map({ $0 }) ?? [] { editor.window.close() }
+                for editor in self?.editors.values.map({ $0 }) ?? [] {
+                    _ = editor.saveIfNeeded()
+                    editor.window.close()
+                }
             }
         }
     }
@@ -49,6 +55,8 @@ final class ScreenshotController {
         let editor = ScreenshotEditor(shot: shot, document: documents[shot.id])
         editor.onShare = onShare
         editor.showError = { [weak self] in self?.showMessage($0) }
+        editor.folder = { [weak self] in self?.folder ?? FileManager.default.homeDirectoryForCurrentUser }
+        editor.onSaved = { [weak self] shot, png in self?.saved(shot, png) }
         editor.onClose = { [weak self] shot, document in
             guard let self else { return }
             self.editors[shot.id] = nil
@@ -59,6 +67,19 @@ final class ScreenshotController {
         }
         editors[shot.id] = editor
         editor.show()
+    }
+
+    /// An edit was saved: the recent capture learns its file (Save As), and a clipboard still
+    /// holding the unedited capture gets the edited one instead, so redacted pixels don't linger.
+    private func saved(_ shot: Screenshot, _ png: Data) {
+        recent.update(where: { $0.id == shot.id }) { $0.fileURL = shot.fileURL }
+        let pasteboard = NSPasteboard.general
+        guard let copied = copiedCapture, copied.id == shot.id, pasteboard.changeCount == copied.changeCount else { return }
+        pasteboard.clearContents()
+        pasteboard.declareTypes([.png, .tiff], owner: nil)
+        pasteboard.setData(png, forType: .png)
+        if let tiff = NSBitmapImageRep(data: png)?.tiffRepresentation { pasteboard.setData(tiff, forType: .tiff) }
+        copiedCapture = (shot.id, pasteboard.changeCount)
     }
 
     /// File → Edit Last Screenshot.
@@ -147,6 +168,7 @@ final class ScreenshotController {
         if let tiff = NSBitmapImageRep(cgImage: shot.image).tiffRepresentation {
             pasteboard.setData(tiff, forType: .tiff)
         }
+        copiedCapture = (shot.id, pasteboard.changeCount)
     }
 
     /// Into the screenshots folder (made when first needed), under a name that doesn't clash.

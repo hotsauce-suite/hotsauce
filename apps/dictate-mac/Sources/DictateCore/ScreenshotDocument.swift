@@ -92,13 +92,6 @@ public enum ShotTool: String, CaseIterable, Codable, Sendable {
     }
 }
 
-public enum RedactStyle: String, Codable, Sendable {
-    /// An opaque block of colour.
-    case fill
-    /// Coarse blocks of the region's average colours.
-    case mosaic
-}
-
 public enum ShotShape: Codable, Equatable, Sendable {
     case arrow(from: CGPoint, to: CGPoint)
     case rectangle(CGRect)
@@ -107,7 +100,8 @@ public enum ShotShape: Codable, Equatable, Sendable {
     case text(origin: CGPoint, string: String, fontSize: CGFloat)
     case highlighter(points: [CGPoint])
     case step(center: CGPoint, radius: CGFloat, number: Int)
-    case redact(CGRect, style: RedactStyle)
+    /// An opaque block over whole pixels.
+    case redact(CGRect)
 }
 
 public struct ShotLayer: Codable, Equatable, Identifiable, Sendable {
@@ -213,15 +207,13 @@ public struct ShotDocument: Codable, Equatable, Sendable {
         }
     }
 
-    /// The same crop with only the redactions, as solid blocks: what Copy Text reads over the
+    /// The same crop with only the redactions: what Copy Text reads over the
     /// untouched capture, so text under a redaction is never read back out.
     public var redactionsOnly: ShotDocument {
         var copy = self
         copy.layers = layers.compactMap { layer in
-            guard case let .redact(rect, _) = layer.shape else { return nil }
-            var solid = layer
-            solid.shape = .redact(rect, style: .fill)
-            return solid
+            guard case .redact = layer.shape else { return nil }
+            return layer
         }
         return copy
     }
@@ -248,7 +240,7 @@ extension ShotShape {
         case let .text(origin, string, size): return .text(origin: p(origin), string: string, fontSize: size)
         case let .highlighter(points): return .highlighter(points: points.map(p))
         case let .step(center, radius, number): return .step(center: p(center), radius: radius, number: number)
-        case let .redact(r, style): return .redact(r.offsetBy(dx: d.dx, dy: d.dy), style: style)
+        case let .redact(r): return .redact(r.offsetBy(dx: d.dx, dy: d.dy))
         }
     }
 }
@@ -318,7 +310,7 @@ extension ShotLayer {
     public var bounds: CGRect {
         switch shape {
         case let .arrow(from, to): return ShotGeometry.rect(from, to)
-        case let .rectangle(r), let .ellipse(r), let .redact(r, _): return r.standardized
+        case let .rectangle(r), let .ellipse(r), let .redact(r): return r.standardized
         case let .text(origin, string, size): return CGRect(origin: origin, size: ShotText.size(string, fontSize: size))
         case let .highlighter(points):
             guard let first = points.first else { return .zero }
@@ -378,8 +370,8 @@ extension ShotLayer {
             layer.shape = .rectangle(ShotGeometry.resize(bounds, handle, to: point, constraint: shift ? .square : .free, minSize: 4))
         case .ellipse:
             layer.shape = .ellipse(ShotGeometry.resize(bounds, handle, to: point, constraint: shift ? .square : .free, minSize: 4))
-        case let .redact(_, style):
-            layer.shape = .redact(ShotGeometry.resize(bounds, handle, to: point, constraint: shift ? .square : .free, minSize: 4), style: style)
+        case .redact:
+            layer.shape = .redact(ShotGeometry.resize(bounds, handle, to: point, constraint: shift ? .square : .free, minSize: 4))
         case let .highlighter(points):
             let old = bounds
             let new = ShotGeometry.resize(old, handle, to: point, constraint: shift ? .proportional : .free, minSize: 1)
@@ -434,6 +426,16 @@ public enum ShotGeometry {
         return CGPoint(x: from.x + cos(angle) * length, y: from.y + sin(angle) * length)
     }
 
+    /// A fresh crop dragged from `start` to `end` in any direction, inside the capture (a start
+    /// outside it begins at the nearest edge).
+    public static func cropRect(from start: CGPoint, to end: CGPoint, square: Bool, in bounds: CGRect) -> CGRect {
+        func clamp(_ p: CGPoint) -> CGPoint {
+            CGPoint(x: min(max(p.x, bounds.minX), bounds.maxX), y: min(max(p.y, bounds.minY), bounds.maxY))
+        }
+        let rect = dragRect(from: clamp(start), to: end, square: square).intersection(bounds)
+        return rect.isNull ? CGRect(origin: clamp(start), size: .zero) : rect
+    }
+
     /// The rectangle a drag from `start` to `end` makes; with `square`, the larger side both ways.
     public static func dragRect(from start: CGPoint, to end: CGPoint, square: Bool) -> CGRect {
         guard square else { return rect(start, end) }
@@ -475,7 +477,8 @@ public enum ShotGeometry {
         var result = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
         guard ShotHandle.corners.contains(handle), constraint != .free else { return result }
         // Corners with a constraint: scale both sides by the larger stretch, from the fixed corner.
-        let aspect: CGFloat = constraint == .square ? 1 : (r.height > 0 ? r.width / r.height : 1)
+        // A box with no width or height (a straight vertical line) has no aspect to keep: square it.
+        let aspect: CGFloat = constraint == .square || r.width <= 0 || r.height <= 0 ? 1 : r.width / r.height
         let width = max(result.width, result.height * aspect)
         let height = width / aspect
         let anchor = opposite(handle).position(in: r)
@@ -523,7 +526,7 @@ public enum ShotGeometry {
             return hypot(tip.x - start.x, tip.y - start.y) >= 8 ? .arrow(from: start, to: tip) : nil
         case .rectangle: return big ? .rectangle(r) : nil
         case .ellipse: return big ? .ellipse(r) : nil
-        case .redact: return big ? .redact(integral(r), style: .fill) : nil
+        case .redact: return big ? .redact(integral(r)) : nil
         case .highlighter:
             if shift { return .highlighter(points: [start, end]) }
             let points = path.isEmpty ? [start, end] : path
@@ -543,23 +546,46 @@ public struct ShotHistory: Sendable {
         self.cap = cap
     }
 
-    public var canUndo: Bool { !past.isEmpty }
+    /// Where a drag (a move, a resize) started; it becomes one step when it ends.
+    private var gestureStart: ShotDocument?
+
+    public var canUndo: Bool { !past.isEmpty || gestureStart != nil }
     public var canRedo: Bool { !future.isEmpty }
 
-    /// Call with the document as it was, just before a change.
+    /// A drag begins: its live changes are one step, recorded when it ends.
+    public mutating func beginGesture(_ before: ShotDocument) {
+        gestureStart = before
+    }
+
+    /// The drag ends at `current`: one step if it changed anything.
+    public mutating func endGesture(_ current: ShotDocument) {
+        guard let start = gestureStart else { return }
+        gestureStart = nil
+        if start != current { push(start) }
+    }
+
+    /// Call with the document as it was, just before a change. A drag still under way is closed
+    /// first, so its step comes before this one.
     public mutating func record(_ before: ShotDocument) {
+        endGesture(before)
+        push(before)
+    }
+
+    private mutating func push(_ before: ShotDocument) {
         past.append(before)
         if past.count > cap { past.removeFirst(past.count - cap) }
         future.removeAll()
     }
 
     public mutating func undo(_ current: ShotDocument) -> ShotDocument? {
+        endGesture(current)
         guard let previous = past.popLast() else { return nil }
         future.append(current)
         return previous
     }
 
     public mutating func redo(_ current: ShotDocument) -> ShotDocument? {
+        endGesture(current)
         guard let next = future.popLast() else { return nil }
         past.append(current)
         return next
@@ -601,6 +627,12 @@ public struct ShotViewTransform: Equatable, Sendable {
         let fit = min(room.width / max(1, content.width), room.height / max(1, content.height))
         let zoom = min(fit, 1 / max(1, backingScale))
         return centered(content: content, in: view, zoom: zoom)
+    }
+
+    /// Showing a different part of the source (entering or leaving Crop) at the same zoom, with
+    /// every source point staying where it is on screen.
+    public func withContent(_ newContent: CGRect) -> ShotViewTransform {
+        ShotViewTransform(content: newContent, zoom: zoom, origin: toView(newContent.origin))
     }
 
     /// One source pixel to one screen pixel.
