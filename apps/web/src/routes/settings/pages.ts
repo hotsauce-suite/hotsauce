@@ -12,6 +12,7 @@ export const YOUR_PAGES: SettingsPage[] = [
   { id: 'appearance', label: 'Appearance', to: '/settings/appearance' },
   { id: 'connections', label: 'Connections', to: '/settings/connections' },
   { id: 'apps', label: 'Apps', to: '/settings/apps' },
+  { id: 'guide', label: 'Hotsauce 101', to: '/settings/101' },
 ]
 
 /** Only inside the Mac app, first in the menu (docs/PLAN-one-settings.md R1). */

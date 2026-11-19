@@ -218,6 +218,17 @@ export default function FilesPage() {
     }
   }
 
+  const keep = async (file: DriveFile) => {
+    try {
+      const kept = await filesApi.keep(file.space, file.id)
+      setToast('Kept. It won’t delete itself.')
+      if (open?.id === file.id) setOpen(kept)
+      setTick((n) => n + 1)
+    } catch (err) {
+      setToast(message(err))
+    }
+  }
+
   const crumbs = folder ? folder.split('/') : []
   const files = kind === 'recent' ? (recent ?? []) : (listing?.files ?? [])
   const folders = kind === 'recent' ? [] : (listing?.folders ?? [])
@@ -428,6 +439,7 @@ export default function FilesPage() {
                         : ''}
                       {f.createdBy.split('@')[0]} · {DATE.format(new Date(f.updatedAt))}
                       {f.shareToken ? ' · Shared' : ''}
+                      {f.deleteAfter ? ` · Deletes ${DATE.format(new Date(f.deleteAfter))}` : ''}
                     </span>
                   </span>
                   <span className="hidden w-20 shrink-0 text-right text-xs text-ink-faint tabular-nums sm:block">
@@ -500,6 +512,7 @@ export default function FilesPage() {
           onClose={closeFile}
           onShare={copyShare}
           onSign={(file) => void sendForSignature(file)}
+          onKeep={(file) => void keep(file)}
           onChanged={(file) => {
             setOpen(file)
             setTick((n) => n + 1)
@@ -699,6 +712,7 @@ function FileDialog({
   onClose,
   onShare,
   onSign,
+  onKeep,
   onChanged,
   onRename,
   onDelete,
@@ -708,6 +722,8 @@ function FileDialog({
   onClose: () => void
   onShare: (f: DriveFile) => void
   onSign: (f: DriveFile) => void
+  /** Stops a file that was going to delete itself. */
+  onKeep: (f: DriveFile) => void
   /** The file as the server returned it after its link changed. */
   onChanged: (f: DriveFile) => void
   onRename: (f: DriveFile) => void
@@ -824,6 +840,24 @@ function FileDialog({
             <p className="text-xs text-ink-faint" data-testid="file-shared-note">
               Link on: {describeLink(file.shareLink ?? null)}.
             </p>
+          ) : null}
+          {file.deleteAfter ? (
+            <div
+              className="flex flex-col gap-2 rounded-lg bg-ember-wash px-3 py-2"
+              data-testid="file-deletes-note"
+            >
+              <p className="text-xs text-ink">
+                Deletes itself on {DATE.format(new Date(file.deleteAfter))}, with its link.
+              </p>
+              <button
+                type="button"
+                className={`${secondaryButton} h-8`}
+                onClick={() => onKeep(file)}
+                data-testid="file-keep"
+              >
+                Keep
+              </button>
+            </div>
           ) : null}
         </aside>
       </div>

@@ -9,6 +9,8 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { setAuthHeaders, setUnauthorizedHandler } from '../api/client'
 import { hotsauceSocket } from '../api/ws'
 import { forgetPins } from '../apps/pins'
+import { resetBreaksForTests } from '../breaks/breaks'
+import { resetBreakSettingsForTests } from '../breaks/settings'
 import { resetConnectionForTests } from '../lib/connection'
 import { resetMusicForTests } from '../music/player'
 import { resetMockApi, server, TEST_USER } from './mockServer'
@@ -53,6 +55,8 @@ afterEach(() => {
   forgetMemberPhotos()
   reloadDelight()
   resetMusicForTests()
+  resetBreaksForTests()
+  resetBreakSettingsForTests()
   forgetPins()
   forgetForYou()
   // A test that cut the network leaves the app "offline"; the next one starts online.

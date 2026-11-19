@@ -259,8 +259,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   },
 })
 
-/** Signs in through the dev form (AUTH_MODE=dev) and waits to leave /sign-in. */
-export async function signIn(page: Page, email: string): Promise<void> {
+/**
+ * Signs in through the dev form (AUTH_MODE=dev) and waits to leave /sign-in. The member has seen
+ * the first-run tour already (docs/PLAN-tour-and-101.md), so its welcome card doesn't cover the
+ * page; `{ tour: true }` keeps it for the tour's own tests.
+ */
+export async function signIn(
+  page: Page,
+  email: string,
+  { tour = false }: { tour?: boolean } = {},
+): Promise<void> {
+  if (!tour) {
+    const res = await page.request.post('/api/tour/seen', {
+      headers: { 'x-hearth-dev-user': email },
+    })
+    if (!res.ok()) throw new Error(`POST /api/tour/seen answered ${res.status()}`)
+  }
   await page.goto('/sign-in')
   await page.getByTestId('dev-signin-email').fill(email)
   await page.getByTestId('dev-signin-submit').click()

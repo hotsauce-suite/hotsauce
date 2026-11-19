@@ -6,7 +6,8 @@ import CoreLocation
 import UserNotifications
 
 /// Microphone, Accessibility, Location and Notifications: what the app needs, and the System
-/// Settings panes for them. Checked at every launch (`PermissionCheck`).
+/// Settings panes for them. Checked at every launch (`PermissionCheck`). Screen Recording, for
+/// screenshots, is asked for only when a screenshot first needs it.
 enum Permissions {
     static var microphone: AVAuthorizationStatus {
         AVCaptureDevice.authorizationStatus(for: .audio)
@@ -106,6 +107,19 @@ enum Permissions {
     /// Screen & System Audio Recording, where "Any app on this Mac" is allowed to hear other apps.
     static func openAudioCaptureSettings() {
         open("x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")
+    }
+
+    /// Screen & System Audio Recording, for screenshots (docs/PLAN-screenshots.md R8). Asked for
+    /// on the first capture, never during setup, so it isn't one of the setup steps.
+    static var screenRecordingGranted: Bool { CGPreflightScreenCaptureAccess() }
+
+    /// Adds the app to the Screen Recording list; macOS shows its own prompt the first time only.
+    static func requestScreenRecording() {
+        _ = CGRequestScreenCaptureAccess()
+    }
+
+    static func openScreenRecordingSettings() {
+        open("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
     }
 
     static func openAccessibilitySettings() {

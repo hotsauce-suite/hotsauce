@@ -25,6 +25,8 @@ import {
 } from '../../components/ListBar'
 import { LoadError } from '../../components/LoadError'
 import { MainButton } from '../../components/PageHeader'
+import { isSpicy } from '../../eggs/logic'
+import { burstFromLastClick } from '../../eggs/peppers'
 import { useCommands } from '../../keyboard/commands'
 import { useShortcut } from '../../keyboard/shortcuts'
 import { useSession } from '../../state/session'
@@ -247,6 +249,7 @@ export default function TasksPage() {
       return
     }
     if (leaving.has(key)) return
+    if (isSpicy(task.title)) burstFromLastClick()
     setLeaving((s) => new Set(s).add(key))
     const pending = new Promise<TaskView | null>((resolve) => {
       setTimeout(() => {

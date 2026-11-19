@@ -202,6 +202,8 @@ export interface ServiceOverrides {
   chatFetch?: typeof fetch
   /** Free bytes on the data volume, for Clips' disk check. */
   diskFreeBytes?: () => Promise<number>
+  /** The clock Files reads for files that delete themselves; tests pin it. */
+  filesNow?: () => Date
   /** The updater's view of the newest release and of Fly (docs/PLAN-releases-and-updates.md). */
   latestRelease?: () => Promise<Release | null>
   imageDigest?: (version: string) => Promise<string>
@@ -444,6 +446,11 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     store: meetings.audioStore,
     dataDir: config.DATA_DIR,
     ...(overrides.diskFreeBytes ? { freeBytes: overrides.diskFreeBytes } : {}),
+    ...(overrides.filesNow ? { now: overrides.filesNow } : {}),
+    // A file that deleted itself takes its link with it.
+    onExpired: (file) => {
+      if (file.shareToken) shareLinks.delete(file.shareToken)
+    },
   })
   // Saved links: one file per link, a readable copy fetched in the background (§23).
   const links = new Links({

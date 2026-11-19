@@ -1,0 +1,8 @@
+# Learnings: screen breaks
+
+- **One timer per browser, not per tab.** `navigator.locks.request` with a never-resolving promise makes one tab the leader; the schedule lives in localStorage so a new leader picks it up where the old one left off. Other tabs send "take a break now" over a BroadcastChannel. Tests must wait for leadership (the lock is granted asynchronously) before calling `startNow`, or they time out.
+- **When the Mac app is the host, the page runs no timer.** The page only posts settings and "busy" to the `hotsauceBreaks` handler and the app owns the clock, so breaks come with the window closed. An old Mac app without the handler falls back to the page's own timer. A browser tab open beside the Mac app still runs its own, which can mean two breaks; coordinating them needs a server signal.
+- **Busy pushes the due time forward, never resets it.** `dueAt = max(dueAt, now + grace)` while recording keeps the break from firing mid-call and lets it come a minute after, instead of a sawtooth of resets. Sleep shows up as a gap between ticks; count it as idle.
+- **A settings GET can land after a newer save.** Count edits and drop a load answer if an edit happened while it was in flight.
+- **Stacked see-through SVG layers show their edges.** Each wave layer has to reach the bottom of the scene, or the flat bottom of a higher layer draws a hard line through the lower ones. Check animations in a real browser screenshot; jsdom tests can't see this.
+- **The live demo is the quickest real-browser check.** `pnpm --filter @hotsauce/web build:demo` writes to `site/public/demo` (untracked); serve it with any SPA fallback server and drive it with Playwright. The mock API answers every route, so no server or sign-in is needed.

@@ -23,6 +23,7 @@ const GENERAL = { page: 'General', to: '/settings' }
 const APPEARANCE = { page: 'Appearance', to: '/settings/appearance' }
 const CONNECTIONS = { page: 'Connections', to: '/settings/connections' }
 const APPS = { page: 'Apps', to: '/settings/apps' }
+const GUIDE = { page: 'Hotsauce 101', to: '/settings/101' }
 const org = (page: string, path = '') => ({
   page,
   to: `/settings/organization${path}`,
@@ -183,6 +184,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     words: ['sign out', 'log out', 'email', 'profile', 'name', 'me'],
   },
   {
+    id: 'breaks',
+    title: 'Breaks',
+    ...GENERAL,
+    summary: 'Reminders to look away from the screen: how often, how long, and how it looks.',
+    words: ['break', 'rest', 'eyes', '20-20-20', 'pomodoro', 'reminder', 'screen time', 'stretch'],
+  },
+  {
     id: 'appearance',
     title: 'Appearance',
     ...APPEARANCE,
@@ -292,6 +300,26 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     ...APPS,
     summary: 'Notes on Google Meet calls, and saving pages to Links.',
     words: ['browser', 'google meet', 'save page', 'links', 'install', 'plugin', 'add-on'],
+  },
+
+  // Hotsauce 101 (docs/PLAN-tour-and-101.md H5)
+  {
+    id: 'guide',
+    title: 'Hotsauce 101',
+    ...GUIDE,
+    summary: 'What each app is for, with a short video of each.',
+    words: [
+      'guide',
+      'help',
+      'learn',
+      'tutorial',
+      'what is',
+      'apps',
+      'video',
+      'walkthrough',
+      'getting started',
+      'onboarding',
+    ],
   },
   {
     id: 'whats-new',

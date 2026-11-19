@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let historyStore = HistoryStore()
     private lazy var controller = DictationController(settings: settings, history: historyStore)
     private lazy var monitor = HotkeyMonitor(hotkey: settings.hotkey)
+    lazy var screenshots = ScreenshotController()
     private let onboarding = OnboardingWindow()
     /// The setup window's Location button: asks macOS the way Today's weather does.
     private let setupLocation = LocationService()
@@ -24,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Background music in the menus (docs/PLAN-background-music.md M9).
     lazy var musicMenu = MusicMenu(suite: { [unowned self] in self.suite })
     private lazy var reminders = Reminders(suite: suite) { [weak self] in self?.settings.meetingReminders ?? false }
+    /// Screen breaks over every display, with or without the window (docs/PLAN-breaks.md B12).
+    private let breaks = BreakController()
     /// A `CallDetector` on macOS 14.2+ (stored untyped for the availability check).
     private var callDetector: AnyObject?
 
@@ -49,6 +52,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = makeMainMenu()
         suite.showMessage = { [weak self] in self?.controller.showMessage($0) }
+        suite.breaksMessage = { [weak self] in self?.breaks.received($0) }
+        suite.holdBreaks = { [weak self] in self?.breaks.hold($0, $1) }
+        breaks.start()
         suite.updateState = { [weak self] in self?.updater.state ?? .none }
         suite.installUpdate = { [weak self] in self?.installUpdate() }
         updater.onChange = { [weak self] in self?.updateStateChanged($0) }
@@ -89,6 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateIcon()
 
         monitor.handler = { [weak self] event in self?.controller.handle(event) ?? false }
+        monitor.screenshotShortcut = screenshots.shortcut
+        monitor.screenshotHandler = { [weak self] key in self?.screenshots.handle(key) ?? false }
+        screenshots.showMessage = { [weak self] in self?.controller.showMessage($0) }
         startMonitor()
 
         onboarding.model.connect = { [weak self] code, done in self?.connect(code: code, fromLink: false, done: done) }
@@ -639,6 +648,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(item("Paste last dictation", #selector(pasteLast), enabled: !history.isEmpty))
+        menu.addItem(screenshotMenuItem(title: "Take screenshot"))
         if controller.failed != nil {
             menu.addItem(item("Retry last dictation", #selector(retryLast)))
         }

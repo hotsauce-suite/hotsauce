@@ -85,6 +85,14 @@ const MIGRATIONS = [
   );
   `,
   `
+  -- Members who have seen the first-run tour (docs/PLAN-tour-and-101.md S2): Done, Skip, Not now or
+  -- leaving it all count. No row: the tour is offered on their next computer visit.
+  CREATE TABLE tour_seen (
+    user    TEXT PRIMARY KEY,
+    seen_at TEXT NOT NULL
+  );
+  `,
+  `
   -- Where a photo came from: the member's own upload, or their sign-in picture (requirement 14),
   -- with the address it was fetched from so a new one is noticed.
   ALTER TABLE photos ADD COLUMN source TEXT NOT NULL DEFAULT 'upload';
@@ -222,6 +230,16 @@ export class AccountStore {
 
   setPins(user: string, apps: readonly string[]): void {
     this.#q.setPins.run(user, JSON.stringify(apps))
+  }
+
+  /** Whether `user` has seen the first-run tour (docs/PLAN-tour-and-101.md). */
+  hasSeenTour(user: string): boolean {
+    return this.#q.tourSeen.get(user) !== undefined
+  }
+
+  /** Marks the first-run tour seen for `user`; repeating keeps the first time. */
+  markTourSeen(user: string, now: Date): void {
+    this.#q.markTourSeen.run(user, now.toISOString())
   }
 
   /** The apps `user` chose for the phone's tab bar, in order; null until they first change them. */
@@ -408,6 +426,10 @@ function prepare(db: Database.Database) {
       "SELECT user, tag FROM photos WHERE source != 'none' ORDER BY user",
     ),
     deletePhoto: db.prepare<[string]>('DELETE FROM photos WHERE user = ?'),
+    tourSeen: db.prepare<[string], { user: string }>('SELECT user FROM tour_seen WHERE user = ?'),
+    markTourSeen: db.prepare<[string, string]>(
+      'INSERT OR IGNORE INTO tour_seen (user, seen_at) VALUES (?, ?)',
+    ),
     listThemes: db.prepare<[string], ThemeRow>(`
       SELECT id, name, prompt, theme, created_at AS createdAt FROM themes
       WHERE user = ? ORDER BY created_at DESC, id DESC`),

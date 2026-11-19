@@ -13,11 +13,19 @@
       var own = null
       var style = null
       var fonts = null
+      var sun = null
       try {
         theme = localStorage.getItem('hearth:theme')
         own = JSON.parse(localStorage.getItem('hotsauce:custom-theme') || 'null')
       } catch {}
       if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme
+      // Follow the sun: the look worked out last time; the app checks the sun again as it starts.
+      if (theme === 'sun') {
+        try {
+          sun = localStorage.getItem('hotsauce:sun-scheme')
+        } catch {}
+        document.documentElement.dataset.theme = sun === 'dark' ? 'dark' : 'light'
+      }
       if (theme && own && theme === 'custom:' + own.id && typeof own.css === 'string') {
         document.documentElement.dataset.scheme = own.scheme === 'dark' ? 'dark' : 'light'
         style = document.createElement('style')
