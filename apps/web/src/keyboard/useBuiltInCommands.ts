@@ -10,6 +10,7 @@ import type { FindState } from '../routes/settings/SettingsSearch'
 import { SETTINGS_INDEX } from '../routes/settings/searchIndex'
 import { useSession } from '../state/session'
 import { untitledDocPath } from '../state/treeStore'
+import { TOUR_REPLAY } from '../tour/TourHost'
 import { type Command, useCommands } from './commands'
 import { setSingleKeys, useSingleKeys } from './prefs'
 
@@ -146,6 +147,14 @@ export function useBuiltInCommands({ openShortcuts }: { openShortcuts: () => voi
       keywords: ['preferences', 'account', 'tokens'],
       shortcut: 'go.settings',
       run: () => navigate('/settings'),
+    },
+    {
+      id: 'go-tour',
+      title: 'Take the tour',
+      group: 'go',
+      icon: 'flag',
+      keywords: ['walkthrough', 'welcome', 'help', 'onboarding', 'getting started', 'tips'],
+      run: () => navigate(TOUR_REPLAY),
     },
     {
       id: 'go-agent-brief',

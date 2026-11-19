@@ -41,6 +41,7 @@ import { usePhotoPicker } from '../profile/usePhotoPicker'
 import { type Tip, type TipHandlers, useRailTip } from '../rail/RailTip'
 import { setRailWide, useRailWide } from '../rail/railWide'
 import { useSession } from '../state/session'
+import { TOUR_REPLAY } from '../tour/TourHost'
 import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
 import { Icon, type IconName } from './Icon'
@@ -589,6 +590,9 @@ function AccountButton({
                 <span className="flex-1">Help</span>
                 <Icon name="external" className="size-3 text-ink-faint" />
               </a>
+              <MenuItem icon="flag" testId="menu-tour" onSelect={go(() => navigate(TOUR_REPLAY))}>
+                Take the tour
+              </MenuItem>
               {feedbackOn ? (
                 <MenuItem
                   icon="chat"

@@ -21,6 +21,7 @@ import { MAC_APP_SETTINGS, useMacAppBuild } from '../../components/MacApp'
 import { TOUCH_QUERY, useMediaQuery } from '../../hooks/useMediaQuery'
 import { desktopSignInBridge } from '../../lib/desktop'
 import { useSession } from '../../state/session'
+import { TourHost } from '../../tour/TourHost'
 import { MeetingsPageHeader } from '../meetings/components/common'
 import { TodayClock, TodayGreeting, useMinuteClock } from './TodayHeader'
 import { AddTileMenu, TodayTiles } from './TodayTiles'
@@ -119,6 +120,7 @@ export default function TodayPage() {
               {layouts.error}
             </p>
           ) : null}
+          <TourHost ready={view !== null && layouts.shown !== null && layouts.draft === null} />
           {view === null || layouts.shown === null ? (
             failed ? null : (
               <p className="text-sm text-ink-faint" data-testid="today-loading">
