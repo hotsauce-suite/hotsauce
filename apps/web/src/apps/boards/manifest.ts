@@ -9,6 +9,7 @@ export const boardsApp: AppManifest = {
     return `${product()} Boards`
   },
   label: 'Boards',
+  about: 'Whiteboards for sketching ideas together.',
   icon: 'board',
   codename: 'Whiteboard',
   route: '/boards',

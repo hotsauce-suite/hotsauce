@@ -9,6 +9,7 @@ export const notesApp: AppManifest = {
     return `${product()} Notes`
   },
   label: 'Notes',
+  about: 'Sticky notes and checklists.',
   icon: 'notes',
   codename: 'Notes',
   route: '/notes',

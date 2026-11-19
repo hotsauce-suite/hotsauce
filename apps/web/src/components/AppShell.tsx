@@ -263,7 +263,7 @@ function ShellLayout() {
           ) : null
         ) : (
           <>
-            <AppRail orientation="vertical" />
+            <AppRail orientation="vertical" onShortcuts={() => setShortcutsOpen(true)} />
             {app.sidebar === false ? null : sidebarHidden ? (
               // ⌘\ hid it: a slim strip brings it back for anyone without the key.
               <button

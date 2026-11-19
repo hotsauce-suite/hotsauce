@@ -16,17 +16,22 @@ afterEach(() => vi.restoreAllMocks())
 const saved = () => JSON.parse(localStorage.getItem(MUSIC_KEY) ?? 'null')
 
 describe('background music controls', () => {
-  it('M2: the rail button opens the panel, which plays, changes track and volume, and pauses', async () => {
+  it('M2: Music in the account menu opens the controls, which play, change track and volume, and pause', async () => {
     renderApp('/docs')
-    const button = await screen.findByTestId('music-button')
-    expect(button).toHaveAccessibleName('Background music: Off')
-    await userEvent.click(button)
+    const account = await screen.findByTestId('account-menu')
+    // No music note on the rail any more (rail plan R4).
+    expect(screen.queryByTestId('music-button')).toBeNull()
+    await userEvent.click(account)
+    const row = screen.getByTestId('menu-music')
+    expect(row).toHaveTextContent('Off')
+    await userEvent.click(row)
     const panel = screen.getByTestId('music-panel')
     expect(within(panel).getByTestId('music-toggle')).toHaveFocus()
 
     await userEvent.click(within(panel).getByTestId('music-toggle'))
     await waitFor(() => expect(screen.getByTestId('music-status')).toHaveTextContent('Playing'))
-    expect(button).toHaveAttribute('data-playing')
+    expect(row).toHaveAttribute('data-playing')
+    expect(row).toHaveTextContent('Playing')
     expect(saved()).toMatchObject({ on: true, track: 'piano' })
 
     await userEvent.click(within(panel).getByTestId('music-track-rain'))
@@ -42,7 +47,7 @@ describe('background music controls', () => {
 
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByTestId('music-panel')).toBeNull()
-    expect(button).toHaveFocus()
+    expect(account).toHaveFocus()
   })
 
   it('M6: on a phone, the Apps sheet has a Music row with the same controls', async () => {

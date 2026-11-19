@@ -10,7 +10,8 @@ test('a member sends a bug, answers the follow-up, and answers the team later', 
 }) => {
   const id = uid()
   await page.goto('/docs')
-  await page.getByTestId('feedback-link').click()
+  await page.getByTestId('account-menu').click()
+  await page.getByTestId('menu-feedback').click()
   await expect(page).toHaveURL(/\/feedback\?from=%2Fdocs/)
 
   await page.getByTestId('feedback-kind-bug').check({ force: true })
@@ -56,7 +57,8 @@ test('a member attaches the page picture and a screenshot of their own', async (
 }) => {
   const id = uid()
   await page.goto('/docs')
-  await page.getByTestId('feedback-link').click()
+  await page.getByTestId('account-menu').click()
+  await page.getByTestId('menu-feedback').click()
   await expect(page).toHaveURL(/\/feedback\?from=%2Fdocs/)
 
   // The picture of Docs is offered, not attached, until it's tapped.

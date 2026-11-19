@@ -47,6 +47,8 @@ export interface AppManifest {
   name: string
   /** The rail's short label, under the icon. */
   label: string
+  /** One line saying what the app is for, in the rail's tip. */
+  about: string
   /** The rail's icon. */
   icon: IconName
   /** Internal codename (platform PRD); never shown in the UI. */

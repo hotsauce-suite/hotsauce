@@ -28,7 +28,8 @@ describe('moving around without a mouse (slice 7)', () => {
     expect(within(rail).getByTestId('app-switch-today')).toHaveFocus()
     await user.keyboard('{End}')
     expect(within(rail).getByTestId('account-menu')).toHaveFocus()
+    // The logo, which widens the rail, is its first stop.
     await user.keyboard('{Home}')
-    expect(within(rail).getByTestId('app-switch-today')).toHaveFocus()
+    expect(within(rail).getByTestId('rail-toggle')).toHaveFocus()
   })
 })

@@ -48,6 +48,11 @@
   --measure: 46rem;
 }
 
+/* The wide rail: each icon beside its name (rail/railWide.ts). */
+:root[data-rail="wide"] {
+  --rail-width: 12.5rem;
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;

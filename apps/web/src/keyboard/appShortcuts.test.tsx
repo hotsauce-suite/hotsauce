@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderApp } from '../test/renderApp'
@@ -135,12 +135,15 @@ describe('c, / and the sidebar (G2)', () => {
 })
 
 describe('the rail (G3)', () => {
-  it("names each app's g keys in its tooltip", async () => {
+  it("names each app's g keys in its tip, and Settings' in the account menu", async () => {
+    const user = userEvent.setup()
     await openTasks()
-    expect(screen.getByTestId('app-switch-tasks')).toHaveAttribute(
-      'title',
-      'Hotsauce Tasks (g then t)',
-    )
-    expect(screen.getByTestId('settings-link')).toHaveAttribute('title', 'Settings (g then s)')
+    fireEvent.pointerEnter(screen.getByTestId('app-switch-tasks'), { pointerType: 'mouse' })
+    const tip = await screen.findByTestId('rail-tip', {}, { timeout: 2_000 })
+    expect(tip).toHaveTextContent('Tasks')
+    expect(tip).toHaveTextContent(/g\s*then\s*t/)
+    fireEvent.pointerLeave(screen.getByTestId('app-switch-tasks'))
+    await user.click(screen.getByTestId('account-menu'))
+    expect(screen.getByTestId('menu-settings')).toHaveTextContent(/g\s*then\s*s/)
   })
 })

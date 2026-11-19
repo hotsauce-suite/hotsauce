@@ -29,10 +29,12 @@ test('switches apps from the rail and returns to where each was', async ({ page,
   await openApp(page, 'dictate')
   await expect(page).toHaveURL(/\/dictate$/)
   await expect(rail.getByTestId('app-switch-dictate')).toHaveAttribute('aria-current', 'page')
-  await rail.getByTestId('settings-link').click()
+  // Settings opens from the account menu; on its pages the account button is the one lit.
+  await rail.getByTestId('account-menu').click()
+  await page.getByTestId('menu-settings').click()
   await expect(page).toHaveURL(/\/settings$/)
-  await expect(rail.getByTestId('settings-link')).toHaveAttribute('aria-current', 'page')
-  await expect(rail.locator('[aria-current="page"]')).toHaveCount(1)
+  await expect(rail.getByTestId('account-menu')).toHaveAttribute('data-current', '')
+  await expect(rail.locator('[aria-current="page"]')).toHaveCount(0)
 
   // Docs lands on the doc it was showing, not on Settings.
   await rail.getByTestId('app-switch-docs').click()
@@ -173,12 +175,58 @@ test('every app can be pinned: the rail scrolls to the last one and the page nev
       () => document.documentElement.scrollHeight > window.innerHeight,
     )
     expect(pageScrolls).toBe(false)
-    // Settings and the account button stay put below the list.
-    await expect(page.getByTestId('settings-link')).toBeInViewport()
+    // The launcher and the account button stay put below the list.
+    await expect(page.getByTestId('launcher-button')).toBeInViewport()
+    await expect(page.getByTestId('account-menu')).toBeInViewport()
   } finally {
     // Put this member's pins back, pass or fail, for the other tests that share them.
     await page.request.put('/api/pins', {
       data: { pins: defaults.pins ?? ['today', 'docs', 'tasks', 'meetings', 'chat'] },
     })
   }
+})
+
+// docs/PLAN-rail-account-menu.md R1 to R4, R7: the logo widens the rail and it stays wide; the
+// gear, the music note and Feedback are gone from it; the account menu changes the theme.
+test('the logo widens the rail, and the account menu switches the theme', async ({ page }) => {
+  await page.goto('/docs')
+  const rail = page.getByTestId('app-rail')
+  for (const gone of ['settings-link', 'music-button', 'feedback-link']) {
+    await expect(rail.getByTestId(gone)).toHaveCount(0)
+  }
+  const narrow = (await rail.boundingBox())?.width ?? 0
+  await rail.getByTestId('rail-toggle').click()
+  await expect(rail).toHaveAttribute('data-wide', '')
+  await expect
+    .poll(async () => (await rail.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(narrow * 2)
+  // The name sits beside the icon, on one line.
+  const docs = rail.getByTestId('app-switch-docs')
+  const icon = await docs.locator('svg').first().boundingBox()
+  const name = await docs.getByText('Docs', { exact: true }).boundingBox()
+  expect(name && icon && name.x > icon.x + icon.width).toBe(true)
+  // The page beside the rail still fits: nothing scrolls sideways.
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBe(true)
+
+  await page.reload()
+  await expect(page.getByTestId('app-rail')).toHaveAttribute('data-wide', '')
+
+  // Resting on an entry says what it is.
+  await page.getByTestId('app-switch-tasks').hover()
+  await expect(page.getByTestId('rail-tip')).toContainText('To-dos for you and the team.')
+  await page.mouse.move(600, 300)
+  await expect(page.getByTestId('rail-tip')).toHaveCount(0)
+
+  const html = page.locator('html')
+  await page.getByTestId('account-menu').click()
+  await page.getByTestId('menu-theme-dark').click()
+  await expect(html).toHaveAttribute('data-theme', 'dark')
+  await page.getByTestId('menu-theme-system').click()
+  await expect(html).not.toHaveAttribute('data-theme')
+  await page.keyboard.press('Escape')
+
+  await page.getByTestId('rail-toggle').click()
+  await expect(page.getByTestId('app-rail')).not.toHaveAttribute('data-wide', '')
 })

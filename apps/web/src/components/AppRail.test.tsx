@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../api/client'
@@ -8,6 +8,10 @@ import { beginLive, currentLive } from '../apps/meetings/live/controller'
 import { DEFAULT_PHONE_PINS, DEFAULT_PINS, savePhonePins } from '../apps/pins'
 import { APPS, railLinks } from '../apps/registry'
 import { MOBILE_QUERY } from '../hooks/useMediaQuery'
+import { HELP_DOCS } from '../lib/helpLinks'
+import { storedTheme } from '../lib/theme'
+import { TIP_DELAY_MS } from '../rail/RailTip'
+import { RAIL_KEY } from '../rail/railWide'
 import { renderApp } from '../test/renderApp'
 import { initials } from './AppRail'
 
@@ -26,7 +30,7 @@ function phone() {
 }
 
 describe('the app rail', () => {
-  it('shows the default pins, then the launcher, Settings and the account', async () => {
+  it('shows the default pins, then the launcher and the account', async () => {
     const phoneList = vi.spyOn(api, 'phonePins')
     renderApp('/docs')
     const rail = await screen.findByTestId('app-rail')
@@ -62,24 +66,28 @@ describe('the app rail', () => {
     expect(chat).toHaveAttribute('rel', 'noopener noreferrer')
     expect(chat).toHaveAccessibleName('Acme Chat (opens in a new tab)')
 
-    expect(within(rail).getByTestId('settings-link')).toHaveAttribute('href', '/settings')
+    // Settings, music and feedback live in the account menu, not on the rail (rail plan R4).
+    for (const gone of ['settings-link', 'music-button', 'feedback-link']) {
+      expect(within(rail).queryByTestId(gone)).toBeNull()
+    }
     expect(within(rail).getByTestId('account-menu')).toBeInTheDocument()
     // The old sidebar footer is gone: the sidebar has no sign out or settings of its own.
     expect(within(screen.getByTestId('sidebar')).queryByText('Sign out')).toBeNull()
     expect(screen.getByTestId('sidebar-app-name')).toHaveTextContent('Docs')
   })
 
-  it('marks Settings, and no app, on the Settings page; Docs then returns to its last doc', async () => {
+  it('marks the account button, and no app, on the Settings page; Docs then returns to its last doc', async () => {
     const { router } = renderApp('/docs/team/docs/welcome.md')
     // The editor and the Settings page load lazily; under a full parallel run that can take
     // longer than the default second.
     const slow = { timeout: 5_000 }
     expect(await screen.findByTestId('editor', {}, slow)).toBeInTheDocument()
-    await userEvent.click(screen.getByTestId('settings-link'))
+    await userEvent.click(screen.getByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-settings'))
     await waitFor(() => expect(router.state.location.pathname).toBe('/settings'), slow)
     // The router's state changes before React renders the new location: wait for the render.
     await waitFor(
-      () => expect(screen.getByTestId('settings-link')).toHaveAttribute('aria-current', 'page'),
+      () => expect(screen.getByTestId('account-menu')).toHaveAttribute('data-current'),
       slow,
     )
     expect(
@@ -490,5 +498,127 @@ describe('initials', () => {
     expect(initials('Ana María de la Cruz', undefined)).toBe('AC')
     expect(initials('', 'priya@x.com')).toBe('P')
     expect(initials(undefined, undefined)).toBe('?')
+  })
+})
+
+// docs/PLAN-rail-account-menu.md
+describe('the wide rail (R1 to R3)', () => {
+  it('R1, R2: the logo widens the rail to icon beside name, and the choice is kept', async () => {
+    renderApp('/docs')
+    const rail = await screen.findByTestId('app-rail')
+    const toggle = within(rail).getByTestId('rail-toggle')
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(rail).not.toHaveAttribute('data-wide')
+    expect(within(rail).getByTestId('launcher-button')).not.toHaveTextContent('All apps')
+
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(rail).toHaveAttribute('data-wide')
+    expect(document.documentElement).toHaveAttribute('data-rail', 'wide')
+    expect(localStorage.getItem(RAIL_KEY)).toBe('wide')
+    // Names beside the icons: the launcher and the account say theirs too.
+    expect(within(rail).getByTestId('launcher-button')).toHaveTextContent('All apps')
+    expect(within(rail).getByTestId('app-switch-docs')).toHaveTextContent('Docs')
+    expect(within(rail).getByTestId('account-menu')).toHaveTextContent(/\S/)
+
+    // The next visit opens wide.
+    cleanup()
+    renderApp('/tasks')
+    const again = await screen.findByTestId('app-rail')
+    expect(again).toHaveAttribute('data-wide')
+
+    await userEvent.click(within(again).getByTestId('rail-toggle'))
+    expect(again).not.toHaveAttribute('data-wide')
+    expect(document.documentElement).not.toHaveAttribute('data-rail')
+    expect(localStorage.getItem(RAIL_KEY)).toBeNull()
+  })
+
+  it('R3: resting on an entry shows what the tool is, and leaving hides it', async () => {
+    renderApp('/docs')
+    const rail = await screen.findByTestId('app-rail')
+    const tasks = within(rail).getByTestId('app-switch-tasks')
+    // No native tooltip to double up with ours.
+    expect(tasks).not.toHaveAttribute('title')
+    fireEvent.pointerEnter(tasks, { pointerType: 'mouse' })
+    // Not at once: only after a pause.
+    expect(screen.queryByTestId('rail-tip')).toBeNull()
+    const tip = await screen.findByTestId('rail-tip', {}, { timeout: 2_000 })
+    const about = APPS.find((app) => app.id === 'tasks')?.about ?? ''
+    expect(about).not.toBe('')
+    expect(tip).toHaveTextContent(about)
+    expect(tip).toHaveAttribute('role', 'tooltip')
+    expect(tasks).toHaveAttribute('aria-describedby', tip.id)
+    fireEvent.pointerLeave(tasks)
+    expect(screen.queryByTestId('rail-tip')).toBeNull()
+
+    // A touch never shows one.
+    fireEvent.pointerEnter(tasks, { pointerType: 'touch' })
+    await new Promise((resolve) => setTimeout(resolve, TIP_DELAY_MS + 100))
+    expect(screen.queryByTestId('rail-tip')).toBeNull()
+  })
+
+  it('every app says what it is for', () => {
+    for (const app of APPS) expect(app.about, app.id).toMatch(/^[A-Z].{10,70}\.$/)
+  })
+})
+
+describe('the account menu (R6 to R10)', () => {
+  it('R7: switches between light, dark and the system at once', async () => {
+    renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    const menu = screen.getByRole('menu', { name: 'Account' })
+    expect(within(menu).getByTestId('account-email')).toHaveTextContent(/@/)
+    expect(within(menu).getByTestId('menu-theme-system')).toHaveAttribute('aria-checked', 'true')
+
+    await userEvent.click(within(menu).getByTestId('menu-theme-dark'))
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark')
+    expect(storedTheme()).toBe('dark')
+    expect(within(menu).getByTestId('menu-theme-dark')).toHaveAttribute('aria-checked', 'true')
+    // The menu stays open, so the change shows behind it.
+    await userEvent.click(within(menu).getByTestId('menu-theme-light'))
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
+    await userEvent.click(within(menu).getByTestId('menu-theme-system'))
+    expect(document.documentElement).not.toHaveAttribute('data-theme')
+    expect(storedTheme()).toBe('system')
+  })
+
+  it('R7: More themes opens Appearance in Settings', async () => {
+    const { router } = renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-theme-more'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
+    expect(screen.queryByRole('menu', { name: 'Account' })).toBeNull()
+  })
+
+  it('R9: opens the keyboard shortcuts, and links to help', async () => {
+    renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    const help = screen.getByTestId('menu-help')
+    expect(help).toHaveAttribute('href', HELP_DOCS)
+    expect(help).toHaveAttribute('target', '_blank')
+    await userEvent.click(screen.getByTestId('menu-shortcuts'))
+    expect(await screen.findByRole('dialog', { name: /shortcuts/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menu', { name: 'Account' })).toBeNull()
+  })
+
+  it('R10: shows the version, which opens What’s new; the Mac app adds its own', async () => {
+    Object.assign(window, { hotsauceMacApp: { version: '0.51.0', build: '131' } })
+    try {
+      const { router } = renderApp('/docs')
+      await userEvent.click(await screen.findByTestId('account-menu'))
+      expect(screen.getByTestId('menu-version')).toHaveTextContent('Hotsauce 0.8.0')
+      expect(screen.getByTestId('menu-mac-version')).toHaveTextContent('Mac app 0.51.0 (build 131)')
+      await userEvent.click(screen.getByTestId('menu-versions'))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/settings/whats-new'))
+    } finally {
+      Reflect.deleteProperty(window, 'hotsauceMacApp')
+    }
+  })
+
+  it('R10: in a browser there is no Mac app line', async () => {
+    renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    expect(screen.getByTestId('menu-version')).toBeInTheDocument()
+    expect(screen.queryByTestId('menu-mac-version')).toBeNull()
   })
 })

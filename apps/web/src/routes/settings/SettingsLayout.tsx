@@ -15,6 +15,7 @@ import { feedbackLink, useFeedbackEnabled } from '../../components/AppRail'
 import { Icon } from '../../components/Icon'
 import { onFeedbackClick } from '../../feedback/pageShot'
 import { useShortcut } from '../../keyboard/shortcuts'
+import { HELP_DOCS, HELP_FAQ } from '../../lib/helpLinks'
 import { hasMacSettings } from '../../lib/macSettings'
 import { useSession } from '../../state/session'
 import { MAC_PAGE, movedSection, ORG_PAGES, type SettingsPage, YOUR_PAGES } from './pages'
@@ -27,9 +28,8 @@ import {
 } from './SettingsSearch'
 import { type SettingEntry, searchSettings } from './searchIndex'
 
-/** The help center, and its frequently asked questions. */
-export const HELP_DOCS = 'https://hotsauce.work/help'
-export const HELP_FAQ = 'https://hotsauce.work/faq'
+// The account menu links to help too, so the addresses live outside this lazy page.
+export { HELP_DOCS, HELP_FAQ }
 
 /**
  * Settings: a menu of small pages (docs/PLAN-settings-pages.md). A column beside the page on wide

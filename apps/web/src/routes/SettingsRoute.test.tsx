@@ -82,10 +82,11 @@ describe('Settings: access tokens', () => {
     expect(await tokensApi.list()).toEqual([])
   })
 
-  it('is linked from the sidebar', async () => {
-    renderApp('/docs')
-    const link = await screen.findByTestId('settings-link')
-    expect(link).toHaveAttribute('href', '/settings')
+  it('is linked from the account menu', async () => {
+    const { router } = renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-settings'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
   })
 })
 

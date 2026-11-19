@@ -9,6 +9,7 @@ export const dictateApp: AppManifest = {
     return `${product()} Dictate`
   },
   label: 'Dictate',
+  about: 'Talk instead of typing, in any app on your Mac.',
   icon: 'mic',
   codename: 'Bellows',
   route: '/dictate',

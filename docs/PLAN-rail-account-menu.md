@@ -1,7 +1,8 @@
 # Plan: a tidier rail and a fuller account menu
 
-**Status:** in progress (started Nov 19, 2026). Questions are out to Morgan; nothing built yet.
-Requirements marked *(open)* wait on his answers and may change.
+**Status:** in progress (started Nov 19, 2026). Built and tested: the rail (1 to 5) and the account
+menu (6 to 10). Not built yet: the extra shortcuts (11), profile photos (12 to 16) and the delight
+(17). Requirements marked *(open)* wait on Morgan's answers and may change.
 
 Morgan, Nov 19: clean up the left rail. The logo expands it so each icon sits beside its title,
 every tool explains itself on hover, and Settings, music and feedback move into the account menu,
@@ -21,22 +22,28 @@ Shared files this touches: `apps/web/src/components/AppRail.tsx`, `AppShell.tsx`
 
 1. Clicking the logo at the top of the rail widens it: each entry shows its icon with its full
    name beside it. Clicking again narrows it back to today's icons with small labels.
-2. The rail remembers wide or narrow on this device, and opens that way next time.
+   *(AppRail.test: "R1, R2"; e2e app-rail: "the logo widens the rail")*
+2. The rail remembers wide or narrow on this device, and opens that way next time. *(same tests)*
 3. Hovering an entry (or focusing it with the keyboard) shows, after a short pause, a tip with one
-   line saying what the tool is, and its shortcut. Escape or moving away hides it.
+   line saying what the tool is, and its shortcut. Escape or moving away hides it. A touch shows
+   none. *(AppRail.test: "R3"; appShortcuts.test: "the rail (G3)")*
 4. The rail no longer shows the Settings gear, the music note or Feedback. All apps (the grid) and
-   the account button stay.
-5. `g` then `,` still opens Settings, and the music keeps playing with no button on the rail.
+   the account button stay. *(AppRail.test: "shows the default pins"; e2e app-rail)*
+5. `g` then `s` still opens Settings, and on Settings pages the account button is the one lit.
+   *(appShortcuts.test G1; AppRail.test: "marks the account button")*
 
 ### The account menu
 
-6. The menu opens from the account button and shows the member's photo, name and email.
+6. The menu opens from the account button and shows the member's face, name and email.
+   *(AppRail.test: "R7"; e2e app-rail: "the account menu shows the email")*
 7. A Light, Dark and Auto switch changes the theme at once; a theme made in Settings shows as its
-   own choice, and "More themes" opens Settings, Appearance.
-8. A Music row plays and pauses and opens the music controls.
+   own choice, and "More themes" opens Settings, Appearance. *(AppRail.test: both "R7" tests)*
+8. A Music row says what the music is doing and opens the controls under itself; the menu stays
+   on screen as it grows. *(MusicMenu.test M2; e2e music M8)*
 9. Settings, Keyboard shortcuts, Help and Send feedback (where feedback is on) are in the menu.
+   *(AppRail.test: "R9"; e2e feedback, mcp, theme)*
 10. The foot of the menu shows the Hotsauce version and, inside the Mac app, the Mac app's
-    version; the version opens What's new.
+    version; the version opens What's new. *(AppRail.test: both "R10" tests)*
 11. *(open)* Further shortcuts Morgan picks (Sign out, pinned apps, get the Mac app, invite people).
 
 ### Profile photo

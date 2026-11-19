@@ -12,6 +12,7 @@ export const peopleApp: AppManifest = {
     return `${product()} People`
   },
   label: 'People',
+  about: 'Everyone you meet with, and what you talked about.',
   icon: 'people',
   codename: 'People',
   route: '/people',

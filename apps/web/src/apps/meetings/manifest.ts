@@ -8,6 +8,7 @@ export const meetingsApp: AppManifest = {
     return `${product()} Meetings`
   },
   label: 'Meetings',
+  about: 'Record meetings and get notes and a transcript.',
   icon: 'calendar',
   codename: 'Log',
   route: '/meetings',
