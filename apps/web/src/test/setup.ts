@@ -1,4 +1,6 @@
 import { forgetForYou } from '../apps/for-you/store'
+import { reloadDelight } from '../lib/delight'
+import { forgetMemberPhotos } from '../profile/memberPhotos'
 import { forgetPhotos } from '../profile/photo'
 import { reloadRailWide } from '../rail/railWide'
 import '@testing-library/jest-dom/vitest'
@@ -50,6 +52,8 @@ afterEach(() => {
   localStorage.clear()
   reloadRailWide()
   forgetPhotos()
+  forgetMemberPhotos()
+  reloadDelight()
   resetMusicForTests()
   resetBreaksForTests()
   resetBreakSettingsForTests()

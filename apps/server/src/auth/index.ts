@@ -33,6 +33,8 @@ export function createAuthenticator(
   config: AuthConfig,
   /** Who each member is across sign-in instances; in memory when not given (tests). */
   identities: IdentityLedger = new IdentityLedger(),
+  /** Told each member's sign-in picture as their account is read (account/signInPhotos.ts). */
+  onPhoto?: (email: string, url: string | null) => void,
 ): Authenticator {
   const allowedDomains = config.ALLOWED_EMAIL_DOMAINS
   const allowedEmails = config.ALLOWED_EMAILS
@@ -56,6 +58,7 @@ export function createAuthenticator(
     authorizedParties: authorizedParties(config),
     identities,
     instance: instanceOf(config.CLERK_SECRET_KEY),
+    ...(onPhoto ? { onPhoto } : {}),
   })
 }
 

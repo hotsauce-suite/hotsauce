@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Comment } from '../../api/comments'
+import { PersonFace } from '../../profile/MemberFace'
 import { Icon } from '../Icon'
 import { Composer } from './Composer'
 import { CommentText, commentWhen } from './commentText'
@@ -258,6 +259,11 @@ function CommentItem({
       }`}
     >
       <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
+        <PersonFace
+          name={comment.name}
+          email={comment.author}
+          className="size-5 self-center text-[0.5625rem]"
+        />
         <span data-testid="comment-author" className="font-semibold text-ink">
           {comment.name || comment.author}
         </span>

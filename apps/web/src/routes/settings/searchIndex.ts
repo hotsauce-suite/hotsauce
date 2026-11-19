@@ -211,6 +211,9 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
       'animation',
       'motion',
       'click sound',
+      'pepper',
+      'mascot',
+      'character',
     ],
   },
   {

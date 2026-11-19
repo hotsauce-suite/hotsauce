@@ -1,4 +1,4 @@
-import type { AccountStore } from '../account/index.js'
+import type { AccountStore, SignInPhotos } from '../account/index.js'
 import type { Assistant } from '../assistant/index.js'
 import type { Authenticator, Principal } from '../auth/index.js'
 import type { BackupService } from '../backup/index.js'
@@ -45,6 +45,8 @@ export interface AppDeps {
   host: HostAdapter
   index: Index
   account: AccountStore
+  /** Members' sign-in pictures as default profile photos; absent where sign-in has none. */
+  signInPhotos?: SignInPhotos
   auth: Authenticator
   tokens: TokenStore
   oauth: OAuthStore

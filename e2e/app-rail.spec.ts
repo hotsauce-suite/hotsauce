@@ -223,6 +223,12 @@ test('the logo widens the rail, and the account menu switches the theme', async 
   await expect(html).toHaveAttribute('data-theme', 'dark')
   await page.getByTestId('menu-theme-system').click()
   await expect(html).not.toHaveAttribute('data-theme')
+
+  // Edit pinned apps opens the app grid ready to change them; the pepper sits above it.
+  await page.getByTestId('menu-edit-pins').click()
+  await expect(page.getByTestId('launcher')).toHaveAttribute('data-editing', 'true')
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('app-rail').getByTestId('rail-mascot')).toBeVisible()
   await page.keyboard.press('Escape')
 
   await page.getByTestId('rail-toggle').click()

@@ -17,6 +17,7 @@ import { keepTabAlive } from '../lib/drafts'
 import { offlineMe, rememberedMember, rememberMember } from '../lib/offlineStart'
 import { displayName } from '../lib/paths'
 import { sendWaitingDrafts } from '../lib/sendWaiting'
+import { setMemberPhoto } from '../profile/memberPhotos'
 import { TreeStore } from './treeStore'
 
 const DEFAULT_IDLE_COMMIT_MS = 60_000
@@ -201,6 +202,13 @@ export function SessionProvider({ children, tree }: { children: ReactNode; tree?
   const setPhoto = useCallback((photo: string | null) => {
     setMe((current) => (current ? { ...current, photo } : current))
   }, [])
+  // Wherever this member is shown among others (comments, People), their own change shows at once.
+  const myEmail = me?.principal.email
+  const myPhoto = me?.photo
+  useEffect(() => {
+    // `undefined` is "not known yet" (signed out, or an older server): say nothing then.
+    if (myEmail && myPhoto !== undefined) setMemberPhoto(myEmail, myPhoto)
+  }, [myEmail, myPhoto])
 
   const value = useMemo<Session>(
     () => ({

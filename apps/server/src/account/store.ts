@@ -92,6 +92,12 @@ const MIGRATIONS = [
     seen_at TEXT NOT NULL
   );
   `,
+  `
+  -- Where a photo came from: the member's own upload, or their sign-in picture (requirement 14),
+  -- with the address it was fetched from so a new one is noticed.
+  ALTER TABLE photos ADD COLUMN source TEXT NOT NULL DEFAULT 'upload';
+  ALTER TABLE photos ADD COLUMN origin TEXT;
+  `,
 ]
 
 /** A member's profile photo as stored. */
@@ -255,11 +261,45 @@ export class AccountStore {
     return this.#q.getPhoto.get(user) ?? null
   }
 
-  /** Replaces the member's photo; returns its tag. */
-  setPhoto(user: string, type: string, bytes: Uint8Array, now: Date): string {
+  /**
+   * Replaces the member's photo; returns its tag. With `origin` it is their sign-in picture,
+   * fetched from there; without, their own upload.
+   */
+  setPhoto(user: string, type: string, bytes: Uint8Array, now: Date, origin?: string): string {
     const tag = createHash('sha256').update(bytes).digest('hex').slice(0, 16)
-    this.#q.setPhoto.run(user, type, Buffer.from(bytes), tag, now.toISOString())
+    this.#q.setPhoto.run(
+      user,
+      type,
+      Buffer.from(bytes),
+      tag,
+      now.toISOString(),
+      origin ? 'sign-in' : 'upload',
+      origin ?? null,
+    )
     return tag
+  }
+
+  /**
+   * Whether the member's photo is their own upload or their sign-in picture, or `none` when they
+   * chose to have no photo at all (so the sign-in picture stays away); null when nothing is kept.
+   */
+  photoOrigin(
+    user: string,
+  ): { source: 'upload' | 'sign-in' | 'none'; origin: string | null } | null {
+    const row = this.#q.photoOrigin.get(user)
+    if (!row) return null
+    const source = row.source === 'sign-in' || row.source === 'none' ? row.source : 'upload'
+    return { source, origin: row.origin }
+  }
+
+  /** The member wants no photo: their sign-in picture is not used either, until they upload one. */
+  hidePhoto(user: string, now: Date): void {
+    this.#q.setPhoto.run(user, '', Buffer.alloc(0), '', now.toISOString(), 'none', null)
+  }
+
+  /** Every member with a photo, and its tag. */
+  photoTags(): { user: string; tag: string }[] {
+    return this.#q.photoTags.all()
   }
 
   deletePhoto(user: string): void {
@@ -367,13 +407,24 @@ function prepare(db: Database.Database) {
     addOffer: db.prepare<[string, string]>(
       'INSERT OR IGNORE INTO pin_offers (user, app) VALUES (?, ?)',
     ),
-    photoTag: db.prepare<[string], { tag: string }>('SELECT tag FROM photos WHERE user = ?'),
-    getPhoto: db.prepare<[string], PhotoRow>('SELECT type, bytes, tag FROM photos WHERE user = ?'),
-    setPhoto: db.prepare<[string, string, Buffer, string, string]>(`
-      INSERT INTO photos (user, type, bytes, tag, updated_at) VALUES (?, ?, ?, ?, ?)
+    photoTag: db.prepare<[string], { tag: string }>(
+      "SELECT tag FROM photos WHERE user = ? AND source != 'none'",
+    ),
+    getPhoto: db.prepare<[string], PhotoRow>(
+      "SELECT type, bytes, tag FROM photos WHERE user = ? AND source != 'none'",
+    ),
+    setPhoto: db.prepare<[string, string, Buffer, string, string, string, string | null]>(`
+      INSERT INTO photos (user, type, bytes, tag, updated_at, source, origin)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (user) DO UPDATE SET
         type = excluded.type, bytes = excluded.bytes, tag = excluded.tag,
-        updated_at = excluded.updated_at`),
+        updated_at = excluded.updated_at, source = excluded.source, origin = excluded.origin`),
+    photoOrigin: db.prepare<[string], { source: string; origin: string | null }>(
+      'SELECT source, origin FROM photos WHERE user = ?',
+    ),
+    photoTags: db.prepare<[], { user: string; tag: string }>(
+      "SELECT user, tag FROM photos WHERE source != 'none' ORDER BY user",
+    ),
     deletePhoto: db.prepare<[string]>('DELETE FROM photos WHERE user = ?'),
     tourSeen: db.prepare<[string], { user: string }>('SELECT user FROM tour_seen WHERE user = ?'),
     markTourSeen: db.prepare<[string, string]>(

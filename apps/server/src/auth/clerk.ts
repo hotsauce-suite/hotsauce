@@ -50,6 +50,9 @@ export interface ClerkUserLike {
   /** Banned or locked in the Clerk dashboard: treated as gone, so their access tokens stop too. */
   banned?: boolean
   locked?: boolean
+  /** Their picture at the sign-in service (their Google photo); `hasImage` is false for a placeholder. */
+  imageUrl?: string
+  hasImage?: boolean
 }
 
 const USER_CACHE_TTL_MS = 5 * 60 * 1000
@@ -75,6 +78,7 @@ export class ClerkAuth implements Authenticator {
   readonly #identities: IdentityLedger
   readonly #instance: string
   readonly #log: (message: string) => void
+  readonly #onPhoto: ((email: string, url: string | null) => void) | undefined
   /** Clerk user id → the user as last loaded. */
   readonly #users = new Map<string, CachedUser>()
   /** Member id → until when not to ask Clerk again for an account that wasn't there. */
@@ -93,6 +97,8 @@ export class ClerkAuth implements Authenticator {
     /** Names this Clerk instance in `identities` (auth/identities.ts `instanceOf`). */
     instance?: string
     log?: (message: string) => void
+    /** Told each member's sign-in picture (null: none) whenever their account is read. */
+    onPhoto?: (email: string, url: string | null) => void
   }) {
     this.#clerk = opts.clerk
     this.#allowedDomains = opts.allowedDomains
@@ -102,6 +108,7 @@ export class ClerkAuth implements Authenticator {
     this.#log = opts.log ?? console.log
     this.#identities = opts.identities ?? new IdentityLedger({ log: this.#log })
     this.#instance = opts.instance ?? 'default'
+    this.#onPhoto = opts.onPhoto
   }
 
   async authenticate(req: Request): Promise<Principal | null> {
@@ -239,6 +246,11 @@ export class ClerkAuth implements Authenticator {
       expiresAt: Date.now() + USER_CACHE_TTL_MS,
     }
     this.#users.set(userId, entry)
+    try {
+      this.#onPhoto?.(email, user.hasImage && user.imageUrl ? user.imageUrl : null)
+    } catch {
+      // A photo never stands between a member and signing in.
+    }
     return entry
   }
 }

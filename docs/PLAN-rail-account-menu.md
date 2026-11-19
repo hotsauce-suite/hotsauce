@@ -1,8 +1,10 @@
 # Plan: a tidier rail and a fuller account menu
 
-**Status:** in progress (started Nov 19, 2026). Built and tested: the rail (1 to 5) and the account
-menu (6 to 10), and a member's own profile photo (12, 13, 16). Not built yet: the extra shortcuts
-(11), the sign-in photo as a default (14), photos shown to other members (15) and the delight (17). Requirements marked *(open)* wait on Morgan's answers and may change.
+**Status:** built (Nov 19, 2026). Requirements 1 to 10, 12, 13 and 16 shipped in the first pull
+request; 11, 14, 15 and 17 in the second. Morgan's answers (Nov 19): no Sign out in the menu;
+Light, Dark and Auto; the rail remembers per device; the sign-in photo is the default; photos
+show wherever a member is named; the delight is a pepper and a living logo. Still to do: new
+screenshots and videos of the rail.
 
 Morgan, Nov 19: clean up the left rail. The logo expands it so each icon sits beside its title,
 every tool explains itself on hover, and Settings, music and feedback move into the account menu,
@@ -44,7 +46,9 @@ Shared files this touches: `apps/web/src/components/AppRail.tsx`, `AppShell.tsx`
    *(AppRail.test: "R9"; e2e feedback, mcp, theme)*
 10. The foot of the menu shows the Hotsauce version and, inside the Mac app, the Mac app's
     version; the version opens What's new. *(AppRail.test: both "R10" tests)*
-11. *(open)* Further shortcuts Morgan picks (Sign out, pinned apps, get the Mac app, invite people).
+11. The menu also has Edit pinned apps (the app grid opens ready to change the pins), What's new,
+    and, on a Mac in a browser, Get the Mac app. No Sign out: it stays in Settings.
+    *(AppRail.test: both "R11" tests; e2e app-rail: "the logo widens the rail")*
 
 ### Profile photo
 
@@ -55,20 +59,31 @@ Shared files this touches: `apps/web/src/components/AppRail.tsx`, `AppShell.tsx`
     profile-photo)*
 13. A member removes their photo and gets their initials back. *(profile/photo.test "R13";
     server profile-photo.test "R13"; e2e profile-photo)*
-14. *(open)* Until a member uploads one, their sign-in photo (Google) shows.
-15. *(open)* Other members see the photo wherever initials show today (People, comments, check-ins).
+14. Until a member uploads one, the picture from their sign-in (their Google photo) is their
+    photo: the server fetches a 256 px copy when it reads their account and keeps it like an
+    upload. An upload is never replaced by it, and removing the upload brings it back; removing the
+    sign-in picture itself leaves initials, and it stays away until the member uploads a photo.
+    *(server account/signInPhotos.test: four "R14" tests; auth/clerk.test: "sign-in picture";
+    server profile-photo.test "R14")*
+15. Other members see the photo wherever a member is shown: People, comments, check-in answers and
+    who is on a whiteboard. One list of who has a photo serves the whole app.
+    *(server profile-photo.test "R15"; profile/photo.test: two "R15" tests)*
 16. Only the member changes their own photo; an upload that isn't a JPEG, PNG or WebP by its bytes,
     or is over 500 KB, is refused with a plain message, and no photo is served without a session.
     *(server profile-photo.test: three "R16" tests; profile/photo.test: two "R16" tests)*
 
 ### Delight
 
-17. *(open)* The idea Morgan picks for the freed space. Anything that moves stops under the
-    system's reduce-motion setting and can be turned off in Settings, Appearance.
+17. A small pepper sits at the foot of the rail: it blinks, sleeps from ten at night to six,
+    wears sunglasses in a dark theme, greets the member when the pointer rests on it and hops when
+    a task is ticked off or a recording is saved. The logo wobbles under the pointer. Anything
+    that moves stops under the system's reduce-motion setting, and Settings, Appearance turns the
+    pepper and the wobble off (kept per browser). Short windows hide the pepper to keep room for
+    apps. *(rail/Mascot.test: five "R17" tests; e2e app-rail)*
 
 ## Slices
 
 1. Rail: widen from the logo, tips, the three buttons out (1 to 5).
 2. Account menu: theme switch, music, links, versions (6 to 10).
 3. Profile photo, server and web (12 to 16).
-4. Delight (17), then the support materials: help pages, demo data, landing page, screenshots.
+4. More menu rows, the sign-in photo, photos for everyone, delight (11, 14, 15, 17), then the support materials: help pages, demo data, landing page, screenshots.

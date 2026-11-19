@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { api } from '../api/client'
 import { meetingsApi } from '../api/meetings'
 import { AudioRing } from '../apps/meetings/audio/ring-buffer'
@@ -616,6 +616,64 @@ describe('the account menu (R6 to R10)', () => {
     await userEvent.click(screen.getByTestId('menu-shortcuts'))
     expect(await screen.findByRole('dialog', { name: /shortcuts/i })).toBeInTheDocument()
     expect(screen.queryByRole('menu', { name: 'Account' })).toBeNull()
+  })
+
+  it('R11: What’s new and Edit pinned apps are in the menu, and there is no Sign out', async () => {
+    const { router } = renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    const menu = screen.getByRole('menu', { name: 'Account' })
+    expect(within(menu).queryByText(/sign out/i)).toBeNull()
+
+    await userEvent.click(screen.getByTestId('menu-edit-pins'))
+    expect(screen.queryByRole('menu', { name: 'Account' })).toBeNull()
+    // The app grid opens ready to change the pins.
+    const launcher = await screen.findByTestId('launcher')
+    expect(launcher).toHaveAttribute('data-editing', 'true')
+    await userEvent.keyboard('{Escape}')
+
+    await userEvent.click(screen.getByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-whats-new'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/whats-new'))
+  })
+
+  it('R11: Get the Mac app shows on a Mac in a browser, and not inside the Mac app or elsewhere', async () => {
+    const agent = vi.spyOn(navigator, 'userAgent', 'get')
+    // This test browser has no touch screen at all, so the count is put there for the test.
+    let points = 0
+    Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, get: () => points })
+    onTestFinished(() => {
+      Reflect.deleteProperty(navigator, 'maxTouchPoints')
+    })
+    // Not on Linux, not on an iPhone, and not on an iPad (which calls itself a Mac).
+    for (const [ua, touches] of [
+      ['Mozilla/5.0 (X11; Linux x86_64)', 0],
+      ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 5],
+      ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 5],
+    ] as const) {
+      agent.mockReturnValue(ua)
+      points = touches
+      renderApp('/docs')
+      await userEvent.click(await screen.findByTestId('account-menu'))
+      expect(screen.queryByTestId('menu-mac-app'), ua).toBeNull()
+      cleanup()
+    }
+    points = 0
+
+    agent.mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')
+    Object.assign(window, { hotsauceMacApp: { version: '0.51.0', build: '131' } })
+    try {
+      renderApp('/docs')
+      await userEvent.click(await screen.findByTestId('account-menu'))
+      expect(screen.queryByTestId('menu-mac-app')).toBeNull()
+      cleanup()
+    } finally {
+      delete (window as { hotsauceMacApp?: unknown }).hotsauceMacApp
+    }
+
+    const { router } = renderApp('/docs')
+    await userEvent.click(await screen.findByTestId('account-menu'))
+    await userEvent.click(screen.getByTestId('menu-mac-app'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/settings/apps'))
   })
 
   it('R10: shows the version, which opens What’s new; the Mac app adds its own', async () => {

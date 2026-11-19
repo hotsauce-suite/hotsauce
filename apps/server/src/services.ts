@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClerkClient } from '@clerk/backend'
 import { initialSpaceFiles, rewriteLinksForMove } from '@hotsauce/format'
 import dotenv from 'dotenv'
-import { AccountStore, accountPath } from './account/index.js'
+import { AccountStore, accountPath, type PhotoFetch, SignInPhotos } from './account/index.js'
 import {
   AnthropicAssistantModel,
   Assistant,
@@ -167,6 +167,8 @@ export type Services = ReturnType<typeof createServices>
 
 /** Stand-ins for the paid services, for tests; config picks the real ones otherwise. */
 export interface ServiceOverrides {
+  /** Fetches a member's sign-in picture; tests pass their own bytes. */
+  photoFetch?: PhotoFetch
   transcriber?: Transcriber
   llm?: LLM
   /** The built-in assistant's model (docs/PLAN-assistant.md); tests script it. */
@@ -250,7 +252,13 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
   const allowAnyone = () => org.settings().publicShareLinks
   // Who each member is, whatever id the sign-in provider gives them (auth/identities.ts).
   const identities = new IdentityLedger({ dataDir: config.DATA_DIR })
-  const auth = new TokenAuth(createAuthenticator(config, identities), tokens, oauth)
+  // A member's sign-in picture is their profile photo until they upload one.
+  const signInPhotos = new SignInPhotos(account, overrides.photoFetch)
+  const auth = new TokenAuth(
+    createAuthenticator(config, identities, (email, url) => void signInPhotos.offer(email, url)),
+    tokens,
+    oauth,
+  )
   const spaces = new SpaceService({
     git,
     host,
@@ -545,6 +553,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     index,
     indexer,
     account,
+    signInPhotos,
     auth,
     tokens,
     oauth,

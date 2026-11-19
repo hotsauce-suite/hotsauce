@@ -40,6 +40,7 @@ import { MusicPanel, musicStatus } from '../music/MusicPanel'
 import { useMusic } from '../music/useMusic'
 import { initials, MemberFace } from '../profile/MemberFace'
 import { usePhotoPicker } from '../profile/usePhotoPicker'
+import { Mascot } from '../rail/Mascot'
 import { type Tip, type TipHandlers, useRailTip } from '../rail/RailTip'
 import { setRailWide, useRailWide } from '../rail/railWide'
 import { useSession } from '../state/session'
@@ -47,7 +48,8 @@ import { TOUR_REPLAY } from '../tour/replay'
 import { AppsTab } from './AppsSheet'
 import { BrandMark } from './BrandMark'
 import { Icon, type IconName } from './Icon'
-import { LauncherButton } from './Launcher'
+import { EDIT_PINS, LauncherButton } from './Launcher'
+import { MAC_APP_SETTINGS, WHATS_NEW } from './MacApp'
 import { Menu, type MenuAnchor, MenuItem, menuItemClass } from './Menu'
 import { NEEDS_CONNECTION } from './Offline'
 
@@ -181,6 +183,7 @@ export function AppRail({
           ) : null}
         </RailApps>
         <div className="flex w-full shrink-0 flex-col items-center gap-1 pt-2">
+          <RailMascot />
           <LauncherButton
             active={active}
             wide={wide}
@@ -321,7 +324,7 @@ function RailToggle({ wide }: { wide: boolean }) {
           wide ? 'w-[calc(100%-1rem)] px-2.5 py-1' : 'p-1'
         }`}
       >
-        <BrandMark className="size-8 shrink-0" />
+        <BrandMark className="rail-logo size-8 shrink-0" />
         {wide ? (
           <span className="truncate font-display text-base font-semibold tracking-tight text-ink">
             {org() || product()}
@@ -580,6 +583,30 @@ function AccountButton({
                   Keyboard shortcuts
                 </MenuItem>
               ) : null}
+              <MenuItem
+                icon="pin"
+                testId="menu-edit-pins"
+                onSelect={go(() => window.dispatchEvent(new Event(EDIT_PINS)))}
+              >
+                Edit pinned apps
+              </MenuItem>
+              <MenuDivider />
+              <MenuItem
+                icon="sparkle"
+                testId="menu-whats-new"
+                onSelect={go(() => navigate(WHATS_NEW))}
+              >
+                What’s new
+              </MenuItem>
+              {offerMacApp() ? (
+                <MenuItem
+                  icon="laptop"
+                  testId="menu-mac-app"
+                  onSelect={go(() => navigate(MAC_APP_SETTINGS))}
+                >
+                  Get the Mac app
+                </MenuItem>
+              ) : null}
               <a
                 role="menuitem"
                 href={HELP_DOCS}
@@ -613,6 +640,19 @@ function AccountButton({
       ) : null}
     </>
   )
+}
+
+/** On a Mac, in a browser: the one place the Mac app is worth offering. */
+function offerMacApp(): boolean {
+  if (installedMacAppVersion()) return false
+  const ua = navigator.userAgent
+  // iPadOS calls itself a Mac; a "Mac" with a touch screen is an iPad (lib/install.ts).
+  return /Macintosh/.test(ua) && !/iPhone|iPad|iPod/.test(ua) && !(navigator.maxTouchPoints > 1)
+}
+
+/** The pepper, greeting the member by name. */
+function RailMascot() {
+  return <Mascot name={useSession().me?.principal.name} />
 }
 
 function MenuDivider() {

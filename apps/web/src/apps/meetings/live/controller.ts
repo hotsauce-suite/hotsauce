@@ -5,6 +5,7 @@ import { HotsauceApiError } from '../../../api/client'
 import { meetingsApi } from '../../../api/meetings'
 import type { MeetingSession, MeetingState, StopResult, Track } from '../../../api/types'
 import { product } from '../../../brand/product'
+import { cheer } from '../../../lib/delight'
 import type { Capture } from '../audio/capture'
 import { followMacCall } from '../audio/mac'
 import type { Recorder } from '../audio/recorder'
@@ -469,6 +470,13 @@ export function beginLive(session: MeetingSession, opts: LiveMeetingOptions = {}
  * tab), with this device's notes draft. Once it's saved, the draft and the kept audio go.
  */
 export async function stopSession(id: string): Promise<StopResult> {
+  const result = await stopAndSave(id)
+  // A recording saved: the pepper in the left bar hops (lib/delight.ts).
+  cheer()
+  return result
+}
+
+async function stopAndSave(id: string): Promise<StopResult> {
   if (current?.session.id === id) return current.stop()
   const notes = readNotesDraft(id)
   const result = await meetingsApi.stop(id, notes === null ? {} : { notes })

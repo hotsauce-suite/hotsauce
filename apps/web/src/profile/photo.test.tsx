@@ -1,10 +1,15 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { server } from '../test/mockServer'
 import { renderApp } from '../test/renderApp'
+import { PersonFace } from './MemberFace'
 import { PHOTO_SIZE } from './photo'
+
+/** Who the test is signed in as, from the account button's name ("Account: ada@…"). */
+const currentEmail = () =>
+  screen.getByTestId('account-menu').getAttribute('aria-label')?.replace('Account: ', '') ?? ''
 
 // Profile photos in the web app (docs/PLAN-rail-account-menu.md, requirements 12, 13 and 16).
 
@@ -134,5 +139,39 @@ describe('profile photo', () => {
     await waitFor(() =>
       expect(within(account).getByTestId('member-face')).not.toHaveAttribute('data-photo'),
     )
+  })
+
+  it('R15: a teammate with a photo shows their face beside their comments; one without shows initials', async () => {
+    server.use(
+      http.get('/api/members/photos', () =>
+        HttpResponse.json({ photos: { 'priya@acme.example': '/api/members/priya/photo?v=1' } }),
+      ),
+      http.get('/api/members/priya/photo', () =>
+        HttpResponse.arrayBuffer(new Uint8Array(PNG_BYTES).buffer, {
+          headers: { 'content-type': 'image/png' },
+        }),
+      ),
+    )
+    render(
+      <>
+        <PersonFace name="Priya Shah" email="Priya@acme.example" />
+        <PersonFace name="Sam Lee" email="sam@acme.example" />
+      </>,
+    )
+    const [priya, sam] = screen.getAllByTestId('person-face')
+    await waitFor(() =>
+      expect(within(priya as HTMLElement).getByTestId('person-photo')).toBeTruthy(),
+    )
+    expect(within(sam as HTMLElement).queryByTestId('person-photo')).toBeNull()
+    expect(sam).toHaveTextContent('SL')
+  })
+
+  it('R15: adding your own photo puts it beside your name everywhere at once', async () => {
+    await openMenu()
+    render(<PersonFace name="Dev User" email={currentEmail()} />)
+    const face = screen.getByTestId('person-face')
+    expect(within(face).queryByTestId('person-photo')).toBeNull()
+    pick(picture())
+    await waitFor(() => expect(within(face).getByTestId('person-photo')).toBeTruthy())
   })
 })
