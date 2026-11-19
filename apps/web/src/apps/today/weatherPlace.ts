@@ -3,6 +3,7 @@
 // Nothing set means the team's default place, if an admin chose one.
 
 import { useEffect, useState } from 'react'
+import { todayApi } from '../../api/today'
 
 export const WEATHER_PLACE_KEY = 'hotsauce.today.weatherPlace'
 const CHANGED = 'hotsauce:weather-place'
@@ -48,9 +49,47 @@ export function writeDeviceWeather(value: DeviceWeather) {
   window.dispatchEvent(new CustomEvent(CHANGED, { detail: value }))
 }
 
+const naming = new Set<string>()
+
+/**
+ * Gives a shared location its place name ("Burlington, Vermont, United States"), once, so Today
+ * and Settings can say where the weather is for. Quiet when the lookup fails: it stays "your
+ * location" and is tried again next time.
+ */
+export async function nameDevicePlace(place: DevicePlace): Promise<void> {
+  if (place.name) return
+  const key = `${place.lat},${place.lon}`
+  if (naming.has(key)) return
+  naming.add(key)
+  try {
+    const { place: found } = await todayApi.placeAt(place.lat, place.lon)
+    const now = readDeviceWeather()
+    // Only if the device still shows this same unnamed spot.
+    if (
+      found &&
+      now.kind === 'place' &&
+      !now.place.name &&
+      now.place.lat === place.lat &&
+      now.place.lon === place.lon
+    ) {
+      const named: DevicePlace = { ...now.place, name: found.name }
+      if (found.detail) named.detail = found.detail
+      writeDeviceWeather({ kind: 'place', place: named })
+    }
+  } catch {
+    // Offline or rate limited: try again another time.
+  } finally {
+    naming.delete(key)
+  }
+}
+
 /** The device's choice, kept current when the header or Settings changes it. */
 export function useDeviceWeather(): DeviceWeather {
   const [value, setValue] = useState(readDeviceWeather)
+  // A shared location without its name yet (shared before places had names, or just now).
+  useEffect(() => {
+    if (value.kind === 'place' && !value.place.name) void nameDevicePlace(value.place)
+  }, [value])
   useEffect(() => {
     const changed = (event: Event) => setValue((event as CustomEvent<DeviceWeather>).detail)
     const storage = (event: StorageEvent) => {

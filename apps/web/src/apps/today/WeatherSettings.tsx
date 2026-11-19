@@ -34,7 +34,7 @@ export function WeatherSettingsSection() {
       : device.kind === 'place'
         ? device.place.name
           ? `Showing weather for ${placeLabel(device.place)}.`
-          : 'Showing weather for your location.'
+          : 'Showing weather for your location (finding its name…).'
         : team
           ? `Showing weather for ${placeLabel(team)}, your team’s city.`
           : 'Off. Pick a city or share your location to show it on Today.'

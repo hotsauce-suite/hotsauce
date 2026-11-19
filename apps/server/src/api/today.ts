@@ -31,6 +31,11 @@ const Place = z.object({
 
 const PlaceQuery = z.object({ q: z.string().max(200).default('') })
 
+const Position = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lon: z.coerce.number().min(-180).max(180),
+})
+
 /** The team's default weather place, or null to clear it. */
 const DefaultPlace = z.object({
   place: z
@@ -130,6 +135,11 @@ export function todayRoutes(
       .get('/today/places', valid('query', PlaceQuery), async (c) =>
         c.json({ places: await places.search(c.req.valid('query').q, c.get('principal').email) }),
       )
+      // The name of a shared location, so Settings and Today can say where it is.
+      .get('/today/places/at', valid('query', Position), async (c) => {
+        const { lat, lon } = c.req.valid('query')
+        return c.json({ place: await places.at(lat, lon, c.get('principal').email) })
+      })
       // Any member may see the default (the header names it); only an admin in a session sets it.
       .get('/today/default-place', (c) => c.json({ place: teamPlace() }))
       .put('/today/default-place', valid('json', DefaultPlace), (c) => {

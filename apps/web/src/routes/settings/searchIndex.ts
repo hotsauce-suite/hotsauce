@@ -20,6 +20,7 @@ export interface SettingEntry {
 
 const MAC = { page: 'This Mac', to: '/settings/mac', macOnly: true as const }
 const GENERAL = { page: 'General', to: '/settings' }
+const APPEARANCE = { page: 'Appearance', to: '/settings/appearance' }
 const CONNECTIONS = { page: 'Connections', to: '/settings/connections' }
 const APPS = { page: 'Apps', to: '/settings/apps' }
 const org = (page: string, path = '') => ({
@@ -184,7 +185,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   {
     id: 'appearance',
     title: 'Appearance',
-    ...GENERAL,
+    ...APPEARANCE,
     summary: 'Light, dark, or a theme of your own made from a description.',
     words: [
       'dark mode',

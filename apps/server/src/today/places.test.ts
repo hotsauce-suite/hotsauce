@@ -93,3 +93,70 @@ describe('Places', () => {
     await places.search('City 1', 'a@x')
   })
 })
+
+// A shared location gets its name from OpenStreetMap's Nominatim (Settings → Weather).
+const REVERSE = {
+  name: 'Burlington',
+  address: {
+    city: 'Burlington',
+    county: 'Chittenden County',
+    state: 'Vermont',
+    country: 'United States',
+  },
+}
+
+describe('Places.at', () => {
+  const noWait = async () => {}
+
+  it('names a rounded position with its city, region and country', async () => {
+    const fetch = fakeFetch(REVERSE)
+    const places = new Places({ fetch, now: () => NOW, version: '0.52.0', wait: noWait })
+    expect(await places.at(44.47612, -73.21291)).toEqual({
+      name: 'Burlington',
+      detail: 'Vermont, United States',
+      lat: 44.48,
+      lon: -73.21,
+    })
+    const [url, init] = fetch.mock.calls[0] ?? []
+    const asked = new URL(String(url))
+    expect(asked.hostname).toBe('nominatim.openstreetmap.org')
+    expect(asked.searchParams.get('lat')).toBe('44.48')
+    expect(asked.searchParams.get('lon')).toBe('-73.21')
+    const headers = (init?.headers ?? {}) as Record<string, string>
+    expect(headers['User-Agent']).toBe('Hotsauce/0.52.0 https://hotsauce.work')
+  })
+
+  it('falls back to a town or village, and answers null where nothing is named', async () => {
+    const town = new Places({
+      fetch: fakeFetch({ address: { town: 'Stowe', state: 'Vermont', country: 'United States' } }),
+      now: () => NOW,
+      wait: noWait,
+    })
+    expect((await town.at(44.46, -72.69))?.name).toBe('Stowe')
+    const sea = new Places({
+      fetch: fakeFetch({ error: 'Unable to geocode' }),
+      now: () => NOW,
+      wait: noWait,
+    })
+    expect(await sea.at(0, -30)).toBeNull()
+  })
+
+  it('asks once for the same spot, and keeps answering it when Nominatim is down', async () => {
+    let now = NOW
+    const fetch = fakeFetch(REVERSE)
+    const places = new Places({ fetch, now: () => now, wait: noWait })
+    await places.at(44.476, -73.212)
+    await places.at(44.479, -73.209)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    now += 31 * 24 * 3_600_000
+    fetch.mockImplementation(async () => Response.json({}, { status: 503 }))
+    expect((await places.at(44.476, -73.212))?.name).toBe('Burlington')
+  })
+
+  it('limits one member’s lookups', async () => {
+    const places = new Places({ fetch: fakeFetch(REVERSE), now: () => NOW, wait: noWait })
+    for (let i = 0; i < 10; i++) await places.at(40 + i, -70, 'a@x.com')
+    await expect(places.at(60, -70, 'a@x.com')).rejects.toBeInstanceOf(HotsauceError)
+    expect(await places.at(60, -70, 'b@x.com')).not.toBeNull()
+  })
+})

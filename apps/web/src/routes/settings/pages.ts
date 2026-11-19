@@ -1,4 +1,4 @@
-// The pages of Settings (docs/PLAN-settings-pages.md, L1): three for everyone, six more for admins
+// The pages of Settings (docs/PLAN-settings-pages.md, L1): four for everyone, six more for admins
 // (Usage: docs/PLAN-app-usage.md).
 
 export interface SettingsPage {
@@ -9,6 +9,7 @@ export interface SettingsPage {
 
 export const YOUR_PAGES: SettingsPage[] = [
   { id: 'general', label: 'General', to: '/settings' },
+  { id: 'appearance', label: 'Appearance', to: '/settings/appearance' },
   { id: 'connections', label: 'Connections', to: '/settings/connections' },
   { id: 'apps', label: 'Apps', to: '/settings/apps' },
 ]
@@ -38,6 +39,7 @@ export function orgPageOf(param: string | undefined): OrgPageId | null {
  * G4). Sections on General (`#notifications`, `#keyboard`) aren't listed: they stay put.
  */
 const MOVED: Record<string, string> = {
+  appearance: '/settings/appearance',
   'mac-app': '/settings/apps',
   calendars: '/settings/connections',
   'ai-tools': '/settings/connections',
