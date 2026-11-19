@@ -12,6 +12,14 @@ extension AppDelegate {
         return item
     }
 
+    /// Keeps the item's shortcut current after Settings changes it.
+    func refreshScreenshotItem(_ item: NSMenuItem) -> Bool {
+        let shortcut = screenshots.shortcut
+        item.keyEquivalent = shortcut.keyEquivalent ?? ""
+        item.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: UInt(shortcut.modifiers.rawValue))
+        return true
+    }
+
     @objc func takeScreenshot() {
         // Let the menu finish closing first, so it isn't in the picture.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
