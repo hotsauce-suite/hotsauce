@@ -43,3 +43,16 @@ Learnings from making Hotsauce one-click and agent installable (`docs/PLAN-one-c
 - **Cloudflare test buckets can't be deleted while the server's state is in them.** The test adds
   a one-day expiry rule on teardown and deletes emptied `hs-test-*` buckets at the start of the next
   run, instead of listing and deleting objects.
+
+## The Cloudflare button leaves a Worker behind when its first build fails (2026-11-19)
+
+- The Deploy to Cloudflare button makes the GitHub copy and the Worker before the first build. If
+  that build fails (a new account not yet on Workers Paid is the usual reason), the Worker stays,
+  empty. Starting again from the dashboard's "Import a repository" with the same name then shows
+  `WorkerResource.getWorkerResult: response missing default_environment.script` under Project name.
+  That is Cloudflare's setup page choking on the empty Worker, not our `wrangler.jsonc`.
+- The way past it is to retry the existing Worker's build, or click the button again with a new
+  name. The dashboard import path also skips the button's R2 bucket and secrets prompts, so steer
+  people back to the button.
+- The install test runs the wrangler path and can't see this: it's a dashboard page, with no API
+  to drive it.
