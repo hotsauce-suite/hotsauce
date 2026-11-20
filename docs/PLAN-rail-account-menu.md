@@ -1,10 +1,10 @@
 # Plan: a tidier rail and a fuller account menu
 
-**Status:** built (Nov 19, 2026). Requirements 1 to 10, 12, 13 and 16 shipped in the first pull
+**Status:** shipped (Nov 19, 2026; 0.55.0 and 0.62.0). Requirements 1 to 10, 12, 13 and 16 shipped in the first pull
 request; 11, 14, 15 and 17 in the second. Morgan's answers (Nov 19): no Sign out in the menu;
 Light, Dark and Auto; the rail remembers per device; the sign-in photo is the default; photos
-show wherever a member is named; the delight is a pepper and a living logo. Still to do: new
-screenshots and videos of the rail.
+show wherever a member is named; the delight is a pepper and a living logo. The app videos,
+the tour and the README screenshots were re-made with the new rail (#216). Nothing left to do.
 
 Morgan, Nov 19: clean up the left rail. The logo expands it so each icon sits beside its title,
 every tool explains itself on hover, and Settings, music and feedback move into the account menu,
