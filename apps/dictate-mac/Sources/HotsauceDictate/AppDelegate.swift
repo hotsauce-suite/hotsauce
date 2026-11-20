@@ -842,12 +842,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let recording = controller.isRecording || controller.isBusy || suite.isUsingMicrophone
         switch AppMenuLayout.softQuit(recording: recording) {
         case .hideApp:
-            NSApp.hide(nil)
+            break
         case .closeWindows:
-            for window in NSApp.windows where window.isVisible && window.styleMask.contains(.closable) {
-                window.performClose(nil)
+            // Put away, not closed: closing would count setup as done and makes the suite's
+            // window (which hides itself instead) beep.
+            for window in NSApp.windows where window.isVisible && window.styleMask.contains(.titled) {
+                window.orderOut(nil)
             }
         }
+        // Back to the app the person was in, as a real quit would.
+        NSApp.hide(nil)
         let key = "softQuit.explained"
         if !UserDefaults.standard.bool(forKey: key) {
             UserDefaults.standard.set(true, forKey: key)
@@ -867,18 +871,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Switch Workspace…: the setup window's workspace step.
     @objc func switchWorkspace() { onboarding.showWorkspace() }
 
+    /// The same setters as Settings → This Mac uses.
     @objc func toggleOpenAtLoginFromMenu() {
-        toggleLaunchAtLogin()
-        mainWindow.model.reload()
+        mainWindow.model.setLaunchAtLogin(SMAppService.mainApp.status != .enabled)
     }
 
     var showsMenuBarIcon: Bool { settings.showInMenuBar }
 
     @objc func toggleShowInMenuBarFromMenu() {
-        let on = !settings.showInMenuBar
-        settings.showInMenuBar = on
-        statusItem.isVisible = on
-        mainWindow.model.reload()
+        mainWindow.model.setShowInMenuBar(!settings.showInMenuBar)
     }
 
     // MARK: Updates

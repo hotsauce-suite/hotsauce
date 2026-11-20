@@ -8,7 +8,8 @@ Check for Updates, Restart, Hide, Quit Completely, Quit) and accepted all five r
 M1. The Hotsauce menu, in order: About Hotsauce, Check for Updates… / Settings… ⌘,, Switch
     Workspace…, Open at Login, Show in Menu Bar / Restart Hotsauce / Services / Hide Hotsauce ⌘H,
     Hide Others ⌥⌘H, Show All / Quit Completely ⌥⌘Q, Quit Hotsauce ⌘Q. [AppMenuLayoutTests]
-M2. Quit Hotsauce (⌘Q) closes the windows and keeps the app running in the menu bar (dictation
+M2. Quit Hotsauce (⌘Q) puts the windows away (never closes them, so setup isn't counted as
+    done), hides the app like a real quit, and keeps the app running in the menu bar (dictation
     key, reminders, call detection). While something records it only hides the app. The first time,
     it says how to quit for real. Quit Completely, the Dock's Quit, logging out and restarting the
     Mac really quit. [AppMenuLayoutTests for the choice; checked on a Mac]

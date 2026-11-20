@@ -107,14 +107,14 @@ extension AppDelegate: NSMenuItemValidation {
         case .hide: made = NSMenuItem(title: title, action: #selector(NSApplication.hide(_:)), keyEquivalent: key)
         case .hideOthers: made = NSMenuItem(title: title, action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: key)
         case .showAll: made = NSMenuItem(title: title, action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: key)
-        default: made = entry(title, Self.selector(for: command), key)
+        default: made = entry(title, selector(for: command), key)
         }
         made.keyEquivalentModifierMask = modifiers == .commandOption ? [.command, .option] : [.command]
         made.representedObject = command.rawValue
         return made
     }
 
-    private static func selector(for command: AppMenuLayout.Command) -> Selector {
+    private func selector(for command: AppMenuLayout.Command) -> Selector {
         switch command {
         case .about: return #selector(showAbout)
         case .checkForUpdates: return #selector(checkForUpdatesNow)
@@ -132,6 +132,7 @@ extension AppDelegate: NSMenuItemValidation {
         case .checkPermissions: return #selector(showOnboarding)
         case .runSetupAgain: return #selector(runSetupAgain)
         case .github: return #selector(openGitHub)
+        // Built by menuItem and makeMainMenu themselves; never asked for.
         case .services, .hide, .hideOthers, .showAll: return #selector(showSuiteWindow)
         }
     }

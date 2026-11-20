@@ -414,7 +414,14 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     }
 
     /// Help → Keyboard Shortcuts: the page opens its shortcuts sheet (docs/PLAN-mac-app-menu.md).
-    func showKeyboardShortcuts() {
+    /// A window still loading gets it once the page is there (tries for about 10 seconds).
+    func showKeyboardShortcuts(tries: Int = 20) {
+        guard !webView.isLoading || tries <= 0 else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                MainActor.assumeIsolated { self?.showKeyboardShortcuts(tries: tries - 1) }
+            }
+            return
+        }
         webView.evaluateJavaScript("window.dispatchEvent(new Event('hotsauce:show-shortcuts'))", in: nil, in: .page) { _ in }
     }
 
