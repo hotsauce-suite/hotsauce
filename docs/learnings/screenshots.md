@@ -30,3 +30,10 @@ Learnings from building the screenshot tool (`docs/PLAN-screenshots.md`).
   the This Mac page; cloud: `site/`, `docs/`) avoided collisions while both worked.
 - **Remote Control sessions pause on the plan's usage limit** and resume by themselves. Don't
   restart or re-hand the work.
+- **A switch that is on in Privacy & Security may belong to another copy of the app.** macOS
+  shows one row per bundle id, but the grant is tied to a code signature. Old build copies on
+  the same Mac (locally signed or ad hoc, in worktrees' `build/` folders) can hold the Screen
+  Recording row, so the installed app keeps being asked while the list shows it on. The fix for
+  the person is to remove the row with − and grant again; `CGPreflightScreenCaptureAccess` is
+  also stale for the life of the process, so try the capture first and ask only when it fails.
+  Don't leave signed test copies with the release bundle id on the owner's Mac.
