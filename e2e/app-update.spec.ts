@@ -9,6 +9,12 @@ import { expect, test } from './fixtures'
 // The service worker can answer requests the test's routes would miss: keep it out.
 test.use({ serviceWorkers: 'block' })
 
+// A spec can end while its page is still polling /api/health through the route below; let those
+// last requests go quietly instead of failing whichever spec the worker runs next.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})
+
 async function serverReports(page: Page, version: string) {
   await page.route('**/api/health', async (route) => {
     const res = await route.fetch()

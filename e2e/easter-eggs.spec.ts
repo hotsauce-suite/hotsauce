@@ -1,5 +1,8 @@
 import { expect, test } from './fixtures'
 
+// These specs are about motion, so they turn back on what playwright.config.ts turns off.
+test.use({ reducedMotion: 'no-preference' })
+
 // docs/PLAN-easter-eggs.md: the critical bits in a real browser.
 
 test('an address no page owns shows the lost-sauce page, and its button goes to Docs', async ({

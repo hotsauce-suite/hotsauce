@@ -16,6 +16,8 @@ async function countRipples(page: Page): Promise<() => Promise<number>> {
 }
 
 // docs/PLAN-switch-ripple.md: a ripple from the click when the tool changes, none under reduced motion.
+// These specs are about motion, so they turn back on what playwright.config.ts turns off.
+test.use({ reducedMotion: 'no-preference' })
 
 test('a ripple spreads from the rail click when switching tools, and clears itself', async ({
   page,

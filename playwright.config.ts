@@ -49,6 +49,13 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
+    // The app's endless decoration (the pepper in the rail, Today's sky, the switch ripple's
+    // whole-window wave) costs a headless browser up to half a CPU core per open page, drawn in
+    // software. Two workers of that on a 4-core CI runner starve the server, whose replies then
+    // take seconds and break the specs' save windows. Every page honours reduced motion, so the
+    // suite asks for it; specs about the motion itself opt back in with
+    // `test.use({ reducedMotion: 'no-preference' })`.
+    reducedMotion: 'reduce',
   },
   projects: [
     {

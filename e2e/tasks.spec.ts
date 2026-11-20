@@ -182,8 +182,10 @@ test('edits in the detail panel are saved and survive a reload', async ({ page, 
   await detail.getByTestId('detail-title').click()
   await detail.getByTestId('detail-priority-2').click()
   await pickDate(page, detail.getByTestId('detail-date'), utcDate(3))
+  // Three saves to one file land as three commits, one after another (each waits for the one
+  // before it): room for all three, where a single save gets the usual 5 s.
   await expect
-    .poll(async () => findTask(member, title))
+    .poll(async () => findTask(member, title), { timeout: 15_000 })
     .toMatchObject({ notes: `Numbers from finance ${id}`, priority: 2, due: utcDate(3) })
 
   await page.goto(`/tasks/item/${task.space}/${task.id}`)
