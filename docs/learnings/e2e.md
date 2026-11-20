@@ -25,3 +25,8 @@
   `route.fetch()` throws "Test ended" and Playwright pins the error on the next spec in that
   worker, which then looks flaky for no reason of its own. Unroute with
   `page.unrouteAll({ behavior: 'ignoreErrors' })` in an `afterEach` (`e2e/app-update.spec.ts`).
+- **Several quick edits to one file are committed one after another.** The task detail sends a
+  PATCH per field; the server takes the space's write lock for each, finds the file changed by
+  the one before, re-reads and commits again. Locally that is 0.2 to 0.4 s a commit; on a busy CI
+  runner each took about 2 s, so the third save of `tasks.spec.ts` "edits in the detail panel"
+  landed after the 5 s poll. A wait for N saves needs room for N commits.
