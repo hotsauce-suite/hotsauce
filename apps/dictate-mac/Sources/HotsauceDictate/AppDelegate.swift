@@ -99,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         monitor.screenshotShortcut = screenshots.shortcut
         monitor.screenshotHandler = { [weak self] key in self?.screenshots.handle(key) ?? false }
         screenshots.showMessage = { [weak self] in self?.controller.showMessage($0) }
+        screenshots.relaunch = { [weak self] in self?.relaunch() }
         screenshots.sharePage = { [weak self] name, png in await self?.suite.shareScreenshot(name: name, png: png) }
         screenshots.suiteHost = { [weak self] in self?.suite.server?.host }
         startMonitor()
@@ -577,14 +578,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Some macOS versions only hand a key tap to an app after it restarts. Reopens by bundle id,
     /// not path: a copy run from the disk image or a translocated path may be gone by then.
-    private func relaunch() {
+    func relaunch() {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
         // This copy by its path when installed (another copy with the same bundle id elsewhere
         // must not open instead); else by bundle id, as the disk image's copy may be gone by then.
+        // Waits for this process to be gone (saving can take a moment), then opens.
+        let pid = "\(ProcessInfo.processInfo.processIdentifier)"
         task.arguments = isInstalled
-            ? ["-c", "sleep 1; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
-            : ["-c", "sleep 1; /usr/bin/open -b dev.hotsauce.dictate"]
+            ? ["-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"", Bundle.main.bundlePath, pid]
+            : ["-c", "while /bin/kill -0 \"$0\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open -b dev.hotsauce.dictate", pid]
         do {
             try task.run()
         } catch {
