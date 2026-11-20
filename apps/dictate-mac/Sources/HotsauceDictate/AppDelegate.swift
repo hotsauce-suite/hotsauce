@@ -718,7 +718,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item("Disconnect this Mac", #selector(disconnect)))
         }
         menu.addItem(.separator())
-        menu.addItem(item("Quit \(Brand.name)", #selector(quit), key: "q"))
+        menu.addItem(item("Quit Completely", #selector(quit)))
     }
 
     private func disabled(_ title: String) -> NSMenuItem {
@@ -830,6 +830,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
+
+    // MARK: The Hotsauce menu (docs/PLAN-mac-app-menu.md)
+
+    /// Quit Completely (⌥⌘Q): really quits.
+    @objc func quitCompletely() { NSApp.terminate(nil) }
+
+    /// Quit Hotsauce (⌘Q): the windows go, the app keeps running in the menu bar so the dictation
+    /// key, reminders and call detection keep working. Never closes over a recording.
+    @objc func softQuit() {
+        let recording = controller.isRecording || controller.isBusy || suite.isUsingMicrophone
+        switch AppMenuLayout.softQuit(recording: recording) {
+        case .hideApp:
+            NSApp.hide(nil)
+        case .closeWindows:
+            for window in NSApp.windows where window.isVisible && window.styleMask.contains(.closable) {
+                window.performClose(nil)
+            }
+        }
+        let key = "softQuit.explained"
+        if !UserDefaults.standard.bool(forKey: key) {
+            UserDefaults.standard.set(true, forKey: key)
+            controller.showMessage("\(Brand.name) is still running. To quit it, press ⌥⌘Q")
+        }
+    }
+
+    /// Restart Hotsauce: quits and reopens; not while a recording would be cut off.
+    @objc func restartFromMenu() {
+        if controller.isRecording || controller.isBusy || suite.isUsingMicrophone {
+            controller.showMessage("Finish recording first, then restart")
+            return
+        }
+        relaunch()
+    }
+
+    /// Switch Workspace…: the setup window's workspace step.
+    @objc func switchWorkspace() { onboarding.showWorkspace() }
+
+    @objc func toggleOpenAtLoginFromMenu() {
+        toggleLaunchAtLogin()
+        mainWindow.model.reload()
+    }
+
+    var showsMenuBarIcon: Bool { settings.showInMenuBar }
+
+    @objc func toggleShowInMenuBarFromMenu() {
+        let on = !settings.showInMenuBar
+        settings.showInMenuBar = on
+        statusItem.isVisible = on
+        mainWindow.model.reload()
+    }
 
     // MARK: Updates
 

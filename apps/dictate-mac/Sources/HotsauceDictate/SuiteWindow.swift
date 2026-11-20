@@ -413,6 +413,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         webView.evaluateJavaScript("window.dispatchEvent(new Event('hotsauce:more-heat'))", in: nil, in: .page) { _ in }
     }
 
+    /// Help → Keyboard Shortcuts: the page opens its shortcuts sheet (docs/PLAN-mac-app-menu.md).
+    func showKeyboardShortcuts() {
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('hotsauce:show-shortcuts'))", in: nil, in: .page) { _ in }
+    }
+
     /// Tells the page the history changed, so "On this Mac" reads it again (R5).
     func dictationsChanged() {
         guard pageSaidDictationsHello else { return }

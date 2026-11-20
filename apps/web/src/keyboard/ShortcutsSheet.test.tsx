@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { renderApp } from '../test/renderApp'
+import { SHOW_SHORTCUTS_EVENT } from './ShortcutsSheet'
 
 describe('the keyboard shortcuts sheet (K7)', () => {
   it('? opens it with Everywhere first, then this page; Esc closes it', async () => {
@@ -61,5 +62,12 @@ describe('Settings: single-key shortcuts (K6)', () => {
     expect(within(sheet).getByText(/Single-key shortcuts are off/)).toBeInTheDocument()
     // Settings belongs to no app, so no section claims to be this page's.
     expect(within(sheet).queryByText('On this page')).toBeNull()
+  })
+
+  it("opens from the Mac app's Help menu", async () => {
+    renderApp('/tasks')
+    await waitFor(() => expect(screen.getAllByTestId('task-row').length).toBeGreaterThan(0))
+    window.dispatchEvent(new Event(SHOW_SHORTCUTS_EVENT))
+    expect(await screen.findByTestId('shortcuts-sheet')).toBeInTheDocument()
   })
 })

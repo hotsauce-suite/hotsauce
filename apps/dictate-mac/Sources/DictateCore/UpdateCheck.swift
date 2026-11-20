@@ -100,6 +100,8 @@ public enum UpdateCheck {
 public enum AboutInfo {
     /// Where the app's source lives; the About panel links to it.
     public static let sourceURL = URL(string: "https://github.com/hotsauce-suite/hotsauce")!
+    /// The help center (Help → Hotsauce Help).
+    public static let helpURL = URL(string: "https://hotsauce.work/help")!
     /// The link's text: the address without its scheme.
     public static var sourceLabel: String { "github.com" + sourceURL.path }
 }

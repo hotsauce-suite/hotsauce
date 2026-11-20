@@ -34,3 +34,10 @@ Learnings from adding Check for Updates… (`docs/PLAN-mac-check-for-updates.md`
   ready update.
 - **`Timer` doesn't count sleep.** A "every 6 hours" check on a laptop that sleeps overnight can
   go a day or more without firing. Check on `NSWorkspace.didWakeNotification` too.
+
+Learnings from the Granola-style app menu (`docs/PLAN-mac-app-menu.md`).
+
+- **Keep menu order and shortcuts in DictateCore as data** (`AppMenuLayout`): the AppKit menu
+  can't be tested on CI, but the list and the "every command has one place" check can.
+- **A soft ⌘Q must still let macOS quit.** Only the menu item is soft; the Dock's Quit, logout
+  and restart call `terminate` and must not be intercepted, or the Mac can't shut down cleanly.
