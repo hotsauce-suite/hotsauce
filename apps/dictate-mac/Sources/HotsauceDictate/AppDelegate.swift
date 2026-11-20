@@ -826,15 +826,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Asks the window's server which Mac app is newest (`/downloads/mac-app.json`). Quietly does
     /// nothing offline or on a server that doesn't say (docs/PLAN-mac-version-and-whats-new.md, M7).
-    private func checkForUpdate() {
-        guard let server = suiteServer, let installed = AppVersion.current else { return }
+    /// `report` (Check for Updates…) hears what the check found, failures included.
+    private func checkForUpdate(report: (@MainActor (UpdateCheck.Outcome) -> Void)? = nil) {
+        guard let server = suiteServer else {
+            report?(.noWorkspace)
+            return
+        }
+        guard let installed = AppVersion.current else {
+            report?(.unversioned)
+            return
+        }
         Task { [weak self] in
             var request = URLRequest(url: AppVersion.infoURL(server: server), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             guard let (data, response) = try? await URLSession.shared.data(for: request),
-                  (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-            let update = AppVersion.update(installed: installed, installedBuild: AppVersion.build, latest: AppVersion.latest(fromJSON: data))
-            await MainActor.run { self?.updater.offer(update, server: server) }
+                  let status = (response as? HTTPURLResponse)?.statusCode else {
+                await MainActor.run { report?(.unreachable) }
+                return
+            }
+            guard status == 200 else {
+                await MainActor.run { report?(status == 404 ? .notOffered : .unreachable) }
+                return
+            }
+            // An answer that isn't a version leaves a download or a ready update alone.
+            guard let latest = AppVersion.latest(fromJSON: data) else {
+                await MainActor.run { report?(.unreachable) }
+                return
+            }
+            let update = AppVersion.update(installed: installed, installedBuild: AppVersion.build, latest: latest)
+            await MainActor.run {
+                guard let self else { return }
+                self.updater.offer(update, server: server)
+                report?(update == nil ? .upToDate(version: installed, build: AppVersion.build) : .newer(self.updater.state))
+            }
+        }
+    }
+
+    /// A Check for Updates… under way, so the menu item waits for it.
+    private var checkingForUpdates = false
+    /// The person asked and the update was still downloading: tell them when it's done.
+    private var reportWhenUpdateSettles = false
+
+    /// Hotsauce → Check for Updates…: checks now and says what it found.
+    @objc func checkForUpdatesNow() {
+        guard !checkingForUpdates else { return }
+        checkingForUpdates = true
+        checkForUpdate { [weak self] outcome in
+            guard let self else { return }
+            self.checkingForUpdates = false
+            if case .newer(.downloading) = outcome { self.reportWhenUpdateSettles = true }
+            self.showUpdateCheck(outcome)
+        }
+    }
+
+    var isCheckingForUpdates: Bool { checkingForUpdates }
+
+    /// One of these alerts is open, so another waits its turn (or isn't needed).
+    private var showingUpdateCheck = false
+
+    private func showUpdateCheck(_ outcome: UpdateCheck.Outcome) {
+        guard !showingUpdateCheck else { return }
+        showingUpdateCheck = true
+        defer { showingUpdateCheck = false }
+        let message = UpdateCheck.message(outcome)
+        // Said once: the Mac notification for this version isn't needed after this.
+        if case .newer(.ready(let version)) = outcome { UserDefaults.standard.set(version, forKey: "update.notified") }
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = message.title
+        alert.informativeText = message.text
+        alert.addButton(withTitle: message.button)
+        if let cancel = message.cancel { alert.addButton(withTitle: cancel) }
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        switch message.action {
+        case .restart: installUpdate()
+        case .download: downloadUpdate()
+        case .none: break
         }
     }
 
@@ -861,6 +928,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// One notification per version once an update is ready (U10).
     private func updateStateChanged(_ state: UpdateState) {
+        // A download the person asked about finished (or fell back to the installer): say so now.
+        if reportWhenUpdateSettles {
+            switch state {
+            case .ready, .available:
+                reportWhenUpdateSettles = false
+                // After the state change finishes, not inside it, and never over dictation or a
+                // recording (an alert would take the focus the text is going to); the
+                // notification and the menu bar entry say it then.
+                Task { @MainActor [weak self] in
+                    guard let self, !self.showingUpdateCheck,
+                          !(self.controller.isRecording || self.controller.isBusy || self.suite.isUsingMicrophone) else { return }
+                    let now = self.updater.state
+                    switch now {
+                    case .ready, .available: self.showUpdateCheck(.newer(now))
+                    case .none, .downloading: break
+                    }
+                }
+            case .none:
+                reportWhenUpdateSettles = false
+            case .downloading:
+                break
+            }
+        }
         guard case .ready(let version) = state else { return }
         let key = "update.notified"
         guard UserDefaults.standard.string(forKey: key) != version else { return }

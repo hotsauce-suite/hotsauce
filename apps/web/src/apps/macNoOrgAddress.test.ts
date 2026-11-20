@@ -19,9 +19,11 @@ function swiftFiles(dir: string): string[] {
   })
 }
 
-/** Placeholders and this Mac; never a real organization's server. */
+/** Placeholders, this Mac and Hotsauce's own public source (About links to it); never a real
+ * organization's server. */
 function isPlaceholder(host: string): boolean {
   return (
+    host === 'github.com' ||
     host === 'localhost' ||
     host === '127.0.0.1' ||
     host === 'example.com' ||
