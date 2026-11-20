@@ -59,7 +59,7 @@ struct ScreenRecordingPromptView: View {
         case .restart:
             return "If it’s already on, it only counts after \(Brand.name) restarts. Press Quit and Reopen, then press the shortcut again."
         case .removeAndAddAgain:
-            return "In the list, select \(Brand.name) and press − to remove it. Then press the shortcut again, turn \(Brand.name) on when it appears, and press Quit and Reopen."
+            return "In the list, select \(Brand.name) and press − to remove it. Then press Quit and Reopen, press the shortcut, and turn \(Brand.name) on when macOS asks."
         }
     }
 

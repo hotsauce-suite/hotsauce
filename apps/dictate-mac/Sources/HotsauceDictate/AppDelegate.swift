@@ -583,9 +583,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
         // This copy by its path when installed (another copy with the same bundle id elsewhere
         // must not open instead); else by bundle id, as the disk image's copy may be gone by then.
+        // Waits for this process to be gone (saving can take a moment), then opens.
+        let pid = "\(ProcessInfo.processInfo.processIdentifier)"
         task.arguments = isInstalled
-            ? ["-c", "sleep 1; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
-            : ["-c", "sleep 1; /usr/bin/open -b dev.hotsauce.dictate"]
+            ? ["-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"", Bundle.main.bundlePath, pid]
+            : ["-c", "while /bin/kill -0 \"$0\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open -b dev.hotsauce.dictate", pid]
         do {
             try task.run()
         } catch {

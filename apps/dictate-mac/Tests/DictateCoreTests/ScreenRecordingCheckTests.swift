@@ -18,8 +18,10 @@ import Testing
         // Another ScreenCaptureKit failure while allowed is just a failure.
         #expect(!ScreenRecordingCheck.isPermissionFailure(domain: domain, code: -3802, preflightAllowed: true))
         #expect(!ScreenRecordingCheck.isPermissionFailure(domain: NSCocoaErrorDomain, code: 4, preflightAllowed: true))
-        // Any failure while macOS reports no permission is about permission.
-        #expect(ScreenRecordingCheck.isPermissionFailure(domain: NSCocoaErrorDomain, code: 4, preflightAllowed: false))
+        // A ScreenCaptureKit failure while macOS reports no permission is about permission…
+        #expect(ScreenRecordingCheck.isPermissionFailure(domain: domain, code: -3802, preflightAllowed: false))
+        // …but a failure from elsewhere isn't, since that check can be stale.
+        #expect(!ScreenRecordingCheck.isPermissionFailure(domain: NSCocoaErrorDomain, code: 4, preflightAllowed: false))
     }
 
     func defaults() -> (UserDefaults, String) {
@@ -36,7 +38,11 @@ import Testing
         let second = ScreenRecordingCheck.Memory(defaults: d, launch: "run-2")
         #expect(second.adviceAfterFailure() == .removeAndAddAgain)
         #expect(second.adviceAfterFailure() == .restart)
+        // Told to remove and add again, then reopened: macOS lists it afresh, so "turn it on".
+        let third = ScreenRecordingCheck.Memory(defaults: d, launch: "run-3")
+        #expect(third.adviceAfterFailure() == .turnOn)
+        #expect(ScreenRecordingCheck.Memory(defaults: d, launch: "run-4").adviceAfterFailure() == .removeAndAddAgain)
         second.forget() // a capture worked
-        #expect(ScreenRecordingCheck.Memory(defaults: d, launch: "run-3").adviceAfterFailure() == .turnOn)
+        #expect(ScreenRecordingCheck.Memory(defaults: d, launch: "run-5").adviceAfterFailure() == .turnOn)
     }
 }

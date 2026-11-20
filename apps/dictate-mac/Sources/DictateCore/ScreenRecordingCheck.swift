@@ -25,16 +25,19 @@ public enum ScreenRecordingCheck {
     static let streamErrorDomain = "com.apple.ScreenCaptureKit.SCStreamErrorDomain"
     static let userDeclined = -3801
 
-    /// Whether a failed grab is about permission: ScreenCaptureKit says the user declined, or it
-    /// failed while macOS reports no permission. Any other failure with permission is just a failure.
+    /// Whether a failed grab is about permission: ScreenCaptureKit says the user declined, or
+    /// ScreenCaptureKit failed while macOS reports no permission. Failures from anywhere else are
+    /// plain failures (macOS's check can be stale, so it alone doesn't make one about permission).
     public static func isPermissionFailure(domain: String, code: Int, preflightAllowed: Bool) -> Bool {
-        if domain == streamErrorDomain, code == userDeclined { return true }
-        return !preflightAllowed
+        guard domain == streamErrorDomain else { return false }
+        return code == userDeclined || !preflightAllowed
     }
 
     /// Remembers in UserDefaults which run of the app last showed the explanation.
     public struct Memory {
         public static let key = "screenRecording.askedInLaunch"
+        /// "Remove it and add it again" was said: the next run starts over at "turn it on".
+        public static let removeKey = "screenRecording.toldToRemove"
         let defaults: UserDefaults
         /// This run of the app; a new one each launch.
         let launch: String
@@ -47,8 +50,12 @@ public enum ScreenRecordingCheck {
         /// The advice for a permission failure now, remembering that this run asked.
         public func adviceAfterFailure() -> Advice {
             let asked = defaults.string(forKey: Self.key)
-            let advice = ScreenRecordingCheck.advice(askedBefore: asked != nil, launchedSinceAsking: asked != nil && asked != launch)
-            // After "remove and add again" the next run starts the count afresh from here.
+            let restarted = asked != nil && asked != launch
+            var advice = ScreenRecordingCheck.advice(askedBefore: asked != nil, launchedSinceAsking: restarted)
+            // Removed from the list and reopened: macOS adds it afresh, so it's "turn it on" again.
+            if restarted, defaults.bool(forKey: Self.removeKey) { advice = .turnOn }
+            // Asking again in the same run ("restart") keeps whatever was said before.
+            if advice != .restart { defaults.set(advice == .removeAndAddAgain, forKey: Self.removeKey) }
             defaults.set(launch, forKey: Self.key)
             return advice
         }
@@ -56,6 +63,7 @@ public enum ScreenRecordingCheck {
         /// A capture worked: nothing left to explain next time.
         public func forget() {
             defaults.removeObject(forKey: Self.key)
+            defaults.removeObject(forKey: Self.removeKey)
         }
     }
 }

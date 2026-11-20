@@ -158,7 +158,10 @@ final class ScreenshotController {
                     requestedScreenRecording = true
                     Permissions.requestScreenRecording()
                 }
-                prompt.show(screenRecordingMemory.adviceAfterFailure())
+                let advice = screenRecordingMemory.adviceAfterFailure()
+                // After a removal from the list, macOS's request must be able to add it again.
+                if advice == .removeAndAddAgain { requestedScreenRecording = false }
+                prompt.show(advice)
             } catch {
                 guard mine == generation else { return }
                 session.end()
