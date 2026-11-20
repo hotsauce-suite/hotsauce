@@ -25,6 +25,10 @@ C4. About Hotsauce shows "Open source on GitHub" and a working link to
 C5. Restart Now uses the existing update path, so it still waits while dictating or recording.
     [same code as the menu bar's Restart to update]
 
+C7. The app also checks a minute after the Mac wakes, when its last check was over an hour ago:
+    timers don't count sleep, so a Mac that sleeps every night could otherwise go days without
+    one (found on the owner's Mac, Nov 20). [UpdateCheckTests for the timing]
+
 ## Not in scope
 
 The menu bar menu keeps showing an update entry only when there is one.
