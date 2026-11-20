@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.62.4",
+      "date": "2026-11-20",
+      "notes": [
+        {
+          "text": "On an iPad with reduced motion turned on, the History panel no longer covers the doc's top bar."
+        }
+      ]
+    },
+    {
       "version": "0.62.3",
       "date": "2026-11-19",
       "notes": [
