@@ -21,3 +21,7 @@
   `contain: layout` on `.shell-main` at tablet widths now says it outright.
 - **Don't edit spec files while a run is going.** Workers load each file when they reach it, so a
   mid-run edit runs half old, half new code and reports confusing line numbers.
+- **A `page.route` callback can outlive its spec.** If the page is still polling when the spec ends,
+  `route.fetch()` throws "Test ended" and Playwright pins the error on the next spec in that
+  worker, which then looks flaky for no reason of its own. Unroute with
+  `page.unrouteAll({ behavior: 'ignoreErrors' })` in an `afterEach` (`e2e/app-update.spec.ts`).
