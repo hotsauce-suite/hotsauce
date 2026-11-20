@@ -26,13 +26,23 @@ enum ScreenCapture {
     /// leaving out the given windows of ours (a preview still on screen).
     @MainActor
     static func grab(excluding windowNumbers: Set<Int>) async throws -> FrozenScreens {
-        let windows = windowList()
-        let content: SCShareableContent
         do {
-            content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            return try await grabFrames(excluding: windowNumbers)
+        } catch let failure as Failure {
+            throw failure
         } catch {
-            throw Permissions.screenRecordingGranted ? error : Failure.notAllowed
+            // Decided by the error itself (and macOS's check only as a fallback), so a stale
+            // check neither blocks a capture that works nor hides a real failure.
+            let ns = error as NSError
+            throw ScreenRecordingCheck.isPermissionFailure(domain: ns.domain, code: ns.code, preflightAllowed: Permissions.screenRecordingGranted)
+                ? Failure.notAllowed : error
         }
+    }
+
+    @MainActor
+    private static func grabFrames(excluding windowNumbers: Set<Int>) async throws -> FrozenScreens {
+        let windows = windowList()
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         let excluded = content.windows.filter { windowNumbers.contains(Int($0.windowID)) }
         var frozen: [FrozenDisplay] = []
         for display in content.displays {
@@ -52,7 +62,8 @@ enum ScreenCapture {
             let captured = CaptureDisplay(id: display.displayID, frame: bounds, pixelWidth: image.width, pixelHeight: image.height)
             frozen.append(FrozenDisplay(display: captured, image: image, screen: screen))
         }
-        guard !frozen.isEmpty else { throw Failure.nothingCaptured }
+        // No frames at all is what a refused capture can look like too.
+        guard !frozen.isEmpty else { throw Permissions.screenRecordingGranted ? Failure.nothingCaptured : Failure.notAllowed }
         return FrozenScreens(displays: frozen, windows: windows)
     }
 

@@ -59,15 +59,18 @@ enum ScreenshotRender {
             try? data.write(to: out.appendingPathComponent("\(name).png"))
         }
 
-        // The Screen Recording window's content, drawn by its own hosting view in an offscreen window.
-        let host = NSHostingView(rootView: ScreenRecordingPromptView(open: {}, close: {}))
-        let window = NSWindow(contentRect: CGRect(origin: .zero, size: host.fittingSize), styleMask: [.titled], backing: .buffered, defer: false)
-        window.appearance = NSAppearance(named: .aqua)
-        window.contentView = host
-        host.layoutSubtreeIfNeeded()
-        if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
-            host.cacheDisplay(in: host.bounds, to: rep)
-            try? rep.representation(using: .png, properties: [:])?.write(to: out.appendingPathComponent("screenshot-permission.png"))
+        // The Screen Recording window's content, each advice, drawn by its own hosting view in an
+        // offscreen window.
+        for (name, advice) in [("turn-on", ScreenRecordingCheck.Advice.turnOn), ("restart", .restart), ("remove-and-add-again", .removeAndAddAgain)] {
+            let host = NSHostingView(rootView: ScreenRecordingPromptView(advice: advice, open: {}, relaunch: {}, close: {}))
+            let window = NSWindow(contentRect: CGRect(origin: .zero, size: host.fittingSize), styleMask: [.titled], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: .aqua)
+            window.contentView = host
+            host.layoutSubtreeIfNeeded()
+            if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: out.appendingPathComponent("screenshot-permission-\(name).png"))
+            }
         }
         return 0
     }

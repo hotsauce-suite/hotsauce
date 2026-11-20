@@ -40,6 +40,7 @@ final class ScreenshotController {
         overlay.onCancel = { [weak self] in self?.cancel() }
         overlay.onPick = { [weak self] display, selection in self?.keep(selection, of: display) }
         preview.onCopy = { [weak self] shot in self?.copy(shot) }
+        prompt.relaunch = { [weak self] in self?.relaunch() }
         preview.onEdit = { [weak self] shot in self?.edit(shot) }
         preview.onShare = { [weak self] shot in self?.sharePreview(shot) }
         // Quitting with an editor open saves it as closing it would.
@@ -130,13 +131,16 @@ final class ScreenshotController {
         }
     }
 
+    /// This run of the app, for remembering when Screen Recording was last explained.
+    private static let launch = UUID().uuidString
+    /// macOS's own request is made at most once per run, and only after a capture failed.
+    private var requestedScreenRecording = false
+    /// Quits and reopens the app, as the self-updater does.
+    var relaunch: () -> Void = {}
+
+    /// Tries the capture first: macOS's quick check can be stale or wrong, so only a capture that
+    /// really fails for permission brings up the explanation.
     private func start() {
-        guard Permissions.screenRecordingGranted else {
-            session.end()
-            Permissions.requestScreenRecording()
-            prompt.show()
-            return
-        }
         generation += 1
         let mine = generation
         Task { @MainActor in
@@ -145,17 +149,26 @@ final class ScreenshotController {
                 // Esc during the grab (or a newer capture since): never show this one.
                 guard mine == generation, session.phase == .capturing else { return }
                 session.captured()
+                screenRecordingMemory.forget()
                 overlay.show(frozen, ownPID: ProcessInfo.processInfo.processIdentifier)
             } catch ScreenCapture.Failure.notAllowed {
                 guard mine == generation else { return }
                 session.end()
-                prompt.show()
+                if !requestedScreenRecording {
+                    requestedScreenRecording = true
+                    Permissions.requestScreenRecording()
+                }
+                prompt.show(screenRecordingMemory.adviceAfterFailure())
             } catch {
                 guard mine == generation else { return }
                 session.end()
                 showMessage("Couldn’t take the screenshot")
             }
         }
+    }
+
+    private var screenRecordingMemory: ScreenRecordingCheck.Memory {
+        ScreenRecordingCheck.Memory(defaults: defaults, launch: Self.launch)
     }
 
     private func cancel() {
