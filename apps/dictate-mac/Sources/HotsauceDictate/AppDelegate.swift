@@ -161,6 +161,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3_600, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.checkForUpdate() }
         }
+        // Timers don't count sleep, so a Mac that sleeps every night could go days without a
+        // check; check again a minute after waking (the network is back by then) when it's due.
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(60))
+                guard let self, UpdateCheck.dueOnWake(lastCheck: self.lastUpdateCheck, now: Date()) else { return }
+                self.checkForUpdate()
+            }
+        }
         // A login item starts quietly: the suite loads (for reminders) without its window. A Mac
         // with no workspace yet loads nothing; the setup window asks for one.
         if suiteServer == nil {
@@ -827,7 +836,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Asks the window's server which Mac app is newest (`/downloads/mac-app.json`). Quietly does
     /// nothing offline or on a server that doesn't say (docs/PLAN-mac-version-and-whats-new.md, M7).
     /// `report` (Check for Updates…) hears what the check found, failures included.
+    /// When the app last asked the server, for the check after waking.
+    private var lastUpdateCheck: Date?
+
     private func checkForUpdate(report: (@MainActor (UpdateCheck.Outcome) -> Void)? = nil) {
+        lastUpdateCheck = Date()
         guard let server = suiteServer else {
             report?(.noWorkspace)
             return

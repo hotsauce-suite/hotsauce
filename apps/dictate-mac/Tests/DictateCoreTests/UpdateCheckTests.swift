@@ -51,4 +51,11 @@ struct UpdateCheckTests {
         #expect(AboutInfo.sourceURL.absoluteString == "https://github.com/hotsauce-suite/hotsauce")
         #expect(AboutInfo.sourceLabel == "github.com/hotsauce-suite/hotsauce")
     }
+
+    @Test func checksAfterWakingWhenDue() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        #expect(UpdateCheck.dueOnWake(lastCheck: nil, now: now))
+        #expect(UpdateCheck.dueOnWake(lastCheck: now.addingTimeInterval(-3_600), now: now))
+        #expect(!UpdateCheck.dueOnWake(lastCheck: now.addingTimeInterval(-600), now: now))
+    }
 }

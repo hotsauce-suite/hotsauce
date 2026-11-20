@@ -34,6 +34,12 @@ public enum UpdateCheck {
         public let action: Action
     }
 
+    /// After waking: check when the last check was over an hour ago (or never happened).
+    public static func dueOnWake(lastCheck: Date?, now: Date, every interval: TimeInterval = 3_600) -> Bool {
+        guard let lastCheck else { return true }
+        return now.timeIntervalSince(lastCheck) >= interval
+    }
+
     /// "0.62.4 (build 140)", "0.62.4", or nil.
     public static func versionText(_ version: String?, build: String?) -> String? {
         guard let version = AppVersion.valid(version) else { return nil }

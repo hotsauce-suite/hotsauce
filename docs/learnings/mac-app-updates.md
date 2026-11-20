@@ -32,3 +32,5 @@ Learnings from adding Check for Updates… (`docs/PLAN-mac-check-for-updates.md`
   main queue, so the download can finish while the first alert is still open.
 - **An unparseable feed must not call `offer(nil)`**: that resets the updater and throws away a
   ready update.
+- **`Timer` doesn't count sleep.** A "every 6 hours" check on a laptop that sleeps overnight can
+  go a day or more without firing. Check on `NSWorkspace.didWakeNotification` too.
