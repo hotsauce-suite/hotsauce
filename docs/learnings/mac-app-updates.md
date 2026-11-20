@@ -20,3 +20,15 @@ Learnings from making the Mac app update itself (`docs/PLAN-mac-self-update.md`)
   script; it is testable on temp folders with a stand-in for `open`.
 - **The old app (before 0.47) can't update itself**: anyone on it needs one last download and
   drag. Say so in help and the FAQ.
+
+Learnings from adding Check for Updates… (`docs/PLAN-mac-check-for-updates.md`).
+
+- **A manual check must always answer**, so the background check needs a reporting path for
+  every failure it used to swallow (no workspace, offline, 404, bad JSON, no version in a dev
+  build). Keep the wording in DictateCore so it's testable on CI.
+- **A modal that appears by itself can eat dictation.** Dictation pastes into the frontmost app;
+  an alert that activates Hotsauce mid-dictation sends text to the wrong place. Defer or skip
+  unprompted alerts while recording, and guard against stacking: `runModal` keeps servicing the
+  main queue, so the download can finish while the first alert is still open.
+- **An unparseable feed must not call `offer(nil)`**: that resets the updater and throws away a
+  ready update.

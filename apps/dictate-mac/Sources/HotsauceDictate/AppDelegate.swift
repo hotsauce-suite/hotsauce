@@ -830,25 +830,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         guard let installed = AppVersion.current else {
-            report?(.upToDate(version: nil, build: nil))
+            report?(.unversioned)
             return
         }
         Task { [weak self] in
             var request = URLRequest(url: AppVersion.infoURL(server: server), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             guard let (data, response) = try? await URLSession.shared.data(for: request),
-                  (response as? HTTPURLResponse)?.statusCode == 200 else {
+                  let status = (response as? HTTPURLResponse)?.statusCode else {
                 await MainActor.run { report?(.unreachable) }
                 return
             }
-            let latest = AppVersion.latest(fromJSON: data)
+            guard status == 200 else {
+                await MainActor.run { report?(status == 404 ? .notOffered : .unreachable) }
+                return
+            }
+            // An answer that isn't a version leaves a download or a ready update alone.
+            guard let latest = AppVersion.latest(fromJSON: data) else {
+                await MainActor.run { report?(.unreachable) }
+                return
+            }
             let update = AppVersion.update(installed: installed, installedBuild: AppVersion.build, latest: latest)
             await MainActor.run {
                 guard let self else { return }
                 self.updater.offer(update, server: server)
-                guard let report else { return }
-                if latest == nil { return report(.unreachable) }
-                report(update == nil ? .upToDate(version: installed, build: AppVersion.build) : .newer(self.updater.state))
+                report?(update == nil ? .upToDate(version: installed, build: AppVersion.build) : .newer(self.updater.state))
             }
         }
     }
@@ -872,8 +878,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     var isCheckingForUpdates: Bool { checkingForUpdates }
 
+    /// One of these alerts is open, so another waits its turn (or isn't needed).
+    private var showingUpdateCheck = false
+
     private func showUpdateCheck(_ outcome: UpdateCheck.Outcome) {
+        guard !showingUpdateCheck else { return }
+        showingUpdateCheck = true
+        defer { showingUpdateCheck = false }
         let message = UpdateCheck.message(outcome)
+        // Said once: the Mac notification for this version isn't needed after this.
+        if case .newer(.ready(let version)) = outcome { UserDefaults.standard.set(version, forKey: "update.notified") }
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = message.title
@@ -916,8 +930,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             switch state {
             case .ready, .available:
                 reportWhenUpdateSettles = false
-                // After the state change finishes, not inside it.
-                Task { @MainActor [weak self] in self?.showUpdateCheck(.newer(state)) }
+                // After the state change finishes, not inside it, and never over dictation or a
+                // recording (an alert would take the focus the text is going to); the
+                // notification and the menu bar entry say it then.
+                Task { @MainActor [weak self] in
+                    guard let self, !self.showingUpdateCheck,
+                          !(self.controller.isRecording || self.controller.isBusy || self.suite.isUsingMicrophone) else { return }
+                    let now = self.updater.state
+                    switch now {
+                    case .ready, .available: self.showUpdateCheck(.newer(now))
+                    case .none, .downloading: break
+                    }
+                }
             case .none:
                 reportWhenUpdateSettles = false
             case .downloading:

@@ -37,6 +37,8 @@ struct UpdateCheckTests {
         #expect(UpdateCheck.message(.noWorkspace, name: "Hotsauce").title == "Connect to a workspace first")
         #expect(UpdateCheck.message(.unreachable, name: "Hotsauce").title == "Couldn’t check for updates")
         #expect(UpdateCheck.message(.unreachable).action == .none)
+        #expect(UpdateCheck.message(.notOffered, name: "Hotsauce").title == "No updates offered here")
+        #expect(UpdateCheck.message(.unversioned, name: "Hotsauce").title == "Can’t check this build")
     }
 
     @Test func versionTextIgnoresJunk() {

@@ -8,6 +8,10 @@ public enum UpdateCheck {
         case noWorkspace
         /// The server didn't answer, or didn't say which Mac app is newest.
         case unreachable
+        /// The server answered but offers no Mac app (an older or Mac-less server).
+        case notOffered
+        /// This build has no version of its own (a development build), so nothing to compare.
+        case unversioned
         /// Nothing newer than this copy.
         case upToDate(version: String?, build: String?)
         /// A newer build, and where the updater stands with it.
@@ -49,6 +53,16 @@ public enum UpdateCheck {
                 title: "Couldn’t check for updates",
                 text: "Your workspace didn’t answer. Check your connection and try again.",
                 button: "OK", cancel: nil, action: .none)
+        case .notOffered:
+            return Message(
+                title: "No updates offered here",
+                text: "Your workspace doesn’t offer Mac app updates yet. Ask whoever runs it to update the server.",
+                button: "OK", cancel: nil, action: .none)
+        case .unversioned:
+            return Message(
+                title: "Can’t check this build",
+                text: "This copy of \(name) has no version number (a development build), so there’s nothing to compare.",
+                button: "OK", cancel: nil, action: .none)
         case .upToDate(let version, let build):
             let which = versionText(version, build: build).map { "\(name) \($0)" } ?? "This copy of \(name)"
             return Message(
@@ -68,7 +82,7 @@ public enum UpdateCheck {
         case .newer(.available(let v)):
             return Message(
                 title: "\(name) \(v) is out",
-                text: "This copy can’t update itself (it may be running from the disk image, or from a folder it can’t change). Download the new version and drag it into Applications.",
+                text: "\(name) couldn’t install it by itself this time. Download the new version and drag it into Applications, replacing this one.",
                 button: "Download", cancel: "Later", action: .download)
         case .newer(.none):
             return message(.upToDate(version: nil, build: nil), name: name)
