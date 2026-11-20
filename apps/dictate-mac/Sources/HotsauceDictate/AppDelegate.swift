@@ -823,15 +823,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Asks the window's server which Mac app is newest (`/downloads/mac-app.json`). Quietly does
     /// nothing offline or on a server that doesn't say (docs/PLAN-mac-version-and-whats-new.md, M7).
-    private func checkForUpdate() {
-        guard let server = suiteServer, let installed = AppVersion.current else { return }
+    /// `report` (Check for Updates…) hears what the check found, failures included.
+    private func checkForUpdate(report: (@MainActor (UpdateCheck.Outcome) -> Void)? = nil) {
+        guard let server = suiteServer else {
+            report?(.noWorkspace)
+            return
+        }
+        guard let installed = AppVersion.current else {
+            report?(.upToDate(version: nil, build: nil))
+            return
+        }
         Task { [weak self] in
             var request = URLRequest(url: AppVersion.infoURL(server: server), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             guard let (data, response) = try? await URLSession.shared.data(for: request),
-                  (response as? HTTPURLResponse)?.statusCode == 200 else { return }
-            let update = AppVersion.update(installed: installed, installedBuild: AppVersion.build, latest: AppVersion.latest(fromJSON: data))
-            await MainActor.run { self?.updater.offer(update, server: server) }
+                  (response as? HTTPURLResponse)?.statusCode == 200 else {
+                await MainActor.run { report?(.unreachable) }
+                return
+            }
+            let latest = AppVersion.latest(fromJSON: data)
+            let update = AppVersion.update(installed: installed, installedBuild: AppVersion.build, latest: latest)
+            await MainActor.run {
+                guard let self else { return }
+                self.updater.offer(update, server: server)
+                guard let report else { return }
+                if latest == nil { return report(.unreachable) }
+                report(update == nil ? .upToDate(version: installed, build: AppVersion.build) : .newer(self.updater.state))
+            }
+        }
+    }
+
+    /// A Check for Updates… under way, so the menu item waits for it.
+    private var checkingForUpdates = false
+    /// The person asked and the update was still downloading: tell them when it's done.
+    private var reportWhenUpdateSettles = false
+
+    /// Hotsauce → Check for Updates…: checks now and says what it found.
+    @objc func checkForUpdatesNow() {
+        guard !checkingForUpdates else { return }
+        checkingForUpdates = true
+        checkForUpdate { [weak self] outcome in
+            guard let self else { return }
+            self.checkingForUpdates = false
+            if case .newer(.downloading) = outcome { self.reportWhenUpdateSettles = true }
+            self.showUpdateCheck(outcome)
+        }
+    }
+
+    var isCheckingForUpdates: Bool { checkingForUpdates }
+
+    private func showUpdateCheck(_ outcome: UpdateCheck.Outcome) {
+        let message = UpdateCheck.message(outcome)
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = message.title
+        alert.informativeText = message.text
+        alert.addButton(withTitle: message.button)
+        if let cancel = message.cancel { alert.addButton(withTitle: cancel) }
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        switch message.action {
+        case .restart: installUpdate()
+        case .download: downloadUpdate()
+        case .none: break
         }
     }
 
@@ -858,6 +911,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// One notification per version once an update is ready (U10).
     private func updateStateChanged(_ state: UpdateState) {
+        // A download the person asked about finished (or fell back to the installer): say so now.
+        if reportWhenUpdateSettles {
+            switch state {
+            case .ready, .available:
+                reportWhenUpdateSettles = false
+                // After the state change finishes, not inside it.
+                Task { @MainActor [weak self] in self?.showUpdateCheck(.newer(state)) }
+            case .none:
+                reportWhenUpdateSettles = false
+            case .downloading:
+                break
+            }
+        }
         guard case .ready(let version) = state else { return }
         let key = "update.notified"
         guard UserDefaults.standard.string(forKey: key) != version else { return }

@@ -8,12 +8,13 @@ extension AppDelegate: NSMenuItemValidation {
         let main = NSMenu()
 
         let app = submenu(Brand.name, in: main)
-        app.addItem(withTitle: "About \(Brand.name)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(entry("About \(Brand.name)", #selector(showAbout), ""))
         // An Easter egg (docs/PLAN-easter-eggs.md E9): hold Option and About becomes this.
         let heat = entry("Add more heat 🌶", #selector(addMoreHeat), "")
         heat.keyEquivalentModifierMask = [.option]
         heat.isAlternate = true
         app.addItem(heat)
+        app.addItem(entry("Check for Updates…", #selector(checkForUpdatesNow), ""))
         app.addItem(.separator())
         app.addItem(entry("Settings…", #selector(openSettings), ","))
         app.addItem(entry("Dictate…", #selector(openDictateWindow), ""))
@@ -106,6 +107,7 @@ extension AppDelegate: NSMenuItemValidation {
         case #selector(goForward): return suite.isKey && suite.canGoForward
         case #selector(reloadSuite), #selector(actualSize), #selector(zoomIn), #selector(zoomOut): return suite.isKey
         case #selector(editLastScreenshot): return screenshots.recent.newest != nil
+        case #selector(checkForUpdatesNow): return !isCheckingForUpdates
         case #selector(takeScreenshot): return refreshScreenshotItem(item)
         default: return true
         }
@@ -134,6 +136,23 @@ extension AppDelegate: NSMenuItemValidation {
         }
     }
     @objc func showSuiteWindow() { suite.show() }
+    /// The standard About panel, with a link to the source on GitHub under the version.
+    @objc func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: Self.aboutCredits()])
+    }
+    static func aboutCredits() -> NSAttributedString {
+        let centered = NSMutableParagraphStyle()
+        centered.alignment = .center
+        let small = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        let text = NSMutableAttributedString(string: "Open source on GitHub\n", attributes: [
+            .font: small, .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: centered,
+        ])
+        text.append(NSAttributedString(string: AboutInfo.sourceLabel, attributes: [
+            .font: small, .link: AboutInfo.sourceURL, .paragraphStyle: centered,
+        ]))
+        return text
+    }
     @objc func addMoreHeat() {
         suite.show()
         suite.addMoreHeat()
