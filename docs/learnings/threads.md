@@ -40,3 +40,8 @@
 - End the map in a plan doc with a Status block that build threads claim, and merge it before the
   first build thread starts, so the build reads `main` rather than a planning branch.
 - The public map and plan name no people and no organization; "the owner" and "a teammate" are enough.
+
+- **`git checkout -B <branch> origin/main` makes the branch track main.** A later bare
+  `git push -q` then pushes nothing to your branch and prints nothing, so CI keeps testing an old
+  head. After restarting a branch, push with `git push origin <branch>` (or set the upstream to the
+  branch) and check `git ls-remote` shows your commit before waiting on CI.
