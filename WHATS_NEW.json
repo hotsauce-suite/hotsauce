@@ -1,6 +1,28 @@
 {
   "releases": [
     {
+      "version": "0.63.0",
+      "date": "2026-11-22",
+      "notes": [
+        {
+          "text": "The Chrome extension opens a setup page when you install it: connect to your workspace, pin the icon, and try it on a test Meet call, each ticked off by itself. The same page holds its settings (workspace, keyboard shortcut, version, updates) under Options."
+        },
+        {
+          "text": "The extension's popup links to Settings and How it works."
+        },
+        {
+          "text": "Meetings → Chrome extension says whether the extension is found in this browser, when a newer version is ready, and how to take notes on a call, with troubleshooting and how it fits with the Mac app."
+        },
+        {
+          "text": "Getting started on Today offers the Chrome extension in Chrome on a computer."
+        },
+        {
+          "text": "Help → Chrome Extension… opens the extension page.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.62.5",
       "date": "2026-11-22",
       "notes": [
