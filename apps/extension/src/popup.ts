@@ -5,6 +5,7 @@ import { meetCode } from './meet'
 import type { WorkerMessage } from './protocol'
 import { savable } from './save'
 import { connect, DEFAULT_NAME, getServer, originsFor, type Server, serverInTab } from './server'
+import { TRIED_KEY } from './setup'
 
 function show(id: string): HTMLElement {
   const el = document.getElementById(id)
@@ -132,9 +133,14 @@ async function main(): Promise<void> {
   }
   setName(server.name)
   show('change-server')
-  document
-    .getElementById('change-server-button')
-    ?.addEventListener('click', () => askForServer(server))
+  // Assigned, not added: main() runs again after Change server → Connect.
+  const change = document.getElementById('change-server-button')
+  if (change) change.onclick = () => askForServer(server)
+  const settings = document.getElementById('open-settings')
+  if (settings)
+    settings.onclick = () => {
+      void chrome.runtime.openOptionsPage().finally(() => window.close())
+    }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   const code = meetCode(tab?.url)
   if (tab?.id !== undefined && !code && savable(tab.url, originsFor(server.url))) {
@@ -157,6 +163,8 @@ async function main(): Promise<void> {
   }
   show('on-call')
   show('code').textContent = code
+  // The setup page's "Try it" step: Take notes showed on a call, so the extension works.
+  void chrome.storage.local.set({ [TRIED_KEY]: true })
   const button = document.getElementById('take-notes') as HTMLButtonElement
   const tabId = tab.id
   button.addEventListener('click', () => {

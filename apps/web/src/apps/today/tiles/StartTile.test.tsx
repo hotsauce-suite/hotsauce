@@ -18,6 +18,18 @@ import { OrgStartHereSection } from '../StartHereSettings'
 
 // The Getting started tile (docs/PLAN-getting-started.md, T1–T6).
 
+// The Chrome extension step (docs/PLAN-extension-setup.md, R10). jsdom isn't Chrome, so the step
+// stays out unless a test says this browser can run the extension.
+const chrome = vi.hoisted(() => ({ runs: false, version: null as string | null }))
+vi.mock('../../meetings/extensionRelease', async (importActual) => ({
+  ...(await importActual<typeof import('../../meetings/extensionRelease')>()),
+  canRunExtension: () => chrome.runs,
+}))
+vi.mock('../../meetings/audio/extension', async (importActual) => ({
+  ...(await importActual<typeof import('../../meetings/audio/extension')>()),
+  extensionVersion: async () => chrome.version,
+}))
+
 const step = (id: string) =>
   screen.getAllByTestId('today-start-step').find((el) => el.dataset.step === id) as
     | HTMLElement
@@ -49,6 +61,8 @@ const noCalendar = () =>
   )
 
 afterEach(() => {
+  chrome.runs = false
+  chrome.version = null
   server.events.removeAllListeners()
   vi.restoreAllMocks()
 })
@@ -157,6 +171,29 @@ describe('Getting started on Today', () => {
     } finally {
       delete (window as { webkit?: unknown }).webkit
     }
+  })
+
+  it('R10: in Chrome on a computer it offers the Chrome extension, ticked once it answers', async () => {
+    chrome.runs = true
+    renderApp('/today')
+    const tile = await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('extension')?.dataset.done).toBe('false'))
+    expect(within(tile).getByTestId('today-start-extension')).toHaveAttribute(
+      'href',
+      '/meetings/extension',
+    )
+    cleanup()
+    chrome.version = '0.8.0'
+    renderApp('/today')
+    await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('extension')?.dataset.done).toBe('true'))
+  })
+
+  it('R10: elsewhere there is no Chrome extension step', async () => {
+    renderApp('/today')
+    await screen.findByTestId('today-start')
+    await waitFor(() => expect(step('mac')).toBeDefined())
+    expect(step('extension')).toBeUndefined()
   })
 
   it('T1: a server with no Mac build has two steps', async () => {

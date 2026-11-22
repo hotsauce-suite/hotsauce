@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Set up Hotsauce</title>
+    <link rel="icon" href="icons/icon-32.png" />
+    <style>
+      :root {
+        --paper: #f2eadf;
+        --raised: #fbf6ef;
+        --ink: #2a221d;
+        --ink-soft: #5b4e44;
+        --ash: #d6c7b4;
+        --ember: #c63d19;
+        --ember-strong: #a5300f;
+        --moss: #3f6b3a;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #1d1815;
+          --raised: #26201c;
+          --ink: #ede3d6;
+          --ink-soft: #c1b2a2;
+          --ash: #3b322c;
+          --ember: #ff6a3d;
+          --ember-strong: #ff8a62;
+          --moss: #9cc58f;
+        }
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 15px/1.55 system-ui, sans-serif;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 48px 20px 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      header {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+      }
+      header img {
+        width: 48px;
+        height: 48px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        line-height: 1.2;
+      }
+      h2 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+        color: var(--ink-soft);
+      }
+      p {
+        margin: 0;
+      }
+      .soft {
+        color: var(--ink-soft);
+      }
+      ol.steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      ol.steps li,
+      .card {
+        background: var(--raised);
+        border: 1px solid var(--ash);
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+      ol.steps li {
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 4px 12px;
+        align-items: start;
+      }
+      .mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid var(--ash);
+        box-sizing: border-box;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ink-soft);
+      }
+      li[data-done='true'] .mark {
+        border-color: var(--moss);
+        background: var(--moss);
+        color: var(--paper);
+      }
+      .step-title {
+        font-weight: 600;
+      }
+      .step-body {
+        grid-column: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+      }
+      form {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      input {
+        flex: 1 1 220px;
+        min-width: 0;
+        padding: 8px 10px;
+        border: 1px solid var(--ash);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+      }
+      button,
+      .button {
+        padding: 8px 14px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--ember);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+      }
+      button:hover,
+      .button:hover {
+        background: var(--ember-strong);
+      }
+      button.quiet {
+        background: none;
+        color: var(--ember-strong);
+        padding: 0;
+        font-weight: 500;
+        text-decoration: underline;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--ember);
+        outline-offset: 2px;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+        flex-wrap: wrap;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--ash);
+      }
+      .row:last-child {
+        border-bottom: 0;
+      }
+      .row > span:first-child {
+        color: var(--ink-soft);
+      }
+      .row > span:last-child {
+        text-align: right;
+        min-width: 0;
+      }
+      .row.stack {
+        flex-direction: column;
+        gap: 4px;
+      }
+      .row.stack > span:last-child {
+        text-align: left;
+      }
+      kbd {
+        font: 13px ui-monospace, monospace;
+        border: 1px solid var(--ash);
+        border-radius: 5px;
+        padding: 1px 6px;
+      }
+      a {
+        color: var(--ember-strong);
+      }
+      .error {
+        color: var(--ember-strong);
+        font-size: 13px;
+      }
+      ol.how {
+        margin: 0;
+        padding-left: 1.3em;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="icons/icon-128.png" alt="" />
+        <div>
+          <h1 id="title">Set up <span class="product">Hotsauce</span></h1>
+          <p class="soft">Notes on Google Meet calls, and pages saved to read later.</p>
+        </div>
+      </header>
+
+      <section aria-labelledby="first-steps">
+        <h2 id="first-steps">First steps <span id="count" class="soft"></span></h2>
+        <ol class="steps">
+          <li id="step-connect" data-done="false">
+            <span class="mark" aria-hidden="true">1</span>
+            <div class="step-body">
+              <span class="step-title">Connect to your workspace</span>
+              <p class="hint soft"></p>
+              <form id="server-form">
+                <input id="server-url" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="hotsauce.acme.com" aria-label="Your workspace address" />
+                <button id="server-connect" type="submit">Connect</button>
+              </form>
+              <p id="server-error" class="error" role="alert" hidden></p>
+            </div>
+          </li>
+          <li id="step-pin" data-done="false">
+            <span class="mark" aria-hidden="true">2</span>
+            <div class="step-body">
+              <span class="step-title">Pin the icon</span>
+              <p class="hint soft"></p>
+            </div>
+          </li>
+          <li id="step-try" data-done="false">
+            <span class="mark" aria-hidden="true">3</span>
+            <div class="step-body">
+              <span class="step-title">Try it on a Meet call</span>
+              <p class="hint soft"></p>
+              <p><button id="test-call" type="button">Start a test call</button></p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="how">
+        <h2 id="how">Taking notes on a call</h2>
+        <div class="card">
+          <ol class="how">
+            <li>Join the call in Google Meet. The icon shows a small dot.</li>
+            <li>Click the icon<span id="how-shortcut"></span>, then <b>Take notes</b>. <span class="product">Hotsauce</span> opens beside the call.</li>
+            <li>Click <b>Start recording</b>. Type your own notes if you like.</li>
+            <li>Click <b>Stop</b> when the call ends. The written notes follow a minute later.</li>
+          </ol>
+          <p class="soft" style="margin-top: 10px">On any other page, the same icon saves the page to Links. No bot joins your calls.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="settings">
+        <h2 id="settings">Settings</h2>
+        <div class="card">
+          <div class="row">
+            <span>Workspace</span>
+            <span><span id="workspace">Not connected</span> <button id="change-server" type="button" class="quiet" hidden>Change</button></span>
+          </div>
+          <div class="row">
+            <span>Keyboard shortcut</span>
+            <span><span id="shortcut">Not set</span> <button id="change-shortcut" type="button" class="quiet">Change</button></span>
+          </div>
+          <div class="row">
+            <span>Version</span>
+            <span id="version"></span>
+          </div>
+          <div class="row stack">
+            <span>Updates</span>
+            <span id="updates" class="soft"></span>
+          </div>
+          <div class="row">
+            <span>Help</span>
+            <span><a id="help" href="https://hotsauce.work/help/chrome-extension" target="_blank" rel="noreferrer">How it works</a> · <a id="workspace-page" href="about:blank" target="_blank" rel="noreferrer" hidden>Chrome extension in <span class="product">Hotsauce</span></a></span>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="setupPage.js" type="module"></script>
+  </body>
+</html>

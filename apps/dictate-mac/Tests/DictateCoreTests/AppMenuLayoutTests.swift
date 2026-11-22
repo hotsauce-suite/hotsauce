@@ -26,7 +26,7 @@ struct AppMenuLayoutTests {
     @Test func helpMenuHoldsHelpAndSetup() {
         let titles = AppMenuLayout.help(name: "Hotsauce").map { $0.title ?? "—" }
         #expect(titles == [
-            "Hotsauce Help", "Keyboard Shortcuts", "Send Feedback…", "—",
+            "Hotsauce Help", "Keyboard Shortcuts", "Chrome Extension…", "Send Feedback…", "—",
             "Dictate…", "Check Permissions…", "Run Setup Again…", "—",
             "Hotsauce on GitHub",
         ])

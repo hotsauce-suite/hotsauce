@@ -18,13 +18,16 @@ import { installContext } from '../../../lib/install'
 import { docUrl } from '../../../lib/paths'
 import { music } from '../../../music/player'
 import { useMusic } from '../../../music/useMusic'
+import { extensionVersion } from '../../meetings/audio/extension'
+import { canRunExtension } from '../../meetings/extensionRelease'
 import { Card } from './Card'
 
 const CALENDARS = '/settings/connections#calendars'
 const APPS = '/settings/apps'
+const EXTENSION = '/meetings/extension'
 
 interface Step {
-  id: 'calendar' | 'mac' | 'home' | 'docs'
+  id: 'calendar' | 'mac' | 'extension' | 'home' | 'docs'
   title: string
   hint: string
   /** Null while it isn't known yet (a request is out). */
@@ -66,6 +69,22 @@ function useHasMac(enabled: boolean): boolean | null {
     }
   }, [enabled, inApp])
   return inApp ? true : connected
+}
+
+/** Whether the Chrome extension answers on this page: null while asking. */
+function useHasExtension(enabled: boolean): boolean | null {
+  const [has, setHas] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    void extensionVersion().then((v) => {
+      if (!cancelled) setHas(v !== null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [enabled])
+  return has
 }
 
 /**
@@ -114,6 +133,9 @@ export function StartTile({
   // A server without a Mac build has nothing to download: no Mac step there.
   const hasBuild = useMacAppBuild(!touch && !inApp)
   const hasMac = useHasMac(!touch)
+  // The Chrome extension, offered only where it can run: Chrome on a computer, not the Mac app.
+  const offersExtension = !touch && !inApp && canRunExtension()
+  const hasExtension = useHasExtension(offersExtension)
   // Set as "Open Docs" leaves Today: if that was the last step, "You're set" waits for the next
   // time Today opens, where it can be read, instead of saving the tile away unseen.
   const leaving = useRef(false)
@@ -159,6 +181,18 @@ export function StartTile({
       ),
     })
   }
+  if (offersExtension)
+    steps.push({
+      id: 'extension',
+      title: 'Get the Chrome extension',
+      hint: 'Notes on Google Meet calls in one click, and pages saved to read later.',
+      done: hasExtension,
+      action: (
+        <Link to={EXTENSION} className={stepButton} data-testid="today-start-extension">
+          Get it
+        </Link>
+      ),
+    })
   steps.push({
     id: 'docs',
     title: 'See where the team’s work lives',

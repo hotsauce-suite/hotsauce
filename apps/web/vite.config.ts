@@ -96,9 +96,18 @@ function releaseVersion(): string {
   return existsSync(file) ? readFileSync(file, 'utf8').trim() : ''
 }
 
+function extensionVersion(): string {
+  const file = join(dirname(fileURLToPath(import.meta.url)), '../extension/package.json')
+  if (!existsSync(file)) return ''
+  const { version } = JSON.parse(readFileSync(file, 'utf8')) as { version?: unknown }
+  return typeof version === 'string' ? version : ''
+}
+
 export default defineConfig(({ mode, command }) => ({
   define: {
     // Empty for the dev server and the demo: they never reload themselves.
+    // The Chrome extension's version in this build's download (docs/PLAN-extension-setup.md).
+    __EXTENSION_VERSION__: JSON.stringify(extensionVersion()),
     __HOTSAUCE_VERSION__: JSON.stringify(
       command === 'build' && mode !== 'demo' ? releaseVersion() : '',
     ),

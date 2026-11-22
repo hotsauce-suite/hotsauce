@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chrome extension · Hotsauce help</title>
-<meta name="description" content="Take notes in Google Meet, and save links from Chrome.">
+<meta name="description" content="Set up the Chrome extension, take notes on Google Meet calls, and save links from Chrome.">
 <link rel="canonical" href="https://hotsauce.work/help/chrome-extension">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="Chrome extension · Hotsauce help">
-<meta property="og:description" content="Take notes in Google Meet, and save links from Chrome.">
+<meta property="og:description" content="Set up the Chrome extension, take notes on Google Meet calls, and save links from Chrome.">
 <meta property="og:url" content="https://hotsauce.work/help/chrome-extension">
 <meta property="og:image" content="https://hotsauce.work/og.png">
 <meta name="theme-color" content="#fff4e2" media="(prefers-color-scheme: light)">
@@ -38,16 +38,30 @@
 <main id="main" class="article" data-page="chrome-extension">
 <p class="crumbs"><a href="/help/">Help</a> <span aria-hidden="true">/</span> Other devices and agents</p>
 <h1>Chrome extension</h1>
-<p class="lede">The Chrome extension records Google Meet calls without a bot, and saves any web page to Links.</p>
+<p class="lede">The Chrome extension takes notes on Google Meet calls without a bot, and saves any web page to Links.</p>
 <h2 id="install-it">Install it</h2>
-<p>Open <b>Meetings → Chrome extension</b> in Hotsauce and follow the steps there. It shows the right install for your workspace.</p>
-<p>Installed it from the Chrome Web Store instead? Open Hotsauce in a tab, click the extension and press <b>Connect</b>. It fills in your address from that tab.</p>
+<p>Open <b>Meetings → Chrome extension</b> in Hotsauce and follow the steps there. It shows the right install for your workspace, and whether this browser already has it.</p>
+<p>When it’s installed, a setup page opens with three steps that tick themselves off:</p>
+<ol class="steps"><li><b>Connect to your workspace.</b> Copies downloaded from your workspace are already connected. From the Chrome Web Store, type your address, or open Hotsauce in a tab, click the extension and press <b>Connect</b>.</li><li><b>Pin the icon.</b> Click the puzzle piece at the top right of Chrome, then the pin next to Hotsauce.</li><li><b>Try it on a Meet call.</b> <b>Start a test call</b> opens a new Meet call. Click the icon there and you’ll see <b>Take notes</b>. Nothing records until you start it.</li></ol>
+<figure><img src="/help/chrome-extension-setup.webp" width="900" height="1221" alt="The extension’s setup page: three first steps, how to take notes on a call, and settings for the workspace, keyboard shortcut, version and updates." loading="lazy"></figure>
+<p>The same page holds the extension’s settings: right-click the icon and choose <b>Options</b>, or click <b>Settings</b> at the bottom of the extension’s window.</p>
 <h2 id="take-notes-in-google-meet">Take notes in Google Meet</h2>
-<ol class="steps"><li>Join a call in Google Meet.</li><li>Click the extension (or press <kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>H</kbd> to open it) and choose <b>Take notes</b>.</li><li>Your notes and the live transcript open in Hotsauce. Stop when the call ends.</li></ol>
+<ol class="steps"><li>Join the call in Google Meet in Chrome. The Hotsauce icon shows a small dot.</li><li>Click the icon (or press <kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>H</kbd>, Alt+Shift+H on Windows) and choose <b>Take notes</b>. A Hotsauce tab opens beside the call, named after your calendar event.</li><li>Allow the microphone the first time. Both rows say <b>Sound is arriving</b> once someone talks.</li><li>If you like, click <b>Copy a line for the chat</b> and paste it into Meet, so people know you’re taking notes.</li><li>Pick a template and click <b>Start recording</b>. The transcript runs live; type your own notes beside it.</li><li>When the call ends, click <b>Stop</b>. The written notes appear about a minute later in <a href="/help/meetings">Meetings</a>.</li></ol>
 <p>No bot joins your call, and you don’t need Chrome’s “share tab audio” dialog.</p>
+<h2 id="if-somethings-wrong">If something’s wrong</h2>
+<div class="defs"><dl>
+<dt>There’s no dot on the icon</dt><dd>The icon may be hidden behind the puzzle piece: pin it. The dot shows once you’re in the call, not on Meet’s home page.</dd>
+<dt>Chrome asked what to share</dt><dd>The meeting was started without the icon. Go back to the Meet tab, click the icon and <b>Take notes</b>. Or pick the Meet tab in Chrome’s window and tick <b>Share tab audio</b>.</dd>
+<dt>“No sound from the Meet tab yet”</dt><dd>Someone may just not be talking. If the call is clearly loud, stop and start again from the icon on the Meet tab.</dd>
+<dt>It asks which server to connect to</dt><dd>Open Hotsauce in a tab, click the icon there and press <b>Connect</b>, then reload that tab. To switch workspace later, use <b>Change</b> on the setup page.</dd>
+</dl></div>
+<h2 id="on-a-mac">On a Mac</h2>
+<p>The <a href="/help/mac-app">Mac app</a> records any call: it offers “Take notes for …?” before calendar meetings that have a link (Meet included), and “Take notes?” when Zoom, Teams, Slack or FaceTime start a call. It stays quiet for calls in a browser, so you never get two offers. Use the extension for a Meet call you join on the spot, and use one or the other for a call, not both. In the Mac app, <b>Help → Chrome Extension…</b> opens the extension’s page.</p>
 <h2 id="save-links">Save links</h2>
 <p>On any page, click the extension icon: that one click saves the page, and the extension says <b>Saved to Hotsauce</b>. You can also right-click a page or a link. A ✓ on the icon means it’s saved in <a href="/help/links">Links</a>.</p>
 <p>Saving a page sends it as you see it, so an article behind a paywall or a sign-in keeps its whole text. Right-clicking a link saves just the link, and Hotsauce reads that page itself.</p>
+<h2 id="updates">Updates</h2>
+<p>From the Chrome Web Store, Chrome keeps it up to date by itself. Installed by hand, <b>Meetings → Chrome extension</b> says when a newer version is ready: download it again, replace the folder’s contents, then click reload on <code>chrome://extensions</code>.</p>
 <nav class="pager" id="pager" aria-label="Next and previous"></nav>
 </main>
 </div>
