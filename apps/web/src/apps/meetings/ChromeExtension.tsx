@@ -126,12 +126,16 @@ export default function ChromeExtension() {
             <Status tone="todo" testId="extension-missing">
               <p>Not found in this browser yet. Install it below.</p>
               <p className="text-ink-soft">
-                Already installed? Click its icon while this tab is open and press Connect.
+                Already installed? Click its icon while this tab is open, press Connect, then reload
+                this page.
               </p>
             </Status>
           ) : installed === null ? (
             <Status tone="todo" testId="extension-elsewhere">
-              <p>The extension runs in Chrome on a computer. Open this page there to install it.</p>
+              <p>The extension runs in Chrome on a computer. Open this page there to install it:</p>
+              <p className="select-all break-all font-mono text-[0.85em] text-ink">
+                {window.location.origin}/meetings/extension
+              </p>
             </Status>
           ) : null}
 
@@ -169,7 +173,8 @@ export default function ChromeExtension() {
               <span className={see}>The {product()} icon shows a small dot.</span>
             </li>
             <li>
-              Click the icon (or press <kbd className={code}>Alt+Shift+H</kbd>), then Take notes.
+              Click the icon (or press <kbd className={code}>⌥⇧H</kbd>, Alt+Shift+H on Windows),
+              then Take notes.
               <span className={see}>
                 A {product()} tab opens beside the call, named after your calendar event.
               </span>
@@ -217,7 +222,8 @@ export default function ChromeExtension() {
             <div>
               <dt className="font-medium">It asks which server to connect to</dt>
               <dd className="text-ink-soft">
-                Open {product()} in a tab, click the icon there and press Connect.
+                Open {product()} in a tab, click the icon there and press Connect, then reload the
+                page.
               </dd>
             </div>
           </dl>

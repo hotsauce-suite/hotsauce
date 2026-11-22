@@ -11,6 +11,7 @@ import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } f
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
+import { makeManifest } from './manifest.js'
 import { stampForServer } from './stamp.js'
 import { zip } from './zip.js'
 
@@ -30,26 +31,7 @@ const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'ut
   version: string
 }
 
-const icons = { 16: 'icons/icon-16.png', 32: 'icons/icon-32.png', 48: 'icons/icon-48.png' }
-const manifest: Record<string, unknown> = {
-  manifest_version: 3,
-  name: productName,
-  version,
-  description: `Take notes on Google Meet calls with ${productName}, and save pages to read later.`,
-  minimum_chrome_version: '116',
-  icons: { ...icons, 128: 'icons/icon-128.png' },
-  action: { default_title: productName, default_popup: 'popup.html', default_icon: icons },
-  // The setup page (docs/PLAN-extension-setup.md) is also Options on the icon's right-click menu.
-  options_ui: { page: 'setup.html', open_in_tab: true },
-  background: { service_worker: 'background.js', type: 'module' },
-  permissions: ['tabCapture', 'storage', 'activeTab', 'contextMenus', 'scripting'],
-  host_permissions: ['https://meet.google.com/*'],
-  // Asked for one site at a time, when the person connects to their server.
-  optional_host_permissions: ['https://*/*', 'http://localhost/*'],
-  commands: {
-    _execute_action: { suggested_key: { default: 'Alt+Shift+H' } },
-  },
-}
+const manifest = makeManifest(productName, version)
 const stamped = serverUrl ? stampForServer(manifest, { url: serverUrl, name: productName }) : null
 
 rmSync(dist, { recursive: true, force: true })

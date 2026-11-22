@@ -133,12 +133,14 @@ async function main(): Promise<void> {
   }
   setName(server.name)
   show('change-server')
-  document
-    .getElementById('change-server-button')
-    ?.addEventListener('click', () => askForServer(server))
-  document.getElementById('open-settings')?.addEventListener('click', () => {
-    void chrome.runtime.openOptionsPage().finally(() => window.close())
-  })
+  // Assigned, not added: main() runs again after Change server → Connect.
+  const change = document.getElementById('change-server-button')
+  if (change) change.onclick = () => askForServer(server)
+  const settings = document.getElementById('open-settings')
+  if (settings)
+    settings.onclick = () => {
+      void chrome.runtime.openOptionsPage().finally(() => window.close())
+    }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   const code = meetCode(tab?.url)
   if (tab?.id !== undefined && !code && savable(tab.url, originsFor(server.url))) {
