@@ -14,6 +14,7 @@ import {
   takeSaveTab,
 } from './save'
 import { DEFAULT_NAME, getServer, isServerPage, originsFor } from './server'
+import { opensSetup } from './setup'
 
 const INVOKED_KEY = 'invoked'
 const SAVE_TABS_KEY = 'save-tabs'
@@ -58,9 +59,11 @@ async function makeMenus(): Promise<void> {
   })
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(({ reason }) => {
   void chrome.action.setBadgeBackgroundColor({ color: '#c63d19' })
   void makeMenus()
+  // A fresh install opens the setup page once (docs/PLAN-extension-setup.md).
+  if (opensSetup(reason)) void chrome.tabs.create({ url: chrome.runtime.getURL('setup.html') })
 })
 // Connecting to another server renames the menus.
 chrome.storage.onChanged.addListener((changes, area) => {

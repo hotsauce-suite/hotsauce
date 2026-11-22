@@ -100,6 +100,7 @@
       .footer {
         margin-top: 12px;
         font-size: 12px;
+        color: var(--ink-soft);
       }
       button.link {
         width: auto;
@@ -130,7 +131,7 @@
     </section>
     <section id="elsewhere" hidden>
       <h1><span class="product">Hotsauce</span> Meetings</h1>
-      <p>Join a Google Meet call, then click this icon to take notes on it.</p>
+      <p>To take notes on a call: join it in Google Meet, click this icon, then Take notes. On any other page, this icon saves the page to Links.</p>
       <a id="open-hotsauce" href="about:blank" target="_blank" rel="noreferrer">Open <span class="product">Hotsauce</span> Meetings</a>
     </section>
     <section id="setup" hidden>
@@ -143,6 +144,8 @@
       <p id="server-error" class="error" role="alert" hidden></p>
     </section>
     <section id="change-server" class="footer" hidden>
+      <button id="open-settings" type="button" class="link">Settings</button> ·
+      <a id="how-it-works" href="https://hotsauce.work/help/chrome-extension" target="_blank" rel="noreferrer">How it works</a> ·
       <button id="change-server-button" type="button" class="link">Change server</button>
     </section>
     <script src="popup.js" type="module"></script>

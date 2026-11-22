@@ -39,6 +39,8 @@ const manifest: Record<string, unknown> = {
   minimum_chrome_version: '116',
   icons: { ...icons, 128: 'icons/icon-128.png' },
   action: { default_title: productName, default_popup: 'popup.html', default_icon: icons },
+  // The setup page (docs/PLAN-extension-setup.md) is also Options on the icon's right-click menu.
+  options_ui: { page: 'setup.html', open_in_tab: true },
   background: { service_worker: 'background.js', type: 'module' },
   permissions: ['tabCapture', 'storage', 'activeTab', 'contextMenus', 'scripting'],
   host_permissions: ['https://meet.google.com/*'],
@@ -52,7 +54,9 @@ const stamped = serverUrl ? stampForServer(manifest, { url: serverUrl, name: pro
 
 rmSync(dist, { recursive: true, force: true })
 await build({
-  entryPoints: ['background', 'bridge', 'popup'].map((n) => path.join(root, 'src', `${n}.ts`)),
+  entryPoints: ['background', 'bridge', 'popup', 'setupPage'].map((n) =>
+    path.join(root, 'src', `${n}.ts`),
+  ),
   outdir: dist,
   bundle: true,
   format: 'esm',
