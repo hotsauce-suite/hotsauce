@@ -28,7 +28,7 @@ import { useEggs } from '../eggs/useEggs'
 import { useMacScreenshots } from '../hooks/useMacScreenshots'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSpec } from '../keyboard/keys'
-import { ShortcutsSheet } from '../keyboard/ShortcutsSheet'
+import { SHOW_SHORTCUTS_EVENT, ShortcutsSheet } from '../keyboard/ShortcutsSheet'
 import { useKeyListener, useShortcut } from '../keyboard/shortcuts'
 import { useAppShortcuts } from '../keyboard/useAppShortcuts'
 import { useBuiltInCommands } from '../keyboard/useBuiltInCommands'
@@ -225,6 +225,12 @@ function ShellLayout() {
   })
   useAppShortcuts({ app: app.id, openSearch })
   useBuiltInCommands({ openShortcuts: () => setShortcutsOpen(true) })
+  // The Mac app's Help → Keyboard Shortcuts (docs/PLAN-mac-app-menu.md).
+  useEffect(() => {
+    const open = () => setShortcutsOpen(true)
+    window.addEventListener(SHOW_SHORTCUTS_EVENT, open)
+    return () => window.removeEventListener(SHOW_SHORTCUTS_EVENT, open)
+  }, [])
   useEggs()
 
   // Warm the palette's chunk while idle so the first Cmd-K opens instantly.

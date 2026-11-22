@@ -1,5 +1,6 @@
 import AppKit
 import DictateCore
+import ServiceManagement
 
 /// The menu bar of the app, now that it's a Dock app: the standard App, File, Edit (copy and paste
 /// in the web view need it), View, Go (back, forward, the rail's apps on ⌘1…) and Window menus.
@@ -7,30 +8,28 @@ extension AppDelegate: NSMenuItemValidation {
     func makeMainMenu() -> NSMenu {
         let main = NSMenu()
 
+        // The Hotsauce menu (docs/PLAN-mac-app-menu.md), from DictateCore's AppMenuLayout.
         let app = submenu(Brand.name, in: main)
-        app.addItem(entry("About \(Brand.name)", #selector(showAbout), ""))
-        // An Easter egg (docs/PLAN-easter-eggs.md E9): hold Option and About becomes this.
-        let heat = entry("Add more heat 🌶", #selector(addMoreHeat), "")
-        heat.keyEquivalentModifierMask = [.option]
-        heat.isAlternate = true
-        app.addItem(heat)
-        app.addItem(entry("Check for Updates…", #selector(checkForUpdatesNow), ""))
-        app.addItem(.separator())
-        app.addItem(entry("Settings…", #selector(openSettings), ","))
-        app.addItem(entry("Dictate…", #selector(openDictateWindow), ""))
-        app.addItem(entry("Check Permissions…", #selector(showOnboarding), ""))
-        app.addItem(entry("Run Setup Again…", #selector(runSetupAgain), ""))
-        app.addItem(.separator())
-        let services = NSMenu(title: "Services")
-        app.addItem(withTitle: "Services", action: nil, keyEquivalent: "").submenu = services
-        NSApp.servicesMenu = services
-        app.addItem(.separator())
-        app.addItem(withTitle: "Hide \(Brand.name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        let others = app.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
-        others.keyEquivalentModifierMask = [.command, .option]
-        app.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
-        app.addItem(.separator())
-        app.addItem(withTitle: "Quit \(Brand.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        for item in AppMenuLayout.app() {
+            guard case .entry(_, let command, _, _, _) = item else {
+                app.addItem(.separator())
+                continue
+            }
+            if command == .services {
+                let services = NSMenu(title: "Services")
+                app.addItem(withTitle: "Services", action: nil, keyEquivalent: "").submenu = services
+                NSApp.servicesMenu = services
+                continue
+            }
+            app.addItem(menuItem(item))
+            if command == .about {
+                // An Easter egg (docs/PLAN-easter-eggs.md E9): hold Option and About becomes this.
+                let heat = entry("Add more heat 🌶", #selector(addMoreHeat), "")
+                heat.keyEquivalentModifierMask = [.option]
+                heat.isAlternate = true
+                app.addItem(heat)
+            }
+        }
 
         let file = submenu("File", in: main)
         file.addItem(screenshotMenuItem(title: "Take Screenshot"))
@@ -85,6 +84,12 @@ extension AppDelegate: NSMenuItemValidation {
         window.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         NSApp.windowsMenu = window
 
+        let help = submenu("Help", in: main)
+        for item in AppMenuLayout.help() {
+            if case .separator = item { help.addItem(.separator()) } else { help.addItem(menuItem(item)) }
+        }
+        NSApp.helpMenu = help
+
         return main
     }
 
@@ -92,6 +97,44 @@ extension AppDelegate: NSMenuItemValidation {
         let menu = NSMenu(title: title)
         main.addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = menu
         return menu
+    }
+
+    /// An AppMenuLayout entry as a menu item, wired to its action.
+    private func menuItem(_ item: AppMenuLayout.Item) -> NSMenuItem {
+        guard case .entry(let title, let command, let key, let modifiers, _) = item else { return .separator() }
+        let made: NSMenuItem
+        switch command {
+        case .hide: made = NSMenuItem(title: title, action: #selector(NSApplication.hide(_:)), keyEquivalent: key)
+        case .hideOthers: made = NSMenuItem(title: title, action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: key)
+        case .showAll: made = NSMenuItem(title: title, action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: key)
+        default: made = entry(title, selector(for: command), key)
+        }
+        made.keyEquivalentModifierMask = modifiers == .commandOption ? [.command, .option] : [.command]
+        made.representedObject = command.rawValue
+        return made
+    }
+
+    private func selector(for command: AppMenuLayout.Command) -> Selector {
+        switch command {
+        case .about: return #selector(showAbout)
+        case .checkForUpdates: return #selector(checkForUpdatesNow)
+        case .settings: return #selector(openSettings)
+        case .switchWorkspace: return #selector(switchWorkspace)
+        case .openAtLogin: return #selector(toggleOpenAtLoginFromMenu)
+        case .showInMenuBar: return #selector(toggleShowInMenuBarFromMenu)
+        case .restart: return #selector(restartFromMenu)
+        case .quitCompletely: return #selector(quitCompletely)
+        case .quit: return #selector(softQuit)
+        case .help: return #selector(openHelp)
+        case .keyboardShortcuts: return #selector(showKeyboardShortcuts)
+        case .sendFeedback: return #selector(sendFeedback)
+        case .dictate: return #selector(openDictateWindow)
+        case .checkPermissions: return #selector(showOnboarding)
+        case .runSetupAgain: return #selector(runSetupAgain)
+        case .github: return #selector(openGitHub)
+        // Built by menuItem and makeMainMenu themselves; never asked for.
+        case .services, .hide, .hideOthers, .showAll: return #selector(showSuiteWindow)
+        }
     }
 
     private func entry(_ title: String, _ action: Selector, _ key: String) -> NSMenuItem {
@@ -108,6 +151,12 @@ extension AppDelegate: NSMenuItemValidation {
         case #selector(reloadSuite), #selector(actualSize), #selector(zoomIn), #selector(zoomOut): return suite.isKey
         case #selector(editLastScreenshot): return screenshots.recent.newest != nil
         case #selector(checkForUpdatesNow): return !isCheckingForUpdates
+        case #selector(toggleOpenAtLoginFromMenu):
+            item.state = SMAppService.mainApp.status == .enabled ? .on : .off
+            return true
+        case #selector(toggleShowInMenuBarFromMenu):
+            item.state = showsMenuBarIcon ? .on : .off
+            return true
         case #selector(takeScreenshot): return refreshScreenshotItem(item)
         default: return true
         }
@@ -136,6 +185,17 @@ extension AppDelegate: NSMenuItemValidation {
         }
     }
     @objc func showSuiteWindow() { suite.show() }
+    @objc func openHelp() { NSWorkspace.shared.open(AboutInfo.helpURL) }
+    @objc func openGitHub() { NSWorkspace.shared.open(AboutInfo.sourceURL) }
+    /// The page's keyboard shortcuts sheet (the same as pressing ?).
+    @objc func showKeyboardShortcuts() {
+        suite.show()
+        suite.showKeyboardShortcuts()
+    }
+    @objc func sendFeedback() {
+        suite.show()
+        suite.open(path: "/feedback")
+    }
     /// The standard About panel, with a link to the source on GitHub under the version.
     @objc func showAbout() {
         NSApp.activate(ignoringOtherApps: true)

@@ -6,6 +6,9 @@ import { Keys } from './KeyCaps'
 import { useSingleKeys } from './prefs'
 import { useBoundIds } from './shortcuts'
 
+/** The Mac app's Help → Keyboard Shortcuts asks the page to open the sheet with this event. */
+export const SHOW_SHORTCUTS_EVENT = 'hotsauce:show-shortcuts'
+
 /**
  * The `?` sheet: every shortcut, Everywhere and Go to first, then what works on this page (sections with
  * a bound shortcut, or the open app's own), then the rest.

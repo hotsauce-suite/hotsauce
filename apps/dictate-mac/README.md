@@ -47,7 +47,7 @@ Redact covers whole pixels with an opaque block (never a blur, a pixelation or a
 
 ## First run
 
-There is no built-in server address: one build serves every organization. On first run the setup window asks "Where does your team's Hotsauce live?", checks the address's `/api/health` answers as a Hotsauce server (showing its organization and sign-in domain), saves it, and offers Sign in with Google through the browser. The Dictate window's small Settings page (what ⌘, opens when the suite can't load) has the address under Workspace, and the "Can't reach" page has a Change workspace address button. Settings → This Mac → Run setup again (also Run Setup Again… in the app menu and the menu bar icon) walks every setup step from the start without resetting anything. A Dictate connection code that names a server other than the workspace asks before connecting.
+There is no built-in server address: one build serves every organization. On first run the setup window asks "Where does your team's Hotsauce live?", checks the address's `/api/health` answers as a Hotsauce server (showing its organization and sign-in domain), saves it, and offers Sign in with Google through the browser. The Dictate window's small Settings page (what ⌘, opens when the suite can't load) has the address under Workspace, and the "Can't reach" page has a Change workspace address button. Settings → This Mac → Run setup again (also Help → Run Setup Again… and the menu bar icon) walks every setup step from the start without resetting anything. A Dictate connection code that names a server other than the workspace asks before connecting.
 
 ## Settings
 
