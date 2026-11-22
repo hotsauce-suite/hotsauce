@@ -1,6 +1,36 @@
 {
   "releases": [
     {
+      "version": "0.62.5",
+      "date": "2026-11-22",
+      "notes": [
+        {
+          "text": "The Hotsauce menu now has Switch Workspace, Open at Login, Show in Menu Bar and Restart Hotsauce. ⌘Q keeps Hotsauce running in the menu bar so dictation and reminders keep working; Quit Completely (⌥⌘Q) quits.",
+          "area": "Mac app"
+        },
+        {
+          "text": "A new Help menu with the help center, keyboard shortcuts, feedback, setup and the code on GitHub.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Finds new versions soon after your Mac wakes from sleep, not only every few hours.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Hotsauce → Check for Updates… checks right away and tells you whether you're up to date, or offers Restart Now when a new version is ready.",
+          "area": "Mac app"
+        },
+        {
+          "text": "About Hotsauce links to the source code on GitHub.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Screenshots no longer ask for Screen Recording when it's already on. If macOS still refuses, the window says exactly what to do and has a Quit and Reopen button.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.62.4",
       "date": "2026-11-20",
       "notes": [
