@@ -127,6 +127,7 @@ extension AppDelegate: NSMenuItemValidation {
         case .quit: return #selector(softQuit)
         case .help: return #selector(openHelp)
         case .keyboardShortcuts: return #selector(showKeyboardShortcuts)
+        case .chromeExtension: return #selector(openChromeExtension)
         case .sendFeedback: return #selector(sendFeedback)
         case .dictate: return #selector(openDictateWindow)
         case .checkPermissions: return #selector(showOnboarding)
@@ -191,6 +192,11 @@ extension AppDelegate: NSMenuItemValidation {
     @objc func showKeyboardShortcuts() {
         suite.show()
         suite.showKeyboardShortcuts()
+    }
+    /// The Chrome extension's page: how it and this app share calls (docs/PLAN-extension-setup.md).
+    @objc func openChromeExtension() {
+        suite.show()
+        suite.open(path: "/meetings/extension")
     }
     @objc func sendFeedback() {
         suite.show()

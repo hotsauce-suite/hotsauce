@@ -17,7 +17,7 @@ M3. Open at Login and Show in Menu Bar show a tick when on and flip on click, th
     as Settings → This Mac. Restart Hotsauce reopens the app, never over a recording. Switch
     Workspace… opens the workspace step. [checked on a Mac]
 M4. A Help menu: Hotsauce Help (hotsauce.work/help), Keyboard Shortcuts (the page's sheet, via the
-    `hotsauce:show-shortcuts` event), Send Feedback… (/feedback), then Dictate…, Check
+    `hotsauce:show-shortcuts` event), Chrome Extension… (/meetings/extension; PLAN-extension-setup), Send Feedback… (/feedback), then Dictate…, Check
     Permissions…, Run Setup Again…, then Hotsauce on GitHub. [AppMenuLayoutTests,
     ShortcutsSheet.test]
 M5. The menu bar icon's own Quit is now "Quit Completely" (it always quit for real).

@@ -10,7 +10,7 @@ public enum AppMenuLayout {
         case services
         case hide, hideOthers, showAll
         case quitCompletely, quit
-        case help, keyboardShortcuts, sendFeedback
+        case help, keyboardShortcuts, chromeExtension, sendFeedback
         case dictate, checkPermissions, runSetupAgain
         case github
     }
@@ -64,6 +64,7 @@ public enum AppMenuLayout {
         [
             .entry(title: "\(name) Help", command: .help),
             .entry(title: "Keyboard Shortcuts", command: .keyboardShortcuts),
+            .entry(title: "Chrome Extension…", command: .chromeExtension),
             .entry(title: "Send Feedback…", command: .sendFeedback),
             .separator,
             .entry(title: "Dictate…", command: .dictate),
