@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.66.0",
+      "date": "2026-11-23",
+      "notes": [
+        {
+          "text": "Files: PDF tools. Combine PDFs, reorder, turn and remove pages, split into parts, shrink for email, make scans searchable, and redact. Each result is saved as a new PDF beside the original."
+        },
+        {
+          "text": "Drop PDFs on the Hotsauce icon in the Dock to add them to Files and open them in PDF tools. Make searchable uses your Mac's own text reading.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.65.3",
       "date": "2026-11-23",
       "notes": [
