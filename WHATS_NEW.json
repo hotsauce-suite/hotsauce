@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.65.2",
+      "date": "2026-11-23",
+      "notes": [
+        {
+          "text": "Calls in Chrome and other browsers, like Google Meet, are now noticed. A \"Meeting detected\" card appears at the top right with one Take notes button that records both sides.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.65.1",
       "date": "2026-11-23",
       "notes": [
