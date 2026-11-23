@@ -153,10 +153,37 @@ import Testing
         #expect(!MicApps.isCallCandidate("com.apple.CoreSpeech", ownBundleID: own))
         #expect(!MicApps.isCallCandidate("com.anthropic.claudefordesktop.helper", ownBundleID: own))
         #expect(!MicApps.isCallCandidate("com.apple.QuickTimePlayerX", ownBundleID: own))
-        #expect(!MicApps.isCallCandidate("com.google.Chrome.helper", ownBundleID: own))
+        // Browsers count (a Google Meet in Chrome), but not Safari: its mic runs in WebKit's
+        // shared process, which this app's own window uses too.
+        #expect(MicApps.isCallCandidate("com.google.Chrome.helper", ownBundleID: own))
+        #expect(MicApps.isCallCandidate("com.google.Chrome", ownBundleID: own))
+        #expect(MicApps.isCallCandidate("company.thebrowser.Browser.helper", ownBundleID: own))
+        #expect(MicApps.isCallCandidate("com.microsoft.edgemac.helper", ownBundleID: own))
+        #expect(MicApps.isCallCandidate("org.mozilla.firefox", ownBundleID: own))
+        #expect(!MicApps.isCallCandidate("com.apple.Safari", ownBundleID: own))
         #expect(!MicApps.isCallCandidate("com.apple.WebKit.GPU", ownBundleID: own))
         #expect(!MicApps.isCallCandidate(own, ownBundleID: own))
         #expect(!MicApps.isCallCandidate(nil, ownBundleID: own))
+    }
+
+    @Test func browsersAreKnown() {
+        #expect(MicApps.isBrowser("com.google.Chrome.helper"))
+        #expect(MicApps.isBrowser("com.brave.Browser"))
+        #expect(MicApps.isBrowser("com.google.Chrome.app.kjgfgldnnfoeklkmfkjfagphfepbbdan"))
+        #expect(!MicApps.isBrowser("us.zoom.xos"))
+        #expect(!MicApps.isBrowser(nil))
+    }
+
+    @Test func aBrowserCallIsNamedForTheServiceInItsWindow() {
+        #expect(MicApps.callName(windowTitles: ["Inbox", "Meet - yma-qafi-tzc 🔊"], browser: "Google Chrome") == "Google Meet")
+        #expect(MicApps.callName(windowTitles: ["Google Meet"], browser: "Arc") == "Google Meet")
+        #expect(MicApps.callName(windowTitles: ["Chat | Microsoft Teams"], browser: "Microsoft Edge") == "Microsoft Teams")
+        #expect(MicApps.callName(windowTitles: ["Zoom Meeting"], browser: "Google Chrome") == "Zoom")
+        // Nothing recognised (another site using the mic, or no Accessibility): the browser's name.
+        #expect(MicApps.callName(windowTitles: ["Voice memo"], browser: "Google Chrome") == "Google Chrome")
+        #expect(MicApps.callName(windowTitles: [], browser: "Firefox") == "Firefox")
+        // A doc that only mentions a meeting isn't one.
+        #expect(MicApps.callName(windowTitles: ["Meeting notes - Google Docs"], browser: "Google Chrome") == "Google Chrome")
     }
 
     @Test func helpersBelongToTheirApp() {

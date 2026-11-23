@@ -1,7 +1,8 @@
 import Foundation
 
-/// Call detection (docs/PLAN-record-any-call.md, slice 4). When a call app (Zoom, Teams, Slack,
-/// FaceTime...) holds the microphone for a few seconds and no meeting is recording, the app offers "Take notes?" once for that call.
+/// Call detection (docs/PLAN-record-any-call.md, slice 4; docs/PLAN-granola-calls.md). When a call
+/// app (Zoom, Teams, Slack, FaceTime, or a browser on Google Meet...) holds the microphone for a few
+/// seconds and no meeting is recording, the app offers "Meeting detected · Take notes" once for that call.
 /// When the app lets go and a meeting that started during the call is recording, the page is told
 /// the call ended and stops after its own countdown. A recording already running when the call
 /// began is never stopped for it. Nothing here ever starts a recording.
@@ -106,8 +107,8 @@ public struct CallWatch: Sendable {
 /// Which microphone users count as a call.
 public enum MicApps {
     /// Apps people take calls in. A list, not "any app with the mic": on a real Mac the mic is
-    /// also held by Siri, dictation tools and AI apps' voice modes, which aren't calls. Browsers are
-    /// left out because the Hotsauce extension already offers notes for a Meet call.
+    /// also held by Siri, dictation tools and AI apps' voice modes, which aren't calls. Browsers
+    /// count too (`browsers`): a Google Meet in Chrome is a call like any other (Nov 23).
     static let callApps: Set<String> = [
         "us.zoom.xos", "com.microsoft.teams2", "com.microsoft.teams", "com.tinyspeck.slackmacgap",
         "com.apple.facetime", "com.cisco.webexmeetingsapp", "cisco-systems.spark", "com.webex.meetingmanager",
@@ -118,6 +119,45 @@ public enum MicApps {
         // FaceTime and iPhone calls on the Mac run their audio here.
         "com.apple.avconferenced",
     ]
+
+    /// Browsers whose mic use counts as a call: Meet, Teams or Zoom on the web, named from the
+    /// window's title (`callName`). Safari isn't here: its mic runs in WebKit's shared process,
+    /// which this app's own window uses too, so the two can't be told apart.
+    static let browsers: Set<String> = [
+        "com.google.chrome", "com.google.chrome.beta", "com.google.chrome.dev", "com.google.chrome.canary",
+        "company.thebrowser.browser", "company.thebrowser.dia", "com.microsoft.edgemac",
+        "com.microsoft.edgemac.beta", "com.brave.browser", "org.mozilla.firefox",
+        "org.mozilla.firefoxdeveloperedition", "com.vivaldi.vivaldi", "com.operasoftware.opera",
+        "org.chromium.chromium",
+    ]
+
+    /// Whether this bundle ID (or a helper of it) is a browser.
+    public static func isBrowser(_ bundleID: String?) -> Bool {
+        guard let bundleID, !bundleID.isEmpty else { return false }
+        let main = mainBundleID(bundleID).lowercased()
+        // A site installed as a Chrome app (Meet, Teams) runs as com.google.Chrome.app.<id>.
+        return browsers.contains(main) || main.hasPrefix("com.google.chrome.app.")
+    }
+
+    /// What to call a browser call, from the titles of the browser's windows (each shows its
+    /// front tab, e.g. "Meet - abc-defg-hij 🔊"): the call service when one is recognised,
+    /// otherwise the browser's own name.
+    public static func callName(windowTitles: [String], browser: String) -> String {
+        let services: [(name: String, matches: (String) -> Bool)] = [
+            ("Google Meet", { $0.hasPrefix("meet - ") || $0.contains("google meet") || $0.contains("meet.google.com") }),
+            ("Microsoft Teams", { $0.contains("microsoft teams") || $0.contains("| teams") }),
+            ("Zoom", { $0.contains("zoom meeting") || $0.contains("zoom workplace") || $0.contains("app.zoom.us") }),
+            ("Webex", { $0.contains("webex") }),
+            ("Whereby", { $0.contains("whereby") }),
+            ("Slack", { $0.contains("huddle") && $0.contains("slack") }),
+            ("Discord", { $0.contains("discord") }),
+        ]
+        let titles = windowTitles.map { $0.lowercased() }
+        for service in services where titles.contains(where: service.matches) {
+            return service.name
+        }
+        return browser
+    }
 
     /// The app a bundle ID belongs to: a helper process (`com.tinyspeck.slackmacgap.helper`)
     /// counts as its app.
@@ -133,7 +173,7 @@ public enum MicApps {
         guard let bundleID, !bundleID.isEmpty else { return false }
         let main = mainBundleID(bundleID).lowercased()
         if let own = ownBundleID?.lowercased(), main == own { return false }
-        return callApps.contains(main)
+        return callApps.contains(main) || isBrowser(main)
     }
 
     /// Start, from a call, in the app's window: "Any app on this Mac", titled for that app.

@@ -55,7 +55,7 @@ final class Settings {
         set { defaults.set(newValue, forKey: "meetingReminders") }
     }
 
-    /// "Take notes?" when another app starts a call; on by default.
+    /// "Meeting detected · Take notes" when a call starts in another app or a browser; on by default.
     var offerCallNotes: Bool {
         get { defaults.object(forKey: "offerCallNotes") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "offerCallNotes") }

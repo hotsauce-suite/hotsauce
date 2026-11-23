@@ -120,7 +120,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     id: 'mac-call-notes',
     title: 'Offer to take notes when a call starts',
     ...MAC,
-    summary: 'Asks “Take notes?” when another app starts a call.',
+    summary: 'Offers Take notes when a call starts in any app or browser.',
     words: ['take notes', 'call', 'zoom', 'teams', 'meet', 'detect'],
   },
   {

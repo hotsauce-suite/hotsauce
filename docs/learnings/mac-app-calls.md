@@ -40,3 +40,14 @@ Learnings from "Take notes on this Zoom call?" (`DictateCore/CallWatch.swift`, `
   effect, so an auto-start effect in the same commit still sees "Zoom call". Wait until the title
   matches the event (unless the member typed one), and key the form on the query so a second
   reminder opened on the same page starts fresh.
+- **The Mac app's window can't share a tab's sound.** WKWebView grants `getDisplayMedia` with a
+  video track and no audio, so "Meet tab + mic" inside the app silently became mic only (Nov 23,
+  a Google Meet recorded only one side). Inside the app, the process tap is the only way to hear a
+  call; the Start page hides the tab choice there.
+- **Diagnose from the Mac's unified log first.** `/usr/bin/log show` for the app's process showed
+  the four window shares without audio and that no tap device was ever created, which settled
+  which path recorded in minutes, before touching any code.
+- **Browsers are calls too, named from window titles.** Chrome's mic runs in
+  `com.google.Chrome.helper`; the window titles (read with Accessibility, which Dictate already
+  has) say "Meet - abc-defg-hij". Safari can't be told apart from the app's own window: both use
+  WebKit's GPU process.
