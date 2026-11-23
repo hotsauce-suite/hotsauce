@@ -37,6 +37,7 @@ final class CallDetector {
     func check() {
         guard isEnabled() else {
             watch = CallWatch()
+            offer.hide()
             return
         }
         let app = Self.callAppUsingMic(Self.micUsers())
@@ -167,13 +168,25 @@ final class CallDetector {
     /// The titles of an app's windows (each browser window shows its front tab's title), read
     /// through Accessibility, which Dictate already has. Without it: none, and the browser's name.
     static func windowTitles(of pid: pid_t) -> [String] {
+        // Read at most every 30 s per app: detection runs every 2 s on the main thread for the
+        // whole call, and a busy browser can be slow to answer.
+        if let cached = titleCache, cached.pid == pid, Date().timeIntervalSince(cached.at) < 30 { return cached.titles }
+        let titles = readWindowTitles(of: pid)
+        titleCache = (pid, Date(), titles)
+        return titles
+    }
+
+    private static var titleCache: (pid: pid_t, at: Date, titles: [String])?
+
+    private static func readWindowTitles(of pid: pid_t) -> [String] {
         guard AXIsProcessTrusted() else { return [] }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.25)
         var windows: CFTypeRef?
         guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windows) == .success,
               let list = windows as? [AXUIElement] else { return [] }
-        return list.compactMap { window in
+        return list.prefix(20).compactMap { window in
+            AXUIElementSetMessagingTimeout(window, 0.25)
             var title: CFTypeRef?
             guard AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &title) == .success else { return nil }
             return title as? String

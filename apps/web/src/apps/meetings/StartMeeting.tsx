@@ -138,7 +138,7 @@ function StartForm() {
   // Opened by the extension's "Take notes" on a Meet call.
   const viaExtension = params.get('via') === 'extension'
   const meet = params.get('meet')
-  // Opened by the Mac app's "Take notes on this call?": the app that is on the call.
+  // Opened by the Mac app's "Meeting detected · Take notes": the app that is on the call.
   const callApp = params.get('via') === 'mac-call' ? params.get('app')?.trim().slice(0, 60) : null
   // Opened by the Mac app's "Take notes for <meeting>?" calendar reminder.
   const viaMacReminder = params.get('via') === 'mac-reminder'

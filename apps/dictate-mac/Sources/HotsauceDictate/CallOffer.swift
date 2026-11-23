@@ -43,12 +43,14 @@ final class CallOffer {
             model: model,
             takeNotes: { [weak self] in
                 guard let self else { return }
+                // hide() clears the action, so keep it first.
+                let action = self.takeNotes
                 self.hide()
-                self.takeNotes()
+                action()
             },
             dismiss: { [weak self] in self?.hide() }
         )
-        panel.contentView = NSHostingView(rootView: view)
+        panel.contentView = FirstClickHostingView(rootView: view)
     }
 
     /// Shows the card for a call in `app`; `takeNotes` runs when its button is pressed.
@@ -81,17 +83,22 @@ final class CallOffer {
     }
 }
 
-/// Never key or main, so the card can't take focus from the call; its buttons still click.
+/// Never key or main, so the card can't take focus from the call.
 private final class OfferPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+/// The first click reaches the button although the panel never becomes key and the app isn't
+/// active (as `PreviewButton` in Screenshots).
+private final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 private struct CallOfferView: View {
     @ObservedObject var model: CallOffer.Model
     let takeNotes: () -> Void
     let dismiss: () -> Void
-    @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -128,7 +135,7 @@ private struct CallOfferView: View {
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(red: 0.16, green: 0.13, blue: 0.11).opacity(0.96)))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.08)))
         .overlay(alignment: .topLeading) {
-            // Close, shown on hover like a notification's.
+            // Close. Always shown: hover isn't tracked reliably in an inactive app's panel.
             Button(action: dismiss) {
                 Image(systemName: "xmark")
                     .font(.system(size: 8, weight: .bold))
@@ -139,9 +146,7 @@ private struct CallOfferView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss")
             .offset(x: -6, y: -6)
-            .opacity(hovering ? 1 : 0)
         }
-        .onHover { hovering = $0 }
         .padding(8)
     }
 }

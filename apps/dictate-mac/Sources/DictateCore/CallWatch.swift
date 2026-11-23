@@ -1,7 +1,8 @@
 import Foundation
 
-/// Call detection (docs/PLAN-record-any-call.md, slice 4). When a call app (Zoom, Teams, Slack,
-/// FaceTime...) holds the microphone for a few seconds and no meeting is recording, the app offers "Take notes?" once for that call.
+/// Call detection (docs/PLAN-record-any-call.md, slice 4; docs/PLAN-granola-calls.md). When a call
+/// app (Zoom, Teams, Slack, FaceTime, or a browser on Google Meet...) holds the microphone for a few
+/// seconds and no meeting is recording, the app offers "Meeting detected · Take notes" once for that call.
 /// When the app lets go and a meeting that started during the call is recording, the page is told
 /// the call ended and stops after its own countdown. A recording already running when the call
 /// began is never stopped for it. Nothing here ever starts a recording.
