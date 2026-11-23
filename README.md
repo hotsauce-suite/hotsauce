@@ -64,7 +64,7 @@ with a short Getting started list: connect the calendar, get the Mac app, find t
 
 AI meeting notes for Google Meet, Zoom, Teams and in-person calls, with no bot in the call. Record in
 the browser, with the Chrome extension, or from the Mac app, which hears any call on the Mac. When a call
-starts, in a call app or a browser tab, the Mac app shows a **Meeting detected** card with one **Take
+starts, in a call app or a browser other than Safari, the Mac app shows a **Meeting detected** card with one **Take
 notes** button. Watch the transcript arrive live
 with speaker names from the invite, jot your own notes, and Hotsauce writes clean notes from them using
 templates for customer calls, interviews and stand-ups. Also in Meetings:
@@ -142,7 +142,7 @@ tools can all read what you saved. [More in the help center](https://hotsauce.wo
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note, meeting, clip or file with your team or someone outside, ending when you choose, or publish a page. |
 | **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, trimming, one-click Summarize and Action items, speed control and a shared library. |
-| **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is; a warm glow around the window shows it’s listening. Team word lists keep names spelled right, and with no connection the Mac writes it up itself. |
+| **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is; a warm glow around the window shows it’s listening. Team word lists keep names spelled right. With no connection, the Mac still types what you say, on the device (without the clean-up or word list). |
 | **Screenshots** | One shortcut in the Mac app captures an area, a window or the whole screen. Add arrows, numbered steps and redactions, copy the text in the picture, and share a link that deletes itself after 30 days. |
 | **Briefcast** | A five-minute audio briefing each weekday morning: your meetings, what changed and what's due, in your podcast app. |
 
@@ -169,7 +169,7 @@ person’s use this month, and can set a monthly limit, in Settings → AI.
 
 - **The Mac app** ([download](https://hotsauce.work/download/mac), macOS 14 or later) is the whole
   suite in its own window, plus what only a Mac can do: Dictate in any app, the Meeting detected card
-  for any call, Screenshots, slides full screen on a second display, and PDFs dropped on its icon
+  for calls in call apps and browsers (not Safari), Screenshots, slides full screen on a second display, and PDFs dropped on its icon
   opening in PDF tools. It updates itself in one click.
 - **The Chrome extension** records a Google Meet tab and saves the page you're on to Links in one
   click. A setup page opens when you install it.

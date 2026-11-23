@@ -1,7 +1,7 @@
 # Plan: calls like Granola (Mac app)
 
 ## Status
-2026-11-23. Slice 1 (requirement 1) merged in #229. Requirements 2 to 5 in the next PR. Waiting on a real Google Meet check on Morgan's Mac.
+2026-11-23. Slice 1 (requirement 1) merged in #229; requirements 2 to 5 merged in #230 (0.65.2). Waiting on a real Google Meet check on Morgan's Mac.
 
 ## Why
 A Google Meet in Chrome was recorded from the Start page inside the Mac app with "Meet tab + mic". The
