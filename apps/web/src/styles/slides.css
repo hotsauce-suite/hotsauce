@@ -1,0 +1,158 @@
+/* Slides (docs/PLAN-slides.md): a Doc shown as 16:9 slides. Everything inside a slide is sized in
+   container units of the slide itself, so one slide looks the same as a thumbnail, in the tab, on
+   a projector or in the second window, with no measuring in script. */
+
+/* Fits a 16:9 slide inside whatever box it is given, centred. */
+.slide-fit {
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Always on light paper, whatever the app's theme: projectors wash out dark slides. */
+.slide {
+  --paper: #fbf8f3;
+  --paper-raised: #fffdf9;
+  --paper-sunk: #efe7dc;
+  --ash: #d6c7b4;
+  --ink: #2a221d;
+  --ink-soft: #5b4e44;
+  --ink-faint: #8c7c6e;
+  --ember: var(--brand-primary, #c63d19);
+  --ember-strong: var(--brand-primary, #a5300f);
+  --code-bg: #efe6d9;
+  --code-keyword: #a3361a;
+  --code-string: #56702b;
+  --code-number: #96570f;
+  --code-comment: #978676;
+  --code-function: #84461f;
+  --code-type: #3c6670;
+  --code-property: #6a4c2a;
+
+  color-scheme: light;
+  container-type: inline-size;
+  position: relative;
+  width: min(100cqw, calc(100cqh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 0.4cqw;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.04);
+}
+
+.slide .slide-prose {
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 5.5cqw 7cqw 6cqw;
+  font-size: 2.45cqw;
+  line-height: 1.45;
+}
+
+.slide .slide-prose > :first-child {
+  margin-top: 0;
+}
+
+.slide .slide-prose h1 {
+  font-size: 2.3em;
+  line-height: 1.1;
+}
+
+.slide .slide-prose h2 {
+  font-size: 1.65em;
+  margin-top: 0;
+  margin-bottom: 0.6em;
+}
+
+.slide .slide-prose img {
+  max-height: 30cqw;
+  width: auto;
+  margin-inline: auto;
+}
+
+.slide .slide-prose pre {
+  font-size: 0.7em;
+}
+
+.slide .slide-prose table {
+  font-size: 0.8em;
+}
+
+/* A title slide (it opens with a # heading): set lower, larger. */
+.slide--title .slide-prose {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.slide--title .slide-prose h1 {
+  font-size: 2.9em;
+}
+
+.slide--title .slide-prose h1::after {
+  content: "";
+  display: block;
+  width: 2.2em;
+  height: 0.16em;
+  margin-top: 0.35em;
+  border-radius: 1em;
+  background: var(--ember);
+}
+
+.slide-number {
+  position: absolute;
+  right: 2.6cqw;
+  bottom: 2cqw;
+  font-size: 1.25cqw;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.slide-mark {
+  position: absolute;
+  left: 7cqw;
+  bottom: 3.5cqw;
+  width: 3.6cqw;
+  height: 3.6cqw;
+}
+
+/* The laser pointer: a soft red dot. */
+.slide-laser {
+  position: absolute;
+  width: 1.5cqw;
+  height: 1.5cqw;
+  margin: -0.75cqw 0 0 -0.75cqw;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ff3b30 0 45%, rgb(255 59 48 / 0.45) 60%, transparent 72%);
+  box-shadow: 0 0 1.2cqw rgb(255 59 48 / 0.7);
+  pointer-events: none;
+}
+
+.slide-laser-on {
+  cursor: none;
+}
+
+/* The show's backdrop: charcoal, never pure black (tokens.css). */
+.slides-stage {
+  --ink: #ede3d6;
+  --ink-soft: #c1b2a2;
+  --ink-faint: #8d7d6f;
+  --code-bg: #241d19;
+
+  color-scheme: dark;
+  background: #141110;
+  color: var(--ink);
+}
+
+/* Speaker notes: large enough to read at a glance from a step back. */
+.slides-stage .slide-notes-prose {
+  max-width: none;
+  padding: 0;
+  font-size: 1.35rem;
+  line-height: 1.5;
+}

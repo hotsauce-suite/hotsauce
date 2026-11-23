@@ -54,6 +54,19 @@ export function scriptedResponse(req: LLMRequest): string {
       : ''
     return `${named}${sections.join('\n\n')}\n`
   }
+  // Draft slides (docs/PLAN-slides.md): a title slide, then one slide per ## heading, with notes.
+  const forSlides = tagged(prompt, 'doc_for_slides')
+  if (forSlides !== null) {
+    const title = tagged(prompt, 'title') ?? 'Deck'
+    const headings = [...forSlides.matchAll(/^## (.+)$/gm)].map((m) => m[1] ?? '')
+    const slides = [
+      `# ${title}\n\nNotes:\nOpen with why this matters.`,
+      ...(headings.length > 0 ? headings : ['Summary']).map(
+        (h) => `## ${h}\n\n- The key point about ${h}\n\nNotes:\nTalk through ${h}.`,
+      ),
+    ]
+    return `<deck>\n${slides.join('\n\n---\n\n')}\n</deck>`
+  }
   // After-call transcript cleanup's spelling pass: nothing to fix unless a test says so.
   if (tagged(prompt, 'cleanup_transcript') !== null) return '[]'
   // A saved link's summary and tags (§23): named after the page's title, tagged "reading".

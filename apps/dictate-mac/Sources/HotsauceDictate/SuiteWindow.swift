@@ -58,6 +58,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     private var answeredWithServerError = false
     private var checkingMove = false
     private let pathMonitor = NWPathMonitor()
+    /// A presentation's slides window, while one is open (docs/PLAN-slides.md R11).
+    private var slidesWindow: SlidesWindow?
+    /// The main window went full screen for a one-display presentation, so it comes back after.
+    private var fullScreenForSlides = false
+    private var screensObserver: NSObjectProtocol?
     private var destinations: [ObjectIdentifier: URL] = [:]
     private var titleObservation: NSKeyValueObservation?
     private var historyObservations: [NSKeyValueObservation] = []
@@ -117,6 +122,11 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.add(WeakScriptHandler(self), name: MusicBridge.handlerName)
         // Screen breaks: the page's settings and recording state; the app keeps the timer.
         configuration.userContentController.add(WeakScriptHandler(self), name: BreaksBridge.handlerName)
+        // Presenting a Doc as slides: how many displays, and the main window's full screen.
+        configuration.userContentController.add(WeakScriptHandler(self), name: SlidesBridge.handlerName)
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: SlidesBridge.displaysScript(count: NSScreen.screens.count), injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
         // /desktop/finish takes the ticket the app received, once (never from its URL).
         configuration.userContentController.addScriptMessageHandler(TicketHandler(self), contentWorld: .page, name: "hearthTicket")
         // /desktop/finish, once signed in, connects Dictate with a token it hands over here (R8).
@@ -168,6 +178,16 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.retryNow() } }
         }
         pathMonitor.start(queue: DispatchQueue(label: "SuiteWindow.path"))
+        // A projector plugged in or out: the page's next Present picks the right layout.
+        screensObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tellDisplays() }
+        }
+    }
+
+    private func tellDisplays() {
+        webView.evaluateJavaScript(SlidesBridge.displaysScript(count: NSScreen.screens.count), completionHandler: nil)
     }
 
     var isKey: Bool { window.isKeyWindow }
@@ -723,6 +743,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// A suite page finished: the server is reachable again, unless what answered was an error.
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let current = webView.url, isSuite(current) else { return }
+        tellDisplays()
         if answeredWithServerError {
             scheduleRetry(of: current)
         } else {
@@ -829,6 +850,10 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     // MARK: Windows, panels and permissions the page asks for
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        // A presentation's slides window (docs/PLAN-slides.md R11): only from a suite page.
+        if SlidesBridge.isSlidesWindow(action.request.url), let page = webView.url, isSuite(page) {
+            return openSlidesWindow(configuration)
+        }
         guard let router, let url = action.request.url, url.absoluteString != "about:blank" else { return nil }
         // WebKit only asks here on a click (scripts can't open windows on their own).
         switch router.decide(url, isMainFrame: true, userClicked: true, newWindow: true) {
@@ -909,6 +934,10 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         if message.name == "hearthSignIn" { return signInWithBrowser() }
         if message.name == DocExport.saveHandlerName { return savePosted(message.body) }
         if message.name == MusicBridge.handlerName { return musicPosted(message.body) }
+        if message.name == SlidesBridge.handlerName {
+            if case let .fullScreen(on) = SlidesBridge.parse(message.body) { setFullScreenForSlides(on) }
+            return
+        }
         if message.name == BreaksBridge.handlerName {
             if let parsed = BreaksBridge.parse(message.body) { breaksMessage?(parsed) }
             return
@@ -919,6 +948,45 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         else { return }
         webView.startDownload(using: URLRequest(url: url)) { [weak self] download in
             download.delegate = self
+        }
+    }
+
+    // MARK: Slides (docs/PLAN-slides.md R11)
+
+    /// The slides on the external display, full screen; the presenter view stays here.
+    private func openSlidesWindow(_ configuration: WKWebViewConfiguration) -> WKWebView {
+        slidesWindow = nil
+        let slides = SlidesWindow(configuration: configuration, avoiding: window.screen) { [weak self] in
+            self?.slidesWindow = nil
+        }
+        slidesWindow = slides
+        // The presenter's keys and pointer stay with the presenter view.
+        window.makeKeyAndOrderFront(nil)
+        return slides.webView
+    }
+
+    /// One display: the slides fill this window's screen, and it comes back after the show.
+    private func setFullScreenForSlides(_ on: Bool) {
+        let isFull = window.styleMask.contains(.fullScreen)
+        if on {
+            guard !isFull else { return }
+            fullScreenForSlides = true
+            window.toggleFullScreen(nil)
+        } else {
+            if fullScreenForSlides && isFull { window.toggleFullScreen(nil) }
+            fullScreenForSlides = false
+        }
+    }
+
+    /// View → Present (⌘⌥P): the open doc as slides.
+    func presentOpenDoc() {
+        guard isOnSuitePage, failedURL == nil else { return showMessage(SlidesBridge.noDocMessage) }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let presented = try? await self.webView.callAsyncJavaScript(
+                SlidesBridge.presentScript, arguments: [:], in: nil, contentWorld: .page
+            )
+            if presented as? Bool != true { self.showMessage(SlidesBridge.noDocMessage) }
         }
     }
 

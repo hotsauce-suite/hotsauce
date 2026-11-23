@@ -60,6 +60,10 @@ extension AppDelegate: NSMenuItemValidation {
         view.addItem(entry("Zoom In", #selector(zoomIn), "+"))
         view.addItem(entry("Zoom Out", #selector(zoomOut), "-"))
         view.addItem(.separator())
+        // A Doc as slides (docs/PLAN-slides.md R11): ⌘⌥P.
+        let present = entry("Present", #selector(presentDoc), "p")
+        present.keyEquivalentModifierMask = [.command, .option]
+        view.addItem(present)
         let fullScreen = view.addItem(withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fullScreen.keyEquivalentModifierMask = [.command, .control]
 
@@ -230,6 +234,10 @@ extension AppDelegate: NSMenuItemValidation {
     @objc func exportDoc() {
         suite.show()
         suite.exportOpenDoc()
+    }
+    @objc func presentDoc() {
+        suite.show()
+        suite.presentOpenDoc()
     }
     @objc func goBack() { suite.goBack() }
     @objc func goForward() { suite.goForward() }

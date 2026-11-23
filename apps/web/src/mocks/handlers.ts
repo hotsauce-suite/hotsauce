@@ -20,6 +20,7 @@ import { FakeNotes, noteHandlers } from './noteHandlers'
 import { peopleHandlers } from './peopleHandlers'
 import { seed, seedPersonal } from './seed'
 import { FakeSign, seedSign, signHandlers } from './signHandlers'
+import { slideHandlers } from './slideHandlers'
 import { FakeTasks, seedTasksOnce, taskHandlers } from './taskHandlers'
 import { themeHandlers } from './themeHandlers'
 import { todayHandlers } from './todayHandlers'
@@ -647,6 +648,7 @@ function createHandlers(
   handlers.push(...todayHandlers())
   handlers.push(...breakHandlers())
   handlers.push(...themeHandlers({ principal, latencyMs }))
+  handlers.push(...slideHandlers({ principal, latencyMs }))
   handlers.push(...checkinHandlers({ principal }))
   handlers.push(
     ...commentHandlers({

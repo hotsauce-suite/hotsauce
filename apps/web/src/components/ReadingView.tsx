@@ -44,6 +44,7 @@ export default function ReadingView({
   resolveImage,
   embedded = false,
   personalSpace = null,
+  className = '',
 }: {
   markdown: string
   space: string
@@ -53,6 +54,8 @@ export default function ReadingView({
   embedded?: boolean
   /** What a `tasks` block's `space: personal` means. */
   personalSpace?: string | null
+  /** More classes on the article (a slide's own type sizes). */
+  className?: string
 }) {
   const navigate = useNavigate()
   const body = useMemo(() => parseFrontmatter(markdown).body, [markdown])
@@ -107,7 +110,10 @@ export default function ReadingView({
   )
 
   return (
-    <article data-testid={embedded ? undefined : 'reading-view'} className="prose-hotsauce">
+    <article
+      data-testid={embedded ? undefined : 'reading-view'}
+      className={`prose-hotsauce ${className}`.trim()}
+    >
       <Markdown
         remarkPlugins={[remarkGfm, remarkCallouts]}
         rehypePlugins={[rehypeHighlight]}

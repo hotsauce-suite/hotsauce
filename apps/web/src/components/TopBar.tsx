@@ -48,6 +48,8 @@ interface TopBarProps {
   onAttachFile?: () => void
   /** A team item's conversation: how many comments, and the way down to it. */
   comments?: { count: number; onOpen: () => void }
+  /** Shows Present: the doc as slides (docs/PLAN-slides.md). */
+  onPresent?: () => void
 }
 
 export function TopBar(props: TopBarProps) {
@@ -166,6 +168,11 @@ export function TopBar(props: TopBarProps) {
                         : `Comments (${props.comments.count})`}
                     </MenuItem>
                   ) : null}
+                  {props.onPresent ? (
+                    <MenuItem icon="present" testId="present" onSelect={pick(props.onPresent)}>
+                      Present
+                    </MenuItem>
+                  ) : null}
                   {props.onAttachFile ? (
                     <MenuItem
                       icon="paperclip"
@@ -233,6 +240,9 @@ export function TopBar(props: TopBarProps) {
                 <span className="text-xs font-medium tabular-nums">{props.comments.count}</span>
               ) : null}
             </button>
+          ) : null}
+          {props.onPresent ? (
+            <IconButton icon="present" label="Present" testId="present" onClick={props.onPresent} />
           ) : null}
           {props.onAttachFile ? (
             <IconButton
