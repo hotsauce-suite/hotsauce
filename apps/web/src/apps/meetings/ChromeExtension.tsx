@@ -239,10 +239,10 @@ export default function ChromeExtension() {
                 Mac app
               </Link>{' '}
               records any call: it offers “Take notes for …?” before calendar meetings that have a
-              link (Meet included), and “Take notes?” when Zoom, Teams, Slack or FaceTime start a
-              call. It stays quiet for calls in a browser, so you never get two offers. Use the
-              extension for a Meet call you join on the spot. Use one or the other for a call: if
-              the Mac app is already taking notes, there’s no need to press Take notes in Chrome.
+              link, and shows “Meeting detected” with a Take notes button when any call starts,
+              Google Meet in Chrome included. On a Mac with the app, you don’t need the extension
+              for calls. Use one or the other for a call: if the Mac app is already taking notes,
+              there’s no need to press Take notes in Chrome.
             </p>
           </div>
 
