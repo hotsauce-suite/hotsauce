@@ -1,9 +1,10 @@
 import AppKit
+import ApplicationServices
 import CoreAudio
 import DictateCore
 import UserNotifications
 
-/// "Take notes?" when a call starts, and "the call ended" while one is recording
+/// "Meeting detected · Take notes" when a call starts, and "the call ended" while one is recording
 /// (docs/PLAN-record-any-call.md, slice 4). Every 2 s it asks Core Audio which other apps are
 /// using the microphone; `CallWatch` decides. It only offers: nothing records until the member
 /// starts a meeting.
@@ -17,6 +18,7 @@ final class CallDetector {
     /// The app on the current call, for the decision log: when a call ends no app holds the mic.
     private var callApp: String?
     private var timer: Timer?
+    private let offer = CallOffer()
     private static let tick: TimeInterval = 2
 
     init(suite: SuiteWindow, reminders: Reminders, isEnabled: @escaping () -> Bool) {
@@ -35,6 +37,7 @@ final class CallDetector {
     func check() {
         guard isEnabled() else {
             watch = CallWatch()
+            offer.hide()
             return
         }
         let app = Self.callAppUsingMic(Self.micUsers())
@@ -46,14 +49,10 @@ final class CallDetector {
                 // The calendar reminder for this meeting goes; one offer, named for the meeting.
                 reminders.withdraw(meeting)
                 record(name, "offered for “\(meeting.title)”")
-                notify(id: Self.offerID, title: "Take notes for “\(meeting.title)”?",
-                       body: "Your \(name) call started. \(Brand.name) records your mic and the call’s audio.",
-                       path: meeting.callStartPath(app: name), app: name)
+                offerNotes(title: meeting.title, app: name, path: meeting.callStartPath(app: name))
             } else {
                 record(name, "offered")
-                notify(id: Self.offerID, title: "Take notes on this \(name) call?",
-                       body: "\(Brand.name) records your mic and the call’s audio.",
-                       path: MicApps.startPath(app: name), app: name)
+                offerNotes(title: "Meeting detected", app: name, path: MicApps.startPath(app: name))
             }
         case .callEnded(let session):
             record(callApp, "call ended while recording")
@@ -87,11 +86,20 @@ final class CallDetector {
         UserDefaults.standard.set(line, forKey: Self.decisionKey)
     }
 
-    private static let offerID = "call-start"
+    /// "Meeting detected" with one button, like Granola's (docs/PLAN-granola-calls.md): Take notes
+    /// opens the meeting, which starts listening to the mic and the Mac's sound at once.
+    private func offerNotes(title: String, app: String, path: String) {
+        offer.show(title: title, app: app) { [weak self] in
+            guard let self else { return }
+            self.record(app, "take notes pressed")
+            self.suite.show()
+            self.suite.open(path: path)
+        }
+    }
 
-    /// A "Take notes?" left in Notification Center after its call ended would start listening later.
+    /// An offer left up after its call ended would start listening later.
     private func withdrawOffer() {
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [Self.offerID])
+        offer.hide()
     }
 
     /// Shown through the meeting reminders' notification delegate, which opens `path` on click.
@@ -150,7 +158,39 @@ final class CallDetector {
             candidates += NSRunningApplication.runningApplications(withBundleIdentifier: MicApps.mainBundleID(bundleID))
         }
         if let app = NSRunningApplication(processIdentifier: user.pid) { candidates.append(app) }
-        return candidates.first { $0.activationPolicy == .regular }?.localizedName
+        guard let app = candidates.first(where: { $0.activationPolicy == .regular }),
+              let name = app.localizedName else { return nil }
+        // A call in a browser is named for the service in its window ("Google Meet").
+        guard MicApps.isBrowser(user.bundleID) else { return name }
+        return MicApps.callName(windowTitles: windowTitles(of: app.processIdentifier), browser: name)
+    }
+
+    /// The titles of an app's windows (each browser window shows its front tab's title), read
+    /// through Accessibility, which Dictate already has. Without it: none, and the browser's name.
+    static func windowTitles(of pid: pid_t) -> [String] {
+        // Read at most every 30 s per app: detection runs every 2 s on the main thread for the
+        // whole call, and a busy browser can be slow to answer.
+        if let cached = titleCache, cached.pid == pid, Date().timeIntervalSince(cached.at) < 30 { return cached.titles }
+        let titles = readWindowTitles(of: pid)
+        titleCache = (pid, Date(), titles)
+        return titles
+    }
+
+    private static var titleCache: (pid: pid_t, at: Date, titles: [String])?
+
+    private static func readWindowTitles(of pid: pid_t) -> [String] {
+        guard AXIsProcessTrusted() else { return [] }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.25)
+        var windows: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windows) == .success,
+              let list = windows as? [AXUIElement] else { return [] }
+        return list.prefix(20).compactMap { window in
+            AXUIElementSetMessagingTimeout(window, 0.25)
+            var title: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &title) == .success else { return nil }
+            return title as? String
+        }
     }
 
     private static func address(_ selector: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {

@@ -43,6 +43,6 @@ call was spread over three pages with no troubleshooting.
 - A guard against recording one call twice from two places (the Mac app and Chrome). The "a
   meeting is being recorded" screen only knows about the page it's in. The help says to use one
   or the other; a server-side guard would be its own piece of work.
-- The Mac app offering "Take notes?" for calls in a browser (Morgan, 2026-11-22: keep quiet).
+- The Mac app offering "Take notes?" for calls in a browser (Morgan, 2026-11-22: keep quiet). Reversed 2026-11-23: the Mac app now offers for browser calls too (`docs/PLAN-granola-calls.md`).
 - Detecting an open Hotsauce tab from the setup page (needs the `tabs` permission; the popup's
   one-click connect already covers it).

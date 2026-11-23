@@ -236,7 +236,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
           <SwitchRow
             id="offerCallNotes"
             label="Offer to take notes when a call starts"
-            hint="When another app starts a call, a notification asks “Take notes?”."
+            hint="When a call starts in any app or browser (Google Meet, Zoom, Teams), a card at the top of the screen offers Take notes."
             on={settings.offerCallNotes}
             busy={busy}
             onChange={(v) => void change('offerCallNotes', v)}

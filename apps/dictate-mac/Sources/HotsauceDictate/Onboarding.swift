@@ -566,7 +566,7 @@ private struct PermissionsStep: View {
                     Divider()
                     Row(
                         title: "Notifications",
-                        detail: "For meeting reminders and the offer to take notes on a call.",
+                        detail: "For meeting reminders, and to say when a call you’re taking notes on ends.",
                         granted: model.notifications,
                         button: "Allow"
                     ) {
