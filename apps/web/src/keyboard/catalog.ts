@@ -343,4 +343,6 @@ export const RESERVED = [
   'shift+mod+j',
   'alt+mod+i',
   'alt+mod+j',
+  // The Mac app's File → Export… (docs/PLAN-doc-download.md R10).
+  'shift+mod+e',
 ] as const

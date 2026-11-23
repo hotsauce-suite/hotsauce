@@ -36,6 +36,9 @@ extension AppDelegate: NSMenuItemValidation {
         for item in screenshotEditItems() { file.addItem(item) }
         file.addItem(withTitle: "Share Screenshot", action: #selector(EditorCanvas.shareScreenshot(_:)), keyEquivalent: "")
         file.addItem(.separator())
+        // A Doc as Word or PDF (docs/PLAN-doc-download.md R10): ⌘⇧E.
+        file.addItem(entry("Export…", #selector(exportDoc), "E"))
+        file.addItem(.separator())
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
 
         let edit = submenu("Edit", in: main)
@@ -224,6 +227,10 @@ extension AppDelegate: NSMenuItemValidation {
         suite.addMoreHeat()
     }
     @objc func reloadSuite() { suite.reload() }
+    @objc func exportDoc() {
+        suite.show()
+        suite.exportOpenDoc()
+    }
     @objc func goBack() { suite.goBack() }
     @objc func goForward() { suite.goForward() }
     @objc func goHome() {

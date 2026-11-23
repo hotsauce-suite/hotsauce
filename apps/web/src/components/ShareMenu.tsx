@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { useOnline } from '../lib/connection'
 import { copyAsMarkdown, copyAsRichText } from '../lib/copyNote'
-import { DOCS_ROOT, docUrl } from '../lib/paths'
+import type { DownloadFormat } from '../lib/download/download'
+import { firstHeading } from '../lib/format'
+import { DOCS_ROOT, displayName, docUrl } from '../lib/paths'
 import { useSession } from '../state/session'
 import { FolderPicker } from './FolderPicker'
 import { MenuItem } from './Menu'
@@ -27,6 +29,15 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
   const [picking, setPicking] = useState(false)
   const isPersonal = spaces.find((s) => s.name === space)?.kind === 'personal'
   const readOnly = useReadOnlyLink(space, path)
+
+  const personalSpace = spaces.find((s) => s.kind === 'personal')?.name ?? null
+
+  const download = async (format: DownloadFormat) => {
+    const markdown = getText()
+    const { downloadWithNotice } = await import('../lib/download/download')
+    const title = firstHeading(markdown) ?? displayName(path)
+    await downloadWithNotice({ space, path, markdown, title, personalSpace }, format, notify)
+  }
 
   const copyLink = async () => {
     try {
@@ -91,6 +102,26 @@ export function ShareMenu({ space, path, beforeShare, getText, iconOnly = false 
               }}
             >
               Copy as rich text
+            </MenuItem>
+            <MenuItem
+              icon="download"
+              testId="download-docx"
+              onSelect={() => {
+                close()
+                void download('docx')
+              }}
+            >
+              Download as Word
+            </MenuItem>
+            <MenuItem
+              icon="download"
+              testId="download-pdf"
+              onSelect={() => {
+                close()
+                void download('pdf')
+              }}
+            >
+              Download as PDF
             </MenuItem>
             {isPersonal ? (
               <MenuItem

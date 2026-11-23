@@ -7,9 +7,11 @@ import { z } from 'zod'
 import { CLOUDFLARE_MEDIA, CLOUDFLARE_REPOS, loadConfig } from '../config.js'
 import { HotsauceError } from '../errors.js'
 import { ASSET_TYPES, BrandPatchSchema, FONT_CHOICES, MAX_ASSET_BYTES } from '../org/brand.js'
+import { type FontWeight, isBrandFamily } from '../org/brandFonts.js'
 import { type OrgSettings, SECRET_NAMES, type SecretName } from '../org/store.js'
 import { testForgejo, testProvider, testStorage } from '../org/test-keys.js'
 import type { AppDeps, AppEnv } from './env.js'
+import { valid } from './validate.js'
 
 /**
  * The organization: setup wizard, Settings → Organization, and the public brand kit
@@ -414,25 +416,51 @@ function requireAdmin() {
 
 /** Public: the brand kit and its logo. Reachable before sign-in (see `isPublic`). */
 export function orgPublicRoutes(deps: AppDeps) {
-  return new Hono<AppEnv>()
-    .get('/org/brand', (c) => {
-      c.header('Cache-Control', 'no-cache')
-      return c.json(deps.brand.publicView(deps.config.PRODUCT_NAME, deps.config.ORG_NAME))
-    })
-    .get('/org/assets/:kind{logo|mark}', (c) => {
-      const name = deps.brand.get()[c.req.param('kind') as 'logo' | 'mark']
-      const file = name ? deps.org.assetPath(name) : null
-      if (!file || !existsSync(file)) throw new HotsauceError('not_found', 'No such image')
-      const ext = name?.split('.').pop() ?? ''
-      const type =
-        Object.entries(ASSET_TYPES).find(([, e]) => e === ext)?.[0] ?? 'application/octet-stream'
-      c.header('Content-Type', type)
-      c.header('X-Content-Type-Options', 'nosniff')
-      // An SVG can carry script; served like this it can't run any.
-      c.header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
-      c.header('Cache-Control', 'public, max-age=300')
-      return c.body(readFileSync(file))
-    })
+  return (
+    new Hono<AppEnv>()
+      .get('/org/brand', (c) => {
+        c.header('Cache-Control', 'no-cache')
+        return c.json(deps.brand.publicView(deps.config.PRODUCT_NAME, deps.config.ORG_NAME))
+      })
+      // The brand's fonts as TTF, for a Doc downloaded as Word or PDF (docs/PLAN-doc-download.md).
+      .get(
+        '/org/fonts',
+        valid(
+          'query',
+          z.object({
+            family: z.string().max(60),
+            weight: z.enum(['400', '700']).default('400'),
+            style: z.enum(['normal', 'italic']).default('normal'),
+          }),
+        ),
+        async (c) => {
+          const { family, weight, style } = c.req.valid('query')
+          if (!isBrandFamily(family)) throw new HotsauceError('not_found', 'Not a brand font')
+          const bytes = await deps.brandFonts.get(family, Number(weight) as FontWeight, style)
+          if (!bytes) throw new HotsauceError('not_found', 'That font couldn’t be fetched')
+          c.header('Content-Type', 'font/ttf')
+          c.header('Cache-Control', 'public, max-age=86400')
+          return c.body(bytes)
+        },
+      )
+      .get('/org/assets/:kind{logo|mark}', (c) => {
+        const name = deps.brand.get()[c.req.param('kind') as 'logo' | 'mark']
+        const file = name ? deps.org.assetPath(name) : null
+        if (!file || !existsSync(file)) throw new HotsauceError('not_found', 'No such image')
+        const ext = name?.split('.').pop() ?? ''
+        const type =
+          Object.entries(ASSET_TYPES).find(([, e]) => e === ext)?.[0] ?? 'application/octet-stream'
+        c.header('Content-Type', type)
+        c.header('X-Content-Type-Options', 'nosniff')
+        // An SVG can carry script; served like this it can't run any.
+        c.header(
+          'Content-Security-Policy',
+          "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        )
+        c.header('Cache-Control', 'public, max-age=300')
+        return c.body(readFileSync(file))
+      })
+  )
 }
 
 export function setupRoutes(deps: AppDeps) {

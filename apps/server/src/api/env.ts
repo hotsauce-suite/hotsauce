@@ -23,6 +23,7 @@ import type { MeetingServices } from '../meetings/index.js'
 import type { Notes } from '../notes/index.js'
 import type { ClientMetadataResolver, OAuthStore } from '../oauth/index.js'
 import type { BrandStore } from '../org/brand.js'
+import type { BrandFonts } from '../org/brandFonts.js'
 import type { OrgStore } from '../org/store.js'
 import type { Pages } from '../pages/index.js'
 import type { People } from '../people/index.js'
@@ -88,6 +89,8 @@ export interface AppDeps {
   forYou: ForYou
   org: OrgStore
   brand: BrandStore
+  /** The brand's fonts as TTF files, for downloaded documents. */
+  brandFonts: BrandFonts
   updates: Updater
   /** The admin Usage page's numbers (docs/PLAN-app-usage.md). */
   usage: Usage

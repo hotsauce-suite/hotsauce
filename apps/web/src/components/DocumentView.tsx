@@ -29,6 +29,7 @@ import type { LinkTarget } from '../editor/wikiLink'
 import { type DocumentHandle, GONE_WHILE_EDITING, useDocument } from '../hooks/useDocument'
 import { useCommands } from '../keyboard/commands'
 import { ImageUrls } from '../lib/assets'
+import { offerToMacExport } from '../lib/download/download'
 import { firstHeading, isUntitledPath, NEW_DOC_TITLE, renameTarget } from '../lib/format'
 import { registerOpenDoc } from '../lib/openDoc'
 import {
@@ -175,6 +176,23 @@ export function DocumentView({
 
   const { notify, tree } = session
   const personalSpace = session.spaces.find((s) => s.kind === 'personal')?.name ?? null
+
+  // Word and PDF downloads (docs/PLAN-doc-download.md), and the Mac app's File → Export….
+  const downloadSource = useCallback(() => {
+    const markdown = doc.getText()
+    return {
+      space,
+      path,
+      markdown,
+      title: firstHeading(markdown) ?? displayName(path),
+      personalSpace,
+    }
+  }, [doc, space, path, personalSpace])
+  const loaded = state.status === 'ready'
+  useEffect(() => {
+    if (!loaded) return
+    return offerToMacExport(downloadSource)
+  }, [loaded, downloadSource])
   const services = useMemo(
     () => ({
       // A `tasks` block's live list is its own React root inside the editor's widget.
@@ -513,6 +531,17 @@ export function DocumentView({
           setTimeout(() => URL.revokeObjectURL(a.href), 1000)
         },
       },
+      ...(['docx', 'pdf'] as const).map((format) => ({
+        id: `doc-download-${format}`,
+        title: format === 'docx' ? 'Download as Word' : 'Download as PDF',
+        group: 'page' as const,
+        icon: 'download' as const,
+        keywords: ['export', format, 'save', format === 'docx' ? 'word' : 'print'],
+        run: () =>
+          void import('../lib/download/download').then((m) =>
+            m.downloadWithNotice(downloadSource(), format, notify),
+          ),
+      })),
       ...(conversation.canComment
         ? [
             {

@@ -116,6 +116,7 @@ import {
 import { Notes } from './notes/index.js'
 import { ClientMetadataResolver, OAuthStore } from './oauth/index.js'
 import { BrandStore } from './org/brand.js'
+import { BrandFonts } from './org/brandFonts.js'
 import { OrgStore } from './org/store.js'
 import {
   UnconfiguredClipTranscriber,
@@ -210,6 +211,8 @@ export interface ServiceOverrides {
   fly?: FlyApi | null
   flyEnv?: { app?: string; region?: string; imageRef?: string }
   version?: string
+  /** Stands in for Google Fonts when the brand's fonts are fetched for a download. */
+  fontFetch?: typeof fetch
   /** Stands in for the network in the Todoist import. */
   todoistFetch?: typeof fetch
   /** The organization store, when the caller already opened one (main.ts). */
@@ -247,6 +250,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       ...(config.HOTSAUCE_MASTER_KEY ? { masterKey: config.HOTSAUCE_MASTER_KEY } : {}),
     })
   const brand = new BrandStore(org.dir)
+  const brandFonts = new BrandFonts(overrides.fontFetch ? { fetch: overrides.fontFetch } : {})
   // Who each read-only link is for and when it ends (docs/PLAN-outside-links.md).
   const shareLinks = new LinkStore(path.join(config.DATA_DIR, 'links.sqlite'))
   const allowAnyone = () => org.settings().publicShareLinks
@@ -636,6 +640,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     }),
     org,
     brand,
+    brandFonts,
     backups: createBackups(config, overrides.backupStore, (space, fn) =>
       git.withSpaceLocked(space, fn),
     ),

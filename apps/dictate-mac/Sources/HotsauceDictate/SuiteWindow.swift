@@ -1,6 +1,7 @@
 import AppKit
 import DictateCore
 import Network
+import UniformTypeIdentifiers
 import WebKit
 
 /// The app's main window: the whole web suite in a web view. The web view lives as long as the
@@ -110,6 +111,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.add(WeakScriptHandler(self), name: "hearthDownload")
         // The sign-in page's "Sign in with your browser" (apps/web/src/lib/desktop.ts).
         configuration.userContentController.add(WeakScriptHandler(self), name: "hearthSignIn")
+        // A Doc's Download as Word / PDF: the page hands over the file for the save window.
+        configuration.userContentController.add(WeakScriptHandler(self), name: DocExport.saveHandlerName)
         // The background music's player tells the app what it's doing, for the menus (M9).
         configuration.userContentController.add(WeakScriptHandler(self), name: MusicBridge.handlerName)
         // Screen breaks: the page's settings and recording state; the app keeps the timer.
@@ -904,6 +907,7 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
               isSuite(page)
         else { return }
         if message.name == "hearthSignIn" { return signInWithBrowser() }
+        if message.name == DocExport.saveHandlerName { return savePosted(message.body) }
         if message.name == MusicBridge.handlerName { return musicPosted(message.body) }
         if message.name == BreaksBridge.handlerName {
             if let parsed = BreaksBridge.parse(message.body) { breaksMessage?(parsed) }
@@ -915,6 +919,71 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         else { return }
         webView.startDownload(using: URLRequest(url: url)) { [weak self] download in
             download.delegate = self
+        }
+    }
+
+    // MARK: Doc downloads (docs/PLAN-doc-download.md R10)
+
+    /// Keeps the Format picker alive while its save window is open.
+    private var formatPicker: FormatPicker?
+
+    /// The Share menu's Download as Word / PDF: the page built the file; ask where it goes.
+    private func savePosted(_ body: Any) {
+        switch DocExport.parse(body) {
+        case .failed(let message): showMessage(message)
+        case let .file(name, data):
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = name
+            if let type = UTType(filenameExtension: (name as NSString).pathExtension) {
+                panel.allowedContentTypes = [type]
+            }
+            panel.beginSheetModal(for: window) { [weak self] response in
+                guard response == .OK, let url = panel.url else { return }
+                self?.write(data, to: url)
+            }
+        }
+    }
+
+    /// File → Export… (⌘⇧E): the save window with a Format choice, then the page builds that file.
+    func exportOpenDoc() {
+        guard isOnSuitePage, failedURL == nil else { return showMessage("Open a doc to export it.") }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let title = try? await self.webView.callAsyncJavaScript(
+                DocExport.titleScript, arguments: [:], in: nil, contentWorld: .page
+            )
+            guard let title = title as? String else { return self.showMessage("Open a doc to export it.") }
+            let start = DocExport.initialFormat(saved: UserDefaults.standard.string(forKey: DocExport.lastFormatKey))
+            let panel = NSSavePanel()
+            let picker = FormatPicker(panel: panel, title: title, start: start)
+            self.formatPicker = picker
+            panel.beginSheetModal(for: self.window) { [weak self] response in
+                guard let self else { return }
+                self.formatPicker = nil
+                guard response == .OK, let url = panel.url else { return }
+                let format = picker.format
+                UserDefaults.standard.set(format.rawValue, forKey: DocExport.lastFormatKey)
+                self.showMessage(format == .word ? "Making the Word file…" : "Making the PDF…")
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let answer = try? await self.webView.callAsyncJavaScript(
+                        DocExport.buildScript, arguments: ["format": format.rawValue], in: nil, contentWorld: .page
+                    )
+                    switch DocExport.parse(answer) {
+                    case .failed(let message): self.showMessage(message)
+                    case .file(_, let data): self.write(data, to: url)
+                    }
+                }
+            }
+        }
+    }
+
+    private func write(_ data: Data, to url: URL) {
+        do {
+            try data.write(to: url, options: .atomic)
+            showMessage("Saved \(url.lastPathComponent)")
+        } catch {
+            showMessage("Couldn’t save \(url.lastPathComponent)")
         }
     }
 
@@ -940,6 +1009,44 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
 }
 
 /// A toolbar button that asks whether it's enabled each time the toolbar validates.
+/// The save window's Format choice for File → Export…: switching it renames the file to match.
+@MainActor
+private final class FormatPicker: NSObject {
+    private let panel: NSSavePanel
+    private let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private(set) var format: DocExport.Format
+
+    init(panel: NSSavePanel, title: String, start: DocExport.Format) {
+        self.panel = panel
+        format = start
+        super.init()
+        popup.addItems(withTitles: DocExport.Format.allCases.map(\.title))
+        popup.selectItem(at: DocExport.Format.allCases.firstIndex(of: start) ?? 0)
+        popup.target = self
+        popup.action = #selector(changed(_:))
+        let label = NSTextField(labelWithString: "Format:")
+        let row = NSStackView(views: [label, popup])
+        row.orientation = .horizontal
+        row.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        panel.accessoryView = row
+        panel.title = "Export"
+        panel.prompt = "Export"
+        panel.nameFieldStringValue = DocExport.fileName(title, format: start)
+        apply()
+    }
+
+    @objc private func changed(_ sender: NSPopUpButton) {
+        guard DocExport.Format.allCases.indices.contains(sender.indexOfSelectedItem) else { return }
+        format = DocExport.Format.allCases[sender.indexOfSelectedItem]
+        panel.nameFieldStringValue = DocExport.fileName(panel.nameFieldStringValue, format: format)
+        apply()
+    }
+
+    private func apply() {
+        if let type = UTType(filenameExtension: format.fileExtension) { panel.allowedContentTypes = [type] }
+    }
+}
+
 private final class ValidatedToolbarItem: NSToolbarItem {
     var isEnabledCheck: (() -> Bool)?
     override func validate() {
