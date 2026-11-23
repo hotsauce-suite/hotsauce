@@ -1,6 +1,16 @@
 {
   "releases": [
     {
+      "version": "0.65.1",
+      "date": "2026-11-23",
+      "notes": [
+        {
+          "text": "A new meeting no longer offers \"Meet tab + mic\", which couldn't hear the call there. \"Any app on this Mac\" records both sides of a Google Meet.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.65.0",
       "date": "2026-11-23",
       "notes": [

@@ -286,6 +286,21 @@ describe('Start screen', () => {
     }
   })
 
+  it('in the Mac app there is no “Meet tab” choice: the app’s window can’t share a tab’s sound', async () => {
+    const w = window as { hearthMac?: unknown; webkit?: unknown }
+    w.hearthMac = { meetingAudio: 1 }
+    w.webkit = { messageHandlers: { hearthMeetingAudio: { postMessage: async () => null } } }
+    try {
+      renderApp('/meetings/start')
+      await screen.findByTestId('capture-mac')
+      expect(screen.queryByTestId('capture-meet-tab')).toBeNull()
+      expect(screen.queryByText('Get the Chrome extension')).toBeNull()
+    } finally {
+      delete w.hearthMac
+      delete w.webkit
+    }
+  })
+
   it('from the Mac app’s call notice: titled for the app, listening and recording at once', async () => {
     const w = window as { hearthMac?: unknown; webkit?: unknown }
     w.hearthMac = { meetingAudio: 1 }
