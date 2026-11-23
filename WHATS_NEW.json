@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.66.1",
+      "date": "2026-11-23",
+      "notes": [
+        {
+          "text": "Chrome extension 0.9.0 with the new Hotsauce icon"
+        }
+      ]
+    },
+    {
       "version": "0.66.0",
       "date": "2026-11-23",
       "notes": [
