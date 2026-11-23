@@ -520,6 +520,20 @@ export function fileHandlers(deps: FileHandlerDeps): AnyHandler[] {
       }),
     ),
 
+    // PDF tools read a PDF's bytes through the server (docs/PLAN-pdf-tools.md).
+    http.get(
+      '/api/files/item/:space/:id/pdf',
+      authed(({ user, params }) => {
+        const file = item(user, params)
+        if (file instanceof Response) return file
+        if (file.mime !== 'application/pdf')
+          return error(400, 'bad_request', 'That file isn’t a PDF')
+        return new HttpResponse(file.bytes as Uint8Array<ArrayBuffer>, {
+          headers: { 'content-type': 'application/pdf' },
+        })
+      }),
+    ),
+
     http.patch(
       '/api/files/item/:space/:id',
       authed(async ({ request, user, params }) => {

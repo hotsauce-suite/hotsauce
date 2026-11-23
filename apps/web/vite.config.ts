@@ -60,6 +60,59 @@ function excalidrawFonts(): Plugin {
 }
 
 /**
+ * Make searchable in PDF tools (docs/PLAN-pdf-tools.md R5): tesseract.js's worker, its engine
+ * (the LSTM builds only) and the English model, served from /ocr/ by our own server so reading a
+ * page never loads anything from a CDN. Not precached: fetched the first time someone uses it.
+ */
+function ocrFiles(): Plugin {
+  const req = createRequire(import.meta.url)
+  const worker = join(dirname(req.resolve('tesseract.js')), '../dist/worker.min.js')
+  const core = dirname(
+    createRequire(req.resolve('tesseract.js')).resolve('tesseract.js-core/package.json'),
+  )
+  const model = join(
+    dirname(req.resolve('@tesseract.js-data/eng/package.json')),
+    '4.0.0_best_int/eng.traineddata.gz',
+  )
+  const files: Record<string, string> = {
+    'worker.min.js': worker,
+    'eng.traineddata.gz': model,
+  }
+  for (const variant of ['lstm', 'simd-lstm', 'relaxedsimd-lstm']) {
+    for (const ext of ['.js', '.wasm', '.wasm.js']) {
+      files[`tesseract-core-${variant}${ext}`] = join(core, `tesseract-core-${variant}${ext}`)
+    }
+  }
+  const type = (name: string) =>
+    name.endsWith('.wasm')
+      ? 'application/wasm'
+      : name.endsWith('.gz')
+        ? 'application/gzip'
+        : 'text/javascript'
+  let outDir = 'dist'
+  return {
+    name: 'hotsauce-ocr-files',
+    configResolved(config) {
+      outDir = config.build.outDir
+    },
+    configureServer(server) {
+      server.middlewares.use('/ocr', (req, res, next) => {
+        const name = decodeURIComponent((req.url ?? '').split('?')[0] ?? '').replace(/^\//, '')
+        const file = files[name]
+        if (!file || !existsSync(file)) return next()
+        res.setHeader('Content-Type', type(name))
+        createReadStream(file).pipe(res)
+      })
+    },
+    writeBundle() {
+      for (const [name, file] of Object.entries(files)) {
+        if (existsSync(file)) cpSync(file, join(outDir, 'ocr', name))
+      }
+    },
+  }
+}
+
+/**
  * Every screen of the app is kept on the device by the service worker (docs/PLAN-offline.md, A1).
  * This reads the finished bundle and hands the worker's precache list the files our screens need
  * (src/build/precache.ts); library chunks loaded on demand stay cache-on-first-use.
@@ -117,6 +170,7 @@ export default defineConfig(({ mode, command }) => ({
   plugins: [
     react(),
     excalidrawFonts(),
+    ocrFiles(),
     screens.plugin,
     tailwindcss(),
     // Serves /mockServiceWorker.js from the dev server only; production builds never ship it.

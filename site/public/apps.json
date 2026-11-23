@@ -218,12 +218,15 @@
     "name": "Files",
     "instead": "instead of a shared drive",
     "line": "Team files and your own, in folders, with previews right in the browser.",
-    "how": "Drag files or whole folders in, then open them right in the browser. Search looks inside your PDFs, Word files, slides and spreadsheets, not just their names.",
+    "how": "Drag files or whole folders in, then open them right in the browser. Search looks inside your PDFs, Word files, slides and spreadsheets, not just their names. Open a PDF and press PDF tools to combine, split, turn, shrink, make it searchable or black out parts of it; each result is saved beside the original.",
     "feats": [
       "Team files and Personal files, with folders",
       "Drag and drop uploads up to 2 GB a file",
       "Previews for images, PDFs, video, audio and text",
       "Search inside PDFs, Word files, slides and spreadsheets",
+      "PDF tools: combine, split, reorder and turn pages, and shrink a PDF for email",
+      "Make scanned PDFs searchable, and redact names or numbers for good",
+      "Drop PDFs on the Mac app's icon to open them in PDF tools",
       "A Recent view of what you touched last",
       "Share a file with a link your team, or someone outside, can open",
       "Attach files to tasks"

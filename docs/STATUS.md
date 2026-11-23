@@ -54,8 +54,8 @@ Everyone you meet with, from the calendar and meeting notes, with a short team n
 Needs the Google calendar connection to fill itself; without it, only meeting attendees and task assignees.
 
 ### Files
-Upload and share files and folders with previews and search inside them; Git keeps a pointer, the bytes live elsewhere. A file can carry a date it deletes itself on (shown on its row, with Keep to stop it).
-Needs nothing extra on the server's volume; R2/S3 when configured.
+Upload and share files and folders with previews and search inside them; Git keeps a pointer, the bytes live elsewhere. A file can carry a date it deletes itself on (shown on its row, with Keep to stop it). PDF tools (a PDF's ⋯ menu or the open PDF; `docs/PLAN-pdf-tools.md`): Pages (combine, reorder, turn, remove), Split, Shrink (For email, Balanced, Keep quality), Make searchable (reads scanned pages and adds hidden text; English in the browser with tesseract.js served from `/ocr/`, the Mac's Vision in the Mac app) and Redact (boxes drawn or found by word; those pages become pictures, read again for their other words). The browser does the work and saves a new PDF beside the original, which never changes. In the Mac app, PDFs dropped on the icon go to Personal files and open in PDF tools.
+Needs nothing extra on the server's volume; R2/S3 when configured. PDF tools need nothing extra.
 
 ### Forms
 Surveys, sign-ups and requests for the team or anyone with the link; answers land in Git.

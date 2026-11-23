@@ -25,24 +25,34 @@ function base64Bytes(b64: string): Uint8Array {
 
 /** A one-page PDF of plain text lines (Helvetica, ASCII only), with a correct xref table. */
 export function textPdf(title: string, lines: string[]): Uint8Array {
+  return pagesPdf([{ title, lines }])
+}
+
+/** A PDF with a page per entry, each a title and plain text lines (Helvetica, ASCII only). */
+export function pagesPdf(pages: Array<{ title: string; lines: string[] }>): Uint8Array {
   const esc = (s: string) => s.replace(/[\\()]/g, (c) => `\\${c}`)
-  const content = [
-    'BT',
-    '/F1 22 Tf',
-    '72 740 Td',
-    `(${esc(title)}) Tj`,
-    '/F1 12 Tf',
-    '0 -36 Td',
-    ...lines.flatMap((line) => [`(${esc(line)}) Tj`, '0 -18 Td']),
-    'ET',
-  ].join('\n')
+  const font = 3 + pages.length * 2
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i * 2} 0 R`).join(' ')}] /Count ${pages.length} >>`,
   ]
+  for (const [i, page] of pages.entries()) {
+    const content = [
+      'BT',
+      '/F1 22 Tf',
+      '72 740 Td',
+      `(${esc(page.title)}) Tj`,
+      '/F1 12 Tf',
+      '0 -36 Td',
+      ...page.lines.flatMap((line) => [`(${esc(line)}) Tj`, '0 -18 Td']),
+      'ET',
+    ].join('\n')
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${4 + i * 2} 0 R /Resources << /Font << /F1 ${font} 0 R >> >> >>`,
+      `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    )
+  }
+  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
   let pdf = '%PDF-1.4\n'
   const offsets: number[] = []
   objects.forEach((body, i) => {
@@ -55,6 +65,30 @@ export function textPdf(title: string, lines: string[]): Uint8Array {
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
   return encoder.encode(pdf)
 }
+
+/** Three pages for PDF tools in the demo: split it, turn a page, redact the names. */
+const AGREEMENT = [
+  {
+    title: 'Pilot agreement: Acme and Hotsauce',
+    lines: [
+      'Between Acme Ltd (contact: Dana Lee, dana.lee@acme.example) and the Hotsauce team.',
+      'The pilot runs for 60 days across the Leeds, Austin and Pune sites.',
+      'Each site names one lead; the leads meet every Monday at 9:00.',
+    ],
+  },
+  {
+    title: 'Scope and success measures',
+    lines: [
+      'In scope: Docs, Meetings, Tasks and Files for every site team.',
+      'Success: 80% of standups noted in Hotsauce by week 4.',
+      'Budget code ACME-7731, approved by Dana Lee.',
+    ],
+  },
+  {
+    title: 'Signatures',
+    lines: ['Dana Lee, Acme Ltd', '', 'Ada Lovelace, for the Hotsauce team'],
+  },
+]
 
 const ONE_PAGER_LINES = [
   'What: a 60-day pilot of Hotsauce with Acme across three sites.',
@@ -156,6 +190,14 @@ export function seedFileContents(people: { ada: string; priya: string; sam: stri
       by: people.ada,
       daysAgo: 3,
       shared: true,
+    },
+    {
+      folder: 'Pilot launch',
+      name: 'Acme pilot agreement.pdf',
+      bytes: pagesPdf(AGREEMENT),
+      text: AGREEMENT.flatMap((p) => [p.title, ...p.lines]).join('\n'),
+      by: people.ada,
+      daysAgo: 5,
     },
     {
       folder: 'Research',

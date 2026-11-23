@@ -391,3 +391,20 @@ describe('text, search, Ask and MCP', () => {
     expect((await tool('get_drive_file', { space: 'bob', id: bobs.id })).isError).toBe(true)
   })
 })
+
+describe('PDF tools (docs/PLAN-pdf-tools.md)', () => {
+  it('hands a PDF’s bytes to someone who can see it, and nothing else', async () => {
+    const bytes = pdf('Scan me')
+    const f = await upload('scan.pdf', bytes, { space: 'alice' })
+    const res = await call('GET', `/api/files/item/alice/${f.id}/pdf`, { as: ALICE })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('application/pdf')
+    expect(res.headers.get('cache-control')).toBe('private, no-store')
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(bytes)
+
+    await api('GET', `/api/files/item/alice/${f.id}/pdf`, { as: BOB, status: 403 })
+    const text = await upload('notes.txt', new TextEncoder().encode('hello'))
+    await api('GET', `/api/files/item/team/${text.id}/pdf`, { status: 400 })
+    await api('GET', '/api/files/item/team/01JC4BRD000000000000000099/pdf', { status: 404 })
+  })
+})

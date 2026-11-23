@@ -180,6 +180,17 @@ export function driveRoutes(deps: AppDeps) {
         return c.json({ ...v, text: await files.text(principal, space, id) })
       },
     )
+    .get('/item/:space/:id/pdf', valid('param', SpaceId), async (c) => {
+      const { space, id } = c.req.valid('param')
+      const { body, size } = await files.pdf(c.get('principal'), space, id)
+      return c.body(body, 200, {
+        'Content-Type': 'application/pdf',
+        'Content-Length': String(size),
+        'Cache-Control': 'private, no-store',
+        // Bytes for the page to work on, never a page of its own on this origin.
+        'Content-Disposition': 'attachment',
+      })
+    })
     .patch(
       '/item/:space/:id',
       valid('param', SpaceId),

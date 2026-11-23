@@ -74,6 +74,21 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSLocationWhenInUseUsageDescription</key><string>${APP_NAME} shows the weather where you are on Today. Your position is rounded to about a kilometre and used only to look up the weather.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>With no connection to your workspace, ${APP_NAME} writes up what you dictate with this Mac’s own speech recognition. The audio stays on this Mac.</string>
   <key>NSCameraUsageDescription</key><string>${APP_NAME} uses the camera when you record a clip with your camera on.</string>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key><string>PDF document</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>Alternate</string>
+      <key>LSItemContentTypes</key><array><string>com.adobe.pdf</string></array>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key><string>File</string>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+      <key>LSHandlerRank</key><string>None</string>
+      <key>LSItemContentTypes</key><array><string>public.data</string></array>
+    </dict>
+  </array>
   <key>CFBundleURLTypes</key>
   <array>
     <dict>
