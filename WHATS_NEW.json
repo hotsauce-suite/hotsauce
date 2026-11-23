@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.66.2",
+      "date": "2026-11-23",
+      "notes": [
+        {
+          "text": "Dictate: click the Recent dictations heading to fold the list away or open it again; Hotsauce remembers your choice."
+        }
+      ]
+    },
+    {
       "version": "0.66.1",
       "date": "2026-11-23",
       "notes": [
