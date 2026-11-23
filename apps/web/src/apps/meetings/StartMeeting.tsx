@@ -196,7 +196,9 @@ function StartForm() {
           // The Mac app's tap only carries what the Mac plays: a quiet call is silent for the
           // first 3 s. Keep listening, so the row turns to "Sound is arriving" the moment it does.
           if (!arrived && current.frames) {
-            void framesArrived(current.frames, track, { timeoutMs: LATE_SOUND_MS }).then((late) => {
+            void framesArrived(current.frames, track, {
+              timeoutMs: LATE_SOUND_MS,
+            }).then((late) => {
               if (late && capture.current === current) {
                 dispatch({ type: 'checked', track, arrived: true })
               }
@@ -284,7 +286,9 @@ function StartForm() {
           error: `${product()} couldn’t start recording audio. Resume capture to try again.`,
         })
       })
-      navigate(`/meetings/live/${encodeURIComponent(created.id)}`, { replace: true })
+      navigate(`/meetings/live/${encodeURIComponent(created.id)}`, {
+        replace: true,
+      })
     } catch (err) {
       starting.current = false
       dispatch({
@@ -370,23 +374,27 @@ function StartForm() {
                 onClick={() => void choose('mac')}
               />
             ) : null}
-            <ModeCard
-              testId="capture-meet-tab"
-              icon="tab"
-              title="Meet tab + mic"
-              body={
-                !tabCapture
-                  ? 'Sharing a tab’s audio needs Chrome or Edge on a computer.'
-                  : extension && viaExtension
-                    ? `${product()} listens to the Meet tab you clicked the ${product()} icon on. No share dialog.`
-                    : extension
-                      ? `For a Google Meet call in this browser. Click the ${product()} icon on the Meet tab first to skip Chrome’s share dialog.`
-                      : 'For a Google Meet call in this browser. Chrome asks what to share: pick the Meet tab and tick “Share tab audio”.'
-              }
-              selected={mode === 'meet-tab'}
-              disabled={!tabCapture || state.step === 'starting'}
-              onClick={() => void choose('meet-tab')}
-            />
+            {/* The Mac app's window shares a tab's picture but never its sound (Nov 23: a Meet
+                call recorded only the mic), and "Any app on this Mac" already hears the call. */}
+            {macCapture ? null : (
+              <ModeCard
+                testId="capture-meet-tab"
+                icon="tab"
+                title="Meet tab + mic"
+                body={
+                  !tabCapture
+                    ? 'Sharing a tab’s audio needs Chrome or Edge on a computer.'
+                    : extension && viaExtension
+                      ? `${product()} listens to the Meet tab you clicked the ${product()} icon on. No share dialog.`
+                      : extension
+                        ? `For a Google Meet call in this browser. Click the ${product()} icon on the Meet tab first to skip Chrome’s share dialog.`
+                        : 'For a Google Meet call in this browser. Chrome asks what to share: pick the Meet tab and tick “Share tab audio”.'
+                }
+                selected={mode === 'meet-tab'}
+                disabled={!tabCapture || state.step === 'starting'}
+                onClick={() => void choose('meet-tab')}
+              />
+            )}
             <ModeCard
               testId="capture-mic-only"
               icon="mic"
@@ -397,7 +405,7 @@ function StartForm() {
               onClick={() => void choose('mic-only')}
             />
           </div>
-          {tabCapture && !extension ? (
+          {tabCapture && !extension && !macCapture ? (
             <p className="mt-2 text-sm text-ink-soft">
               <Link to="/meetings/extension" className="text-ember-strong underline">
                 Get the Chrome extension
