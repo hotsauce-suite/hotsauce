@@ -62,7 +62,8 @@ function inlines(nodes: PhrasingContent[], marks: Marks, link: LinkResolver): In
   for (const node of nodes) {
     switch (node.type) {
       case 'text':
-        out.push({ t: 'text', text: node.value, ...marks })
+        // A soft line break in the Markdown is a space; hard breaks are their own nodes.
+        out.push({ t: 'text', text: node.value.replace(/\s*\n\s*/g, ' '), ...marks })
         break
       case 'strong':
         out.push(...inlines(node.children, { ...marks, bold: true }, link))
@@ -84,6 +85,10 @@ function inlines(nodes: PhrasingContent[], marks: Marks, link: LinkResolver): In
         break
       case 'break':
         out.push({ t: 'break' })
+        break
+      case 'imageReference':
+        // `![alt][ref]`: the alt text stands in (definitions aren't followed).
+        if (node.alt) out.push({ t: 'text', text: `[${node.alt}]`, ...marks, italic: true })
         break
       case 'html':
         // Raw HTML isn't rendered by the reading view either; keep its text out.

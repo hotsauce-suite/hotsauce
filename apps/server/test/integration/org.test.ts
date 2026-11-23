@@ -528,6 +528,21 @@ describe('brand fonts for downloads', () => {
     expect(g.asked).toHaveLength(0)
   })
 
+  it('remembers a style Google Fonts does not have, and does not ask again', async () => {
+    const g = google()
+    const noItalic = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes('ital,wght@1')) {
+        g.asked.push(String(input))
+        return new Response('no', { status: 400 })
+      }
+      return g.fetchFn(input, init)
+    }) as typeof fetch
+    const { call } = await instance({}, { fontFetch: noItalic })
+    expect((await call('GET', '/api/org/fonts?family=Inter&style=italic')).status).toBe(404)
+    expect((await call('GET', '/api/org/fonts?family=Inter&style=italic')).status).toBe(404)
+    expect(g.asked).toHaveLength(1)
+  })
+
   it('answers 404 when Google Fonts cannot be reached, and tries again next time', async () => {
     let up = false
     const g = google()

@@ -6,7 +6,7 @@ import { api } from '../../api/client'
 import { memberTimeZone, tasksApi } from '../../api/tasks'
 import type { PublicBrand } from '../../api/types'
 import { org } from '../../brand/product'
-import { docUrl, isBoardFile, isExternalHref, isMarkdown } from '../paths'
+import { fileUrl, isBoardFile, isExternalHref } from '../paths'
 import { applyTaskQuery, parseTaskQuery } from '../taskQuery'
 import type { BrandLook, DownloadInputs, FontFiles, ReadyImage, TaskLine } from './inputs'
 import { type DocModel, docModel, imageSources, taskSources } from './model'
@@ -22,10 +22,12 @@ const DEFAULT_BRAND: BrandLook = {
 /** Links in the file must work outside Hotsauce: doc links point at the doc here. */
 export function linkResolver(space: string, path: string, origin: string) {
   return (href: string): string => {
-    if (isExternalHref(href) || /^mailto:/i.test(href)) return href
-    if (href.startsWith('#')) return ''
+    // Only links a reader can safely open: never javascript: or data:.
+    if (/^(https?:|mailto:)/i.test(href)) return href
+    if (isExternalHref(href) || href.startsWith('#') || /^[a-z][a-z0-9+.-]*:/i.test(href)) return ''
     const target = resolveRelative(path, href.split('#')[0] ?? '')
-    return isMarkdown(target) ? `${origin}${docUrl(space, target)}` : ''
+    // Each kind of file opens on its own page: a doc, a meeting note, a task, a file.
+    return target ? `${origin}${fileUrl(space, target)}` : ''
   }
 }
 

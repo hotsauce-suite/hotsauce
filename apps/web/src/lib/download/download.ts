@@ -84,6 +84,8 @@ export async function downloadWithNotice(
   notify: (message: string) => void,
 ): Promise<void> {
   const label = format === 'docx' ? 'Word' : 'PDF'
+  // The file makers load on first use, and the brand's fonts and images come from the server.
+  if (!navigator.onLine) return notify(`Making a ${label} file needs a connection.`)
   notify(`Making the ${label} file…`)
   try {
     const name = await downloadDoc(source, format)

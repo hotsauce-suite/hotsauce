@@ -24,6 +24,8 @@ const TTF_URL = /src:\s*url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.ttf)\)/
 export class BrandFonts {
   readonly #fetch: typeof fetch
   readonly #cache = new Map<string, Promise<Uint8Array<ArrayBuffer> | null>>()
+  /** Styles Google Fonts doesn't have for a family. */
+  readonly #missing = new Set<string>()
 
   constructor(options: { fetch?: typeof fetch } = {}) {
     this.#fetch = options.fetch ?? fetch
@@ -37,9 +39,10 @@ export class BrandFonts {
   ): Promise<Uint8Array<ArrayBuffer> | null> {
     if (!isBrandFamily(family)) return Promise.resolve(null)
     const key = `${family}|${weight}|${style}`
+    if (this.#missing.has(key)) return Promise.resolve(null)
     let found = this.#cache.get(key)
     if (!found) {
-      found = this.#load(family, weight, style)
+      found = this.#load(family, weight, style, key)
       this.#cache.set(key, found)
       // A miss (no network) is tried again next time rather than remembered.
       found.then((bytes) => {
@@ -53,6 +56,7 @@ export class BrandFonts {
     family: string,
     weight: FontWeight,
     style: FontStyle,
+    key: string,
   ): Promise<Uint8Array<ArrayBuffer> | null> {
     const ital = style === 'italic' ? 1 : 0
     const css = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:ital,wght@${ital},${weight}`
@@ -61,7 +65,12 @@ export class BrandFonts {
         headers: { 'User-Agent': 'Hotsauce' },
         signal: AbortSignal.timeout(10_000),
       })
-      if (!sheet.ok) return null
+      if (!sheet.ok) {
+        // Google Fonts says the family has no such style (Space Grotesk has no italic): that
+        // answer won't change, so it isn't asked again.
+        if (sheet.status >= 400 && sheet.status < 500) this.#missing.add(key)
+        return null
+      }
       const url = TTF_URL.exec(await sheet.text())?.[1]
       if (!url) return null
       const file = await this.#fetch(url, { signal: AbortSignal.timeout(20_000) })

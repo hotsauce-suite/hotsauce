@@ -46,8 +46,8 @@ The Mac app shows its own save window: the page hands the bytes to the `hotsauce
 10. R10. In the Mac app, the Download items and File → Export… (⌘⇧E) open the Mac save window;
     Export… has a Format choice (Word or PDF) that remembers the last pick. With no doc open,
     Export… says to open one.
-11. R11. Offline, the items say a download needs a connection only if fonts or images can't load;
-    the file still builds with fallback fonts.
+11. R11. Offline, a download says it needs a connection (the Share menu is off offline anyway).
+    Online but without Google Fonts, the files fall back to standard fonts.
 
 ## Slices
 

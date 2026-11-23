@@ -241,3 +241,38 @@ describe('gathering a download', () => {
     expect(link('#part')).toBe('')
   })
 })
+
+describe('review fixes', () => {
+  it('reads a soft line break as a space, so the PDF does not break lines where the Markdown wraps', () => {
+    const model = docModel('one line\nnext line', 'T', link)
+    expect(model.blocks[0]).toEqual({
+      t: 'para',
+      inlines: [{ t: 'text', text: 'one line next line' }],
+    })
+  })
+
+  it('keeps where a numbered list starts in Word', async () => {
+    const model = docModel('3. three\n4. four\n', 'T', link)
+    const xml = await documentXml(await toDocx(model, inputs()))
+    expect(xml['word/numbering.xml']).toContain('w:start w:val="3"')
+  })
+
+  it('keeps images inside table cells in the PDF', () => {
+    const model = docModel('| a |\n| - |\n| ![Chart](../assets/chart.png) |\n', 'T', link)
+    expect(JSON.stringify(pdfDefinition(model, inputs()).content)).toContain(
+      'data:image/png;base64,',
+    )
+  })
+
+  it('gives plain items in a list with task items a bullet in the PDF', () => {
+    const model = docModel('- [ ] task\n- plain\n', 'T', link)
+    expect(JSON.stringify(pdfDefinition(model, inputs()).content)).toContain('"text":"•"')
+  })
+
+  it('never carries a javascript: link into a file', async () => {
+    const { linkResolver } = await import('./prepare')
+    const resolve = linkResolver('team', 'docs/a.md', 'https://hs.example')
+    expect(resolve('javascript:alert(1)')).toBe('')
+    expect(resolve('data:text/html,hi')).toBe('')
+  })
+})

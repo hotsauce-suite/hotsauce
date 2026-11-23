@@ -1028,6 +1028,8 @@ private final class FormatPicker: NSObject {
         let row = NSStackView(views: [label, popup])
         row.orientation = .horizontal
         row.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        // An accessory view needs a size of its own, or the save window can show it collapsed.
+        row.frame.size = row.fittingSize
         panel.accessoryView = row
         panel.title = "Export"
         panel.prompt = "Export"

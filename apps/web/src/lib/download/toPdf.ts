@@ -1,7 +1,6 @@
 // A Doc as a PDF (docs/PLAN-doc-download.md R3, R5), with the MIT `pdfmake` library. The layout is
 // a plain pdfmake definition, built by `pdfDefinition` so tests can read it without drawing.
 
-import type { Content, ContentText, TDocumentDefinitions } from 'pdfmake/interfaces'
 import {
   CODE_BG,
   type DownloadInputs,
@@ -13,6 +12,20 @@ import {
   wash,
 } from './inputs'
 import type { Align, Block, DocModel, Inline } from './model'
+
+// pdfmake's document definition, as loosely as pdfmake itself reads it.
+type Content = string | Content[] | { [key: string]: unknown }
+interface ContentText {
+  text: string | (string | ContentText)[]
+  [key: string]: unknown
+}
+interface TDocumentDefinitions {
+  content: Content[]
+  defaultStyle: Record<string, unknown>
+  footer: (page: number) => Content
+  pageBreakBefore: (node: unknown) => boolean
+  [key: string]: unknown
+}
 
 /** Letter with one-inch margins: 468 points of text. Pixels become points at 96 to the inch. */
 const TEXT_WIDTH_PT = 468
@@ -112,7 +125,7 @@ function table(rows: Inline[][][], align: Align[], ctx: Ctx): Content {
       widths: Array.from({ length: width }, () => '*'),
       body: rows.map((row, i) =>
         Array.from({ length: width }, (_, c) => ({
-          text: texts(row[c] ?? [], ctx).pieces,
+          stack: paragraph(row[c] ?? [], ctx, { margin: [0, 0, 0, 0] }),
           ...(i === 0 ? { bold: true } : {}),
           ...(align[c] ? { alignment: align[c] } : {}),
         })),
@@ -130,13 +143,25 @@ function checkRow(checked: boolean, body: Content[], ctx: Ctx): Content {
 }
 
 /** `tight`: inside a list item, where paragraphs sit closer together. */
+function bulletRow(marker: string, body: Content[]): Content {
+  return {
+    columns: [
+      { text: marker, width: 10, color: INK_SOFT },
+      { stack: body, width: '*' },
+    ],
+    columnGap: 6,
+    margin: [0, 0, 0, 2],
+  }
+}
+
 function blocks(list: Block[], ctx: Ctx, tight = false): Content[] {
   const out: Content[] = []
   for (const b of list) {
     switch (b.t) {
-      case 'heading':
+      case 'heading': {
+        const heading = texts(b.inlines, ctx)
         out.push({
-          text: texts(b.inlines, ctx).pieces,
+          text: heading.pieces,
           font: ctx.display,
           bold: true,
           fontSize: HEADING_SIZE[b.level] ?? 11,
@@ -144,7 +169,9 @@ function blocks(list: Block[], ctx: Ctx, tight = false): Content[] {
           margin: [0, b.level === 1 ? 4 : 10, 0, 6],
           headlineLevel: b.level,
         } as Content)
+        out.push(...heading.images)
         break
+      }
       case 'para':
         out.push(...paragraph(b.inlines, ctx, tight ? { margin: [0, 0, 0, 2] } : {}))
         break
@@ -224,11 +251,13 @@ function blocks(list: Block[], ctx: Ctx, tight = false): Content[] {
         break
       }
       case 'list': {
-        const items = b.items.map((item) => {
-          const body = blocks(item.blocks, ctx, true)
-          return item.checked === null ? { stack: body } : checkRow(item.checked, body, ctx)
-        })
+        // A list with any task item is drawn row by row; its plain items keep a marker.
         const tasky = b.items.some((i) => i.checked !== null)
+        const items = b.items.map((item, index) => {
+          const body = blocks(item.blocks, ctx, true)
+          if (item.checked !== null) return checkRow(item.checked, body, ctx)
+          return tasky ? bulletRow(b.ordered ? `${b.start + index}.` : '•', body) : { stack: body }
+        })
         out.push(
           tasky
             ? { stack: items, margin: [0, 0, 0, 6] }
@@ -313,8 +342,7 @@ export async function toPdf(model: DocModel, inputs: DownloadInputs): Promise<Bl
     import('pdfmake/build/standard-fonts/Courier'),
   ])
   for (const container of [helvetica, times, courier]) {
-    const found = (container as { default?: unknown }).default ?? container
-    pdfMake.addFontContainer(found as Parameters<typeof pdfMake.addFontContainer>[0])
+    pdfMake.addFontContainer((container as { default?: unknown }).default ?? container)
   }
   // Everything is inlined as data: URLs; the PDF never fetches anything.
   pdfMake.setUrlAccessPolicy(() => false)

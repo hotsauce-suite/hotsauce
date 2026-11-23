@@ -49,6 +49,8 @@ interface Ctx {
   inputs: DownloadInputs
   /** Each ordered list restarts its numbers: one Word numbering instance per list. */
   nextList: () => number
+  /** Numbered lists that don't start at 1 each name a numbering with their start. */
+  starts: Set<number>
 }
 
 function runs(list: Inline[], ctx: Ctx, extra: { bold?: boolean } = {}): ParagraphChild[] {
@@ -222,7 +224,7 @@ function blocks(list: Block[], ctx: Ctx, depth: number, quote: boolean): Out[] {
             out.push(
               new Paragraph({
                 numbering: {
-                  reference: b.ordered ? 'ordered' : 'bullets',
+                  reference: b.ordered ? orderedRef(b.start, ctx) : 'bullets',
                   level: Math.min(depth, 8),
                   ...(b.ordered ? { instance } : {}),
                 },
@@ -242,9 +244,16 @@ function blocks(list: Block[], ctx: Ctx, depth: number, quote: boolean): Out[] {
 
 const BULLETS = ['•', '◦', '▪']
 
-function levels(ordered: boolean) {
+function orderedRef(start: number, ctx: Ctx): string {
+  if (start === 1) return 'ordered'
+  ctx.starts.add(start)
+  return `ordered-${start}`
+}
+
+function levels(ordered: boolean, start = 1) {
   return Array.from({ length: 9 }, (_, level) => ({
     level,
+    ...(ordered && level === 0 ? { start } : {}),
     format: ordered ? LevelFormat.DECIMAL : LevelFormat.BULLET,
     text: ordered ? `%${level + 1}.` : (BULLETS[level % 3] ?? '•'),
     alignment: AlignmentType.LEFT,
@@ -275,7 +284,8 @@ function fontEmbeds(inputs: DownloadInputs) {
 export function docxDocument(model: DocModel, inputs: DownloadInputs): Document {
   const { brand } = inputs
   let lists = 0
-  const ctx: Ctx = { inputs, nextList: () => ++lists }
+  const ctx: Ctx = { inputs, nextList: () => ++lists, starts: new Set() }
+  const body = blocks(model.blocks, ctx, 0, false)
   const heading = (size: number, color = INK) => ({
     run: { font: brand.displayFont, size, bold: true, color: hex(color) },
     paragraph: { spacing: { before: 240, after: 120 }, keepNext: true },
@@ -324,6 +334,10 @@ export function docxDocument(model: DocModel, inputs: DownloadInputs): Document 
       config: [
         { reference: 'bullets', levels: levels(false) },
         { reference: 'ordered', levels: levels(true) },
+        ...[...ctx.starts].map((start) => ({
+          reference: `ordered-${start}`,
+          levels: levels(true, start),
+        })),
       ],
     },
     sections: [
@@ -346,7 +360,7 @@ export function docxDocument(model: DocModel, inputs: DownloadInputs): Document 
             ],
           }),
         },
-        children: [...top, ...blocks(model.blocks, ctx, 0, false)],
+        children: [...top, ...body],
       },
     ],
   })
