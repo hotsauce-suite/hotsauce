@@ -24,7 +24,10 @@ afterEach(async () => {
 })
 
 /** A fresh instance, the way main.ts builds one: saved org settings under the given env. */
-async function instance(env: Record<string, string> = {}) {
+async function instance(
+  env: Record<string, string> = {},
+  extra: { fontFetch?: typeof fetch } = {},
+) {
   root ??= ''
   root = await makeTempDir('hotsauce-org-')
   const dataDir = join(root, 'data')
@@ -41,7 +44,7 @@ async function instance(env: Record<string, string> = {}) {
     HOTSAUCE_SETUP_PENDING: org.settings().setupComplete ? 'false' : 'true',
     ...base,
   })
-  services = createServices(config, { org })
+  services = createServices(config, { org, ...extra })
   await services.spaces.ensureTeamSpace()
   const restart = vi.fn()
   const app = createApp({ ...services, restart })
@@ -483,5 +486,73 @@ describe('on Cloudflare (docs/PLAN-cloudflare-deploy.md R9)', () => {
       HOTSAUCE_SETUP_PENDING: 'true',
     })
     expect(c.AUTH_MODE).toBe('setup')
+  })
+})
+
+describe('brand fonts for downloads', () => {
+  const TTF = new Uint8Array([0, 1, 0, 0, 7, 7, 7])
+  function google() {
+    const asked: string[] = []
+    const fetchFn = (async (input: string | URL | Request) => {
+      const url = String(input)
+      asked.push(url)
+      if (url.startsWith('https://fonts.googleapis.com/css2')) {
+        return new Response(
+          "@font-face { font-family: 'Fraunces'; src: url(https://fonts.gstatic.com/s/fraunces/v1/a.ttf) format('truetype'); }",
+        )
+      }
+      if (url === 'https://fonts.gstatic.com/s/fraunces/v1/a.ttf') return new Response(TTF)
+      return new Response('no', { status: 404 })
+    }) as typeof fetch
+    return { fetchFn, asked }
+  }
+
+  it('serves a brand font as TTF without sign-in, fetching it from Google Fonts once', async () => {
+    const g = google()
+    const { call } = await instance({ AUTH_MODE: 'clerk' }, { fontFetch: g.fetchFn })
+    const url = '/api/org/fonts?family=Fraunces&weight=700&style=italic'
+    const res = await call('GET', url)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('font/ttf')
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(TTF)
+    expect(g.asked[0]).toContain('family=Fraunces:ital,wght@1,700')
+    await call('GET', url)
+    expect(g.asked).toHaveLength(2)
+  })
+
+  it('refuses families the brand wizard does not offer, without fetching anything', async () => {
+    const g = google()
+    const { call } = await instance({}, { fontFetch: g.fetchFn })
+    expect((await call('GET', '/api/org/fonts?family=Comic%20Sans')).status).toBe(404)
+    expect((await call('GET', '/api/org/fonts?family=Fraunces&weight=900')).status).toBe(400)
+    expect(g.asked).toHaveLength(0)
+  })
+
+  it('remembers a style Google Fonts does not have, and does not ask again', async () => {
+    const g = google()
+    const noItalic = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes('ital,wght@1')) {
+        g.asked.push(String(input))
+        return new Response('no', { status: 400 })
+      }
+      return g.fetchFn(input, init)
+    }) as typeof fetch
+    const { call } = await instance({}, { fontFetch: noItalic })
+    expect((await call('GET', '/api/org/fonts?family=Inter&style=italic')).status).toBe(404)
+    expect((await call('GET', '/api/org/fonts?family=Inter&style=italic')).status).toBe(404)
+    expect(g.asked).toHaveLength(1)
+  })
+
+  it('answers 404 when Google Fonts cannot be reached, and tries again next time', async () => {
+    let up = false
+    const g = google()
+    const flaky = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (!up) throw new Error('offline')
+      return g.fetchFn(input, init)
+    }) as typeof fetch
+    const { call } = await instance({}, { fontFetch: flaky })
+    expect((await call('GET', '/api/org/fonts?family=Fraunces')).status).toBe(404)
+    up = true
+    expect((await call('GET', '/api/org/fonts?family=Fraunces')).status).toBe(200)
   })
 })

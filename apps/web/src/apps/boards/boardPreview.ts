@@ -17,8 +17,12 @@ async function dataUrlOf(blob: Blob): Promise<string> {
   })
 }
 
-/** The board at `path` in `space` as an SVG data: URL. */
-export async function boardPreviewUrl(space: string, path: string): Promise<string> {
+/** The board at `path` in `space` as an SVG data: URL; `light` ignores the app's dark theme. */
+export async function boardPreviewUrl(
+  space: string,
+  path: string,
+  options: { light?: boolean } = {},
+): Promise<string> {
   const id = boardIdOf(path)
   if (!id) throw new Error(`${path} isn’t a board`)
   const board = await boardsApi.get(space, id)
@@ -39,7 +43,8 @@ export async function boardPreviewUrl(space: string, path: string): Promise<stri
   )
   const root = document.documentElement
   const dark =
-    root.getAttribute('data-theme') === 'dark' || root.getAttribute('data-scheme') === 'dark'
+    !options.light &&
+    (root.getAttribute('data-theme') === 'dark' || root.getAttribute('data-scheme') === 'dark')
   const svg = await exportToSvg({
     elements: liveElements(board.scene) as unknown as ExportArgs['elements'],
     appState: {

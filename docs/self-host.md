@@ -84,6 +84,10 @@ If a release changes lines you changed too, it opens an issue instead of a pull 
 
 Until a member adds a photo of their own, Hotsauce uses the picture on their sign-in account (their Google picture). The server fetches a small copy from Clerk's image host (`img.clerk.com`) over https and keeps it in `account.sqlite` with the rest of the member's settings; allow that host if your server's outbound traffic is restricted. A member who removes that picture keeps their initials.
 
+## Brand fonts in downloaded docs
+
+A doc downloaded as Word or PDF carries the brand's fonts. Browsers only get WOFF2 files, which Word can't embed, so the server fetches each font once as TrueType from Google Fonts (`fonts.googleapis.com` and `fonts.gstatic.com`) and keeps it in memory. Allow those hosts if your server's outbound traffic is restricted; without them the files fall back to standard fonts.
+
 ## Moving sign-in to another Clerk application
 
 You can change the Clerk application your server uses at any time, for example from a development instance to a production one on your own domain. Clerk gives everyone a new account id in the new application, but Hotsauce knows each member by their verified email, so their clips, conversations, tokens, connected apps and settings stay theirs. Nothing needs migrating.
