@@ -18,6 +18,7 @@
 //   `Hotsauce --render-app-icon`.
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
@@ -43,6 +44,7 @@ const webIcons = [
 
 const macArg = process.argv.indexOf('--mac')
 const macDir = macArg > 0 ? process.argv[macArg + 1] : undefined
+if (macArg > 0 && !macDir) throw new Error('--mac needs a folder: --mac <dir>')
 const macSizes = [
   ['16x16', 16],
   ['16x16@2x', 32],
@@ -88,7 +90,7 @@ try {
   // favicon.ico: an ICO file holding PNG images, which every current browser reads.
   const pngs = []
   for (const size of [16, 32, 48, 64]) {
-    const path = join(pub, `.favicon-${size}.png`)
+    const path = join(tmpdir(), `hotsauce-favicon-${size}.png`)
     await shoot(size, `<div style="width:${size}px;height:${size}px">${sized(svg)}</div>`, path)
     pngs.push({ size, data: readFileSync(path) })
     rmSync(path)

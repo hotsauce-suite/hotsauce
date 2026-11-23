@@ -15,7 +15,7 @@ enum ProductMark {
         let outline: CGFloat
     }
 
-    /// The mark's four shapes, from the favicon's 64×64 space (y down) into `rect` (y up).
+    /// The mark's five shapes, from the favicon's 64×64 space (y down) into `rect` (y up).
     static func shapes(in rect: NSRect) -> Shapes {
         let k = rect.width / 64
         func p(_ x: CGFloat, _ y: CGFloat) -> NSPoint { NSPoint(x: rect.minX + x * k, y: rect.minY + (64 - y) * k) }
@@ -84,7 +84,9 @@ enum ProductMark {
             let context = NSGraphicsContext.current
             context?.compositingOperation = .clear
             NSRect(x: rect.minX + 26 * k, y: rect.minY + (64 - 13.6) * k, width: 12 * k, height: 1.2 * k).fill()
-            m.label.fill()
+            // The old, smaller label box: the tuned label would leave walls under a pixel wide at 18 pt.
+            NSBezierPath(roundedRect: NSRect(x: rect.minX + 20 * k, y: rect.minY + (64 - 34 - 17) * k, width: 24 * k, height: 17 * k),
+                         xRadius: 3 * k, yRadius: 3 * k).fill()
             context?.compositingOperation = .sourceOver
             m.flame.fill()
             return true

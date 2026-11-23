@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ProductMark } from './Icon'
@@ -44,8 +46,12 @@ describe('the default mark', () => {
       .trim()
       .replace(/^<svg[^>]*><title>Hotsauce<\/title>/, '')
       .replace(/<\/svg>$/, '')
-    for (const page of ['index.html', 'faq.html', 'help/index.html', 'help/docs.html']) {
-      expect(read(`../../../../site/public/${page}`)).toContain(inner)
-    }
+    const site = join(dirname(fileURLToPath(import.meta.url)), '../../../../site/public')
+    const pages = readdirSync(site, { recursive: true, encoding: 'utf8' })
+      .filter((page) => page.endsWith('.html') && !page.startsWith('demo'))
+      .map((page) => read(`../../../../site/public/${page}`))
+      .filter((html) => html.includes('M27 13h10v7'))
+    expect(pages.length).toBeGreaterThan(30)
+    for (const html of pages) expect(html).toContain(inner)
   })
 })
