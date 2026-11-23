@@ -52,3 +52,19 @@
   last good answer (a week) and a failure (a minute), or every visitor asks again
   (`site/mac-download.js`). Keep helpers out of `worker.js`: a Worker module's named exports are
   treated as entrypoints.
+
+## Refreshing the README and site after a busy week (Nov 23)
+
+- **Audit against docs/STATUS.md and the plan docs, not memory.** Most of the week's features had
+  already reached the README and `apps.json`; the gaps were the Mac-only ones (the Meeting detected
+  card) and the "On the stove" section, which still promised work nobody was building.
+- **An icon change is in every screenshot and loop.** The rail's top mark shows in all of them, so a
+  new icon means re-shooting the README shots, `site/public/img/` (1600×1012) and all 19 loops.
+  The README shots take a small Playwright script against the mock app (sign in at `/sign-in`,
+  `page.clock.install` at 7:50 AM, `navigator.platform` = MacIntel); the loops take about 20 minutes
+  with `scripts/tour-video/run.sh`.
+- **`DEMO_CLIP` can be made in the cloud.** A still from OpenAI's image API (`gpt-image-1.5` through
+  the proxy), an ffmpeg zoompan for the camera, and the server's `composite()` from
+  `apps/server/dist/clips/media.js` over the first 21 s of the fresh `docs.mp4`.
+- **Copy claims about calls need the Safari caveat.** The Mac app notices calls in call apps and
+  browsers other than Safari; "any call" is wrong.

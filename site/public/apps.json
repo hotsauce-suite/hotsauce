@@ -83,7 +83,7 @@
     "how": "Start recording from the browser, the Chrome extension in Google Meet, or the Mac app. Jot a few notes while you talk. When the call ends, Hotsauce writes clean notes from your jottings and the transcript, using the template you picked: a customer call, an interview or a stand-up.",
     "feats": [
       "Record in the browser, in Google Meet, or any call from the Mac app",
-      "No bot joins your call",
+      "No bot joins your call: the Mac app spots a call in a call app or browser (not Safari) and offers Take notes",
       "A live transcript, with speaker names matched to the invite afterwards",
       "Templates for customer calls, interviews and stand-ups",
       "Ask questions about one meeting or every past meeting",
