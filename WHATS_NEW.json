@@ -1,6 +1,32 @@
 {
   "releases": [
     {
+      "version": "0.65.0",
+      "date": "2026-11-23",
+      "notes": [
+        {
+          "text": "Present any doc as slides from its top bar: split slides with a line of three dashes, or at each heading, and add speaker notes with a \"Notes:\" line"
+        },
+        {
+          "text": "Presenter view shows the next slide, your notes, a timer and the clock while a second window shows the slides; L turns on a laser pointer, B blacks out the screen"
+        },
+        {
+          "text": "Draft slides (Command-K) asks the AI for a deck from the doc you're reading and saves it as a new doc beside it"
+        },
+        {
+          "text": "Download slides as PDF, one wide page per slide"
+        },
+        {
+          "text": "Present puts the slides full screen on your external display and keeps presenter view on the laptop; View → Present (⌘⌥P)",
+          "area": "Mac app"
+        },
+        {
+          "text": "The installer window now says \"Pour it in, apply liberally\".",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.64.0",
       "date": "2026-11-23",
       "notes": [
