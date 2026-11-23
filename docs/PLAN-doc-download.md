@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress (2026-11-23). Decided with the owner: the items sit in the Share menu under the copy
+Shipped (2026-11-23, PR #227). Known gap: in Word, a quote that holds a list or code loses its side bar. Decided with the owner: the items sit in the Share menu under the copy
 items, meeting notes get them too, files carry the brand's fonts, colour and logo, the Mac app has
 File → Export… (⌘⇧E) with a Format choice in its save window, task lists come out as their tasks
 at download time and whiteboards as a picture.
