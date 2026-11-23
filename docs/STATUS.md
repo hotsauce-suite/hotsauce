@@ -22,8 +22,8 @@ One list of every comment where someone @mentioned you on a doc, meeting note or
 Needs nothing extra; Done and Later are kept in your personal space.
 
 ### Docs
-Markdown documents with a source-first editor, live co-editing, history from Git, links that survive renames, search, imports (Markdown, Word, HTML), and Download as Word or PDF in the brand's fonts, colour and logo (Share menu, ⌘K, and the Mac app's File → Export…; `docs/PLAN-doc-download.md`; meeting notes too).
-Needs nothing extra. Downloads use the brand's fonts when the server can reach Google Fonts (it fetches them once as TTF); otherwise standard fonts.
+Markdown documents with a source-first editor, live co-editing, history from Git, links that survive renames, search, imports (Markdown, Word, HTML), Download as Word or PDF in the brand's fonts, colour and logo (Share menu, ⌘K, and the Mac app's File → Export…; `docs/PLAN-doc-download.md`; meeting notes too), and Present: any doc as 16:9 slides split by `---` (or `##` headings), with `Notes:` for speaker notes, presenter view (notes, next slide, timer) driving a second window, a laser pointer, Draft slides with AI into a new doc, and a slides PDF; the Mac app puts the slides full screen on the external display (View → Present, ⌘⌥P; `docs/PLAN-slides.md`).
+Needs nothing extra. Downloads use the brand's fonts when the server can reach Google Fonts (it fetches them once as TTF); otherwise standard fonts. Draft slides needs the AI key (`SLIDES_MODEL`, default Claude Sonnet).
 
 ### Meetings
 Notes for calls: live transcript with speaker names, your own notes, AI-written notes from templates, Ask across meetings, booking links, phone voice notes, Granola import.

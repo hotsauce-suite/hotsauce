@@ -50,6 +50,8 @@ export type Block =
 export interface DocModel {
   title: string
   blocks: Block[]
+  /** A deck's slides, each its own blocks (docs/PLAN-slides.md R10); `blocks` holds them all. */
+  slides?: Block[][]
 }
 
 type Marks = Omit<TextRun, 't' | 'text'>

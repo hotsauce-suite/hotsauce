@@ -41,6 +41,8 @@ import {
   isMarkdown,
   openExternal,
 } from '../lib/paths'
+import { offerToMacPresent } from '../slides/mac'
+import type { StartMode } from '../slides/SlideShow'
 import { useSession } from '../state/session'
 import { freeDocPath } from '../state/treeStore'
 import { useShell } from './AppShell'
@@ -57,6 +59,7 @@ import { TaskQueryList } from './TaskQueryList'
 import { type PanelToggle, type SidePanel, TopBar } from './TopBar'
 
 const ReadingView = lazy(() => import('./ReadingView'))
+const SlideShow = lazy(() => import('../slides/SlideShow'))
 const HistoryPanel = lazy(() => import('./HistoryPanel'))
 
 /** How long typing must pause before the heading is re-read for the rename offer. */
@@ -128,6 +131,10 @@ export function DocumentView({
   const [panel, setPanel] = useState<SidePanel>(initialPanel)
   const editor = useRef<EditorBridge | null>(null)
   const [picking, setPicking] = useState(false)
+  // A slide show of this doc (docs/PLAN-slides.md), with the text as it was when it started.
+  const [presenting, setPresenting] = useState<{ start: StartMode; markdown: string } | null>(null)
+  // A ref, not state: the ⌘K command list is memoized and would read a stale flag.
+  const drafting = useRef(false)
 
   const { refreshRecents } = session
   const opened = state.status === 'ready' && !state.isNew
@@ -193,6 +200,40 @@ export function DocumentView({
     if (!loaded) return
     return offerToMacExport(downloadSource)
   }, [loaded, downloadSource])
+
+  // Slides are for docs; meeting notes aren't presented.
+  const canPresent = app.id === docsApp.id
+  const present = useCallback(
+    (start: StartMode = 'auto') => setPresenting({ start, markdown: doc.getText() }),
+    [doc],
+  )
+  useEffect(() => {
+    if (!loaded || !canPresent) return
+    return offerToMacPresent(() => present())
+  }, [loaded, canPresent, present])
+  const draftSlides = async () => {
+    if (drafting.current) return
+    if (!navigator.onLine) return notify('Drafting slides needs a connection.')
+    drafting.current = true
+    notify('Drafting slides… this takes a few seconds.')
+    try {
+      const { draftSlides: draft } = await import('../slides/draftSlides')
+      const markdown = doc.getText()
+      const to = await draft({
+        space,
+        path,
+        title: firstHeading(markdown) ?? displayName(path),
+        markdown,
+        tree,
+      })
+      notify('Slides drafted. Press Present to show them.')
+      navigate(app.urlFor(space, to))
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Couldn’t draft the slides.')
+    } finally {
+      drafting.current = false
+    }
+  }
   const services = useMemo(
     () => ({
       // A `tasks` block's live list is its own React root inside the editor's widget.
@@ -542,6 +583,45 @@ export function DocumentView({
             m.downloadWithNotice(downloadSource(), format, notify),
           ),
       })),
+      ...(canPresent && state.status === 'ready'
+        ? [
+            {
+              id: 'doc-present',
+              title: 'Present',
+              group: 'page' as const,
+              icon: 'present' as const,
+              keywords: ['slides', 'deck', 'slideshow', 'presentation', 'show'],
+              run: () => present(),
+            },
+            {
+              id: 'doc-presenter-view',
+              title: 'Present with presenter view',
+              group: 'page' as const,
+              icon: 'present' as const,
+              keywords: ['slides', 'notes', 'speaker', 'timer', 'second screen', 'projector'],
+              run: () => present('presenter'),
+            },
+            {
+              id: 'doc-draft-slides',
+              title: 'Draft slides from this doc',
+              group: 'page' as const,
+              icon: 'sparkle' as const,
+              keywords: ['ai', 'deck', 'presentation', 'slides', 'make'],
+              run: () => void draftSlides(),
+            },
+            {
+              id: 'doc-download-slides',
+              title: 'Download slides as PDF',
+              group: 'page' as const,
+              icon: 'download' as const,
+              keywords: ['export', 'deck', 'presentation', 'pdf', 'print'],
+              run: () =>
+                void import('../lib/download/download').then((m) =>
+                  m.downloadSlidesWithNotice(downloadSource(), notify),
+                ),
+            },
+          ]
+        : []),
       ...(conversation.canComment
         ? [
             {
@@ -562,7 +642,7 @@ export function DocumentView({
         run: () => setPanel(toggle.id),
       })),
     ],
-    `${space}:${path}:${starred}:${reading}:${editable}:${conversation.canComment}`,
+    `${space}:${path}:${starred}:${reading}:${editable}:${conversation.canComment}:${canPresent}:${state.status}`,
   )
 
   return (
@@ -588,6 +668,7 @@ export function DocumentView({
         getText={() => doc.getText()}
         onOpenDrawer={shell.openDrawer}
         {...(editable && !reading ? { onAttachFile: () => setPicking(true) } : {})}
+        {...(canPresent && state.status === 'ready' ? { onPresent: () => present() } : {})}
         {...(conversation.canComment
           ? {
               comments: {
@@ -758,6 +839,20 @@ export function DocumentView({
         {extraPanel?.render(() => setPanel(null), doc)}
       </div>
 
+      {presenting ? (
+        <Suspense fallback={null}>
+          <SlideShow
+            markdown={presenting.markdown}
+            title={title}
+            start={presenting.start}
+            space={space}
+            path={path}
+            resolveImage={services.resolveImage}
+            personalSpace={personalSpace}
+            onClose={() => setPresenting(null)}
+          />
+        </Suspense>
+      ) : null}
       {conflict ? (
         <ConflictResolver
           key={conflict.ref ?? 'local'}

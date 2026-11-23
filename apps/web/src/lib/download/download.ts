@@ -1,6 +1,7 @@
 // Download a Doc as Word or PDF (docs/PLAN-doc-download.md). Everything heavy (the writers,
 // remark, docx, pdfmake) is loaded here on first use, so the Docs chunk doesn't grow.
 
+import { deckMarkdown, splitSlides } from '@hotsauce/format'
 import { fileName } from './inputs'
 
 export type DownloadFormat = 'docx' | 'pdf'
@@ -31,6 +32,49 @@ export async function buildDownload(
       ? await (await import('./toDocx')).toDocx(model, inputs)
       : await (await import('./toPdf')).toPdf(model, inputs)
   return { blob: new Blob([blob], { type: TYPES[format] }), name: fileName(source.title, format) }
+}
+
+/** The doc as a deck (docs/PLAN-slides.md R10): one 16:9 page per slide, no speaker notes. */
+export async function buildSlidesPdf(
+  source: DownloadSource,
+): Promise<{ blob: Blob; name: string }> {
+  const { prepareDownload } = await import('./prepare')
+  const slides = splitSlides(source.markdown)
+  const markdown = slides.length > 0 ? deckMarkdown(slides) : `# ${source.title}\n`
+  const { model, inputs } = await prepareDownload({ ...source, markdown })
+  // Each slide parsed on its own: only the breaks between slides start a page.
+  const { docModel } = await import('./model')
+  const { linkResolver } = await import('./prepare')
+  const link = linkResolver(source.space, source.path, window.location.origin)
+  model.slides =
+    slides.length > 0
+      ? slides.map((s) => docModel(s.body, model.title, link).blocks)
+      : [model.blocks]
+  const pdf = await (await import('./toPdf')).toPdf(model, inputs, 'slides')
+  return {
+    blob: new Blob([pdf], { type: TYPES.pdf }),
+    // "Plan slides.pdf", and a deck already called "… slides" isn't "… slides slides".
+    name: fileName(
+      /\bslides$/i.test(source.title) ? source.title : `${source.title} slides`,
+      'pdf',
+    ),
+  }
+}
+
+/** Builds and saves the slides PDF, saying how it went. */
+export async function downloadSlidesWithNotice(
+  source: DownloadSource,
+  notify: (message: string) => void,
+): Promise<void> {
+  if (!navigator.onLine) return notify('Making the slides PDF needs a connection.')
+  notify('Making the slides PDF…')
+  try {
+    const { blob, name } = await buildSlidesPdf(source)
+    await saveFile(blob, name)
+    if (!macSave()) notify(`Downloaded ${name}.`)
+  } catch {
+    notify('Couldn’t make the slides PDF. Try again in a moment.')
+  }
 }
 
 interface SaveHandler {

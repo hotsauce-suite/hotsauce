@@ -31,6 +31,11 @@ interface TDocumentDefinitions {
 const TEXT_WIDTH_PT = 468
 const PX = 0.75
 
+/** A slide: 16:9, as wide as a Letter page is tall, with half-inch margins. */
+const SLIDE_PAGE = { width: 792, height: 445.5 }
+const SLIDE_MARGIN_PT = 44
+const SLIDE_IMAGE_HEIGHT_PT = 230
+
 const HEADING_SIZE: Record<number, number> = { 1: 22, 2: 17, 3: 14, 4: 12, 5: 11, 6: 11 }
 
 function base64(bytes: Uint8Array): string {
@@ -59,6 +64,12 @@ function checkbox(checked: boolean, color: string): Content {
 
 interface Ctx {
   inputs: DownloadInputs
+  /** The text column's width in points. */
+  width: number
+  /** Type sizes against a document's (slides are set larger). */
+  scale: number
+  /** Slides (docs/PLAN-slides.md R10): set for a screen. */
+  slides: boolean
   /** Monospace face: the standard Courier, always there. */
   mono: string
   /** The headings' face. */
@@ -75,7 +86,11 @@ function texts(list: Inline[], ctx: Ctx): { pieces: Piece[]; images: Content[] }
     else if (r.t === 'image') {
       const image = ctx.inputs.images.get(r.src)
       if (image) {
-        const size = fit({ width: image.width * PX, height: image.height * PX }, TEXT_WIDTH_PT)
+        const size = fit(
+          { width: image.width * PX, height: image.height * PX },
+          ctx.width,
+          ...(ctx.slides ? [SLIDE_IMAGE_HEIGHT_PT] : []),
+        )
         images.push({ image: dataUrl(image), ...size, margin: [0, 4, 0, 8] })
       } else pieces.push({ text: `[${r.alt || 'Image'}]`, italics: true, color: INK_SOFT })
     } else {
@@ -83,7 +98,8 @@ function texts(list: Inline[], ctx: Ctx): { pieces: Piece[]; images: Content[] }
       if (r.bold) piece.bold = true
       if (r.italic) piece.italics = true
       if (r.strike) piece.decoration = 'lineThrough'
-      if (r.code) Object.assign(piece, { font: ctx.mono, background: CODE_BG, fontSize: 9.5 })
+      if (r.code)
+        Object.assign(piece, { font: ctx.mono, background: CODE_BG, fontSize: 9.5 * ctx.scale })
       if (r.href)
         Object.assign(piece, {
           link: r.href,
@@ -164,9 +180,10 @@ function blocks(list: Block[], ctx: Ctx, tight = false): Content[] {
           text: heading.pieces,
           font: ctx.display,
           bold: true,
-          fontSize: HEADING_SIZE[b.level] ?? 11,
+          fontSize: (HEADING_SIZE[b.level] ?? 11) * ctx.scale,
           color: b.level >= 5 ? INK_SOFT : INK,
-          margin: [0, b.level === 1 ? 4 : 10, 0, 6],
+          // A deck's title slide sits a third of the way down its page.
+          margin: [0, b.level === 1 ? (ctx.slides ? 110 : 4) : 10, 0, 6],
           headlineLevel: b.level,
         } as Content)
         out.push(...heading.images)
@@ -200,7 +217,7 @@ function blocks(list: Block[], ctx: Ctx, tight = false): Content[] {
                 {
                   text: b.text,
                   font: ctx.mono,
-                  fontSize: 9,
+                  fontSize: 9 * ctx.scale,
                   preserveLeadingSpaces: true,
                   fillColor: CODE_BG,
                   margin: [6, 4, 6, 4],
@@ -218,7 +235,7 @@ function blocks(list: Block[], ctx: Ctx, tight = false): Content[] {
               type: 'line',
               x1: 0,
               y1: 0,
-              x2: TEXT_WIDTH_PT,
+              x2: ctx.width,
               y2: 0,
               lineWidth: 0.7,
               lineColor: RULE,
@@ -282,8 +299,17 @@ export function pdfDefinition(
   model: DocModel,
   inputs: DownloadInputs,
   fonts: PdfFonts = { ui: 'ui', display: 'display' },
+  layout: PdfLayout = 'doc',
 ): TDocumentDefinitions {
-  const ctx: Ctx = { inputs, mono: 'Courier', display: fonts.display }
+  if (layout === 'slides') return slidesDefinition(model, inputs, fonts)
+  const ctx: Ctx = {
+    inputs,
+    mono: 'Courier',
+    display: fonts.display,
+    width: TEXT_WIDTH_PT,
+    scale: 1,
+    slides: false,
+  }
   const content = blocks(model.blocks, ctx)
   const logo = inputs.brand.logo
   const top: Content[] = logo
@@ -316,6 +342,64 @@ export function pdfDefinition(
   }
 }
 
+/**
+ * A deck (docs/PLAN-slides.md R10): one 16:9 page per slide (`model.slides`, split before parsing, so
+ * a rule inside a slide stays a rule), type set for a screen, the slide number in the corner, the
+ * logo on the first.
+ */
+function slidesDefinition(
+  model: DocModel,
+  inputs: DownloadInputs,
+  fonts: PdfFonts,
+): TDocumentDefinitions {
+  const ctx: Ctx = {
+    inputs,
+    mono: 'Courier',
+    display: fonts.display,
+    width: SLIDE_PAGE.width - 2 * SLIDE_MARGIN_PT,
+    scale: 1.75,
+    slides: true,
+  }
+  const logo = inputs.brand.logo
+  return {
+    pageSize: SLIDE_PAGE,
+    pageOrientation: 'landscape',
+    pageMargins: [SLIDE_MARGIN_PT, SLIDE_MARGIN_PT, SLIDE_MARGIN_PT, SLIDE_MARGIN_PT],
+    info: { title: model.title, author: inputs.brand.orgName, creator: inputs.brand.orgName },
+    content: (model.slides ?? [model.blocks]).map(
+      (slide, i): Content => ({
+        stack: blocks(slide, ctx),
+        ...(i > 0 ? { pageBreak: 'before' } : {}),
+      }),
+    ),
+    defaultStyle: { font: fonts.ui, fontSize: 18, lineHeight: 1.3, color: INK },
+    background: (page: number) => [
+      {
+        canvas: [
+          { type: 'rect', x: 0, y: 0, w: SLIDE_PAGE.width, h: SLIDE_PAGE.height, color: '#fbf8f3' },
+        ],
+      },
+      ...(page === 1 && logo
+        ? [
+            {
+              image: dataUrl(logo),
+              ...fit({ width: logo.width * PX, height: logo.height * PX }, 110, 30),
+              absolutePosition: { x: SLIDE_MARGIN_PT, y: SLIDE_PAGE.height - SLIDE_MARGIN_PT - 30 },
+            },
+          ]
+        : []),
+    ],
+    footer: (page: number) => ({
+      text: String(page),
+      alignment: 'right',
+      fontSize: 10,
+      color: INK_SOFT,
+      margin: [0, 14, 24, 0],
+    }),
+    pageBreakBefore: () => false,
+  }
+}
+
 function vfsEntry(files: FontFiles, family: string): Record<string, string> | null {
   if (!files.regular) return null
   const r = files.regular
@@ -334,7 +418,14 @@ const faces = (family: string) => ({
   bolditalics: `${family}-bi.ttf`,
 })
 
-export async function toPdf(model: DocModel, inputs: DownloadInputs): Promise<Blob> {
+/** A document on Letter pages, or a deck on 16:9 ones. */
+export type PdfLayout = 'doc' | 'slides'
+
+export async function toPdf(
+  model: DocModel,
+  inputs: DownloadInputs,
+  layout: PdfLayout = 'doc',
+): Promise<Blob> {
   const [{ default: pdfMake }, helvetica, times, courier] = await Promise.all([
     import('pdfmake/build/pdfmake'),
     import('pdfmake/build/standard-fonts/Helvetica'),
@@ -359,5 +450,5 @@ export async function toPdf(model: DocModel, inputs: DownloadInputs): Promise<Bl
     pdfMake.addFonts({ display: faces('display') })
     fonts.display = 'display'
   } else if (ui && inputs.brand.displayFont === inputs.brand.uiFont) fonts.display = 'ui'
-  return pdfMake.createPdf(pdfDefinition(model, inputs, fonts)).getBlob()
+  return pdfMake.createPdf(pdfDefinition(model, inputs, fonts, layout)).getBlob()
 }

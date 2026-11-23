@@ -99,8 +99,9 @@ Quick notes and checklists on colored cards, with labels, pins and an archive. I
 
 Markdown documents with a fast, source-first editor. Several people edit at once, every save is a git
 commit with a readable history, links survive renames, and search covers every space you can see.
-Import Markdown, Word and HTML files, drop live task lists into a page, and download any doc as a
-Word file or a PDF in your team's fonts, colours and logo.
+Import Markdown, Word and HTML files, drop live task lists into a page, download any doc as a
+Word file or a PDF in your team's fonts, colours and logo, and present any doc as slides (split by
+`---`, with presenter view, speaker notes and a laser pointer; the AI can draft the deck).
 
 Every team doc, meeting note and task has a conversation under it: comment where the work is, quote
 a passage, and @mention a teammate to send them a notification that opens on your comment. Every

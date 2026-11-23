@@ -146,6 +146,49 @@ Demos are on Fridays.
 Offsite in the first week of the quarter.
 `
 
+// A deck is a doc split by `---` (docs/PLAN-slides.md): Present shows it as slides.
+const KICKOFF_SLIDES = `---
+title: Q4 kickoff slides
+---
+
+# Q4 kickoff
+
+Acme · all hands
+
+Notes: Welcome everyone. Twenty minutes, questions at the end.
+
+---
+
+## Where we are
+
+- Shipped the new onboarding flow
+- Support backlog down by a third
+- Two hires started this month
+
+Notes: Thank Priya's team for onboarding.
+
+---
+
+## What Q4 is for
+
+1. Launch the partner program
+2. Cut sign-up time in half
+3. Hire two engineers
+
+Notes: These come straight from the Q4 plan doc.
+
+---
+
+## Asks
+
+| Who | What | By |
+| --- | --- | --- |
+| Everyone | Review the Q4 plan | Friday |
+| Leads | Name an owner per goal | Next Monday |
+
+Notes: Point at the Q4 plan for detail.
+`
+
 function seedTeam(repo: FakeRepo): void {
   const team = repo.space('team')
   const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000)
@@ -158,6 +201,7 @@ function seedTeam(repo: FakeRepo): void {
       ['docs/eng/architecture-notes.md', ARCHITECTURE],
       ['docs/eng/onboarding.md', ONBOARDING],
       ['docs/team-rituals.md', CONFLICT_DEMO],
+      ['docs/plans/q4-kickoff-slides.md', KICKOFF_SLIDES],
       ['docs/reference/operating-handbook.md', longHandbook],
       ['docs/archive/.gitkeep', ''],
     ]),

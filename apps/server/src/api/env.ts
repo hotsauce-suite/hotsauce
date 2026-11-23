@@ -30,6 +30,7 @@ import type { People } from '../people/index.js'
 import type { Bookings } from '../scheduling/index.js'
 import type { LinkStore, Shares } from '../shares/index.js'
 import type { Sign } from '../sign/index.js'
+import type { SlideDrafter } from '../slides/index.js'
 import type { SpaceService } from '../spaces/index.js'
 import type { Syncer } from '../sync/index.js'
 import type { Tables } from '../tables/index.js'
@@ -65,6 +66,8 @@ export interface AppDeps {
   files: Files
   briefs: AgentBriefs
   feedback: Feedback
+  /** Draft slides from a doc (docs/PLAN-slides.md). */
+  slides: SlideDrafter
   boards: Boards
   people: People
   bookings: Bookings

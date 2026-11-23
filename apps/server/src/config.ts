@@ -145,6 +145,8 @@ export const ConfigSchema = z
     // Agent briefs (ARCHITECTURE §13): the model that writes each member's nightly brief, and the
     // local hour after which it is due.
     BRIEF_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
+    // Draft slides (docs/PLAN-slides.md): the model that turns a doc into a deck.
+    SLIDES_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
     // The built-in assistant (docs/PLAN-assistant.md). Unset, an admin picks in Settings (default
     // Claude Sonnet 5.5); set, it wins. The limit is US dollars per member per month, 0 for none.
     ASSISTANT_MODEL: z.string().min(1).optional(),

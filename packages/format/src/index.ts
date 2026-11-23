@@ -314,6 +314,7 @@ export {
   SignSource,
   signersUpNext,
 } from './sign.js'
+export { deckMarkdown, type Slide, splitSlides } from './slides.js'
 export {
   initialSpaceFiles,
   parseSpaceConfig,

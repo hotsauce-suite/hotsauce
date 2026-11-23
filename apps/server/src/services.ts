@@ -135,6 +135,7 @@ import {
 } from './scheduling/index.js'
 import { assertOwnShare, LinkStore, Shares } from './shares/index.js'
 import { Sign } from './sign/index.js'
+import { SlideDrafter } from './slides/index.js'
 import { SpaceService } from './spaces/index.js'
 import { ensureSealKey } from './state/seal-key.js'
 import type { ObjectStore } from './storage/s3.js'
@@ -575,6 +576,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     // Hotsauce Files keep their bytes beside Clips and kept audio, under files/ (ARCHITECTURE §18).
     files,
     briefs,
+    slides: new SlideDrafter({ llm, model: config.SLIDES_MODEL }),
     feedback: new Feedback({
       clarifier: new Clarifier({ llm, model: config.FEEDBACK_MODEL }),
       tracker:

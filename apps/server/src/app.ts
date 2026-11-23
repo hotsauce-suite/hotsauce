@@ -44,6 +44,7 @@ import {
   shareRoutes,
   signLinkRoutes,
   signRoutes,
+  slideRoutes,
   tableRoutes,
   taskRoutes,
   testRoutes,
@@ -97,6 +98,7 @@ export function createApp(deps: AppDeps) {
     .route('/api', noteRoutes(deps))
     .route('/api', briefRoutes(deps))
     .route('/api', feedbackRoutes(deps))
+    .route('/api', slideRoutes(deps))
     .route('/api', boardRoutes(deps))
     .route('/api', todayRoutes(deps))
     .route('/api', breakRoutes(deps))
