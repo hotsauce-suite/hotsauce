@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.64.0",
+      "date": "2026-11-23",
+      "notes": [
+        {
+          "text": "Download any doc or meeting note as Word or PDF from its Share menu or ⌘K, in your team's fonts and colours with your logo on page one"
+        },
+        {
+          "text": "File → Export… (⌘⇧E) saves the open doc as Word or PDF, with the format picked in the save window",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.63.0",
       "date": "2026-11-22",
       "notes": [
