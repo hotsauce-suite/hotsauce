@@ -13,7 +13,7 @@ export interface Slide {
 
 const SEPARATOR = /^---[ \t]*$/
 const SLIDE_HEADING = /^## /
-const NOTES = /^notes?:[ \t]*/i
+const NOTES = /^notes:[ \t]*/i
 const FENCE = /^ {0,3}(`{3,}|~{3,})/
 
 /** Each line, and whether it sits inside a fenced code block (fence lines themselves count). */
@@ -42,21 +42,26 @@ function trimBlank(lines: string[]): string {
   let to = lines.length
   while (from < to && (lines[from] ?? '').trim() === '') from++
   while (to > from && (lines[to - 1] ?? '').trim() === '') to--
-  return lines
-    .slice(from, to)
-    .map((l) => l.replace(/[ \t]+$/, ''))
-    .join('\n')
+  // Trailing spaces stay: two of them are a Markdown line break.
+  return lines.slice(from, to).join('\n')
 }
+
+/** A paragraph line: `---` right under one underlines it as a heading, it doesn't end a slide. */
+const PARAGRAPH = /^ {0,3}(?![-*+] |\d+[.)] |#|>|\|)\S/
 
 /** The doc's slides, in order. Empty slides (two separators in a row) are left out. */
 export function splitSlides(markdown: string): Slide[] {
   const lines = parseFrontmatter(markdown).body.replace(/\r\n?/g, '\n').split('\n')
   const inCode = scan(lines)
-  const byRule = lines.some((l, i) => !inCode[i] && SEPARATOR.test(l))
+  const isSeparator = (i: number) =>
+    !inCode[i] &&
+    SEPARATOR.test(lines[i] ?? '') &&
+    !(i > 0 && !inCode[i - 1] && PARAGRAPH.test(lines[i - 1] ?? ''))
+  const byRule = lines.some((_, i) => isSeparator(i))
   const chunks: { lines: string[]; code: boolean[] }[] = [{ lines: [], code: [] }]
   lines.forEach((line, i) => {
     const code = inCode[i] ?? false
-    if (!code && byRule && SEPARATOR.test(line)) {
+    if (byRule && isSeparator(i)) {
       chunks.push({ lines: [], code: [] })
       return
     }

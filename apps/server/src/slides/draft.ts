@@ -55,13 +55,19 @@ export class SlideDrafter {
     const prompt = `<title>${escapeTags(input.title)}</title>\n<doc_for_slides>\n${escapeTags(
       input.markdown,
     )}\n</doc_for_slides>`
-    const { text } = await this.#llm.complete({
-      model: this.#model,
-      system: SYSTEM,
-      messages: [{ role: 'user', content: prompt }],
-      maxTokens: 8000,
-    })
-    return parseDeck(text)
+    try {
+      const { text } = await this.#llm.complete({
+        model: this.#model,
+        system: SYSTEM,
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 8000,
+      })
+      return parseDeck(text)
+    } catch (error) {
+      // A draft that never came doesn't count against the hour.
+      recent.splice(recent.indexOf(now), 1)
+      throw error
+    }
   }
 }
 

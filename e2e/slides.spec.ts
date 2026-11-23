@@ -48,9 +48,24 @@ test('Present shows the doc as slides, keys move through them, Esc ends the show
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await expect(page.getByTestId('slide-laser')).toBeVisible()
 
+  // F leaves full screen without ending the show, and F again goes back.
+  await page.keyboard.press('f')
+  await page.waitForTimeout(300)
+  await expect(show).toHaveCount(1)
+  await page.keyboard.press('f')
+  await expect(show).toHaveCount(1)
+
+  // Keys the show doesn't use never type into the doc behind it, and ⌘K stays shut.
+  await page.keyboard.type('zq')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.press('ControlOrMeta+k')
+  await expect(page.getByTestId('cmdk-input')).toHaveCount(0)
+
   await page.keyboard.press('Escape')
   await expect(show).toHaveCount(0)
   await expect(page.getByTestId('editor-content')).toContainText('Opening')
+  await expect(page.getByTestId('editor-content')).not.toContainText('zq')
+  expect((await api.readFile(user.team, file))?.content).not.toContain('zq')
 })
 
 test('presenter view shows the notes and next slide and drives the slides window', async ({
@@ -95,6 +110,22 @@ test('presenter view shows the notes and next slide and drives the slides window
   await page.getByTestId('end-show').click()
   await expect(page.getByTestId('slide-show')).toHaveCount(0)
   await expect.poll(() => audience.isClosed()).toBe(true)
+})
+
+test('closing the slides window ends the show (R11)', async ({ page, api, user }) => {
+  const id = uid()
+  const file = `docs/e2e-close-${id}.md`
+  await api.writeFile(user.team, file, deck(id))
+  await page.goto(docUrl(user.team, file))
+  await expect(page.getByTestId('editor-content')).toContainText('Opening')
+  const popup = page.waitForEvent('popup')
+  await page.getByTestId('present').click()
+  await expect(page.getByTestId('slide-show')).toHaveAttribute('data-mode', 'slides')
+  await page.keyboard.press('p')
+  const audience = await popup
+  await expect(page.getByTestId('presenter-view')).toBeVisible()
+  await audience.close()
+  await expect(page.getByTestId('slide-show')).toHaveCount(0)
 })
 
 test('Draft slides makes a new deck doc beside the doc, and the slides PDF downloads', async ({

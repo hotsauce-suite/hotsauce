@@ -1,5 +1,5 @@
 import type { Slide } from '@hotsauce/format'
-import type { PointerEvent } from 'react'
+import { memo, type PointerEvent } from 'react'
 import { BrandMark } from '../components/BrandMark'
 import ReadingView, { type ResolveImage } from '../components/ReadingView'
 
@@ -15,6 +15,31 @@ export interface SlideSource {
   resolveImage: ResolveImage
   personalSpace: string | null
 }
+
+/**
+ * A slide's or its notes' Markdown. Memoized: the laser and the presenter's clock re-render the
+ * show many times a second, and re-parsing Markdown each time would make the dot lag.
+ */
+export const SlideMarkdown = memo(function SlideMarkdown({
+  markdown,
+  space,
+  path,
+  resolveImage,
+  personalSpace,
+  className,
+}: SlideSource & { markdown: string; className: string }) {
+  return (
+    <ReadingView
+      markdown={markdown}
+      space={space}
+      path={path}
+      resolveImage={resolveImage}
+      personalSpace={personalSpace}
+      embedded
+      className={className}
+    />
+  )
+})
 
 /** A slide that opens with a `#` heading is a title slide. */
 export const isTitleSlide = (slide: Slide) => /^# /.test(slide.body)
@@ -56,15 +81,7 @@ export function SlideFrame({
         data-slide={number}
         {...(onPoint ? { onPointerMove: point, onPointerLeave: () => onPoint(null) } : {})}
       >
-        <ReadingView
-          markdown={slide.body}
-          space={source.space}
-          path={source.path}
-          resolveImage={source.resolveImage}
-          personalSpace={source.personalSpace}
-          embedded
-          className="slide-prose"
-        />
+        <SlideMarkdown {...source} markdown={slide.body} className="slide-prose" />
         {title ? <BrandMark className="slide-mark" /> : null}
         <span className="slide-number" title={`Slide ${number} of ${total}`}>
           {number}

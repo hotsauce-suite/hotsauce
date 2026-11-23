@@ -39,12 +39,17 @@ final class SlidesWindow: NSObject, NSWindowDelegate, WKUIDelegate {
     }
 
     /// The page closed it (the show ended).
+    /// The presenter's window went away: close the slides too, which ends the show.
+    func close() {
+        window.close()
+    }
+
     func webViewDidClose(_ webView: WKWebView) {
         closing = true
         window.close()
     }
 
-    /// Closed by its own button or ⌘W: the page sees `closed` and offers to open it again.
+    /// Closed by its own button or ⌘W: the page sees `closed` and ends the show.
     func windowWillClose(_ notification: Notification) {
         if !closing {
             closing = true

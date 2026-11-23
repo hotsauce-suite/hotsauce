@@ -6,10 +6,9 @@ import { type Slide, splitSlides } from '@hotsauce/format'
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon, type IconName } from '../components/Icon'
-import ReadingView from '../components/ReadingView'
 import { type Audience, openAudience } from './audienceWindow'
 import { macDisplays, macFullScreen } from './mac'
-import { type Point, SlideFrame, type SlideSource } from './SlideFrame'
+import { type Point, SlideFrame, SlideMarkdown, type SlideSource } from './SlideFrame'
 import { elapsedLabel, onKey, type ShowMode, type ShowState, startShow } from './showState'
 
 export type StartMode = ShowMode | 'auto'
@@ -103,7 +102,7 @@ export default function SlideShow({
     if (mode !== 'presenter') return
     openSlidesWindow()
   }, [mode, openSlidesWindow])
-  // Closed by its own close button, or by the switch back to slides here.
+  // The switch back to slides here closes it; the audience closing it ends the show (R11).
   useEffect(() => {
     if (!audience) return
     if (mode !== 'presenter') {
@@ -112,7 +111,7 @@ export default function SlideShow({
       return
     }
     const watch = setInterval(() => {
-      if (audience.win.closed) setAudience(null)
+      if (audience.win.closed) close.current()
     }, 500)
     return () => clearInterval(watch)
   }, [audience, mode])
@@ -127,25 +126,56 @@ export default function SlideShow({
     [leaveFullScreen],
   )
 
+  // The show takes the keyboard: the editor behind it must not get a single keystroke (R5).
+  const stage = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const active = document.activeElement
+    if (active instanceof HTMLElement) active.blur()
+    stage.current?.focus({ preventScroll: true })
+  }, [])
+
   const showRef = useRef(show)
   showRef.current = show
-  const press = useCallback((key: string) => {
-    const result = onKey(showRef.current, key)
-    showRef.current = result.state
-    setShow(result.state)
-    if (result.effect === 'close') close.current()
-    if (result.effect === 'fullscreen') toggleFullScreen(audienceRef.current, fullscreen)
-    return result.handled
-  }, [])
+  const press = useCallback(
+    (key: string) => {
+      const result = onKey(showRef.current, key)
+      showRef.current = result.state
+      setShow(result.state)
+      if (result.effect === 'close') close.current()
+      if (result.effect === 'fullscreen') {
+        const other = audienceRef.current
+        if (other) toggleFullScreen(other.win.document)
+        // Here, through our own switch, so leaving full screen with F doesn't end the show.
+        else if (fullscreen.current || document.fullscreenElement) leaveFullScreen()
+        else enterFullScreen()
+      }
+      return result.handled
+    },
+    [enterFullScreen, leaveFullScreen],
+  )
   // Keys in this window and in the slides window both drive the show.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (event.target instanceof HTMLElement && event.target.closest('input, textarea')) return
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        // ⌘K would open the palette behind the show, where it swallows every key.
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+        return
+      }
+      const target = elementOf(event.target)
+      const inShow =
+        target !== null && (stage.current?.contains(target) || target.ownerDocument !== document)
       if (press(event.key)) {
         event.preventDefault()
         event.stopPropagation()
+        return
       }
+      // Tab still moves between the presenter's buttons; nothing else reaches the doc behind.
+      if (event.key === 'Tab' && inShow) return
+      event.preventDefault()
+      event.stopPropagation()
     }
     window.addEventListener('keydown', onKeyDown, true)
     const other = audience?.win
@@ -163,9 +193,15 @@ export default function SlideShow({
   const current = slides[show.index] as Slide
   const upcoming = slides[show.index + 1] ?? null
   const total = slides.length
-  const advance = (event: { target: EventTarget | null }) => {
-    // A link on the slide opens; anywhere else, the next slide.
-    if (event.target instanceof Element && event.target.closest('a')) return
+  const advance = (event: { target: EventTarget | null; preventDefault: () => void }) => {
+    // A link on the slide opens in a new tab, so neither window leaves the show; anywhere else,
+    // the next slide.
+    const link = elementOf(event.target)?.closest('a')
+    if (link) {
+      event.preventDefault()
+      if (link.href) window.open(link.href, '_blank', 'noopener')
+      return
+    }
     press('ArrowRight')
   }
 
@@ -220,7 +256,9 @@ export default function SlideShow({
     <>
       {createPortal(
         <div
-          className="fixed inset-0 z-[90]"
+          ref={stage}
+          tabIndex={-1}
+          className="fixed inset-0 z-[90] outline-none"
           data-testid="slide-show"
           data-mode={mode}
           role="dialog"
@@ -245,18 +283,16 @@ export default function SlideShow({
   )
 }
 
-/** F: full screen for the window the slides are in. */
-function toggleFullScreen(
-  audience: Audience | null,
-  fullscreen: { current: 'mac' | 'browser' | null },
-) {
-  const doc = audience ? audience.win.document : document
-  if (doc.fullscreenElement) {
-    void doc.exitFullscreen().catch(() => {})
-    return
-  }
-  if (!audience && fullscreen.current) return
-  void doc.documentElement.requestFullscreen?.().catch(() => {})
+/** F in presenter view: full screen for the slides window. */
+function toggleFullScreen(doc: Document) {
+  if (doc.fullscreenElement) void doc.exitFullscreen().catch(() => {})
+  else void doc.documentElement.requestFullscreen?.().catch(() => {})
+}
+
+/** The element an event came from, in either window (`instanceof` fails across windows). */
+function elementOf(target: EventTarget | null): Element | null {
+  const node = target as Node | null
+  return node && node.nodeType === 1 ? (node as Element) : null
 }
 
 /** A browser can't move a window to the projector itself: say how, then get out of the way. */
@@ -407,7 +443,9 @@ function PresenterView({
             testId="open-slides-window"
           >
             {slidesWindow === 'blocked'
-              ? 'Allow pop-ups, then open the slides window'
+              ? onMac
+                ? 'The slides window didn’t open. Open it here'
+                : 'Allow pop-ups, then open the slides window'
               : 'Open the slides window'}
           </StageButton>
         ) : null}
@@ -456,15 +494,7 @@ function PresenterView({
             aria-label="Speaker notes"
           >
             {notes ? (
-              <ReadingView
-                markdown={notes}
-                space={source.space}
-                path={source.path}
-                resolveImage={source.resolveImage}
-                personalSpace={source.personalSpace}
-                embedded
-                className="slide-notes-prose"
-              />
+              <SlideMarkdown {...source} markdown={notes} className="slide-notes-prose" />
             ) : (
               <p className="text-sm text-[#8d7d6f]">
                 No notes for this slide. Add a line starting “Notes:” at the end of a slide.

@@ -612,7 +612,9 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     // MARK: Window
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        // Hidden, not closed: the page keeps its session, its recording and its timers.
+        // Hidden, not closed: the page keeps its session, its recording and its timers. A show's
+        // slides window closes with it, which ends the show (docs/PLAN-slides.md R11).
+        slidesWindow?.close()
         sender.orderOut(nil)
         return false
     }
@@ -981,6 +983,13 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
     /// View → Present (⌘⌥P): the open doc as slides.
     func presentOpenDoc() {
         guard isOnSuitePage, failedURL == nil else { return showMessage(SlidesBridge.noDocMessage) }
+        // A menu command isn't a click on the page, so WebKit would refuse the slides window the
+        // show opens. Let scripts open windows only while the show starts.
+        let preferences = webView.configuration.preferences
+        preferences.javaScriptCanOpenWindowsAutomatically = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            preferences.javaScriptCanOpenWindowsAutomatically = false
+        }
         Task { @MainActor [weak self] in
             guard let self else { return }
             let presented = try? await self.webView.callAsyncJavaScript(

@@ -51,8 +51,9 @@ left out.
    can be paused and reset, and the clock; it drives the slides window.
 7. R7. L turns the laser pointer on and off: a red dot follows the pointer over the slide, and in
    presenter view the slides window shows it in the same place.
+   Keys the show doesn't use never reach the doc behind it.
 8. R8. B blacks the screen out, and any key brings it back.
-9. R9. Draft slides (⌘K and the Present menu) makes a new doc "<title> slides" beside the doc from
+9. R9. Draft slides (⌘K) makes a new doc "<title> slides" beside the doc from
    an AI draft, and opens it. Without the AI key it says AI isn't set up.
 10. R10. Download slides as PDF gives one 16:9 page per slide, without the notes.
 11. R11. Mac app: Present with an external display puts the slides full screen on it and the

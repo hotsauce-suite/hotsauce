@@ -50,9 +50,25 @@ describe('splitSlides', () => {
     expect(slide).toEqual({ body: '## Hi\n\n- point', notes: 'say hello\nand smile' })
   })
 
-  it('reads Note: and notes: too, but not inside code (R3)', () => {
-    expect(splitSlides('A\n\nnote:\nquiet')[0]?.notes).toBe('quiet')
+  it('reads notes: in any case, but not Note: or inside code (R3)', () => {
+    expect(splitSlides('A\n\nnotes:\nquiet')[0]?.notes).toBe('quiet')
+    expect(splitSlides('## A\n\nNote: prices exclude VAT.')[0]).toEqual({
+      body: '## A\n\nNote: prices exclude VAT.',
+      notes: '',
+    })
     expect(splitSlides('```\nNotes: code\n```')[0]?.notes).toBe('')
+  })
+
+  it('keeps a hard line break (two trailing spaces)', () => {
+    expect(splitSlides('line one  \nline two')[0]?.body).toBe('line one  \nline two')
+  })
+
+  it('--- right under a paragraph line underlines a heading, it does not split (R1)', () => {
+    expect(splitSlides('Intro\n\nGoals\n---\n- a')).toEqual([
+      { body: 'Intro\n\nGoals\n---\n- a', notes: '' },
+    ])
+    // After a list item or a blank line it still splits.
+    expect(splitSlides('- a\n---\nB').map((s) => s.body)).toEqual(['- a', 'B'])
   })
 
   it('a slide with only notes is kept, so its notes are not lost (R3)', () => {

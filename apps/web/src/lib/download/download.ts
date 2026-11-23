@@ -42,6 +42,14 @@ export async function buildSlidesPdf(
   const slides = splitSlides(source.markdown)
   const markdown = slides.length > 0 ? deckMarkdown(slides) : `# ${source.title}\n`
   const { model, inputs } = await prepareDownload({ ...source, markdown })
+  // Each slide parsed on its own: only the breaks between slides start a page.
+  const { docModel } = await import('./model')
+  const { linkResolver } = await import('./prepare')
+  const link = linkResolver(source.space, source.path, window.location.origin)
+  model.slides =
+    slides.length > 0
+      ? slides.map((s) => docModel(s.body, model.title, link).blocks)
+      : [model.blocks]
   const pdf = await (await import('./toPdf')).toPdf(model, inputs, 'slides')
   return {
     blob: new Blob([pdf], { type: TYPES.pdf }),

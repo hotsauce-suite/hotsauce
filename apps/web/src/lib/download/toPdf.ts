@@ -68,7 +68,7 @@ interface Ctx {
   width: number
   /** Type sizes against a document's (slides are set larger). */
   scale: number
-  /** Slides (docs/PLAN-slides.md R10): a rule between blocks starts the next page. */
+  /** Slides (docs/PLAN-slides.md R10): set for a screen. */
   slides: boolean
   /** Monospace face: the standard Courier, always there. */
   mono: string
@@ -229,11 +229,6 @@ function blocks(list: Block[], ctx: Ctx, tight = false): Content[] {
         } as Content)
         break
       case 'rule':
-        // In a deck, the line between two slides: the next one starts its own page.
-        if (ctx.slides) {
-          out.push({ text: '', pageBreak: 'after' })
-          break
-        }
         out.push({
           canvas: [
             {
@@ -348,8 +343,9 @@ export function pdfDefinition(
 }
 
 /**
- * A deck (docs/PLAN-slides.md R10): one 16:9 page per slide, the slides split by rules (the deck's
- * own `---`), type set for a screen, the slide number in the corner, the logo on the first.
+ * A deck (docs/PLAN-slides.md R10): one 16:9 page per slide (`model.slides`, split before parsing, so
+ * a rule inside a slide stays a rule), type set for a screen, the slide number in the corner, the
+ * logo on the first.
  */
 function slidesDefinition(
   model: DocModel,
@@ -370,7 +366,12 @@ function slidesDefinition(
     pageOrientation: 'landscape',
     pageMargins: [SLIDE_MARGIN_PT, SLIDE_MARGIN_PT, SLIDE_MARGIN_PT, SLIDE_MARGIN_PT],
     info: { title: model.title, author: inputs.brand.orgName, creator: inputs.brand.orgName },
-    content: blocks(model.blocks, ctx),
+    content: (model.slides ?? [model.blocks]).map(
+      (slide, i): Content => ({
+        stack: blocks(slide, ctx),
+        ...(i > 0 ? { pageBreak: 'before' } : {}),
+      }),
+    ),
     defaultStyle: { font: fonts.ui, fontSize: 18, lineHeight: 1.3, color: INK },
     background: (page: number) => [
       {

@@ -20,15 +20,30 @@ const inputs: DownloadInputs = {
 const DECK = `# Launch\n\n---\n\n## Why\n\n- fast\n\nNotes: say the secret part\n\n---\n\n## How\n`
 
 describe('slides as a PDF (docs/PLAN-slides.md R10)', () => {
-  const model = docModel(deckMarkdown(splitSlides(DECK)), 'Launch', (h) => h)
+  const slides = splitSlides(DECK)
+  const model = {
+    ...docModel(deckMarkdown(slides), 'Launch', (h) => h),
+    slides: slides.map((s) => docModel(s.body, 'Launch', (h) => h).blocks),
+  }
   const def = pdfDefinition(model, inputs, { ui: 'Helvetica', display: 'Times' }, 'slides')
 
   it('puts each slide on its own 16:9 page', () => {
     expect(def.pageSize).toEqual({ width: 792, height: 445.5 })
-    const breaks = def.content.filter(
-      (c) => typeof c === 'object' && !Array.isArray(c) && c.pageBreak === 'after',
-    )
-    expect(breaks).toHaveLength(2)
+    const pages = def.content as { stack: unknown[]; pageBreak?: string }[]
+    expect(pages).toHaveLength(3)
+    expect(pages.map((p) => p.pageBreak)).toEqual([undefined, 'before', 'before'])
+  })
+
+  it('keeps a rule inside a slide on that slide’s page', () => {
+    const inner = `## A\n\none\n\n***\n\ntwo\n\n---\n\n## B\n`
+    const parts = splitSlides(inner)
+    const deck = {
+      ...docModel(deckMarkdown(parts), 'A', (h) => h),
+      slides: parts.map((s) => docModel(s.body, 'A', (h) => h).blocks),
+    }
+    const pages = pdfDefinition(deck, inputs, { ui: 'Helvetica', display: 'Times' }, 'slides')
+      .content as unknown[]
+    expect(pages).toHaveLength(2)
   })
 
   it('leaves the speaker notes out', () => {

@@ -133,7 +133,8 @@ export function DocumentView({
   const [picking, setPicking] = useState(false)
   // A slide show of this doc (docs/PLAN-slides.md), with the text as it was when it started.
   const [presenting, setPresenting] = useState<{ start: StartMode; markdown: string } | null>(null)
-  const [drafting, setDrafting] = useState(false)
+  // A ref, not state: the ⌘K command list is memoized and would read a stale flag.
+  const drafting = useRef(false)
 
   const { refreshRecents } = session
   const opened = state.status === 'ready' && !state.isNew
@@ -211,9 +212,9 @@ export function DocumentView({
     return offerToMacPresent(() => present())
   }, [loaded, canPresent, present])
   const draftSlides = async () => {
-    if (drafting) return
+    if (drafting.current) return
     if (!navigator.onLine) return notify('Drafting slides needs a connection.')
-    setDrafting(true)
+    drafting.current = true
     notify('Drafting slides… this takes a few seconds.')
     try {
       const { draftSlides: draft } = await import('../slides/draftSlides')
@@ -230,7 +231,7 @@ export function DocumentView({
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Couldn’t draft the slides.')
     } finally {
-      setDrafting(false)
+      drafting.current = false
     }
   }
   const services = useMemo(
