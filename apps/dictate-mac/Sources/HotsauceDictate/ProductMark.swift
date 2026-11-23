@@ -9,11 +9,13 @@ enum ProductMark {
         let bottle: NSBezierPath
         let label: NSBezierPath
         let flame: NSBezierPath
-        /// The favicon's 2.5 unit outline, in `rect`'s points.
+        /// The glint of light on the glass's left shoulder: a stroke, not a fill.
+        let glint: NSBezierPath
+        /// The favicon's 2.75 unit outline, in `rect`'s points.
         let outline: CGFloat
     }
 
-    /// The mark's four shapes, from the favicon's 64×64 space (y down) into `rect` (y up).
+    /// The mark's five shapes, from the favicon's 64×64 space (y down) into `rect` (y up).
     static func shapes(in rect: NSRect) -> Shapes {
         let k = rect.width / 64
         func p(_ x: CGFloat, _ y: CGFloat) -> NSPoint { NSPoint(x: rect.minX + x * k, y: rect.minY + (64 - y) * k) }
@@ -22,8 +24,8 @@ enum ProductMark {
                          xRadius: r * k, yRadius: r * k)
         }
 
-        // <rect x="24" y="3" width="16" height="10" rx="3"/>
-        let cap = box(24, 3, 16, 10, 3)
+        // <rect x="23.5" y="3" width="17" height="10" rx="3"/>
+        let cap = box(23.5, 3, 17, 10, 3)
 
         // M27 13 h10 v7 c0 3 11 6 11 16 v18 a7 7 0 0 1 -7 7 H23 a7 7 0 0 1 -7 -7 V36 c0 -10 11 -13 11 -16 z
         let bottle = NSBezierPath()
@@ -40,20 +42,28 @@ enum ProductMark {
         bottle.close()
         bottle.lineJoinStyle = .round
 
-        // <rect x="20" y="34" width="24" height="17" rx="3"/>
-        let label = box(20, 34, 24, 17, 3)
+        // <rect x="18.5" y="33" width="27" height="19.5" rx="4"/>
+        let label = box(18.5, 33, 27, 19.5, 4)
 
-        // M33.5 37.5 c2.4 2.4 3.6 4.1 3.6 6.1 a5.1 5.1 0 0 1 -10.2 0 c0 -1.4 .7 -2.5 1.6 -3.5
-        // .3 1.2 .8 1.8 1.6 2 0 -1.6 .9 -3.3 3.4 -4.6z
+        // M34.02 35.1 C37.27 38.34 38.89 40.64 38.89 43.34 A6.885 6.885 0 0 1 25.11 43.34
+        // C25.11 41.45 26.06 39.96 27.27 38.61 C27.68 40.23 28.36 41.04 29.44 41.31
+        // C29.44 39.15 30.65 36.86 34.02 35.1z
         let flame = NSBezierPath()
-        flame.move(to: p(33.5, 37.5))
-        flame.curve(to: p(37.1, 43.6), controlPoint1: p(35.9, 39.9), controlPoint2: p(37.1, 41.6))
-        flame.appendArc(withCenter: p(32, 43.6), radius: 5.1 * k, startAngle: 0, endAngle: 180, clockwise: true)
-        flame.curve(to: p(28.5, 40.1), controlPoint1: p(26.9, 42.2), controlPoint2: p(27.6, 41.1))
-        flame.curve(to: p(30.1, 42.1), controlPoint1: p(28.8, 41.3), controlPoint2: p(29.3, 41.9))
-        flame.curve(to: p(33.5, 37.5), controlPoint1: p(30.1, 40.5), controlPoint2: p(31, 38.8))
+        flame.move(to: p(34.02, 35.1))
+        flame.curve(to: p(38.89, 43.34), controlPoint1: p(37.27, 38.34), controlPoint2: p(38.89, 40.64))
+        flame.appendArc(withCenter: p(32, 43.34), radius: 6.885 * k, startAngle: 0, endAngle: 180, clockwise: true)
+        flame.curve(to: p(27.27, 38.61), controlPoint1: p(25.11, 41.45), controlPoint2: p(26.06, 39.96))
+        flame.curve(to: p(29.44, 41.31), controlPoint1: p(27.68, 40.23), controlPoint2: p(28.36, 41.04))
+        flame.curve(to: p(34.02, 35.1), controlPoint1: p(29.44, 39.15), controlPoint2: p(30.65, 36.86))
         flame.close()
-        return Shapes(cap: cap, bottle: bottle, label: label, flame: flame, outline: 2.5 * k)
+
+        // M21.5 31.5 C22.7 29.1 24.7 27.3 26.8 25.9, stroked 2.4 wide with round caps
+        let glint = NSBezierPath()
+        glint.move(to: p(21.5, 31.5))
+        glint.curve(to: p(26.8, 25.9), controlPoint1: p(22.7, 29.1), controlPoint2: p(24.7, 27.3))
+        glint.lineWidth = 2.4 * k
+        glint.lineCapStyle = .round
+        return Shapes(cap: cap, bottle: bottle, label: label, flame: flame, glint: glint, outline: 2.75 * k)
     }
 
     /// The menu bar icon: the bottle's silhouette, black on clear with the label cut out and the
@@ -74,7 +84,9 @@ enum ProductMark {
             let context = NSGraphicsContext.current
             context?.compositingOperation = .clear
             NSRect(x: rect.minX + 26 * k, y: rect.minY + (64 - 13.6) * k, width: 12 * k, height: 1.2 * k).fill()
-            m.label.fill()
+            // The old, smaller label box: the tuned label would leave walls under a pixel wide at 18 pt.
+            NSBezierPath(roundedRect: NSRect(x: rect.minX + 20 * k, y: rect.minY + (64 - 34 - 17) * k, width: 24 * k, height: 17 * k),
+                         xRadius: 3 * k, yRadius: 3 * k).fill()
             context?.compositingOperation = .sourceOver
             m.flame.fill()
             return true
@@ -85,7 +97,8 @@ enum ProductMark {
     }
 
     /// The app icon at `pixels` square: macOS's rounded tile (824 of 1024, inset 100) in
-    /// hotsauce.work's cream paper with a warm glow from below, and the bottle on it.
+    /// hotsauce.work's dark ink with a rust glow from below, and the bottle on it at 90% of the
+    /// tile. Matches `apps/web/scripts/render-icons.mjs --mac`, which rendered Resources/AppIcon.icns.
     static func appIcon(pixels: Int) -> NSBitmapImageRep {
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8,
                                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
@@ -101,23 +114,28 @@ enum ProductMark {
         shadow.shadowOffset = NSSize(width: 0, height: -10 * s)
         shadow.shadowBlurRadius = 24 * s
         shadow.set()
-        NSColor(srgbHex: 0xFFF4E2).setFill()
+        NSColor(srgbHex: 0x16262D).setFill()
         tile.fill()
         NSGraphicsContext.restoreGraphicsState()
-        NSGradient(colorsAndLocations: (NSColor(srgbHex: 0xF6C48A), 0), (NSColor(srgbHex: 0xFFF4E2), 0.6))!
-            .draw(in: tile, relativeCenterPosition: NSPoint(x: 0, y: -0.84))
-        // The bottle spans 58 of its 64 units (about 60 with its outline): drawn at 80% of the tile it stands about
-        // three quarters of the tile's height, centred.
-        let side = tileRect.width * 0.8
+        NSGradient(colorsAndLocations: (NSColor(srgbHex: 0xA94E26).withAlphaComponent(0.55), 0),
+                   (NSColor(srgbHex: 0x16262D).withAlphaComponent(0), 0.8))!
+            .draw(in: tile, relativeCenterPosition: NSPoint(x: 0, y: -0.7))
+        // The bottle spans 58 of its 64 units (about 61 with its outline): drawn at 90% of the tile it fills
+        // most of the tile's height, centred. Its outline is darker than the tile so it still shows.
+        let side = tileRect.width * 0.9
         let m = shapes(in: NSRect(x: tileRect.midX - side / 2, y: tileRect.midY - side / 2, width: side, height: side))
-        let ink = NSColor(srgbHex: 0x16262D)
-        ink.setStroke()
+        NSColor(srgbHex: 0x0B1418).setStroke()
         for (shape, fill, width) in [(m.cap, 0x1F4D3A, m.outline), (m.bottle, 0xA94E26, m.outline),
-                                     (m.label, 0xFFF4E2, m.outline * 0.8)] as [(NSBezierPath, UInt32, CGFloat)] {
+                                     (m.label, 0xFFF4E2, m.outline * 2.25 / 2.75)] as [(NSBezierPath, UInt32, CGFloat)] {
             NSColor(srgbHex: fill).setFill()
             shape.fill()
             shape.lineWidth = width
             shape.stroke()
+            if shape === m.bottle {
+                NSColor(srgbHex: 0xFFF4E2).withAlphaComponent(0.85).setStroke()
+                m.glint.stroke()
+                NSColor(srgbHex: 0x0B1418).setStroke()
+            }
         }
         NSColor(srgbHex: 0xA94E26).setFill()
         m.flame.fill()
