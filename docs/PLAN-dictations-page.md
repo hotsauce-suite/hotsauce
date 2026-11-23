@@ -48,6 +48,11 @@ R8. App icons come from the Mac as small PNG data URLs, only for the apps on scr
 R9. An empty history says how to dictate (hold the shortcut, it stays on this Mac); a search with
 no match says so.
 
+R10. The Recent dictations heading has a chevron and folds the list (and its search) away or opens
+it again. Open by default; the choice is remembered on that device (web: localStorage
+`hotsauce:dictate-recent`; the old native window: `recentDictationsOpen`). The numbers above stay.
+Added 2026-11-23.
+
 ## Slices
 
 1. DictateCore: request parsing and the reply builder (Swift tests).

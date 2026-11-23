@@ -131,6 +131,7 @@ function Loaded({
   bridge: MacSettingsBridge
 }) {
   const { stats } = data
+  const [open, setOpen] = useRecentOpen()
   const most = Math.max(1, stats.topApps[0]?.words ?? 1)
   return (
     <>
@@ -181,43 +182,86 @@ function Loaded({
       </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <h4 className="font-display text-base font-semibold text-ink">Recent dictations</h4>
-        <input
-          type="search"
-          value={search}
-          maxLength={SEARCH_LIMIT}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search"
-          aria-label="Search dictations"
-          className="h-9 w-full rounded-lg border border-ash-strong bg-paper-raised px-3 text-sm sm:w-56"
-        />
-      </div>
-      {data.records.length === 0 ? (
-        <p className="mt-3 text-sm text-ink-faint" data-testid="mac-dictations-empty">
-          {data.total === 0
-            ? 'Hold your dictation shortcut anywhere and speak. Your dictations stay on this Mac.'
-            : `Nothing matches “${data.query.trim()}”.`}
-        </p>
-      ) : (
-        <ul className="mt-3 space-y-2" data-testid="mac-dictations-list">
-          {data.records.map((record) => (
-            <Row
-              key={record.id}
-              record={record}
-              icon={record.bundle ? data.icons[record.bundle] : undefined}
-              bridge={bridge}
+        <h4 className="font-display text-base font-semibold text-ink">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls="mac-dictations-recent"
+            onClick={() => setOpen(!open)}
+            className="-ml-1 inline-flex items-center gap-1.5 rounded-md px-1 hover:text-ember"
+          >
+            <Icon
+              name="chevron"
+              className={`size-3.5 shrink-0 text-ink-faint transition-transform ${open ? 'rotate-90' : ''}`}
             />
-          ))}
-        </ul>
-      )}
-      {data.matched > data.records.length ? (
-        <p className="mt-2 text-xs text-ink-faint">
-          The newest {data.records.length} of {data.matched.toLocaleString()}. Search to find older
-          ones.
-        </p>
+            Recent dictations
+          </button>
+        </h4>
+        {open ? (
+          <input
+            type="search"
+            value={search}
+            maxLength={SEARCH_LIMIT}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search"
+            aria-label="Search dictations"
+            className="h-9 w-full rounded-lg border border-ash-strong bg-paper-raised px-3 text-sm sm:w-56"
+          />
+        ) : null}
+      </div>
+      {open ? (
+        <div id="mac-dictations-recent">
+          {data.records.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-faint" data-testid="mac-dictations-empty">
+              {data.total === 0
+                ? 'Hold your dictation shortcut anywhere and speak. Your dictations stay on this Mac.'
+                : `Nothing matches “${data.query.trim()}”.`}
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2" data-testid="mac-dictations-list">
+              {data.records.map((record) => (
+                <Row
+                  key={record.id}
+                  record={record}
+                  icon={record.bundle ? data.icons[record.bundle] : undefined}
+                  bridge={bridge}
+                />
+              ))}
+            </ul>
+          )}
+          {data.matched > data.records.length ? (
+            <p className="mt-2 text-xs text-ink-faint">
+              The newest {data.records.length} of {data.matched.toLocaleString()}. Search to find
+              older ones.
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </>
   )
+}
+
+/** Whether Recent dictations is open; remembered on this device (R10). Open until closed. */
+export const RECENT_KEY = 'hotsauce:dictate-recent'
+
+function useRecentOpen(): [boolean, (open: boolean) => void] {
+  const [open, setOpenState] = useState(() => {
+    try {
+      return localStorage.getItem(RECENT_KEY) !== 'closed'
+    } catch {
+      return true
+    }
+  })
+  const setOpen = useCallback((next: boolean) => {
+    setOpenState(next)
+    try {
+      if (next) localStorage.removeItem(RECENT_KEY)
+      else localStorage.setItem(RECENT_KEY, 'closed')
+    } catch {
+      // No storage (private window): it lasts until the page reloads.
+    }
+  }, [])
+  return [open, setOpen]
 }
 
 function Tile({ title, value, detail }: { title: string; value: string; detail: string }) {

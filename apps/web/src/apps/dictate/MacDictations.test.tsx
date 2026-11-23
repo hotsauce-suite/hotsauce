@@ -4,7 +4,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import { DICTATIONS_CHANGED, parseMacDictations } from '../../lib/macDictations'
 import { FakeMac, sampleDictations } from '../../test/fakeMac'
-import { duration, MacDictations } from './MacDictations'
+import { duration, MacDictations, RECENT_KEY } from './MacDictations'
 
 // docs/PLAN-dictations-page.md R1–R5, R9, against a stand-in for the Mac app's bridge.
 
@@ -168,6 +168,31 @@ describe('parseMacDictations', () => {
       at[path.at(-1)!] = value
       expect(parseMacDictations(reply), path.join('.')).toBeNull()
     }
+  })
+
+  it('collapses Recent dictations from its header and remembers it (R10)', async () => {
+    const user = userEvent.setup()
+    const first = render(<MacDictations bridge={withHistory()} />)
+    const header = await screen.findByRole('button', { name: 'Recent dictations' })
+    // Open by default.
+    expect(header).toHaveAttribute('aria-expanded', 'true')
+    await screen.findByTestId('mac-dictations-list')
+    await user.click(header)
+    expect(header).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('mac-dictations-list')).toBeNull()
+    expect(screen.queryByRole('searchbox', { name: 'Search dictations' })).toBeNull()
+    // The numbers above stay.
+    expect(screen.getByTestId('mac-dictations-tiles')).toBeInTheDocument()
+    first.unmount()
+
+    // Closed again next time.
+    render(<MacDictations bridge={withHistory()} />)
+    const again = await screen.findByRole('button', { name: 'Recent dictations' })
+    expect(again).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('mac-dictations-list')).toBeNull()
+    await user.click(again)
+    expect(await screen.findByTestId('mac-dictations-list')).toBeInTheDocument()
+    expect(localStorage.getItem(RECENT_KEY)).toBeNull()
   })
 
   it('never throws, whatever the Mac answers', () => {

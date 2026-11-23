@@ -216,6 +216,8 @@ private struct TopBar: View {
 
 private struct DictationsPage: View {
     @ObservedObject var model: MainModel
+    /// Recent dictations open or closed, remembered like the web page's (PLAN-dictations-page R10).
+    @AppStorage("recentDictationsOpen") private var recentOpen = true
 
     var body: some View {
         ScrollView {
@@ -269,14 +271,31 @@ private struct DictationsPage: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Recent dictations").font(Hotsauce.display(16)).foregroundStyle(Hotsauce.ink)
+                        Button {
+                            recentOpen.toggle()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(Hotsauce.inkFaint)
+                                    .rotationEffect(.degrees(recentOpen ? 90 : 0))
+                                Text("Recent dictations").font(Hotsauce.display(16)).foregroundStyle(Hotsauce.ink)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityValue(recentOpen ? "Expanded" : "Collapsed")
                         Spacer()
-                        TextField("Search", text: $model.search)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 220)
+                        if recentOpen {
+                            TextField("Search", text: $model.search)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 220)
+                        }
                     }
                     let list = model.filtered
-                    if list.isEmpty {
+                    if !recentOpen {
+                        EmptyView()
+                    } else if list.isEmpty {
                         Empty(model.records.isEmpty ? "Hold \(model.hotkey.shortName) anywhere and speak. Your dictations stay on this Mac." : "Nothing matches “\(model.search)”.")
                     } else {
                         LazyVStack(spacing: 8) {

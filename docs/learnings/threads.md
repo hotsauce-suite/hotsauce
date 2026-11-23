@@ -45,3 +45,8 @@
   `git push -q` then pushes nothing to your branch and prints nothing, so CI keeps testing an old
   head. After restarting a branch, push with `git push origin <branch>` (or set the upstream to the
   branch) and check `git ls-remote` shows your commit before waiting on CI.
+- **Mac-only web sections can be checked in a plain browser.** Run `vite --mode demo` and, in a
+  Playwright init script, define `window.webkit.messageHandlers.hotsauceMacSettings.postMessage` as
+  an async function returning a reply shaped like `test/fakeMac.ts`. The page then renders "On this
+  Mac" as the Mac app would. In a fresh container, `pnpm --filter @hotsauce/format build` first, or
+  web vitest fails to resolve `@hotsauce/format`.
