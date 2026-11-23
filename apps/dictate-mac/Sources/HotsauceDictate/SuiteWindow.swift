@@ -145,6 +145,8 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
         configuration.userContentController.addScriptMessageHandler(MacSettingsHandler(self), contentWorld: .page, name: MacSettingsBridge.handlerName)
         // Settings → Apps: where the app's own update stands, and "Restart to update".
         configuration.userContentController.addScriptMessageHandler(UpdateHandler(self), contentWorld: .page, name: UpdateBridge.handlerName)
+        // PDF tools' Make searchable: the Mac reads page pictures with Vision (docs/PLAN-pdf-tools.md R6).
+        configuration.userContentController.addScriptMessageHandler(ReadTextHandler(self), contentWorld: .page, name: TextReading.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
@@ -371,6 +373,71 @@ final class SuiteWindow: NSObject, NSWindowDelegate, NSToolbarDelegate, WKNaviga
             return reply(nil)
         }
         location.request(reply: reply)
+    }
+
+    /// Answers PDF tools' `hotsauceReadText.postMessage({png})`, only for the suite's own page: the
+    /// lines Vision reads, worked out off the main thread (docs/PLAN-pdf-tools.md R6).
+    fileprivate func readText(for message: WKScriptMessage, reply: @escaping @MainActor (Any?) -> Void) {
+        guard message.frameInfo.isMainFrame, isSuiteFrame(message.frameInfo) else {
+            return reply(TextReading.failure("Only Hotsauce’s own pages can read text here."))
+        }
+        guard let base64 = TextReading.base64(from: message.body) else {
+            return reply(TextReading.failure("That page picture couldn’t be read."))
+        }
+        Task.detached(priority: .userInitiated) {
+            let png = TextReading.picture(fromBase64: base64)
+            let lines = png.flatMap(PageTextReader.read)
+            await MainActor.run {
+                if png == nil {
+                    reply(TextReading.failure("That page picture couldn’t be read."))
+                } else {
+                    reply(lines.map(TextReading.answer) ?? TextReading.failure("The Mac couldn’t read this page."))
+                }
+            }
+        }
+    }
+
+    /// Files dropped on the app's icon (docs/PLAN-pdf-tools.md R10): shows the window and hands
+    /// them to the signed-in page, which uploads them to Personal files and opens PDFs in PDF
+    /// tools. A window still loading gets them once the page is there (about 20 seconds).
+    func openDroppedFiles(_ files: [[String: String]], tries: Int = 40) {
+        show()
+        let retry = { [weak self] in
+            guard tries > 0 else {
+                self?.showMessage("Open Hotsauce and sign in, then drop the files again.")
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                MainActor.assumeIsolated { self?.openDroppedFiles(files, tries: tries - 1) }
+            }
+        }
+        guard !webView.isLoading, isOnSuitePage, failedURL == nil else { return retry() }
+        Task {
+            // Ask cheaply whether the page is ready; the files cross only once it is.
+            let ready = (try? await webView.callAsyncJavaScript(
+                DroppedFiles.readyScript, arguments: [:], in: nil, contentWorld: .page
+            )) as? Bool ?? false
+            guard ready else { return retry() }
+            let answer: Any?
+            do {
+                answer = try await webView.callAsyncJavaScript(
+                    DroppedFiles.script, arguments: ["files": files], in: nil, contentWorld: .page
+                )
+            } catch {
+                // The page went away mid-way (a reload); some files may be in already, so it
+                // isn't sent twice.
+                showMessage("Those files may not all have been added. Check Personal files in Files.")
+                return
+            }
+            switch DroppedFiles.parse(answer) {
+            case .opened:
+                break
+            case .notReady:
+                retry()
+            case let .failed(error):
+                showMessage(error)
+            }
+        }
     }
 
     /// Answers Settings' `hearthNotifications.postMessage('state' | 'open')`, only for the suite's own
@@ -1165,6 +1232,19 @@ private final class DictateHandoffHandler: NSObject, WKScriptMessageHandlerWithR
             suite.dictateHandoff(message) { answer in
                 MainActor.assumeIsolated { replyHandler(answer, nil) }
             }
+        }
+    }
+}
+
+/// Answers PDF tools' `hotsauceReadText.postMessage({png})` with the lines Vision reads.
+private final class ReadTextHandler: NSObject, WKScriptMessageHandlerWithReply {
+    weak var suite: SuiteWindow?
+    init(_ suite: SuiteWindow) { self.suite = suite }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        MainActor.assumeIsolated {
+            guard let suite else { return replyHandler(nil, nil) }
+            suite.readText(for: message) { answer in replyHandler(answer, nil) }
         }
     }
 }

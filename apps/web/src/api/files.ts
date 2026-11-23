@@ -2,7 +2,7 @@ import type { LinkChoice, LinkPolicy } from './shares'
 // Client for `/api/files` (ARCHITECTURE §18.2): Hotsauce Files.
 
 import type { PreviewKind } from '@hotsauce/format'
-import { HotsauceApiError, request } from './client'
+import { HotsauceApiError, request, requestBlob } from './client'
 
 export interface DriveFile {
   id: string
@@ -82,6 +82,9 @@ export const filesApi = {
   move: (space: string, id: string, to: string) =>
     request<DriveFile>(`${item(space, id)}/move`, { method: 'POST', json: { to } }),
   remove: (space: string, id: string) => request<void>(item(space, id), { method: 'DELETE' }),
+  /** A PDF's bytes through the server, for PDF tools (docs/PLAN-pdf-tools.md). */
+  pdf: async (space: string, id: string) =>
+    new Uint8Array(await (await requestBlob(`${item(space, id)}/pdf`)).arrayBuffer()),
   createFolder: (space: string, folder: string) =>
     request<{ folder: string }>(`${BASE}/folders`, { method: 'POST', json: { space, folder } }),
   renameFolder: (space: string, from: string, to: string) =>

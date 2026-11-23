@@ -20,12 +20,24 @@ describe('mock files', () => {
     const launch = await filesApi.list('team', 'Pilot launch')
     // The signed copy and certificate come from the Sign demo's finished envelope.
     expect(launch.files.map((f) => [f.name, f.preview])).toEqual([
+      ['Acme pilot agreement.pdf', 'pdf'],
       ['Acme pilot one-pager (certificate).pdf', 'pdf'],
       ['Acme pilot one-pager (signed).pdf', 'pdf'],
       ['Acme pilot one-pager.pdf', 'pdf'],
       ['Launch checklist.md', 'text'],
       ['Pilot sign-ups by week.png', 'image'],
     ])
+  })
+
+  it('hands PDF tools a PDF’s bytes, and refuses other files', async () => {
+    const launch = await filesApi.list('team', 'Pilot launch')
+    const agreement = launch.files.find((f) => f.name === 'Acme pilot agreement.pdf')
+    if (!agreement) throw new Error('no agreement')
+    const bytes = await filesApi.pdf('team', agreement.id)
+    expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe('%PDF-')
+    expect(new TextDecoder().decode(bytes)).toContain('/Count 3')
+    const md = launch.files.find((f) => f.name === 'Launch checklist.md')
+    await expect(filesApi.pdf('team', md?.id ?? '')).rejects.toThrow()
   })
 
   it('serves real bytes with the right type for previews', async () => {
@@ -95,7 +107,7 @@ describe('mock files', () => {
     await filesApi.renameFolder('team', 'Pilot launch', 'Launch')
     const moved = await filesApi.list('team', 'Launch')
     expect(moved.folders).toEqual(['Launch/Week 1'])
-    expect(moved.files).toHaveLength(5)
+    expect(moved.files).toHaveLength(6)
     await filesApi.removeFolder('team', 'Launch')
     expect((await filesApi.list('team')).folders).toEqual(['Brand', 'Links', 'Research'])
   })

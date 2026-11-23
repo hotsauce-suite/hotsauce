@@ -20,6 +20,7 @@ import { useOnline } from '../../lib/connection'
 import { useSession } from '../../state/session'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { filesBus } from './bus'
+import { isPdfFile, type PdfTab, PdfTools } from './PdfTools'
 import { FilePreview } from './Preview'
 import type { FilesRouteKind } from './routes'
 import { clearFinishedUploads, startUploads, useUploads } from './uploads'
@@ -54,6 +55,7 @@ type Dialogs =
   | { kind: 'move'; file: DriveFile }
   | { kind: 'delete'; file: DriveFile }
   | { kind: 'delete-folder'; folder: string }
+  | { kind: 'pdf-tools'; file: DriveFile; tab?: PdfTab; with?: DriveFile[] }
   | null
 
 /** `/files`: one folder of Team files or Personal files, Recent, and a file open on top. */
@@ -166,6 +168,34 @@ export default function FilesPage() {
     navigate(`/files${p.size ? `?${p}` : ''}`)
   }
   const openFile = (f: DriveFile) => navigate(f.url)
+
+  // PDF tools straight from an address (the Mac app opens dropped PDFs with ?tools=pages&with=…).
+  const toolsParam = search.get('tools')
+  const withParam = search.get('with')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per file and address
+  useEffect(() => {
+    if (!open || !toolsParam || !isPdfFile(open)) return
+    const tab = (['pages', 'split', 'shrink', 'searchable', 'redact'] as const).find(
+      (t) => t === toolsParam,
+    )
+    let live = true
+    const ids = (withParam ?? '').split(',').filter(Boolean).slice(0, 20)
+    void Promise.all(ids.map((id) => filesApi.get(open.space, id).catch(() => null))).then(
+      (more) => {
+        if (!live) return
+        setDialog({
+          kind: 'pdf-tools',
+          file: open,
+          tab: tab ?? 'pages',
+          with: more.filter((f): f is DriveFile => f !== null),
+        })
+        navigate(open.url, { replace: true })
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [open?.id, toolsParam, withParam])
   const closeFile = () => goFolder(open?.folder ?? '')
 
   const upload = useCallback(
@@ -472,6 +502,8 @@ export default function FilesPage() {
             onDelete={(file) => setDialog({ kind: 'delete', file })}
             onShare={copyShare}
             onSign={(file) => void sendForSignature(file)}
+            onTools={(file) => setDialog({ kind: 'pdf-tools', file })}
+            online={online}
             onMoveSpace={(file, to) =>
               act(
                 () => filesApi.move(file.space, file.id, to),
@@ -512,6 +544,8 @@ export default function FilesPage() {
           onClose={closeFile}
           onShare={copyShare}
           onSign={(file) => void sendForSignature(file)}
+          onTools={(file) => setDialog({ kind: 'pdf-tools', file })}
+          online={online}
           onKeep={(file) => void keep(file)}
           onChanged={(file) => {
             setOpen(file)
@@ -522,6 +556,20 @@ export default function FilesPage() {
         />
       ) : null}
 
+      {dialog?.kind === 'pdf-tools' ? (
+        <PdfTools
+          key={dialog.file.id}
+          file={dialog.file}
+          initialTab={dialog.tab}
+          withFiles={dialog.with}
+          onClose={() => setDialog(null)}
+          onOpen={(f) => {
+            setDialog(null)
+            setTick((n) => n + 1)
+            openFile(f)
+          }}
+        />
+      ) : null}
       {dialog?.kind === 'new-folder' ? (
         <NameDialog
           title="New folder"
@@ -646,8 +694,8 @@ function RowMenuButton({ label, onOpen }: { label: string; onOpen: (a: MenuAncho
   )
 }
 
-/** A PDF can be sent for signature (Sign). */
-const isPdf = (f: DriveFile) => f.mime === 'application/pdf' || f.preview === 'pdf'
+/** A PDF can be sent for signature (Sign) and opened in PDF tools. */
+const isPdf = isPdfFile
 
 function FileMenuItems({
   file,
@@ -658,10 +706,14 @@ function FileMenuItems({
   onDelete,
   onShare,
   onSign,
+  onTools,
+  online,
   onMoveSpace,
 }: {
   file: DriveFile
   personal: string | null
+  online: boolean
+  onTools: (f: DriveFile) => void
   close: () => void
   onRename: (f: DriveFile) => void
   onMove: (f: DriveFile) => void
@@ -688,6 +740,11 @@ function FileMenuItems({
           Send for signature
         </MenuItem>
       ) : null}
+      {isPdf(file) && online ? (
+        <MenuItem icon="sliders" testId="files-pdf-tools" onSelect={run(() => onTools(file))}>
+          PDF tools
+        </MenuItem>
+      ) : null}
       <MenuItem icon="pencil" onSelect={run(() => onRename(file))}>
         Rename
       </MenuItem>
@@ -712,6 +769,8 @@ function FileDialog({
   onClose,
   onShare,
   onSign,
+  onTools,
+  online,
   onKeep,
   onChanged,
   onRename,
@@ -719,6 +778,8 @@ function FileDialog({
 }: {
   file: DriveFile
   personal: string | null
+  onTools: (f: DriveFile) => void
+  online: boolean
   onClose: () => void
   onShare: (f: DriveFile) => void
   onSign: (f: DriveFile) => void
@@ -812,6 +873,18 @@ function FileDialog({
             >
               <Icon name="sign" />
               Send for signature
+            </button>
+          ) : null}
+          {isPdf(file) ? (
+            <button
+              type="button"
+              className={`${secondaryButton} h-9`}
+              onClick={() => onTools(file)}
+              {...needsConnection(online)}
+              data-testid="file-pdf-tools"
+            >
+              <Icon name="sliders" />
+              PDF tools
             </button>
           ) : null}
           <ShareButton

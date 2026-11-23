@@ -25,6 +25,7 @@ import { BreakOverlay } from '../breaks/BreakOverlay'
 import { breaks } from '../breaks/breaks'
 import { loadBreakSettings } from '../breaks/settings'
 import { useEggs } from '../eggs/useEggs'
+import { useMacOpenFiles } from '../hooks/useMacOpenFiles'
 import { useMacScreenshots } from '../hooks/useMacScreenshots'
 import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSpec } from '../keyboard/keys'
@@ -124,6 +125,7 @@ function ShellLayout() {
   const location = useLocation()
   const session = useSession()
   useMacScreenshots()
+  useMacOpenFiles()
   const compact = useMediaQuery(MOBILE_QUERY)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)

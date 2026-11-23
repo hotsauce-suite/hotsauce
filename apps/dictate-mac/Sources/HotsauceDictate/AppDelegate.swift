@@ -525,6 +525,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return true
     }
 
+    /// Files dropped on the app's icon, or opened with it (docs/PLAN-pdf-tools.md R10): they go to
+    /// Personal files through the signed-in page, and PDFs open in PDF tools. Waits a moment at
+    /// launch, so the window and its messages are set up first.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let files = urls.filter(\.isFileURL)
+        guard !files.isEmpty else { return }
+        // Reading big files takes a moment: off the main thread, then back to show them.
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let payload = DroppedFiles.payload(files)
+            await MainActor.run {
+                guard let self else { return }
+                switch payload {
+                case let .success(payload):
+                    self.suite.openDroppedFiles(payload)
+                case let .failure(failure):
+                    self.suite.show()
+                    self.controller.showMessage(DroppedFiles.message(failure))
+                }
+            }
+        }
+    }
+
     /// Closing the windows doesn't quit: dictation and reminders keep running.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 

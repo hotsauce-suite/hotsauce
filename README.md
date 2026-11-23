@@ -133,7 +133,7 @@ tools can all read what you saved. [More in the help center](https://hotsauce.wo
 | --- | --- |
 | **People** | Everyone you meet with, from your calendar and meeting notes: past and next meetings, open to-dos, and a short note about each person. |
 | **Boards** | Hand-drawn boards the whole team can draw on at once, saved as files you can search. |
-| **Files** | Upload and share files and folders, with previews and search across what's inside them. |
+| **Files** | Upload and share files and folders, with previews and search across what's inside them. PDF tools combine, split, turn, shrink, make scans searchable and redact, saving each result beside the original. |
 | **Tables** | Trackers with spreadsheet formulas, kept as CSV files in git. |
 | **Forms** | Surveys, sign-ups and requests for your team or anyone with the link. Answers land in Hotsauce, where you can search them. |
 | **Sign** | Sign a PDF from Files by typing or drawing. The signed copy is sealed so any later change shows, and an audit certificate is saved beside it. |

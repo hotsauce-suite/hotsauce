@@ -37,6 +37,8 @@ import { type Extracted, extractText } from './extract.js'
 export const MAX_FILE_BYTES = 2 * 1024 ** 3
 /** Each upload chunk; under the API's 12 MB body limit. */
 export const CHUNK_BYTES = 8 * 1024 * 1024
+/** The biggest PDF that PDF tools open: the browser holds a few copies of it while it works. */
+export const MAX_PDF_TOOL_BYTES = 300 * 1024 * 1024
 export const MAX_CHUNKS = Math.ceil(MAX_FILE_BYTES / CHUNK_BYTES)
 const MAX_LIST = 5000
 /** An upload nobody finished in this long was abandoned; its chunks are removed. */
@@ -202,6 +204,32 @@ export class Files {
   async get(principal: Principal, space: string, id: string): Promise<FileView> {
     this.#assertAccess(principal, space)
     return (await this.#read(space, id)).view
+  }
+
+  /**
+   * A PDF's bytes through this server, for PDF tools in the browser (docs/PLAN-pdf-tools.md):
+   * the presigned R2 address is on another origin, which the page can't read. Refuses anything
+   * but a PDF, and one over MAX_PDF_TOOL_BYTES.
+   */
+  async pdf(
+    principal: Principal,
+    space: string,
+    id: string,
+  ): Promise<{ body: ReadableStream<Uint8Array>; size: number }> {
+    const view = await this.get(principal, space, id)
+    if (view.mime !== 'application/pdf' && view.preview !== 'pdf') {
+      throw new HotsauceError('bad_request', 'That file isn’t a PDF')
+    }
+    if (view.size > MAX_PDF_TOOL_BYTES) {
+      throw new HotsauceError('bad_request', 'This PDF is too big for PDF tools (over 300 MB)')
+    }
+    const got = await this.#store().get(fileStoreKey(id))
+    if (!got) throw new HotsauceError('not_found', 'The file’s contents are missing')
+    if (got.size > MAX_PDF_TOOL_BYTES) {
+      await got.body.cancel().catch(() => {})
+      throw new HotsauceError('bad_request', 'This PDF is too big for PDF tools (over 300 MB)')
+    }
+    return { body: got.body, size: got.size }
   }
 
   /** The text pulled from the file, as the pointer keeps it. */
