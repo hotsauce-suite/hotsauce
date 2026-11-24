@@ -27,7 +27,23 @@ import Testing
         #expect(watch.isIdle)
         #expect(watch.update(micApp: "Google Meet", recording: nil, now: t0, sure: true) == .offerNotes(app: "Google Meet"))
         #expect(!watch.isIdle)
+        #expect(watch.isInCall)
         #expect(watch.update(micApp: "Google Meet", recording: nil, now: t0.addingTimeInterval(1), sure: true) == nil)
+    }
+
+    @Test func aSureCallStillRespectsTheCooldown() {
+        var watch = CallWatch()
+        #expect(watch.update(micApp: "Zoom", recording: nil, now: t0, sure: true) == .offerNotes(app: "Zoom"))
+        // Zoom lets go long enough for the call to end, then a new call within 10 minutes.
+        #expect(run(&watch, from: 2, for: 40, app: nil, recording: nil) == [.callOver])
+        #expect(watch.update(micApp: "Zoom", recording: nil, now: t0.addingTimeInterval(60), sure: true) == .skipped(app: "Zoom", reason: .cooldown))
+    }
+
+    @Test func whileACallStartsItIsNotYetInCall() {
+        var watch = CallWatch()
+        #expect(watch.update(micApp: "Google Chrome", recording: nil, now: t0) == nil)
+        #expect(!watch.isIdle)
+        #expect(!watch.isInCall)
     }
 
     @Test func aBrowserThatTurnsOutToBeACallIsOfferedOnceItsSure() {
@@ -185,6 +201,18 @@ import Testing
         #expect(!MicApps.isCallCandidate("com.apple.WebKit.GPU", ownBundleID: own))
         #expect(!MicApps.isCallCandidate(own, ownBundleID: own))
         #expect(!MicApps.isCallCandidate(nil, ownBundleID: own))
+    }
+
+    @Test func onlyMeetingAppsAreSure() {
+        // Zoom and FaceTime only use the mic for calls; WhatsApp and Slack also record voice
+        // notes, so they wait the usual few seconds.
+        #expect(MicApps.isMeetingApp("us.zoom.xos"))
+        #expect(MicApps.isMeetingApp("com.microsoft.teams2.Helper.Renderer"))
+        #expect(MicApps.isMeetingApp("com.apple.avconferenced"))
+        #expect(!MicApps.isMeetingApp("net.whatsapp.WhatsApp"))
+        #expect(!MicApps.isMeetingApp("com.tinyspeck.slackmacgap.helper"))
+        #expect(!MicApps.isMeetingApp("com.google.Chrome.helper"))
+        #expect(!MicApps.isMeetingApp(nil))
     }
 
     @Test func browsersAreKnown() {

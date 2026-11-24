@@ -41,9 +41,9 @@ final class CallDetector {
             offer.hide()
             return
         }
-        // While no call is under way, a browser's window titles are read fresh, so a Meet tab
+        // Until a call has started, a browser's window titles are read fresh, so a Meet tab
         // that just opened is recognised on the tick its mic starts.
-        let call = Self.callUsingMic(Self.micUsers(), fresh: watch.isIdle)
+        let call = Self.callUsingMic(Self.micUsers(), fresh: !watch.isInCall)
         let action = watch.update(micApp: call?.name, recording: suite.recordingMeetingSession, now: Date(), sure: call?.sure ?? false)
         switch action {
         case .offerNotes(let name):
@@ -151,8 +151,11 @@ final class CallDetector {
         let own = Bundle.main.bundleIdentifier
         let ownPID = ProcessInfo.processInfo.processIdentifier
         var unsure: String?
+        var seen = Set<String>()
         for user in users where user.pid != ownPID {
-            guard MicApps.isCallCandidate(user.bundleID, ownBundleID: own),
+            // Chrome and its helpers can all hold the mic: read each app once per tick.
+            let key = user.bundleID.map(MicApps.mainBundleID) ?? "pid \(user.pid)"
+            guard MicApps.isCallCandidate(user.bundleID, ownBundleID: own), seen.insert(key).inserted,
                   let call = call(of: user, fresh: fresh) else { continue }
             if call.sure { return call }
             unsure = unsure ?? call.name
@@ -177,7 +180,7 @@ final class CallDetector {
         guard let app = candidates.first(where: { $0.activationPolicy == .regular }),
               let name = app.localizedName else { return nil }
         // A call in a browser is named for the service in its window ("Google Meet").
-        guard MicApps.isBrowser(user.bundleID) else { return (name, true) }
+        guard MicApps.isBrowser(user.bundleID) else { return (name, MicApps.isMeetingApp(user.bundleID)) }
         let service = MicApps.callName(windowTitles: windowTitles(of: app.processIdentifier, fresh: fresh), browser: name)
         return (service, service != name)
     }

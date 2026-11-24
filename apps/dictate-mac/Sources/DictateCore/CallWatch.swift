@@ -56,6 +56,14 @@ public struct CallWatch: Sendable {
     /// Whether no call is starting or under way.
     public var isIdle: Bool { phase == .idle }
 
+    /// Whether a call has started (offered or not) and not yet ended.
+    public var isInCall: Bool {
+        switch phase {
+        case .inCall, .ending: return true
+        case .idle, .starting: return false
+        }
+    }
+
     /// Called every second or two. `micApp` names a call app using the mic, or is nil;
     /// `recording` is the id of the meeting recording in this app (paused counts), or nil.
     /// `sure` says the app is certainly on a call (Zoom, or a browser showing Google Meet): the
@@ -127,6 +135,21 @@ public enum MicApps {
         // FaceTime and iPhone calls on the Mac run their audio here.
         "com.apple.avconferenced",
     ]
+
+    /// Apps whose only use of the mic is a meeting: holding it is surely a call, offered at once.
+    /// Messaging apps (WhatsApp, Slack, Discord...) also record voice notes, so they wait.
+    static let meetingApps: Set<String> = [
+        "us.zoom.xos", "com.microsoft.teams2", "com.microsoft.teams", "com.apple.facetime",
+        "com.apple.avconferenced", "com.cisco.webexmeetingsapp", "cisco-systems.spark",
+        "com.webex.meetingmanager", "com.logmein.gotomeeting", "com.amazon.chime",
+        "com.bluejeans.app.bluejeans", "app.tuple.app", "com.ringcentral.ringcentralformac",
+    ]
+
+    /// Whether this app (or a helper of it) is a meeting app.
+    public static func isMeetingApp(_ bundleID: String?) -> Bool {
+        guard let bundleID, !bundleID.isEmpty else { return false }
+        return meetingApps.contains(mainBundleID(bundleID).lowercased())
+    }
 
     /// Browsers whose mic use counts as a call: Meet, Teams or Zoom on the web, named from the
     /// window's title (`callName`). Safari isn't here: its mic runs in WebKit's shared process,

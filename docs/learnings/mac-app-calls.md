@@ -55,3 +55,8 @@ Learnings from "Take notes on this Zoom call?" (`DictateCore/CallWatch.swift`, `
   holding the mic is already certain, and the wait read as "slow" next to Granola. Offer on the
   first tick for those, keep the wait for browsers on other sites, and read window titles fresh
   until a call starts (the 30 s cache would otherwise hide a Meet tab opened seconds ago).
+- **"Sure" needs care.** Messaging apps (WhatsApp, Slack) hold the mic for voice notes, so only
+  meeting-only apps skip the wait, and a browser's titles must stay fresh through the whole
+  starting phase, not just its first tick, or the 30 s cache hides the Meet title that arrives a
+  second later. Known gap: any window showing Meet makes the browser sure, even if the mic is on
+  another tab.

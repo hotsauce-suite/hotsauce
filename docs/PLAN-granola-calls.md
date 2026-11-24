@@ -30,5 +30,5 @@ app's own window uses too.
    Meet in Chrome gets one offer.
 6. A sure call (a call app, or a browser whose window shows a call service) is offered on the
    first tick it holds the mic; detection ticks every second and reads browser window titles fresh
-   until a call starts. A browser on another site still waits 4 s (`CallWatchTests`, Nov 24:
+   until a call has started. Messaging apps and a browser on another site still wait 4 s (`CallWatchTests`, Nov 24:
    "Granola detects a meeting instantly").
