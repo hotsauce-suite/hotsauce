@@ -474,6 +474,23 @@ describe('Settings: General, Apps, and the help strip', () => {
     }
   })
 
+  it('names the new build when a ready update has the version already installed', async () => {
+    const { leave } = inSelfUpdatingMacApp('0.26.0', { state: 'ready', version: '0.26.0' })
+    Object.assign(window, { hotsauceMacApp: { version: '0.26.0', build: '1299' } })
+    try {
+      renderApp('/settings/apps')
+      const card = await screen.findByTestId('mac-app')
+      await within(card).findByTestId('mac-app-restart-update')
+      await waitFor(() =>
+        expect(within(card).getByTestId('mac-app-update-available')).toHaveTextContent(
+          'Update available: 0.26.0 (build 1300).',
+        ),
+      )
+    } finally {
+      leave()
+    }
+  })
+
   it('says the update is downloading instead of offering the download', async () => {
     const { leave } = inSelfUpdatingMacApp('0.25.0', { state: 'downloading', version: '0.26.0' })
     try {

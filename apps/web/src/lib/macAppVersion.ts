@@ -77,6 +77,23 @@ export function macVersionLabel(reported: string): string {
 }
 
 /**
+ * How Settings names the update it offers. A Mac-only change used to come out as a new build of
+ * the same version, and "Update available: 0.66.2" on 0.66.2 read as nonsense: when only the
+ * build is newer, name the build (`0.66.2 (build 160)`), or say `a newer build of 0.66.2`.
+ */
+export function offeredUpdateLabel(
+  offered: string,
+  installed: string | null,
+  latest: MacAppLatest | null,
+): string {
+  if (!installed || splitMacVersion(installed).version !== offered) return offered
+  const build = latest?.version === offered ? latest.build : undefined
+  return build && /^\d+$/.test(build)
+    ? `${offered} (build ${build})`
+    : `a newer build of ${offered}`
+}
+
+/**
  * The version of the Mac app this page runs in (its window says it, M4), as `0.26.0+1400` when it
  * gives its build too; null in a browser.
  */

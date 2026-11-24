@@ -3,8 +3,8 @@ name: Release
 # Releases number themselves (docs/PLAN-auto-releases.md). No pull request changes
 # HOTSAUCE_VERSION. After every merge to main this picks the next number from the newest v* tag
 # (scripts/next-release.mjs): a patch, or a minor when a pull request in the batch has the
-# "feature" label. Merges that only touch docs, the site, CI or the Mac app's sources release
-# nothing. It then writes the number and the pull requests' "What's new" lines (WHATS_NEW.json,
+# "feature" label. Merges that only touch docs, the site or CI release
+# nothing; a Mac app change releases, so its update always has a new number. It then writes the number and the pull requests' "What's new" lines (WHATS_NEW.json,
 # scripts/release-notes.mjs) to main as a "Release X.Y.Z" commit, builds and pushes the
 # image ghcr.io/hotsauce-suite/hotsauce:<version> and :latest, and tags v<version> last.
 #

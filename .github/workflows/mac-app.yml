@@ -2,7 +2,7 @@ name: Mac app
 
 # Builds the Mac app with every Hotsauce release, so the download always carries the release's
 # number (docs/PLAN-mac-download.md). After each Release run (including ones that release nothing,
-# like a merge that only changes the Mac app), this builds main on a GitHub Mac when its version or
+# like a docs-only merge; a Mac app change always releases a new number), this builds main on a GitHub Mac when its version or
 # its Mac app sources differ from the newest build, signs it with "Hotsauce Release Signing" (the secrets MAC_SIGNING_P12 and
 # MAC_SIGNING_PASSWORD, from apps/dictate-mac/scripts/create-release-signing.sh) and publishes it
 # as the prerelease mac-app-<build>, which servers and hotsauce.work/download/mac pick up.

@@ -64,16 +64,22 @@ describe('next-release', () => {
     expect(next('--feature').out).toMatchObject({ release: true, version: '0.16.0', bump: 'minor' })
   })
 
-  it('releases nothing when only docs, site, CI, e2e or Mac app sources changed', async () => {
+  it('releases nothing when only docs, site, CI or e2e changed', async () => {
     await commit({
       'docs/learnings/releases.md': 'x\n',
       'CONTRIBUTING.md': 'x\n',
       'site/public/index.html': 'x\n',
       '.github/workflows/ci.yml': 'x\n',
       'e2e/a.spec.ts': 'x\n',
-      'apps/dictate-mac/Sources/App.swift': 'x\n',
     })
     expect(next().out).toMatchObject({ release: false, last: '0.15.0' })
+  })
+
+  // A Mac-only change used to come out as a new build of the same version, and the Mac app then
+  // offered "0.66.2" to someone on 0.66.2. Every Mac app change gets its own number now.
+  it('releases when only the Mac app sources change, so its update has a new number', async () => {
+    await commit({ 'apps/dictate-mac/Sources/App.swift': 'x\n' })
+    expect(next().out).toMatchObject({ release: true, version: '0.15.1' })
   })
 
   it('releases when the built Mac app (which goes into the image) changes', async () => {
