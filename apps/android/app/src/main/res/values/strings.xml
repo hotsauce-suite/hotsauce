@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hotsauce</string>
+    <string name="widget_today">Today at a glance</string>
+    <string name="widget_today_description">Your next meeting, today\'s tasks and the weather</string>
+</resources>

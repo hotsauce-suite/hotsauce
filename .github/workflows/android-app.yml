@@ -1,0 +1,89 @@
+name: Android app
+
+# Builds the Android app (apps/android, docs/PLAN-android.md). Pull requests that touch it get its
+# unit tests, Android lint and a debug build. After each Release run on main it builds the
+# release bundle (AAB), signed when the upload key secrets exist (ANDROID_UPLOAD_KEYSTORE, base64,
+# and ANDROID_UPLOAD_PASSWORD), and keeps it as a run artifact. Uploading to Google Play internal
+# testing is added in slice 3, once the Play account exists.
+on:
+  pull_request:
+    paths:
+      - apps/android/**
+      - HOTSAUCE_VERSION
+      - .github/workflows/android-app.yml
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests, lint and a debug build
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-check
+          path: |
+            apps/android/app/build/outputs/apk/debug/*.apk
+            apps/android/app/build/reports/
+          retention-days: 7
+
+  bundle:
+    if: >-
+      github.repository == 'hotsauce-suite/hotsauce' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: android-app
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unpack the upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "::notice::No upload key yet; the bundle is unsigned."
+          fi
+      - name: Build the release bundle
+        run: ./gradlew --no-daemon testReleaseUnitTest bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hotsauce-android-${{ github.run_number }}
+          path: apps/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
