@@ -1,6 +1,6 @@
 # Plan: phone shortcuts on Android and iPhone, and the Mac app's Dock menu
 
-**Status:** built Nov 24, 2026. Every requirement below has a passing test. Still to check on real
+**Status:** built Nov 24, 2026. Every requirement below has a passing test (the Swift tests run in the Mac app CI job). Still to check on real
 devices: holding the icon on an Android phone, and an iPhone shortcut, a Home Screen icon and the
 Action Button.
 
@@ -35,7 +35,7 @@ kept equal by a test.
 ## Requirements (each maps to a test)
 
 1. The list holds the five actions in order, with their addresses, and the manifest's `shortcuts`
-   come from it. *(lib/phoneShortcuts.test.ts R1; e2e phone-shortcuts: the served manifest)*
+   come from it. *(lib/phoneShortcuts.test.ts R1; e2e dictate-voice-mobile: the served manifest)*
 2. `/tasks?new=1` opens quick add and removes the parameter from the address.
    *(TasksPage.test R2)*
 3. `/tasks?ramble=1` opens quick add straight into Ramble, which starts listening.

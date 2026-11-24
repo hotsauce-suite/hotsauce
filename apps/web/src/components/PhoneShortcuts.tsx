@@ -12,21 +12,25 @@ const tab = (on: boolean) =>
 
 /** A Copy button for one address; says Copied for a moment. */
 function CopyAddress({ url, label }: { url: string; label: string }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<'yes' | 'no' | null>(null)
   return (
     <button
       type="button"
       aria-label={`Copy the address for ${label}`}
       onClick={() => {
-        void navigator.clipboard?.writeText(url).then(() => {
-          setCopied(true)
-          setTimeout(() => setCopied(false), 1500)
-        })
+        // A server on plain http has no clipboard; say so rather than doing nothing.
+        const write =
+          navigator.clipboard?.writeText(url) ?? Promise.reject(new Error('no clipboard'))
+        void write.then(
+          () => setCopied('yes'),
+          () => setCopied('no'),
+        )
+        setTimeout(() => setCopied(null), 2000)
       }}
       className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-ash-strong px-2.5 text-sm text-ink hover:border-ember"
     >
-      <Icon name={copied ? 'check' : 'copy'} className="size-3.5" />
-      {copied ? 'Copied' : 'Copy'}
+      <Icon name={copied === 'yes' ? 'check' : 'copy'} className="size-3.5" />
+      {copied === 'yes' ? 'Copied' : copied === 'no' ? 'Couldn’t copy' : 'Copy'}
     </button>
   )
 }
@@ -127,7 +131,7 @@ export function PhoneShortcutsCard({ origin = window.location.origin }: { origin
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block font-medium">{action.name}</span>
-                        <span className="block truncate font-mono text-xs text-ink-soft">
+                        <span className="block font-mono text-xs break-all text-ink-soft select-all">
                           {url}
                         </span>
                       </span>
@@ -150,10 +154,10 @@ export function PhoneShortcutsCard({ origin = window.location.origin }: { origin
                   <li>Name it “Save to {name}”. In Safari, tap Share and pick it.</li>
                 </ol>
                 <div className="mt-2 flex items-center gap-3 rounded-lg border border-ash bg-paper-raised px-3 py-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-soft">
+                  <span className="min-w-0 flex-1 font-mono text-xs break-all text-ink-soft select-all">
                     {actionUrl(origin, SHARE_SAVE_PATH)}
                   </span>
-                  <CopyAddress url={actionUrl(origin, SHARE_SAVE_PATH)} label="Save to" />
+                  <CopyAddress url={actionUrl(origin, SHARE_SAVE_PATH)} label={`Save to ${name}`} />
                 </div>
               </div>
               <p className="text-ink-soft">

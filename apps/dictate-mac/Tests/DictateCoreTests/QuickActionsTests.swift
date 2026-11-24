@@ -14,6 +14,17 @@ final class QuickActionsTests: XCTestCase {
         XCTAssertEqual(QuickActions.saveLinkPath(clipboard: nil), "/links/save?paste=1")
     }
 
+    func testSaveLinkEncodesAccentsAndTakesABareAddress() {
+        XCTAssertEqual(
+            QuickActions.saveLinkPath(clipboard: "https://x.test/Café"),
+            "/links/save?via=shortcut&url=https%3A%2F%2Fx.test%2FCaf%C3%A9"
+        )
+        XCTAssertEqual(
+            QuickActions.saveLinkPath(clipboard: " example.com/a "),
+            "/links/save?via=shortcut&url=https%3A%2F%2Fexample.com%2Fa"
+        )
+    }
+
     func testEveryActionOpensAPath() {
         XCTAssertEqual(QuickActions.all.map(\.title), ["New Task", "Save Link", "Ask", "Ramble Tasks"])
         for action in QuickActions.all { XCTAssertTrue(action.path.hasPrefix("/")) }

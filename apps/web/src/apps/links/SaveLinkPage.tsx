@@ -1,6 +1,6 @@
 import { findLinkUrl } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 import { type LinkSource, type LinkView, linksApi } from '../../api/links'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
@@ -66,6 +66,11 @@ export async function linkFromClipboard(): Promise<{ url: string | null; readabl
  * the browser won't share the clipboard.
  */
 export default function SaveLinkPage() {
+  // A new address (the Mac app's Save Link while this page is open) starts it afresh.
+  return <SaveLink key={useLocation().search} />
+}
+
+function SaveLink() {
   const [params] = useSearchParams()
   const [saved, setSaved] = useState<(LinkView & { existing: boolean }) | null>(null)
   const [error, setError] = useState<string | null>(null)

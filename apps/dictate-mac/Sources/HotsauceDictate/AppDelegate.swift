@@ -547,7 +547,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Closing the windows doesn't quit: dictation and reminders keep running.
     /// Right-click the Dock icon: the quick actions, like holding the app's icon on a phone
     /// (docs/PLAN-phone-shortcuts.md).
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
@@ -575,6 +574,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         suite.open(path: path)
     }
 
+    /// Closing the windows doesn't quit: dictation and reminders keep running.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// Back to the setup window after a step is done elsewhere (System Settings, the browser),
