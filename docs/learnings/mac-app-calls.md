@@ -51,3 +51,7 @@ Learnings from "Take notes on this Zoom call?" (`DictateCore/CallWatch.swift`, `
   `com.google.Chrome.helper`; the window titles (read with Accessibility, which Dictate already
   has) say "Meet - abc-defg-hij". Safari can't be told apart from the app's own window: both use
   WebKit's GPU process.
+- **Wait only when unsure.** The 4 s wait guards against brief mic grabs, but a Zoom or a Meet tab
+  holding the mic is already certain, and the wait read as "slow" next to Granola. Offer on the
+  first tick for those, keep the wait for browsers on other sites, and read window titles fresh
+  until a call starts (the 30 s cache would otherwise hide a Meet tab opened seconds ago).

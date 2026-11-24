@@ -21,6 +21,27 @@ import Testing
         #expect(run(&watch, from: 0, for: 120, app: "Zoom", recording: nil) == [.offerNotes(app: "Zoom")])
     }
 
+    @Test func aSureCallIsOfferedAtOnce() {
+        // Zoom, or a browser showing Google Meet: no 4 s wait, the first tick offers.
+        var watch = CallWatch()
+        #expect(watch.isIdle)
+        #expect(watch.update(micApp: "Google Meet", recording: nil, now: t0, sure: true) == .offerNotes(app: "Google Meet"))
+        #expect(!watch.isIdle)
+        #expect(watch.update(micApp: "Google Meet", recording: nil, now: t0.addingTimeInterval(1), sure: true) == nil)
+    }
+
+    @Test func aBrowserThatTurnsOutToBeACallIsOfferedOnceItsSure() {
+        // Chrome takes the mic before the Meet tab's title says so: offered on the tick it does.
+        var watch = CallWatch()
+        #expect(watch.update(micApp: "Google Chrome", recording: nil, now: t0) == nil)
+        #expect(watch.update(micApp: "Google Meet", recording: nil, now: t0.addingTimeInterval(1), sure: true) == .offerNotes(app: "Google Meet"))
+    }
+
+    @Test func aSureCallWhileRecordingIsNotOffered() {
+        var watch = CallWatch()
+        #expect(watch.update(micApp: "Zoom", recording: "s1", now: t0, sure: true) == .skipped(app: "Zoom", reason: .recording))
+    }
+
     @Test func aBriefGrabIsNotACall() {
         var watch = CallWatch()
         #expect(run(&watch, from: 0, for: 4, app: "Zoom", recording: nil).isEmpty)

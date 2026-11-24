@@ -11,7 +11,7 @@ public struct CallWatch: Sendable {
     public static let startAfter: TimeInterval = 4
     /// While a call is starting, the app can let go of the mic for a moment (joining muted, a
     /// device switch, Core Audio between two reads); only a longer gap means it wasn't a call.
-    /// Two missed 2 s ticks are tolerated; 5, not 4, because a real timer runs a little late.
+    /// Two missed 2 s ticks (or four 1 s ticks) are tolerated; 5, not 4, because a real timer runs a little late.
     public static let startGap: TimeInterval = 5
     /// Calls drop the mic for a moment when devices change; that isn't the end.
     public static let endAfter: TimeInterval = 20
@@ -53,20 +53,28 @@ public struct CallWatch: Sendable {
 
     public init() {}
 
-    /// Called every couple of seconds. `micApp` names a call app using the mic, or is nil;
+    /// Whether no call is starting or under way.
+    public var isIdle: Bool { phase == .idle }
+
+    /// Called every second or two. `micApp` names a call app using the mic, or is nil;
     /// `recording` is the id of the meeting recording in this app (paused counts), or nil.
-    public mutating func update(micApp: String?, recording: String?, now: Date) -> Action? {
+    /// `sure` says the app is certainly on a call (Zoom, or a browser showing Google Meet): the
+    /// offer comes at once instead of after `startAfter`, like Granola's (Nov 24).
+    public mutating func update(micApp: String?, recording: String?, now: Date, sure: Bool = false) -> Action? {
         switch phase {
         case .idle:
-            if let micApp { phase = .starting(since: now, lastSeen: now, app: micApp) }
-            return nil
-        case .starting(let since, let lastSeen, let app):
-            guard micApp != nil else {
+            guard let micApp else { return nil }
+            phase = .starting(since: now, lastSeen: now, app: micApp)
+            return sure ? update(micApp: micApp, recording: recording, now: now, sure: true) : nil
+        case .starting(let since, let lastSeen, let first):
+            guard let micApp else {
                 if now.timeIntervalSince(lastSeen) > Self.startGap { phase = .idle }
                 return nil
             }
+            // Once sure, the call takes its surer name ("Google Meet", not "Google Chrome").
+            let app = sure ? micApp : first
             phase = .starting(since: since, lastSeen: now, app: app)
-            guard now.timeIntervalSince(since) >= Self.startAfter else { return nil }
+            guard sure || now.timeIntervalSince(since) >= Self.startAfter else { return nil }
             phase = .inCall(began: since, before: recording, during: nil)
             guard recording == nil else { return .skipped(app: app, reason: .recording) }
             if let last = offered[app], now.timeIntervalSince(last) < Self.offerCooldown {
