@@ -2,7 +2,7 @@ name: Mac app
 
 # Builds the Mac app with every Hotsauce release, so the download always carries the release's
 # number (docs/PLAN-mac-download.md). After each Release run (including ones that release nothing,
-# like a docs-only merge; a Mac app change always releases a new number), this builds main on a GitHub Mac when its version or
+# like a docs-only merge; a Mac app change always releases its own number), this builds main on a GitHub Mac when its version or
 # its Mac app sources differ from the newest build, signs it with "Hotsauce Release Signing" (the secrets MAC_SIGNING_P12 and
 # MAC_SIGNING_PASSWORD, from apps/dictate-mac/scripts/create-release-signing.sh) and publishes it
 # as the prerelease mac-app-<build>, which servers and hotsauce.work/download/mac pick up.
@@ -96,6 +96,12 @@ jobs:
           elif ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             # The Release run that wrote this number didn't finish; its retry will tag it.
             echo "::notice::$VERSION isn't released yet (no v$VERSION tag); building nothing."
+            BUILDIT=false
+          elif ! git diff --quiet "v$VERSION" HEAD -- apps/dictate-mac; then
+            # A Mac app change merged after v$VERSION and its release hasn't written its number
+            # yet. Building now would make a second build of $VERSION, which Settings would offer
+            # as "Update available: $VERSION" to people already on it. That release builds it.
+            echo "::notice::The Mac app changed since v$VERSION; its own release will build it."
             BUILDIT=false
           elif [ "$HAS_KEY" != "true" ]; then
             echo "::warning::MAC_SIGNING_P12 isn't set, so no Mac app was built (an unsigned build would reset everyone's permissions). See apps/dictate-mac/scripts/create-release-signing.sh."

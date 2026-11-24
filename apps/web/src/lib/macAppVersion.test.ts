@@ -89,6 +89,13 @@ describe('offeredUpdateLabel', () => {
       offeredUpdateLabel('0.66.2', '0.66.2', { version: '0.66.2', reportsVersion: true }),
     ).toBe('a newer build of 0.66.2')
   })
+  it('never names a build that is not above the installed one, or one for another version', () => {
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+160', latest)).toBe('a newer build of 0.66.2')
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+170', latest)).toBe('a newer build of 0.66.2')
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+159', { version: '0.66.3', build: '161' })).toBe(
+      'a newer build of 0.66.2',
+    )
+  })
   it('gives the version when the app does not say its own', () => {
     expect(offeredUpdateLabel('0.66.2', null, latest)).toBe('0.66.2')
   })
