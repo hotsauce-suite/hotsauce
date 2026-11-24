@@ -11,7 +11,7 @@ public struct CallWatch: Sendable {
     public static let startAfter: TimeInterval = 4
     /// While a call is starting, the app can let go of the mic for a moment (joining muted, a
     /// device switch, Core Audio between two reads); only a longer gap means it wasn't a call.
-    /// Two missed 2 s ticks are tolerated; 5, not 4, because a real timer runs a little late.
+    /// Two missed 2 s ticks (or four 1 s ticks) are tolerated; 5, not 4, because a real timer runs a little late.
     public static let startGap: TimeInterval = 5
     /// Calls drop the mic for a moment when devices change; that isn't the end.
     public static let endAfter: TimeInterval = 20
@@ -53,20 +53,36 @@ public struct CallWatch: Sendable {
 
     public init() {}
 
-    /// Called every couple of seconds. `micApp` names a call app using the mic, or is nil;
+    /// Whether no call is starting or under way.
+    public var isIdle: Bool { phase == .idle }
+
+    /// Whether a call has started (offered or not) and not yet ended.
+    public var isInCall: Bool {
+        switch phase {
+        case .inCall, .ending: return true
+        case .idle, .starting: return false
+        }
+    }
+
+    /// Called every second or two. `micApp` names a call app using the mic, or is nil;
     /// `recording` is the id of the meeting recording in this app (paused counts), or nil.
-    public mutating func update(micApp: String?, recording: String?, now: Date) -> Action? {
+    /// `sure` says the app is certainly on a call (Zoom, or a browser showing Google Meet): the
+    /// offer comes at once instead of after `startAfter`, like Granola's (Nov 24).
+    public mutating func update(micApp: String?, recording: String?, now: Date, sure: Bool = false) -> Action? {
         switch phase {
         case .idle:
-            if let micApp { phase = .starting(since: now, lastSeen: now, app: micApp) }
-            return nil
-        case .starting(let since, let lastSeen, let app):
-            guard micApp != nil else {
+            guard let micApp else { return nil }
+            phase = .starting(since: now, lastSeen: now, app: micApp)
+            return sure ? update(micApp: micApp, recording: recording, now: now, sure: true) : nil
+        case .starting(let since, let lastSeen, let first):
+            guard let micApp else {
                 if now.timeIntervalSince(lastSeen) > Self.startGap { phase = .idle }
                 return nil
             }
+            // Once sure, the call takes its surer name ("Google Meet", not "Google Chrome").
+            let app = sure ? micApp : first
             phase = .starting(since: since, lastSeen: now, app: app)
-            guard now.timeIntervalSince(since) >= Self.startAfter else { return nil }
+            guard sure || now.timeIntervalSince(since) >= Self.startAfter else { return nil }
             phase = .inCall(began: since, before: recording, during: nil)
             guard recording == nil else { return .skipped(app: app, reason: .recording) }
             if let last = offered[app], now.timeIntervalSince(last) < Self.offerCooldown {
@@ -119,6 +135,21 @@ public enum MicApps {
         // FaceTime and iPhone calls on the Mac run their audio here.
         "com.apple.avconferenced",
     ]
+
+    /// Apps whose only use of the mic is a meeting: holding it is surely a call, offered at once.
+    /// Messaging apps (WhatsApp, Slack, Discord...) also record voice notes, so they wait.
+    static let meetingApps: Set<String> = [
+        "us.zoom.xos", "com.microsoft.teams2", "com.microsoft.teams", "com.apple.facetime",
+        "com.apple.avconferenced", "com.cisco.webexmeetingsapp", "cisco-systems.spark",
+        "com.webex.meetingmanager", "com.logmein.gotomeeting", "com.amazon.chime",
+        "com.bluejeans.app.bluejeans", "app.tuple.app", "com.ringcentral.ringcentralformac",
+    ]
+
+    /// Whether this app (or a helper of it) is a meeting app.
+    public static func isMeetingApp(_ bundleID: String?) -> Bool {
+        guard let bundleID, !bundleID.isEmpty else { return false }
+        return meetingApps.contains(mainBundleID(bundleID).lowercased())
+    }
 
     /// Browsers whose mic use counts as a call: Meet, Teams or Zoom on the web, named from the
     /// window's title (`callName`). Safari isn't here: its mic runs in WebKit's shared process,

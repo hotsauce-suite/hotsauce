@@ -28,3 +28,7 @@ app's own window uses too.
    It never takes focus, leaves after 90 s or when the call ends, and records nothing by itself.
 5. The Chrome extension has no offer of its own (it only acts when its icon is clicked), so a
    Meet in Chrome gets one offer.
+6. A sure call (a call app, or a browser whose window shows a call service) is offered on the
+   first tick it holds the mic; detection ticks every second and reads browser window titles fresh
+   until a call has started. Messaging apps and a browser on another site still wait 4 s (`CallWatchTests`, Nov 24:
+   "Granola detects a meeting instantly").

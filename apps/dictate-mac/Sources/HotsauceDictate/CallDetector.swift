@@ -5,7 +5,7 @@ import DictateCore
 import UserNotifications
 
 /// "Meeting detected · Take notes" when a call starts, and "the call ended" while one is recording
-/// (docs/PLAN-record-any-call.md, slice 4). Every 2 s it asks Core Audio which other apps are
+/// (docs/PLAN-record-any-call.md, slice 4). Every second it asks Core Audio which other apps are
 /// using the microphone; `CallWatch` decides. It only offers: nothing records until the member
 /// starts a meeting.
 @available(macOS 14.2, *)
@@ -19,7 +19,8 @@ final class CallDetector {
     private var callApp: String?
     private var timer: Timer?
     private let offer = CallOffer()
-    private static let tick: TimeInterval = 2
+    /// Every second, so a call is offered about as soon as it takes the mic.
+    private static let tick: TimeInterval = 1
 
     init(suite: SuiteWindow, reminders: Reminders, isEnabled: @escaping () -> Bool) {
         self.suite = suite
@@ -40,8 +41,10 @@ final class CallDetector {
             offer.hide()
             return
         }
-        let app = Self.callAppUsingMic(Self.micUsers())
-        let action = watch.update(micApp: app, recording: suite.recordingMeetingSession, now: Date())
+        // Until a call has started, a browser's window titles are read fresh, so a Meet tab
+        // that just opened is recognised on the tick its mic starts.
+        let call = Self.callUsingMic(Self.micUsers(), fresh: !watch.isInCall)
+        let action = watch.update(micApp: call?.name, recording: suite.recordingMeetingSession, now: Date(), sure: call?.sure ?? false)
         switch action {
         case .offerNotes(let name):
             callApp = name
@@ -138,21 +141,37 @@ final class CallDetector {
 
     /// The name of another app in `users` (one Core Audio snapshot) that could be on a call, or nil.
     static func callAppUsingMic(_ users: [MicUser]) -> String? {
+        callUsingMic(users, fresh: false)?.name
+    }
+
+    /// The call in `users`, and whether it surely is one: a call app, or a browser whose window
+    /// shows a call service. A browser on some other site is a call only once it has held the mic
+    /// for a few seconds. A sure call comes first when several apps hold the mic.
+    static func callUsingMic(_ users: [MicUser], fresh: Bool) -> (name: String, sure: Bool)? {
         let own = Bundle.main.bundleIdentifier
         let ownPID = ProcessInfo.processInfo.processIdentifier
+        var unsure: String?
+        var seen = Set<String>()
         for user in users where user.pid != ownPID {
-            guard MicApps.isCallCandidate(user.bundleID, ownBundleID: own),
-                  let name = appName(of: user) else { continue }
-            return name
+            // Chrome and its helpers can all hold the mic: read each app once per tick.
+            let key = user.bundleID.map(MicApps.mainBundleID) ?? "pid \(user.pid)"
+            guard MicApps.isCallCandidate(user.bundleID, ownBundleID: own), seen.insert(key).inserted,
+                  let call = call(of: user, fresh: fresh) else { continue }
+            if call.sure { return call }
+            unsure = unsure ?? call.name
         }
-        return nil
+        return unsure.map { ($0, false) }
     }
 
     /// The app with a Dock icon behind a process (itself, or the app a helper belongs to). Drivers,
     /// agents and background services have none and never count as a call.
     static func appName(of user: MicUser) -> String? {
+        call(of: user, fresh: false)?.name
+    }
+
+    private static func call(of user: MicUser, fresh: Bool) -> (name: String, sure: Bool)? {
         // FaceTime and iPhone calls: the audio runs in a background service, not the FaceTime app.
-        if user.bundleID == "com.apple.avconferenced" { return "FaceTime" }
+        if user.bundleID == "com.apple.avconferenced" { return ("FaceTime", true) }
         var candidates: [NSRunningApplication] = []
         if let bundleID = user.bundleID {
             candidates += NSRunningApplication.runningApplications(withBundleIdentifier: MicApps.mainBundleID(bundleID))
@@ -161,16 +180,17 @@ final class CallDetector {
         guard let app = candidates.first(where: { $0.activationPolicy == .regular }),
               let name = app.localizedName else { return nil }
         // A call in a browser is named for the service in its window ("Google Meet").
-        guard MicApps.isBrowser(user.bundleID) else { return name }
-        return MicApps.callName(windowTitles: windowTitles(of: app.processIdentifier), browser: name)
+        guard MicApps.isBrowser(user.bundleID) else { return (name, MicApps.isMeetingApp(user.bundleID)) }
+        let service = MicApps.callName(windowTitles: windowTitles(of: app.processIdentifier, fresh: fresh), browser: name)
+        return (service, service != name)
     }
 
     /// The titles of an app's windows (each browser window shows its front tab's title), read
     /// through Accessibility, which Dictate already has. Without it: none, and the browser's name.
-    static func windowTitles(of pid: pid_t) -> [String] {
-        // Read at most every 30 s per app: detection runs every 2 s on the main thread for the
-        // whole call, and a busy browser can be slow to answer.
-        if let cached = titleCache, cached.pid == pid, Date().timeIntervalSince(cached.at) < 30 { return cached.titles }
+    static func windowTitles(of pid: pid_t, fresh: Bool = false) -> [String] {
+        // During a call, read at most every 30 s per app: detection runs every second on the main
+        // thread, and a busy browser can be slow to answer. Before one, `fresh` reads every time.
+        if !fresh, let cached = titleCache, cached.pid == pid, Date().timeIntervalSince(cached.at) < 30 { return cached.titles }
         let titles = readWindowTitles(of: pid)
         titleCache = (pid, Date(), titles)
         return titles
