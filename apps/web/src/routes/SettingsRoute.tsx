@@ -18,6 +18,7 @@ import { Icon } from '../components/Icon'
 import { InstallButton, InstallSheet } from '../components/InstallBar'
 import { MacAppCard } from '../components/MacApp'
 import { NotificationsSection } from '../components/NotificationsSection'
+import { PhoneShortcutsCard } from '../components/PhoneShortcuts'
 import { Keys } from '../keyboard/KeyCaps'
 import { setSingleKeys, useSingleKeys } from '../keyboard/prefs'
 import { useInstallPrompt } from '../lib/install'
@@ -328,6 +329,7 @@ function InstallSection() {
       <div className="mt-4 space-y-4">
         <MacAppCard />
         <WebAppCard />
+        <PhoneShortcutsCard />
         <ExtensionCard />
       </div>
     </section>

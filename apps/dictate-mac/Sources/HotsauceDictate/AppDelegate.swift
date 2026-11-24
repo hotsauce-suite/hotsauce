@@ -548,6 +548,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Closing the windows doesn't quit: dictation and reminders keep running.
+    /// Right-click the Dock icon: the quick actions, like holding the app's icon on a phone
+    /// (docs/PLAN-phone-shortcuts.md).
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        for entry in quickActionItems() { menu.addItem(entry) }
+        return menu
+    }
+
+    private func quickActionItems() -> [NSMenuItem] {
+        QuickActions.all.enumerated().map { index, action in
+            let entry = item(action.title, #selector(runQuickAction(_:)))
+            entry.tag = index
+            return entry
+        }
+    }
+
+    @objc private func runQuickAction(_ sender: NSMenuItem) {
+        guard QuickActions.all.indices.contains(sender.tag) else { return }
+        var path = QuickActions.all[sender.tag].path
+        if path.hasPrefix("/links/save") {
+            path = QuickActions.saveLinkPath(clipboard: NSPasteboard.general.string(forType: .string))
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        suite.show()
+        suite.open(path: path)
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// Back to the setup window after a step is done elsewhere (System Settings, the browser),
@@ -727,6 +754,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotkeyItem.submenu = hotkeyMenu
         menu.addItem(hotkeyItem)
 
+        menu.addItem(.separator())
+        for entry in quickActionItems() { menu.addItem(entry) }
         menu.addItem(.separator())
         menu.addItem(item("Open \(Brand.name)", #selector(showSuite)))
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
