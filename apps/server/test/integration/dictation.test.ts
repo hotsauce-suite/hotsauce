@@ -343,6 +343,36 @@ describe('device tokens', () => {
     })
   })
 
+  it('save heard-as spellings, list them, and write dictations with them (H1, H3)', async () => {
+    const { token } = await connect()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    await json(
+      await call('PUT', '/api/dictation/words', {
+        as: ALICE,
+        json: { scope: 'mine', words: ['Rajiv'] },
+      }),
+    )
+    const saved = await call('PUT', '/api/dictation/words/heard-as', {
+      as: ALICE,
+      json: { scope: 'mine', word: 'Rajiv', heard: ['Rajeev'] },
+    })
+    expect(await json(saved)).toEqual({ scope: 'mine', word: 'Rajiv', heard: ['Rajeev'] })
+    const refused = await call('PUT', '/api/dictation/words/heard-as', {
+      as: ALICE,
+      json: { scope: 'team', word: 'Nobody', heard: ['x'] },
+    })
+    expect(refused.status).toBe(400)
+    expect(await json(await call('GET', '/api/dictation/words', { token }))).toMatchObject({
+      heardAs: { mine: { Rajiv: ['Rajeev'] }, team: {} },
+      fixes: [{ heard: 'Rajeev', write: 'Rajiv' }],
+    })
+    const cleaned = await call('POST', '/api/dictation/clean', {
+      as: ALICE,
+      json: { text: 'Thanks rajeev', mode: 'literal' },
+    })
+    expect(await json(cleaned)).toMatchObject({ text: 'Thanks Rajiv' })
+  })
+
   it('add and remove against the current list, so concurrent edits keep each other', async () => {
     const { token } = await connect()
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -464,6 +494,8 @@ describe('word lists', () => {
       account: ALICE,
       mine: [],
       team: ['Hotsauce', 'Clerk', 'Deepgram', 'Anthropic', 'Claude'],
+      heardAs: { mine: {}, team: {} },
+      fixes: [],
     })
     expect(
       await json(
@@ -486,6 +518,8 @@ describe('word lists', () => {
       account: BOB,
       mine: [],
       team: ['Acme', 'Biosafety'],
+      heardAs: { mine: {}, team: {} },
+      fixes: [],
     })
     await json(
       await call('PUT', '/api/dictation/words', {

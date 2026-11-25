@@ -9,6 +9,7 @@ import {
   type MacAppUpdateState,
   macAppUpdateState,
   macVersionLabel,
+  offeredUpdateLabel,
   useMacAppLatest,
 } from '../lib/macAppVersion'
 import { hasMacNotifications } from '../lib/macNotifications'
@@ -140,7 +141,7 @@ export function MacAppCard() {
               <>
                 {' '}
                 <span data-testid="mac-app-update-available" className="font-medium text-ink">
-                  Update available: {offered}.
+                  Update available: {offeredUpdateLabel(offered, installed, latest ?? null)}.
                 </span>{' '}
                 <Link
                   to={WHATS_NEW}

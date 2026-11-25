@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState } from 'react'
-import { useLocation } from 'react-router'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { useLocation, useSearchParams } from 'react-router'
 import type { PageContext } from '../../api/assistant'
 import { useCommands } from '../../keyboard/commands'
 import { ariaKeys, formatSpec } from '../../keyboard/keys'
@@ -22,6 +22,17 @@ export function AssistantHost({ page, compact }: { page: PageContext | null; com
   // On a whiteboard the board's help button sits in the bottom-right corner: sit above it.
   const onBoard = /^\/boards\/[^/]+\/[^/]+/.test(useLocation().pathname)
   if (open && !loaded) setLoaded(true)
+
+  // The phone's Ask shortcut (lib/phoneShortcuts.ts) opens any page with ?ask=1: open the panel
+  // and tidy the address, so Back or a reload doesn't open it again.
+  const [search, setSearch] = useSearchParams()
+  useEffect(() => {
+    if (search.get('ask') !== '1') return
+    openAssistant()
+    const rest = new URLSearchParams(search)
+    rest.delete('ask')
+    setSearch(rest, { replace: true })
+  }, [search, setSearch])
 
   // ⌘J / Ctrl+J, through the app's one key listener (keyboard/catalog.ts).
   useShortcut('global.assistant', () => {

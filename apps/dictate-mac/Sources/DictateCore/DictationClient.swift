@@ -233,6 +233,8 @@ public struct DictationClient: Sendable {
         public var mine: [String]
         public var team: [String]
         public var account: String?
+        /// The heard-as spellings, the member's first; nil from a server before them.
+        public var fixes: [WordFix]?
     }
 
     public enum WordScope: String, Sendable { case mine, team }

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   CLEANUP_CHOICES,
   DICTATION_MIME_TYPES,
+  MAX_HEARD_AS_PER_WORD,
   MAX_WORD_LENGTH,
   MAX_WORDS_PER_LIST,
   SEND_KEYS,
@@ -127,8 +128,41 @@ export function dictationRoutes(deps: AppDeps) {
       .get('/words', (c) => {
         const { userId, email } = c.get('principal')
         // `account` lets a Mac show whose Hotsauce it is connecting to.
-        return c.json({ mine: store.words(userId), team: store.words('team'), account: email })
+        return c.json({
+          mine: store.words(userId),
+          team: store.words('team'),
+          heardAs: { mine: store.heardAs(userId), team: store.heardAs('team') },
+          // Flat, the member's first: what the Mac applies when it writes a dictation up alone (H6).
+          fixes: dictation.fixes(userId),
+          account: email,
+        })
       })
+      .put(
+        '/words/heard-as',
+        valid(
+          'json',
+          z.strictObject({
+            scope: z.enum(['mine', 'team']),
+            word: z.string().trim().min(1).max(MAX_WORD_LENGTH),
+            heard: WordList.max(MAX_HEARD_AS_PER_WORD * 2),
+          }),
+        ),
+        (c) => {
+          const body = c.req.valid('json')
+          const { userId, email } = c.get('principal')
+          const heard = store.setHeardAs(
+            body.scope === 'team' ? 'team' : userId,
+            body.word,
+            body.heard,
+          )
+          if (body.scope === 'team') {
+            console.log(
+              `dictation team words edited by ${email}${c.get('deviceId') ? ` (device ${c.get('deviceId')})` : ''}`,
+            )
+          }
+          return c.json({ scope: body.scope, word: body.word, heard })
+        },
+      )
       .put(
         '/words',
         valid(

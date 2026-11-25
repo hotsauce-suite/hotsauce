@@ -4,6 +4,7 @@ import {
   installedMacAppVersion,
   macAppUpdateState,
   macVersionLabel,
+  offeredUpdateLabel,
   parseLatest,
 } from './macAppVersion'
 
@@ -70,5 +71,32 @@ describe('installedMacAppVersion (M4)', () => {
     Object.assign(window, { hotsauceMacApp: { version: '<b>1</b>' } })
     expect(installedMacAppVersion()).toBeNull()
     Reflect.deleteProperty(window, 'hotsauceMacApp')
+  })
+})
+
+describe('offeredUpdateLabel', () => {
+  const latest = { version: '0.66.2', build: '160', reportsVersion: true }
+  it('names the new build when only the build is newer, so it never offers the version you have', () => {
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+159', latest)).toBe('0.66.2 (build 160)')
+  })
+  it('gives just the version when the version is newer', () => {
+    expect(offeredUpdateLabel('0.66.3', '0.66.2+159', latest)).toBe('0.66.3')
+    expect(offeredUpdateLabel('0.66.2', '0.66.1+150', latest)).toBe('0.66.2')
+  })
+  it('says "a newer build" when the same version is offered and no build is known', () => {
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+159', null)).toBe('a newer build of 0.66.2')
+    expect(
+      offeredUpdateLabel('0.66.2', '0.66.2', { version: '0.66.2', reportsVersion: true }),
+    ).toBe('a newer build of 0.66.2')
+  })
+  it('never names a build that is not above the installed one, or one for another version', () => {
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+160', latest)).toBe('a newer build of 0.66.2')
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+170', latest)).toBe('a newer build of 0.66.2')
+    expect(offeredUpdateLabel('0.66.2', '0.66.2+159', { version: '0.66.3', build: '161' })).toBe(
+      'a newer build of 0.66.2',
+    )
+  })
+  it('gives the version when the app does not say its own', () => {
+    expect(offeredUpdateLabel('0.66.2', null, latest)).toBe('0.66.2')
   })
 })

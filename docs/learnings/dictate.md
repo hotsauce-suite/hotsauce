@@ -28,6 +28,19 @@
   error shows only on the macOS CI job, never on Linux. Bind the inner value with `let` first.
 - Two groups of radios saving through one endpoint each need their own "newest pick" counter, or
   a late answer for one group hides a failed save in the other.
+
+## Punctuation and "also heard as" (Nov 2026, PR #242)
+
+- "Punctuation is bad for one person" was the short-dictation shortcut, not the model: dictations
+  of 40 words or fewer with no cue words skip the cleanup and paste Deepgram's punctuation, which
+  comes from pauses. Check `skipsCleanup` before blaming the speech model or the mic.
+- A dot is not a full stop inside "hotsauce.work" or "3.5": test for `\.(?=\s|$)`.
+- SQLite's `lower()` folds ASCII only. Never join a JS-lowercased key against `lower(column)`;
+  match in JS (a reviewer caught "Óscar" silently losing its spellings).
+- A migration that every dictation depends on should use `CREATE TABLE IF NOT EXISTS`: when two
+  open PRs both append to `MIGRATIONS`, the second to deploy can otherwise be skipped.
+- The full `pnpm test` takes over 10 minutes in a cloud container; run the touched areas locally
+  and let CI run the whole suite. e2e needs `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium` there.
 - Sounds shared by the web and the Mac are cheapest as one small tone table synthesized on each
   side (no audio files). A test parses the Swift file so the two tables can't drift. Seeded noise
   must use arithmetic that stays exact in a JS double: Park–Miller (`* 16807 % 2147483647`) does,

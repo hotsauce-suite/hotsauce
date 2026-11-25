@@ -337,6 +337,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     words: ['install', 'pwa', 'home screen', 'phone', 'iphone', 'dock', 'taskbar'],
   },
   {
+    id: 'phone-shortcuts',
+    title: 'Phone shortcuts',
+    ...APPS,
+    summary: 'One tap from your phone to a voice note, a new task, Save link, Ask or Ramble.',
+    words: ['shortcut', 'shortcuts', 'android', 'iphone', 'action button', 'widget', 'home screen'],
+  },
+  {
     id: 'extension',
     title: 'Chrome extension',
     ...APPS,

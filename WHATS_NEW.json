@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "version": "0.68.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Hold the Hotsauce icon on Android for shortcuts to a voice note, a new task, Save link, Ask and Ramble."
+        },
+        {
+          "text": "IPhone: Settings → Apps → Phone shortcuts gives each action's address for Apple's Shortcuts app (Home Screen, widget or Action Button), and a \"Save to Hotsauce\" share-sheet shortcut."
+        },
+        {
+          "text": "Save link from a copied address: Paste and save, or paste it into the box."
+        },
+        {
+          "text": "Right-click the Dock icon (or use the menu bar menu) for New Task, Save Link, Ask and Ramble Tasks.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.67.0",
       "date": "2026-11-25",
       "notes": [

@@ -672,6 +672,28 @@ describe('the save page', () => {
     }
   })
 
+  it("R4: Paste and save saves the copied link (the phone's Save link shortcut)", async () => {
+    const user = userEvent.setup()
+    vi.spyOn(navigator.clipboard, 'readText').mockResolvedValue('see https://copied.test/page.')
+    renderApp('/links/save?paste=1')
+    await user.click(await screen.findByTestId('link-paste-save'))
+    await waitFor(() => expect(screen.getByTestId('link-saved')).toBeInTheDocument())
+    expect(posted).toEqual([{ url: 'https://copied.test/page', source: 'shortcut' }])
+  })
+
+  it('R4: says so when the clipboard holds no link, and saves one pasted in the box', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(navigator.clipboard, 'readText').mockResolvedValue('just words')
+    renderApp('/links/save?paste=1')
+    await user.click(await screen.findByTestId('link-paste-save'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('isn’t a link')
+    expect(posted).toEqual([])
+    await user.type(screen.getByTestId('link-paste-input'), 'typed.test/x')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.getByTestId('link-saved')).toBeInTheDocument())
+    expect(posted).toEqual([{ url: 'https://typed.test/x', source: 'shortcut' }])
+  })
+
   it('asks first when "via=extension" comes from somewhere else', async () => {
     renderApp('/links/save?url=https%3A%2F%2Fevil.test%2Fx&via=extension')
     await waitFor(() => expect(screen.getByTestId('link-save-confirm')).toBeInTheDocument(), {

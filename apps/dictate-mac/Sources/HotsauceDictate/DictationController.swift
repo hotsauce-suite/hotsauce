@@ -80,13 +80,20 @@ final class DictationController {
     /// press. A failure keeps the last known ones. `newConnection` forgets the old ones first:
     /// they were another account's, and until these are known a dictation stays on the Mac.
     func refreshChoices(newConnection: Bool = false) {
-        if newConnection { SpeechPreference.forget() }
+        if newConnection {
+            SpeechPreference.forget()
+            WordFixes.forget()
+        }
         guard let connection = ConnectionStore.connection() else { return }
         let client = DictationClient(server: connection.server, token: connection.token)
         Task { @MainActor in
             if let choices = try? await client.choices() {
                 SpeechPreference.set(choices.known)
                 DictatePrefs.remember(sendKey: choices.sendKey, sounds: choices.sounds)
+            }
+            // Kept for dictations written up without the server (H6).
+            if let words = try? await client.words(), let fixes = words.fixes {
+                WordFixes.save(fixes)
             }
         }
     }
@@ -407,6 +414,8 @@ final class DictationController {
                     result = DictationResult(text: tidied.text, raw: text, cleaned: tidied.cleaned, durationMs: samples.count / 16, ms: tidied.ms)
                 }
             }
+            // The server already wrote these when it tidied the text; offline, this Mac does (H6).
+            result = DictationResult(text: WordFixes.apply(result.text, WordFixes.cached()), raw: result.raw, cleaned: result.cleaned, durationMs: result.durationMs, ms: result.ms)
             let timings = ["audioMs": samples.count / 16, "onDeviceMs": heardMs, "serverLlmMs": result.ms.llm, "keyUpToTextMs": ms(keyUpAt)]
             deliver(result, request: request, timings: timings, to: target, onDevice: true)
         } catch {
