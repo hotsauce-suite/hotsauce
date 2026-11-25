@@ -41,3 +41,14 @@ Learnings from the Granola-style app menu (`docs/PLAN-mac-app-menu.md`).
   can't be tested on CI, but the list and the "every command has one place" check can.
 - **A soft ⌘Q must still let macOS quit.** Only the menu item is soft; the Dock's Quit, logout
   and restart call `terminate` and must not be intercepted, or the Mac can't shut down cleanly.
+
+## Build-only updates read as nonsense (2026-11-24)
+
+- **A new build of the same version is invisible to people.** Mac-only merges used to release no
+  number, so the Mac app workflow made build 160 of 0.66.2 and Settings said "you're on 0.66.2
+  (build 159). Update available: 0.66.2". Everything that keys on the version alone also missed it:
+  the "is ready" notification (`update.notified`), the failed-swap check (`update.attempted`) and
+  "What's new" (notes land with the next numbered release). Fix: Mac app changes always release a
+  new number (`scripts/next-release.mjs`), and Settings names the build if it ever happens again.
+- If you add anything that tells a person about an update, check it on a same-version, newer-build
+  case too; the menu and alerts still name only the version.
