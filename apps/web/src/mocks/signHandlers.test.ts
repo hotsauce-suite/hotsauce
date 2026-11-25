@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { filesApi } from '../api/files'
-import { signApi, signLinkApi } from '../api/sign'
+import { savedSignatureApi, signApi, signLinkApi } from '../api/sign'
 
 describe('mock Sign', () => {
   it('shows the seeded signed envelope, with its copies in Files', async () => {
@@ -115,5 +115,17 @@ describe('mock Sign', () => {
     expect(copy.audit.map((a) => a.event)).toEqual(['copied'])
     expect(copy.fields.every((f) => f.value === undefined && f.image === undefined)).toBe(true)
     await signApi.remove(copy.space, copy.id)
+  })
+
+  it('saves, replaces and deletes a member’s signature and initials', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgo='
+    expect(await savedSignatureApi.get()).toEqual({ signature: null, initials: null })
+    await savedSignatureApi.save('signature', { input: 'uploaded', image: png })
+    const both = await savedSignatureApi.save('initials', { input: 'typed', value: ' AL ' })
+    expect(both).toMatchObject({
+      signature: { input: 'uploaded', image: png },
+      initials: { input: 'typed', value: 'AL' },
+    })
+    expect((await savedSignatureApi.remove('signature')).signature).toBeNull()
   })
 })

@@ -16,6 +16,9 @@ import {
   MAX_SIGN_PDF_BYTES,
   parseFrontmatter,
   parseSigningToken,
+  SAVED_SIGNATURE_PATH,
+  type SavedMark,
+  SavedSignatures,
   SIGNING_LINK_DAYS,
   Signer,
   type SignField,
@@ -132,9 +135,18 @@ export interface FilledValue {
   field: string
   value?: string | undefined
   checked?: boolean | undefined
-  /** A drawn signature or initials, as a PNG data URL. */
+  /** A drawn or uploaded signature or initials, as a PNG data URL. */
   image?: string | undefined
+  /** How the signer says an image was made: on the pad (the default) or uploaded. */
+  input?: 'typed' | 'drawn' | 'uploaded' | undefined
 }
+
+/** A signature or initials to save for next time: typed text, or a drawn or uploaded PNG. */
+export type MarkInput =
+  | { input: 'typed'; value: string }
+  | { input: 'drawn' | 'uploaded'; image: string }
+
+export type MarkKind = 'signature' | 'initials'
 
 export interface RequestMeta {
   ip: string | null
@@ -490,6 +502,7 @@ export class Sign {
         method: 'Signed in to Hotsauce',
         author: principal,
         via,
+        saved: await this.saved(principal).catch(() => null),
       })
     })
     return this.get(principal, space, id)
@@ -809,6 +822,71 @@ export class Sign {
     return this.publicView(token, meta)
   }
 
+  /** The member's saved signature and initials, from their personal space; none when unset. */
+  async saved(principal: Principal): Promise<SavedSignatures> {
+    return (await this.#readSaved(await this.#personalSpace(principal))).saved
+  }
+
+  /** Saves the member's signature or initials for next time, replacing the one saved before. */
+  async saveMark(
+    principal: Principal,
+    kind: MarkKind,
+    mark: MarkInput,
+    via?: string,
+  ): Promise<SavedSignatures> {
+    let stored: SavedMark
+    const at = this.#iso()
+    if (mark.input === 'typed') {
+      const value = mark.value.replace(/\s+/g, ' ').trim().slice(0, 200)
+      if (!value) throw new HotsauceError('bad_request', `Type your ${kind} first`)
+      stored = { input: 'typed', value, saved_at: at }
+    } else {
+      checkMarkImage(mark.image, kind)
+      stored = { input: mark.input, image: mark.image, saved_at: at }
+    }
+    return this.#writeSaved(principal, kind, stored, via)
+  }
+
+  /** Forgets the member's saved signature or initials. */
+  async removeMark(principal: Principal, kind: MarkKind, via?: string): Promise<SavedSignatures> {
+    return this.#writeSaved(principal, kind, null, via)
+  }
+
+  async #writeSaved(
+    principal: Principal,
+    kind: MarkKind,
+    mark: SavedMark | null,
+    via: string | undefined,
+  ): Promise<SavedSignatures> {
+    const space = await this.#personalSpace(principal)
+    const { saved, blobOid } = await this.#readSaved(space)
+    const next = SavedSignatures.parse({ ...saved, [kind]: mark })
+    await this.#commit(space, principal, {
+      changes: [{ path: SAVED_SIGNATURE_PATH, content: `${JSON.stringify(next, null, 2)}\n` }],
+      verb: mark ? 'save' : 'remove',
+      title: kind === 'initials' ? 'saved initials' : 'saved signature',
+      via,
+      unchanged: { path: SAVED_SIGNATURE_PATH, blobOid },
+    })
+    return next
+  }
+
+  async #readSaved(space: string): Promise<{ saved: SavedSignatures; blobOid: string | null }> {
+    const empty = { signature: null, initials: null }
+    const file = await this.#deps.git.readFile(space, SAVED_SIGNATURE_PATH).catch((err) => {
+      if (err instanceof HotsauceError && err.code === 'not_found') return null
+      throw err
+    })
+    if (!file) return { saved: empty, blobOid: null }
+    let json: unknown = null
+    try {
+      json = JSON.parse(file.content)
+    } catch {}
+    const parsed = SavedSignatures.safeParse(json)
+    // A hand-edited file that no longer reads is treated as nothing saved; saving replaces it.
+    return { saved: parsed.success ? parsed.data : empty, blobOid: file.blobOid }
+  }
+
   /** Runs one change to an envelope at a time, so two presses can't both seal a copy. */
   async #serial<T>(space: string, id: string, fn: () => Promise<T>): Promise<T> {
     const key = `${space}/${id}`
@@ -834,7 +912,13 @@ export class Sign {
     signer: Signer,
     input: { values: FilledValue[]; consent: boolean },
     meta: RequestMeta,
-    how: { method: string; author: Author; via?: string | undefined },
+    how: {
+      method: string
+      author: Author
+      via?: string | undefined
+      /** The member's saved signature and initials, to record when they reused one. */
+      saved?: SavedSignatures | null | undefined
+    },
   ): Promise<void> {
     if (fm.status !== 'draft' && fm.status !== 'sent') {
       throw new HotsauceError('conflict', 'This envelope is finished; nothing is left to sign')
@@ -901,6 +985,8 @@ export class Sign {
           method: how.method,
           // What they filled in, so an edit to the fields afterwards breaks the audit check.
           fieldsSha256: filledDigest(fields, signer.id),
+          // How each signature and initials was made, and whether it was their saved one.
+          adoption: adoptionOf(fields, signer.id, how.saved ?? null),
         },
       },
     ])
@@ -1496,14 +1582,9 @@ function fillFields(
     }
     if (f.type === 'signature' || f.type === 'initials') {
       if (v?.image) {
-        if (!isPng(v.image)) throw new HotsauceError('bad_request', `Draw your ${label} again`)
-        if (!pngFits(v.image)) {
-          throw new HotsauceError(
-            'bad_request',
-            `Your drawn ${label} is too big; clear it and draw it again`,
-          )
-        }
-        return { ...f, input: 'drawn', image: v.image, value: undefined, filled_at: now }
+        checkMarkImage(v.image, label)
+        const input = v.input === 'uploaded' ? 'uploaded' : 'drawn'
+        return { ...f, input, image: v.image, value: undefined, filled_at: now }
       }
       const typed = v?.value?.replace(/\s+/g, ' ').trim().slice(0, 200)
       if (!typed) throw new HotsauceError('bad_request', `Add your ${label}`)
@@ -1566,6 +1647,37 @@ function fieldsMatchAudit(fm: EnvelopeFrontmatter): boolean {
     if (filledDigest(fm.fields, m.signerId) !== m.fieldsSha256) return false
   }
   return true
+}
+
+/** A drawn or uploaded PNG that is a real PNG and small enough to stamp. */
+function checkMarkImage(image: string, label: string): void {
+  if (!isPng(image)) throw new HotsauceError('bad_request', `Add your ${label} again`)
+  if (!pngFits(image)) {
+    throw new HotsauceError('bad_request', `Your ${label} picture is too big; add it again`)
+  }
+}
+
+/** How one signer made each signature and initials, for the audit trail and certificate. */
+function adoptionOf(
+  fields: readonly SignField[],
+  signerId: string,
+  saved: SavedSignatures | null,
+): Array<{ type: MarkKind; input: string; saved: boolean }> {
+  const out: Array<{ type: MarkKind; input: string; saved: boolean }> = []
+  for (const f of fields) {
+    if (f.signer !== signerId || (f.type !== 'signature' && f.type !== 'initials')) continue
+    const mark = saved?.[f.type] ?? null
+    const reused =
+      mark !== null &&
+      (mark.input === 'typed'
+        ? f.input === 'typed' && f.value === mark.value
+        : f.image === mark.image)
+    const row = { type: f.type, input: f.input ?? 'typed', saved: reused }
+    if (!out.some((o) => o.type === row.type && o.input === row.input && o.saved === row.saved)) {
+      out.push(row)
+    }
+  }
+  return out
 }
 
 /** Drawn signatures are small: a PNG claiming more than 4000 by 2000 pixels is refused. */
@@ -1641,7 +1753,8 @@ function toRecords(fm: EnvelopeFrontmatter): {
       width: f.width,
       height: f.height,
       required: f.required,
-      inputMethod: f.input ?? null,
+      // The engine stamps an uploaded picture the same way as a drawn one.
+      inputMethod: f.input === 'uploaded' ? 'drawn' : (f.input ?? null),
       value: f.value ?? null,
       checked: f.checked ?? null,
       imageKey: f.image ? f.id : null,

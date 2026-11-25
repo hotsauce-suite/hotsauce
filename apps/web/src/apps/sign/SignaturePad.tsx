@@ -1,21 +1,66 @@
+import type { SavedMark } from '@hotsauce/format'
 import { MAX_DRAWN_SIGNATURE_CHARS } from '@hotsauce/format'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from '../../components/Dialog'
 import { inputClass } from '../../routes/org/fields'
 import { primaryButton, secondaryButton } from '../meetings/components/common'
+import { DEFAULT_STRENGTH, type Pixels } from './cleanSignature'
+import {
+  MAX_UPLOAD_BYTES,
+  readPicture,
+  signatureFromPicture,
+  UPLOAD_ACCEPT,
+} from './uploadSignature'
 
-export type Signature = { value: string } | { image: string }
+/** What goes on a field: typed text, or a drawn or uploaded PNG data URL. */
+export type Signature =
+  | { value: string; input: 'typed' }
+  | { image: string; input: 'drawn' | 'uploaded' }
 
-/** Type or draw a signature (or initials); drawn ones are sent as a PNG data URL. */
+type Mode = 'saved' | 'type' | 'draw' | 'upload'
+
+const MODE_LABEL: Record<Mode, string> = {
+  saved: 'Saved',
+  type: 'Type',
+  draw: 'Draw',
+  upload: 'Upload',
+}
+
+/** A saved signature or initials, as it looks on the page. */
+export function MarkPreview({ mark, className = '' }: { mark: SavedMark; className?: string }) {
+  return mark.input === 'typed' ? (
+    <span className={`sign-script block truncate text-4xl text-ink ${className}`}>
+      {mark.value}
+    </span>
+  ) : (
+    <img src={mark.image} alt="" className={`max-h-24 max-w-full object-contain ${className}`} />
+  )
+}
+
+/**
+ * Type, draw or upload a signature (or initials), or use the one saved before. Members can save
+ * what they make for next time (docs/PLAN-sign-saved-signature.md); people signing from a link
+ * can't, since they have no account.
+ */
 export function SignatureDialog({
   kind,
   name,
+  saved = null,
+  canSave = false,
+  saving = false,
   onDone,
   onClose,
 }: {
   kind: 'signature' | 'initials'
   name: string
-  onDone: (s: Signature) => void
+  /** The member's saved one of this kind, offered first. */
+  saved?: SavedMark | null
+  /** Whether to offer "Save for next time" (members only). */
+  canSave?: boolean
+  /** Opened from "Your signature" to save one, not to sign a document. */
+  saving?: boolean
+  /** `save` is true when they asked to keep it for next time. */
+  onDone: (s: Signature, save: boolean) => void
   onClose: () => void
 }) {
   const initials = name
@@ -23,12 +68,61 @@ export function SignatureDialog({
     .map((w) => w[0] ?? '')
     .join('')
     .toUpperCase()
-  const [mode, setMode] = useState<'type' | 'draw'>('type')
+  const modes: Mode[] = saved ? ['saved', 'type', 'draw', 'upload'] : ['type', 'draw', 'upload']
+  const [mode, setMode] = useState<Mode>(saved ? 'saved' : 'type')
   const [typed, setTyped] = useState(kind === 'initials' ? initials : name)
   const canvas = useRef<HTMLCanvasElement>(null)
   const [drawn, setDrawn] = useState(false)
   const [tooBig, setTooBig] = useState(false)
+  const [save, setSave] = useState(true)
   const drawing = useRef(false)
+  const label = kind === 'initials' ? 'initials' : 'signature'
+
+  // Upload: the picture as read, the Ink slider, and the cleaned result.
+  const [picture, setPicture] = useState<Pixels | null>(null)
+  const [strength, setStrength] = useState(DEFAULT_STRENGTH)
+  const [pickError, setPickError] = useState<string | null>(null)
+  const [reading, setReading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const uploaded = useMemo(
+    () => (picture ? signatureFromPicture(picture, strength, label) : null),
+    [picture, strength, label],
+  )
+
+  const pick = async (file: File | null | undefined) => {
+    if (!file) return
+    setPickError(null)
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setPickError('That file is over 25 MB. Pick a smaller picture.')
+      return
+    }
+    setReading(true)
+    const px = await readPicture(file)
+    setReading(false)
+    if (!px) {
+      setPickError(
+        'That picture couldn’t be opened here. Try a PNG or JPG (a screenshot of it works too).',
+      )
+      return
+    }
+    setStrength(DEFAULT_STRENGTH)
+    setPicture(px)
+  }
+
+  // Paste a picture while the Upload tab is open.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: pick only sets state
+  useEffect(() => {
+    if (mode !== 'upload') return
+    const onPaste = (e: ClipboardEvent) => {
+      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+      if (!file) return
+      e.preventDefault()
+      void pick(file)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [mode])
 
   useEffect(() => {
     if (mode !== 'draw' || !canvas.current) return
@@ -51,7 +145,36 @@ export function SignatureDialog({
     const r = e.currentTarget.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
-  const label = kind === 'initials' ? 'initials' : 'signature'
+
+  const ready =
+    mode === 'saved'
+      ? saved !== null
+      : mode === 'type'
+        ? Boolean(typed.trim())
+        : mode === 'draw'
+          ? drawn
+          : uploaded?.ok === true
+
+  const finish = () => {
+    if (mode === 'saved' && saved) {
+      onDone(
+        saved.input === 'typed'
+          ? { value: saved.value, input: 'typed' }
+          : { image: saved.image, input: saved.input },
+        false,
+      )
+      return
+    }
+    const keep = canSave && save
+    if (mode === 'type') onDone({ value: typed.trim(), input: 'typed' }, keep)
+    else if (mode === 'upload' && uploaded?.ok)
+      onDone({ image: uploaded.image, input: 'uploaded' }, keep)
+    else if (mode === 'draw' && canvas.current) {
+      const image = inked(canvas.current).toDataURL('image/png')
+      if (image.length > MAX_DRAWN_SIGNATURE_CHARS) setTooBig(true)
+      else onDone({ image, input: 'drawn' }, keep)
+    }
+  }
 
   return (
     <Dialog
@@ -61,7 +184,7 @@ export function SignatureDialog({
     >
       <div className="flex flex-col gap-4">
         <div className="flex gap-2" role="tablist" aria-label={`How to add your ${label}`}>
-          {(['type', 'draw'] as const).map((m) => (
+          {modes.map((m) => (
             <button
               key={m}
               type="button"
@@ -71,11 +194,21 @@ export function SignatureDialog({
               onClick={() => setMode(m)}
               data-testid={`signature-${m}`}
             >
-              {m === 'type' ? 'Type' : 'Draw'}
+              {MODE_LABEL[m]}
             </button>
           ))}
         </div>
-        {mode === 'type' ? (
+        {mode === 'saved' && saved ? (
+          <div className="flex flex-col gap-2 text-sm text-ink-soft">
+            Your saved {label}
+            <div
+              className="flex min-h-24 items-center justify-center rounded-lg border border-ash-strong bg-white px-3 py-3"
+              data-testid="signature-saved-preview"
+            >
+              <MarkPreview mark={saved} />
+            </div>
+          </div>
+        ) : mode === 'type' ? (
           <label className="flex flex-col gap-1 text-sm text-ink-soft">
             Type your {label}
             <input
@@ -89,7 +222,7 @@ export function SignatureDialog({
               {typed || ' '}
             </span>
           </label>
-        ) : (
+        ) : mode === 'draw' ? (
           <div className="flex flex-col gap-2">
             <canvas
               ref={canvas}
@@ -132,14 +265,109 @@ export function SignatureDialog({
               Clear
             </button>
           </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <input
+              ref={fileInput}
+              type="file"
+              accept={UPLOAD_ACCEPT}
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+              data-testid="signature-file"
+              onChange={(e) => {
+                void pick(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: the button inside is the keyboard way in */}
+            <div
+              className={`flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-4 text-center text-sm ${dragOver ? 'border-ember bg-paper-sunk' : 'border-ash-strong bg-white'}`}
+              data-testid="signature-drop"
+              onDragOver={(e) => {
+                e.preventDefault()
+                setDragOver(true)
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setDragOver(false)
+                void pick(e.dataTransfer.files[0])
+              }}
+            >
+              {uploaded?.ok ? (
+                <img
+                  src={uploaded.image}
+                  alt={`Your ${label}, cleaned up`}
+                  className="max-h-28 max-w-full object-contain"
+                  data-testid="signature-upload-preview"
+                />
+              ) : reading ? (
+                <span className="text-ink-soft">Reading the picture…</span>
+              ) : !picture ? (
+                <span className="text-ink-soft">
+                  Sign a sheet of white paper in dark ink and take a photo, or use a scan.
+                </span>
+              ) : null}
+              <button
+                type="button"
+                className={secondaryButton}
+                onClick={() => fileInput.current?.click()}
+                data-testid="signature-choose"
+              >
+                {picture ? 'Choose another picture' : 'Choose a picture'}
+              </button>
+              <span className="text-xs text-ink-faint">or drag one here, or paste it</span>
+            </div>
+            {picture ? (
+              <label className="flex items-center gap-3 text-sm text-ink-soft">
+                Ink
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={strength}
+                  onChange={(e) => setStrength(Number(e.target.value))}
+                  className="flex-1"
+                  aria-label="How much of the picture counts as ink"
+                  data-testid="signature-ink"
+                />
+              </label>
+            ) : null}
+            {pickError || (uploaded && !uploaded.ok) ? (
+              <p role="alert" className="text-sm text-ink" data-testid="signature-upload-error">
+                {pickError ?? (uploaded && !uploaded.ok ? uploaded.message : '')}
+              </p>
+            ) : null}
+          </div>
         )}
         {tooBig ? (
           <p role="alert" className="text-sm text-ink">
             That drawing is too detailed to keep. Clear it and draw your {label} a little simpler.
           </p>
         ) : null}
+        {canSave && mode !== 'saved' ? (
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={save}
+              onChange={(e) => setSave(e.target.checked)}
+              data-testid="signature-save"
+            />
+            <span>
+              Save as my {label} for next time
+              {saved ? ' (replaces the saved one)' : ''}. Only you can see it.
+            </span>
+          </label>
+        ) : null}
         <p className="text-xs text-ink-faint">
-          Your {label} goes on this document only and is kept with it.
+          {saving
+            ? `Saved in your personal space. Only you can see it.`
+            : canSave
+              ? `This document keeps a copy of your ${label}, and its audit certificate says how you made it.`
+              : `Your ${label} goes on this document only and is kept with it.`}
         </p>
         <div className="flex justify-end gap-2">
           <button type="button" className={secondaryButton} onClick={onClose}>
@@ -149,17 +377,10 @@ export function SignatureDialog({
             type="button"
             className={primaryButton}
             data-testid="signature-done"
-            disabled={mode === 'type' ? !typed.trim() : !drawn}
-            onClick={() => {
-              if (mode === 'type') onDone({ value: typed.trim() })
-              else if (canvas.current) {
-                const image = inked(canvas.current).toDataURL('image/png')
-                if (image.length > MAX_DRAWN_SIGNATURE_CHARS) setTooBig(true)
-                else onDone({ image })
-              }
-            }}
+            disabled={!ready}
+            onClick={finish}
           >
-            Use this {label}
+            {saving ? `Save this ${label}` : `Use this ${label}`}
           </button>
         </div>
       </div>

@@ -26,6 +26,7 @@ import { keptFields, moveUp, nextPersonId, ordered, peopleProblem, shortName } f
 import { type Signature, SignatureDialog } from './SignaturePad'
 import { missingFields, SigningPanel } from './SigningPanel'
 import { STATUS_LABEL, when } from './SignPage'
+import { useSavedSignatures } from './savedSignatures'
 
 /** A select sized to its options (the input class stretches to the full width). */
 const selectClass = `${inputClass.replace('w-full', '')} h-9 w-auto`
@@ -61,6 +62,7 @@ export default function EnvelopePage() {
   const [values, setValues] = useState<Record<string, FilledValue>>({})
   const [consent, setConsent] = useState(false)
   const [padFor, setPadFor] = useState<SignField | null>(null)
+  const savedMarks = useSavedSignatures()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -591,9 +593,21 @@ export default function EnvelopePage() {
           kind={padFor.type === 'initials' ? 'initials' : 'signature'}
           name={meSigner.name}
           onClose={() => setPadFor(null)}
-          onDone={(s: Signature) => {
+          saved={savedMarks.saved?.[padFor.type === 'initials' ? 'initials' : 'signature'] ?? null}
+          canSave
+          onDone={(s: Signature, save: boolean) => {
             setValues((v) => ({ ...v, [padFor.id]: { field: padFor.id, ...s } }))
+            const kind = padFor.type === 'initials' ? 'initials' : 'signature'
             setPadFor(null)
+            if (save) {
+              void savedMarks.keep(kind, s).then((ok) => {
+                notify(
+                  ok
+                    ? `Saved your ${kind} for next time`
+                    : `Your ${kind} is on this document, but it couldn’t be saved for next time`,
+                )
+              })
+            }
           }}
         />
       ) : null}

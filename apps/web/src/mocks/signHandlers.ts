@@ -8,6 +8,7 @@ import {
   EnvelopeFrontmatter,
   envelopeProblem,
   newId,
+  type SavedSignatures,
   type Signer,
   type SignField,
   signersUpNext,
@@ -42,6 +43,8 @@ export class FakeSign {
   readonly envelopes = new Map<string, Stored>()
   /** Signing links still working: token → the envelope's key and the signer's id. */
   readonly links = new Map<string, { key: string; signer: string }>()
+  /** Each member's saved signature and initials, by their handle. */
+  readonly saved = new Map<string, SavedSignatures>()
 
   key(space: string, id: string) {
     return `${space}/${id}`
@@ -172,7 +175,10 @@ function signAs(
     const v = byId.get(f.id)
     if (f.type === 'checkbox') return { ...f, checked: v?.checked === true, filled_at: now }
     if (f.type === 'date') return { ...f, value: now.slice(0, 10), filled_at: now }
-    if (v?.image) return { ...f, input: 'drawn', image: v.image, filled_at: now }
+    if (v?.image) {
+      const input = v.input === 'uploaded' ? 'uploaded' : 'drawn'
+      return { ...f, input, image: v.image, filled_at: now }
+    }
     return v?.value ? { ...f, input: 'typed', value: v.value, filled_at: now } : f
   })
   const signers = s.fm.signers.map(
@@ -402,7 +408,56 @@ export function signHandlers(deps: {
   const read = (space: string, id: string) => fake.envelopes.get(fake.key(space, String(id)))
   const own = (user: FakeUser, s: Stored) => s.space === user.handle || s.space === 'team'
 
+  const savedOf = (user: FakeUser): SavedSignatures =>
+    fake.saved.get(user.handle) ?? { signature: null, initials: null }
+
   return [
+    http.get('/api/sign-saved', async ({ request }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      await delay(latencyMs)
+      return HttpResponse.json(savedOf(user))
+    }),
+
+    http.put('/api/sign-saved/:kind', async ({ request, params }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const kind = String(params.kind)
+      if (kind !== 'signature' && kind !== 'initials')
+        return error(400, 'bad_request', 'No such kind')
+      const body = (await request.json()) as
+        | { input: 'typed'; value: string }
+        | { input: 'drawn' | 'uploaded'; image: string }
+      const saved_at = iso(Date.now())
+      let mark: SavedSignatures['signature']
+      if (body.input === 'typed') {
+        const value = body.value.replace(/\s+/g, ' ').trim().slice(0, 200)
+        if (!value) return error(400, 'bad_request', `Type your ${kind} first`)
+        mark = { input: 'typed', value, saved_at }
+      } else {
+        if (!body.image.startsWith('data:image/png;base64,')) {
+          return error(400, 'bad_request', `Add your ${kind} again`)
+        }
+        mark = { input: body.input, image: body.image, saved_at }
+      }
+      const next = { ...savedOf(user), [kind]: mark }
+      fake.saved.set(user.handle, next)
+      await delay(latencyMs)
+      return HttpResponse.json(next)
+    }),
+
+    http.delete('/api/sign-saved/:kind', async ({ request, params }) => {
+      const user = principal(request)
+      if (user instanceof Response) return user
+      const kind = String(params.kind)
+      if (kind !== 'signature' && kind !== 'initials')
+        return error(400, 'bad_request', 'No such kind')
+      const next = { ...savedOf(user), [kind]: null }
+      fake.saved.set(user.handle, next)
+      await delay(latencyMs)
+      return HttpResponse.json(next)
+    }),
+
     http.get('/api/sign', async ({ request }) => {
       const user = principal(request)
       if (user instanceof Response) return user
