@@ -32,7 +32,7 @@ M2. A server serves it at `/downloads/mac-app.json` (cached like the DMG, last g
 
 What a Mac reports
 M3. The Mac app sends `Hotsauce-App: mac/<version>+<build>` with its device-token requests (the
-    build tells apart two builds of one release, since Mac-only changes make no release); the server
+    build tells apart two builds of one release, which Mac-only changes made before 2026-11-24); the server
     keeps the newest such value on the device, and `GET /api/dictation/devices` returns it as
     `appVersion` (null until reported). A malformed value is ignored. [store.test, dictation
     integration test]

@@ -14,6 +14,11 @@ final class OverlayModel: ObservableObject {
     @Published var onDevice = false
     /// What the pill says while the Mac writes it up itself: offline, or "On this Mac" by choice.
     @Published var onDeviceLabel = "Offline: on-device"
+    /// A warning while recording: the mic hears nothing, or the connection is slow
+    /// (docs/PLAN-dictate-send-and-sounds.md, R13).
+    @Published var hint: String?
+    /// What the pill says while Hotsauce writes it up.
+    @Published var processingText = "Writing it up…"
     /// Recent levels, oldest first, for the meter.
     @Published var levels: [Float] = Array(repeating: 0, count: 18)
 
@@ -38,7 +43,7 @@ final class Overlay {
 
     init() {
         panel = NonActivatingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 44),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 44),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: true
@@ -58,10 +63,26 @@ final class Overlay {
         model.levels = Array(repeating: 0, count: model.levels.count)
         model.onDevice = onDevice
         model.onDeviceLabel = label
+        model.hint = nil
         show(.recording, hideAfter: nil)
     }
 
-    func showProcessing() { show(.processing, hideAfter: nil) }
+    func showProcessing() {
+        model.processingText = "Writing it up…"
+        show(.processing, hideAfter: nil)
+    }
+
+    /// A warning beside the meter while recording.
+    func showHint(_ text: String) {
+        guard model.phase == .recording else { return }
+        model.hint = text
+    }
+
+    /// Still writing it up, but slowly.
+    func showSlow() {
+        guard model.phase == .processing else { return }
+        model.processingText = "Slow connection, still writing it up…"
+    }
 
     func showMessage(_ text: String, seconds: TimeInterval = 2.5) { show(.message(text), hideAfter: seconds) }
 
@@ -109,7 +130,12 @@ struct OverlayView: View {
                     }
                 }
                 .animation(.easeOut(duration: 0.08), value: model.levels)
-                if model.onDevice {
+                if let hint = model.hint {
+                    Text(hint)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.45))
+                        .fixedSize()
+                } else if model.onDevice {
                     Text(model.onDeviceLabel)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
@@ -117,7 +143,7 @@ struct OverlayView: View {
                 }
             case .processing:
                 ProgressView().controlSize(.small).colorScheme(.dark)
-                Text("Writing it up…").font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.85))
+                Text(model.processingText).font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.85))
             case let .message(text):
                 Text(text).font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.92)).lineLimit(1)
             }

@@ -8,11 +8,13 @@ import type { FieldRecord } from './vendor/schemas/field.ts'
 import type { SignerRecord } from './vendor/schemas/signer.ts'
 import {
   type CertificateCopyRecipient,
+  findTypedValueTooLongForField,
   type PdfSealer,
   renderEnvelopeCertificatePdf,
   renderFinalizedEnvelopePdf,
   type SealPurpose,
 } from './vendor/services/pdf-finalize.ts'
+import { getDisplayedPageGeometry } from './vendor/services/pdf-page-geometry.ts'
 import {
   createSelfSignedSealIdentity,
   type SealIdentity,
@@ -96,6 +98,11 @@ export async function renderSignedPdf(
     fields: FieldRecord[]
     images?: ReadonlyMap<string, Uint8Array>
     completedAt?: number
+    /**
+     * Each page's size as stored with the envelope, which fields were placed against. Left out,
+     * fields are placed on each page as a reader shows it.
+     */
+    pages?: ReadonlyArray<{ width: number; height: number }>
   },
   seal: PdfSealer,
 ): Promise<Uint8Array> {
@@ -108,6 +115,11 @@ export async function renderSignedPdf(
       completedAt: input.completedAt ?? Math.floor(Date.now() / 1000),
       envelope: input.envelope,
       fields: input.fields,
+      pages: (input.pages ?? []).map((p, i) => ({
+        pageNumber: i + 1,
+        widthPt: p.width,
+        heightPt: p.height,
+      })),
       signers: input.signers,
       sourcePdfKey: sourceKey,
     },
@@ -159,29 +171,34 @@ export function renderCertificate(
 export const pdfFingerprint = sha256Hex
 
 /**
- * Each page's size in points, for placing fields. Throws when the bytes aren't a PDF pdf-lib can
- * open; an encrypted PDF is refused, since its pages can't be stamped.
+ * Each page's size in points as a reader shows it (the CropBox, turned by the page's rotation),
+ * for placing fields. Throws when the bytes aren't a PDF pdf-lib can open; an encrypted PDF is
+ * refused, since its pages can't be stamped.
  */
 export async function readPdfPages(
   bytes: Uint8Array,
-): Promise<Array<{ width: number; height: number; plain: boolean }>> {
+): Promise<Array<{ width: number; height: number }>> {
   const doc = await PDFDocument.load(bytes, { updateMetadata: false })
   return doc.getPages().map((page) => {
-    const { width, height } = page.getSize()
-    // Fields are stamped in the MediaBox's own coordinates, from its corner at 0,0. A page that
-    // is turned, cropped or shifted shows differently in a reader, so a field would land
-    // somewhere other than where it was placed: `plain` is false for those.
-    const media = page.getMediaBox()
-    const crop = page.getCropBox()
-    const same = (a: number, b: number) => Math.abs(a - b) < 0.5
-    const plain =
-      page.getRotation().angle % 360 === 0 &&
-      same(media.x, 0) &&
-      same(media.y, 0) &&
-      same(crop.x, media.x) &&
-      same(crop.y, media.y) &&
-      same(crop.width, media.width) &&
-      same(crop.height, media.height)
-    return { width, height, plain }
+    const { widthPt, heightPt } = getDisplayedPageGeometry(page)
+    return { width: widthPt, height: heightPt }
   })
+}
+
+/**
+ * The first typed answer that would only fit its box below a readable size (4 pt) on the signed
+ * PDF, with the page it's on and how many of its characters would fit; null when every answer
+ * fits. `pages` are the envelope's stored page sizes, 1-based by position.
+ */
+export function findAnswerTooLong(
+  entries: ReadonlyArray<{
+    field: Pick<FieldRecord, 'page' | 'x' | 'y' | 'width' | 'height'>
+    value: string
+  }>,
+  pages: ReadonlyArray<{ width: number; height: number }>,
+): Promise<{ page: number; maxCharacters: number } | null> {
+  return findTypedValueTooLongForField(
+    entries,
+    pages.map((p, i) => ({ pageNumber: i + 1, widthPt: p.width, heightPt: p.height })),
+  )
 }

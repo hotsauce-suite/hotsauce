@@ -39,6 +39,8 @@ export const SECRET_NAMES = [
   'FORGEJO_TOKEN',
   'R2_SECRET_ACCESS_KEY',
   'WEBHOOK_SECRET',
+  'CHAT_CLAUDE_TOKEN',
+  'CHAT_CLAUDE_WEBHOOK_SECRET',
 ] as const
 export type SecretName = (typeof SECRET_NAMES)[number]
 
@@ -66,6 +68,8 @@ export const OrgSettingsSchema = z.object({
   r2Bucket: z.string().trim().default(''),
   keepAudio: z.boolean().default(false),
   chatUrl: z.string().trim().default(''),
+  /** The Claude Code routine that answers @mentions in chat ('' = off). docs/PLAN-chat-claude.md */
+  chatClaudeRoutineId: z.string().trim().max(100).default(''),
   /** Read-only links open for anyone with the link, signed out too (ARCHITECTURE §20). */
   publicShareLinks: z.boolean().default(false),
   /** The built-in assistant's model ('' = the default) and monthly limit per member in USD (0 = none). */

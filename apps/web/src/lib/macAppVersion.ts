@@ -44,8 +44,8 @@ export function compareVersions(a: string, b: string): number {
 export type MacAppUpdateState = 'current' | 'outdated' | 'unknown'
 
 /**
- * An installed app's version as a Mac reports it: `0.26.0`, or `0.26.0+1400` with its build. A
- * Mac-only change makes a new build of the same release, so the build breaks a tie.
+ * An installed app's version as a Mac reports it: `0.26.0`, or `0.26.0+1400` with its build. Builds of
+ * one release (Mac-only changes made them before 2026-11-24) are told apart by the build.
  */
 export function splitMacVersion(reported: string): { version: string; build: string | null } {
   const [version = '', build] = reported.split('+')
@@ -74,6 +74,25 @@ export function macAppUpdateState(
 export function macVersionLabel(reported: string): string {
   const { version, build } = splitMacVersion(reported)
   return build ? `${version} (build ${build})` : version
+}
+
+/**
+ * How Settings names the update it offers. A Mac-only change used to come out as a new build of
+ * the same version, and "Update available: 0.66.2" on 0.66.2 read as nonsense: when only the
+ * build is newer, name the build (`0.66.2 (build 160)`), or say `a newer build of 0.66.2`.
+ */
+export function offeredUpdateLabel(
+  offered: string,
+  installed: string | null,
+  latest: MacAppLatest | null,
+): string {
+  if (!installed) return offered
+  const mine = splitMacVersion(installed)
+  if (mine.version !== offered) return offered
+  // The server's newest build, only when it's the offered version and above the installed build.
+  const build = latest?.version === offered ? latest.build : undefined
+  const newer = build && /^\d+$/.test(build) && (!mine.build || Number(build) > Number(mine.build))
+  return newer ? `${offered} (build ${build})` : `a newer build of ${offered}`
 }
 
 /**

@@ -8,9 +8,13 @@ import type { AuditEventRecord, EnvelopeRecord } from "../schemas/envelope.ts";
 import type { FieldRecord } from "../schemas/field.ts";
 import type { SignerRecord } from "../schemas/signer.ts";
 import {
+  computeAuditFingerprint,
+  findTypedValueTooLongForField,
   renderEnvelopeCertificatePdf,
   renderFinalizedEnvelopePdf,
+  wrapFieldText,
 } from "./pdf-finalize.ts";
+import { embedTextFaces } from "./pdf-fonts.ts";
 import { sha256Hex } from "./pdf-seal.ts";
 import type { StorageService } from "./pdf-finalize.ts";
 
@@ -179,6 +183,7 @@ test("the signed PDF stamps values in any of the supported scripts", async () =>
       envelope: fixture.envelope,
       fields: fixture.fields,
       signers: fixture.signers,
+      pages: [],
       sourcePdfKey: fixture.envelope.sourcePdfKey,
     },
     { seal: saveUnsealed, storageService: fixture.storageService },
@@ -503,6 +508,7 @@ test("numbers and dropdown choices are stamped as text, radio buttons as rings",
         envelope: fixture.envelope,
         fields,
         signers: fixture.signers,
+        pages: [],
         sourcePdfKey: fixture.envelope.sourcePdfKey,
       },
       { seal: saveUnsealed, storageService: fixture.storageService },
@@ -544,6 +550,7 @@ test("typed signatures are drawn in dark, outlined ink", async () => {
       envelope: fixture.envelope,
       fields: fixture.fields.filter((field) => field.id === "field-1"),
       signers: fixture.signers,
+      pages: [],
       sourcePdfKey: fixture.envelope.sourcePdfKey,
     },
     { seal: saveUnsealed, storageService: fixture.storageService },
@@ -565,4 +572,412 @@ test("typed signatures are drawn in dark, outlined ink", async () => {
   const fill = /([\d.]+) ([\d.]+) ([\d.]+) rg/.exec(ops);
   assert.ok(fill, "no fill colour");
   for (const channel of fill.slice(1)) assert.ok(Number(channel) <= 0.1, `fill ${fill[0]}`);
+});
+
+// Audit rows print "time | event | actor". Returns the events in the order
+// the certificate lists them.
+function certificateEventOrder(text: string): string[] {
+  return [...text.matchAll(/UTC \| ([a-z_]+) \|/g)].map((match) => match[1]);
+}
+
+async function renderCertificateText(
+  envelope: EnvelopeRecord,
+  signers: SignerRecord[],
+  auditEvents: AuditEventRecord[],
+): Promise<string> {
+  return (
+    await extractText(
+      await renderEnvelopeCertificatePdf(
+        { auditEvents, envelope, signers },
+        { seal: saveUnsealed },
+      ),
+    )
+  ).replace(/\s+/g, " ");
+}
+
+test("the last signature is listed before completed in the same second (issue #97)", async () => {
+  const fixture = await makeFixture();
+  const now = fixture.envelope.completedAt ?? 0;
+  // The ids sort after any generated id, so a sort by time then id would
+  // put the completed row first.
+  const auditEvents: AuditEventRecord[] = [
+    {
+      actorEmail: "yamada@example.com",
+      actorType: "signer",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "signed",
+      id: "zz-event-signed",
+      metadata: { signerId: "signer-2", signerName: SECOND_SIGNER_NAME },
+    },
+  ];
+  const text = await renderCertificateText(
+    fixture.envelope,
+    fixture.signers,
+    auditEvents,
+  );
+
+  assert.deepEqual(certificateEventOrder(text), ["signed", "completed"], text);
+});
+
+test("a recorded completed row keeps its place in the recorded order (issue #97)", async () => {
+  const fixture = await makeFixture();
+  const now = fixture.envelope.completedAt ?? 0;
+  const auditEvents: AuditEventRecord[] = [
+    {
+      actorEmail: "yamada@example.com",
+      actorType: "signer",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "signed",
+      id: "zz-event-signed",
+      metadata: { signerId: "signer-2", signerName: SECOND_SIGNER_NAME },
+    },
+    {
+      actorType: "system",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "completed",
+      id: "aa-event-completed",
+      metadata: null,
+    },
+    {
+      actorType: "system",
+      createdAt: now,
+      envelopeId: fixture.envelope.id,
+      event: "email_sent",
+      id: "00-event-email",
+      metadata: null,
+    },
+  ];
+  const text = await renderCertificateText(
+    fixture.envelope,
+    fixture.signers,
+    auditEvents,
+  );
+
+  assert.deepEqual(
+    certificateEventOrder(text),
+    ["signed", "completed", "email_sent"],
+    text,
+  );
+});
+
+test("declined and voided certificates keep same-second events in recorded order (issue #97)", async () => {
+  const fixture = await makeFixture();
+  const at = 1_799_999_000;
+  const sameSecond = (
+    event: AuditEventRecord["event"],
+    id: string,
+  ): AuditEventRecord => ({
+    actorType: "system",
+    createdAt: at,
+    envelopeId: fixture.envelope.id,
+    event,
+    id,
+    metadata: null,
+  });
+
+  for (const [status, terminalEvent] of [
+    ["declined", "declined"],
+    ["voided", "voided"],
+  ] as const) {
+    const envelope: EnvelopeRecord = {
+      ...fixture.envelope,
+      completedAt: null,
+      declinedAt: status === "declined" ? at : null,
+      status,
+      voidedAt: status === "voided" ? at : null,
+    };
+    // Recorded order: sent, signed, the next invitation, then the end. The
+    // ids are in reverse, so a sort by id would turn them around.
+    const auditEvents = [
+      sameSecond("sent", "d-sent"),
+      sameSecond("signed", "c-signed"),
+      sameSecond("email_sent", "b-email"),
+      sameSecond(terminalEvent, "a-end"),
+    ];
+    const text = await renderCertificateText(
+      envelope,
+      fixture.signers,
+      auditEvents,
+    );
+
+    assert.deepEqual(
+      certificateEventOrder(text),
+      ["sent", "signed", "email_sent", terminalEvent],
+      text,
+    );
+  }
+});
+
+// A Text field in the place and size from issue #90: right of centre on a
+// US Letter page, 19% of the page wide and 6% high.
+const NARROW_FIELD = { height: 0.06, page: 1, width: 0.19, x: 0.69, y: 0.32 };
+const LETTER_PAGE = { heightPt: 792, pageNumber: 1, widthPt: 612 };
+
+async function extractTextItems(pdfBytes: Uint8Array) {
+  // Hotsauce: pdf.js through unpdf, which the server already uses.
+  const { getResolvedPDFJS } = await import("unpdf");
+  const pdfjs = await getResolvedPDFJS();
+  const task = pdfjs.getDocument({
+    data: new Uint8Array(pdfBytes),
+    useSystemFonts: false,
+    verbosity: 0,
+  });
+  const document = await task.promise;
+  const page = await document.getPage(1);
+  const content = await page.getTextContent();
+  const items = (
+    content.items as Array<{
+      str?: string;
+      transform?: number[];
+      width?: number;
+    }>
+  )
+    .filter((item) => item.str && item.transform)
+    .map((item) => ({
+      left: item.transform![4]!,
+      right: item.transform![4]! + (item.width ?? 0),
+      text: item.str!,
+      y: item.transform![5]!,
+    }));
+
+  await task.destroy();
+
+  return items;
+}
+
+async function renderOneTextField(value: string) {
+  const fixture = await makeFixture();
+  const field: FieldRecord = {
+    ...NARROW_FIELD,
+    createdAt: 1_800_000_000,
+    envelopeId: fixture.envelope.id,
+    id: "long-text",
+    required: true,
+    signerId: "signer-1",
+    submittedAt: 1_800_000_000,
+    type: "text",
+    updatedAt: 1_800_000_000,
+    value,
+  };
+
+  return renderFinalizedEnvelopePdf(
+    {
+      auditEvents: fixture.auditEvents,
+      completedAt: fixture.envelope.completedAt!,
+      envelope: fixture.envelope,
+      fields: [field],
+      pages: [LETTER_PAGE],
+      signers: fixture.signers,
+      sourcePdfKey: fixture.envelope.sourcePdfKey,
+    },
+    { seal: saveUnsealed, storageService: fixture.storageService },
+  );
+}
+
+const LONG_ANSWER = [
+  "BEGIN",
+  "The tenant agrees to keep the garden tidy, to water the plants",
+  "twice a week in summer, and to tell the landlord about any leak",
+  "within two days of finding it.",
+  "FINISH-MARKER",
+].join(" ");
+
+test("a long text answer wraps inside its box and is kept whole", async () => {
+  const items = await extractTextItems(await renderOneTextField(LONG_ANSWER));
+  const fieldLeft = NARROW_FIELD.x * 612;
+  const fieldRight = (NARROW_FIELD.x + NARROW_FIELD.width) * 612;
+  const fieldTop = 792 - NARROW_FIELD.y * 792;
+  const fieldBottom = fieldTop - NARROW_FIELD.height * 792;
+  const joined = items
+    .map((item) => item.text)
+    .join(" ")
+    .replace(/\s+/g, " ");
+
+  assert.ok(joined.includes("BEGIN"));
+  assert.ok(joined.includes("FINISH-MARKER"));
+  assert.ok(new Set(items.map((item) => Math.round(item.y))).size > 1);
+
+  for (const item of items) {
+    assert.ok(item.left >= fieldLeft, `${item.text} starts left of its box`);
+    assert.ok(item.right <= fieldRight + 0.5, `${item.text} runs past its box`);
+    assert.ok(item.y >= fieldBottom && item.y <= fieldTop);
+  }
+});
+
+test("a short text answer is still drawn on one line", async () => {
+  const items = await extractTextItems(await renderOneTextField("Approved"));
+
+  assert.deepEqual(
+    items.map((item) => item.text),
+    ["Approved"],
+  );
+});
+
+const ISSUE_90_ANSWER = `BEGIN ${"W".repeat(240)} FINISH-MARKER`;
+
+test("an answer already accepted that is too long is drawn whole, not cut off", async () => {
+  const items = await extractTextItems(
+    await renderOneTextField(ISSUE_90_ANSWER),
+  );
+  const joined = items.map((item) => item.text).join("");
+
+  assert.ok(joined.includes("FINISH-MARKER"));
+  assert.equal(joined.replace(/[^W]/g, "").length, 240);
+
+  for (const item of items) {
+    assert.ok(item.right <= 612, `${item.text} runs off the page`);
+  }
+});
+
+test("signing is told when an answer cannot fit its box at a readable size", async () => {
+  const field = { ...NARROW_FIELD };
+
+  assert.equal(
+    await findTypedValueTooLongForField(
+      [{ field, value: LONG_ANSWER }],
+      [LETTER_PAGE],
+    ),
+    null,
+  );
+
+  const tooLong = await findTypedValueTooLongForField(
+    [
+      { field, value: "Approved" },
+      { field, value: ISSUE_90_ANSWER },
+    ],
+    [LETTER_PAGE],
+  );
+
+  assert.ok(tooLong);
+  assert.equal(tooLong.page, 1);
+  assert.ok(tooLong.maxCharacters > 0);
+  assert.ok(tooLong.maxCharacters < ISSUE_90_ANSWER.length);
+
+  // The length it names does fit.
+  assert.equal(
+    await findTypedValueTooLongForField(
+      [
+        {
+          field,
+          value: Array.from(ISSUE_90_ANSWER)
+            .slice(0, tooLong.maxCharacters)
+            .join(""),
+        },
+      ],
+      [LETTER_PAGE],
+    ),
+    null,
+  );
+});
+
+test("a box shorter than two readable lines takes only one", async () => {
+  // 3.6 pt high: one line at the readable size, as before, but no second.
+  const field = { ...NARROW_FIELD, height: 0.0045 };
+
+  assert.equal(
+    await findTypedValueTooLongForField(
+      [{ field, value: "Approved" }],
+      [LETTER_PAGE],
+    ),
+    null,
+  );
+  assert.ok(
+    await findTypedValueTooLongForField(
+      [{ field, value: LONG_ANSWER }],
+      [LETTER_PAGE],
+    ),
+  );
+});
+
+test("spaces inside an answer are kept as they were typed", async () => {
+  const faces = await embedTextFaces(await PDFDocument.create(), [
+    "AB  12 and more words",
+  ]);
+
+  // pdf.js merges runs of spaces when it extracts text, so the lines are
+  // checked as they are laid out.
+  assert.deepEqual(wrapFieldText(faces.regular, 10, 500, "AB  12"), ["AB  12"]);
+  assert.deepEqual(
+    wrapFieldText(faces.regular, 10, 60, "AB  12 and more words"),
+    ["AB  12 and", "more words"],
+  );
+});
+
+test("a captured email is not described as accepted by a mail provider (issue #106)", async () => {
+  const fixture = await makeFixture();
+  const emailSent = (id: string, messageId: string): AuditEventRecord => ({
+    actorType: "system",
+    createdAt: 1_799_999_000,
+    envelopeId: fixture.envelope.id,
+    event: "email_sent",
+    id,
+    metadata: {
+      messageId,
+      recipient: "lukasz@example.com",
+      signerId: "signer-1",
+      template: "signing_invitation",
+    },
+  });
+  const auditEvents = [
+    emailSent("event-captured", "capture-1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"),
+    emailSent("event-provider", "4ef9a417-02e9-4d39-ad75-9611e0fcc33c"),
+  ];
+  const text = (
+    await extractText(
+      await renderEnvelopeCertificatePdf(
+        {
+          auditEvents,
+          envelope: fixture.envelope,
+          redactForRecipients: false,
+          signers: fixture.signers,
+        },
+        { seal: saveUnsealed },
+      ),
+    )
+  ).replace(/\s+/g, " ");
+
+  assert.ok(
+    text.includes(
+      "captured locally as capture-1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed, not sent",
+    ),
+    text,
+  );
+  assert.ok(
+    !text.includes(
+      "accepted by the mail provider as capture-1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+    ),
+    text,
+  );
+  assert.ok(
+    text.includes(
+      "accepted by the mail provider as 4ef9a417-02e9-4d39-ad75-9611e0fcc33c",
+    ),
+    text,
+  );
+});
+
+test("the new wording leaves the audit fingerprint of a captured email unchanged (issue #106)", () => {
+  // Certificates sealed before the fix printed this fingerprint for the same
+  // row, so they still match the stored audit trail.
+  assert.equal(
+    computeAuditFingerprint([
+      {
+        actorType: "system",
+        createdAt: 1_799_999_000,
+        envelopeId: "env",
+        event: "email_sent",
+        id: "event-captured",
+        metadata: {
+          messageId: "capture-1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+          recipient: "lukasz@example.com",
+          signerId: "signer-1",
+          template: "signing_invitation",
+        },
+      },
+    ]),
+    "876cbd8661559c69681db5458f3baf2f8e1c8ccc4c43c9352691608e68b61c32",
+  );
 });

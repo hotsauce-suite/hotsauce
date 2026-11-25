@@ -1,6 +1,121 @@
 {
   "releases": [
     {
+      "version": "0.70.2",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Sign: the document fills the page, and the controls sit in a panel on the right that stays in view as you scroll. The field types come first, two to a row."
+        },
+        {
+          "text": "Sign: the page someone outside the team signs from uses the same layout."
+        },
+        {
+          "text": "Gets the same layout (it shows the web screens).",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.70.1",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Dictate: the send key no longer cuts off the word you're saying as you press it."
+        }
+      ]
+    },
+    {
+      "version": "0.70.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Dictate: press Space while dictating to send it (paste and press Return). You can change the key in Dictate → Shortcut and sounds."
+        },
+        {
+          "text": "Dictate: sound themes for start, stop, send and cancel (Soft, Pop, Click, Chime or Off)."
+        },
+        {
+          "text": "Dictate: while you talk, it warns you if the mic hears nothing or the connection is slow."
+        },
+        {
+          "text": "Hold ⇧ as you finish a dictation to send it.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Quiet other audio while dictating (Lower or Mute), in Settings → This Mac.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.69.1",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Sign: PDFs with turned, cropped or landscape-scan pages can now be sent for signature, and every field lands where it was placed."
+        },
+        {
+          "text": "Sign: a long answer in a Text box wraps onto more lines to fit; one too long to read is refused, with how many characters fit."
+        },
+        {
+          "text": "Sign: the audit certificate lists events in the order they happened, even within the same second."
+        }
+      ]
+    },
+    {
+      "version": "0.69.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Dictate tidies short dictations whose punctuation looks thin, instead of pasting them as heard"
+        },
+        {
+          "text": "Dictate → Words: click a word to add how it gets misheard (\"Rajeev\" for Rajiv), and every dictation writes the word"
+        },
+        {
+          "text": "\"also heard as\" spellings also work with no connection",
+          "area": "Mac app"
+        },
+        {
+          "text": "An update never says it's the version you already have. Every Mac app change now comes out as its own version.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.68.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Hold the Hotsauce icon on Android for shortcuts to a voice note, a new task, Save link, Ask and Ramble."
+        },
+        {
+          "text": "IPhone: Settings → Apps → Phone shortcuts gives each action's address for Apple's Shortcuts app (Home Screen, widget or Action Button), and a \"Save to Hotsauce\" share-sheet shortcut."
+        },
+        {
+          "text": "Save link from a copied address: Paste and save, or paste it into the box."
+        },
+        {
+          "text": "Right-click the Dock icon (or use the menu bar menu) for New Task, Save Link, Ask and Ramble Tasks.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
+      "version": "0.67.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Mention @Claude in the team chat and a Claude Code session answers in the same thread, using your workspace (Settings → Workspace → Claude in chat)"
+        },
+        {
+          "text": "The \"Meeting detected\" card now shows within about a second of a Zoom or Google Meet call starting, instead of after a few seconds.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.66.2",
       "date": "2026-11-23",
       "notes": [

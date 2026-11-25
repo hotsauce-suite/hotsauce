@@ -24,7 +24,7 @@ public enum AppVersion {
         return b
     }
 
-    /// `mac/<version>`, or `mac/<version>+<build>` (a Mac-only change makes a new build of the same
+    /// `mac/<version>`, or `mac/<version>+<build>` (the build tells apart two builds of one
     /// release); nil when the version isn't a plain one.
     public static func headerValue(version: String?, build: String? = nil) -> String? {
         guard let v = valid(version) else { return nil }

@@ -7,6 +7,7 @@ import { Signer, SUBFILTER_ETSI_CADES_DETACHED } from "@signpdf/utils";
 import forge from "node-forge";
 import type { PDFDocument } from "pdf-lib";
 
+import { truncateToWholeCharacters } from "../text-truncate.ts";
 import { children, elementBytes, readTlv } from "./der.ts";
 
 // A PAdES baseline (B-B, or B-T with a timestamp) seal on a finished PDF.
@@ -452,9 +453,14 @@ export function createSelfSignedSealIdentity({
   certificate.validity.notAfter = notAfter;
 
   const subject = [
-    { name: "commonName", value: commonName.slice(0, 64) },
+    { name: "commonName", value: truncateToWholeCharacters(commonName, 64) },
     ...(organization
-      ? [{ name: "organizationName", value: organization.slice(0, 64) }]
+      ? [
+          {
+            name: "organizationName",
+            value: truncateToWholeCharacters(organization, 64),
+          },
+        ]
       : []),
   ];
 

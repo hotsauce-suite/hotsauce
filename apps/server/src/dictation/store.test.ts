@@ -140,6 +140,52 @@ describe('DictationStore', () => {
   })
 })
 
+describe('heard-as spellings (H1, H2)', () => {
+  it('keeps them per word, in order, under the list’s spelling', () => {
+    const store = new DictationStore(':memory:')
+    store.setWords(ALICE.userId, ['Rajiv', 'Kestrel'])
+    expect(
+      store.setHeardAs(ALICE.userId, 'rajiv', [' Rajeev ', 'rajeev', 'Rajiv', 'Raji v']),
+    ).toEqual(['Rajeev', 'Raji v'])
+    expect(store.heardAs(ALICE.userId)).toEqual({ Rajiv: ['Rajeev', 'Raji v'] })
+    expect(store.heardAs('team')).toEqual({})
+  })
+
+  it('refuses a word that isn’t on the list, too many spellings, and a spelling another word has', () => {
+    const store = new DictationStore(':memory:')
+    store.setWords('team', ['Rajiv', 'Priya'])
+    expect(() => store.setHeardAs('team', 'Nobody', ['x'])).toThrow(/first/)
+    expect(() =>
+      store.setHeardAs(
+        'team',
+        'Rajiv',
+        Array.from({ length: 11 }, (_, i) => `r${i}`),
+      ),
+    ).toThrow(/at most 10/)
+    store.setHeardAs('team', 'Rajiv', ['Rajeev'])
+    expect(() => store.setHeardAs('team', 'Priya', ['rajeev'])).toThrow(/already/)
+  })
+
+  it('finds spellings of a word with a non-ASCII capital, and refuses another listed word', () => {
+    const store = new DictationStore(':memory:')
+    store.setWords('team', ['Óscar', 'Claude', 'Cloud'])
+    store.setHeardAs('team', 'Óscar', ['Oskar'])
+    expect(store.heardAs('team')).toEqual({ Óscar: ['Oskar'] })
+    expect(() => store.setHeardAs('team', 'Cloud', ['claude'])).toThrow(/on this list/)
+  })
+
+  it('drops a word’s spellings when the word leaves the list', () => {
+    const store = new DictationStore(':memory:')
+    store.setWords('team', ['Rajiv', 'Priya'])
+    store.setHeardAs('team', 'Rajiv', ['Rajeev'])
+    store.setHeardAs('team', 'Priya', ['Pria'])
+    store.editWords('team', { remove: ['rajiv'] })
+    expect(store.heardAs('team')).toEqual({ Priya: ['Pria'] })
+    store.editWords('team', { add: ['Rajiv'] })
+    expect(store.heardAs('team')).toEqual({ Priya: ['Pria'] })
+  })
+})
+
 describe('normalizeWords', () => {
   it('collapses spaces and drops case-insensitive repeats', () => {
     expect(normalizeWords(['Acme  Bio', 'acme bio', 'Clerk'])).toEqual(['Acme Bio', 'Clerk'])

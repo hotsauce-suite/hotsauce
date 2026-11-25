@@ -19,6 +19,14 @@ export type NotificationsPermission = 'on' | 'off' | 'undecided'
 
 export const HISTORY_DAYS: HistoryDays[] = [7, 30, 90]
 
+/** Other apps' sound while dictating (docs/PLAN-dictate-send-and-sounds.md, R12). */
+export const QUIET_AUDIO = [
+  { id: 'off', label: 'Leave it' },
+  { id: 'lower', label: 'Lower it' },
+  { id: 'mute', label: 'Mute it' },
+] as const
+export type QuietAudio = (typeof QUIET_AUDIO)[number]['id']
+
 /** What the Mac reports. */
 export interface MacSettings {
   hotkey: HotkeyId
@@ -49,6 +57,8 @@ export interface MacSettings {
   account: string | null
   /** Screenshots (docs/PLAN-screenshots.md R15); null from an app that predates them. */
   screenshots: MacScreenshotSettings | null
+  /** Quiet other audio while dictating; null from an app that predates it. */
+  quietAudio: QuietAudio | null
 }
 
 export interface MacScreenshotSettings {
@@ -78,6 +88,7 @@ export interface MacSettingValues {
   screenshotCopy: boolean
   screenshotSave: boolean
   screenshotPreview: boolean
+  quietAudio: QuietAudio
 }
 
 export type MacSettingKey = keyof MacSettingValues
@@ -199,6 +210,9 @@ export function parseMacSettings(reply: unknown): MacSettings | null {
     connected: r.connected as boolean,
     account: typeof r.account === 'string' && r.account ? r.account : null,
     screenshots: parseScreenshotSettings(r.screenshots),
+    quietAudio: QUIET_AUDIO.some((q) => q.id === r.quietAudio)
+      ? (r.quietAudio as QuietAudio)
+      : null,
   }
 }
 

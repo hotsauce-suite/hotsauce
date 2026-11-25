@@ -10,7 +10,12 @@ export interface TestPdfLine {
 }
 
 /** A PDF whose pages hold these lines top to bottom; a page with no lines has no text (scanned). */
-export function makeTestPdf(pages: Array<Array<string | TestPdfLine>>, title?: string): Uint8Array {
+export function makeTestPdf(
+  pages: Array<Array<string | TestPdfLine>>,
+  title?: string,
+  /** Each page's /Rotate, in degrees: 90 makes a portrait page show as landscape. */
+  opts: { rotate?: number } = {},
+): Uint8Array {
   const objects: string[] = []
   const add = (body: string) => objects.push(body) // object n is objects[n - 1]
   add('<< /Type /Catalog /Pages 2 0 R >>')
@@ -30,7 +35,7 @@ export function makeTestPdf(pages: Array<Array<string | TestPdfLine>>, title?: s
     add(`<< /Length ${Buffer.byteLength(stream, 'latin1')} >>\nstream\n${stream}\nendstream`)
     const contents = objects.length
     add(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contents} 0 R >>`,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]${opts.rotate ? ` /Rotate ${opts.rotate}` : ''} /Resources << /Font << /F1 3 0 R >> >> /Contents ${contents} 0 R >>`,
     )
     kids.push(objects.length)
   }

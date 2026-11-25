@@ -37,6 +37,13 @@ final class Settings {
         set { defaults.set(newValue, forKey: "showInMenuBar") }
     }
 
+    /// Other apps' sound while dictating (docs/PLAN-dictate-send-and-sounds.md, R12); left alone
+    /// unless the member picks Lower or Mute.
+    var quietAudio: QuietAudio {
+        get { defaults.string(forKey: QuietAudio.key).flatMap(QuietAudio.init(rawValue:)) ?? .off }
+        set { defaults.set(newValue.rawValue, forKey: QuietAudio.key) }
+    }
+
     /// The glow around the window being dictated into; on by default.
     var edgeGlow: Bool {
         get { EdgeGlowSetting.isOn(defaults) }

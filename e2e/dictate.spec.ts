@@ -164,3 +164,19 @@ test('the Mac app: with a build, Today offers it until closed', async ({ page, u
   await expect(page.getByTestId('today-tasks')).toBeVisible()
   await expect(card).toHaveCount(0)
 })
+
+test('Dictate: a word keeps its “also heard as” spellings', async ({ page }) => {
+  await page.goto('/dictate')
+  const mine = page.getByTestId('dictate-words-mine')
+  await mine.getByRole('textbox').fill('Rajiv')
+  await mine.getByRole('textbox').press('Enter')
+  await mine.getByRole('button', { name: 'Rajiv: also heard as' }).click()
+  const editor = mine.getByTestId('dictate-heard-as-mine')
+  await editor.getByRole('textbox').fill('Rajeev')
+  await editor.getByRole('textbox').press('Enter')
+  await expect(mine).toContainText('← Rajeev')
+  await page.screenshot({ path: 'test-results/dictate-heard-as.png' })
+
+  await page.reload()
+  await expect(page.getByTestId('dictate-words-mine')).toContainText('← Rajeev')
+})

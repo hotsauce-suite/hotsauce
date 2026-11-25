@@ -1,6 +1,6 @@
 import { findLinkUrl } from '@hotsauce/format'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 import { type LinkSource, type LinkView, linksApi } from '../../api/links'
 import { product } from '../../brand/product'
 import { Icon } from '../../components/Icon'
@@ -45,13 +45,32 @@ function extensionOpenedThis(): Promise<{ ok: boolean; page: string | null }> {
   })
 }
 
+/** The link in what the member copied, or null when it holds none (or can't be read). */
+export async function linkFromClipboard(): Promise<{ url: string | null; readable: boolean }> {
+  try {
+    const text = await navigator.clipboard.readText()
+    return { url: findLinkUrl(text), readable: true }
+  } catch {
+    return { url: null, readable: false }
+  }
+}
+
 /**
  * `/links/save?url=&title=&text=&via=`: saves a link and says so. The Chrome extension, the
  * phone's share sheet (the PWA's share target) and the iPhone Shortcut all open it (§23.6).
  * Any site could open this address too, so it saves on its own only when the extension says it
  * opened this tab; otherwise the member taps Save.
+ *
+ * `/links/save?paste=1` is the phone's Save link shortcut (lib/phoneShortcuts.ts): a page can
+ * read the clipboard only after a tap, so it offers Paste and save, and a box to paste into when
+ * the browser won't share the clipboard.
  */
 export default function SaveLinkPage() {
+  // A new address (the Mac app's Save Link while this page is open) starts it afresh.
+  return <SaveLink key={useLocation().search} />
+}
+
+function SaveLink() {
   const [params] = useSearchParams()
   const [saved, setSaved] = useState<(LinkView & { existing: boolean }) | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -61,9 +80,12 @@ export default function SaveLinkPage() {
   const via = params.get('via') as LinkSource | null
   const shown =
     params.get('url') || findLinkUrl(params.get('text') ?? '') || params.get('text') || ''
+  const pasteMode = params.get('paste') === '1' && !shown
+  const [typed, setTyped] = useState('')
+  const [pasteProblem, setPasteProblem] = useState<string | null>(null)
 
   const save = useCallback(
-    (page: string | null = null) => {
+    (page: string | null = null, pastedUrl: string | null = null) => {
       setSaving(true)
       const tell = (ok: boolean) => {
         if (via !== 'extension') return
@@ -74,10 +96,14 @@ export default function SaveLinkPage() {
       }
       linksApi
         .save({
-          ...(params.get('url') ? { url: params.get('url') ?? '' } : {}),
-          ...(params.get('text') ? { text: params.get('text') ?? '' } : {}),
-          ...(params.get('title') ? { title: params.get('title') ?? '' } : {}),
-          source: via && SOURCES.includes(via) ? via : 'share',
+          ...(pastedUrl
+            ? { url: pastedUrl }
+            : {
+                ...(params.get('url') ? { url: params.get('url') ?? '' } : {}),
+                ...(params.get('text') ? { text: params.get('text') ?? '' } : {}),
+                ...(params.get('title') ? { title: params.get('title') ?? '' } : {}),
+              }),
+          source: pastedUrl ? 'shortcut' : via && SOURCES.includes(via) ? via : 'share',
           ...(page ? { page: { html: page } } : {}),
         })
         .then(
@@ -144,6 +170,63 @@ export default function SaveLinkPage() {
           </>
         ) : asking || saving ? (
           <p className="text-sm text-ink-soft">Saving…</p>
+        ) : pasteMode ? (
+          <>
+            <p className="font-display text-xl font-semibold text-ink">Save a link</p>
+            <p className="mt-2 text-sm text-ink-soft">
+              Copy a page’s address, then tap Paste and save.
+            </p>
+            <button
+              type="button"
+              className={`${primaryButton} mt-6 w-full justify-center`}
+              data-testid="link-paste-save"
+              onClick={() => {
+                setPasteProblem(null)
+                void linkFromClipboard().then(({ url, readable }) => {
+                  if (url) save(null, url)
+                  else
+                    setPasteProblem(
+                      readable
+                        ? 'What you copied isn’t a link. Copy a page’s address and try again, or paste it below.'
+                        : 'This browser didn’t share what you copied. Paste the address below.',
+                    )
+                })
+              }}
+            >
+              <Icon name="link" className="size-4" />
+              Paste and save
+            </button>
+            {pasteProblem ? (
+              <p role="alert" className="mt-3 text-sm text-ember-strong">
+                {pasteProblem}
+              </p>
+            ) : null}
+            <form
+              className="mt-6 flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                const url = findLinkUrl(typed)
+                if (url) save(null, url)
+                else setPasteProblem('That isn’t a link. Paste a page’s address.')
+              }}
+            >
+              <input
+                type="text"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                aria-label="Link to save"
+                data-testid="link-paste-input"
+                placeholder="Or paste it here"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                className="h-10 min-w-0 flex-1 rounded-lg border border-ash bg-paper-raised px-3 text-ink placeholder:text-ink-faint focus:border-ember focus:outline-none"
+              />
+              <button type="submit" className={secondaryButton} disabled={!typed.trim()}>
+                Save
+              </button>
+            </form>
+          </>
         ) : (
           <>
             <p className="font-display text-xl font-semibold text-ink">Save this link?</p>

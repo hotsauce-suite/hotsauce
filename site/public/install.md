@@ -211,6 +211,12 @@ in), and admins change anything later in **Settings**, under **Organization**. T
 ## If something goes wrong
 
 - **Cloudflare deploy fails with a containers error**: the account isn't on Workers Paid yet.
+- **Cloudflare shows `response missing default_environment.script` under Project name**: an
+  earlier try already made a Worker (and a GitHub copy) with that name, and Cloudflare's setup page
+  trips over it. Don't start a new import. Either open the existing Worker in
+  https://dash.cloudflare.com/?to=/:account/workers-and-pages, fix what failed (usually Workers
+  Paid), and retry its build from **Deployments**; or click the button again with a new project
+  name. Delete the leftover Worker and GitHub copy afterwards.
 - **`/api/health` times out on Cloudflare**: the first start takes up to five minutes; check the
   Worker's logs in the Cloudflare dashboard.
 - **The setup link says it isn't valid**: it works once. On Docker run

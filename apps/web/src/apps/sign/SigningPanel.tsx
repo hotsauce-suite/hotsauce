@@ -13,7 +13,7 @@ export function missingFields(mine: SignField[], values: Record<string, FilledVa
   })
 }
 
-/** The bar above the pages while someone signs: what's left, the consent, and Finish. */
+/** The panel beside the pages (pinned above them on a narrow screen, see SignLayout) while someone signs: what's left, the consent, and Finish. */
 export function SigningPanel({
   missing,
   consent,
@@ -32,7 +32,7 @@ export function SigningPanel({
 }) {
   return (
     <section
-      className="sticky top-0 z-10 flex flex-col gap-3 rounded-xl bg-paper-raised p-4 shadow-sm ring-1 ring-ash"
+      className="flex flex-col gap-3 rounded-xl bg-paper-raised p-4 shadow-sm ring-1 ring-ash"
       aria-label="Signing"
       data-testid="sign-panel"
     >

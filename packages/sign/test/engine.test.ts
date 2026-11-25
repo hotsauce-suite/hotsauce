@@ -19,6 +19,7 @@ import {
   createSealIdentity,
   type EnvelopeRecord,
   type FieldRecord,
+  findAnswerTooLong,
   makeSealer,
   pdfFingerprint,
   readPdfPages,
@@ -329,15 +330,44 @@ describe('R3 renderSignedPdf', () => {
 })
 
 describe('readPdfPages', () => {
-  it('gives each page’s size, and marks turned, cropped or shifted pages as not plain', async () => {
+  it('gives each page’s size as a reader shows it: cropped, and turned with its rotation', async () => {
     const doc = await PDFDocument.create()
-    doc.addPage([612, 792])
-    doc.addPage([612, 792]).setRotation(degrees(90))
-    doc.addPage([612, 792]).setCropBox(20, 20, 500, 700)
-    doc.addPage([612, 792]).setMediaBox(10, 10, 612, 792)
-    const pages = await readPdfPages(await doc.save())
-    expect(pages.map((p) => p.plain)).toEqual([true, false, false, false])
-    expect(pages[0]).toMatchObject({ width: 612, height: 792 })
+    doc.addPage([600, 800])
+    doc.addPage([600, 800]).setRotation(degrees(90))
+    doc.addPage([600, 800]).setRotation(degrees(270))
+    doc.addPage([600, 800]).setCropBox(50, 100, 400, 600)
+    doc.addPage([600, 800]).setMediaBox(100, 200, 600, 800)
+    const turnedAndCropped = doc.addPage([600, 800])
+    turnedAndCropped.setMediaBox(100, 200, 600, 800)
+    turnedAndCropped.setCropBox(150, 300, 400, 600)
+    turnedAndCropped.setRotation(degrees(90))
+    expect(await readPdfPages(await doc.save())).toEqual([
+      { width: 600, height: 800 },
+      { width: 800, height: 600 },
+      { width: 800, height: 600 },
+      { width: 400, height: 600 },
+      { width: 600, height: 800 },
+      { width: 600, height: 400 },
+    ])
+  })
+})
+
+describe('findAnswerTooLong', () => {
+  const field = { page: 2, x: 0.69, y: 0.32, width: 0.19, height: 0.06 }
+  const pages = [
+    { width: 612, height: 792 },
+    { width: 612, height: 792 },
+  ]
+
+  it('passes answers that fit their box', async () => {
+    expect(await findAnswerTooLong([{ field, value: 'Fits easily' }], pages)).toBeNull()
+  })
+
+  it('names the page and how many characters fit for an answer that would be unreadably small', async () => {
+    const tooLong = await findAnswerTooLong([{ field, value: 'word '.repeat(400) }], pages)
+    expect(tooLong).toMatchObject({ page: 2 })
+    expect(tooLong?.maxCharacters).toBeGreaterThan(10)
+    expect(tooLong?.maxCharacters).toBeLessThan(2000)
   })
 })
 

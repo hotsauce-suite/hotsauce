@@ -16,8 +16,11 @@ R2. After a merge to `main`, the Release workflow picks the next number from the
     behind main: a patch by default, a minor when any pull request since that tag has the
     `feature` label.
 R3. A merge that only changes paths that never reach a running server (docs, top-level markdown,
-    the site, CI, e2e, the tour video, the Mac app's sources) makes no release. The built Mac app
-    (`apps/dictate-mac/release/`) goes into the image, so it does.
+    the site, CI, e2e, the tour video) makes no release. A change to the Mac app
+    (`apps/dictate-mac/`) does release (2026-11-24): a Mac-only change used to come out as a new
+    build of the same version, so Settings offered "Update available: 0.66.2" to someone on
+    0.66.2, its "What's new" waited for the next release, and the update notification (keyed by
+    version) never came.
 R4. The workflow writes the number to `main` as a `Release X.Y.Z` commit, builds and pushes the
     image from exactly that commit, and tags `v<version>` and publishes notes only after the image
     exists.
