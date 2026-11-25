@@ -12,9 +12,11 @@ enum OutputVolume {
         guard choice != .off, QuietedVolume.saved() == nil, let volume = read(),
               let quiet = choice.quietVolume(from: volume), quiet < volume
         else { return }
-        let quieted = QuietedVolume(original: volume, quiet: quiet)
-        quieted.save()
-        if !write(quiet) { QuietedVolume.clear() }
+        QuietedVolume(original: volume, quiet: quiet).save()
+        guard write(quiet) else { return QuietedVolume.clear() }
+        // Many outputs round to their own steps: remember where it really landed, or the restore
+        // would think the member moved it and leave it low.
+        if let landed = read() { QuietedVolume(original: volume, quiet: landed).save() }
     }
 
     /// Called as the mic stops (finished, sent or cancelled).

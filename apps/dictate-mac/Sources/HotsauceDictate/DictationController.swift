@@ -37,6 +37,8 @@ final class DictationController {
     private var announceTimer: Timer?
     /// The start sound played, so stopping or cancelling has a sound too.
     private var announced = false
+    /// Counts recordings, so a delayed step can tell it still belongs to the one that asked.
+    private var take = 0
     /// Says the connection is slow while the words are on their way (R13).
     private var slowTimer: Timer?
 
@@ -89,9 +91,10 @@ final class DictationController {
         }
     }
 
-    /// Whether a key press is the member's send key now: only while recording (R8).
+    /// Whether a key press is the member's send key now: only once the press has become a
+    /// dictation (R8). Before that, Right ⌥+Space and the like are chords and reach the app.
     func isSendKey(keyCode: Int64, flags: UInt64) -> Bool {
-        machine.isRecording && DictatePrefs.sendKey().matches(keyCode: keyCode, flags: flags)
+        machine.isRecording && announced && DictatePrefs.sendKey().matches(keyCode: keyCode, flags: flags)
     }
 
     /// The choices for this key press. Not known yet (a new connection the server hasn't
@@ -194,6 +197,7 @@ final class DictationController {
         if route == .server { prewarm() }
         silence = SilenceWatch(startedAt: ProcessInfo.processInfo.systemUptime)
         announced = false
+        take += 1
         announceTimer?.invalidate()
         announceTimer = Timer.scheduledTimer(withTimeInterval: machine.minimumHold, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.announce() }
@@ -215,8 +219,9 @@ final class DictationController {
         announced = true
         sounds.play(.start)
         let quiet = settings.quietAudio
+        let take = take
         DispatchQueue.main.asyncAfter(deadline: .now() + sounds.length(.start) + 0.05) { [weak self] in
-            guard let self, self.recorder.isRecording else { return }
+            guard let self, self.recorder.isRecording, self.take == take else { return }
             OutputVolume.quiet(quiet)
         }
         let stream = stream
@@ -384,6 +389,7 @@ final class DictationController {
             if afterServer, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 // The server might have heard what this Mac didn't: keep it for Retry.
                 inFlight = nil
+                slowTimer?.invalidate()
                 glow.finish()
                 failed = (request, target, samples)
                 status = .error("Couldn’t send the last dictation")
@@ -405,6 +411,7 @@ final class DictationController {
             deliver(result, request: request, timings: timings, to: target, onDevice: true)
         } catch {
             inFlight = nil
+            slowTimer?.invalidate()
             glow.finish()
             failed = (request, target, samples)
             status = .error("Couldn’t write up the last dictation")

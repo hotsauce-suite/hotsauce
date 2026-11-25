@@ -37,6 +37,9 @@ final class HotkeyMonitor {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var hotkeyIsDown = false
+    /// The send key that just ended a dictation: its auto-repeats are swallowed too, so holding it
+    /// a moment long doesn't type spaces before the words land.
+    private var sentWith: Int64?
     private static let escapeKeyCode: Int64 = 53
 
     init(hotkey: Hotkey) {
@@ -119,8 +122,11 @@ final class HotkeyMonitor {
                 }
                 return nil
             }
+            if repeated, keyCode == sentWith { return nil }
+            if !repeated { sentWith = nil }
             // The send key ends the dictation and never reaches the app (R8).
             if !repeated, isSendKey(keyCode, event.flags.rawValue) {
+                sentWith = keyCode
                 _ = handler(.send)
                 return nil
             }

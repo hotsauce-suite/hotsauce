@@ -99,6 +99,10 @@ export function DictateButton({
   // A reload or closing the tab would cut the recording, or the upload of it.
   useLeaveGuard(phase !== 'idle')
 
+  useEffect(() => {
+    void memberChoices()
+  }, [])
+
   useEffect(
     () => () => {
       gone.current = true
@@ -117,9 +121,11 @@ export function DictateButton({
     }
     setNotice(null)
     sent.current = false
-    prefs.current = await memberChoices()
+    // Asked for alongside the mic, so the first dictation never waits on the server.
+    const asked = memberChoices()
     try {
       const media = await navigator.mediaDevices.getUserMedia({ audio: true })
+      prefs.current = await asked
       stream.current = media
       const mimeType = pickMimeType()
       const rec = new MediaRecorder(media, mimeType ? { mimeType } : undefined)
@@ -240,6 +246,9 @@ function watchForSilence(media: MediaStream, onSilent: () => void): { close: () 
   } catch {
     return null
   }
+  // Outside the click (after the mic's prompt) a browser may start it suspended; a suspended one
+  // hears nothing, so it only warns when it was really listening.
+  if (context.state === 'suspended') void context.resume().catch(() => undefined)
   const analyser = context.createAnalyser()
   analyser.fftSize = 1024
   context.createMediaStreamSource(media).connect(analyser)
@@ -251,7 +260,7 @@ function watchForSilence(media: MediaStream, onSilent: () => void): { close: () 
   }, 100)
   const check = setTimeout(() => {
     clearInterval(poll)
-    if (loudest < SILENT_LEVEL) onSilent()
+    if (context.state === 'running' && loudest < SILENT_LEVEL) onSilent()
   }, SILENT_MIC_MS)
   return {
     close: () => {

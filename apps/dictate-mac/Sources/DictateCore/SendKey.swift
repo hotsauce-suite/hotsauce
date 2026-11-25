@@ -21,7 +21,7 @@ public enum SendKey: String, CaseIterable, Codable, Sendable {
 
     public func matches(keyCode: Int64) -> Bool { keyCodes.contains(keyCode) }
 
-    /// ⌘, ⌃ or Fn held with it is a shortcut, not a send. ⌥ and ⇧ are allowed: the dictation key
+    /// ⌘ or ⌃ held with it is a shortcut, not a send. ⌥ and ⇧ are allowed: the dictation key
     /// itself may be one of them.
     public static let shortcutFlags: UInt64 = 0x0010_0000 | 0x0004_0000 // command, control
 

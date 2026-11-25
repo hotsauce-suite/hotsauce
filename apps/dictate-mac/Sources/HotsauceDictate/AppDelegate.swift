@@ -522,6 +522,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // History is written off the main thread; let the last write finish.
         historyStore.flush()
+        // Quitting mid-dictation: put other apps' sound back now, not at the next launch.
+        OutputVolume.restore()
     }
 
     /// Opening the app while it runs (Finder, Spotlight, the Dock) shows the suite.
