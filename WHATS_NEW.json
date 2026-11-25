@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "version": "0.69.1",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Sign: PDFs with turned, cropped or landscape-scan pages can now be sent for signature, and every field lands where it was placed."
+        },
+        {
+          "text": "Sign: a long answer in a Text box wraps onto more lines to fit; one too long to read is refused, with how many characters fit."
+        },
+        {
+          "text": "Sign: the audit certificate lists events in the order they happened, even within the same second."
+        }
+      ]
+    },
+    {
       "version": "0.69.0",
       "date": "2026-11-25",
       "notes": [
