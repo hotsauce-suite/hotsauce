@@ -1,6 +1,29 @@
 {
   "releases": [
     {
+      "version": "0.70.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Dictate: press Space while dictating to send it (paste and press Return). You can change the key in Dictate → Shortcut and sounds."
+        },
+        {
+          "text": "Dictate: sound themes for start, stop, send and cancel (Soft, Pop, Click, Chime or Off)."
+        },
+        {
+          "text": "Dictate: while you talk, it warns you if the mic hears nothing or the connection is slow."
+        },
+        {
+          "text": "Hold ⇧ as you finish a dictation to send it.",
+          "area": "Mac app"
+        },
+        {
+          "text": "Quiet other audio while dictating (Lower or Mute), in Settings → This Mac.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.69.1",
       "date": "2026-11-25",
       "notes": [
