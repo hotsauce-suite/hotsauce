@@ -181,7 +181,7 @@ export default function DictatePage() {
                 hint="Only you"
                 words={words?.mine ?? null}
                 heardAs={words?.heardAs?.mine ?? {}}
-                onSaved={(list) => setWords((w) => (w ? { ...w, mine: list } : w))}
+                onSaved={(list) => setWords((w) => withList(w, 'mine', list))}
                 onHeardAsSaved={(heard) => setWords((w) => withHeard(w, 'mine', heard))}
               />
               <WordEditor
@@ -190,7 +190,7 @@ export default function DictatePage() {
                 hint={org() ? `Everyone at ${org()}` : 'Everyone on the team'}
                 words={words?.team ?? null}
                 heardAs={words?.heardAs?.team ?? {}}
-                onSaved={(list) => setWords((w) => (w ? { ...w, team: list } : w))}
+                onSaved={(list) => setWords((w) => withList(w, 'team', list))}
                 onHeardAsSaved={(heard) => setWords((w) => withHeard(w, 'team', heard))}
               />
             </div>
@@ -310,13 +310,28 @@ function DeviceList({
   )
 }
 
+/** The word lists with one list replaced; a removed word's spellings go too, as on the server. */
+function withList(
+  words: DictationWords | null,
+  scope: WordScope,
+  list: string[],
+): DictationWords | null {
+  if (!words) return words
+  const lists = words.heardAs ?? { mine: {}, team: {} }
+  const kept = Object.fromEntries(
+    Object.entries(lists[scope]).filter(([word]) => list.includes(word)),
+  )
+  return { ...words, [scope]: list, heardAs: { ...lists, [scope]: kept } }
+}
+
 /** The word lists with one word's heard-as spellings replaced. */
 function withHeard(
   words: DictationWords | null,
   scope: WordScope,
   change: { word: string; heard: string[] },
 ): DictationWords | null {
-  if (!words) return words
+  // A save that finished after its word was removed changes nothing.
+  if (!words?.[scope].includes(change.word)) return words
   const lists = words.heardAs ?? { mine: {}, team: {} }
   const next = { ...lists[scope] }
   if (change.heard.length) next[change.word] = change.heard
@@ -415,7 +430,10 @@ export function WordEditor({
                   type="button"
                   aria-label={`Remove ${word}`}
                   disabled={saving}
-                  onClick={() => void save(words.filter((w) => w !== word))}
+                  onClick={() => {
+                    if (open === word) setOpen(null)
+                    void save(words.filter((w) => w !== word))
+                  }}
                   className="-mr-1 rounded-full p-0.5 text-ink-faint hover:text-ember-strong"
                 >
                   <Icon name="close" className="size-3" />

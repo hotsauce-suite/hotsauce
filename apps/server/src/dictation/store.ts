@@ -83,7 +83,7 @@ const MIGRATIONS = [
   // Where the Mac app hears the member (docs/PLAN-dictate-models.md, R7); null is online.
   `ALTER TABLE dictation_prefs ADD COLUMN speech TEXT;`,
   // "Also heard as" spellings of a list's words (docs/PLAN-dictate-punctuation-and-fixes.md, H1).
-  `CREATE TABLE dictation_heard_as (
+  `CREATE TABLE IF NOT EXISTS dictation_heard_as (
     scope TEXT NOT NULL,
     word_key TEXT NOT NULL,         -- the word, lowercased
     heard TEXT NOT NULL,
@@ -301,18 +301,17 @@ export class DictationStore {
 
   /** Each word of a list that has heard-as spellings, as the list spells it, with them in order. */
   heardAs(scope: 'team' | string): Record<string, string[]> {
+    // Matched in JS: SQLite's lower() folds only ASCII, and the keys are JS-lowercased.
+    const words = new Map(this.words(scope).map((w) => [w.toLowerCase(), w]))
     const rows = this.#db
       .prepare(
-        `SELECT w.word AS word, h.heard AS heard FROM dictation_heard_as h
-         JOIN dictation_words w ON w.scope = h.scope AND lower(w.word) = h.word_key
-         WHERE h.scope = ? ORDER BY w.position, h.position`,
+        'SELECT word_key, heard FROM dictation_heard_as WHERE scope = ? ORDER BY word_key, position',
       )
-      .all(scope) as Array<{ word: string; heard: string }>
+      .all(scope) as Array<{ word_key: string; heard: string }>
     const out: Record<string, string[]> = {}
-    for (const { word, heard } of rows) {
-      const list = out[word] ?? []
-      list.push(heard)
-      out[word] = list
+    for (const word of words.values()) {
+      const heard = rows.filter((r) => r.word_key === word.toLowerCase()).map((r) => r.heard)
+      if (heard.length) out[word] = heard
     }
     return out
   }
@@ -324,7 +323,8 @@ export class DictationStore {
   setHeardAs(scope: 'team' | string, word: string, heard: readonly string[]): string[] {
     return this.#db.transaction(() => {
       const key = word.replace(/\s+/g, ' ').trim().toLowerCase()
-      if (!this.words(scope).some((w) => w.toLowerCase() === key)) {
+      const listed = this.words(scope).map((w) => w.toLowerCase())
+      if (!listed.includes(key)) {
         throw new HotsauceError('bad_request', 'Add the word to the list first')
       }
       const list = normalizeWords(heard).filter((h) => h.toLowerCase() !== key)
@@ -338,6 +338,10 @@ export class DictationStore {
         .prepare('SELECT heard, word_key FROM dictation_heard_as WHERE scope = ? AND word_key != ?')
         .all(scope, key) as Array<{ heard: string; word_key: string }>
       for (const h of list) {
+        // Writing one listed word as another would rewrite it in every dictation.
+        if (listed.includes(h.toLowerCase())) {
+          throw new HotsauceError('bad_request', `“${h}” is a word on this list already`)
+        }
         const clash = taken.find((t) => t.heard.toLowerCase() === h.toLowerCase())
         if (clash) {
           throw new HotsauceError('bad_request', `“${h}” is already written as another word`)

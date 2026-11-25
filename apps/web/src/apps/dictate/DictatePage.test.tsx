@@ -74,6 +74,17 @@ describe('also heard as (docs/PLAN-dictate-punctuation-and-fixes.md, H5)', () =>
     expect(await within(mine).findByText('← Rajeev, Rajeef')).toBeInTheDocument()
     await user.click(within(editor).getByRole('button', { name: 'Remove Rajeef' }))
     expect(await within(mine).findByText('← Rajeev')).toBeInTheDocument()
+
+    // Removing the word takes its spellings with it.
+    await user.click(within(mine).getByRole('button', { name: 'Remove Rajiv' }))
+    await within(mine).findByText('None yet.')
+    expect(within(mine).queryByTestId('dictate-heard-as-mine')).toBeNull()
+    await user.type(within(mine).getByRole('textbox'), 'Rajiv{Enter}')
+    expect(
+      await within(mine).findByRole('button', { name: 'Rajiv: also heard as' }),
+    ).toBeInTheDocument()
+    expect(within(mine).queryByText('← Rajeev')).toBeNull()
+    expect(within(mine).queryByTestId('dictate-heard-as-mine')).toBeNull()
   })
 
   it('shows the team’s spellings next to the word', async () => {

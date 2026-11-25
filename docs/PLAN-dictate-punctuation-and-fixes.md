@@ -2,9 +2,9 @@
 
 ## Status
 
-- 2026-11-25: plan written, building on the recommended answers (Q1 a, Q2-Q4 yes) while Morgan
-  answers. Shares `apps/server/src/dictation/store.ts` with PR #241 (send key and sounds); its
-  migration goes after this one.
+- 2026-11-25: built and reviewed (PR #242). Every requirement has a test; Swift tests run in CI only.
+  Shares `apps/server/src/dictation/store.ts` with PR #241 (send key and sounds); its migration
+  goes after this one.
 
 ## Why
 

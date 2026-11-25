@@ -125,8 +125,9 @@ export const UNBROKEN_WORDS = 25
  * punctuation-and-fixes.md, P1): steady speakers pause less, and Deepgram punctuates from pauses.
  */
 export function thinPunctuation(raw: string): boolean {
-  if (wordCount(raw) >= UNENDED_WORDS && !/[.?!]/.test(raw)) return true
-  return raw.split(/[,.;:!?\u2014]/).some((run) => wordCount(run) >= UNBROKEN_WORDS)
+  // A dot ends a sentence only before a space or the end: not in "hotsauce.work" or "3.5".
+  if (wordCount(raw) >= UNENDED_WORDS && !/[?!…]|\.(?=\s|$)/.test(raw)) return true
+  return raw.split(/[,;:!?…\u2014]|\.(?=\s|$)/).some((run) => wordCount(run) >= UNBROKEN_WORDS)
 }
 
 /** One "also heard as" spelling and the word it is written as. */
@@ -162,7 +163,8 @@ export function applyFixes(text: string, fixes: readonly WordFix[]): string {
 /** Dictionary entries for the cleanup prompt, each naming its heard-as spellings (H4). */
 export function withHeardAs(dictionary: readonly string[], fixes: readonly WordFix[]): string[] {
   return dictionary.map((word) => {
-    const heard = fixes.filter((f) => f.write === word).map((f) => f.heard)
+    const key = word.toLowerCase()
+    const heard = fixes.filter((f) => f.write.toLowerCase() === key).map((f) => f.heard)
     return heard.length ? `${word} (also heard as ${heard.join(', ')})` : word
   })
 }

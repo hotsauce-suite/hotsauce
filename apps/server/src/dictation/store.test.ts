@@ -166,6 +166,14 @@ describe('heard-as spellings (H1, H2)', () => {
     expect(() => store.setHeardAs('team', 'Priya', ['rajeev'])).toThrow(/already/)
   })
 
+  it('finds spellings of a word with a non-ASCII capital, and refuses another listed word', () => {
+    const store = new DictationStore(':memory:')
+    store.setWords('team', ['Óscar', 'Claude', 'Cloud'])
+    store.setHeardAs('team', 'Óscar', ['Oskar'])
+    expect(store.heardAs('team')).toEqual({ Óscar: ['Oskar'] })
+    expect(() => store.setHeardAs('team', 'Cloud', ['claude'])).toThrow(/on this list/)
+  })
+
   it('drops a word’s spellings when the word leaves the list', () => {
     const store = new DictationStore(':memory:')
     store.setWords('team', ['Rajiv', 'Priya'])

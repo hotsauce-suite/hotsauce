@@ -205,6 +205,12 @@ describe('thin punctuation (P1-P3)', () => {
     expect(skipsCleanup(run)).toBe(false)
   })
 
+  it('doesn’t take a dot in a domain or number for a full stop', () => {
+    expect(
+      thinPunctuation('email the deck to hotsauce.work and tell them we need it by monday'),
+    ).toBe(true)
+  })
+
   it('still skips a short dictation that is punctuated (P2)', () => {
     expect(
       skipsCleanup('I talked to the team. We moved the launch to Friday, so update the doc.'),
@@ -248,6 +254,7 @@ describe('also heard as (H3, H4)', () => {
   })
 
   it('names the spellings in the prompt dictionary', () => {
+    expect(withHeardAs(['rajiv'], fixes)).toEqual(['rajiv (also heard as Rajeev)'])
     expect(withHeardAs(['Rajiv', 'Clerk'], fixes)).toEqual([
       'Rajiv (also heard as Rajeev)',
       'Clerk',

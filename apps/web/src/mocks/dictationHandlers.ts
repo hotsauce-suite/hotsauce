@@ -162,7 +162,15 @@ export function dictationHandlers(opts: {
         const list = body.words
           .map((w) => w.trim())
           .filter((w) => w !== '' && !seen.has(w.toLowerCase()) && seen.add(w.toLowerCase()))
-        words.set(body.scope === 'team' ? 'team' : user.email, list)
+        const key = body.scope === 'team' ? 'team' : user.email
+        words.set(key, list)
+        // A removed word's spellings go with it, as on the server.
+        heard.set(
+          key,
+          Object.fromEntries(
+            Object.entries(heard.get(key) ?? {}).filter(([w]) => list.includes(w)),
+          ),
+        )
         return HttpResponse.json({ scope: body.scope, words: list })
       }),
     ),
