@@ -51,7 +51,8 @@ object WidgetApi {
             conn.outputStream.use { it.write(org.json.JSONObject().put("tz", tz).toString().toByteArray()) }
             when (val code = conn.responseCode) {
                 in 200..299 -> null
-                401 -> Result.Disconnected
+                // A 401 here may only mean an older server that doesn't take ticks from phones
+                // yet; the next refresh's summary read decides whether the phone is disconnected.
                 else -> Result.Failed("HTTP $code")
             }
         } catch (e: IOException) {

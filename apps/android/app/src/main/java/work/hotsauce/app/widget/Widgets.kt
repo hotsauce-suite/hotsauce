@@ -51,15 +51,10 @@ class CompleteTaskAction : ActionCallback {
         store.summary?.let { store.summary = it.withoutTask(space, id) }
         Widgets.redraw(context)
         val origin = ServerStore(context).origin
-        val vault = TokenVault(context)
-        val token = vault.token
+        val token = TokenVault(context).token
         if (origin != null && token != null) {
-            val result = withContext(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 WidgetApi.completeTask(origin, token, space, id, ZoneId.systemDefault().id)
-            }
-            if (result == WidgetApi.Result.Disconnected) {
-                vault.token = null
-                store.summary = null
             }
         }
         RefreshWorker.now(context)
