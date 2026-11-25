@@ -22,7 +22,7 @@ export function handleError(err: Error, c: Context): Response {
   }
   // A link's secret sits in some paths (signing, shared and form links): never log it.
   const path = c.req.path.replace(
-    /^(\/api\/sign-link\/|\/api\/s\/|\/api\/f\/)[^/]+/,
+    /^(\/api\/sign-link\/|\/api\/s\/|\/api\/f\/|\/api\/webhooks\/chat-claude\/)[^/]+/,
     '$1<redacted>',
   )
   console.error(`${c.req.method} ${path} failed:`, err)

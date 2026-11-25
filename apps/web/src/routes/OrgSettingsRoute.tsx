@@ -9,6 +9,7 @@ import { useSession } from '../state/session'
 import { AssistantSection } from './org/AssistantSection'
 import { BackupsSection } from './org/BackupsSection'
 import { ChatRoomsSection } from './org/ChatRoomsSection'
+import { ClaudeInChatSection } from './org/ClaudeInChatSection'
 import { Callout, messageOf } from './org/fields'
 import { LinkSharingSection } from './org/LinkSharingSection'
 import {
@@ -169,6 +170,7 @@ function OrgPage({
           <OrgStartHereSection />
           <OrgSection {...restart} part="chat" />
           <ChatRoomsSection />
+          <ClaudeInChatSection />
         </>
       )
     case 'brand':

@@ -506,6 +506,22 @@ export function formHandlers(deps: FormHandlerDeps): AnyHandler[] {
       authed(() => HttpResponse.json({ rooms: fake.rooms, canManage: false })),
     ),
 
+    // Claude in chat (docs/PLAN-chat-claude.md): the demo shows it not yet set up.
+    http.get(
+      '/api/chat/claude',
+      authed(() =>
+        HttpResponse.json({
+          ready: false,
+          missing: ['the routine’s ID', 'the routine’s token'],
+          routineId: '',
+          token: { set: false, last4: null, source: null },
+          webhookUrl: `${location.origin}/api/webhooks/chat-claude/demo-address`,
+          wakesLastHour: 0,
+          recent: [],
+        }),
+      ),
+    ),
+
     http.get('/api/form/:link', async ({ request, params }) => {
       await wait()
       const link = String(params.link)
