@@ -207,8 +207,56 @@ describe('a phone device', () => {
   })
 })
 
+describe('ticking a task from the Tasks widget', () => {
+  it('R13: a phone may complete a task, and nothing else in Tasks', async () => {
+    const made = await json(
+      await call('POST', '/api/tasks/quick', {
+        as: ALICE,
+        json: { text: 'Water the plants today', tz: TZ },
+      }),
+      201,
+    )
+    const task = made.task ?? made
+    const phone = await connectPhone()
+    const base = `/api/tasks/${encodeURIComponent(task.space)}/${encodeURIComponent(task.id)}`
+    for (const [method, url] of [
+      ['POST', `${base}/reopen`],
+      ['PATCH', base],
+      ['DELETE', base],
+      ['POST', `${base}/move`],
+      ['POST', '/api/tasks/quick'],
+    ] as Array<[string, string]>) {
+      const res = await json(await call(method, url, { token: phone.token, json: {} }), 401)
+      expect(res.error.message, `${method} ${url}`).toBe('A phone can only show its widgets')
+    }
+    const done = await json(
+      await call('POST', `${base}/complete`, { token: phone.token, json: { tz: TZ } }),
+    )
+    expect(done.status ?? done.task?.status).toBe('done')
+    const summary = await json(
+      await call('GET', `/api/widgets/today?${dayQuery()}`, { token: phone.token }),
+    )
+    expect(summary.tasks.map((t: { id: string }) => t.id)).not.toContain(task.id)
+  })
+
+  it('R13: Bob’s phone cannot complete Alice’s private task', async () => {
+    const made = await json(
+      await call('POST', '/api/tasks/quick', { as: ALICE, json: { text: 'Mine today', tz: TZ } }),
+      201,
+    )
+    const task = made.task ?? made
+    const bobs = await connectPhone(BOB)
+    const res = await call(
+      'POST',
+      `/api/tasks/${encodeURIComponent(task.space)}/${encodeURIComponent(task.id)}/complete`,
+      { token: bobs.token, json: { tz: TZ } },
+    )
+    expect([403, 404]).toContain(res.status)
+  })
+})
+
 describe('GET /api/widgets/today', () => {
-  it('R7: the next meeting with its join link, up to 3 tasks due, and no weather without a place', async () => {
+  it('R7: the next meeting with its join link, up to 8 tasks due, and no weather without a place', async () => {
     // Midday in Kolkata, so the next meeting is always today.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-11-25T06:30:00Z'))
@@ -231,12 +279,7 @@ describe('GET /api/widgets/today', () => {
         meetLink: 'https://meet.google.com/abc-defg-hij',
       },
     ]
-    for (const text of [
-      'Pay the invoice today',
-      'File expenses today',
-      'Call Dana today',
-      'Book travel today',
-    ]) {
+    for (const text of Array.from({ length: 9 }, (_, i) => `Errand ${i + 1} today`)) {
       await json(await call('POST', '/api/tasks/quick', { as: ALICE, json: { text, tz: TZ } }), 201)
     }
     const phone = await connectPhone()
@@ -251,8 +294,8 @@ describe('GET /api/widgets/today', () => {
       joinUrl: 'https://meet.google.com/abc-defg-hij',
     })
     expect(summary.meetingsLeft).toBe(1)
-    expect(summary.tasks).toHaveLength(3)
-    expect(summary.tasksDue).toBe(4)
+    expect(summary.tasks).toHaveLength(8)
+    expect(summary.tasksDue).toBe(9)
     expect(Object.keys(summary.tasks[0]).sort()).toEqual(['due', 'dueAt', 'id', 'space', 'title'])
     expect(summary.weather).toBeNull()
     // Nothing a lifted token shouldn't see: no attendees, notes or docs.

@@ -40,7 +40,7 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
                 is WidgetApi.Result.Failed -> {} // keep the last good summary (R8)
             }
         }
-        TodayWidget.redraw(ctx)
+        Widgets.redraw(ctx)
         return Result.success()
     }
 

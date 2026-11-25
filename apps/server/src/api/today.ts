@@ -35,8 +35,8 @@ const WidgetQuery = z.intersection(DayQuery, Place)
 /** How long the widget's summary waits for a forecast MET hasn't given yet (PLAN-android R7). */
 const WIDGET_WEATHER_WAIT_MS = 2_000
 
-/** Tasks the Today widget lists (docs/PLAN-android.md R7). */
-export const WIDGET_TASKS = 3
+/** Tasks the widgets get: the Today widget shows a few, the Tasks widget all (PLAN-android R7). */
+export const WIDGET_TASKS = 8
 
 const PlaceQuery = z.object({ q: z.string().max(200).default('') })
 

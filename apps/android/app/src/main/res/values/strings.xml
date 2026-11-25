@@ -3,4 +3,6 @@
     <string name="app_name">Hotsauce</string>
     <string name="widget_today">Today at a glance</string>
     <string name="widget_today_description">Your next meeting, today\'s tasks and the weather</string>
+    <string name="widget_tasks">Tasks</string>
+    <string name="widget_tasks_description">What\'s due today, with a tick for each</string>
 </resources>

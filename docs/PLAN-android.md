@@ -8,7 +8,9 @@
   unless `?kind=phone|all`. No emulator in the cloud: the widget's logic is unit-tested, and its
   look is checked on Morgan's phone. Slice 3 in progress: the upload key
   (`apps/android/scripts/create-upload-key.sh`, run once on Morgan's Mac), the bundle on the
-  prerelease `android-app-<version code>`, and `apps/android/scripts/play-upload.mjs` (R12).
+  prerelease `android-app-<version code>`, and `apps/android/scripts/play-upload.mjs` (R12),
+  merged (#250); the key waits on Morgan (his Mac blocks the script for agents). Slice 4 (Tasks
+  widget, R13–R14) in progress.
 - Google Play developer account: Morgan's personal account, verified 2026-11-24.
 
 ## Why
@@ -59,7 +61,7 @@ Each maps to a test named for it.
   (slices 4 to 6 add the task tick, capture and voice-note routes, each to this list); anything
   else, `/mcp` and `/ws/dictation` included, is refused with 401, and a Mac's token and a phone's
   are never interchangeable. Revoking the device, deleting the member or the domain lock refuses it.
-- R7. `GET /api/widgets/today` returns the next meeting (title, start, end, join link), up to 3
+- R7. `GET /api/widgets/today` returns the next meeting (title, start, end, join link), up to 8
   tasks due today or overdue (id, title, due) and how many are due, the weather for the phone's
   position or the team's place (or none), and the server's time, with no attendees, notes or
   docs. It never waits more than 2 s for a forecast MET hasn't given yet; otherwise it is one
@@ -72,6 +74,10 @@ Each maps to a test named for it.
 - R10. A revoked token (401) clears the stored token and the widget asks to connect again.
 - R11. The token is stored with Android Keystore-backed encryption, never in plain prefs, and is
   removed when the app's data is cleared.
+- R13. A phone token may also complete a task (`POST /api/tasks/:space/:id/complete`), only one its
+  member can see; reopening, editing, moving, deleting or adding is refused with 401.
+- R14. The Tasks widget lists tasks due (2, or 6 when tall) with a tick each; a tick removes the
+  task at once and tells the server, and the next refresh puts it back if the server refused.
 - R12. GitHub uploads each release's bundle to Play internal testing when the Play secret exists,
   and skips that step (green) when it doesn't.
 

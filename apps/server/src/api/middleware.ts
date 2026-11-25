@@ -45,9 +45,13 @@ function deviceTokenMayCall(method: string, path: string): boolean {
  * The only requests a phone's token can make (docs/PLAN-android.md R6): the widgets' own summary
  * and disconnecting itself. A token lifted from a phone can never read a document or dictate.
  */
+/** Ticking a task off from the Tasks widget (docs/PLAN-android.md R13): `/api/tasks/:space/:id/complete`. */
+const PHONE_TASK_COMPLETE = /^\/api\/tasks\/[^/]+\/[^/]+\/complete$/
+
 function phoneTokenMayCall(method: string, path: string): boolean {
   return (
     (method === 'GET' && path === '/api/widgets/today') ||
+    (method === 'POST' && PHONE_TASK_COMPLETE.test(path)) ||
     (method === 'DELETE' && path === '/api/dictation/devices/self')
   )
 }
