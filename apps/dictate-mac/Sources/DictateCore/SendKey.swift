@@ -4,6 +4,10 @@ import Foundation
 /// (docs/PLAN-dictate-send-and-sounds.md, R8 to R10). The member picks it on the web; it is kept
 /// on the server and remembered here.
 public enum SendKey: String, CaseIterable, Codable, Sendable {
+    /// How long the mic keeps listening after the send key: it is usually pressed on the last
+    /// word, and stopping at once cut that word off (Morgan, 2026-11-25).
+    public static let tailSeconds = 0.5
+
     case space
     case `return`
     case tab

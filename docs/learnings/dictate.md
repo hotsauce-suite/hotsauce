@@ -57,3 +57,6 @@
   the server, not only for the Mac's reply.
 - A `send: Bool` parameter shadows a `send(...)` method inside that function, and the error
   ("cannot call value of non-function type 'Bool'") shows only on the macOS job. Call `self.send`.
+- A send key is pressed while the last word is still being said, unlike letting go of a held key
+  (people stop talking first). Stopping the mic at once cut that word off; keep listening ~0.5 s
+  after the send key (`SendKey.tailSeconds`, `SEND_TAIL_MS`, kept equal by a test).

@@ -3,6 +3,8 @@
 ## Status
 
 - Slice 1 (server + web: the member's send key and sounds, the web's dictation): built and tested.
+- Fix (Morgan, 2026-11-25: "often leaves off the last word"): the mic keeps listening 0.5 s after
+  the send key before it sends, on the Mac and the web.
 - Slice 2 (Mac app: send key, ⇧ to send, sounds, quiet other audio, warnings): built; the pure
   logic is tested (DictateSendTests), the wiring compiles on the macOS CI job. Waiting on Morgan's
   real-Mac check (send in Slack, sounds, music lowered), todo.md in the ops repo.
