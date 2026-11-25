@@ -397,6 +397,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
       'bot',
     ],
   },
+  {
+    id: 'org-claude-in-chat',
+    title: 'Claude in chat',
+    ...org('Workspace'),
+    summary: 'Mention @Claude in the team chat and a Claude Code session answers in the thread.',
+    words: ['claude', 'mention', 'bot', 'routine', 'agent', 'ai', 'chat', 'answer', 'webhook'],
+  },
 
   // Organization: Brand
   {

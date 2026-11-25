@@ -162,6 +162,8 @@ the same tools as [the MCP server](docs/mcp.md), as you, so it sees only what yo
 can also let it read chosen team chat rooms (Ember, Campfire, or any chat whose bots have a room
 address): switch on **Read for context** for a room in Settings → Workspace → Chat rooms, and its
 messages show up in search, Ask, AI tools and each person's agent brief. Direct messages are never read.
+People can also mention **@Claude** in the chat: a Claude Code routine reads the thread, looks things
+up in Hotsauce and answers there (Settings → Workspace → Claude in chat, on the admin’s Claude plan).
 Conversations are private to each person. Admins pick the model (Claude Sonnet or Opus), see each
 person’s use this month, and can set a monthly limit, in Settings → AI.
 

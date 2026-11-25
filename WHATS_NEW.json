@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "version": "0.67.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Mention @Claude in the team chat and a Claude Code session answers in the same thread, using your workspace (Settings → Workspace → Claude in chat)"
+        },
+        {
+          "text": "The \"Meeting detected\" card now shows within about a second of a Zoom or Google Meet call starting, instead of after a few seconds.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.66.2",
       "date": "2026-11-23",
       "notes": [
