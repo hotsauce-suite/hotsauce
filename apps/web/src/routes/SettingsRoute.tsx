@@ -10,6 +10,7 @@ import { WeatherSettingsSection } from '../apps/today/WeatherSettings'
 import { product } from '../brand/product'
 import { BreaksSettings } from '../breaks/BreaksSettings'
 import { NewToken } from '../components/AiToolSetup'
+import { AndroidAppCard } from '../components/AndroidApp'
 import { AppearanceSettings } from '../components/AppearanceSettings'
 import { useSignOut } from '../components/AppRail'
 import type { ShellContext } from '../components/AppShell'
@@ -318,7 +319,7 @@ function AccountSection() {
   )
 }
 
-/** Settings → Apps: the Mac app, the web app in the browser, and the Chrome extension. */
+/** Settings → Apps: the Mac app, the web app, phone shortcuts, the Android app and the Chrome extension. */
 function InstallSection() {
   return (
     <section aria-labelledby="install-title" data-testid="settings-install">
@@ -330,6 +331,7 @@ function InstallSection() {
         <MacAppCard />
         <WebAppCard />
         <PhoneShortcutsCard />
+        <AndroidAppCard />
         <ExtensionCard />
       </div>
     </section>

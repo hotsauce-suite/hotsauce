@@ -69,30 +69,40 @@ export function dictationHandlers(opts: {
     http.get('/downloads/mac-app.json', () => HttpResponse.json(MOCK_MAC_APP)),
     http.get(
       '/api/dictation/devices',
-      authed(({ user }) =>
-        HttpResponse.json(
-          live(user.email).map(({ id, name, createdAt, lastUsedAt, appVersion }) => ({
-            id,
-            name,
-            createdAt,
-            lastUsedAt,
-            appVersion: appVersion ?? null,
-          })),
-        ),
-      ),
+      authed(({ request, user }) => {
+        // Macs unless asked, as the server does (docs/PLAN-android.md R5).
+        const kind = new URL(request.url).searchParams.get('kind') ?? 'mac'
+        return HttpResponse.json(
+          live(user.email)
+            .filter((d) => kind === 'all' || (d.kind ?? 'mac') === kind)
+            .map(({ id, kind, name, createdAt, lastUsedAt, appVersion }) => ({
+              id,
+              kind: kind ?? 'mac',
+              name,
+              createdAt,
+              lastUsedAt,
+              appVersion: appVersion ?? null,
+            })),
+        )
+      }),
     ),
     http.post(
       '/api/dictation/devices',
       authed(async ({ request, user }) => {
-        const { name } = (await request.json()) as { name: string }
+        const { name, kind = 'mac' } = (await request.json()) as {
+          name: string
+          kind?: 'mac' | 'phone'
+        }
         const device = {
           id: `dev${next++}`,
+          kind,
           name,
           createdAt: new Date().toISOString(),
           lastUsedAt: null,
         }
         devices.set(user.email, [device, ...(devices.get(user.email) ?? [])])
-        return HttpResponse.json({ ...device, token: `hdt_mock${device.id}` }, { status: 201 })
+        const prefix = kind === 'phone' ? 'hpt_' : 'hdt_'
+        return HttpResponse.json({ ...device, token: `${prefix}mock${device.id}` }, { status: 201 })
       }),
     ),
     http.delete(

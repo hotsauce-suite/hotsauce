@@ -31,6 +31,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import work.hotsauce.app.widget.RefreshWorker
+import work.hotsauce.app.widget.SummaryStore
+import work.hotsauce.app.widget.WidgetApi
 
 /** First open: which Hotsauce server is yours? (R3) */
 class SetupActivity : ComponentActivity() {
@@ -40,7 +43,22 @@ class SetupActivity : ComponentActivity() {
         setContent {
             HotsauceTheme {
                 SetupScreen(initial = ServerStore(this).origin ?: "") { origin ->
-                    ServerStore(this).origin = origin
+                    val store = ServerStore(this)
+                    val old = store.origin
+                    if (old != origin) {
+                        // A token is only good on the server that made it: tell that server the
+                        // phone is gone, forget the token and its data, and redraw the widget.
+                        val vault = TokenVault(this)
+                        val token = vault.token
+                        if (old != null && token != null) {
+                            Thread { WidgetApi.disconnect(old, token) }.start()
+                        }
+                        vault.token = null
+                        SummaryStore(this).summary = null
+                        store.offeredConnect = false
+                        RefreshWorker.now(this)
+                    }
+                    store.origin = origin
                     startActivity(Intent(this, LauncherActivity::class.java))
                     finish()
                 }

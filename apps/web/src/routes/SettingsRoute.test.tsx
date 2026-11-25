@@ -341,6 +341,46 @@ describe('Settings: General, Apps, and the help strip', () => {
     ).toHaveLength(0)
   })
 
+  // docs/PLAN-android.md R5: phones are listed with the Android app and can be disconnected there.
+  it('R5: lists the member’s phones on Apps and disconnects one', async () => {
+    const user = userEvent.setup()
+    const asked: string[] = []
+    let revoked = ''
+    server.use(
+      http.get('/api/dictation/devices', ({ request }) => {
+        const kind = new URL(request.url).searchParams.get('kind') ?? 'mac'
+        asked.push(kind)
+        return HttpResponse.json(
+          kind === 'phone'
+            ? [
+                {
+                  id: 'p1',
+                  kind: 'phone',
+                  name: 'Android phone',
+                  createdAt: '2026-11-25T10:00:00Z',
+                  lastUsedAt: null,
+                  appVersion: null,
+                },
+              ]
+            : [],
+        )
+      }),
+      http.delete('/api/dictation/devices/:id', ({ params }) => {
+        revoked = String(params.id)
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    renderApp('/settings/apps')
+    const card = await screen.findByTestId('android-app')
+    expect(within(card).getByRole('heading', { name: 'Android app' })).toBeInTheDocument()
+    const phones = await within(card).findByTestId('android-phones')
+    expect(phones).toHaveTextContent('Android phone')
+    expect(asked).toContain('phone')
+    await user.click(within(card).getByRole('button', { name: 'Disconnect Android phone' }))
+    await waitFor(() => expect(within(card).queryByTestId('android-phones')).toBeNull())
+    expect(revoked).toBe('p1')
+  })
+
   // T1: the steps are there, folded until asked for.
   it('folds the Mac app’s first-install steps', async () => {
     renderApp('/settings/apps')
