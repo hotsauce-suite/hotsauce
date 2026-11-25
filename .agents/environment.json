@@ -1,0 +1,3 @@
+{
+  "install": "sed -i '/case \\$- in/,/esac/d' ~/.bashrc 2>/dev/null || true && (grep -qxF 'export COREPACK_ENABLE_DOWNLOAD_PROMPT=0' ~/.bashrc || echo 'export COREPACK_ENABLE_DOWNLOAD_PROMPT=0' >> ~/.bashrc) && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm build:format && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm exec playwright install chromium"
+}
