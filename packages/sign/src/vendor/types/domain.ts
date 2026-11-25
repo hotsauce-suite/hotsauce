@@ -3,6 +3,10 @@ export const MAX_SIGNERS_PER_ENVELOPE = 10;
 /** People who get a copy of the finished document without signing. */
 export const MAX_COPY_RECIPIENTS_PER_ENVELOPE = 10;
 export const MAX_UPLOAD_SIZE_BYTES = 20 * 1024 * 1024;
+// A PDF can pack a great many pages into a small file. Each page is a row
+// and is drawn again when the envelope is finished, so there is a limit.
+// Hotsauce: its own limit is MAX_SIGN_PAGES in packages/format (lower).
+export const MAX_PDF_PAGES = 1000;
 export const SIGNING_LINK_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const RECIPIENT_DOWNLOAD_LINK_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const MANUAL_NUDGE_COOLDOWN_SECONDS = 24 * 60 * 60;

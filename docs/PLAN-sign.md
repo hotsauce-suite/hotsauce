@@ -5,6 +5,8 @@ Resend is on at Haven; Morgan's test email worked on 2026-11-17. Slice 3b (corre
 signer, copy an envelope; R19–R26) built and tested, merging in #186. Morgan called the plan done for
 now: slices 4 and 5 (deadlines, reminders, cancelling, templates) are the next Sign work, not yet
 started. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
+Slice 3c (2026-11-25, R27–R33): SignuDoc's engine fixes from 2026-11-17 to 2026-11-25 brought
+across (Morgan said yes in the NYLLON watch thread); approvers and signing in parallel steps left out.
 
 Send a PDF for signature from Hotsauce. People inside or outside the organization sign it from a
 link on any device, with no account. The sealed PDF and its audit certificate are kept in Files.
@@ -84,6 +86,30 @@ R16. Declining stops the envelope; the sender is emailed. When the last signer s
 R17. The sender sees each person's state on the envelope page (waiting, sent, viewed, signed,
      declined) and can copy or resend a link.
 R18. Help page, landing card, demo, STATUS, self-host (RESEND_API_KEY, MAIL_FROM) match.
+
+### Slice 3c: SignuDoc's engine fixes, 2026-11-17 to 2026-11-25 (upstream 7fe0c01)
+
+R27. A PDF with turned (/Rotate), cropped (CropBox) or shifted (MediaBox not at 0,0) pages is
+     accepted. Each page's size is stored as a reader shows it, and every field is stamped where it
+     was placed on the shown page, upright. A field placed against a stored size of another shape
+     is moved onto the page as it was drawn in that box. (SignuDoc 07b9042, 8e58c7e)
+R28. A Text value wraps onto as many lines as it needs inside its box, at the largest size that
+     fits, keeping the spaces the signer typed; nothing is cut off. A value accepted earlier that
+     only fits below 4 pt is still drawn whole. (#90, 087e821, d0433c1)
+R29. Signing refuses a typed Text answer that would only fit its box below 4 pt, before anything is
+     saved, naming the page and how many characters fit. A dropdown choice (the sender's text) is
+     never refused. (#90, e573fc0)
+R30. The certificate prints audit rows in the order they were recorded, never re-sorted by time;
+     a completed envelope shows one completed row, last when not yet recorded. (#97)
+R31. The seal certificate's names are cut at 64 at whole characters, so an emoji is never split.
+     (a6654d2)
+R32. An email_sent row whose message id starts with `capture-` says "captured locally, not sent".
+     (#106; Hotsauce records no email rows yet, so this only keeps the engine in step.)
+R33. SignuDoc's 1,000-page cap is in the engine's constants; Hotsauce keeps its own lower limit of
+     100 pages (`MAX_SIGN_PAGES`).
+
+Left out: approvers, signers in parallel steps, the name field, embedded signing, webhooks, the
+field-list revision check, configurable signer limits (all features, not fixes).
 
 ### Slice 4 and 5 (later, requirements written when each starts)
 
