@@ -13,6 +13,7 @@ import { Icon } from '../../components/Icon'
 import { MAC_APP_SETTINGS } from '../../components/MacApp'
 import { MeetingsPageHeader, primaryButton, secondaryButton } from '../meetings/components/common'
 import { DictateModels } from './DictateModels'
+import { DictateShortcuts } from './DictateShortcuts'
 import { MacDictations } from './MacDictations'
 import { openAppLink } from './openAppLink'
 
@@ -147,7 +148,8 @@ export default function DictatePage() {
                 finish.
               </Step>
               <Step n={3}>
-                <kbd className={kbd}>esc</kbd> throws a dictation away.
+                <kbd className={kbd}>space</kbd> sends it with Return;{' '}
+                <kbd className={kbd}>esc</kbd> throws it away.
               </Step>
             </ol>
 
@@ -202,6 +204,14 @@ export default function DictatePage() {
               only, on every Mac and in the browser.
             </SectionTitle>
             <DictateModels />
+          </section>
+
+          <section id="shortcut" aria-labelledby="shortcut-title" className="mt-14">
+            <SectionTitle id="shortcut-title" title="Shortcut and sounds">
+              The key that sends what you’ve said, and the sounds you hear. Yours only, in the
+              browser and on every Mac.
+            </SectionTitle>
+            <DictateShortcuts />
           </section>
 
           <p className="mt-14 border-t border-ash/70 pt-4 text-xs leading-relaxed text-ink-faint">

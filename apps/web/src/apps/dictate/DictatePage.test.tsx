@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { connectLink } from '../../api/dictation'
+import * as sounds from '../../lib/dictateSounds'
 import { renderApp } from '../../test/renderApp'
 
 const opened = vi.hoisted(() => ({ links: [] as string[] }))
@@ -125,6 +126,30 @@ describe('Dictate models (docs/PLAN-dictate-models.md)', () => {
     expect(await screen.findByText('Saved. Your next dictation uses it.')).toBeInTheDocument()
     expect(line).toHaveTextContent('Speech:Apple, on the Mac only')
     expect(within(screen.getByTestId('dictate-cleanup-fast')).getByRole('radio')).toBeChecked()
+  })
+})
+
+describe('Shortcut and sounds (docs/PLAN-dictate-send-and-sounds.md)', () => {
+  it('saves my send key and sounds, and plays a sound I pick (R3)', async () => {
+    const played = vi.spyOn(sounds, 'playDictateSound').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    renderApp('/dictate')
+    const box = await screen.findByTestId('dictate-shortcuts')
+    expect(screen.getByRole('link', { name: 'Shortcut and sounds' })).toHaveAttribute(
+      'href',
+      '/dictate/mac#shortcut',
+    )
+    expect(within(box).getByRole('radio', { name: 'Space' })).toBeChecked()
+    expect(within(box).getByRole('radio', { name: 'Soft' })).toBeChecked()
+
+    await user.click(within(box).getByRole('radio', { name: 'Return' }))
+    expect(await within(box).findByText(/^Saved\./)).toBeInTheDocument()
+    await user.click(within(box).getByRole('radio', { name: 'Chime' }))
+    expect(played).toHaveBeenCalledWith('chime', 'start')
+    await waitFor(() => expect(within(box).getByRole('radio', { name: 'Chime' })).toBeChecked())
+
+    // Still mine after a reload.
+    played.mockRestore()
   })
 })
 

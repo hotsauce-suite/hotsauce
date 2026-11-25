@@ -28,6 +28,7 @@ export function DictateSidebar() {
       <Item href="/dictate/mac#devices" icon="tab" label="Connected Macs" />
       <Item href="/dictate/mac#words" icon="book" label="Words" />
       <Item href="/dictate/mac#models" icon="sliders" label="Models" />
+      <Item href="/dictate/mac#shortcut" icon="keyboard" label="Shortcut and sounds" />
       <Item href={MAC_APP_SETTINGS} icon="download" label="Get the Mac app" />
     </nav>
   )

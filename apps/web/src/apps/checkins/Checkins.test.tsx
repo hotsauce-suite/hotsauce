@@ -85,6 +85,38 @@ describe('Check-ins', () => {
     await waitFor(() => expect(screen.getByTestId('checkin-answer')).toHaveValue(DICTATED_WORDS))
   })
 
+  it('the send key stops dictating and adds the words, without submitting (dictate send R5)', async () => {
+    class FakeRecorder {
+      state = 'inactive'
+      mimeType = 'audio/webm'
+      ondataavailable: ((e: { data: Blob }) => void) | null = null
+      onstop: (() => void) | null = null
+      static isTypeSupported = () => true
+      start() {
+        this.state = 'recording'
+      }
+      stop() {
+        this.state = 'inactive'
+        this.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) })
+        this.onstop?.()
+      }
+    }
+    vi.stubGlobal('MediaRecorder', FakeRecorder)
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+    })
+    await openCheckin()
+    const dictate = screen.getByTestId('checkin-dictate')
+    await userEvent.click(dictate)
+    await waitFor(() => expect(dictate).toHaveAttribute('data-phase', 'recording'))
+    expect(dictate).toHaveTextContent('Stop and add the words (Space)')
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(screen.getByTestId('checkin-answer')).toHaveValue(DICTATED_WORDS))
+    // Added to the box, still there to edit: nothing was sent.
+    expect(screen.getByTestId('checkin-answer-box')).toBeInTheDocument()
+  })
+
   it('R8: Today shows the check-in until it is answered', async () => {
     renderApp('/today')
     const card = await screen.findByTestId('today-checkins')

@@ -69,6 +69,8 @@ public enum HotkeyAction: Equatable, Sendable {
     case finish
     /// Stop recording and throw it away.
     case cancel
+    /// Stop recording, paste it and press Return (docs/PLAN-dictate-send-and-sounds.md, R8).
+    case send
 }
 
 /// Hold to talk, double-tap for hands-free, Esc to cancel. Pure: times come in with the events,
@@ -141,6 +143,13 @@ public struct HotkeyStateMachine: Equatable, Sendable {
         case .idle, .handsFree:
             return .none
         }
+    }
+
+    /// The send key: ends a recording as a send; otherwise does nothing (and the key types).
+    public mutating func send() -> HotkeyAction {
+        guard isRecording else { return .none }
+        state = .idle
+        return .send
     }
 
     /// Esc: cancels a recording (and the app swallows the key); otherwise does nothing.

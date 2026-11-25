@@ -1,7 +1,8 @@
 // MSW routes for `/api/dictation` (ARCHITECTURE §9.2): devices, word lists and models, in memory.
 
 import { type AnyHandler, HttpResponse, http } from 'msw'
-import type { CleanupChoice, DictationDevice, SpeechChoice } from '../api/dictation'
+import type { CleanupChoice, DictationDevice, SendKey, SpeechChoice } from '../api/dictation'
+import { SOUND_THEMES, type SoundTheme } from '../lib/dictateSounds'
 import type { FakeUser } from './fakeRepo'
 
 const TEAM_SEED = [
@@ -27,11 +28,15 @@ export function dictationHandlers(opts: {
   const heard = new Map<string, Record<string, string[]>>([['team', { Ember: ['Amber'] }]])
   const cleanup = new Map<string, CleanupChoice>()
   const speech = new Map<string, SpeechChoice>()
+  const sendKeys = new Map<string, SendKey>()
+  const sounds = new Map<string, SoundTheme>()
   let next = 1
   // What a Hotsauce server with Deepgram and Anthropic keys answers (docs/PLAN-dictate-models.md).
   const settingsOf = (email: string) => ({
     speech: speech.get(email) ?? 'online',
     cleanup: cleanup.get(email) ?? 'fast',
+    sendKey: sendKeys.get(email) ?? 'space',
+    sounds: sounds.get(email) ?? 'soft',
     cleanupAvailable: true,
     models: {
       speech: 'Deepgram Nova-3',
@@ -110,17 +115,28 @@ export function dictationHandlers(opts: {
     http.put(
       '/api/dictation/settings',
       authed(async ({ request, user }) => {
-        const body = (await request.json()) as { cleanup?: CleanupChoice; speech?: SpeechChoice }
+        const body = (await request.json()) as {
+          cleanup?: CleanupChoice
+          speech?: SpeechChoice
+          sendKey?: SendKey
+          sounds?: SoundTheme
+        }
         const okCleanup =
           body.cleanup === undefined || ['fast', 'careful', 'off'].includes(body.cleanup)
         const okSpeech = body.speech === undefined || ['online', 'device'].includes(body.speech)
-        if (!okCleanup || !okSpeech || (!body.cleanup && !body.speech))
+        const okKey =
+          body.sendKey === undefined || ['space', 'return', 'tab', 'off'].includes(body.sendKey)
+        const okSounds = body.sounds === undefined || SOUND_THEMES.includes(body.sounds)
+        const any = body.cleanup || body.speech || body.sendKey || body.sounds
+        if (!okCleanup || !okSpeech || !okKey || !okSounds || !any)
           return HttpResponse.json(
             { error: { code: 'bad_request', message: 'Pick a speech or cleanup choice' } },
             { status: 400 },
           )
         if (body.cleanup) cleanup.set(user.email, body.cleanup)
         if (body.speech) speech.set(user.email, body.speech)
+        if (body.sendKey) sendKeys.set(user.email, body.sendKey)
+        if (body.sounds) sounds.set(user.email, body.sounds)
         return HttpResponse.json(settingsOf(user.email))
       }),
     ),

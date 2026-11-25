@@ -142,11 +142,17 @@ public struct DictationClient: Sendable {
         public let cleanup: String
         /// False when the server has no AI key, so nothing is tidied.
         public let cleanupAvailable: Bool?
+        /// The send key and the sounds (docs/PLAN-dictate-send-and-sounds.md); nil from a server
+        /// that predates them.
+        public let sendKey: String?
+        public let sounds: String?
 
-        public init(speech: String, cleanup: String, cleanupAvailable: Bool? = true) {
+        public init(speech: String, cleanup: String, cleanupAvailable: Bool? = true, sendKey: String? = nil, sounds: String? = nil) {
             self.speech = speech
             self.cleanup = cleanup
             self.cleanupAvailable = cleanupAvailable
+            self.sendKey = sendKey
+            self.sounds = sounds
         }
 
         /// The member chose "On this Mac only": their voice never leaves the Mac.

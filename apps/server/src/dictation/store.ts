@@ -90,6 +90,9 @@ const MIGRATIONS = [
     position INTEGER NOT NULL,
     PRIMARY KEY (scope, word_key, heard)
   );`,
+  // The send key and the sounds (docs/PLAN-dictate-send-and-sounds.md, R1); null is the default.
+  `ALTER TABLE dictation_prefs ADD COLUMN send_key TEXT;
+   ALTER TABLE dictation_prefs ADD COLUMN sounds TEXT;`,
 ]
 
 /** How a member's dictations are cleaned up (docs/PLAN-dictate-models.md). */
@@ -99,6 +102,14 @@ export type CleanupChoice = (typeof CLEANUP_CHOICES)[number]
 /** Where the Mac app hears the member: the server's speech model, or the Mac alone. */
 export const SPEECH_CHOICES = ['online', 'device'] as const
 export type SpeechChoice = (typeof SPEECH_CHOICES)[number]
+
+/** The key that ends a dictation and sends it (docs/PLAN-dictate-send-and-sounds.md). */
+export const SEND_KEYS = ['space', 'return', 'tab', 'off'] as const
+export type SendKey = (typeof SEND_KEYS)[number]
+
+/** The sounds Dictate plays as it starts, stops, sends and cancels. */
+export const SOUND_THEMES = ['soft', 'pop', 'click', 'chime', 'off'] as const
+export type SoundTheme = (typeof SOUND_THEMES)[number]
 
 /**
  * The version in a `Hotsauce-App: mac/<version>[+<build>]` header (`mac/0.26.0+1400`), or null
@@ -277,6 +288,40 @@ export class DictationStore {
         "INSERT INTO dictation_prefs (user_id, cleanup, speech) VALUES (?, 'fast', ?) ON CONFLICT (user_id) DO UPDATE SET speech = excluded.speech",
       )
       .run(userId, speech)
+  }
+
+  /** The member's send key; Space until they pick another. */
+  sendKey(userId: string): SendKey {
+    const row = this.#db
+      .prepare('SELECT send_key FROM dictation_prefs WHERE user_id = ?')
+      .get(userId) as { send_key: string | null } | undefined
+    const saved = row?.send_key as SendKey | undefined
+    return saved && SEND_KEYS.includes(saved) ? saved : 'space'
+  }
+
+  setSendKey(userId: string, sendKey: SendKey): void {
+    this.#db
+      .prepare(
+        "INSERT INTO dictation_prefs (user_id, cleanup, send_key) VALUES (?, 'fast', ?) ON CONFLICT (user_id) DO UPDATE SET send_key = excluded.send_key",
+      )
+      .run(userId, sendKey)
+  }
+
+  /** The member's sounds; Soft until they pick another. */
+  soundTheme(userId: string): SoundTheme {
+    const row = this.#db
+      .prepare('SELECT sounds FROM dictation_prefs WHERE user_id = ?')
+      .get(userId) as { sounds: string | null } | undefined
+    const saved = row?.sounds as SoundTheme | undefined
+    return saved && SOUND_THEMES.includes(saved) ? saved : 'soft'
+  }
+
+  setSoundTheme(userId: string, sounds: SoundTheme): void {
+    this.#db
+      .prepare(
+        "INSERT INTO dictation_prefs (user_id, cleanup, sounds) VALUES (?, 'fast', ?) ON CONFLICT (user_id) DO UPDATE SET sounds = excluded.sounds",
+      )
+      .run(userId, sounds)
   }
 
   setCleanupChoice(userId: string, cleanup: CleanupChoice): void {

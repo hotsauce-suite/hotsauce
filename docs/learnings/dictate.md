@@ -41,3 +41,19 @@
   open PRs both append to `MIGRATIONS`, the second to deploy can otherwise be skipped.
 - The full `pnpm test` takes over 10 minutes in a cloud container; run the touched areas locally
   and let CI run the whole suite. e2e needs `PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium` there.
+- Sounds shared by the web and the Mac are cheapest as one small tone table synthesized on each
+  side (no audio files). A test parses the Swift file so the two tables can't drift. Seeded noise
+  must use arithmetic that stays exact in a JS double: Park–Miller (`* 16807 % 2147483647`) does,
+  a 64-bit LCG doesn't.
+- Hands-free starts with a double tap, so a start sound played on key-down fires for taps that
+  never become dictations. Play it after the minimum hold, and play stop/cancel only if start
+  played.
+- Lowering other apps' sound: save the volume you set and put the original back only if the
+  current volume is still the one you set (the member may have changed it). Persist it so a crash
+  mid-dictation is undone at the next launch.
+- Pressing Return after a paste must check the front app is still the one the dictation started
+  in, or a "send" lands as a stray Return in whatever app the member switched to.
+- A settings-search test that collects labels from the page must wait for sections that load from
+  the server, not only for the Mac's reply.
+- A `send: Bool` parameter shadows a `send(...)` method inside that function, and the error
+  ("cannot call value of non-function type 'Bool'") shows only on the macOS job. Call `self.send`.

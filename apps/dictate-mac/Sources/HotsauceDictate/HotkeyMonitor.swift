@@ -11,7 +11,13 @@ final class HotkeyMonitor {
         case keyUp(TimeInterval)
         case otherKey
         case escape
+        /// The member's send key while dictating (docs/PLAN-dictate-send-and-sounds.md, R8).
+        case send
     }
+
+    /// Whether a key press is the send key now: only while a dictation is recording. Called on the
+    /// main thread from the tap, so it must be quick.
+    var isSendKey: (_ keyCode: Int64, _ flags: UInt64) -> Bool = { _, _ in false }
 
     var hotkey: Hotkey
     /// Called on the main thread. For `.escape`, return true to swallow the key.
@@ -31,6 +37,9 @@ final class HotkeyMonitor {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var hotkeyIsDown = false
+    /// The send key that just ended a dictation: its auto-repeats are swallowed too, so holding it
+    /// a moment long doesn't type spaces before the words land.
+    private var sentWith: Int64?
     private static let escapeKeyCode: Int64 = 53
 
     init(hotkey: Hotkey) {
@@ -111,6 +120,14 @@ final class HotkeyMonitor {
                     if hotkeyIsDown { _ = handler(.otherKey) }
                     _ = screenshotHandler(.shortcut)
                 }
+                return nil
+            }
+            if repeated, keyCode == sentWith { return nil }
+            if !repeated { sentWith = nil }
+            // The send key ends the dictation and never reaches the app (R8).
+            if !repeated, isSendKey(keyCode, event.flags.rawValue) {
+                sentWith = keyCode
+                _ = handler(.send)
                 return nil
             }
             if keyCode == Self.escapeKeyCode {

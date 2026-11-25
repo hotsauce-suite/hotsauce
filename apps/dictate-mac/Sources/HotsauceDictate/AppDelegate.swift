@@ -51,6 +51,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // A volume left lowered by a dictation that never finished (a crash) is put back (R12).
+        OutputVolume.restoreLeftover()
         NSApp.mainMenu = makeMainMenu()
         suite.showMessage = { [weak self] in self?.controller.showMessage($0) }
         suite.breaksMessage = { [weak self] in self?.breaks.received($0) }
@@ -96,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateIcon()
 
         monitor.handler = { [weak self] event in self?.controller.handle(event) ?? false }
+        monitor.isSendKey = { [weak self] keyCode, flags in self?.controller.isSendKey(keyCode: keyCode, flags: flags) ?? false }
         monitor.screenshotShortcut = screenshots.shortcut
         monitor.screenshotHandler = { [weak self] key in self?.screenshots.handle(key) ?? false }
         screenshots.showMessage = { [weak self] in self?.controller.showMessage($0) }
@@ -300,6 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 case let .microphone(uid):
                     // Only one this Mac has now; anything else keeps the choice as it was.
                     if uid == nil || AudioInputs.all().contains(where: { $0.id == uid }) { self.settings.microphoneUID = uid }
+                case let .quietAudio(choice): self.settings.quietAudio = choice
                 case .screenshotShortcut, .screenshotCopy, .screenshotSave, .screenshotPreview:
                     self.screenshots.apply(change)
                     self.monitor.screenshotShortcut = self.screenshots.shortcut
@@ -370,6 +374,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 account: ConnectionStore.connection()?.account
             )
             snapshot.screenshots = self.screenshots.settingsSnapshot
+            snapshot.quietAudio = self.settings.quietAudio
             done(snapshot)
         }
     }
@@ -517,6 +522,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // History is written off the main thread; let the last write finish.
         historyStore.flush()
+        // Quitting mid-dictation: put other apps' sound back now, not at the next launch.
+        OutputVolume.restore()
     }
 
     /// Opening the app while it runs (Finder, Spotlight, the Dock) shows the suite.
