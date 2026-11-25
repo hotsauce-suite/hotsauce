@@ -22,6 +22,8 @@ export const MAX_REPLIES = 3
 /** The routine takes 65,536 characters; context is trimmed to stay well under (R3). */
 export const MAX_FIRE_TEXT = 60_000
 const ROOM_CONTEXT = 15
+/** A pasted log can be long: the question itself is cut here so context still fits (R3). */
+export const MAX_QUESTION = 20_000
 const MAX_REPLY_TEXT = 8000
 const KEEP_MS = 24 * 60 * 60 * 1000
 const RECENT = 10
@@ -57,6 +59,8 @@ const Wake = z.object({
 })
 type Wake = z.infer<typeof Wake>
 const Recent = z.object({
+  /** The wake it started, so a failed start can be marked on the same line. */
+  wake: z.string().optional(),
   at: z.string(),
   room: z.string(),
   who: z.string(),
@@ -141,7 +145,8 @@ export class ChatClaude {
 
   status(): ChatClaudeStatus {
     const missing: string[] = []
-    if (this.#origin() === null) missing.push('the chat’s address (Settings → Organization → Chat)')
+    if (this.#origin() === null)
+      missing.push('the team chat’s address (Settings → Workspace → Team chat)')
     if (!/^trig_[A-Za-z0-9]+$/.test(this.#routineId())) missing.push('the routine’s ID')
     if (!this.#org.effectiveSecret('CHAT_CLAUDE_TOKEN')) missing.push('the routine’s token')
     const file = this.#read()
@@ -182,6 +187,12 @@ export class ChatClaude {
 
   /** A new webhook address; the old one stops working at once. */
   rotate(): void {
+    if (this.#org.secretStatus('CHAT_CLAUDE_WEBHOOK_SECRET').source === 'env') {
+      throw new HotsauceError(
+        'bad_request',
+        'The webhook address is set on the server (CHAT_CLAUDE_WEBHOOK_SECRET), so change it there.',
+      )
+    }
     this.#org.saveSecret('CHAT_CLAUDE_WEBHOOK_SECRET', randomBytes(24).toString('base64url'))
   }
 
@@ -209,19 +220,21 @@ export class ChatClaude {
     if (!parsed.success) throw new HotsauceError('bad_request', 'Not a chat bot delivery')
     const d = parsed.data
     const origin = this.#origin()
-    const m = ROOM_PATH.exec(d.room.path)
-    if (!origin || !m) throw new HotsauceError('bad_request', 'Not a chat bot delivery')
+    const thread = origin ? roomTarget(origin, d.room.path) : null
+    if (!origin || !thread) throw new HotsauceError('bad_request', 'Not a chat bot delivery')
     const target = `${origin}${d.room.path}`
-    const roomName = d.room.name.trim() || 'a direct message'
-    const who = d.user.name.trim() || 'Someone'
-    const question = (d.message.body?.plain ?? '').trim()
+    const roomName = oneLine(d.room.name) || 'a direct message'
+    const who = oneLine(d.user.name) || 'Someone'
+    let question = (d.message.body?.plain ?? '').trim()
+    if (question.length > MAX_QUESTION) question = `${question.slice(0, MAX_QUESTION)}… (cut)`
 
+    // The check and the wake it counts are one synchronous step, so mentions arriving together
+    // can't all slip under the limit (R5).
     const file = this.#prune(this.#read())
     if (this.#lastHour(file).length >= MAX_WAKES_PER_HOUR) {
       this.#remember(file, { room: roomName, who, ok: false, error: 'busy' })
       return BUSY
     }
-
     const wake: Wake = {
       id: `wake_${randomBytes(16).toString('base64url')}`,
       target,
@@ -229,18 +242,21 @@ export class ChatClaude {
       createdAt: this.#now().toISOString(),
       replies: 0,
     }
-    const context = await this.#context(target, m[3] ? decodeURIComponent(m[3]) : null, d)
-    const text = fireText({ who, room: roomName, question, context, replyId: wake.id })
+    this.#remember(file, { wake: wake.id, room: roomName, who, ok: true })
 
+    const context = await this.#context(target, thread.thread, d)
+    const text = fireText({ who, room: roomName, question, context, replyId: wake.id })
     const fired = await this.#fire(text)
-    // Read again: a reply may have been posted while the routine was being started.
+    // Read again: other wakes and replies may have been written meanwhile.
     const after = this.#prune(this.#read())
     if (!fired.ok) {
-      this.#remember(after, { room: roomName, who, ok: false, error: fired.error })
+      const line = after.recent.find((r) => r.wake === wake.id)
+      if (line) Object.assign(line, { ok: false, error: fired.error })
+      this.#write(after)
       return `Sorry, I couldn’t start: ${fired.error}`
     }
     after.wakes.push(wake)
-    this.#remember(after, { room: roomName, who, ok: true })
+    this.#write(after)
     return ACK
   }
 
@@ -264,6 +280,16 @@ export class ChatClaude {
     if (!origin || new URL(wake.target).origin !== origin) {
       throw new HotsauceError('bad_request', 'The chat’s address changed since this wake')
     }
+    // Take the slot before posting, so replies sent together can't pass the limit; give it back
+    // if the post fails.
+    wake.replies += 1
+    this.#write(file)
+    const release = () => {
+      const now = this.#read()
+      const kept = now.wakes.find((w) => w.id === replyId)
+      if (kept && kept.replies > 0) kept.replies -= 1
+      this.#write(now)
+    }
     let res: Response
     try {
       res = await this.#fetch(wake.target, {
@@ -275,10 +301,12 @@ export class ChatClaude {
       })
       await res.body?.cancel()
     } catch (err) {
+      release()
       this.#log(`chat-claude: couldn't post to "${wake.room}": ${errName(err)}`)
       throw new HotsauceError('host_error', 'Couldn’t reach the chat. Try again.')
     }
     if (!res.ok) {
+      release()
       this.#log(`chat-claude: chat answered ${res.status} posting to "${wake.room}"`)
       throw new HotsauceError(
         'host_error',
@@ -287,10 +315,6 @@ export class ChatClaude {
           : `The chat refused the post (${res.status}).`,
       )
     }
-    const now = this.#read()
-    const kept = now.wakes.find((w) => w.id === replyId)
-    if (kept) kept.replies += 1
-    this.#write(now)
   }
 
   /** The thread so far, or the room's last messages; nothing when the chat can't be read (R3). */
@@ -304,7 +328,7 @@ export class ChatClaude {
     try {
       const res = await this.#fetch(target, {
         headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(4000),
         redirect: 'manual',
       })
       if (!res.ok) {
@@ -338,7 +362,7 @@ export class ChatClaude {
           'content-type': 'application/json',
         },
         body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(15_000),
         redirect: 'manual',
       })
       await res.body?.cancel()
@@ -375,9 +399,7 @@ export class ChatClaude {
   #prune(file: z.infer<typeof WakesFile>): z.infer<typeof WakesFile> {
     const now = this.#now().getTime()
     return {
-      wakes: file.wakes.filter(
-        (w) => now - Date.parse(w.createdAt) < WAKE_TTL_MS && w.replies < MAX_REPLIES,
-      ),
+      wakes: file.wakes.filter((w) => now - Date.parse(w.createdAt) < WAKE_TTL_MS),
       recent: file.recent.filter((r) => now - Date.parse(r.at) < KEEP_MS),
     }
   }
@@ -407,6 +429,31 @@ export class ChatClaude {
 }
 
 const errName = (err: unknown) => (err instanceof Error ? err.name : 'error')
+
+/** A name on one line, so it can't pose as another line of what the routine reads. */
+const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim().slice(0, 100)
+
+/**
+ * The room address a delivery names, checked: a bot room path whose segments are plain (no `.`,
+ * `..` or escapes that a URL would resolve elsewhere on the chat's host), and its thread, if any.
+ */
+function roomTarget(origin: string, roomPath: string): { thread: string | null } | null {
+  const m = ROOM_PATH.exec(roomPath)
+  if (!m) return null
+  const [, room, key, thread] = m as unknown as [string, string, string, string | undefined]
+  if ([room, key].some((seg) => seg === '.' || seg === '..' || seg.includes('%'))) return null
+  let decoded: string | null = null
+  if (thread !== undefined) {
+    try {
+      decoded = decodeURIComponent(thread)
+    } catch {
+      return null
+    }
+  }
+  const u = new URL(`${origin}${roomPath}`)
+  if (u.origin !== origin || u.pathname !== `/rooms/${room}/${key}/messages`) return null
+  return { thread: decoded }
+}
 
 /** What the routine is woken with: its saved prompt reads this (R2, R3). */
 export function fireText(w: {
@@ -439,5 +486,8 @@ export function fireText(w: {
     kept.unshift(line)
     size += line.length + 1
   }
-  return `${head}\n\nEarlier in the conversation (oldest first):\n${kept.join('\n')}`
+  return `${head}\n\nEarlier in the conversation (oldest first):\n${kept.join('\n')}`.slice(
+    0,
+    MAX_FIRE_TEXT,
+  )
 }

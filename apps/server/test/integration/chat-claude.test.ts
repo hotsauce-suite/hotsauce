@@ -108,11 +108,22 @@ async function setUp() {
   return JSON.parse(r.text) as { webhookUrl: string; ready: boolean; token: { last4: string } }
 }
 
-async function mcpFor(email: string) {
+async function mcpFor(email: string, teamRead = false) {
   // A member is known once they've made a request.
   await call('GET', '/api/me', { as: email })
-  const principal = await services.auth.principalForUser(`dev:${email}`)
-  const server = createMcpServer(services, principal!)
+  const member = await services.auth.principalForUser(`dev:${email}`)
+  const principal = teamRead
+    ? {
+        ...member!,
+        via: {
+          kind: 'token' as const,
+          tokenId: 't1',
+          tokenName: 'Chat',
+          access: 'team-read' as const,
+        },
+      }
+    : member!
+  const server = createMcpServer(services, principal)
   const [a, b] = InMemoryTransport.createLinkedPair()
   await server.connect(a)
   const client = new Client({ name: 'test', version: '1' })
@@ -192,5 +203,44 @@ describe('Claude in chat', () => {
     expect(off.token.set).toBe(false)
     const client = await mcpFor(ALICE)
     expect((await client.listTools()).tools.map((t) => t.name)).not.toContain('reply_in_chat')
+  })
+
+  it('a team-only connection can still answer in chat, and nothing else is writable', async () => {
+    const { webhookUrl } = await setUp()
+    await call('POST', new URL(webhookUrl).pathname, { json: delivery })
+    const replyId = /reply_id: (wake_[\w-]+)/.exec(
+      (JSON.parse(fired[0]!) as { text: string }).text,
+    )?.[1]
+    const client = await mcpFor(ALICE, true)
+    const names = (await client.listTools()).tools.map((t) => t.name)
+    expect(names).toContain('reply_in_chat')
+    expect(names).not.toContain('write_file')
+    const result = (await client.callTool({
+      name: 'reply_in_chat',
+      arguments: { reply_id: replyId, text: 'Found it.' },
+    })) as CallToolResult
+    expect(result.isError).toBeFalsy()
+    expect(posted).toHaveLength(1)
+  })
+
+  it('R9: a failure on the webhook never logs its secret', async () => {
+    const { webhookUrl } = await setUp()
+    const path = new URL(webhookUrl).pathname
+    const secret = path.split('/').pop() ?? ''
+    const logged: string[] = []
+    const original = console.error
+    console.error = (...a: unknown[]) => logged.push(a.map(String).join(' '))
+    const receive = services.chatClaude.receive.bind(services.chatClaude)
+    services.chatClaude.receive = async () => {
+      throw new Error('disk full')
+    }
+    try {
+      expect((await call('POST', path, { json: delivery })).status).toBe(500)
+    } finally {
+      console.error = original
+      services.chatClaude.receive = receive
+    }
+    expect(logged.join('\n')).toContain('chat-claude/<redacted>')
+    expect(logged.join('\n')).not.toContain(secret)
   })
 })

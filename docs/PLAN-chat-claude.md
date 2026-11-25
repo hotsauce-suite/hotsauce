@@ -1,9 +1,9 @@
 # Plan: Claude answers @mentions in chat
 
-**Status (2026-11-25):** slices 1-3 in progress on the "Claude in chat" PR. Decisions taken on the
+**Status (2026-11-25):** slices 1-3 built and reviewed on the "Claude in chat" PR. Decisions taken on the
 owner's recommended answers (2026-11-25): a full Claude Code routine answers, not a quick model
 call; the bot is named "Claude"; the routine gets only the Hotsauce connector and answers only;
-team space only (by its instructions, not enforced); rooms the bot is in and direct messages to it;
+team space only (its instructions say so, and the setup recommends a "Team space only, read only" connection, on which `reply_in_chat` is the one write allowed); rooms the bot is in and direct messages to it;
 each mention is a fresh session given the thread; at most 20 wakes an hour.
 
 ## Why
@@ -60,7 +60,10 @@ one place, a few times, for a few hours.
 9. The bot key, the token and the webhook secret never appear in an API answer other than the
    admin's webhook address, a log line, or the text sent to the routine. (all)
 10. `reply_in_chat` is only offered when Claude in chat is set up; its description says it only
-    answers a chat wake. (`mcp/tools/chat`)
+    answers a chat wake. A team-only connection gets it too, and no other write. (`mcp/tools/chat`)
+11. Mentions or replies arriving together can't pass the hourly or per-wake limits; a pasted long
+    message is cut so the text still fits; a room path with `.`/`..` segments or escapes is refused.
+    (`chat/claude`)
 
 ## Slices
 

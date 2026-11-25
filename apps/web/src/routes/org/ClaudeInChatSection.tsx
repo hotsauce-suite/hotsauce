@@ -83,9 +83,10 @@ export function ClaudeInChatSection() {
           </li>
         </ol>
         <p className="mt-2 text-ink-soft">
-          The session signs in to {product()} as whoever connected the connector. Its instructions
-          keep it to the team space, but that’s a rule it follows, not a lock, so connect it with an
-          account that sees only what everyone in the chat may see if that matters to you.
+          Anyone in a room can talk to it, so give the routine a {product()} connection made with{' '}
+          <b>Team space only, read only</b> on the Allow page: it can then read only the team space
+          and change nothing, and still answer in chat. A connection with full access works too, but
+          then only its instructions keep it out of your own space.
         </p>
       </div>
 
