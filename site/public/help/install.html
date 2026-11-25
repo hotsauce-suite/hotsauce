@@ -42,6 +42,7 @@
 <h2 id="1-one-click-on-cloudflare">1. One click on Cloudflare</h2>
 <p>About $13–15 a month, always on, no server to look after.</p>
 <ol class="steps"><li>Switch your Cloudflare account to <a href="https://dash.cloudflare.com/?to=/:account/workers/plans">Workers Paid</a> ($5 a month), and turn on <a href="https://dash.cloudflare.com/?to=/:account/r2/overview">R2 storage</a>.</li><li>Click <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/hotsauce-suite/hotsauce">Deploy to Cloudflare</a>. It copies Hotsauce to your GitHub and asks for a name, an R2 bucket, a setup password you make up, and a master key (a long random string you keep safe).</li><li>When the first build finishes (about ten minutes), open your new address with <code>/setup</code> on the end and enter your setup password.</li></ol>
+<p>If Cloudflare shows <code>response missing default_environment.script</code> under the project name, an earlier try already made a Worker with that name. Don't start over in the dashboard: open the existing Worker in <a href="https://dash.cloudflare.com/?to=/:account/workers-and-pages">Workers &amp; Pages</a> and retry its build once Workers Paid is on, or click Deploy to Cloudflare again with a new name.</p>
 
 <h2 id="2-have-your-ai-agent-do-it">2. Have your AI agent do it</h2>
 <p>Paste this into Claude Code, Codex, Cursor or any coding agent. It stops and asks you before anything that needs your accounts, payment or DNS.</p>
