@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "version": "0.70.2",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Sign: the document fills the page, and the controls sit in a panel on the right that stays in view as you scroll. The field types come first, two to a row."
+        },
+        {
+          "text": "Sign: the page someone outside the team signs from uses the same layout."
+        },
+        {
+          "text": "Gets the same layout (it shows the web screens).",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.70.1",
       "date": "2026-11-25",
       "notes": [
