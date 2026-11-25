@@ -33,7 +33,9 @@ export {
 export {
   CLEANUP_CHOICES,
   type CleanupChoice,
+  DEVICE_KINDS,
   DEVICE_TOKEN_PREFIX,
+  type DeviceKind,
   type DictationDevice,
   DictationStore,
   deviceTokenFrom,
@@ -44,6 +46,8 @@ export {
   macAppVersionFrom,
   newDeviceToken,
   normalizeWords,
+  PHONE_TOKEN_PREFIX,
+  phoneTokenFrom,
   SEND_KEYS,
   type SendKey,
   SOUND_THEMES,

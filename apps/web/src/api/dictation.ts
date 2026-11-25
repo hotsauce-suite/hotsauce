@@ -10,6 +10,8 @@ export interface DictationDevice {
   lastUsedAt: string | null
   /** The Mac app version the device last reported; null until it does (older apps never do). */
   appVersion?: string | null
+  /** A Mac, or a phone connected for the Android app's widgets (docs/PLAN-android.md R5). */
+  kind?: 'mac' | 'phone'
 }
 
 export interface DictationWords {

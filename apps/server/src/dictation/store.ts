@@ -5,9 +5,13 @@ import Database from 'better-sqlite3'
 import { ulid } from 'ulid'
 import { HotsauceError } from '../errors.js'
 
-/** A Mac connected to Hotsauce Dictate. The token itself is never stored, only its hash. */
+/**
+ * A Mac connected to Hotsauce Dictate, or a phone connected for the Android app's widgets
+ * (docs/PLAN-android.md R5). The token itself is never stored, only its hash.
+ */
 export interface DictationDevice {
   id: string
+  kind: DeviceKind
   userId: string
   email: string
   name: string
@@ -18,6 +22,10 @@ export interface DictationDevice {
 }
 
 export const DEVICE_TOKEN_PREFIX = 'hdt_'
+/** A phone's token says so in its prefix, so a request is checked against its list before any lookup. */
+export const PHONE_TOKEN_PREFIX = 'hpt_'
+export const DEVICE_KINDS = ['mac', 'phone'] as const
+export type DeviceKind = (typeof DEVICE_KINDS)[number]
 // A new organization's team word list starts with the tools' own names; admins add theirs.
 export const TEAM_WORDS_SEED = ['Hotsauce', 'Clerk', 'Deepgram', 'Anthropic', 'Claude']
 export const MAX_WORDS_PER_LIST = 200
@@ -25,8 +33,9 @@ export const MAX_WORD_LENGTH = 60
 export const MAX_HEARD_AS_PER_WORD = 10
 const MAX_DEVICES_PER_MEMBER = 20
 
-export function newDeviceToken(): string {
-  return `${DEVICE_TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`
+export function newDeviceToken(kind: DeviceKind = 'mac'): string {
+  const prefix = kind === 'phone' ? PHONE_TOKEN_PREFIX : DEVICE_TOKEN_PREFIX
+  return `${prefix}${randomBytes(32).toString('base64url')}`
 }
 
 export function hashDeviceToken(token: string): string {
@@ -36,6 +45,12 @@ export function hashDeviceToken(token: string): string {
 /** Whether a request's Authorization header carries a device token (not a Clerk session). */
 export function deviceTokenFrom(authorization: string | null | undefined): string | null {
   const match = /^Bearer\s+(hdt_[A-Za-z0-9_-]+)\s*$/.exec(authorization ?? '')
+  return match ? (match[1] ?? null) : null
+}
+
+/** Whether a request's Authorization header carries a phone's token (docs/PLAN-android.md R6). */
+export function phoneTokenFrom(authorization: string | null | undefined): string | null {
+  const match = /^Bearer\s+(hpt_[A-Za-z0-9_-]+)\s*$/.exec(authorization ?? '')
   return match ? (match[1] ?? null) : null
 }
 
@@ -93,6 +108,8 @@ const MIGRATIONS = [
   // The send key and the sounds (docs/PLAN-dictate-send-and-sounds.md, R1); null is the default.
   `ALTER TABLE dictation_prefs ADD COLUMN send_key TEXT;
    ALTER TABLE dictation_prefs ADD COLUMN sounds TEXT;`,
+  // Phones connected for the Android app's widgets (docs/PLAN-android.md R5).
+  `ALTER TABLE dictation_devices ADD COLUMN kind TEXT NOT NULL DEFAULT 'mac';`,
 ]
 
 /** How a member's dictations are cleaned up (docs/PLAN-dictate-models.md). */
@@ -129,6 +146,7 @@ interface DeviceRow {
   created_at: string
   last_used_at: string | null
   app_version: string | null
+  kind: string
 }
 
 /**
@@ -175,6 +193,7 @@ export class DictationStore {
   createDevice(
     member: { userId: string; email: string },
     name: string,
+    kind: DeviceKind = 'mac',
   ): { device: DictationDevice; token: string } {
     const active = this.listDevices(member.userId)
     if (active.length >= MAX_DEVICES_PER_MEMBER) {
@@ -183,9 +202,10 @@ export class DictationStore {
         `You have ${active.length} connected devices; revoke one first`,
       )
     }
-    const token = newDeviceToken()
+    const token = newDeviceToken(kind)
     const device: DictationDevice = {
       id: ulid(),
+      kind,
       userId: member.userId,
       email: member.email,
       name,
@@ -195,7 +215,7 @@ export class DictationStore {
     }
     this.#db
       .prepare(
-        'INSERT INTO dictation_devices (id, user_id, email, name, token_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO dictation_devices (id, user_id, email, name, token_hash, created_at, kind) VALUES (?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         device.id,
@@ -204,6 +224,7 @@ export class DictationStore {
         device.name,
         hashDeviceToken(token),
         device.createdAt,
+        device.kind,
       )
     return { device, token }
   }
@@ -445,6 +466,7 @@ export class DictationStore {
 function toDevice(row: DeviceRow): DictationDevice {
   return {
     id: row.id,
+    kind: row.kind === 'phone' ? 'phone' : 'mac',
     userId: row.user_id,
     email: row.email,
     name: row.name,

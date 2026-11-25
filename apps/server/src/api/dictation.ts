@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import {
   CLEANUP_CHOICES,
+  DEVICE_KINDS,
   DICTATION_MIME_TYPES,
   MAX_HEARD_AS_PER_WORD,
   MAX_WORD_LENGTH,
@@ -193,28 +194,47 @@ export function dictationRoutes(deps: AppDeps) {
           return c.json({ scope: body.scope, words: saved })
         },
       )
-      .get('/devices', (c) => {
-        const devices = store.listDevices(c.get('principal').userId)
-        return c.json(
-          devices.map(({ id, name, createdAt, lastUsedAt, appVersion }) => ({
-            id,
-            name,
-            createdAt,
-            lastUsedAt,
-            appVersion,
-          })),
-        )
-      })
+      // Macs unless asked: the web's Mac checks (Getting started, Today, the Mac app page) read
+      // this list as "this member's Macs". `?kind=phone` or `all` for phones (PLAN-android R5).
+      .get(
+        '/devices',
+        valid('query', z.object({ kind: z.enum([...DEVICE_KINDS, 'all']).default('mac') })),
+        (c) => {
+          const { kind } = c.req.valid('query')
+          const devices = store
+            .listDevices(c.get('principal').userId)
+            .filter((d) => kind === 'all' || d.kind === kind)
+          return c.json(
+            devices.map(({ id, kind, name, createdAt, lastUsedAt, appVersion }) => ({
+              id,
+              kind,
+              name,
+              createdAt,
+              lastUsedAt,
+              appVersion,
+            })),
+          )
+        },
+      )
       .post(
         '/devices',
-        valid('json', z.object({ name: z.string().trim().min(1).max(80) })),
+        valid(
+          'json',
+          z.object({
+            name: z.string().trim().min(1).max(80),
+            // A phone for the Android app's widgets (docs/PLAN-android.md R5); a Mac otherwise.
+            kind: z.enum(DEVICE_KINDS).default('mac'),
+          }),
+        ),
         (c) => {
           const principal = c.get('principal')
-          const { device, token } = store.createDevice(principal, c.req.valid('json').name)
+          const { name, kind } = c.req.valid('json')
+          const { device, token } = store.createDevice(principal, name, kind)
           c.header('Cache-Control', 'no-store')
           return c.json(
             {
               id: device.id,
+              kind: device.kind,
               name: device.name,
               createdAt: device.createdAt,
               lastUsedAt: null,
@@ -229,7 +249,10 @@ export function dictationRoutes(deps: AppDeps) {
         // `self` is the calling device, for a Mac that disconnects or reconnects itself.
         const id = c.req.param('id') === 'self' ? c.get('deviceId') : c.req.param('id')
         if (!id)
-          throw new HotsauceError('bad_request', 'Only a connected Mac can disconnect itself')
+          throw new HotsauceError(
+            'bad_request',
+            'Only a connected Mac or phone can disconnect itself',
+          )
         store.revokeDevice(c.get('principal').userId, id)
         return c.body(null, 204)
       })

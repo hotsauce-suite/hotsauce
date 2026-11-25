@@ -211,6 +211,17 @@ export const ConfigSchema = z
     // Sign's email (docs/PLAN-sign.md R12): Resend's key and the address mail comes from, like
     // sign@mail.example.com. Without both, Sign gives the sender links to copy instead.
     RESEND_API_KEY: z.string().optional(),
+    // Extra Android signing fingerprints the server vouches for in /.well-known/assetlinks.json
+    // (docs/PLAN-android.md R4), comma-separated SHA-256s like AB:CD:…; the published app's are
+    // always included. For your own build of the Android app.
+    ANDROID_CERT_SHA256: z
+      .string()
+      .trim()
+      .regex(
+        /^([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){31})(\s*,\s*[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){31})*$/,
+        'ANDROID_CERT_SHA256 must be SHA-256 fingerprints like AB:CD:…, comma-separated',
+      )
+      .optional(),
     MAIL_FROM: z.string().trim().email().optional(),
     // Test only: `record` keeps reminder pushes in memory for e2e (GET /api/test/pushes).
     PUSH_SENDER: z.enum(['web', 'record']).default('web'),

@@ -4,6 +4,7 @@ import {
   type AppEnv,
   accountRoutes,
   adminOrgRoutes,
+  androidWellKnownRoutes,
   assetRoutes,
   assistantRoutes,
   authenticate,
@@ -131,6 +132,7 @@ export function createApp(deps: AppDeps) {
   // Signing an app in to /mcp (§8.4): discovery, client registration and the token endpoint.
   app
     .route('/.well-known', oauthWellKnownRoutes(deps))
+    .route('/.well-known', androidWellKnownRoutes(deps))
     .use('/oauth/*', oauthBodyLimit())
     .route('/oauth', oauthServerRoutes(deps))
   // Unknown API paths get a JSON 404, never the web app's index.html.

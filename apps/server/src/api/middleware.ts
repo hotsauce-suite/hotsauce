@@ -5,6 +5,7 @@ import {
   deviceTokenFrom,
   MAX_DICTATION_BYTES,
   macAppVersionFrom,
+  phoneTokenFrom,
 } from '../dictation/index.js'
 import { type ErrorCode, HotsauceError } from '../errors.js'
 import { FILE_MEDIA_PREFIX } from '../files/index.js'
@@ -36,6 +37,17 @@ function deviceTokenMayCall(method: string, path: string): boolean {
     // Text a Mac heard itself, for "On this Mac only" (docs/PLAN-dictate-models.md, R8).
     (method === 'POST' && path === '/api/dictation/clean') ||
     // A Mac disconnecting (or replacing) itself.
+    (method === 'DELETE' && path === '/api/dictation/devices/self')
+  )
+}
+
+/**
+ * The only requests a phone's token can make (docs/PLAN-android.md R6): the widgets' own summary
+ * and disconnecting itself. A token lifted from a phone can never read a document or dictate.
+ */
+function phoneTokenMayCall(method: string, path: string): boolean {
+  return (
+    (method === 'GET' && path === '/api/widgets/today') ||
     (method === 'DELETE' && path === '/api/dictation/devices/self')
   )
 }
@@ -84,6 +96,22 @@ export function authenticate(deps: Pick<AppDeps, 'auth' | 'spaces' | 'dictation'
         throw err
       })
       if (principal) c.set('principal', principal)
+      return next()
+    }
+    const phoneToken = phoneTokenFrom(c.req.header('authorization'))
+    if (phoneToken !== null) {
+      if (!phoneTokenMayCall(c.req.method, c.req.path)) {
+        throw new HotsauceError('unauthorized', 'A phone can only show its widgets')
+      }
+      const { principal, deviceId } = await authenticateDevice(
+        deps.auth,
+        deps.dictation.store,
+        phoneToken,
+        null,
+        'phone',
+      )
+      c.set('principal', principal)
+      c.set('deviceId', deviceId)
       return next()
     }
     const deviceToken = deviceTokenFrom(c.req.header('authorization'))
