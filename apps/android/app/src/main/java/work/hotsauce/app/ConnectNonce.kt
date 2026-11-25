@@ -19,14 +19,22 @@ class ConnectNonce(
         return nonce
     }
 
-    /** Whether `state` is the nonce we sent in the last ten minutes. Either way, it's spent. */
+    /**
+     * Whether `state` is the nonce we sent in the last ten minutes. A match spends it; so does
+     * expiry. A wrong state leaves it, so a stray link can't spoil the real one.
+     */
     fun take(state: String?): Boolean {
         val sent = read() ?: return false
-        write(null)
+        if (now() - sent.second !in 0..TEN_MINUTES) {
+            write(null)
+            return false
+        }
         if (state == null || state.length != sent.first.length) return false
         var diff = 0
         for (i in state.indices) diff = diff or (state[i].code xor sent.first[i].code)
-        return diff == 0 && now() - sent.second in 0..TEN_MINUTES
+        if (diff != 0) return false
+        write(null)
+        return true
     }
 
     companion object {

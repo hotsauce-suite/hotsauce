@@ -1,7 +1,6 @@
 package work.hotsauce.app.widget
 
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -41,7 +40,7 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
                 is WidgetApi.Result.Failed -> {} // keep the last good summary (R8)
             }
         }
-        TodayWidget().updateAll(ctx)
+        TodayWidget.redraw(ctx)
         return Result.success()
     }
 

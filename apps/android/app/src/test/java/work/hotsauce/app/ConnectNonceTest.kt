@@ -17,12 +17,12 @@ class ConnectNonceTest {
         assertFalse(nonce.take(n))
     }
 
-    @Test fun `R5 another nonce or none is refused, and spends ours`() {
+    @Test fun `R5 another nonce or none is refused, and leaves ours for the real link`() {
         val n = nonce.start()
         assertFalse(nonce.take("x".repeat(n.length)))
-        assertFalse(nonce.take(n))
-        nonce.start()
         assertFalse(nonce.take(null))
+        assertFalse(nonce.take("short"))
+        assertTrue(nonce.take(n))
     }
 
     @Test fun `R5 a nonce older than ten minutes is refused`() {

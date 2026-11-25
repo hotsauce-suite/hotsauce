@@ -5,6 +5,8 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
+import android.security.keystore.KeyPermanentlyInvalidatedException
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -25,9 +27,14 @@ class TokenVault(context: Context) {
                 val cipher = Cipher.getInstance(TRANSFORM)
                 cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes, 0, IV_BYTES))
                 String(cipher.doFinal(bytes, IV_BYTES, bytes.size - IV_BYTES), Charsets.UTF_8)
-            } catch (_: Exception) {
-                // A key lost to a restore on another phone: connect again.
-                prefs.edit().remove(KEY_TOKEN).apply()
+            } catch (e: Exception) {
+                // A key lost to a restore on another phone, or a token sealed by another key: it
+                // can never be read again, so connect again. Anything else may pass: keep it.
+                if (e is AEADBadTagException || e is KeyPermanentlyInvalidatedException ||
+                    e is IllegalArgumentException
+                ) {
+                    prefs.edit().remove(KEY_TOKEN).apply()
+                }
                 null
             }
         }

@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -16,6 +18,9 @@ import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.currentState
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
@@ -48,15 +53,28 @@ class TodayWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(SMALL, WIDE, TALL))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val connected = TokenVault(context).token != null
-        val summary = if (connected) SummaryStore(context).summary else null
-        val use24h = DateFormat.is24HourFormat(context)
         provideContent {
+            // A redraw bumps the stamp, so a widget whose session is still open reads again.
+            val stamp = currentState(STAMP) ?: 0L
+            val connected = remember(stamp) { TokenVault(context).token != null }
+            val summary = remember(stamp) { if (connected) SummaryStore(context).summary else null }
+            val use24h = remember(stamp) { DateFormat.is24HourFormat(context) }
             GlanceTheme { Body(connected, summary, use24h) }
         }
     }
 
     companion object {
+        private val STAMP = longPreferencesKey("drawn")
+
+        /** Redraws every Today widget from the stored token and summary. */
+        suspend fun redraw(context: Context) {
+            val ids = GlanceAppWidgetManager(context).getGlanceIds(TodayWidget::class.java)
+            for (id in ids) {
+                updateAppWidgetState(context, id) { it[STAMP] = System.currentTimeMillis() }
+                TodayWidget().update(context, id)
+            }
+        }
+
         val SMALL = DpSize(110.dp, 110.dp)
         val WIDE = DpSize(250.dp, 110.dp)
         val TALL = DpSize(250.dp, 220.dp)

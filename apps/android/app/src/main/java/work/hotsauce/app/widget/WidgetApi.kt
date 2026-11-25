@@ -35,4 +35,22 @@ object WidgetApi {
             conn.disconnect()
         }
     }
+
+    /** Best effort: tell the old server this phone is gone (DELETE of its own device, R6). */
+    fun disconnect(origin: String, token: String) {
+        try {
+            val conn = URL("$origin/api/dictation/devices/self").openConnection() as HttpURLConnection
+            try {
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
+                conn.instanceFollowRedirects = false
+                conn.requestMethod = "DELETE"
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.responseCode
+            } finally {
+                conn.disconnect()
+            }
+        } catch (_: IOException) {
+        }
+    }
 }
