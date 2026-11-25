@@ -44,12 +44,22 @@ export interface DictationSettings {
 }
 
 export const dictationApi = {
-  devices: () => request<DictationDevice[]>('/api/dictation/devices'),
+  /** The member's Macs, or their phones with `'phone'` (PLAN-android R5). */
+  devices: (kind: 'mac' | 'phone' = 'mac') =>
+    request<DictationDevice[]>(
+      kind === 'mac' ? '/api/dictation/devices' : `/api/dictation/devices?kind=${kind}`,
+    ),
   /** A new device token. It is shown once: the server keeps only its hash. */
   connect: (name: string) =>
     request<DictationDevice & { token: string }>('/api/dictation/devices', {
       method: 'POST',
       json: { name },
+    }),
+  /** A phone for the Android app's widgets; its token is shown once (PLAN-android R5). */
+  connectPhone: (name: string) =>
+    request<DictationDevice & { token: string }>('/api/dictation/devices', {
+      method: 'POST',
+      json: { name, kind: 'phone' },
     }),
   revoke: (id: string) =>
     request<void>(`/api/dictation/devices/${encodeURIComponent(id)}`, { method: 'DELETE' }),

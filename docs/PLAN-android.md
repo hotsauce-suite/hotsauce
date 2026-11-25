@@ -2,10 +2,12 @@
 
 ## Status
 
-- 2026-11-25: decisions settled (Morgan: "yes to all"). Slice 0 merged (#238). Slice 1 (server)
-  in progress: R4–R7. `GET /api/dictation/devices` lists Macs unless `?kind=phone|all`, so the
-  web's Mac checks keep reading it as "this member's Macs". Slice 0 (the Android project and its GitHub build) is in progress and
-  touches no shared files. Slices 1+ wait for the phone-shortcuts work (web manifest) to ship.
+- 2026-11-25: decisions settled (Morgan: "yes to all"). Slice 0 merged (#238), slice 1 (server,
+  R4–R7) merged (#248). `GET /api/dictation/devices` lists Macs unless `?kind=phone|all`, so the
+  web's Mac checks keep reading it as "this member's Macs". Slice 2 in progress: /phone/connect,
+  Settings → Apps → Android app (phones listed, Disconnect), and the app's connect flow and Today
+  widget (R8–R11). No emulator in the cloud: the widget's logic is unit-tested, and its look is
+  checked on Morgan's phone after slice 3.
 - Google Play developer account: Morgan's personal account, verified 2026-11-24.
 
 ## Why

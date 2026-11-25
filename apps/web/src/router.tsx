@@ -52,6 +52,11 @@ export const createAppRouter = () =>
           lazy: async () => ({ Component: (await import('./routes/DesktopConnectRoute')).default }),
         },
         {
+          // The Android app's widgets connecting to this member (docs/PLAN-android.md R5).
+          path: '/phone/connect',
+          lazy: async () => ({ Component: (await import('./routes/PhoneConnectRoute')).default }),
+        },
+        {
           // The Allow page AI tools open to connect by signing in (ARCHITECTURE §8.4).
           path: '/oauth/authorize',
           lazy: async () => ({ Component: (await import('./routes/OAuthAuthorizeRoute')).default }),

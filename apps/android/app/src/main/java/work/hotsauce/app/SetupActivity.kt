@@ -40,7 +40,13 @@ class SetupActivity : ComponentActivity() {
         setContent {
             HotsauceTheme {
                 SetupScreen(initial = ServerStore(this).origin ?: "") { origin ->
-                    ServerStore(this).origin = origin
+                    val store = ServerStore(this)
+                    if (store.origin != origin) {
+                        // A token is only good on the server that made it.
+                        TokenVault(this).token = null
+                        store.offeredConnect = false
+                    }
+                    store.origin = origin
                     startActivity(Intent(this, LauncherActivity::class.java))
                     finish()
                 }

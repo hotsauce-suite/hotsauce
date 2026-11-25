@@ -26,6 +26,20 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- /phone/connect's way back, with the nonce and the token (docs/PLAN-android.md R5). -->
+        <activity
+            android:name=".ConnectActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Hotsauce.Launcher">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hotsauce" android:host="connect" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.TodayWidgetReceiver"
             android:exported="true"
