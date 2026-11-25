@@ -1,4 +1,4 @@
-// Records one scripted shot of the Hotsauce web app as a crisp 1920x1080 MP4.
+// Records one scripted shot of the Hotsauce web app as a crisp MP4 (2560x1440 by default; TOUR_HEIGHT=1080 for 1080p).
 // Headless Chromium + CDP screencast frames, a drawn cursor, eased mouse moves.
 // Usage (from the repo root): node scripts/tour-video/rec.mjs <shotName> <outDir> [--dark]
 import { execFileSync } from 'node:child_process'
@@ -8,6 +8,9 @@ import { chromium } from '@playwright/test'
 import { shots } from './shots.mjs'
 
 const BASE = process.env.TOUR_BASE ?? 'http://localhost:5191'
+// Output height; the page is always 1600x900 CSS pixels, drawn at H/900 device pixels each.
+const H = Number(process.env.TOUR_HEIGHT ?? 1440)
+const W = Math.round((H * 16) / 9)
 const [, , name, outDir, ...flags] = process.argv
 const shot = shots[name]
 if (!shot) throw new Error(`no shot ${name}; have ${Object.keys(shots).join(', ')}`)
@@ -32,30 +35,44 @@ const CURSOR = `
   if (document.readyState === 'loading') addEventListener('DOMContentLoaded', mk); else mk()
 })()`
 
-const browser = await chromium.launch({
-  args: [
-    '--use-fake-ui-for-media-stream',
-    '--use-fake-device-for-media-stream',
-    '--hide-scrollbars',
-  ],
-  // As in playwright.config.ts: a preinstalled Chromium when the matching build isn't installed.
-  ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}),
-})
-const ctx = await browser.newContext({
+const launchArgs = [
+  '--use-fake-ui-for-media-stream',
+  '--use-fake-device-for-media-stream',
+  '--hide-scrollbars',
+]
+const contextOptions = {
   viewport: { width: 1600, height: 900 },
-  deviceScaleFactor: 1.2,
+  deviceScaleFactor: H / 900,
   colorScheme: flags.includes('--dark') ? 'dark' : 'light',
   permissions: ['microphone', 'camera', 'clipboard-read', 'clipboard-write', 'geolocation'],
   // Today's "Show weather" asks for a position; the demo's weather is the same anywhere.
   geolocation: { latitude: 37.77, longitude: -122.42 },
   timezoneId: 'America/Los_Angeles',
-})
+}
+// As in playwright.config.ts: a preinstalled Chromium when the matching build isn't installed.
+const exe = process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}
+let browser, ctx
+if (shot.extension) {
+  // A shot of the Chrome extension: Chromium only loads extensions in a persistent profile.
+  const ext = path.resolve(shot.extension)
+  const profile = path.join(outDir, `${name}.profile`)
+  rmSync(profile, { recursive: true, force: true })
+  ctx = await chromium.launchPersistentContext(profile, {
+    ...exe,
+    ...contextOptions,
+    args: [...launchArgs, `--disable-extensions-except=${ext}`, `--load-extension=${ext}`],
+  })
+  browser = { close: () => ctx.close() }
+} else {
+  browser = await chromium.launch({ args: launchArgs, ...exe })
+  ctx = await browser.newContext(contextOptions)
+}
 await ctx.addInitScript(CURSOR)
 // Show Mac key hints (⌘K, not Ctrl K), as the site and help do.
 await ctx.addInitScript(() => {
   Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' })
 })
-const page = await ctx.newPage()
+const page = shot.extension ? (ctx.pages()[0] ?? (await ctx.newPage())) : await ctx.newPage()
 // TOUR_CLOCK (an ISO time) starts the page's clock there, so Today says "Good morning" whenever you film.
 if (process.env.TOUR_CLOCK) {
   await page.clock.install({ time: new Date(process.env.TOUR_CLOCK) })
@@ -130,8 +147,8 @@ async function startCapture() {
   await cdp.send('Page.startScreencast', {
     format: 'jpeg',
     quality: 93,
-    maxWidth: 1920,
-    maxHeight: 1080,
+    maxWidth: W,
+    maxHeight: H,
   })
   // Nudge a repaint so the first frame arrives now.
   await page.mouse.move(pos.x, pos.y)
@@ -170,7 +187,7 @@ execFileSync('ffmpeg', [
   '-i',
   list,
   '-vf',
-  'scale=1920:1080:flags=lanczos,fps=30,format=yuv420p',
+  `scale=${W}:${H}:flags=lanczos,fps=30,format=yuv420p`,
   '-c:v',
   'libx264',
   '-crf',
