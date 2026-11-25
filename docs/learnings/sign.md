@@ -92,3 +92,14 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
   PDFs with unpdf's `getResolvedPDFJS()`. Its document has no `destroy()`: destroy the loading task.
 - The server's `makeTestPdf` takes `{ rotate }`, so integration tests can make a turned page
   without adding pdf-lib to the server.
+
+## The right rail (slice 3d, Nov 25)
+
+- A sticky rail inside an `overflow-y-auto` page needs its own `max-h` and scroll
+  (`lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto`), or a tall rail scrolls away with the pages.
+  Put what's used most while scrolling (the field types) first: in the tour's 1000 px tall window,
+  People pushed them below the rail's fold.
+- Keep the controls first in the DOM and move the rail with `lg:order-2`, so Tab still reaches the
+  controls before the pages.
+- Copy that says "below" or "at the top" goes stale with a layout change: grep the screen and its
+  help page for where-words.
