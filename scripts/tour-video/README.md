@@ -30,6 +30,13 @@ The demo data (neutral names, a realistic agent brief and briefing) lives in `ap
    ```
    This writes `hotsauce-tour.mp4` and one short cut per app.
 
+## The long YouTube cut
+
+`script-long.json` is the longer walkthrough for YouTube (about 6 minutes, one chapter per app); each entry names its own shots. Record its extra shots too (`overview rail slides comments download pdfTools themes breaks extension`; `extension` loads `apps/extension/dist`, so build it first with `HOTSAUCE_URL=http://localhost:5191 pnpm --filter @hotsauce/extension build`; `pdfTools` uses `demo-files/Pilot report.pdf`), plus `dictateMac.mp4`, real footage of Dictate on a Mac. Then run the voice, caps, overlays and cut steps with `TOUR_SCRIPT=script-long.json`.
+
+- **Resolution.** Shots, overlays and cuts are 2560×1440 by default; `TOUR_HEIGHT=1080` makes 1080p. Record and cut at the same height.
+- **Voice.** `build.py voice <work> elevenlabs` uses ElevenLabs (`ELEVEN_VOICE` picks the voice); `openai` is the default. `TOUR_ONLY=id,id` re-voices only those chapters.
+
 ## Notes
 
 - **The Mac app shot (`macSetup`)** clicks through `mac-setup/index.html`, which shows the app's own drawings of its setup window. Redraw them when the setup window changes: on a Mac, build the app (`swift build -c release` in `apps/dictate-mac`) and run `.build/release/HotsauceDictate --render-previews <dir>`. It draws offscreen, with no windows, sound or permissions. Copy `workspace-empty`, `workspace-found`, `step-signin`, `step-dictate`, `step-permissions` and `step-done` into `mac-setup/`. The installed app only draws them if it is new enough (0.12.12 or later).

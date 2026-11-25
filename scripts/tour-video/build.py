@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """Cuts the Hotsauce tour from recorded shots, a voiceover and rendered overlays.
 
-  python3 scripts/tour-video/build.py voice  <work> [say]   # one audio file per segment (OpenAI TTS, or macOS say for a draft)
+  python3 scripts/tour-video/build.py voice  <work> [openai|elevenlabs|say]   # one audio file per segment (default openai; say for a draft)
   python3 scripts/tour-video/build.py caps   <work>                          # captions.json for overlays.mjs
   python3 scripts/tour-video/build.py cut    <work> <shotsDir>               # segments, tour.mp4, per-app cuts
+
+TOUR_SCRIPT picks the narration (default script.json, the 3-minute site cut; script-long.json is
+the YouTube walkthrough, whose entries name their own shots). TOUR_HEIGHT sets the output height
+(default 1440; the shots must be recorded at the same height).
 """
 import json, os, re, subprocess, sys, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).parent
-SCRIPT = json.loads((HERE / "script.json").read_text())
+SCRIPT = json.loads((HERE / os.environ.get("TOUR_SCRIPT", "script.json")).read_text())
+H = int(os.environ.get("TOUR_HEIGHT", "1440")); W = H * 16 // 9
+RES = f"{W}:{H}"
 FPS = 30
 LEAD, TAIL = 0.35, 0.7
 INTRO, OUTRO = 3.0, 5.0
@@ -33,6 +39,10 @@ SHOTS = {
              ("briefcast", "briefcast")],
     "close": [],  # the outro card
 }
+# A script entry can name its own shots (script-long.json does): [["docs", 1], ...] or cue words.
+for _s in SCRIPT:
+    if "shots" in _s:
+        SHOTS[_s["id"]] = [tuple(x) for x in _s["shots"]]
 # The short per-app cuts: segments each one strings together.
 CUTS = {
     "today": ["today"], "docs": ["docs"], "meetings": ["meetings", "ask"], "tasks": ["tasks"],
@@ -48,9 +58,23 @@ def dur(f):
 
 def voice(work, engine):
     vo = work / "vo"; vo.mkdir(parents=True, exist_ok=True)
+    only = set(filter(None, os.environ.get("TOUR_ONLY", "").split(",")))  # re-voice just these ids
     for s in SCRIPT:
+        if only and s["id"] not in only:
+            continue
         wav = vo / f"{s['id']}.wav"
-        if engine == "say":
+        if engine == "elevenlabs":
+            body = json.dumps({"text": s["vo"], "model_id": "eleven_multilingual_v2",
+                "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}}).encode()
+            vid = os.environ.get("ELEVEN_VOICE", "XrExE9yKIg1WjnnlVkGX")  # Matilda
+            req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_192",
+                data=body, headers={"xi-api-key": os.environ.get("ELEVENLABS_API_KEY", "x"), "Content-Type": "application/json"})
+            raw = vo / f"{s['id']}.raw.mp3"
+            raw.write_bytes(urllib.request.urlopen(req, timeout=180).read())
+            run("ffmpeg", "-loglevel", "error", "-y", "-i", raw, "-af",
+                "silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse,loudnorm=I=-16:TP=-1.5",
+                "-ar", "48000", "-ac", "1", wav)
+        elif engine == "say":
             aiff = vo / f"{s['id']}.aiff"
             run("say", "-r", "165", "-o", aiff, s["vo"])
             run("ffmpeg", "-loglevel", "error", "-y", "-i", aiff, "-ar", "48000", "-ac", "1", wav)
@@ -135,7 +159,7 @@ def segment(work, shots_dir, seg, idx, ov):
     inputs, filt = [], []
     if not parts:
         inputs += ["-loop", "1", "-t", f"{T:.3f}", "-i", ov / "outro.png"]
-        filt.append(f"[0:v]scale=1920:1080,fps={FPS},format=yuv420p,setsar=1[base]")
+        filt.append(f"[0:v]scale={RES},fps={FPS},format=yuv420p,setsar=1[base]")
     else:
         if cued:
             cuts = [0.0] + [start + cue_time(seg, c, work) - 0.15 for _, c in parts[1:]] + [T]
@@ -177,7 +201,7 @@ def card(work, ov, name, secs):
     out = work / "seg" / f"_{name}.mp4"
     run("ffmpeg", "-loglevel", "error", "-y", "-loop", "1", "-t", secs, "-i", ov / f"{name}.png",
         "-f", "lavfi", "-t", secs, "-i", "anullsrc=r=48000:cl=stereo",
-        "-vf", f"scale=1920:1080,fps={FPS},format=yuv420p,setsar=1,fade=t=in:st=0:d=0.4",
+        "-vf", f"scale={RES},fps={FPS},format=yuv420p,setsar=1,fade=t=in:st=0:d=0.4",
         "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", out)
     return out
 
@@ -205,6 +229,8 @@ def cut(work, shots_dir):
     (work / "hotsauce-tour.vtt").write_text("\n".join(cues))
     short_outro = card(work, ov, "outro", 3.5)
     for name, ids in CUTS.items():
+        if any(i not in segs for i in ids):
+            continue  # the per-app cuts belong to the site's script
         join([segs[i] for i in ids] + [short_outro], work / f"hotsauce-{name}.mp4")
 
 if __name__ == "__main__":

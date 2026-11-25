@@ -40,3 +40,12 @@ Notes from recording the hotsauce.work tour (scripts in `scripts/tour-video/`).
 - **Footage, not voice, set the length.** With the speed-up capped at 1.5×, long shots stretched short lines (Notes: 6.6 s of voice, 16.6 s of picture) and the cut ran 3:21. Allowing 1.75× and trimming footage that runs more than 3 s past the voice brought it to 3:01 with every action still visible.
 - **The feedback page keeps state on the dev server.** Exploring it first left a sent item in "Your feedback"; start the server on a fresh `DATA_DIR` right before recording.
 - **The cloud sandbox's Playwright doesn't match the repo's.** Point `PLAYWRIGHT_CHROMIUM` at `/opt/pw-browsers/chromium`; `overlays.mjs` now honors it too.
+
+## The long YouTube cut (Nov 25)
+
+- **The old site video looked blurry because of its bitrate, not its size.** It was 1080p at about 0.19 Mbps. Record at 1440p (`TOUR_HEIGHT=1440`) and keep at least 0.45 Mbps for the site copy. The 6-minute site copy at 450 kbps (two-pass x264) is 22.8 MB, under the 25 MiB per-file limit on Cloudflare Workers static assets. YouTube gets the uncut 0.8 Mbps file.
+- **ElevenLabs works through the proxy with a dummy `xi-api-key`.** A cloned voice is just another voice id (`ELEVEN_VOICE`). `TOUR_ONLY=id,id` re-voices only the chapters you changed.
+- **The Chrome extension can be filmed.** Build it with `HOTSAUCE_URL` pointing at the Vite port, then give the shot `extension: 'apps/extension/dist'`. `rec.mjs` then launches a persistent context with `--load-extension`. Swap any "localhost" text on screen with a MutationObserver.
+- **The mock's theme picker matches on words.** "a warm forest cabin" gives Forest Cabin; other prompts may land on a theme that doesn't match the voice-over.
+- **Filming native Dictate needs Accessibility and Screen Recording for the Remote Control session's `claude` binary on the Mac.** Screen Recording alone isn't enough to press the hotkey. Ask for both at once, before recording day.
+- **YouTube chapters need 10 seconds each.** Merge short chapters (Notes at 8 s) into their neighbour in the description.

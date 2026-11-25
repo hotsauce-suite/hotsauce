@@ -1,4 +1,5 @@
-// Renders the tour's title cards, chapter chips and captions as 1920x1080 PNGs
+// Renders the tour's title cards, chapter chips and captions as 16:9 PNGs (laid out at 1920x1080,
+// drawn at TOUR_HEIGHT, default 1440)
 // (transparent where they overlay the app), in the hotsauce.work site's type and colors.
 // Usage: node scripts/tour-video/overlays.mjs <outDir> <captions.json>
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -53,10 +54,18 @@ caps.lines.forEach((l, i) => {
   ])
 })
 
-const b = await chromium.launch(
-  process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {},
-)
-const p = await b.newPage({ viewport: { width: 1920, height: 1080 } })
+const b = await chromium.launch({
+  ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}),
+  // Behind a proxy (the cloud sandbox), fetch Google Fonts through it, or the type falls back.
+  ...(process.env.HTTPS_PROXY
+    ? { proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost' } }
+    : {}),
+})
+const p = await b.newPage({
+  ignoreHTTPSErrors: true,
+  viewport: { width: 1920, height: 1080 },
+  deviceScaleFactor: Number(process.env.TOUR_HEIGHT ?? 1440) / 1080,
+})
 for (const [name, body] of pages) {
   await p.setContent(`<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`, {
     waitUntil: 'networkidle',

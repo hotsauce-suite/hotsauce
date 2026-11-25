@@ -6,7 +6,8 @@ export const shots = {
   async today({ page, signIn, startCapture, wait, moveTo, point, click }) {
     await signIn()
     await page.goto(`${B}/today`)
-    await wait(1800)
+    await page.getByTestId('today-greeting').waitFor()
+    await wait(3500)
     await startCapture()
     await moveTo(700, 500, 10)
     await wait(600)
@@ -678,4 +679,236 @@ export const shots = {
     await point(page.getByTestId('link-abstract'), { ms: 700 })
     await wait(1800)
   },
+
+  // The rail: names on, pin an app from the grid, then ⌘K to jump to a doc.
+  async rail({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
+    await signIn()
+    await page.goto(`${B}/today`)
+    await wait(1800)
+    await startCapture()
+    await moveTo(700, 450, 10)
+    await wait(500)
+    await click(page.getByTestId('rail-toggle'), { after: 1200 })
+    await point(page.getByTestId('app-switch-docs'), { ms: 600 })
+    await wait(600)
+    await click(page.getByTestId('rail-toggle'), { after: 700 })
+    await click(page.getByTestId('launcher-button'), { after: 1100 })
+    await point(page.getByTestId('launcher'), { ms: 700, fx: 0.5, fy: 0.4 })
+    await wait(900)
+    await page.keyboard.press('Escape')
+    await wait(400)
+    await page.keyboard.press('Meta+k')
+    await wait(700)
+    await type('q4 plan', 90)
+    await wait(1100)
+    await page.keyboard.press('Enter')
+    await wait(2200)
+  },
+
+  // Slides: the kickoff deck, Present, step through, laser, then presenter view.
+  async slides({ page, signIn, startCapture, wait, moveTo, point, click }) {
+    await signIn()
+    await page.goto(`${B}/docs`)
+    await wait(1400)
+    await page.getByRole('treeitem', { name: /^plans/ }).click()
+    await page.getByRole('treeitem', { name: /^q4-kickoff-slides/ }).click()
+    await page.getByTestId('editor-content').waitFor()
+    await wait(1200)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(600)
+    await point(page.locator('.cm-line', { hasText: 'Notes: Thank' }), { ms: 700 })
+    await wait(1000)
+    await click(page.getByTestId('present'), { after: 1800 })
+    await page.keyboard.press('ArrowRight')
+    await wait(1600)
+    await page.keyboard.press('ArrowRight')
+    await wait(1200)
+    await page.keyboard.press('l')
+    await moveTo(700, 420, 500)
+    await moveTo(950, 520, 900)
+    await moveTo(780, 600, 700)
+    await wait(600)
+    await page.keyboard.press('Escape')
+    await wait(900)
+    await page.keyboard.press('Meta+k')
+    await wait(500)
+    await page.getByTestId('cmdk-input').fill('presenter view')
+    await wait(800)
+    await page.getByTestId('cmdk-command-doc-presenter-view').click()
+    await wait(2000)
+    await page.keyboard.press('ArrowRight')
+    await wait(2200)
+  },
+
+  // Comments: a comment with an @mention under a doc.
+  async comments({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
+    await signIn()
+    await page.goto(`${B}/docs`)
+    await wait(1400)
+    await page.getByRole('treeitem', { name: /^plans/ }).click()
+    await page.getByRole('treeitem', { name: /^q4-plan/ }).click()
+    await page.getByTestId('editor-content').waitFor()
+    await wait(1200)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(500)
+    await click(page.getByTestId('comments-toggle'), { after: 1200 })
+    await click(page.getByTestId('comment-input'), { after: 300 })
+    await type('Looks good. @Pri', 70)
+    await wait(900)
+    await page.keyboard.press('Enter')
+    await wait(300)
+    await type('can you check the hiring dates?', 45)
+    await wait(500)
+    await click(page.getByTestId('comment-send'), { after: 2200 })
+  },
+
+  // Word and PDF downloads from the Share menu.
+  async download({ page, signIn, startCapture, wait, moveTo, point, click }) {
+    await signIn()
+    await page.goto(`${B}/docs`)
+    await wait(1400)
+    await page.getByRole('treeitem', { name: /^plans/ }).click()
+    await page.getByRole('treeitem', { name: /^q4-plan/ }).click()
+    await page.getByTestId('editor-content').waitFor()
+    await wait(1000)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(500)
+    await click(page.getByTestId('share-menu'), { after: 1100 })
+    await point(page.getByTestId('download-docx'), { ms: 600 })
+    await wait(700)
+    await point(page.getByTestId('download-pdf'), { ms: 500 })
+    await wait(1300)
+  },
+
+  // PDF tools: open a 3-page report, move a page, then find and black out a name.
+  async pdfTools({ page, signIn, startCapture, wait, moveTo, point, click, type }) {
+    const DIR = process.env.DEMO_FILES
+    await signIn()
+    await page.goto(`${B}/files`)
+    await wait(1500)
+    await page
+      .getByTestId('files-input')
+      .first()
+      .setInputFiles([`${DIR}/Pilot report.pdf`])
+    const row = page.getByTestId('files-row').filter({ hasText: 'Pilot report.pdf' }).first()
+    await row.waitFor({ timeout: 15000 })
+    await wait(1200)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(500)
+    await click(row.getByTestId('files-row-menu'), { after: 800 })
+    await click(page.getByTestId('files-pdf-tools'), { after: 1500 })
+    await click(page.getByTestId('pdf-page').nth(0).getByTestId('pdf-page-later'), { after: 900 })
+    await click(page.getByTestId('pdf-page').nth(2).getByTestId('pdf-page-rotate'), { after: 900 })
+    await click(page.getByTestId('pdf-tab-redact'), { after: 1100 })
+    await click(page.getByTestId('pdf-redact-find'), { after: 300 })
+    await type('Sam Okafor', 80)
+    await click(page.getByTestId('pdf-redact-find-go'), { after: 1500 })
+    await point(page.getByTestId('pdf-redact-box').first(), { ms: 700 })
+    await wait(900)
+    await click(page.getByTestId('pdf-redact-save'), { after: 2600 })
+    await point(page.getByTestId('pdf-tools-saved'), { ms: 600 })
+    await wait(1500)
+  },
+
+  // Themes: describe a look, the app previews it, Keep.
+  async themes({ page, signIn, startCapture, wait, moveTo, click, type }) {
+    await signIn()
+    await page.goto(`${B}/settings/appearance`)
+    await wait(1600)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(500)
+    await click(page.getByTestId('theme-prompt'), { after: 300 })
+    await type('a warm forest cabin', 75)
+    await click(page.getByTestId('theme-make'), { after: 3200 })
+    await click(page.getByTestId('theme-keep'), { after: 1500 })
+    await click(page.getByTestId('app-switch-docs'), { after: 2200 })
+  },
+
+  // Music and screen breaks, from the account menu.
+  async breaks({ page, signIn, startCapture, wait, moveTo, point, click }) {
+    await signIn()
+    await page.goto(`${B}/today`)
+    await wait(1600)
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(500)
+    await click(page.getByTestId('account-menu'), { after: 900 })
+    await click(page.getByTestId('menu-music'), { after: 1200 })
+    await point(page.getByTestId('music-toggle'), { ms: 600 })
+    await wait(1000)
+    await page.keyboard.press('Escape')
+    await wait(500)
+    await page.goto(`${B}/settings`)
+    await wait(1200)
+    const on = page.getByTestId('breaks-on')
+    await on.scrollIntoViewIfNeeded()
+    await click(on, { after: 900 })
+    await click(page.getByTestId('breaks-now'), { after: 6500 })
+  },
+
+  // The opening: a quick look across a few apps from the rail.
+  async overview({ page, signIn, startCapture, wait, moveTo, click }) {
+    await signIn()
+    await page.goto(`${B}/today`)
+    await wait(1800)
+    await startCapture()
+    await moveTo(900, 450, 10)
+    await wait(1500)
+    for (const app of ['docs', 'meetings', 'tasks']) {
+      await click(page.getByTestId(`app-switch-${app}`), { after: 1900 })
+    }
+    await click(page.getByTestId('app-switch-today'), { after: 1500 })
+  },
+
+  // The Chrome extension's setup page, then its popup.
+  async extension({ page, startCapture, wait, moveTo, point, click }) {
+    const ctx = page.context()
+    let [sw] = ctx.serviceWorkers()
+    if (!sw) sw = await ctx.waitForEvent('serviceworker')
+    const id = new URL(sw.url()).host
+    await wait(1500)
+    const setup = ctx.pages().find((p) => p.url().includes('/setup.html'))
+    if (setup && setup !== page) await setup.close()
+    await page.goto(`chrome-extension://${id}/setup.html`)
+    await wait(1500)
+    // The demo server runs on localhost; show the address a team would have, on every render.
+    await page.evaluate(() => {
+      const fix = () => {
+        const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+        while (w.nextNode()) {
+          const t = w.currentNode.textContent
+          const u = t
+            .replace(/localhost:5191/g, 'hotsauce.fieldwork.example')
+            .replace('Alt+Shift+H', '⌥⇧H')
+          if (u !== t) w.currentNode.textContent = u
+        }
+      }
+      fix()
+      new MutationObserver(fix).observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      })
+    })
+    await startCapture()
+    await moveTo(800, 450, 10)
+    await wait(800)
+    await point(page.locator('#step-connect'), { ms: 700 })
+    await wait(1200)
+    await point(page.locator('#step-pin'), { ms: 700 })
+    await wait(1200)
+    await point(page.locator('#step-try'), { ms: 700 })
+    await wait(1000)
+    await point(page.locator('#how'), { ms: 800 })
+    await wait(1600)
+    await point(page.locator('#settings'), { ms: 800 })
+    await wait(1600)
+  },
 }
+
+shots.extension.extension = 'apps/extension/dist'

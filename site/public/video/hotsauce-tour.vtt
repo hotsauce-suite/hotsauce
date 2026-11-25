@@ -1,133 +1,334 @@
 WEBVTT
 
-00:00:03.677 --> 00:00:09.257
-This is Hotsauce, a free, open source office suite for small teams,
+00:00:03.350 --> 00:00:06.650
+This is Hotsauce: a free, open source office suite for small teams,
 
-00:00:09.257 --> 00:00:11.817
-running on your own server.
+00:00:06.650 --> 00:00:08.430
+running on a server you own.
 
-00:00:11.817 --> 00:00:13.937
-Here's a quick look at each app.
+00:00:08.430 --> 00:00:11.510
+Docs, meetings, tasks, recordings, files and a dozen more apps,
 
-00:00:13.937 --> 00:00:18.497
-The day starts on Today: your meetings, your tasks,
+00:00:11.510 --> 00:00:13.810
+all in one place, all saved as plain files in Git.
 
-00:00:18.497 --> 00:00:22.557
-and what changed since yesterday, on one page.
+00:00:13.810 --> 00:00:15.770
+Let's walk through what's in it today.
 
-00:00:25.061 --> 00:00:29.481
-Docs are plain Markdown files, kept in Git.
+00:00:18.058 --> 00:00:19.638
+Every day starts on Today.
 
-00:00:29.481 --> 00:00:31.281
-Link docs with two square brackets,
+00:00:19.638 --> 00:00:22.898
+Your next meeting, your tasks, and to-dos pulled from your notes, on one page.
 
-00:00:31.281 --> 00:00:35.861
-and step back through every version to see who changed what.
+00:00:22.898 --> 00:00:25.758
+The sky behind the greeting follows the real time of day,
 
-00:00:38.312 --> 00:00:43.372
-Meetings takes the notes for you, and no bot joins your call.
+00:00:25.758 --> 00:00:28.518
+with the sun or moon in place.
 
-00:00:43.372 --> 00:00:46.932
-Your rough notes and the transcript become clean notes,
+00:00:28.518 --> 00:00:30.458
+Click the weather for the next twelve hours.
 
-00:00:46.932 --> 00:00:49.912
+00:00:30.458 --> 00:00:34.258
+Every tile can be moved, added or hidden, so the page fits how you work.
+
+00:00:37.758 --> 00:00:39.518
+The rail on the left holds your apps.
+
+00:00:39.518 --> 00:00:41.678
+Pin the ones you use, click the logo to see their names,
+
+00:00:41.678 --> 00:00:45.258
+and press Command K to jump anywhere or search everything at once.
+
+00:00:48.793 --> 00:00:50.613
+Docs are Markdown files, kept in Git.
+
+00:00:50.613 --> 00:00:53.273
+Type, and teammates editing beside you show up live.
+
+00:00:53.273 --> 00:00:54.853
+Link another doc with two square brackets,
+
+00:00:54.853 --> 00:00:57.653
+and the link keeps working even after a rename.
+
+00:00:57.653 --> 00:00:59.693
+History shows every version, who changed what,
+
+00:00:59.693 --> 00:01:01.353
+and lets you bring any of it back.
+
+00:01:01.353 --> 00:01:05.893
+Bring in Word, HTML or Markdown files, and download any doc as Word or PDF,
+
+00:01:05.893 --> 00:01:09.033
+in your team's own fonts, colours and logo.
+
+00:01:11.865 --> 00:01:13.785
+Any doc can become a slide deck.
+
+00:01:13.785 --> 00:01:15.305
+Three dashes start a new slide,
+
+00:01:15.305 --> 00:01:18.365
+and a line that starts with Notes becomes your speaker notes.
+
+00:01:18.365 --> 00:01:20.985
+Present opens the slides full screen, with a laser pointer,
+
+00:01:20.985 --> 00:01:24.165
+and presenter view shows your notes, the next slide and a timer.
+
+00:01:27.293 --> 00:01:30.233
+Every doc, meeting note and task has a conversation under it.
+
+00:01:30.233 --> 00:01:33.293
+Type at and a name, and that teammate gets one notification.
+
+00:01:33.293 --> 00:01:36.213
+Everything you're mentioned in waits in For you, newest first.
+
+00:01:36.213 --> 00:01:38.693
+Mark it done, or put it off until tomorrow morning.
+
+00:01:41.756 --> 00:01:44.676
+Meetings takes the notes, and no bot joins your call.
+
+00:01:44.676 --> 00:01:47.296
+Hotsauce keeps a transcript of who said what, next to your own rough notes.
+
+00:01:47.296 --> 00:01:51.176
+When the call ends, it turns both into clean notes from a template you pick,
+
+00:01:51.176 --> 00:01:53.616
 with decisions and action items.
 
-00:00:51.048 --> 00:00:54.588
+00:01:53.616 --> 00:01:54.636
+Meetings come from your calendar,
+
+00:01:54.636 --> 00:01:58.156
+and booking links let people outside the team pick a time.
+
+00:01:59.540 --> 00:02:01.940
 Ask a question across every meeting and doc,
 
-00:00:54.588 --> 00:00:57.908
-and the answer points back to its sources.
+00:02:01.940 --> 00:02:05.460
+and the answer points back to its sources, so you can check it.
 
-00:00:57.908 --> 00:01:00.268
-Hotsauce also writes a brief,
+00:02:05.460 --> 00:02:08.800
+Hotsauce also keeps a short brief for each person, of what they're working on,
 
-00:01:00.268 --> 00:01:04.208
-so your AI agents already know what you're working on.
+00:02:08.800 --> 00:02:12.320
+so your AI tools start already knowing the context.
 
-00:01:06.484 --> 00:01:09.724
+00:02:12.320 --> 00:02:15.320
+Claude, ChatGPT and others can connect to Hotsauce and work as you.
+
+00:02:17.607 --> 00:02:19.707
 Action items land in Tasks.
 
-00:01:09.724 --> 00:01:14.024
-Type one in plain words, or just ramble for a few seconds,
+00:02:19.707 --> 00:02:23.127
+Type a task in plain words, and the date fills itself in.
 
-00:01:14.024 --> 00:01:16.984
-and Hotsauce sorts it into a clean list.
+00:02:23.127 --> 00:02:24.947
+Tasks can repeat and remind you.
 
-00:01:20.484 --> 00:01:23.464
+00:02:24.947 --> 00:02:27.507
+Or press Ramble and just talk for a few seconds,
+
+00:02:27.507 --> 00:02:30.067
+and Hotsauce sorts what you said into a clean list.
+
+00:02:33.542 --> 00:02:35.082
 Notes hold the small stuff.
 
-00:01:23.464 --> 00:01:27.524
-Color them, pin them, or turn them into checklists.
+00:02:35.082 --> 00:02:38.442
+Colour them, pin them, label them, or turn one into a checklist.
 
-00:01:31.097 --> 00:01:34.317
+00:02:42.021 --> 00:02:43.581
 Check-ins ask the team a question on a schedule,
 
-00:01:34.317 --> 00:01:38.117
-like what will you get done this week,
+00:02:43.581 --> 00:02:45.681
+like what will you get done this week?
 
-00:01:38.117 --> 00:01:42.277
-and gather everyone's answers in one place.
+00:02:45.681 --> 00:02:47.101
+Everyone's answers gather in one place,
 
-00:01:45.838 --> 00:01:49.498
+00:02:47.101 --> 00:02:49.501
+and a short summary posts to your team chat.
+
+00:02:52.987 --> 00:02:55.387
 Clips replaces the meeting you didn't need.
 
-00:01:49.498 --> 00:01:51.958
-Record your screen and talk it through.
+00:02:55.387 --> 00:02:58.127
+Record your screen with your camera in the corner and talk it through.
 
-00:01:51.958 --> 00:01:55.338
-Whoever watches gets a transcript and a summary.
+00:02:58.127 --> 00:03:00.607
+Trim the ends, and whoever watches gets a transcript,
 
-00:01:57.138 --> 00:02:00.758
+00:03:00.607 --> 00:03:04.247
+a summary and the action items, at whatever speed they like.
+
+00:03:04.247 --> 00:03:06.367
+Share a link with people outside the team.
+
+00:03:09.569 --> 00:03:11.709
 Dictate turns talking into clean text.
 
-00:02:00.758 --> 00:02:03.818
-Hold a key on your Mac and speak into any app,
+00:03:11.709 --> 00:03:14.409
+On the Mac, hold a key, talk, and let go.
 
-00:02:03.818 --> 00:02:07.178
-or leave a voice note from your phone.
+00:03:14.409 --> 00:03:18.129
+The words land wherever your cursor is, in any app, with the ums taken out.
 
-00:02:07.671 --> 00:02:12.611
-The Mac app sets itself up one step at a time.
+00:03:18.129 --> 00:03:21.009
+Pick how much clean-up you want, and keep it all on your Mac if you'd rather.
 
-00:02:12.611 --> 00:02:15.611
-Enter your team's workspace, and sign in with Google,
+00:03:21.009 --> 00:03:23.109
+It even works with no internet connection.
 
-00:02:15.611 --> 00:02:18.071
-which connects Dictate too.
+00:03:24.676 --> 00:03:28.636
+The Mac app sets itself up in four steps: your workspace, signing in,
 
-00:02:18.071 --> 00:02:21.731
-Try it in the practice box, then see each permission it needs,
+00:03:28.636 --> 00:03:31.236
+a quick try of Dictate, and the permissions it needs,
 
-00:02:21.731 --> 00:02:25.151
-with a plain reason for every one.
+00:03:31.236 --> 00:03:32.436
+each with a plain reason.
 
-00:02:25.151 --> 00:02:28.091
-Skip one, and it asks again later.
+00:03:32.436 --> 00:03:35.936
+Once it's running, it notices when a call starts and offers to take notes,
 
-00:02:30.380 --> 00:02:33.380
-Found a bug, or have an idea?
+00:03:35.936 --> 00:03:37.816
+takes screenshots you can mark up and share,
 
-00:02:33.380 --> 00:02:35.900
-Send feedback from any page.
+00:03:37.816 --> 00:03:39.756
+and updates itself with one click.
 
-00:02:35.900 --> 00:02:38.660
-Attach a picture of the page you were on with one click,
+00:03:40.243 --> 00:03:41.303
+Not on a Mac?
 
-00:02:38.660 --> 00:02:40.820
-then follow what happens to it.
+00:03:41.303 --> 00:03:44.603
+The Chrome extension takes notes on Google Meet calls right in the browser,
 
-00:02:45.907 --> 00:02:49.987
-And there's more: whiteboards for sketching ideas together,
+00:03:44.603 --> 00:03:45.603
+without Chrome's share-your-tab dialog.
 
-00:02:49.987 --> 00:02:54.547
-a people directory, shared files, forms, and Briefcast,
+00:03:45.603 --> 00:03:48.063
+It connects to your Hotsauce in one click,
 
-00:02:54.547 --> 00:02:57.587
-a morning briefing you can play like a podcast.
+00:03:48.063 --> 00:03:51.163
+and its setup page walks you through pinning it and trying a test call.
 
-00:02:58.400 --> 00:03:05.180
-Hotsauce is free and open source, and it deploys to Cloudflare in minutes.
+00:03:51.163 --> 00:03:54.463
+It also saves any page to Links in one click.
 
-00:03:05.180 --> 00:03:07.360
-Get it at hotsauce.work.
+00:03:56.743 --> 00:03:57.743
+Links is your read-later list.
+
+00:03:57.743 --> 00:04:00.603
+Save from the extension, your phone or the app,
+
+00:04:00.603 --> 00:04:02.643
+and read a clean copy without the clutter.
+
+00:04:02.643 --> 00:04:06.323
+Highlight passages and add notes, and Hotsauce remembers where you stopped.
+
+00:04:06.323 --> 00:04:08.563
+Research papers come with their authors and abstract.
+
+00:04:12.252 --> 00:04:15.612
+Files holds the team's uploads, with previews and search.
+
+00:04:15.612 --> 00:04:19.752
+PDFs come with tools: combine and reorder pages, split, shrink for email,
+
+00:04:19.752 --> 00:04:22.572
+make a scanned page searchable, or black out a name for good.
+
+00:04:22.572 --> 00:04:24.052
+The original never changes.
+
+00:04:24.052 --> 00:04:25.832
+You get a new PDF beside it.
+
+00:04:29.319 --> 00:04:30.339
+Need a signature?
+
+00:04:30.339 --> 00:04:33.419
+Pick a PDF, list who signs, and place their fields.
+
+00:04:33.419 --> 00:04:35.799
+Each person gets their own link, no account needed.
+
+00:04:35.799 --> 00:04:38.479
+You can follow who has signed, and when the last one does,
+
+00:04:38.479 --> 00:04:42.599
+a sealed copy with its audit certificate lands in Files and goes to everyone.
+
+00:04:46.376 --> 00:04:48.796
+Forms collect surveys, sign-ups and requests,
+
+00:04:48.796 --> 00:04:51.696
+from the team or anyone with the link.
+
+00:04:51.696 --> 00:04:54.156
+Tables are trackers with real spreadsheet formulas,
+
+00:04:54.156 --> 00:04:56.376
+kept as simple files you can open anywhere.
+
+00:05:02.898 --> 00:05:05.618
+Boards are hand-drawn whiteboards the whole team can sketch on at once.
+
+00:05:05.618 --> 00:05:09.078
+People is everyone you meet with, filled in from your calendar,
+
+00:05:09.078 --> 00:05:11.038
+with a short note about each.
+
+00:05:12.731 --> 00:05:16.111
+And Briefcast is a five-minute spoken briefing every weekday morning,
+
+00:05:16.111 --> 00:05:20.631
+from your meetings, tasks and reading, ready to play in any podcast app.
+
+00:05:23.745 --> 00:05:24.785
+Hotsauce bends to fit you.
+
+00:05:24.785 --> 00:05:28.925
+Describe a look, like a warm forest cabin, and the whole app previews it.
+
+00:05:28.925 --> 00:05:31.185
+Turn on soft background music while you work,
+
+00:05:31.185 --> 00:05:34.485
+or screen breaks that remind you to look away every twenty minutes.
+
+00:05:34.485 --> 00:05:38.205
+And if something's wrong or you have an idea, send feedback from any page,
+
+00:05:38.205 --> 00:05:40.565
+with a picture of what you were looking at.
+
+00:05:42.245 --> 00:05:44.285
+Hotsauce is free and open source.
+
+00:05:44.285 --> 00:05:46.905
+It deploys to Cloudflare or your own server in minutes,
+
+00:05:46.905 --> 00:05:50.085
+backs itself up every night, keeps working when the connection drops,
+
+00:05:50.085 --> 00:05:51.205
+and updates itself.
+
+00:05:51.205 --> 00:05:53.425
+Your work stays in plain files you own.
+
+00:05:53.425 --> 00:05:56.245
+Try the live demo, or get it at hotsauce.work.
