@@ -20,6 +20,8 @@ type Phase = 'idle' | 'recording' | 'thinking'
 export const SILENT_MIC_MS = 2500
 /** How long the words may take before the page says the connection is slow (R7). */
 export const SLOW_ANSWER_MS = 4000
+/** How long the mic keeps listening after the send key, matching the Mac app's SendKey.tailSeconds. */
+export const SEND_TAIL_MS = 500
 /** A level below this, all the way through, is a mic that hears nothing. */
 const SILENT_LEVEL = 0.01
 
@@ -95,6 +97,7 @@ export function DictateButton({
   const recorder = useRef<MediaRecorder | null>(null)
   const stream = useRef<MediaStream | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sendTail = useRef<ReturnType<typeof setTimeout> | null>(null)
   const gone = useRef(false)
   // A reload or closing the tab would cut the recording, or the upload of it.
   useLeaveGuard(phase !== 'idle')
@@ -107,6 +110,7 @@ export function DictateButton({
     () => () => {
       gone.current = true
       if (timer.current) clearTimeout(timer.current)
+      if (sendTail.current) clearTimeout(sendTail.current)
       meter.current?.close()
       recorder.current?.state === 'recording' && recorder.current.stop()
       for (const t of stream.current?.getTracks() ?? []) t.stop()
@@ -190,8 +194,12 @@ export function DictateButton({
       if (!isSendKey(prefs.current.sendKey, e)) return
       e.preventDefault()
       e.stopPropagation()
+      if (sent.current) return
       sent.current = true
-      if (recorder.current?.state === 'recording') recorder.current.stop()
+      // Keep listening a moment: the key is usually pressed on the last word.
+      sendTail.current = setTimeout(() => {
+        if (recorder.current?.state === 'recording') recorder.current.stop()
+      }, SEND_TAIL_MS)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)

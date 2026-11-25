@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { isSendKey } from './DictateButton'
+import { isSendKey, SEND_TAIL_MS } from './DictateButton'
 
 const press = (key: string, extra: Partial<KeyboardEvent> = {}, target: Element | null = null) =>
   ({
@@ -31,5 +33,18 @@ describe('the web send key (docs/PLAN-dictate-send-and-sounds.md, R5)', () => {
     const button = document.createElement('button')
     document.body.append(button)
     expect(isSendKey('space', press(' ', {}, button))).toBe(true)
+  })
+})
+
+describe('the send key keeps listening a moment', () => {
+  it('long enough to catch the word it was pressed on, the same as the Mac app', () => {
+    expect(SEND_TAIL_MS).toBeGreaterThanOrEqual(300)
+    expect(SEND_TAIL_MS).toBeLessThanOrEqual(1000)
+    const swift = readFileSync(
+      path.resolve(__dirname, '../../../dictate-mac/Sources/DictateCore/SendKey.swift'),
+      'utf8',
+    )
+    const mac = Number(/static let tailSeconds = ([\d.]+)/.exec(swift)?.[1])
+    expect(mac * 1000).toBe(SEND_TAIL_MS)
   })
 })
