@@ -147,6 +147,7 @@ describe('Settings: the organization’s pages', () => {
         'org-start-here',
         'org-chat-section',
         'org-chat-rooms',
+        'org-claude-in-chat',
       ],
       ['brand-section', 'org-people-section', 'signin-section', 'ai-section', 'storage-section'],
     ],

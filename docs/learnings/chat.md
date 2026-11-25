@@ -19,3 +19,25 @@
   name alone only when it's capitalized or an @mention.
 - The reviewer subagent found eight real bugs in a feature whose tests were all green. Write the
   failure paths (deleted message, refused bot, long history, private address) as tests up front.
+
+## Claude in chat (2026-11-25)
+
+- A Campfire-style bot delivery already carries where to answer: `room.path` is the bot's room
+  address with its key, and with `?thread=<id>` when the mention was in a thread. Ember's webhook
+  timeout is 30 seconds (not Campfire's 7), so the relay can read the thread and start the routine
+  before answering. Read the room address only against the chat origin in settings, and check the
+  resolved pathname: `new URL()` happily resolves `..` and `%2e%2e` segments.
+- Claude Code routines fire over HTTP with a per-routine token and `{ text }` (max 65,536 chars);
+  the text arrives wrapped as untrusted data, and there's no idempotency key, so never retry a fire.
+  A fake token returns 401 from the real endpoint, which is a cheap live check that the call shape
+  is right.
+- Keep the bot's key out of the routine entirely: hand it an unguessable wake id that only a
+  Hotsauce MCP tool can turn into a post. That also means the routine needs no network allowlist,
+  since connector traffic goes through Anthropic.
+- Team-only MCP connections drop every tool not marked read-only, so a "safe" write like
+  `reply_in_chat` needs its own allow-list (`TEAM_SAFE_WRITES`) or the recommended locked-down
+  setup silently can't answer.
+- Limits checked before an `await` and recorded after it don't hold under concurrent requests:
+  record the wake (or reserve the reply slot) in the same synchronous step as the check.
+- A full `pnpm test` started before an edit can report failures for tests that pass afterwards;
+  re-run just the failing files before believing it.

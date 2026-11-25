@@ -40,6 +40,13 @@ Before helping with anything about the member's work, call get_agent_brief: it s
  * every member can see. Calendar, agent brief, saved links, notes and every write are left out.
  * Each must also be marked read-only, or it is left out too.
  */
+/**
+ * Writes a team-only connection may still make: `reply_in_chat` only posts to the one chat thread
+ * an unguessable wake id names (docs/PLAN-chat-claude.md), so a shared chat routine can run on a
+ * team-only connection.
+ */
+export const TEAM_SAFE_WRITES: ReadonlySet<string> = new Set(['reply_in_chat'])
+
 export const TEAM_ONLY_TOOLS: ReadonlySet<string> = new Set([
   'list_spaces',
   'get_brand',
@@ -167,6 +174,7 @@ function keepOnlyTeamTools(server: McpServer): void {
   ) => RegisteredTool
   const filtered = (name: string, config: Config, callback: unknown) => {
     const tool = register(name, config, callback)
+    if (TEAM_SAFE_WRITES.has(name)) return tool
     if (!TEAM_ONLY_TOOLS.has(name) || config.annotations?.readOnlyHint !== true) tool.remove()
     return tool
   }

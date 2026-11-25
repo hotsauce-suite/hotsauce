@@ -34,7 +34,7 @@ import {
   type Speaker,
   UnconfiguredSpeaker,
 } from './briefcast/index.js'
-import { ChatReader, ChatStore, chatInvolving } from './chat/index.js'
+import { ChatClaude, ChatReader, ChatStore, chatInvolving } from './chat/index.js'
 import { CheckinMembers, CheckinScheduler, Checkins } from './checkins/index.js'
 import {
   ClipStore,
@@ -202,6 +202,8 @@ export interface ServiceOverrides {
   linkFetch?: PageFetcher
   /** Hotsauce Forms' chat posts (§21.5); tests pass a fake. */
   chatFetch?: typeof fetch
+  /** Where Claude in chat starts routines; tests point it at the fake chat. */
+  chatClaudeFireBase?: string
   /** Free bytes on the data volume, for Clips' disk check. */
   diskFreeBytes?: () => Promise<number>
   /** The clock Files reads for files that delete themselves; tests pin it. */
@@ -380,6 +382,14 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
       : {}),
     intervalMs: config.CHAT_READ_INTERVAL_MS,
     threadDays: config.CHAT_THREAD_DAYS,
+  })
+  // Claude in chat (docs/PLAN-chat-claude.md): a chat @mention wakes a Claude Code routine.
+  const chatClaude = new ChatClaude({
+    org,
+    chatUrl: () => config.CHAT_URL || org.settings().chatUrl,
+    dataDir: config.DATA_DIR,
+    ...(overrides.chatFetch ? { fetch: overrides.chatFetch } : {}),
+    ...(overrides.chatClaudeFireBase ? { fireBase: overrides.chatClaudeFireBase } : {}),
   })
   // Members' names and zones as their browsers last said them.
   const checkinMembers = new CheckinMembers(config.DATA_DIR)
@@ -609,6 +619,7 @@ export function createServices(config: Config, overrides: ServiceOverrides = {})
     // Forms and their answers in Git; answers' files in Hotsauce Files (§21).
     chatRooms,
     chatReader,
+    chatClaude,
     forms,
     // Sign: envelopes in Git, the PDFs in Files, sealed with the install's own key (docs/PLAN-sign.md).
     sign: new Sign({
