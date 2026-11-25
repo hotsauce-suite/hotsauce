@@ -21,6 +21,32 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PNG_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/
 
 export const envelopePath = (id: string) => `${SIGN_FOLDER}/${id}.md`
+
+/**
+ * A member's saved signature and initials (docs/PLAN-sign-saved-signature.md), kept in their
+ * personal space so they can reuse them: one JSON file, out of sight of Docs and Files.
+ */
+export const SAVED_SIGNATURE_PATH = '.hearth/sign/saved.json'
+
+const SavedMark = z.union([
+  z.object({
+    input: z.literal('typed'),
+    value: z.string().min(1).max(200),
+    saved_at: z.string(),
+  }),
+  z.object({
+    input: z.enum(['drawn', 'uploaded']),
+    image: z.string().max(MAX_DRAWN_SIGNATURE_CHARS).regex(PNG_DATA_URL),
+    saved_at: z.string(),
+  }),
+])
+export type SavedMark = z.infer<typeof SavedMark>
+
+export const SavedSignatures = z.object({
+  signature: SavedMark.nullable().default(null),
+  initials: SavedMark.nullable().default(null),
+})
+export type SavedSignatures = z.infer<typeof SavedSignatures>
 export const isEnvelopeId = (id: string) => ULID.test(id)
 
 /** `sign/<id>.md` → the id; anything else null. */
@@ -98,8 +124,9 @@ export const SignField = z
     /** Filled in when signed. */
     value: z.string().max(5000).optional(),
     checked: z.boolean().optional(),
-    input: z.enum(['typed', 'drawn']).optional(),
-    /** A drawn signature or initials. */
+    /** How a signature or initials was made: typed, drawn on the pad, or an uploaded picture. */
+    input: z.enum(['typed', 'drawn', 'uploaded']).optional(),
+    /** A drawn or uploaded signature or initials. */
     image: z.string().max(MAX_DRAWN_SIGNATURE_CHARS).regex(PNG_DATA_URL).optional(),
     filled_at: z.string().optional(),
   })

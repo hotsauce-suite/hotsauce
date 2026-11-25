@@ -1,9 +1,25 @@
 // Client for Sign (docs/PLAN-sign.md): envelopes at `/api/sign`, made from a PDF in Files.
 
-import type { AuditEntry, EnvelopeStatus, Signer, SignField, SignSource } from '@hotsauce/format'
+import type {
+  AuditEntry,
+  EnvelopeStatus,
+  SavedMark,
+  SavedSignatures,
+  Signer,
+  SignField,
+  SignSource,
+} from '@hotsauce/format'
 import { request, requestBlob } from './client'
 
-export type { AuditEntry, EnvelopeStatus, Signer, SignField, SignFieldType } from '@hotsauce/format'
+export type {
+  AuditEntry,
+  EnvelopeStatus,
+  SavedMark,
+  SavedSignatures,
+  Signer,
+  SignField,
+  SignFieldType,
+} from '@hotsauce/format'
 
 export interface EnvelopeSummary {
   space: string
@@ -68,6 +84,31 @@ export interface FilledValue {
   value?: string
   checked?: boolean
   image?: string
+  /** How a signature was made; an image without it counts as drawn. */
+  input?: 'typed' | 'drawn' | 'uploaded'
+}
+
+export type MarkKind = 'signature' | 'initials'
+
+/** A signature or initials to save for next time. */
+export type MarkInput =
+  | { input: 'typed'; value: string }
+  | { input: 'drawn' | 'uploaded'; image: string }
+
+/** The member's saved signature and initials (docs/PLAN-sign-saved-signature.md R5). */
+export const savedSignatureApi = {
+  get: () => request<SavedSignatures>('/api/sign-saved'),
+  save: (kind: MarkKind, mark: MarkInput) =>
+    request<SavedSignatures>(`/api/sign-saved/${kind}`, { method: 'PUT', json: mark }),
+  remove: (kind: MarkKind) =>
+    request<SavedSignatures>(`/api/sign-saved/${kind}`, { method: 'DELETE' }),
+}
+
+/** A saved mark as what goes on a field. */
+export function markValue(m: SavedMark): Omit<FilledValue, 'field'> {
+  return m.input === 'typed'
+    ? { value: m.value, input: 'typed' }
+    : { image: m.image, input: m.input }
 }
 
 const enc = encodeURIComponent

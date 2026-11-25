@@ -1306,6 +1306,22 @@ function describeSignerEvidence(
   return details;
 }
 
+// Hotsauce: one row of a signed event's `adoption` list, in words.
+const ADOPTION_LABELS: Record<string, string> = {
+  typed: "typed",
+  drawn: "drawn",
+  uploaded: "uploaded image",
+};
+
+function describeAdoption(row: unknown): string | null {
+  if (!row || typeof row !== "object") return null;
+  const { type, input, saved } = row as Record<string, unknown>;
+  if (type !== "signature" && type !== "initials") return null;
+  const how = typeof input === "string" ? ADOPTION_LABELS[input] : undefined;
+  if (!how) return null;
+  return `${type}: ${how}${saved === true ? `, their saved ${type}` : ""}`;
+}
+
 function describeEventEvidence(event: AuditEventRecord): string[] {
   const details: string[] = [];
   const metadata = event.metadata ?? {};
@@ -1358,6 +1374,15 @@ function describeEventEvidence(event: AuditEventRecord): string[] {
 
   if (event.event === "signer_corrected") {
     details.push(describeSignerCorrectedEvent(metadata));
+  }
+
+  // Hotsauce: how each signature and initials was made (typed, drawn, uploaded), and whether
+  // it was the member's saved one (docs/PLAN-sign-saved-signature.md).
+  if (event.event === "signed" && Array.isArray(metadata.adoption)) {
+    for (const row of metadata.adoption as unknown[]) {
+      const detail = describeAdoption(row);
+      if (detail) details.push(detail);
+    }
   }
 
   if (event.event === "verified" && typeof metadata.method === "string") {

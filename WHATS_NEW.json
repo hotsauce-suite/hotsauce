@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "version": "0.71.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Sign: upload a photo or scan of your signature. Sign cleans it up and shows a preview, and an Ink slider handles faint pens."
+        },
+        {
+          "text": "Sign: save your signature and initials for next time. \"Your signature\" on the Sign home page lets you replace or delete them."
+        },
+        {
+          "text": "Sign: the audit certificate says whether a signature was typed, drawn or uploaded, and whether it was your saved one."
+        },
+        {
+          "text": "All of the above works in the app window, including HEIC photos.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.70.2",
       "date": "2026-11-25",
       "notes": [

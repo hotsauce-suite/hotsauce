@@ -9,6 +9,7 @@ import { LoadError } from '../../components/LoadError'
 import { PageHeader } from '../../components/PageHeader'
 import { useLoad } from '../../hooks/useLoad'
 import { secondaryButton } from '../meetings/components/common'
+import { SavedSignatureCard } from './SavedSignatureCard'
 
 export const STATUS_LABEL: Record<EnvelopeStatus, string> = {
   draft: 'Draft',
@@ -60,6 +61,7 @@ export default function SignPage() {
       </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ListColumn width="reading">
+          <SavedSignatureCard />
           <ListBar
             tabs={[
               { id: 'all', label: 'All' },
