@@ -171,7 +171,8 @@ export default function DictatePage() {
           <section id="words" aria-labelledby="words-title" className="mt-14">
             <SectionTitle id="words-title" title="Words">
               Names and terms {product()} should hear and spell exactly as written. Yours apply to
-              your dictations; the team’s apply to everyone’s.
+              your dictations; the team’s apply to everyone’s. Pick a word to add the ways it gets
+              misheard (Rajeev for Rajiv), and Dictate writes those as the word.
             </SectionTitle>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <WordEditor
@@ -179,14 +180,18 @@ export default function DictatePage() {
                 title="My words"
                 hint="Only you"
                 words={words?.mine ?? null}
-                onSaved={(list) => setWords((w) => (w ? { ...w, mine: list } : w))}
+                heardAs={words?.heardAs?.mine ?? {}}
+                onSaved={(list) => setWords((w) => withList(w, 'mine', list))}
+                onHeardAsSaved={(heard) => setWords((w) => withHeard(w, 'mine', heard))}
               />
               <WordEditor
                 scope="team"
                 title="Team words"
                 hint={org() ? `Everyone at ${org()}` : 'Everyone on the team'}
                 words={words?.team ?? null}
-                onSaved={(list) => setWords((w) => (w ? { ...w, team: list } : w))}
+                heardAs={words?.heardAs?.team ?? {}}
+                onSaved={(list) => setWords((w) => withList(w, 'team', list))}
+                onHeardAsSaved={(heard) => setWords((w) => withHeard(w, 'team', heard))}
               />
             </div>
           </section>
@@ -305,19 +310,54 @@ function DeviceList({
   )
 }
 
+/** The word lists with one list replaced; a removed word's spellings go too, as on the server. */
+function withList(
+  words: DictationWords | null,
+  scope: WordScope,
+  list: string[],
+): DictationWords | null {
+  if (!words) return words
+  const lists = words.heardAs ?? { mine: {}, team: {} }
+  const kept = Object.fromEntries(
+    Object.entries(lists[scope]).filter(([word]) => list.includes(word)),
+  )
+  return { ...words, [scope]: list, heardAs: { ...lists, [scope]: kept } }
+}
+
+/** The word lists with one word's heard-as spellings replaced. */
+function withHeard(
+  words: DictationWords | null,
+  scope: WordScope,
+  change: { word: string; heard: string[] },
+): DictationWords | null {
+  // A save that finished after its word was removed changes nothing.
+  if (!words?.[scope].includes(change.word)) return words
+  const lists = words.heardAs ?? { mine: {}, team: {} }
+  const next = { ...lists[scope] }
+  if (change.heard.length) next[change.word] = change.heard
+  else delete next[change.word]
+  return { ...words, heardAs: { ...lists, [scope]: next } }
+}
+
 export function WordEditor({
   scope,
   title,
   hint,
   words,
   onSaved,
+  heardAs,
+  onHeardAsSaved,
 }: {
   scope: WordScope
   title: string
   hint: string
   words: string[] | null
   onSaved: (words: string[]) => void
+  /** Each word's "also heard as" spellings; without it the list has none to edit. */
+  heardAs?: Record<string, string[]>
+  onHeardAsSaved?: (change: { word: string; heard: string[] }) => void
 }) {
+  const [open, setOpen] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -366,14 +406,34 @@ export function WordEditor({
             words.map((word) => (
               <li
                 key={word}
-                className="inline-flex items-center gap-1 rounded-full border border-ash bg-paper px-2.5 py-0.5 text-sm text-ink"
+                className={`inline-flex items-center gap-1 rounded-full border bg-paper px-2.5 py-0.5 text-sm text-ink ${open === word ? 'border-ember' : 'border-ash'}`}
               >
-                {word}
+                {heardAs ? (
+                  <button
+                    type="button"
+                    aria-expanded={open === word}
+                    aria-label={`${word}: also heard as`}
+                    onClick={() => setOpen(open === word ? null : word)}
+                    className="rounded hover:text-ember-strong"
+                  >
+                    {word}
+                    {heardAs[word]?.length ? (
+                      <span className="ml-1 text-xs text-ink-faint">
+                        ← {heardAs[word]?.join(', ')}
+                      </span>
+                    ) : null}
+                  </button>
+                ) : (
+                  word
+                )}
                 <button
                   type="button"
                   aria-label={`Remove ${word}`}
                   disabled={saving}
-                  onClick={() => void save(words.filter((w) => w !== word))}
+                  onClick={() => {
+                    if (open === word) setOpen(null)
+                    void save(words.filter((w) => w !== word))
+                  }}
                   className="-mr-1 rounded-full p-0.5 text-ink-faint hover:text-ember-strong"
                 >
                   <Icon name="close" className="size-3" />
@@ -383,6 +443,16 @@ export function WordEditor({
           )}
         </ul>
       )}
+      {heardAs && open && words?.includes(open) ? (
+        <HeardAsEditor
+          key={open}
+          scope={scope}
+          word={open}
+          heard={heardAs[open] ?? []}
+          onSaved={(heard) => onHeardAsSaved?.({ word: open, heard })}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
       <form onSubmit={(e) => void onAdd(e)} className="mt-3 flex gap-2">
         <input
           value={draft}
@@ -396,6 +466,116 @@ export function WordEditor({
           type="submit"
           disabled={saving || draft.trim() === '' || words === null}
           className={`${secondaryButton} h-9 px-3`}
+        >
+          Add
+        </button>
+      </form>
+      {error ? (
+        <p role="alert" className="mt-2 text-xs text-ember-strong">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/** One word's "also heard as" spellings: Dictate writes each of them as the word. */
+function HeardAsEditor({
+  scope,
+  word,
+  heard,
+  onSaved,
+  onClose,
+}: {
+  scope: WordScope
+  word: string
+  heard: string[]
+  onSaved: (heard: string[]) => void
+  onClose: () => void
+}) {
+  const [draft, setDraft] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const save = async (next: string[]) => {
+    setSaving(true)
+    setError(null)
+    try {
+      const result = await dictationApi.setHeardAs(scope, word, next)
+      onSaved(result.heard)
+      return true
+    } catch (err) {
+      setError(messageOf(err))
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onAdd = async (event: FormEvent) => {
+    event.preventDefault()
+    const added = draft
+      .split(',')
+      .map((w) => w.trim())
+      .filter(Boolean)
+    if (added.length === 0) return
+    if (await save([...heard, ...added])) setDraft('')
+  }
+
+  return (
+    <div
+      data-testid={`dictate-heard-as-${scope}`}
+      className="mt-3 rounded-lg border border-ash bg-paper p-3"
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm text-ink">
+          When Dictate hears one of these, it writes <strong>{word}</strong>
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="rounded-full p-0.5 text-ink-faint hover:text-ember-strong"
+        >
+          <Icon name="close" className="size-3" />
+        </button>
+      </div>
+      <ul className="mt-2 flex min-h-7 flex-wrap gap-1.5">
+        {heard.length === 0 ? (
+          <li className="text-xs text-ink-faint">None yet.</li>
+        ) : (
+          heard.map((h) => (
+            <li
+              key={h}
+              className="inline-flex items-center gap-1 rounded-full border border-ash bg-paper-raised px-2 py-0.5 text-xs text-ink"
+            >
+              {h}
+              <button
+                type="button"
+                aria-label={`Remove ${h}`}
+                disabled={saving}
+                onClick={() => void save(heard.filter((x) => x !== h))}
+                className="-mr-1 rounded-full p-0.5 text-ink-faint hover:text-ember-strong"
+              >
+                <Icon name="close" className="size-3" />
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+      <form onSubmit={(e) => void onAdd(e)} className="mt-2 flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          aria-label={`Also heard as, for ${word}`}
+          placeholder="How it gets misheard"
+          maxLength={200}
+          className="h-8 min-w-0 flex-1 rounded-lg border border-ash bg-paper-raised px-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-ember"
+        />
+        <button
+          type="submit"
+          disabled={saving || draft.trim() === ''}
+          className={`${secondaryButton} h-8 px-3`}
         >
           Add
         </button>

@@ -14,6 +14,8 @@ export interface DictationDevice {
 export interface DictationWords {
   mine: string[]
   team: string[]
+  /** Each word's "also heard as" spellings, by list (docs/PLAN-dictate-punctuation-and-fixes.md). */
+  heardAs?: { mine: Record<string, string[]>; team: Record<string, string[]> }
 }
 
 export type WordScope = 'mine' | 'team'
@@ -54,6 +56,11 @@ export const dictationApi = {
       query: { mode: 'clean', app_name: 'Check-ins' },
       body: audio,
       contentType: (audio.type || 'audio/webm').split(';')[0] ?? 'audio/webm',
+    }),
+  setHeardAs: (scope: WordScope, word: string, heard: string[]) =>
+    request<{ scope: WordScope; word: string; heard: string[] }>('/api/dictation/words/heard-as', {
+      method: 'PUT',
+      json: { scope, word, heard },
     }),
   setWords: (scope: WordScope, words: string[]) =>
     request<{ scope: WordScope; words: string[] }>('/api/dictation/words', {

@@ -22,6 +22,7 @@ export const DEVICE_TOKEN_PREFIX = 'hdt_'
 export const TEAM_WORDS_SEED = ['Hotsauce', 'Clerk', 'Deepgram', 'Anthropic', 'Claude']
 export const MAX_WORDS_PER_LIST = 200
 export const MAX_WORD_LENGTH = 60
+export const MAX_HEARD_AS_PER_WORD = 10
 const MAX_DEVICES_PER_MEMBER = 20
 
 export function newDeviceToken(): string {
@@ -81,6 +82,14 @@ const MIGRATIONS = [
   );`,
   // Where the Mac app hears the member (docs/PLAN-dictate-models.md, R7); null is online.
   `ALTER TABLE dictation_prefs ADD COLUMN speech TEXT;`,
+  // "Also heard as" spellings of a list's words (docs/PLAN-dictate-punctuation-and-fixes.md, H1).
+  `CREATE TABLE IF NOT EXISTS dictation_heard_as (
+    scope TEXT NOT NULL,
+    word_key TEXT NOT NULL,         -- the word, lowercased
+    heard TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (scope, word_key, heard)
+  );`,
 ]
 
 /** How a member's dictations are cleaned up (docs/PLAN-dictate-models.md). */
@@ -290,6 +299,65 @@ export class DictationStore {
     return this.#db.transaction(() => this.#setWords(scope, words))()
   }
 
+  /** Each word of a list that has heard-as spellings, as the list spells it, with them in order. */
+  heardAs(scope: 'team' | string): Record<string, string[]> {
+    // Matched in JS: SQLite's lower() folds only ASCII, and the keys are JS-lowercased.
+    const words = new Map(this.words(scope).map((w) => [w.toLowerCase(), w]))
+    const rows = this.#db
+      .prepare(
+        'SELECT word_key, heard FROM dictation_heard_as WHERE scope = ? ORDER BY word_key, position',
+      )
+      .all(scope) as Array<{ word_key: string; heard: string }>
+    const out: Record<string, string[]> = {}
+    for (const word of words.values()) {
+      const heard = rows.filter((r) => r.word_key === word.toLowerCase()).map((r) => r.heard)
+      if (heard.length) out[word] = heard
+    }
+    return out
+  }
+
+  /**
+   * Replaces one word's heard-as spellings (H1, H2): the word must be on the list; a spelling of
+   * the word itself is dropped, and one already under another word of the list is refused.
+   */
+  setHeardAs(scope: 'team' | string, word: string, heard: readonly string[]): string[] {
+    return this.#db.transaction(() => {
+      const key = word.replace(/\s+/g, ' ').trim().toLowerCase()
+      const listed = this.words(scope).map((w) => w.toLowerCase())
+      if (!listed.includes(key)) {
+        throw new HotsauceError('bad_request', 'Add the word to the list first')
+      }
+      const list = normalizeWords(heard).filter((h) => h.toLowerCase() !== key)
+      if (list.length > MAX_HEARD_AS_PER_WORD) {
+        throw new HotsauceError(
+          'bad_request',
+          `A word can have at most ${MAX_HEARD_AS_PER_WORD} other spellings`,
+        )
+      }
+      const taken = this.#db
+        .prepare('SELECT heard, word_key FROM dictation_heard_as WHERE scope = ? AND word_key != ?')
+        .all(scope, key) as Array<{ heard: string; word_key: string }>
+      for (const h of list) {
+        // Writing one listed word as another would rewrite it in every dictation.
+        if (listed.includes(h.toLowerCase())) {
+          throw new HotsauceError('bad_request', `“${h}” is a word on this list already`)
+        }
+        const clash = taken.find((t) => t.heard.toLowerCase() === h.toLowerCase())
+        if (clash) {
+          throw new HotsauceError('bad_request', `“${h}” is already written as another word`)
+        }
+      }
+      this.#db
+        .prepare('DELETE FROM dictation_heard_as WHERE scope = ? AND word_key = ?')
+        .run(scope, key)
+      const insert = this.#db.prepare(
+        'INSERT INTO dictation_heard_as (scope, word_key, heard, position) VALUES (?, ?, ?, ?)',
+      )
+      for (const [i, h] of list.entries()) insert.run(scope, key, h, i)
+      return list
+    })()
+  }
+
   /**
    * Adds and removes words against the list as it is now, in one transaction, so two people
    * editing the team list at once (or one person adding twice quickly) never lose each other's words.
@@ -318,6 +386,13 @@ export class DictationStore {
       'INSERT INTO dictation_words (scope, word, position) VALUES (?, ?, ?)',
     )
     for (const [i, word] of list.entries()) insert.run(scope, word, i)
+    // A word that left the list takes its heard-as spellings with it (H2).
+    const keys = new Set(list.map((w) => w.toLowerCase()))
+    const stale = this.#db
+      .prepare('SELECT DISTINCT word_key FROM dictation_heard_as WHERE scope = ?')
+      .all(scope) as Array<{ word_key: string }>
+    const drop = this.#db.prepare('DELETE FROM dictation_heard_as WHERE scope = ? AND word_key = ?')
+    for (const { word_key } of stale) if (!keys.has(word_key)) drop.run(scope, word_key)
     return list
   }
 }
