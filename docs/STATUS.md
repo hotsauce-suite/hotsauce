@@ -115,6 +115,7 @@ Needs the AI key for the script and `OPENAI_API_KEY` for the voice (it also need
 - **Chrome extension** (`apps/extension`), 0.9.0: records Meet tabs, saves links in one click, connects in one click. A setup page opens on install and is its Options page (connect, pin, try it on a test call; workspace, shortcut, version, updates; `docs/PLAN-extension-setup.md`). Meetings → Chrome extension says whether this browser has it and when a newer one is ready, with the how-to and troubleshooting; Getting started offers it in Chrome on a computer; the Mac app's Help → Chrome Extension… opens that page. In Chrome Web Store review; installed by hand until approved (then set `CHROME_WEB_STORE_URL` in `apps/web/src/apps/meetings/extensionRelease.ts`).
 - **Cloudflare** (`apps/cloudflare`): the Worker that runs Hotsauce on Cloudflare (one-click deploy). It needs GitHub repos and R2 for media; "On this server" storage is hidden there.
 - **MCP server** (`/mcp`, `docs/mcp.md`): any AI tool can search, read and write as the member, either by signing in (OAuth, used by claude.ai, ChatGPT and Grok) or by sending a token header. A sign-in can be **Team space only, read only**, for a tool many people share, like a team chat's assistant (`docs/PLAN-team-connection.md`).
+- **Android app** (`apps/android`, `docs/PLAN-android.md`), being built: a Chrome shell around the member's server with home-screen widgets (Today at a glance first). Not on any phone yet; it ships through Google Play internal testing once a Play developer account exists. GitHub builds it (`.github/workflows/android-app.yml`).
 - **Site** (`site/`): hotsauce.work, the help center, install guide and the live demo at demo.hotsauce.work.
 
 ## Built but switched off by default
@@ -136,5 +137,6 @@ No app work is in an open pull request at the date above. Waiting outside the co
 
 - **Chrome Web Store** review of the extension (not a PR; waits on Google).
 - **A notarized Mac app** waits on an Apple Developer account.
+- **The Android app** (`docs/PLAN-android.md`) waits on a Google Play developer account to reach phones.
 
 Planned, not started: a board view for Tasks, deadlines and reminders in Sign (`docs/PLAN-sign.md` slices 4 and 5), reading docs offline (`docs/PLAN-offline.md` step B), and newsletters by email into Links.
