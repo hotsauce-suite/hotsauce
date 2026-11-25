@@ -105,7 +105,14 @@ test('the home-screen icon opens voice notes, and its shortcut starts recording'
 
   const manifest = await (await page.request.get('/manifest.webmanifest')).json()
   expect(manifest.start_url).toBe('/?launch=home')
-  expect(manifest.shortcuts?.[0]?.url).toBe('/dictate/voice?start=1')
+  // Android's held-icon shortcuts (docs/PLAN-phone-shortcuts.md R1).
+  expect(manifest.shortcuts?.map((s: { url: string }) => s.url)).toEqual([
+    '/dictate/voice?start=1',
+    '/tasks?new=1',
+    '/links/save?paste=1',
+    '/today?ask=1',
+    '/tasks?ramble=1',
+  ])
 })
 
 test('when the phone takes the microphone away, one tap brings it back', async ({

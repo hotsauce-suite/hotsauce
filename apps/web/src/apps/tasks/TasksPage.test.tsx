@@ -682,3 +682,17 @@ describe('import from Todoist', () => {
     server.events.removeAllListeners()
   })
 })
+
+describe('phone shortcuts (docs/PLAN-phone-shortcuts.md)', () => {
+  it('R2: /tasks?new=1 opens quick add and tidies the address', async () => {
+    const { router } = renderApp('/tasks?new=1')
+    expect(await screen.findByTestId('quick-add-input')).toBeInTheDocument()
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+  })
+
+  it('R3: /tasks?ramble=1 opens straight into Ramble', async () => {
+    const { router } = renderApp('/tasks?ramble=1')
+    expect(await screen.findByTestId('ramble')).toBeInTheDocument()
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+  })
+})

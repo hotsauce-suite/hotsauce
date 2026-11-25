@@ -1,5 +1,5 @@
 import { type ParsedTask, parseQuickAdd } from '@hotsauce/format'
-import { type KeyboardEvent, type ReactNode, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { type TaskPerson, type TaskView, tasksApi } from '../../api/tasks'
 import { Icon, type IconName } from '../../components/Icon'
 import { type Chip, chipsFor, resolvePerson } from './logic'
@@ -185,6 +185,12 @@ export interface QuickAddProps {
   onOpenChange: (open: boolean) => void
   onAdded: (task: TaskView) => void
   onError: (message: string) => void
+  /**
+   * Opens Ramble at once: the phone's Ramble shortcut (/tasks?ramble=1, lib/phoneShortcuts.ts).
+   * Quick add calls onRambleStarted when it has, so a later quick add doesn't open it again.
+   */
+  startRambling?: boolean
+  onRambleStarted?: () => void
 }
 
 /** The line text the server gets: the member's words, plus "today" in Today's list. */
@@ -202,6 +208,12 @@ export function QuickAdd(props: QuickAddProps) {
   const [choice, setChoice] = useState<SpaceChoice>(props.defaultSpace)
   const [busy, setBusy] = useState(false)
   const [rambling, setRambling] = useState(false)
+  const { startRambling, onRambleStarted } = props
+  useEffect(() => {
+    if (!startRambling) return
+    setRambling(true)
+    onRambleStarted?.()
+  }, [startRambling, onRambleStarted])
   const parsed = useParsed(text, props.today)
   const forcedTeam = assignsSomeoneElse(parsed, props.people, props.me)
   const space = forcedTeam || choice === 'team' ? props.spaces.team : props.spaces.personal
