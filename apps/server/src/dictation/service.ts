@@ -4,7 +4,13 @@ import type { LLM } from '../meetings/llm/types.js'
 import { cleanTranscript } from './cleaner.js'
 import { type DictationStyle, styleForApp } from './prompt.js'
 import { RateLimiter } from './rate-limit.js'
-import type { CleanupChoice, DictationStore, SpeechChoice } from './store.js'
+import type {
+  CleanupChoice,
+  DictationStore,
+  SendKey,
+  SoundTheme,
+  SpeechChoice,
+} from './store.js'
 import type { DictationTranscriber } from './transcriber.js'
 import { readWav } from './wav.js'
 
@@ -163,6 +169,10 @@ export interface DictationSettings {
   /** `device`: the Mac app hears the member on the Mac alone and sends only text (R7, R8). */
   speech: SpeechChoice
   cleanup: CleanupChoice
+  /** The key that ends a dictation and sends it (docs/PLAN-dictate-send-and-sounds.md, R1). */
+  sendKey: SendKey
+  /** The sounds Dictate plays, or `off`. */
+  sounds: SoundTheme
   /** False when the server has no AI key: nothing is cleaned, whatever the choice. */
   cleanupAvailable: boolean
   models: DictationModels
@@ -228,6 +238,8 @@ export class Dictation {
     return {
       speech: this.store.speechChoice(userId),
       cleanup: this.store.cleanupChoice(userId),
+      sendKey: this.store.sendKey(userId),
+      sounds: this.store.soundTheme(userId),
       cleanupAvailable: this.#cleanupAvailable,
       models: {
         speech: this.#speechName,

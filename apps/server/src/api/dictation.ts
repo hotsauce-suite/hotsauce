@@ -5,6 +5,8 @@ import {
   DICTATION_MIME_TYPES,
   MAX_WORD_LENGTH,
   MAX_WORDS_PER_LIST,
+  SEND_KEYS,
+  SOUND_THEMES,
   SPEECH_CHOICES,
 } from '../dictation/index.js'
 import { HotsauceError } from '../errors.js'
@@ -104,14 +106,21 @@ export function dictationRoutes(deps: AppDeps) {
             .strictObject({
               cleanup: z.enum(CLEANUP_CHOICES).optional(),
               speech: z.enum(SPEECH_CHOICES).optional(),
+              sendKey: z.enum(SEND_KEYS).optional(),
+              sounds: z.enum(SOUND_THEMES).optional(),
             })
-            .refine((b) => b.cleanup || b.speech, 'Send cleanup or speech'),
+            .refine(
+              (b) => b.cleanup || b.speech || b.sendKey || b.sounds,
+              'Send cleanup, speech, sendKey or sounds',
+            ),
         ),
         (c) => {
           const { userId } = c.get('principal')
           const body = c.req.valid('json')
           if (body.cleanup) store.setCleanupChoice(userId, body.cleanup)
           if (body.speech) store.setSpeechChoice(userId, body.speech)
+          if (body.sendKey) store.setSendKey(userId, body.sendKey)
+          if (body.sounds) store.setSoundTheme(userId, body.sounds)
           return c.json(dictation.settings(userId))
         },
       )
