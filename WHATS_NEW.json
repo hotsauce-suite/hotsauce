@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.70.1",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Dictate: the send key no longer cuts off the word you're saying as you press it."
+        }
+      ]
+    },
+    {
       "version": "0.70.0",
       "date": "2026-11-25",
       "notes": [

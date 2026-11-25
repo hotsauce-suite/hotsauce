@@ -25,6 +25,7 @@ import { PdfPages } from './PdfPages'
 import { keptFields, moveUp, nextPersonId, ordered, peopleProblem, shortName } from './people'
 import { type Signature, SignatureDialog } from './SignaturePad'
 import { missingFields, SigningPanel } from './SigningPanel'
+import { SignLayout } from './SignLayout'
 import { STATUS_LABEL, when } from './SignPage'
 import { useSavedSignatures } from './savedSignatures'
 
@@ -412,136 +413,152 @@ export default function EnvelopePage() {
         ) : null}
       </PageHeader>
       <div className="min-h-0 flex-1 overflow-y-auto bg-paper-sunk/60">
-        <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-4">
-          {error ? (
-            <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
-              {error}
-            </p>
-          ) : null}
-
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4">
           {env.status === 'completed' ? (
-            <Finished env={env} />
-          ) : (
-            <>
-              {draft ? (
-                <People
-                  people={people}
-                  order={order}
-                  myEmail={myEmail}
-                  myName={me?.principal.name ?? ''}
-                  onChange={changePeople}
-                  onOrder={(o) => {
-                    setOrder(o)
-                    setDirty(true)
-                  }}
-                />
-              ) : !signing ? (
-                <Progress
-                  env={env}
-                  myEmail={myEmail}
-                  busy={busy}
-                  onLink={(signer, email) => setReplace({ signer, email })}
-                  onFix={(signer) => setFix({ signer, name: signer.name, email: signer.email })}
-                />
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+              {error ? (
+                <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
+                  {error}
+                </p>
               ) : null}
+              <Finished env={env} />
+            </div>
+          ) : (
+            <SignLayout
+              pinned={signing}
+              rail={
+                <>
+                  {error ? (
+                    <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
+                      {error}
+                    </p>
+                  ) : null}
+                  {draft ? (
+                    <section
+                      className="flex flex-col gap-3 rounded-xl bg-paper-raised p-4 ring-1 ring-ash"
+                      aria-label="Fields"
+                    >
+                      <p className="text-sm text-ink-soft">
+                        Pick a field, then click where it goes on the page. Drag a field to move it,
+                        or use the arrow keys; Alt and the arrow keys resize it, and Delete removes
+                        it.
+                      </p>
+                      {signingPeople.length > 1 ? (
+                        <label className="flex items-center gap-2 text-sm text-ink-soft">
+                          Fields for
+                          <select
+                            className={selectClass}
+                            value={forSigner ?? ''}
+                            onChange={(e) => setForSigner(e.target.value)}
+                            data-testid="sign-fields-for"
+                          >
+                            {signingPeople.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name || p.email || 'New person'}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      <div
+                        className="flex flex-wrap gap-2 lg:grid lg:grid-cols-2"
+                        role="toolbar"
+                        aria-label="Add a field"
+                      >
+                        {FIELD_TYPES.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            aria-pressed={placing === type}
+                            className={`rounded-full px-3 py-1.5 text-sm ring-1 ${placing === type ? 'bg-ember text-paper-raised ring-ember' : 'bg-paper ring-ash-strong hover:ring-ember'}`}
+                            onClick={(e) => {
+                              // From the keyboard (no pointer position), the field goes in the
+                              // middle of the first page, focused, ready for the arrow keys.
+                              if (e.detail === 0) {
+                                place(type, 1, { x: 0.5, y: 0.5 })
+                                return
+                              }
+                              setPlacing(placing === type ? null : type)
+                            }}
+                            data-testid={`sign-add-${type}`}
+                          >
+                            {FIELD_LABEL[type]}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="flex flex-col gap-1 text-sm text-ink-soft">
+                        Name
+                        <input
+                          className={inputClass}
+                          value={title}
+                          maxLength={200}
+                          onChange={(e) => {
+                            setTitle(e.target.value)
+                            setDirty(true)
+                          }}
+                          data-testid="sign-title"
+                        />
+                      </label>
+                      <div className="flex items-center justify-between text-xs text-ink-faint">
+                        <span>
+                          From {env.sourceName} · {env.source.pages.length}{' '}
+                          {env.source.pages.length === 1 ? 'page' : 'pages'}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-ink-soft underline"
+                          onClick={() => setConfirmDelete(true)}
+                          data-testid="sign-delete"
+                        >
+                          Delete envelope
+                        </button>
+                      </div>
+                    </section>
+                  ) : null}
 
-              {draft ? (
-                <section
-                  className="flex flex-col gap-3 rounded-xl bg-paper-raised p-4 ring-1 ring-ash"
-                  aria-label="Fields"
-                >
-                  <label className="flex flex-col gap-1 text-sm text-ink-soft">
-                    Name
-                    <input
-                      className={inputClass}
-                      value={title}
-                      maxLength={200}
-                      onChange={(e) => {
-                        setTitle(e.target.value)
+                  {draft ? (
+                    <People
+                      people={people}
+                      order={order}
+                      myEmail={myEmail}
+                      myName={me?.principal.name ?? ''}
+                      onChange={changePeople}
+                      onOrder={(o) => {
+                        setOrder(o)
                         setDirty(true)
                       }}
-                      data-testid="sign-title"
                     />
-                  </label>
-                  <p className="text-sm text-ink-soft">
-                    Pick a field, then click where it goes on the page. Drag a field to move it, or
-                    use the arrow keys; Alt and the arrow keys resize it, and Delete removes it.
-                  </p>
-                  {signingPeople.length > 1 ? (
-                    <label className="flex items-center gap-2 text-sm text-ink-soft">
-                      Fields for
-                      <select
-                        className={selectClass}
-                        value={forSigner ?? ''}
-                        onChange={(e) => setForSigner(e.target.value)}
-                        data-testid="sign-fields-for"
-                      >
-                        {signingPeople.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name || p.email || 'New person'}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  ) : !signing ? (
+                    <Progress
+                      env={env}
+                      myEmail={myEmail}
+                      busy={busy}
+                      onLink={(signer, email) => setReplace({ signer, email })}
+                      onFix={(signer) => setFix({ signer, name: signer.name, email: signer.email })}
+                    />
                   ) : null}
-                  <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Add a field">
-                    {FIELD_TYPES.map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        aria-pressed={placing === type}
-                        className={`rounded-full px-3 py-1.5 text-sm ring-1 ${placing === type ? 'bg-ember text-paper-raised ring-ember' : 'bg-paper ring-ash-strong hover:ring-ember'}`}
-                        onClick={(e) => {
-                          // From the keyboard (no pointer position), the field goes in the
-                          // middle of the first page, focused, ready for the arrow keys.
-                          if (e.detail === 0) {
-                            place(type, 1, { x: 0.5, y: 0.5 })
-                            return
-                          }
-                          setPlacing(placing === type ? null : type)
-                        }}
-                        data-testid={`sign-add-${type}`}
-                      >
-                        {FIELD_LABEL[type]}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-ink-faint">
-                    <span>
-                      From {env.sourceName} · {env.source.pages.length}{' '}
-                      {env.source.pages.length === 1 ? 'page' : 'pages'}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-ink-soft underline"
-                      onClick={() => setConfirmDelete(true)}
-                      data-testid="sign-delete"
+
+                  {signing ? (
+                    <SigningPanel
+                      missing={missing.length}
+                      consent={consent}
+                      onConsent={setConsent}
+                      busy={busy}
+                      onFinish={() => void finish()}
                     >
-                      Delete envelope
-                    </button>
-                  </div>
-                </section>
-              ) : null}
-
-              {signing ? (
-                <SigningPanel
-                  missing={missing.length}
-                  consent={consent}
-                  onConsent={setConsent}
-                  busy={busy}
-                  onFinish={() => void finish()}
-                >
-                  <button
-                    type="button"
-                    className={secondaryButton}
-                    onClick={() => setSigning(false)}
-                    disabled={busy}
-                  >
-                    {env.status === 'draft' ? 'Back to fields' : 'Not now'}
-                  </button>
-                </SigningPanel>
-              ) : null}
-
+                      <button
+                        type="button"
+                        className={secondaryButton}
+                        onClick={() => setSigning(false)}
+                        disabled={busy}
+                      >
+                        {env.status === 'draft' ? 'Back to fields' : 'Not now'}
+                      </button>
+                    </SigningPanel>
+                  ) : null}
+                </>
+              }
+            >
               {env.status === 'declined' ? null : pdf ? (
                 <div
                   role="application"
@@ -583,7 +600,7 @@ export default function EnvelopePage() {
               ) : (
                 <p className="text-sm text-ink-soft">Opening the PDF…</p>
               )}
-            </>
+            </SignLayout>
           )}
         </div>
       </div>

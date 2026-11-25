@@ -41,6 +41,8 @@ final class DictationController {
     private var take = 0
     /// Says the connection is slow while the words are on their way (R13).
     private var slowTimer: Timer?
+    /// Set between the send key and the send, while the mic catches the last word.
+    private var finishingSend: Timer?
 
     private(set) var status: Status = .idle { didSet { onChange() } }
     /// The last dictation that failed in a way a retry could fix, with where it was going.
@@ -146,11 +148,24 @@ final class DictationController {
         case .start: startRecording()
         case .finish: finishRecording()
         case .cancel: cancelRecording()
-        case .send: finishRecording(send: true)
+        case .send: sendAfterTail()
+        }
+    }
+
+    /// The send key: keep listening a moment for the word it was pressed on, then send.
+    private func sendAfterTail() {
+        guard recorder.isRecording, finishingSend == nil else { return }
+        finishingSend = Timer.scheduledTimer(withTimeInterval: SendKey.tailSeconds, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.finishRecording(send: true, checkShift: false) }
         }
     }
 
     private func startRecording() {
+        // The last one is still catching its final word before it sends.
+        guard finishingSend == nil else {
+            machine.reset()
+            return
+        }
         // One at a time: the last one's paste would land in the middle of this one.
         guard inFlight == nil else {
             machine.reset()
@@ -265,10 +280,14 @@ final class DictationController {
     /// `send`: the send key ended it. `checkShift`: ⇧ held as it finished sends it too (R10).
     private func finishRecording(send: Bool = false, checkShift: Bool = true) {
         maxTimer?.invalidate()
+        // The send key was pressed and something else (the time limit) ends it first: still a send.
+        let sendPressed = send || finishingSend != nil
+        finishingSend?.invalidate()
+        finishingSend = nil
         guard recorder.isRecording else { return }
         endRecording()
         let shift = checkShift && shiftSends(shiftHeld: NSEvent.modifierFlags.contains(.shift), hotkey: settings.hotkey)
-        sendAfterPaste = send || shift
+        sendAfterPaste = sendPressed || shift
         let wasAnnounced = announced
         announced = false
         keyUpAt = Date()

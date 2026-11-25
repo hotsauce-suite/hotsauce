@@ -180,11 +180,17 @@ test('send to someone outside the team, who signs from their link with no accoun
   await expect(page.getByTestId('sign-progress-s2')).toContainText('Gets a copy')
 
   // Maya opens her link in a browser that isn't signed in to anything.
-  const outside = await browser.newContext()
+  // On a phone, so the signing panel must stay pinned above the pages while she scrolls (R34).
+  const outside = await browser.newContext({ viewport: { width: 390, height: 700 } })
   const her = await outside.newPage()
   await her.goto(new URL(url).pathname)
   await expect(her.getByTestId('signing-title')).toHaveText(`terms-${id}`)
   await her.getByTestId('signing-start').click()
+  await expect(her.getByTestId('sign-rail')).toHaveCSS('position', 'sticky')
+  await her
+    .getByTestId('signing-link')
+    .evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await expect(her.getByTestId('sign-panel')).toBeInViewport()
   await her.getByTestId('sign-field-f1').click()
   await her.getByTestId('signature-typed').fill('Maya Lin')
   await her.getByTestId('signature-done').click()

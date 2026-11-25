@@ -7,6 +7,7 @@ now: slices 4 and 5 (deadlines, reminders, cancelling, templates) are the next S
 started. Plan page for people: https://claude.ai/artifact/FvwFRznCcUskbBffkE4G24
 Slice 3c (2026-11-25, R27–R33): SignuDoc's engine fixes from 2026-11-17 to 2026-11-25 brought
 across (Morgan said yes in the NYLLON watch thread); approvers and signing in parallel steps left out.
+Slice 3d (2026-11-25, R34–R36): the controls moved to a right rail.
 
 Send a PDF for signature from Hotsauce. People inside or outside the organization sign it from a
 link on any device, with no account. The sealed PDF and its audit certificate are kept in Files.
@@ -110,6 +111,15 @@ R33. SignuDoc's 1,000-page cap is in the engine's constants; Hotsauce keeps its 
 
 Left out: approvers, signers in parallel steps, the name field, embedded signing, webhooks, the
 field-list revision check, configurable signer limits (all features, not fixes).
+
+### Slice 3d: controls in a right rail (Morgan, 2026-11-25)
+
+R34. On a wide screen (1024 px and up) the Sign pages show the document full height on the left
+     and every control (people, field types, name, progress, the signing panel) in a rail on the
+     right that stays in view while the pages scroll. Narrower, the rail sits above the document,
+     and while someone signs it stays pinned at the top so Finish is always in reach.
+R35. While placing, the field types come first in the rail, two to a row, so they stay in view.
+R36. The outside signer's page uses the same layout, with the title and Start signing in the rail.
 
 ### Slice 4 and 5 (later, requirements written when each starts)
 

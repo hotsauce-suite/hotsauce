@@ -12,6 +12,7 @@ import { FieldBox, localDay } from './FieldBox'
 import { PdfPages } from './PdfPages'
 import { type Signature, SignatureDialog } from './SignaturePad'
 import { missingFields, SigningPanel } from './SigningPanel'
+import { SignLayout } from './SignLayout'
 
 // `/signing/:token`: the page someone outside the team opens from their emailed signing link
 // (docs/PLAN-sign.md R14–R16). No account and no app shell: the link's secret is the key.
@@ -71,7 +72,7 @@ export default function SigningLinkPage() {
   const env = load.status === 'ready' ? load.env : null
   return (
     <div className="min-h-full bg-paper px-3 py-5 md:py-10" data-testid="signing-link">
-      <main className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-4">
         {env && env.status === 'ready' ? (
           <Signing token={token} env={env} pdf={pdf} onDone={show} />
         ) : env ? (
@@ -196,72 +197,80 @@ function Signing({
   }
 
   return (
-    <>
-      <header className="flex flex-col gap-1 px-1">
-        <p className="text-sm text-ink-soft">
-          {env.sender} at {env.org} asks {env.signer.name} to sign
-        </p>
-        <h1 className="font-display text-2xl font-semibold text-ink" data-testid="signing-title">
-          {env.title}
-        </h1>
-        <p className="text-xs text-ink-faint">
-          {env.source.name} · {env.source.pages.length}{' '}
-          {env.source.pages.length === 1 ? 'page' : 'pages'}
-        </p>
-      </header>
-
-      {error ? (
-        <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
-          {error}
-        </p>
-      ) : null}
-
-      {signing ? (
-        <SigningPanel
-          missing={missing.length}
-          consent={consent}
-          onConsent={setConsent}
-          busy={busy}
-          onFinish={() => void finish()}
-        >
-          <button
-            type="button"
-            className={secondaryButton}
-            disabled={busy}
-            onClick={() => setDeclining(true)}
-            data-testid="signing-decline"
-          >
-            Decline
-          </button>
-        </SigningPanel>
-      ) : (
-        <section className="flex flex-col gap-3 rounded-xl bg-paper-raised p-4 ring-1 ring-ash">
-          <p className="text-sm text-ink">
-            Read the document below. When you’re ready, press Start signing and fill in the
-            highlighted fields. You don’t need an account.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={primaryButton}
-              onClick={() => setSigning(true)}
-              data-testid="signing-start"
+    <SignLayout
+      pinned={signing}
+      rail={
+        <>
+          <header className={`flex-col gap-1 px-1 ${signing ? 'hidden lg:flex' : 'flex'}`}>
+            <p className="text-sm text-ink-soft">
+              {env.sender} at {env.org} asks {env.signer.name} to sign
+            </p>
+            <h1
+              className="font-display text-2xl font-semibold text-ink"
+              data-testid="signing-title"
             >
-              <Icon name="sign" />
-              Start signing
-            </button>
-            <button
-              type="button"
-              className={secondaryButton}
-              onClick={() => setDeclining(true)}
-              data-testid="signing-decline"
-            >
-              Decline
-            </button>
-          </div>
-        </section>
-      )}
+              {env.title}
+            </h1>
+            <p className="text-xs text-ink-faint">
+              {env.source.name} · {env.source.pages.length}{' '}
+              {env.source.pages.length === 1 ? 'page' : 'pages'}
+            </p>
+          </header>
 
+          {error ? (
+            <p role="alert" className="rounded-lg bg-ember-wash px-3 py-2 text-sm text-ink">
+              {error}
+            </p>
+          ) : null}
+
+          {signing ? (
+            <SigningPanel
+              missing={missing.length}
+              consent={consent}
+              onConsent={setConsent}
+              busy={busy}
+              onFinish={() => void finish()}
+            >
+              <button
+                type="button"
+                className={secondaryButton}
+                disabled={busy}
+                onClick={() => setDeclining(true)}
+                data-testid="signing-decline"
+              >
+                Decline
+              </button>
+            </SigningPanel>
+          ) : (
+            <section className="flex flex-col gap-3 rounded-xl bg-paper-raised p-4 ring-1 ring-ash">
+              <p className="text-sm text-ink">
+                Read the document. When you’re ready, press Start signing and fill in the
+                highlighted fields. You don’t need an account.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={primaryButton}
+                  onClick={() => setSigning(true)}
+                  data-testid="signing-start"
+                >
+                  <Icon name="sign" />
+                  Start signing
+                </button>
+                <button
+                  type="button"
+                  className={secondaryButton}
+                  onClick={() => setDeclining(true)}
+                  data-testid="signing-decline"
+                >
+                  Decline
+                </button>
+              </div>
+            </section>
+          )}
+        </>
+      }
+    >
       {pdf ? (
         <PdfPages
           data={pdf}
@@ -347,6 +356,6 @@ function Signing({
           </div>
         </Dialog>
       ) : null}
-    </>
+    </SignLayout>
   )
 }
