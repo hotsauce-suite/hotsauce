@@ -1,6 +1,15 @@
 {
   "releases": [
     {
+      "version": "0.71.3",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "The tour video on hotsauce.work is a new 6-minute walkthrough of every app, sharper, with the new icon."
+        }
+      ]
+    },
+    {
       "version": "0.71.0",
       "date": "2026-11-25",
       "notes": [
