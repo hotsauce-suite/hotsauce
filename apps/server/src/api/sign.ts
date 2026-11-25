@@ -33,6 +33,15 @@ const Draft = z.object({
   blobOid: z.string().min(1).max(64),
 })
 
+const MarkKind = z.object({ kind: z.enum(['signature', 'initials']) })
+const Mark = z.discriminatedUnion('input', [
+  z.object({ input: z.literal('typed'), value: z.string().max(200) }),
+  z.object({
+    input: z.enum(['drawn', 'uploaded']),
+    image: z.string().max(MAX_DRAWN_SIGNATURE_CHARS),
+  }),
+])
+
 const SignerParams = Params.extend({ signer: z.string().min(1).max(16) })
 const Token = z.object({ token: z.string().min(1).max(200) })
 
@@ -43,6 +52,7 @@ const Values = z
       value: z.string().max(5000).optional(),
       checked: z.boolean().optional(),
       image: z.string().max(MAX_DRAWN_SIGNATURE_CHARS).optional(),
+      input: z.enum(['typed', 'drawn', 'uploaded']).optional(),
     }),
   )
   .max(MAX_FIELDS)
@@ -68,86 +78,105 @@ const signBody = () =>
 /** Sign (docs/PLAN-sign.md R9): envelopes, their source PDF, and signing as a member. */
 export function signRoutes(deps: Pick<AppDeps, 'sign'>) {
   const { sign } = deps
-  return new Hono<AppEnv>()
-    .get('/sign', (c) => c.json({ envelopes: sign.list(c.get('principal')) }))
-    .post('/sign', valid('json', Create), async (c) => {
-      const p = c.get('principal')
-      return c.json(await sign.create(p, c.req.valid('json'), viaFor(p)))
-    })
-    .get('/sign/:space/:id', valid('param', Params), async (c) => {
-      const { space, id } = c.req.valid('param')
-      return c.json(await sign.get(c.get('principal'), space, id))
-    })
-    .get('/sign/:space/:id/source.pdf', valid('param', Params), async (c) => {
-      const { space, id } = c.req.valid('param')
-      const bytes = await sign.source(c.get('principal'), space, id)
-      return c.body(new Uint8Array(bytes), 200, {
-        'Content-Type': 'application/pdf',
-        'Cache-Control': 'private, no-store',
+  return (
+    new Hono<AppEnv>()
+      .get('/sign', (c) => c.json({ envelopes: sign.list(c.get('principal')) }))
+      // The member's saved signature and initials (docs/PLAN-sign-saved-signature.md).
+      .get('/sign-saved', async (c) => c.json(await sign.saved(c.get('principal'))))
+      .put(
+        '/sign-saved/:kind',
+        signBody(),
+        valid('param', MarkKind),
+        valid('json', Mark),
+        async (c) => {
+          const p = c.get('principal')
+          const { kind } = c.req.valid('param')
+          return c.json(await sign.saveMark(p, kind, c.req.valid('json'), viaFor(p)))
+        },
+      )
+      .delete('/sign-saved/:kind', valid('param', MarkKind), async (c) => {
+        const p = c.get('principal')
+        return c.json(await sign.removeMark(p, c.req.valid('param').kind, viaFor(p)))
       })
-    })
-    .put('/sign/:space/:id', valid('param', Params), valid('json', Draft), async (c) => {
-      const { space, id } = c.req.valid('param')
-      const p = c.get('principal')
-      return c.json(await sign.saveDraft(p, space, id, c.req.valid('json'), viaFor(p)))
-    })
-    .post(
-      '/sign/:space/:id/send',
-      valid('param', Params),
-      valid('json', z.object({ blobOid: z.string().min(1).max(64) })),
-      async (c) => {
+      .post('/sign', valid('json', Create), async (c) => {
+        const p = c.get('principal')
+        return c.json(await sign.create(p, c.req.valid('json'), viaFor(p)))
+      })
+      .get('/sign/:space/:id', valid('param', Params), async (c) => {
+        const { space, id } = c.req.valid('param')
+        return c.json(await sign.get(c.get('principal'), space, id))
+      })
+      .get('/sign/:space/:id/source.pdf', valid('param', Params), async (c) => {
+        const { space, id } = c.req.valid('param')
+        const bytes = await sign.source(c.get('principal'), space, id)
+        return c.body(new Uint8Array(bytes), 200, {
+          'Content-Type': 'application/pdf',
+          'Cache-Control': 'private, no-store',
+        })
+      })
+      .put('/sign/:space/:id', valid('param', Params), valid('json', Draft), async (c) => {
         const { space, id } = c.req.valid('param')
         const p = c.get('principal')
-        return c.json(await sign.send(p, space, id, c.req.valid('json'), metaOf(c), viaFor(p)))
-      },
-    )
-    .post(
-      '/sign/:space/:id/link/:signer',
-      valid('param', SignerParams),
-      valid('json', z.object({ email: z.boolean() })),
-      async (c) => {
-        const { space, id, signer } = c.req.valid('param')
-        const p = c.get('principal')
-        return c.json(await sign.link(p, space, id, signer, c.req.valid('json'), viaFor(p)))
-      },
-    )
-    .patch(
-      '/sign/:space/:id/people/:signer',
-      valid('param', SignerParams),
-      valid(
-        'json',
-        z.object({ name: z.string().max(120).optional(), email: z.string().max(320).optional() }),
-      ),
-      async (c) => {
-        const { space, id, signer } = c.req.valid('param')
-        const p = c.get('principal')
-        return c.json(
-          await sign.correct(p, space, id, signer, c.req.valid('json'), metaOf(c), viaFor(p)),
-        )
-      },
-    )
-    .post('/sign/:space/:id/copy', valid('param', Params), async (c) => {
-      const { space, id } = c.req.valid('param')
-      const p = c.get('principal')
-      return c.json(await sign.copy(p, space, id, viaFor(p)))
-    })
-    .post(
-      '/sign/:space/:id/sign',
-      signBody(),
-      valid('param', Params),
-      valid('json', SignInput),
-      async (c) => {
+        return c.json(await sign.saveDraft(p, space, id, c.req.valid('json'), viaFor(p)))
+      })
+      .post(
+        '/sign/:space/:id/send',
+        valid('param', Params),
+        valid('json', z.object({ blobOid: z.string().min(1).max(64) })),
+        async (c) => {
+          const { space, id } = c.req.valid('param')
+          const p = c.get('principal')
+          return c.json(await sign.send(p, space, id, c.req.valid('json'), metaOf(c), viaFor(p)))
+        },
+      )
+      .post(
+        '/sign/:space/:id/link/:signer',
+        valid('param', SignerParams),
+        valid('json', z.object({ email: z.boolean() })),
+        async (c) => {
+          const { space, id, signer } = c.req.valid('param')
+          const p = c.get('principal')
+          return c.json(await sign.link(p, space, id, signer, c.req.valid('json'), viaFor(p)))
+        },
+      )
+      .patch(
+        '/sign/:space/:id/people/:signer',
+        valid('param', SignerParams),
+        valid(
+          'json',
+          z.object({ name: z.string().max(120).optional(), email: z.string().max(320).optional() }),
+        ),
+        async (c) => {
+          const { space, id, signer } = c.req.valid('param')
+          const p = c.get('principal')
+          return c.json(
+            await sign.correct(p, space, id, signer, c.req.valid('json'), metaOf(c), viaFor(p)),
+          )
+        },
+      )
+      .post('/sign/:space/:id/copy', valid('param', Params), async (c) => {
         const { space, id } = c.req.valid('param')
         const p = c.get('principal')
-        return c.json(await sign.sign(p, space, id, c.req.valid('json'), metaOf(c), viaFor(p)))
-      },
-    )
-    .delete('/sign/:space/:id', valid('param', Params), async (c) => {
-      const { space, id } = c.req.valid('param')
-      const p = c.get('principal')
-      await sign.remove(p, space, id, viaFor(p))
-      return c.body(null, 204)
-    })
+        return c.json(await sign.copy(p, space, id, viaFor(p)))
+      })
+      .post(
+        '/sign/:space/:id/sign',
+        signBody(),
+        valid('param', Params),
+        valid('json', SignInput),
+        async (c) => {
+          const { space, id } = c.req.valid('param')
+          const p = c.get('principal')
+          return c.json(await sign.sign(p, space, id, c.req.valid('json'), metaOf(c), viaFor(p)))
+        },
+      )
+      .delete('/sign/:space/:id', valid('param', Params), async (c) => {
+        const { space, id } = c.req.valid('param')
+        const p = c.get('principal')
+        await sign.remove(p, space, id, viaFor(p))
+        return c.body(null, 204)
+      })
+  )
 }
 
 /**
