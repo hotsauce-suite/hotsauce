@@ -28,6 +28,7 @@ import {
   chainAuditEvents,
   type EnvelopeRecord,
   type FieldRecord,
+  findAnswerTooLong,
   makeSealer,
   type PdfSealer,
   pdfFingerprint,
@@ -214,12 +215,6 @@ export class Sign {
         'This PDF can’t be opened for signing; it may be locked with a password or damaged',
       )
     })
-    if (pages.some((p) => !p.plain)) {
-      throw new HotsauceError(
-        'bad_request',
-        'This PDF has turned or cropped pages, which Sign can’t place fields on yet. Print it to a new PDF and try that.',
-      )
-    }
     if (pages.length === 0 || pages.length > MAX_SIGN_PAGES) {
       throw new HotsauceError(
         'bad_request',
@@ -861,6 +856,22 @@ export class Sign {
 
     const now = this.#iso()
     const fields = fillFields(fm.fields, signer.id, input.values, now)
+    // A typed answer too long to read in its box on the signed PDF is refused before anything is
+    // saved, so the signer can shorten it (SignuDoc #90).
+    const tooLong = await findAnswerTooLong(
+      fields.flatMap((f) =>
+        f.signer === signer.id && f.type === 'text' && f.value
+          ? [{ field: f, value: f.value }]
+          : [],
+      ),
+      fm.source.pages,
+    )
+    if (tooLong) {
+      throw new HotsauceError(
+        'bad_request',
+        `An answer on page ${tooLong.page} is too long to fit in its box on the document. Shorten it to ${tooLong.maxCharacters} characters or fewer, or ask the sender for a bigger box.`,
+      )
+    }
     const signers = fm.signers.map((s) =>
       s.id === signer.id
         ? {
@@ -1200,6 +1211,7 @@ export class Sign {
         fields: records.fields,
         images: records.images,
         completedAt: seconds(fm.completed ?? this.#iso()),
+        pages: fm.source.pages,
       },
       seal,
     ).catch((err) => {

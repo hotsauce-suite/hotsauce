@@ -1,7 +1,7 @@
 // Copied from SignuDoc (MIT, Copyright (c) 2026 Nyllon Software); see ../LICENSE-SignuDoc.
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { generateKeyPairSync } from "node:crypto";
+import { generateKeyPairSync, X509Certificate } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import os from "node:os";
@@ -23,7 +23,10 @@ import {
 
 const run = promisify(execFile);
 
-function makeIdentity(): SealIdentity {
+function makeIdentity(
+  commonName = "Test seal",
+  organization = "Harbour & Finch",
+): SealIdentity {
   const { privateKey, publicKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
     privateKeyEncoding: { format: "pem", type: "pkcs8" },
@@ -31,12 +34,24 @@ function makeIdentity(): SealIdentity {
   });
 
   return createSelfSignedSealIdentity({
-    commonName: "Test seal",
-    organization: "Harbour & Finch",
+    commonName,
+    organization,
     privateKeyPem: privateKey,
     publicKeyPem: publicKey,
   });
 }
+
+test("a long seal name is cut without splitting an emoji", () => {
+  const name = `${"a".repeat(63)}😀`;
+  const certificate = new X509Certificate(
+    makeIdentity(name, name).certificateChainPem[0]!,
+  );
+
+  assert.equal(
+    certificate.subject,
+    `CN=${"a".repeat(63)}\nO=${"a".repeat(63)}`,
+  );
+});
 
 async function makePdf(): Promise<PDFDocument> {
   const pdf = await PDFDocument.create();
