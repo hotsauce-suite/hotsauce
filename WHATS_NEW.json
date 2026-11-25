@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "version": "0.69.0",
+      "date": "2026-11-25",
+      "notes": [
+        {
+          "text": "Dictate tidies short dictations whose punctuation looks thin, instead of pasting them as heard"
+        },
+        {
+          "text": "Dictate → Words: click a word to add how it gets misheard (\"Rajeev\" for Rajiv), and every dictation writes the word"
+        },
+        {
+          "text": "\"also heard as\" spellings also work with no connection",
+          "area": "Mac app"
+        },
+        {
+          "text": "An update never says it's the version you already have. Every Mac app change now comes out as its own version.",
+          "area": "Mac app"
+        }
+      ]
+    },
+    {
       "version": "0.68.0",
       "date": "2026-11-25",
       "notes": [
