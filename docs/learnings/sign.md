@@ -92,3 +92,24 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
   PDFs with unpdf's `getResolvedPDFJS()`. Its document has no `destroy()`: destroy the loading task.
 - The server's `makeTestPdf` takes `{ rotate }`, so integration tests can make a turned page
   without adding pdf-lib to the server.
+
+## Uploading and saving a signature (Nov 25)
+
+- **Compare with the paper around each pixel, not one cut-off.** A phone photo of a signature
+  has a shadow across it; a single brightness threshold turns the dark side of the page into
+  ink. `cleanSignature` compares each pixel with a local average (a summed-area table, so it's
+  fast on a 1600-pixel photo) and only keeps what is clearly darker than its own paper.
+- **Crop past specks.** A single dark pixel of dust in a corner stretched the crop to the whole
+  photo. Rows and columns only count toward the crop with at least two ink pixels.
+- **Let the server decide "reused".** The client could claim a signature was the saved one; the
+  server instead compares the field's image or text with the member's saved file, and records
+  that in the `signed` event's `adoption`. It's in the event meta, so the hash chain covers it.
+- **The engine only knows typed and drawn.** An uploaded picture is stored as `input: uploaded`
+  on the envelope and handed to the engine as `drawn`; the certificate wording is a marked
+  "Hotsauce:" patch in `pdf-finalize.ts` (`describeAdoption`), which a SignuDoc re-sync must keep.
+- **Hidden per-member data goes under `.hearth/` in the personal space.** `.hearth/sign/saved.json`
+  stays out of Docs, Files and the envelope list, survives a reindex, and is private by the
+  space's own access rule. A fresh member has no personal-space clone until their first request;
+  tests that write to it directly must make one request first.
+- **Making realistic test photos:** in e2e, draw them in the page with a canvas (a gradient for
+  the shadow, a pen stroke) and pass the bytes to `setInputFiles`; no fixture files needed.
