@@ -150,6 +150,8 @@ describe('Settings search covers This Mac (R13)', () => {
   it('has every setting the search lists for it, by its heading or label', async () => {
     show(new FakeMac())
     await ready()
+    // The send key and sounds are the member's, loaded from the server after the Mac answers.
+    await screen.findByText('Send key')
     const page = screen.getByTestId('settings-mac')
     const labels = [...page.querySelectorAll('h2, .font-medium')].map((el) =>
       el.textContent?.trim(),

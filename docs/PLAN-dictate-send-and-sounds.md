@@ -2,8 +2,10 @@
 
 ## Status
 
-- Slice 1 (server + web: the member's send key and sounds, the web's dictation): in progress.
-- Slice 2 (Mac app: send key, ⇧ to send, sounds, quiet other audio, warnings): in progress.
+- Slice 1 (server + web: the member's send key and sounds, the web's dictation): built and tested.
+- Slice 2 (Mac app: send key, ⇧ to send, sounds, quiet other audio, warnings): built; the pure
+  logic is tested (DictateSendTests), the wiring compiles on the macOS CI job. Waiting on Morgan's
+  real-Mac check (send in Slack, sounds, music lowered), todo.md in the ops repo.
 
 ## Why
 

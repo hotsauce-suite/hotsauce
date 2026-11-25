@@ -25,6 +25,7 @@ public enum MacSettingsBridge {
         case screenshotCopy(Bool)
         case screenshotSave(Bool)
         case screenshotPreview(Bool)
+        case quietAudio(QuietAudio)
     }
 
     /// One of the Mac's microphones, as Settings lists it.
@@ -113,6 +114,7 @@ public enum MacSettingsBridge {
         case "screenshotCopy": return flag(value).map(Change.screenshotCopy)
         case "screenshotSave": return flag(value).map(Change.screenshotSave)
         case "screenshotPreview": return flag(value).map(Change.screenshotPreview)
+        case "quietAudio": return string(value).flatMap(QuietAudio.init(rawValue:)).map(Change.quietAudio)
         case "historyDays":
             guard let days = number(value), historyDays.contains(days) else { return nil }
             return .historyDays(days)
@@ -165,6 +167,8 @@ public enum MacSettingsBridge {
         public var account: String?
         /// The Screenshots group; nil leaves it out of the answer.
         public var screenshots: Screenshots?
+        /// Other apps' sound while dictating (docs/PLAN-dictate-send-and-sounds.md, R12).
+        public var quietAudio: QuietAudio = .off
 
         public struct Screenshots: Equatable, Sendable {
             public var shortcut: ScreenshotShortcut
@@ -220,6 +224,7 @@ public enum MacSettingsBridge {
         public var reply: [String: Any] {
             var reply = base
             if let screenshots { reply["screenshots"] = screenshots.reply }
+            reply["quietAudio"] = quietAudio.rawValue
             return reply
         }
 

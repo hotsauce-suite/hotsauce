@@ -4,13 +4,7 @@ import type { LLM } from '../meetings/llm/types.js'
 import { cleanTranscript } from './cleaner.js'
 import { type DictationStyle, styleForApp } from './prompt.js'
 import { RateLimiter } from './rate-limit.js'
-import type {
-  CleanupChoice,
-  DictationStore,
-  SendKey,
-  SoundTheme,
-  SpeechChoice,
-} from './store.js'
+import type { CleanupChoice, DictationStore, SendKey, SoundTheme, SpeechChoice } from './store.js'
 import type { DictationTranscriber } from './transcriber.js'
 import { readWav } from './wav.js'
 

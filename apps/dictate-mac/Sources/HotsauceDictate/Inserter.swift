@@ -33,6 +33,22 @@ enum Inserter {
         return .pasted
     }
 
+    /// Return, after a paste, to send what was dictated (docs/PLAN-dictate-send-and-sounds.md, R9).
+    /// Marked like the ⌘V so the key tap lets it through.
+    static func pressReturn() {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let returnKey: CGKeyCode = 36
+        let down = CGEvent(keyboardEventSource: source, virtualKey: returnKey, keyDown: true)
+        let up = CGEvent(keyboardEventSource: source, virtualKey: returnKey, keyDown: false)
+        for event in [down, up] {
+            // No modifiers: a ⇧ still held (⇧ to send) would make it Shift-Return, a new line.
+            event?.flags = []
+            event?.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
+        }
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
+    }
+
     /// Plain copy, for the member to paste themselves (and for "click to copy" in the menu).
     static func copy(_ text: String) {
         let pasteboard = NSPasteboard.general

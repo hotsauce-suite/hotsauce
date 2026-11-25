@@ -28,3 +28,17 @@
   error shows only on the macOS CI job, never on Linux. Bind the inner value with `let` first.
 - Two groups of radios saving through one endpoint each need their own "newest pick" counter, or
   a late answer for one group hides a failed save in the other.
+- Sounds shared by the web and the Mac are cheapest as one small tone table synthesized on each
+  side (no audio files). A test parses the Swift file so the two tables can't drift. Seeded noise
+  must use arithmetic that stays exact in a JS double: Park–Miller (`* 16807 % 2147483647`) does,
+  a 64-bit LCG doesn't.
+- Hands-free starts with a double tap, so a start sound played on key-down fires for taps that
+  never become dictations. Play it after the minimum hold, and play stop/cancel only if start
+  played.
+- Lowering other apps' sound: save the volume you set and put the original back only if the
+  current volume is still the one you set (the member may have changed it). Persist it so a crash
+  mid-dictation is undone at the next launch.
+- Pressing Return after a paste must check the front app is still the one the dictation started
+  in, or a "send" lands as a stray Return in whatever app the member switched to.
+- A settings-search test that collects labels from the page must wait for sections that load from
+  the server, not only for the Mac's reply.

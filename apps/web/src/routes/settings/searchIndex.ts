@@ -103,6 +103,27 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     words: ['glow', 'flames', 'animation', 'reduce motion'],
   },
   {
+    id: 'mac-quiet-audio',
+    title: 'Other apps’ sound while dictating',
+    ...MAC,
+    summary: 'Lower or mute music and videos while the mic is on.',
+    words: ['music', 'volume', 'mute', 'duck', 'quiet', 'spotify', 'youtube', 'audio'],
+  },
+  {
+    id: 'mac-send-key',
+    title: 'Send key',
+    ...MAC,
+    summary: 'The key that stops a dictation, pastes it and presses Return.',
+    words: ['send', 'space', 'return', 'enter', 'tab', 'submit', 'chat', 'slack'],
+  },
+  {
+    id: 'mac-sounds',
+    title: 'Sounds',
+    ...MAC,
+    summary: 'The sounds dictation makes as it starts, stops and sends.',
+    words: ['sound', 'chime', 'click', 'beep', 'pop', 'theme', 'mute', 'silent'],
+  },
+  {
     id: 'mac-meetings',
     title: 'Meetings',
     ...MAC,
