@@ -285,7 +285,7 @@ final class DictationController {
             appName: target?.localizedName,
             appBundle: target?.bundleIdentifier
         )
-        send(request, to: target, samples: samples, stream: stream, route: route)
+        self.send(request, to: target, samples: samples, stream: stream, route: route)
     }
 
     // MARK: Sending

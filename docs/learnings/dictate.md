@@ -42,3 +42,5 @@
   in, or a "send" lands as a stray Return in whatever app the member switched to.
 - A settings-search test that collects labels from the page must wait for sections that load from
   the server, not only for the Mac's reply.
+- A `send: Bool` parameter shadows a `send(...)` method inside that function, and the error
+  ("cannot call value of non-function type 'Bool'") shows only on the macOS job. Call `self.send`.
