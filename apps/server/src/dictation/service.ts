@@ -4,7 +4,7 @@ import type { LLM } from '../meetings/llm/types.js'
 import { cleanTranscript } from './cleaner.js'
 import { type DictationStyle, styleForApp } from './prompt.js'
 import { RateLimiter } from './rate-limit.js'
-import type { CleanupChoice, DictationStore, SpeechChoice } from './store.js'
+import type { CleanupChoice, DictationStore, SendKey, SoundTheme, SpeechChoice } from './store.js'
 import type { DictationTranscriber } from './transcriber.js'
 import { readWav } from './wav.js'
 
@@ -98,11 +98,75 @@ function wordCount(text: string): number {
  * matter, and nothing the cleanup acts on. Chinese, Japanese and Thai have no spaces, so they
  * count two characters a word.
  */
-export function skipsCleanup(raw: string, language?: string): boolean {
+export function skipsCleanup(
+  raw: string,
+  language?: string,
+  source: 'speech' | 'mac' = 'speech',
+): boolean {
   const words = NO_SPACE_SCRIPTS.test(raw) ? Math.ceil(raw.length / 2) : wordCount(raw)
+  // Apple's recognizer on the Mac punctuates far less than Deepgram: only a few words skip.
+  if (source === 'mac') return words <= OTHER_LANGUAGE_WORDS && !REPEATED_WORD.test(raw)
   const english = (language === undefined || /^en\b/i.test(language)) && !NON_ASCII_LETTER.test(raw)
   const limit = english ? PLAIN_UTTERANCE_WORDS : OTHER_LANGUAGE_WORDS
-  return words <= limit && !CLEANUP_CUES.test(raw) && !REPEATED_WORD.test(raw)
+  return (
+    words <= limit &&
+    !CLEANUP_CUES.test(raw) &&
+    !REPEATED_WORD.test(raw) &&
+    !(english && thinPunctuation(raw))
+  )
+}
+
+/** Words before a sentence needs a full stop, and before a run needs any mark at all. */
+export const UNENDED_WORDS = 8
+export const UNBROKEN_WORDS = 25
+
+/**
+ * Whether the speech model's punctuation looks too thin to paste as it is (docs/PLAN-dictate-
+ * punctuation-and-fixes.md, P1): steady speakers pause less, and Deepgram punctuates from pauses.
+ */
+export function thinPunctuation(raw: string): boolean {
+  // A dot ends a sentence only before a space or the end: not in "hotsauce.work" or "3.5".
+  if (wordCount(raw) >= UNENDED_WORDS && !/[?!…]|\.(?=\s|$)/.test(raw)) return true
+  return raw.split(/[,;:!?…\u2014]|\.(?=\s|$)/).some((run) => wordCount(run) >= UNBROKEN_WORDS)
+}
+
+/** One "also heard as" spelling and the word it is written as. */
+export interface WordFix {
+  heard: string
+  write: string
+}
+
+/**
+ * Writes each heard-as spelling as its word (H3): whole words, any capitals, longest first, in
+ * one pass so a fix never feeds another.
+ */
+export function applyFixes(text: string, fixes: readonly WordFix[]): string {
+  if (fixes.length === 0 || text === '') return text
+  const byKey = new Map<string, string>()
+  for (const fix of fixes) {
+    const key = fix.heard.toLowerCase()
+    if (!byKey.has(key)) byKey.set(key, fix.write)
+  }
+  const alternatives = [...byKey.keys()]
+    .sort((a, b) => b.length - a.length)
+    .map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'))
+  const pattern = new RegExp(
+    `(?<![\\p{L}\\p{N}])(${alternatives.join('|')})(?![\\p{L}\\p{N}])`,
+    'giu',
+  )
+  return text.replace(
+    pattern,
+    (match) => byKey.get(match.toLowerCase().replace(/\s+/g, ' ')) ?? match,
+  )
+}
+
+/** Dictionary entries for the cleanup prompt, each naming its heard-as spellings (H4). */
+export function withHeardAs(dictionary: readonly string[], fixes: readonly WordFix[]): string[] {
+  return dictionary.map((word) => {
+    const key = word.toLowerCase()
+    const heard = fixes.filter((f) => f.write.toLowerCase() === key).map((f) => f.heard)
+    return heard.length ? `${word} (also heard as ${heard.join(', ')})` : word
+  })
 }
 
 const NO_SPACE_SCRIPTS = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}]/u
@@ -140,6 +204,8 @@ export interface CleanupContext {
   language?: string | undefined
   appName?: string | undefined
   appBundle?: string | undefined
+  /** `mac`: the Mac heard it itself, and Apple's recognizer punctuates little (P3). */
+  source?: 'speech' | 'mac' | undefined
 }
 
 /** A cleanup started before key-up on the transcript as it stood then. */
@@ -163,6 +229,10 @@ export interface DictationSettings {
   /** `device`: the Mac app hears the member on the Mac alone and sends only text (R7, R8). */
   speech: SpeechChoice
   cleanup: CleanupChoice
+  /** The key that ends a dictation and sends it (docs/PLAN-dictate-send-and-sounds.md, R1). */
+  sendKey: SendKey
+  /** The sounds Dictate plays, or `off`. */
+  sounds: SoundTheme
   /** False when the server has no AI key: nothing is cleaned, whatever the choice. */
   cleanupAvailable: boolean
   models: DictationModels
@@ -228,6 +298,8 @@ export class Dictation {
     return {
       speech: this.store.speechChoice(userId),
       cleanup: this.store.cleanupChoice(userId),
+      sendKey: this.store.sendKey(userId),
+      sounds: this.store.soundTheme(userId),
       cleanupAvailable: this.#cleanupAvailable,
       models: {
         speech: this.#speechName,
@@ -269,6 +341,7 @@ export class Dictation {
       appName: req.appName,
       appBundle: req.appBundle,
       language: req.language,
+      source: 'mac',
       via: 'text',
     })
   }
@@ -289,6 +362,23 @@ export class Dictation {
       seen.add(key)
       return true
     })
+  }
+
+  /** The heard-as spellings for a member: theirs first, then the team's (H1, H3). */
+  fixes(userId: string): WordFix[] {
+    const seen = new Set<string>()
+    const out: WordFix[] = []
+    for (const scope of [userId, 'team']) {
+      for (const [write, heard] of Object.entries(this.store.heardAs(scope))) {
+        for (const h of heard) {
+          const key = h.toLowerCase()
+          if (seen.has(key)) continue
+          seen.add(key)
+          out.push({ heard: h, write })
+        }
+      }
+    }
+    return out
   }
 
   /** Counts one dictation against the member's 30 a minute; rate_limited past it. */
@@ -365,7 +455,7 @@ export class Dictation {
     if (
       this.#modeFor(principal, context.mode) === 'literal' ||
       raw === '' ||
-      skipsCleanup(raw, context.language)
+      skipsCleanup(raw, context.language, context.source)
     )
       return null
     return { transcript: raw, result: this.#clean(principal, raw, context) }
@@ -407,7 +497,7 @@ export class Dictation {
     // What the member waited for: with a speculation, only what was left of it after key-up.
     const llmMs = cleanup.skipped ? 0 : Math.round(performance.now() - llmStart)
     const result: DictateResult = {
-      text: cleanup.text,
+      text: applyFixes(cleanup.text, this.fixes(principal.userId)),
       raw,
       cleaned: cleanup.cleaned,
       durationMs: heard.durationMs,
@@ -431,7 +521,7 @@ export class Dictation {
       { name: context.appName, bundle: context.appBundle },
       { chatNames: this.#chatNames },
     )
-    if (skipsCleanup(raw, context.language)) {
+    if (skipsCleanup(raw, context.language, context.source)) {
       // Deepgram has punctuated it already and there's nothing to fix: the model would only add
       // latency (it was most of the wait).
       return { text: tidyShort(raw, style, dictionary), cleaned: false, skipped: true }
@@ -442,7 +532,7 @@ export class Dictation {
       transcript: raw,
       style,
       appName: context.appName,
-      dictionary,
+      dictionary: withHeardAs(dictionary, this.fixes(principal.userId)),
     })
     return { ...cleaned, skipped: false }
   }

@@ -9,9 +9,9 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
   sealing, signings of one envelope run one after another, and stored copies are removed when the
   commit fails.
 - **pdf-lib's page size is the MediaBox, unrotated.** pdf.js draws the CropBox with `/Rotate`
-  applied, so a turned or cropped page shows one way and stamps another. Until the stamping
-  handles those boxes, `readPdfPages` marks such pages and Sign refuses the PDF with a plain
-  message, rather than seal a signature in the wrong place.
+  applied, so a turned or cropped page shows one way and stamps another. Sign refused such PDFs
+  until slice 3c (2026-11-25) brought SignuDoc's `pdf-page-geometry.ts` across: `readPdfPages` now
+  stores the size as shown, and stamping draws through a matrix from the shown page to the page.
 - **The hash chain only covers the events.** Editing a signed field's value in Git left the chain
   intact. The `signed` event now carries a digest of what that signer filled in, and the envelope
   page checks both.
@@ -76,3 +76,30 @@ Learnings from building Sign (`packages/sign`, `apps/server/src/sign/`, `apps/we
 - `pnpm test` from the root takes over 10 minutes; while iterating run the integration file alone
   with `npx vitest run -c vitest.integration.config.ts <file>` in `apps/server` (build
   `@hotsauce/format` and `@hotsauce/sign` first or imports fail to resolve).
+
+## Bringing SignuDoc fixes across again (slice 3c, Nov 25)
+
+- Patch per upstream commit, not one big diff. `git diff <c>^1 <c> -- <file>` for each wanted
+  commit, applied in date order with `patch -F3`, carried 8 of 9 commits onto the patched vendor
+  file cleanly; one big `base..HEAD` diff mixes the fixes with features (approvers, parallel steps)
+  that touch the same functions. Check fuzzed hunks: one landed a line inside the wrong function
+  (a `finalizeEnvelope` hunk; Hotsauce has no `finalizeEnvelope`).
+- "Since date X" needs the upstream merge history: the fix list started on a branch made before
+  the base date (the rotated-page fix 07b9042 is dated Nov 16 but merged Nov 17), so a date filter
+  on `git log` alone misses it. Diff the vendored file against candidate upstream commits to find
+  which one it was copied from.
+- Upstream tests use `node:test` and `pdfjs-dist`; here swap `node:test` for `vitest`, and read
+  PDFs with unpdf's `getResolvedPDFJS()`. Its document has no `destroy()`: destroy the loading task.
+- The server's `makeTestPdf` takes `{ rotate }`, so integration tests can make a turned page
+  without adding pdf-lib to the server.
+
+## The right rail (slice 3d, Nov 25)
+
+- A sticky rail inside an `overflow-y-auto` page needs its own `max-h` and scroll
+  (`lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto`), or a tall rail scrolls away with the pages.
+  Put what's used most while scrolling (the field types) first: in the tour's 1000 px tall window,
+  People pushed them below the rail's fold.
+- Keep the controls first in the DOM and move the rail with `lg:order-2`, so Tab still reaches the
+  controls before the pages.
+- Copy that says "below" or "at the top" goes stale with a layout change: grep the screen and its
+  help page for where-words.

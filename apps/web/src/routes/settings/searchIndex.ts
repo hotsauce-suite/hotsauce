@@ -103,6 +103,27 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     words: ['glow', 'flames', 'animation', 'reduce motion'],
   },
   {
+    id: 'mac-quiet-audio',
+    title: 'Other apps’ sound while dictating',
+    ...MAC,
+    summary: 'Lower or mute music and videos while the mic is on.',
+    words: ['music', 'volume', 'mute', 'duck', 'quiet', 'spotify', 'youtube', 'audio'],
+  },
+  {
+    id: 'mac-send-key',
+    title: 'Send key',
+    ...MAC,
+    summary: 'The key that stops a dictation, pastes it and presses Return.',
+    words: ['send', 'space', 'return', 'enter', 'tab', 'submit', 'chat', 'slack'],
+  },
+  {
+    id: 'mac-sounds',
+    title: 'Sounds',
+    ...MAC,
+    summary: 'The sounds dictation makes as it starts, stops and sends.',
+    words: ['sound', 'chime', 'click', 'beep', 'pop', 'theme', 'mute', 'silent'],
+  },
+  {
     id: 'mac-meetings',
     title: 'Meetings',
     ...MAC,
@@ -314,6 +335,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     ...APPS,
     summary: 'Install the app from Chrome or on your phone’s Home Screen.',
     words: ['install', 'pwa', 'home screen', 'phone', 'iphone', 'dock', 'taskbar'],
+  },
+  {
+    id: 'phone-shortcuts',
+    title: 'Phone shortcuts',
+    ...APPS,
+    summary: 'One tap from your phone to a voice note, a new task, Save link, Ask or Ramble.',
+    words: ['shortcut', 'shortcuts', 'android', 'iphone', 'action button', 'widget', 'home screen'],
   },
   {
     id: 'extension',

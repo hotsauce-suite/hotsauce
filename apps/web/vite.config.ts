@@ -8,6 +8,7 @@ import { msw } from 'msw/vite'
 import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { type BuiltAsset, type BuiltChunk, screenFiles } from './src/build/precache.ts'
+import { QUICK_ACTIONS } from './src/lib/phoneShortcuts.ts'
 
 // API_PROXY_TARGET points the dev server at a server on another port (e.g. two checkouts at once).
 const API_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:3000'
@@ -194,16 +195,15 @@ export default defineConfig(({ mode, command }) => ({
             display: 'standalone',
             background_color: '#f4ece0',
             theme_color: '#1f1915',
-            // Android shows these when the home-screen icon is held; iPhone ignores them.
-            shortcuts: [
-              {
-                name: 'New voice note',
-                short_name: 'Voice note',
-                description: 'Start recording a voice note',
-                url: '/dictate/voice?start=1',
-                icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
-              },
-            ],
+            // Android shows these when the home-screen icon is held; iPhone ignores them, so
+            // Settings → Apps shows iPhone the same actions for Apple's Shortcuts app.
+            shortcuts: QUICK_ACTIONS.map((action) => ({
+              name: action.name,
+              short_name: action.shortName,
+              description: action.description,
+              url: action.path,
+              icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+            })),
             // Android's share sheet offers the installed app; a shared page is saved to Links.
             share_target: {
               action: '/links/save',

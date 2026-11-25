@@ -299,6 +299,84 @@ describe('signing it yourself (R9)', () => {
     })
   })
 
+  it('refuses a typed answer too long to read in its box, before anything is saved', async () => {
+    const { env } = await ready()
+    const res = await api('POST', `/api/sign/alice/${env.id}/sign`, {
+      json: {
+        consent: true,
+        blobOid: env.blobOid,
+        values: [
+          { field: 'f1', value: 'Alice Archer' },
+          { field: 'f4', value: 'A long answer that keeps going. '.repeat(120) },
+        ],
+      },
+      status: 400,
+    })
+    expect(res.error.message).toMatch(/answer on page 2 is too long.*Shorten it to \d+ characters/)
+    const after = await api('GET', `/api/sign/alice/${env.id}`)
+    expect(after.status).toBe('draft')
+    const listing = await api('GET', '/api/files?space=team&folder=Contracts')
+    expect(listing.files.map((f: { name: string }) => f.name)).toEqual(['offer.pdf'])
+  })
+
+  it('places fields on a turned page as it is shown, and stamps them there', async () => {
+    // A landscape scan: a portrait page with /Rotate 90.
+    const file = await upload('scan.pdf', makeTestPdf([['Scanned form']], 'Scan', { rotate: 90 }))
+    const made = await api('POST', '/api/sign', { json: { fileSpace: 'team', fileId: file.id } })
+    expect(made.source.pages).toEqual([{ width: 792, height: 612 }])
+    const fields = [
+      {
+        id: 'f1',
+        signer: 's1',
+        type: 'signature',
+        page: 1,
+        x: 0.1,
+        y: 0.7,
+        width: 0.3,
+        height: 0.1,
+      },
+      { id: 'f2', signer: 's1', type: 'text', page: 1, x: 0.1, y: 0.05, width: 0.5, height: 0.1 },
+    ]
+    const env = await api('PUT', `/api/sign/alice/${made.id}`, {
+      json: { title: 'Scan', fields, blobOid: made.blobOid },
+    })
+    const done = await api('POST', `/api/sign/alice/${env.id}/sign`, {
+      json: {
+        consent: true,
+        blobOid: env.blobOid,
+        values: [
+          { field: 'f1', value: 'Alice Archer' },
+          { field: 'f2', value: 'Upright' },
+        ],
+      },
+    })
+    const signed = await services.files.bytes('team', done.result.signedFile, 50_000_000)
+    if (!signed) throw new Error('missing output')
+    const pdf = await getDocumentProxy(new Uint8Array(signed))
+    const page = await pdf.getPage(1)
+    const viewport = page.getViewport({ scale: 1 })
+    const items = (await page.getTextContent()).items as Array<{
+      str?: string
+      transform?: number[]
+    }>
+    const item = items.find((i) => i.str === 'Upright')
+    if (!item?.transform) throw new Error('the answer is not on the page')
+    // Where it shows, on the page as a reader draws it (y down from the top), and upright.
+    const [a, b, c, d, e, f] = viewport.transform as number[]
+    const [ta, , , td, tx, ty] = item.transform as number[]
+    const x = (a as number) * (tx as number) + (c as number) * (ty as number) + (e as number)
+    const y = (b as number) * (tx as number) + (d as number) * (ty as number) + (f as number)
+    expect(viewport.width).toBe(792)
+    expect(x).toBeGreaterThan(0.1 * 792)
+    expect(x).toBeLessThan(0.6 * 792)
+    expect(y).toBeGreaterThan(0.05 * 612)
+    expect(y).toBeLessThan(0.15 * 612)
+    // Drawn turned with the page, so it reads left to right once the page is turned.
+    expect(Math.abs(ta as number)).toBeLessThan(0.001)
+    expect(Math.abs(td as number)).toBeLessThan(0.001)
+    await pdf.cleanup()
+  })
+
   it('takes a drawn signature', async () => {
     const { env } = await ready()
     const done = await api('POST', `/api/sign/alice/${env.id}/sign`, {

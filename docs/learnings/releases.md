@@ -103,7 +103,7 @@ Learnings from building release images and the self-updater (`docs/PLAN-releases
   reads them from `main`. Checklist lines (`- [x] tests pass`) look like bullets: the parser skips
   them. A hand edit to `WHATS_NEW.json` releases nothing, so it reaches Settings only with the next
   release.
-- **A Mac-only change makes no release, so a Mac app's version alone can't say it's behind.** The
+- **Mac-only changes used to make no release (they do since 2026-11-24), so a version alone couldn't say a Mac app is behind.** The
   Mac app reports `version+build` and `mac-app.json` names both; the build breaks a tie. The
   server caches the DMG and `mac-app.json` separately, so a DMG older than the version file is
   fetched again, or Settings would offer an update and hand out the old app.

@@ -1,6 +1,6 @@
 import { addDays } from '@hotsauce/format'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useMatches, useNavigate, useParams } from 'react-router'
+import { useLocation, useMatches, useNavigate, useParams, useSearchParams } from 'react-router'
 import { HotsauceApiError } from '../../api/client'
 import {
   memberTimeZone,
@@ -208,6 +208,21 @@ export default function TasksPage() {
   useEffect(() => {
     if ((location.state as { quickAdd?: boolean } | null)?.quickAdd) setQuickOpen(true)
   }, [location.state])
+  // The phone's shortcuts (lib/phoneShortcuts.ts): ?new=1 opens quick add, ?ramble=1 opens it
+  // straight into Ramble. The address is tidied at once, so Back or a reload doesn't do it again.
+  const [search, setSearch] = useSearchParams()
+  const [startRambling, setStartRambling] = useState(false)
+  const rambleStarted = useCallback(() => setStartRambling(false), [])
+  useEffect(() => {
+    const ramble = search.get('ramble') === '1'
+    if (!ramble && search.get('new') !== '1') return
+    setQuickOpen(true)
+    if (ramble) setStartRambling(true)
+    const rest = new URLSearchParams(search)
+    rest.delete('new')
+    rest.delete('ramble')
+    setSearch(rest, { replace: true })
+  }, [search, setSearch])
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
   const showToast = useCallback((t: Omit<Toast, 'id'>) => {
@@ -560,6 +575,8 @@ export default function TasksPage() {
                     onOpenChange={setQuickOpen}
                     onAdded={added}
                     onError={notify}
+                    startRambling={startRambling}
+                    onRambleStarted={rambleStarted}
                   />
                 </div>
               ) : null}

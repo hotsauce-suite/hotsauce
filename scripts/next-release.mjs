@@ -5,7 +5,7 @@
 // prints one JSON line:
 //
 //   {"release":true,"last":"0.15.0","version":"0.15.1","bump":"patch"}
-//   {"release":false,"last":"0.15.0","reason":"only docs, site, CI or Mac app sources changed"}
+//   {"release":false,"last":"0.15.0","reason":"only docs, site or CI changed"}
 //
 // The version comes from the tags. One exception: when HOTSAUCE_VERSION on main is higher than the
 // newest tag, a release wrote its number and then failed (say the image build broke), so that
@@ -28,8 +28,9 @@ const NO_RELEASE = [
   /^scripts\/(next-release\.mjs|release-notes\.mjs|check-install\.sh|deploy-fly\.sh)$/,
   /\.test\.[cm]?[jt]sx?$/,
   /^apps\/[^/]+\/test\//,
-  // The Mac app ships on its own download; only its built release/ goes into the image.
-  /^apps\/dictate-mac\/(?!release\/)/,
+  // The Mac app's sources are not here on purpose: a Mac-only change releases a new number, so
+  // its update never offers the version someone already has, and its "What's new" lines come out
+  // with it (docs/PLAN-auto-releases.md R3).
 ]
 
 export function parseVersion(v) {
@@ -80,7 +81,7 @@ export function plan({ tags, changed, written = null, feature = false, force = f
   if (changed.length === 0)
     return { release: false, last, reason: 'nothing changed since the last release' }
   if (!force && !needsRelease(changed)) {
-    return { release: false, last, reason: 'only docs, site, CI or Mac app sources changed' }
+    return { release: false, last, reason: 'only docs, site or CI changed' }
   }
   const kind = feature ? 'minor' : 'patch'
   return { release: true, last, version: bump(last, kind), bump: kind }

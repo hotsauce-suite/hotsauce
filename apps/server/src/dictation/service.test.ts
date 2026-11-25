@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Principal } from '../auth/index.js'
 import { FakeLLM } from '../meetings/llm/fake.js'
-import { Dictation, modelName, skipsCleanup } from './service.js'
+import {
+  applyFixes,
+  Dictation,
+  modelName,
+  skipsCleanup,
+  thinPunctuation,
+  withHeardAs,
+} from './service.js'
 import { DictationStore } from './store.js'
 import type { DictationTranscriber } from './transcriber.js'
 
@@ -180,5 +187,100 @@ describe('the cleanup choice in the stream', () => {
     expect(service.speculate(MEMBER, 'um so the the report', { mode: 'clean' })).not.toBeNull()
     service.store.setCleanupChoice(MEMBER.userId, 'off')
     expect(service.speculate(MEMBER, 'um so the the report', { mode: 'clean' })).toBeNull()
+  })
+})
+
+describe('thin punctuation (P1-P3)', () => {
+  it('sends a short run-on to the cleanup', () => {
+    const runOn =
+      'I talked to the team yesterday we decided to move the launch to Friday can you update the doc'
+    expect(thinPunctuation(runOn)).toBe(true)
+    expect(skipsCleanup(runOn)).toBe(false)
+    expect(skipsCleanup('Ship it on Wednesday')).toBe(true) // under 8 words: fine without a stop
+  })
+
+  it('sends a long unbroken run to the cleanup even with a stop at the end', () => {
+    const run = `${Array.from({ length: 26 }, () => 'and').join(' ')}.`
+    expect(thinPunctuation(run)).toBe(true)
+    expect(skipsCleanup(run)).toBe(false)
+  })
+
+  it('doesn’t take a dot in a domain or number for a full stop', () => {
+    expect(
+      thinPunctuation('email the deck to hotsauce.work and tell them we need it by monday'),
+    ).toBe(true)
+  })
+
+  it('still skips a short dictation that is punctuated (P2)', () => {
+    expect(
+      skipsCleanup('I talked to the team. We moved the launch to Friday, so update the doc.'),
+    ).toBe(true)
+  })
+
+  it('cleans anything over three words the Mac heard itself (P3)', () => {
+    expect(skipsCleanup('Sounds good thanks', 'en-US', 'mac')).toBe(true)
+    expect(skipsCleanup('Sounds good, see you then.', 'en-US', 'mac')).toBe(false)
+  })
+
+  it('sends text the Mac heard to the model', async () => {
+    const { service, llm } = dictation('')
+    await service.cleanText(MEMBER, { text: 'Sounds good, see you then.', mode: 'clean' })
+    expect(llm.calls).toHaveLength(1)
+  })
+})
+
+describe('also heard as (H3, H4)', () => {
+  const fixes = [
+    { heard: 'Rajeev', write: 'Rajiv' },
+    { heard: 'hot sauce', write: 'Hotsauce' },
+  ]
+
+  it('writes each heard spelling as its word: whole words, any capitals, possessives kept', () => {
+    expect(applyFixes("rajeev's notes for RAJEEV and Rajeevan", fixes)).toBe(
+      "Rajiv's notes for Rajiv and Rajeevan",
+    )
+    expect(applyFixes('Open hot  sauce dictate', fixes)).toBe('Open Hotsauce dictate')
+    expect(applyFixes('nothing here', [])).toBe('nothing here')
+  })
+
+  it('prefers the longer spelling and never chains fixes', () => {
+    expect(
+      applyFixes('ask raj eev and raj', [
+        { heard: 'raj', write: 'Raj K' },
+        { heard: 'raj eev', write: 'Rajiv' },
+        { heard: 'Rajiv', write: 'nope' },
+      ]),
+    ).toBe('ask Rajiv and Raj K')
+  })
+
+  it('names the spellings in the prompt dictionary', () => {
+    expect(withHeardAs(['rajiv'], fixes)).toEqual(['rajiv (also heard as Rajeev)'])
+    expect(withHeardAs(['Rajiv', 'Clerk'], fixes)).toEqual([
+      'Rajiv (also heard as Rajeev)',
+      'Clerk',
+    ])
+  })
+
+  it('fixes every dictation, cleaned or skipped, the member’s spelling first', async () => {
+    const { service } = dictation('Tell Rajeev thanks.')
+    service.store.setWords(MEMBER.userId, ['Rajiv'])
+    service.store.setHeardAs(MEMBER.userId, 'Rajiv', ['Rajeev'])
+    service.store.setWords('team', ['Rajeev Team'])
+    expect(await service.dictate(MEMBER, req)).toMatchObject({
+      text: 'Tell Rajiv thanks',
+      cleaned: false,
+    })
+    expect(await service.dictate(MEMBER, { ...req, mode: 'literal' })).toMatchObject({
+      text: 'Tell Rajiv thanks.',
+    })
+    expect(service.fixes(MEMBER.userId)).toEqual([{ heard: 'Rajeev', write: 'Rajiv' }])
+  })
+
+  it('tells the model the spellings', async () => {
+    const { service, llm } = dictation('um tell Rajeev thanks')
+    service.store.setWords(MEMBER.userId, ['Rajiv'])
+    service.store.setHeardAs(MEMBER.userId, 'Rajiv', ['Rajeev'])
+    await service.dictate(MEMBER, req)
+    expect(JSON.stringify(llm.calls[0])).toContain('Rajiv (also heard as Rajeev)')
   })
 })

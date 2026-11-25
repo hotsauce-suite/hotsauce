@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { DictateShortcuts } from '../../apps/dictate/DictateShortcuts'
 import { secondaryButton } from '../../apps/meetings/components/common'
 import { product } from '../../brand/product'
 import { chordFromKey, chordRefusal } from '../../lib/macScreenshotShortcut'
@@ -16,6 +17,8 @@ import {
   type MacSettingValues,
   macSettingsAction,
   macSettingsBridge,
+  QUIET_AUDIO,
+  type QuietAudio,
   readMacSettings,
   setMacSetting,
 } from '../../lib/macSettings'
@@ -141,7 +144,7 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
       <Section id="dictation" title="Dictation">
         <Row
           label="Dictation shortcut"
-          hint={`Hold it to dictate into any app; tap it twice for hands-free.`}
+          hint={`Hold it to dictate into any app; tap it twice for hands-free. The send key below sends what you said.`}
         >
           <select
             aria-label="Dictation shortcut"
@@ -217,6 +220,30 @@ function MacSettingsForm({ bridge }: { bridge: MacSettingsBridge }) {
           busy={busy}
           onChange={(v) => void change('edgeGlow', v)}
         />
+        {settings.quietAudio ? (
+          <Row
+            label="Other apps’ sound while dictating"
+            hint="Lowers or mutes music and videos while the mic is on, and puts them back after."
+          >
+            <select
+              aria-label="Other apps’ sound while dictating"
+              data-testid="mac-quiet-audio"
+              value={settings.quietAudio}
+              aria-disabled={busy}
+              onChange={(e) => void change('quietAudio', e.target.value as QuietAudio)}
+              className="h-9 rounded-lg border border-ash-strong bg-paper-raised px-2 text-sm"
+            >
+              {QUIET_AUDIO.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.label}
+                </option>
+              ))}
+            </select>
+          </Row>
+        ) : null}
+        <div className="py-3">
+          <DictateShortcuts compact />
+        </div>
       </Section>
 
       {settings.screenshots ? (

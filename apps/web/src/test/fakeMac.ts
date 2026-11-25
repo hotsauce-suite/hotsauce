@@ -172,6 +172,7 @@ export function defaultMacSettings(): MacSettings {
     showInMenuBar: true,
     menuBarIconHidden: false,
     historyDays: 30,
+    quietAudio: 'off',
     microphoneChoice: null,
     microphones: [
       { id: 'BuiltInMicrophoneDevice', name: 'MacBook Pro Microphone' },

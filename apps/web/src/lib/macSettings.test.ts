@@ -8,6 +8,7 @@ import {
   type MacSettings,
   parseMacSettings,
   parseScreenshotSettings,
+  QUIET_AUDIO,
   readMacSettings,
   setMacSetting,
 } from './macSettings'
@@ -25,6 +26,7 @@ const settingsArb: fc.Arbitrary<MacSettings> = fc.record({
   showInMenuBar: fc.boolean(),
   menuBarIconHidden: fc.boolean(),
   historyDays: fc.constantFrom(...HISTORY_DAYS),
+  quietAudio: fc.option(fc.constantFrom(...QUIET_AUDIO.map((q) => q.id)), { nil: null }),
   microphoneChoice: fc.option(fc.string(), { nil: null }),
   microphones: fc.array(fc.record({ id: fc.string(), name: fc.string() })),
   permissions: fc.record({

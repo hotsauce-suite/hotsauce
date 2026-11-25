@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { connectLink } from '../../api/dictation'
+import * as sounds from '../../lib/dictateSounds'
 import { renderApp } from '../../test/renderApp'
 
 const opened = vi.hoisted(() => ({ links: [] as string[] }))
@@ -60,6 +61,40 @@ describe('Hotsauce Dictate page', () => {
   })
 })
 
+describe('also heard as (docs/PLAN-dictate-punctuation-and-fixes.md, H5)', () => {
+  it('adds and removes the ways a word gets misheard', async () => {
+    const user = userEvent.setup()
+    renderApp('/dictate')
+    const mine = await screen.findByTestId('dictate-words-mine')
+    await within(mine).findByText('None yet.')
+    await user.type(within(mine).getByRole('textbox'), 'Rajiv{Enter}')
+    await user.click(await within(mine).findByRole('button', { name: 'Rajiv: also heard as' }))
+    const editor = within(mine).getByTestId('dictate-heard-as-mine')
+    expect(editor).toHaveTextContent('When Dictate hears one of these, it writes Rajiv')
+    await user.type(within(editor).getByRole('textbox'), 'Rajeev, Rajeef{Enter}')
+    expect(await within(mine).findByText('← Rajeev, Rajeef')).toBeInTheDocument()
+    await user.click(within(editor).getByRole('button', { name: 'Remove Rajeef' }))
+    expect(await within(mine).findByText('← Rajeev')).toBeInTheDocument()
+
+    // Removing the word takes its spellings with it.
+    await user.click(within(mine).getByRole('button', { name: 'Remove Rajiv' }))
+    await within(mine).findByText('None yet.')
+    expect(within(mine).queryByTestId('dictate-heard-as-mine')).toBeNull()
+    await user.type(within(mine).getByRole('textbox'), 'Rajiv{Enter}')
+    expect(
+      await within(mine).findByRole('button', { name: 'Rajiv: also heard as' }),
+    ).toBeInTheDocument()
+    expect(within(mine).queryByText('← Rajeev')).toBeNull()
+    expect(within(mine).queryByTestId('dictate-heard-as-mine')).toBeNull()
+  })
+
+  it('shows the team’s spellings next to the word', async () => {
+    renderApp('/dictate')
+    const team = await screen.findByTestId('dictate-words-team')
+    expect(await within(team).findByText('← Amber')).toBeInTheDocument()
+  })
+})
+
 describe('Dictate models (docs/PLAN-dictate-models.md)', () => {
   it('shows the models in use and saves my cleanup choice (R5)', async () => {
     const user = userEvent.setup()
@@ -91,6 +126,30 @@ describe('Dictate models (docs/PLAN-dictate-models.md)', () => {
     expect(await screen.findByText('Saved. Your next dictation uses it.')).toBeInTheDocument()
     expect(line).toHaveTextContent('Speech:Apple, on the Mac only')
     expect(within(screen.getByTestId('dictate-cleanup-fast')).getByRole('radio')).toBeChecked()
+  })
+})
+
+describe('Shortcut and sounds (docs/PLAN-dictate-send-and-sounds.md)', () => {
+  it('saves my send key and sounds, and plays a sound I pick (R3)', async () => {
+    const played = vi.spyOn(sounds, 'playDictateSound').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    renderApp('/dictate')
+    const box = await screen.findByTestId('dictate-shortcuts')
+    expect(screen.getByRole('link', { name: 'Shortcut and sounds' })).toHaveAttribute(
+      'href',
+      '/dictate/mac#shortcut',
+    )
+    expect(within(box).getByRole('radio', { name: 'Space' })).toBeChecked()
+    expect(within(box).getByRole('radio', { name: 'Soft' })).toBeChecked()
+
+    await user.click(within(box).getByRole('radio', { name: 'Return' }))
+    expect(await within(box).findByText(/^Saved\./)).toBeInTheDocument()
+    await user.click(within(box).getByRole('radio', { name: 'Chime' }))
+    expect(played).toHaveBeenCalledWith('chime', 'start')
+    await waitFor(() => expect(within(box).getByRole('radio', { name: 'Chime' })).toBeChecked())
+
+    // Still mine after a reload.
+    played.mockRestore()
   })
 })
 

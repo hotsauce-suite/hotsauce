@@ -343,6 +343,36 @@ describe('device tokens', () => {
     })
   })
 
+  it('save heard-as spellings, list them, and write dictations with them (H1, H3)', async () => {
+    const { token } = await connect()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    await json(
+      await call('PUT', '/api/dictation/words', {
+        as: ALICE,
+        json: { scope: 'mine', words: ['Rajiv'] },
+      }),
+    )
+    const saved = await call('PUT', '/api/dictation/words/heard-as', {
+      as: ALICE,
+      json: { scope: 'mine', word: 'Rajiv', heard: ['Rajeev'] },
+    })
+    expect(await json(saved)).toEqual({ scope: 'mine', word: 'Rajiv', heard: ['Rajeev'] })
+    const refused = await call('PUT', '/api/dictation/words/heard-as', {
+      as: ALICE,
+      json: { scope: 'team', word: 'Nobody', heard: ['x'] },
+    })
+    expect(refused.status).toBe(400)
+    expect(await json(await call('GET', '/api/dictation/words', { token }))).toMatchObject({
+      heardAs: { mine: { Rajiv: ['Rajeev'] }, team: {} },
+      fixes: [{ heard: 'Rajeev', write: 'Rajiv' }],
+    })
+    const cleaned = await call('POST', '/api/dictation/clean', {
+      as: ALICE,
+      json: { text: 'Thanks rajeev', mode: 'literal' },
+    })
+    expect(await json(cleaned)).toMatchObject({ text: 'Thanks Rajiv' })
+  })
+
   it('add and remove against the current list, so concurrent edits keep each other', async () => {
     const { token } = await connect()
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -464,6 +494,8 @@ describe('word lists', () => {
       account: ALICE,
       mine: [],
       team: ['Hotsauce', 'Clerk', 'Deepgram', 'Anthropic', 'Claude'],
+      heardAs: { mine: {}, team: {} },
+      fixes: [],
     })
     expect(
       await json(
@@ -486,6 +518,8 @@ describe('word lists', () => {
       account: BOB,
       mine: [],
       team: ['Acme', 'Biosafety'],
+      heardAs: { mine: {}, team: {} },
+      fixes: [],
     })
     await json(
       await call('PUT', '/api/dictation/words', {
@@ -512,6 +546,8 @@ describe('models and the cleanup choice (docs/PLAN-dictate-models.md)', () => {
     expect(await json(await call('GET', '/api/dictation/settings', { as: ALICE }))).toEqual({
       speech: 'online',
       cleanup: 'fast',
+      sendKey: 'space',
+      sounds: 'soft',
       cleanupAvailable: true,
       models: {
         speech: 'Test transcriber',
@@ -565,6 +601,41 @@ describe('models and the cleanup choice (docs/PLAN-dictate-models.md)', () => {
     expect(
       (await call('PUT', '/api/dictation/settings', { token, json: { cleanup: 'off' } })).status,
     ).toBe(401)
+  })
+})
+
+describe('the send key and sounds (docs/PLAN-dictate-send-and-sounds.md)', () => {
+  it('saves each member’s send key and sounds, and refuses anything else (R1, R2)', async () => {
+    expect(
+      await json(
+        await call('PUT', '/api/dictation/settings', { as: ALICE, json: { sendKey: 'return' } }),
+      ),
+    ).toMatchObject({ sendKey: 'return', sounds: 'soft', cleanup: 'fast' })
+    expect(
+      await json(
+        await call('PUT', '/api/dictation/settings', { as: ALICE, json: { sounds: 'chime' } }),
+      ),
+    ).toMatchObject({ sendKey: 'return', sounds: 'chime' })
+    await call('PUT', '/api/dictation/settings', { as: ALICE, json: { cleanup: 'off' } })
+    expect(await json(await call('GET', '/api/dictation/settings', { as: ALICE }))).toMatchObject({
+      sendKey: 'return',
+      sounds: 'chime',
+      cleanup: 'off',
+    })
+    expect(await json(await call('GET', '/api/dictation/settings', { as: BOB }))).toMatchObject({
+      sendKey: 'space',
+      sounds: 'soft',
+    })
+    for (const bad of [{ sendKey: 'f5' }, { sounds: 'loud' }, { sendKey: 'off', color: 'red' }])
+      await json(await call('PUT', '/api/dictation/settings', { as: ALICE, json: bad }), 400)
+    expect(
+      await json(
+        await call('PUT', '/api/dictation/settings', {
+          as: ALICE,
+          json: { sendKey: 'off', sounds: 'off' },
+        }),
+      ),
+    ).toMatchObject({ sendKey: 'off', sounds: 'off' })
   })
 })
 

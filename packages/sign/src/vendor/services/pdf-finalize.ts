@@ -12,9 +12,17 @@ import type { FieldRecord } from "../schemas/field.ts";
 import type { SignerRecord } from "../schemas/signer.ts";
 import { buildSignatureManifestation } from "../signature-meanings.ts";
 import { describeSignerCorrectedEvent } from "./audit.ts";
+import { isCapturedMessageId } from "./captured-email.ts";
 import { canonicalJson } from "../utils/canonical-json.ts";
 import { normalizedRectToPdfRect } from "../utils/pdf-coords.ts";
 import { embedTextFaces, type TextFace } from "./pdf-fonts.ts";
+import {
+  drawOnDisplayedPage,
+  fieldOnDisplayedPage,
+  getDisplayedPageGeometry,
+  type DisplayedPageGeometry,
+  type StoredPageSize,
+} from "./pdf-page-geometry.ts";
 import { sha256Hex } from "./pdf-seal.ts";
 
 /** Hotsauce: the colour typed signatures are stamped in (blue-black, like pen ink). */
@@ -243,6 +251,244 @@ function getFieldPadding(widthPt: number, heightPt: number): number {
   return Math.max(2, Math.min(widthPt, heightPt) * 0.12);
 }
 
+/**
+ * The smallest size an answer typed into a field is allowed to need. Signing
+ * refuses an answer that only fits its box below this, so every answer on a
+ * finished document can be read.
+ */
+export const MIN_FIELD_TEXT_SIZE = 4;
+
+/** Below this, a value already accepted is still drawn whole, however small. */
+const LAST_RESORT_FIELD_TEXT_SIZE = 0.5;
+
+const FIELD_TEXT_LINE_HEIGHT = 1.15;
+
+type FieldTextLayout = {
+  /** From the top of the first line to the foot of the last, in points. */
+  blockHeight: number;
+  fits: boolean;
+  lines: string[];
+  size: number;
+};
+
+/**
+ * Wraps a field value. Unlike wrapText, the spaces inside a line are kept as
+ * the signer typed them; only those where a line breaks are dropped.
+ */
+export function wrapFieldText(
+  font: TextFace,
+  size: number,
+  maxWidth: number,
+  text: string,
+): string[] {
+  const parts = text.trim().split(/(\s+)/);
+  const lines: string[] = [];
+  let currentLine = "";
+  let pendingSpace = "";
+
+  for (let index = 0; index < parts.length; index += 2) {
+    const word = parts[index] ?? "";
+
+    if (!word) {
+      continue;
+    }
+
+    for (const chunk of chunkLongWord(font, size, maxWidth, word)) {
+      const candidate = currentLine
+        ? `${currentLine}${pendingSpace}${chunk}`
+        : chunk;
+
+      if (!currentLine || font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+        currentLine = candidate;
+      } else {
+        lines.push(currentLine);
+        currentLine = chunk;
+      }
+
+      pendingSpace = "";
+    }
+
+    pendingSpace = parts[index + 1] ?? "";
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+function layoutAtSize(
+  font: TextFace,
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+  size: number,
+): FieldTextLayout {
+  const lines = wrapFieldText(font, size, maxWidth, text);
+  const blockHeight =
+    lines.length === 0
+      ? 0
+      : (lines.length - 1) * size * FIELD_TEXT_LINE_HEIGHT + size;
+
+  // A line can be wider than the box only when one character is.
+  const fits =
+    blockHeight <= maxHeight &&
+    lines.every((line) => font.widthOfTextAtSize(line, size) <= maxWidth);
+
+  return { blockHeight, fits, lines, size };
+}
+
+/**
+ * Lays a value out in its box: one line at the preferred size when it fits,
+ * otherwise wrapped onto as many lines as it needs, at the largest size, no
+ * smaller than minSize, at which every line fits. When even minSize is too
+ * big, the layout at minSize is returned with fits false.
+ */
+function layoutFieldText(
+  font: TextFace,
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+  preferredSize: number,
+  minSize: number,
+): FieldTextLayout {
+  const largest = Math.max(minSize, Math.min(preferredSize, maxHeight));
+  const atLargest = layoutAtSize(font, text, maxWidth, maxHeight, largest);
+
+  if (atLargest.fits) {
+    return atLargest;
+  }
+
+  const atSmallest = layoutAtSize(font, text, maxWidth, maxHeight, minSize);
+
+  if (!atSmallest.fits) {
+    return atSmallest;
+  }
+
+  // A smaller size never needs more room, so the size is found by halving.
+  let best = atSmallest;
+  let low = minSize;
+  let high = largest;
+
+  while (high - low > 0.1) {
+    const middle = (low + high) / 2;
+    const layout = layoutAtSize(font, text, maxWidth, maxHeight, middle);
+
+    if (layout.fits) {
+      best = layout;
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+
+  return best;
+}
+
+/** The room a text value has inside its field, as the stamp lays it out. */
+function getTextFieldBox(rect: { heightPt: number; widthPt: number }) {
+  const padding = getFieldPadding(rect.widthPt, rect.heightPt);
+
+  // A box too small even for one line at the readable size still takes
+  // one line at it, as it always has, but never a second.
+  const maxHeight = Math.max(MIN_FIELD_TEXT_SIZE, rect.heightPt - padding * 2);
+
+  return {
+    maxHeight,
+    maxWidth: Math.max(MIN_FIELD_TEXT_SIZE, rect.widthPt - padding * 2),
+    padding,
+    preferredSize: Math.min(maxHeight, rect.heightPt * 0.64),
+  };
+}
+
+/**
+ * Whether a value typed into a field fits its box at a readable size on the
+ * page it is placed on. When it does not, also the most of its characters
+ * that would.
+ */
+export function measureFieldTextFit(
+  font: TextFace,
+  field: Pick<FieldRecord, "height" | "width" | "x" | "y">,
+  page: Pick<StoredPageSize, "heightPt" | "widthPt">,
+  value: string,
+): { fits: true } | { fits: false; maxCharacters: number } {
+  const text = value.trim();
+  const box = getTextFieldBox(normalizedRectToPdfRect(field, page));
+  const fitsText = (candidate: string) =>
+    layoutFieldText(
+      font,
+      candidate,
+      box.maxWidth,
+      box.maxHeight,
+      box.preferredSize,
+      MIN_FIELD_TEXT_SIZE,
+    ).fits;
+
+  if (fitsText(text)) {
+    return { fits: true };
+  }
+
+  const characters = Array.from(text);
+  let low = 0;
+  let high = characters.length - 1;
+
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+
+    if (fitsText(characters.slice(0, middle).join(""))) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
+  }
+
+  return { fits: false, maxCharacters: low };
+}
+
+/**
+ * The first value a signer typed that would not fit its box at a readable
+ * size, with the most of its characters that would, or null when all fit.
+ * Measured with the fonts the finished document is drawn with.
+ */
+export async function findTypedValueTooLongForField(
+  entries: ReadonlyArray<{
+    field: Pick<FieldRecord, "height" | "page" | "width" | "x" | "y">;
+    value: string;
+  }>,
+  pages: readonly StoredPageSize[],
+): Promise<{ maxCharacters: number; page: number } | null> {
+  const measurable = entries.flatMap((entry) => {
+    const page = pages.find((stored) => stored.pageNumber === entry.field.page);
+
+    return page && entry.value.trim() ? [{ ...entry, pageSize: page }] : [];
+  });
+
+  if (measurable.length === 0) {
+    return null;
+  }
+
+  const faces = await embedTextFaces(
+    await PDFDocument.create(),
+    measurable.map((entry) => entry.value),
+  );
+
+  for (const entry of measurable) {
+    const fit = measureFieldTextFit(
+      faces.regular,
+      entry.field,
+      entry.pageSize,
+      entry.value,
+    );
+
+    if (!fit.fits) {
+      return { maxCharacters: fit.maxCharacters, page: entry.field.page };
+    }
+  }
+
+  return null;
+}
+
 export function shouldStampField(field: FieldRecord): boolean {
   if (field.type === "checkbox" || field.type === "radio") {
     return typeof field.checked === "boolean";
@@ -351,19 +597,32 @@ function buildCertificateAuditEvents(input: {
   envelope: EnvelopeRecord;
   terminalTimestamp: number;
 }): AuditEventRecord[] {
-  const baseAuditEvents =
-    input.envelope.status === "completed"
-      ? stripCompletedAuditEvents(input.auditEvents)
-      : input.auditEvents;
-  const terminalAuditEvents =
-    input.envelope.status === "completed"
-      ? [buildCompletedAuditEvent(input.envelope.id, input.terminalTimestamp)]
-      : [];
+  // The rows come in the order they were recorded: the audit query reads
+  // them by the chain's sequence, and a caller adds the event it is about to
+  // record at the end. They are printed in that order and never re-sorted.
+  // created_at is in whole seconds and ids are random, so sorting by time and
+  // then id would shuffle events from the same second (issue #97).
+  if (input.envelope.status !== "completed") {
+    return [...input.auditEvents];
+  }
 
-  return [...baseAuditEvents, ...terminalAuditEvents].sort(
-    (left, right) =>
-      left.createdAt - right.createdAt || left.id.localeCompare(right.id),
+  // A completed envelope shows one completed row. A recorded one keeps its
+  // place, so events recorded after it stay after it. Before it is recorded,
+  // as when the last signature seals the envelope, it goes last.
+  const recordedCompletion = input.auditEvents.find(
+    (event) => event.event === "completed",
   );
+
+  if (recordedCompletion) {
+    return input.auditEvents.filter(
+      (event) => event.event !== "completed" || event === recordedCompletion,
+    );
+  }
+
+  return [
+    ...input.auditEvents,
+    buildCompletedAuditEvent(input.envelope.id, input.terminalTimestamp),
+  ];
 }
 
 export async function stampFieldValue(
@@ -376,15 +635,42 @@ export async function stampFieldValue(
   imageCache: Map<string, PDFImage>,
   pdfDocument: PDFDocument,
   storageService: StorageService,
+  // A field's place is given on the page as it is shown, so the value is
+  // drawn in those coordinates. On a rotated page it comes out turned with
+  // the page, and so reads upright. A caller that draws on another page
+  // than the one the field is on passes that page's geometry.
+  geometry: DisplayedPageGeometry = getDisplayedPageGeometry(page),
 ): Promise<void> {
   if (!shouldStampField(field)) {
     return;
   }
 
-  const rect = normalizedRectToPdfRect(field, {
-    heightPt: page.getHeight(),
-    widthPt: page.getWidth(),
-  });
+  await drawOnDisplayedPage(page, geometry, () =>
+    drawFieldValue(
+      field,
+      page,
+      geometry,
+      fonts,
+      imageCache,
+      pdfDocument,
+      storageService,
+    ),
+  );
+}
+
+async function drawFieldValue(
+  field: FieldRecord,
+  page: PDFPage,
+  geometry: DisplayedPageGeometry,
+  fonts: {
+    auditRegular: TextFace;
+    signature: TextFace;
+  },
+  imageCache: Map<string, PDFImage>,
+  pdfDocument: PDFDocument,
+  storageService: StorageService,
+): Promise<void> {
+  const rect = normalizedRectToPdfRect(field, geometry);
   const padding = getFieldPadding(rect.widthPt, rect.heightPt);
 
   switch (field.type) {
@@ -450,21 +736,45 @@ export async function stampFieldValue(
         return;
       }
 
-      const maxWidth = Math.max(12, rect.widthPt - padding * 2);
-      const maxHeight = Math.max(10, rect.heightPt - padding * 2);
-      const fontSize = fitTextSize(
+      // Wrapped and made smaller until the whole value is inside the box.
+      // Signing refuses a typed value that would only fit below a readable
+      // size, but a dropdown choice, or a value accepted earlier, is still
+      // drawn whole, never cut off.
+      const box = getTextFieldBox(rect);
+      let layout = layoutFieldText(
         fonts.auditRegular,
         textValue,
-        maxWidth,
-        maxHeight,
-        Math.min(maxHeight, rect.heightPt * 0.64),
+        box.maxWidth,
+        box.maxHeight,
+        box.preferredSize,
+        MIN_FIELD_TEXT_SIZE,
       );
 
-      fonts.auditRegular.drawText(page, textValue, {
-        color: rgb(0.12, 0.12, 0.12),
-        size: fontSize,
-        x: rect.xPt + padding,
-        y: rect.yPt + (rect.heightPt - fontSize) / 2 + fontSize * 0.2,
+      for (
+        let floor = LAST_RESORT_FIELD_TEXT_SIZE;
+        !layout.fits && floor >= 0.01;
+        floor /= 2
+      ) {
+        layout = layoutFieldText(
+          fonts.auditRegular,
+          textValue,
+          box.maxWidth,
+          box.maxHeight,
+          layout.size,
+          floor,
+        );
+      }
+
+      const { size } = layout;
+      const top = rect.yPt + (rect.heightPt + layout.blockHeight) / 2;
+
+      layout.lines.forEach((line, index) => {
+        fonts.auditRegular.drawText(page, line, {
+          color: rgb(0.12, 0.12, 0.12),
+          size,
+          x: rect.xPt + box.padding,
+          y: top - size * 0.8 - index * size * FIELD_TEXT_LINE_HEIGHT,
+        });
       });
 
       return;
@@ -534,17 +844,28 @@ export async function stampFieldValue(
  * Prints a Part 11 signature's manifestation just under the signature, or
  * just above it when the field sits at the foot of the page.
  */
-function stampSignatureManifestation(
+async function stampSignatureManifestation(
   field: FieldRecord,
   page: PDFPage,
   font: TextFace,
   text: string,
+): Promise<void> {
+  const geometry = getDisplayedPageGeometry(page);
+
+  await drawOnDisplayedPage(page, geometry, () =>
+    drawSignatureManifestation(field, page, geometry, font, text),
+  );
+}
+
+function drawSignatureManifestation(
+  field: FieldRecord,
+  page: PDFPage,
+  geometry: DisplayedPageGeometry,
+  font: TextFace,
+  text: string,
 ): void {
-  const pageWidth = page.getWidth();
-  const rect = normalizedRectToPdfRect(field, {
-    heightPt: page.getHeight(),
-    widthPt: pageWidth,
-  });
+  const pageWidth = geometry.widthPt;
+  const rect = normalizedRectToPdfRect(field, geometry);
   const margin = 2;
   const fullWidth = pageWidth - margin * 2;
   const minimumSize = 5;
@@ -572,7 +893,7 @@ function stampSignatureManifestation(
       ? rect.yPt - lineHeight
       : Math.min(
           rect.yPt + rect.heightPt + blockHeight - size,
-          page.getHeight() - size - margin,
+          geometry.heightPt - size - margin,
         );
 
   lines.forEach((line, index) => {
@@ -1023,7 +1344,12 @@ function describeEventEvidence(event: AuditEventRecord): string[] {
       [
         kind ? `email ${kind.replaceAll("_", " ")}` : "email",
         recipient ? `to ${recipient}` : null,
-        messageId ? `accepted by the mail provider as ${messageId}` : null,
+        messageId
+          ? isCapturedMessageId(messageId)
+            ? // The capture driver only wrote it to the local outbox.
+              `captured locally as ${messageId}, not sent`
+            : `accepted by the mail provider as ${messageId}`
+          : null,
       ]
         .filter(Boolean)
         .join(" "),
@@ -1237,6 +1563,8 @@ export async function renderFinalizedEnvelopePdf(
     envelope: EnvelopeRecord;
     fields: FieldRecord[];
     includeAuditTrail?: boolean;
+    /** The envelope's stored page sizes, which fields were placed against. */
+    pages: readonly StoredPageSize[];
     signers: SignerRecord[];
     sourcePdfKey: string;
   },
@@ -1301,15 +1629,25 @@ export async function renderFinalizedEnvelopePdf(
     },
   );
   const imageCache = new Map<string, PDFImage>();
+  const storedPages = new Map(
+    input.pages.map((page) => [page.pageNumber, page]),
+  );
 
-  for (const field of stampedFields) {
-    const page = pdfDocument.getPage(field.page - 1);
+  for (const placedField of stampedFields) {
+    const page = pdfDocument.getPage(placedField.page - 1);
 
     if (!page) {
       throw new PdfFinalizeError(
-        `Field ${field.id} references missing page ${field.page}.`,
+        `Field ${placedField.id} references missing page ${placedField.page}.`,
       );
     }
+
+    const geometry = getDisplayedPageGeometry(page);
+    const field = fieldOnDisplayedPage(
+      placedField,
+      storedPages.get(placedField.page),
+      geometry,
+    );
 
     await stampFieldValue(
       field,
@@ -1318,13 +1656,19 @@ export async function renderFinalizedEnvelopePdf(
       imageCache,
       pdfDocument,
       storageService,
+      geometry,
     );
 
     const manifestation =
       field.type === "signature" ? manifestations.get(field.signerId) : null;
 
     if (manifestation) {
-      stampSignatureManifestation(field, page, faces.regular, manifestation);
+      await stampSignatureManifestation(
+        field,
+        page,
+        faces.regular,
+        manifestation,
+      );
     }
   }
 
