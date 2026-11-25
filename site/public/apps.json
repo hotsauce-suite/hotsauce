@@ -179,6 +179,7 @@
       "Named after your workspace, like “Ask Acme”",
       "Searches and reads your docs, meetings, transcripts, tasks, notes, tables, links, clips and calendar",
       "Reads the team chat rooms an admin picks (Ember, Campfire), never direct messages",
+      "Mention @Claude in your team chat and a Claude Code session answers in the thread, using your workspace",
       "Knows the page you're on, shown as a chip you can remove",
       "Edits happen at once with Undo; deleting, moving, sharing or publishing waits for your Confirm",
       "Your conversations are private to you and kept out of search",

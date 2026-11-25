@@ -10,6 +10,8 @@ export const SECRET_NAMES = [
   'FORGEJO_TOKEN',
   'R2_SECRET_ACCESS_KEY',
   'WEBHOOK_SECRET',
+  'CHAT_CLAUDE_TOKEN',
+  'CHAT_CLAUDE_WEBHOOK_SECRET',
 ] as const
 export type SecretName = (typeof SECRET_NAMES)[number]
 
