@@ -423,6 +423,7 @@ export default function EnvelopePage() {
             </div>
           ) : (
             <SignLayout
+              pinned={signing}
               rail={
                 <>
                   {error ? (

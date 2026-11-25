@@ -116,7 +116,8 @@ field-list revision check, configurable signer limits (all features, not fixes).
 
 R34. On a wide screen (1024 px and up) the Sign pages show the document full height on the left
      and every control (people, field types, name, progress, the signing panel) in a rail on the
-     right that stays in view while the pages scroll. Narrower, the rail sits above the document.
+     right that stays in view while the pages scroll. Narrower, the rail sits above the document,
+     and while someone signs it stays pinned at the top so Finish is always in reach.
 R35. While placing, the field types come first in the rail, two to a row, so they stay in view.
 R36. The outside signer's page uses the same layout, with the title and Start signing in the rail.
 

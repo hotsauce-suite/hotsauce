@@ -198,9 +198,10 @@ function Signing({
 
   return (
     <SignLayout
+      pinned={signing}
       rail={
         <>
-          <header className="flex flex-col gap-1 px-1">
+          <header className={`flex-col gap-1 px-1 ${signing ? 'hidden lg:flex' : 'flex'}`}>
             <p className="text-sm text-ink-soft">
               {env.sender} at {env.org} asks {env.signer.name} to sign
             </p>
