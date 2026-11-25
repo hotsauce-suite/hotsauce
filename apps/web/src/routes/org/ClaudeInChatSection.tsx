@@ -177,11 +177,11 @@ export function ClaudeInChatSection() {
           </p>
           <div className="flex flex-col gap-1">
             <span className="font-medium text-ink">The bot’s webhook address</span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <input
                 readOnly
                 aria-label="The bot’s webhook address"
-                className={`${inputClass} font-mono text-xs`}
+                className={`${inputClass} min-w-0 flex-1 basis-64 font-mono text-xs`}
                 value={status.webhookUrl}
                 data-testid="claude-chat-webhook"
                 onFocus={(e) => e.target.select()}
