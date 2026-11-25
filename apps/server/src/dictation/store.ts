@@ -195,7 +195,8 @@ export class DictationStore {
     name: string,
     kind: DeviceKind = 'mac',
   ): { device: DictationDevice; token: string } {
-    const active = this.listDevices(member.userId)
+    // The cap is per kind, so the count in the message is the one the member can see.
+    const active = this.listDevices(member.userId).filter((d) => d.kind === kind)
     if (active.length >= MAX_DEVICES_PER_MEMBER) {
       throw new HotsauceError(
         'bad_request',
@@ -254,10 +255,14 @@ export class DictationStore {
     token: string,
     now = new Date(),
     appVersion: string | null = null,
+    kind: DeviceKind = 'mac',
   ): DictationDevice | null {
+    // Only a device of the expected kind: another kind's token is unknown here, and not marked used.
     const row = this.#db
-      .prepare('SELECT * FROM dictation_devices WHERE token_hash = ? AND revoked_at IS NULL')
-      .get(hashDeviceToken(token)) as DeviceRow | undefined
+      .prepare(
+        'SELECT * FROM dictation_devices WHERE token_hash = ? AND kind = ? AND revoked_at IS NULL',
+      )
+      .get(hashDeviceToken(token), kind) as DeviceRow | undefined
     if (!row) return null
     const lastUsedAt = now.toISOString()
     const version = appVersion ?? row.app_version

@@ -15,9 +15,9 @@ export async function authenticateDevice(
   appVersion: string | null = null,
   kind: DeviceKind = 'mac',
 ): Promise<{ principal: Principal; deviceId: string }> {
-  const device = store.useToken(token, new Date(), appVersion)
   // A Mac's token is only ever a Mac's and a phone's only a phone's (docs/PLAN-android.md R6).
-  if (!device || device.kind !== kind)
+  const device = store.useToken(token, new Date(), appVersion, kind)
+  if (!device)
     throw new HotsauceError('unauthorized', 'This device was disconnected; connect it again')
   let principal: Principal | null
   try {

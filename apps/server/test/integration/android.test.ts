@@ -4,6 +4,7 @@ import { ANDROID_PACKAGE } from '../../src/api/android.js'
 import { createApp } from '../../src/app.js'
 import type { Principal } from '../../src/auth/index.js'
 import { loadConfig } from '../../src/config.js'
+import { authenticateDevice } from '../../src/dictation/index.js'
 import type { CalendarEvent, CalendarSource } from '../../src/meetings/calendar/types.js'
 import { createServices, type Services } from '../../src/services.js'
 import { makeTempDir, removeDir } from '../helpers/git.js'
@@ -52,6 +53,7 @@ async function setup(env: Record<string, string> = {}) {
 beforeEach(() => setup())
 
 afterEach(async () => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
   services.index.close()
   services.dictation.store.close()
@@ -167,8 +169,10 @@ describe('a phone device', () => {
       ['POST', '/api/dictation/devices'],
       ['GET', '/api/spaces/team/files'],
     ]
-    for (const [method, url] of refused) {
-      await json(await call(method, url, { token: phone.token }), 401)
+    // With a session too, so the refusal is the phone's list and not a missing sign-in.
+    for (const [method, url] of [...refused, ['POST', '/mcp'] as [string, string]]) {
+      const res = await json(await call(method, url, { as: ALICE, token: phone.token }), 401)
+      expect(res.error.message, `${method} ${url}`).toBe('A phone can only show its widgets')
     }
     await json(await call('GET', `/api/widgets/today?${dayQuery()}`, { token: phone.token }))
     await json(await call('DELETE', '/api/dictation/devices/self', { token: phone.token }), 204)
@@ -180,11 +184,20 @@ describe('a phone device', () => {
       await call('POST', '/api/dictation/devices', { as: ALICE, json: { name: 'Mac' } }),
       201,
     )
-    await json(await call('GET', `/api/widgets/today?${dayQuery()}`, { token: mac.token }), 401)
+    await json(
+      await call('GET', `/api/widgets/today?${dayQuery()}`, { as: ALICE, token: mac.token }),
+      401,
+    )
     const phone = await connectPhone()
     // Same secret, Mac prefix: an unknown token, not a phone's.
     const posing = phone.token.replace(/^hpt_/, 'hdt_')
-    await json(await call('GET', '/api/dictation/words', { token: posing }), 401)
+    await json(await call('GET', '/api/dictation/words', { as: ALICE, token: posing }), 401)
+    // The dictation stream checks its token as a Mac's: a phone's is unknown there, and unused.
+    await expect(
+      authenticateDevice(services.auth, services.dictation.store, phone.token),
+    ).rejects.toThrow(/disconnected/)
+    const listed = await json(await call('GET', '/api/dictation/devices?kind=phone', { as: ALICE }))
+    expect(listed[0].lastUsedAt).toBeNull()
   })
 
   it('R6: is refused once its member may no longer use Hotsauce', async () => {
@@ -196,6 +209,9 @@ describe('a phone device', () => {
 
 describe('GET /api/widgets/today', () => {
   it('R7: the next meeting with its join link, up to 3 tasks due, and no weather without a place', async () => {
+    // Midday in Kolkata, so the next meeting is always today.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-25T06:30:00Z'))
     const start = Date.now() + HOUR
     calendar.events = [
       // Already over: not the next one.
@@ -227,18 +243,14 @@ describe('GET /api/widgets/today', () => {
     const summary = await json(
       await call('GET', `/api/widgets/today?${dayQuery()}`, { token: phone.token }),
     )
-    const meetingToday = start < Date.parse(dayQueryTo())
-    expect(summary.meeting).toEqual(
-      meetingToday
-        ? {
-            id: 'ev-acme',
-            title: 'Acme sync',
-            start: iso(start),
-            end: iso(start + HOUR / 2),
-            joinUrl: 'https://meet.google.com/abc-defg-hij',
-          }
-        : null,
-    )
+    expect(summary.meeting).toEqual({
+      id: 'ev-acme',
+      title: 'Acme sync',
+      start: iso(start),
+      end: iso(start + HOUR / 2),
+      joinUrl: 'https://meet.google.com/abc-defg-hij',
+    })
+    expect(summary.meetingsLeft).toBe(1)
     expect(summary.tasks).toHaveLength(3)
     expect(summary.tasksDue).toBe(4)
     expect(Object.keys(summary.tasks[0]).sort()).toEqual(['due', 'dueAt', 'id', 'space', 'title'])
@@ -250,13 +262,14 @@ describe('GET /api/widgets/today', () => {
   })
 
   it('R7: a weather failure leaves the rest of the summary', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'))
+    const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'))
     const phone = await connectPhone()
     const summary = await json(
       await call('GET', `/api/widgets/today?${dayQuery()}&lat=44.26&lon=-72.58`, {
         token: phone.token,
       }),
     )
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('lat=44.26'), expect.anything())
     expect(summary.weather).toBeNull()
     expect(summary.tasks).toEqual([])
   })
@@ -287,7 +300,3 @@ describe('GET /api/widgets/today', () => {
     expect(bob.tasks).toEqual([])
   })
 })
-
-function dayQueryTo(): string {
-  return decodeURIComponent(/to=([^&]+)/.exec(dayQuery())?.[1] ?? '')
-}

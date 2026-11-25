@@ -48,14 +48,19 @@ Each maps to a test named for it.
   URL, refuses anything else with a plain message, and remembers it.
 - R4. The server serves `/.well-known/assetlinks.json` with the app's fingerprints (from the
   `ANDROID_CERT_SHA256` setting, comma-separated; the published app's fingerprint by default).
-- R5. A signed-in session can create a phone device token; the response is the only time the
-  token is shown. It appears in the member's device list with kind "phone" and can be revoked.
-- R6. A phone token can call only `GET /api/widgets/today`, `POST /api/widgets/tasks/:id/done`,
-  `POST /api/widgets/capture`, the voice-note upload and `DELETE` of its own device; anything else
-  is refused with 401. Revoking the device, deleting the member or the domain lock refuses it.
-- R7. `GET /api/widgets/today` returns, in under 150 ms server time, the next meeting (title,
-  start, join URL, deep link), up to 3 tasks due today or overdue (id, title, due), the weather
-  for the member's place (or none), and the server's time.
+- R5. A signed-in session can create a phone device token (only after the member presses Allow
+  on /phone/connect); the response is the only time the token is shown. It is listed with kind
+  "phone" (`GET /api/dictation/devices?kind=phone`) and can be revoked there or from the phone;
+  the device cap (20) is per kind.
+- R6. A phone token can call only `GET /api/widgets/today` and `DELETE` of its own device
+  (slices 4 to 6 add the task tick, capture and voice-note routes, each to this list); anything
+  else, `/mcp` and `/ws/dictation` included, is refused with 401, and a Mac's token and a phone's
+  are never interchangeable. Revoking the device, deleting the member or the domain lock refuses it.
+- R7. `GET /api/widgets/today` returns the next meeting (title, start, end, join link), up to 3
+  tasks due today or overdue (id, title, due) and how many are due, the weather for the phone's
+  position or the team's place (or none), and the server's time, with no attendees, notes or
+  docs. It never waits more than 2 s for a forecast MET hasn't given yet; otherwise it is one
+  Today read (index and calendar cache, inside the API budget).
 - R8. The Today widget renders that summary in 4×2 and resizes to 2×2 (meeting only) and 4×3
   (meeting + 5 tasks); it shows the last good data with "Updated 10:42" when offline, and "Open
   Hotsauce to connect" when there's no token.

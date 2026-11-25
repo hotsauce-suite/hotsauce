@@ -32,6 +32,9 @@ const Place = z.object({
 /** The phone's day, and optionally where it is (rounded by Weather), for the Android widget. */
 const WidgetQuery = z.intersection(DayQuery, Place)
 
+/** How long the widget's summary waits for a forecast MET hasn't given yet (PLAN-android R7). */
+const WIDGET_WEATHER_WAIT_MS = 2_000
+
 /** Tasks the Today widget lists (docs/PLAN-android.md R7). */
 export const WIDGET_TASKS = 3
 
@@ -130,8 +133,14 @@ export function todayRoutes(
         const next = view.meetings.events.find((e) => e.end > now) ?? null
         const place =
           lat !== undefined && lon !== undefined ? { lat, lon, name: null } : teamPlace()
+        // A first forecast for a place waits on MET; the widget doesn't wait more than 2 s for it.
         const sky = place
-          ? await weather.forecast(place.lat, place.lon, principal.email).then(
+          ? await Promise.race([
+              weather.forecast(place.lat, place.lon, principal.email),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('slow')), WIDGET_WEATHER_WAIT_MS).unref(),
+              ),
+            ]).then(
               (f) => {
                 const point = f.series[0]
                 return point
