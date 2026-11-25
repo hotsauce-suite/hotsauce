@@ -1,4 +1,5 @@
 export { accountRoutes } from './account.js'
+export { androidWellKnownRoutes } from './android.js'
 export { assetRoutes, MAX_ASSET_BYTES } from './assets.js'
 export { assistantRoutes } from './assistant.js'
 export { boardRoutes } from './boards.js'

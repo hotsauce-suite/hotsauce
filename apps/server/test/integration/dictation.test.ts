@@ -439,7 +439,14 @@ describe('device tokens', () => {
       await call('GET', '/api/dictation/devices', { as: ALICE }),
     )
     expect(list).toEqual([
-      { id, name: 'Test Mac', createdAt: expect.any(String), lastUsedAt: null, appVersion: null },
+      {
+        id,
+        kind: 'mac',
+        name: 'Test Mac',
+        createdAt: expect.any(String),
+        lastUsedAt: null,
+        appVersion: null,
+      },
     ])
     expect(JSON.stringify(list)).not.toContain('hdt_')
     await json(await call('GET', '/api/dictation/words', { token }))

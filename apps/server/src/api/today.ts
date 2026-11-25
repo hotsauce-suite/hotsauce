@@ -29,6 +29,15 @@ const Place = z.object({
   lon: z.coerce.number().min(-180).max(180).optional(),
 })
 
+/** The phone's day, and optionally where it is (rounded by Weather), for the Android widget. */
+const WidgetQuery = z.intersection(DayQuery, Place)
+
+/** How long the widget's summary waits for a forecast MET hasn't given yet (PLAN-android R7). */
+const WIDGET_WEATHER_WAIT_MS = 2_000
+
+/** Tasks the Today widget lists (docs/PLAN-android.md R7). */
+export const WIDGET_TASKS = 3
+
 const PlaceQuery = z.object({ q: z.string().max(200).default('') })
 
 const Position = z.object({
@@ -113,6 +122,58 @@ export function todayRoutes(
       .get('/today', valid('query', DayQuery), async (c) =>
         c.json(await today.view(c.get('principal'), c.req.valid('query'))),
       )
+      // The Android app's Today widget (docs/PLAN-android.md R7): the next meeting, the first few
+      // tasks due, and the weather, from the same read as Today. The only read a phone's token may
+      // make, so it carries no note, doc or attendee.
+      .get('/widgets/today', valid('query', WidgetQuery), async (c) => {
+        const principal = c.get('principal')
+        const { from, to, date, lat, lon } = c.req.valid('query')
+        const view = await today.view(principal, { from, to, date })
+        const now = new Date().toISOString()
+        const next = view.meetings.events.find((e) => e.end > now) ?? null
+        const place =
+          lat !== undefined && lon !== undefined ? { lat, lon, name: null } : teamPlace()
+        // A first forecast for a place waits on MET; the widget doesn't wait more than 2 s for it.
+        const sky = place
+          ? await Promise.race([
+              weather.forecast(place.lat, place.lon, principal.email),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('slow')), WIDGET_WEATHER_WAIT_MS).unref(),
+              ),
+            ]).then(
+              (f) => {
+                const point = f.series[0]
+                return point
+                  ? { place: place.name, temperature: point.temperature, symbol: point.symbol }
+                  : null
+              },
+              () => null,
+            )
+          : null
+        c.header('Cache-Control', 'no-store')
+        return c.json({
+          date: view.date,
+          now,
+          calendarConnected: view.meetings.connected,
+          meeting: next && {
+            id: next.id,
+            title: next.title,
+            start: next.start,
+            end: next.end,
+            joinUrl: next.meetLink,
+          },
+          meetingsLeft: view.meetings.events.filter((e) => e.end > now).length,
+          tasks: view.tasks.slice(0, WIDGET_TASKS).map((t) => ({
+            space: t.space,
+            id: t.id,
+            title: t.title,
+            due: t.due,
+            dueAt: t.dueAt,
+          })),
+          tasksDue: view.tasks.length,
+          weather: sky,
+        })
+      })
       .get('/today/layout', async (c) => c.json(await layouts.get(c.get('principal'))))
       .put('/today/layout', async (c) => {
         const body: unknown = await c.req.json().catch(() => null)
