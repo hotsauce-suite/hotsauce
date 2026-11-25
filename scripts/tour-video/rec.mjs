@@ -50,7 +50,9 @@ const contextOptions = {
   timezoneId: 'America/Los_Angeles',
 }
 // As in playwright.config.ts: a preinstalled Chromium when the matching build isn't installed.
-const exe = process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}
+const exe = process.env.PLAYWRIGHT_CHROMIUM
+  ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM }
+  : {}
 let browser, ctx
 if (shot.extension) {
   // A shot of the Chrome extension: Chromium only loads extensions in a persistent profile.

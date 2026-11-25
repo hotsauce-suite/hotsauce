@@ -57,7 +57,9 @@ caps.lines.forEach((l, i) => {
 const b = await chromium.launch({
   ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}),
   // Behind a proxy (the cloud sandbox), fetch Google Fonts through it, or the type falls back.
-  ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost' } } : {}),
+  ...(process.env.HTTPS_PROXY
+    ? { proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost' } }
+    : {}),
 })
 const p = await b.newPage({
   ignoreHTTPSErrors: true,

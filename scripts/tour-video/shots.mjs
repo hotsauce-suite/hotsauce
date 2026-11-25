@@ -789,7 +789,10 @@ export const shots = {
     await signIn()
     await page.goto(`${B}/files`)
     await wait(1500)
-    await page.getByTestId('files-input').first().setInputFiles([`${DIR}/Pilot report.pdf`])
+    await page
+      .getByTestId('files-input')
+      .first()
+      .setInputFiles([`${DIR}/Pilot report.pdf`])
     const row = page.getByTestId('files-row').filter({ hasText: 'Pilot report.pdf' }).first()
     await row.waitFor({ timeout: 15000 })
     await wait(1200)
@@ -879,12 +882,18 @@ export const shots = {
         const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
         while (w.nextNode()) {
           const t = w.currentNode.textContent
-          const u = t.replace(/localhost:5191/g, 'hotsauce.fieldwork.example').replace('Alt+Shift+H', '⌥⇧H')
+          const u = t
+            .replace(/localhost:5191/g, 'hotsauce.fieldwork.example')
+            .replace('Alt+Shift+H', '⌥⇧H')
           if (u !== t) w.currentNode.textContent = u
         }
       }
       fix()
-      new MutationObserver(fix).observe(document.body, { subtree: true, childList: true, characterData: true })
+      new MutationObserver(fix).observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      })
     })
     await startCapture()
     await moveTo(800, 450, 10)

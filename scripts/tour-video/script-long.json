@@ -1,290 +1,140 @@
 [
- {
-  "id": "hello",
-  "app": "Hotsauce",
-  "shots": [
-   [
-    "overview",
-    1
-   ]
-  ],
-  "vo": "This is Hotsauce: a free, open source office suite for small teams, running on a server you own. Docs, meetings, tasks, recordings, files and a dozen more apps, all in one place, all saved as plain files in Git. Let's walk through what's in it today."
- },
- {
-  "id": "today",
-  "app": "Today",
-  "shots": [
-   [
-    "today",
-    1
-   ]
-  ],
-  "vo": "Every day starts on Today. Your next meeting, your tasks, and to-dos pulled from your notes, on one page. The sky behind the greeting follows the real time of day, with the sun or moon in place. Click the weather for the next twelve hours. Every tile can be moved, added or hidden, so the page fits how you work."
- },
- {
-  "id": "rail",
-  "app": "The rail",
-  "shots": [
-   [
-    "rail",
-    1
-   ]
-  ],
-  "vo": "The rail on the left holds your apps. Pin the ones you use, click the logo to see their names, and press Command K to jump anywhere or search everything at once."
- },
- {
-  "id": "docs",
-  "app": "Docs",
-  "shots": [
-   [
-    "docs",
-    0.78
-   ],
-   [
-    "download",
-    0.22
-   ]
-  ],
-  "vo": "Docs are Markdown files, kept in Git. Type, and teammates editing beside you show up live. Link another doc with two square brackets, and the link keeps working even after a rename. History shows every version, who changed what, and lets you bring any of it back. Bring in Word, HTML or Markdown files, and download any doc as Word or PDF, in your team's own fonts, colours and logo."
- },
- {
-  "id": "slides",
-  "app": "Slides",
-  "shots": [
-   [
-    "slides",
-    1
-   ]
-  ],
-  "vo": "Any doc can become a slide deck. Three dashes start a new slide, and a line that starts with Notes becomes your speaker notes. Present opens the slides full screen, with a laser pointer, and presenter view shows your notes, the next slide and a timer."
- },
- {
-  "id": "foryou",
-  "app": "Comments and For you",
-  "shots": [
-   [
-    "comments",
-    0.55
-   ],
-   [
-    "forYou",
-    0.45
-   ]
-  ],
-  "vo": "Every doc, meeting note and task has a conversation under it. Type at and a name, and that teammate gets one notification. Everything you're mentioned in waits in For you, newest first. Mark it done, or put it off until tomorrow morning."
- },
- {
-  "id": "meetings",
-  "app": "Meetings",
-  "shots": [
-   [
-    "meetings",
-    0.75
-   ],
-   [
-    "booking",
-    0.25
-   ]
-  ],
-  "vo": "Meetings takes the notes, and no bot joins your call. Hotsauce keeps a transcript of who said what, next to your own rough notes. When the call ends, it turns both into clean notes from a template you pick, with decisions and action items. Meetings come from your calendar, and booking links let people outside the team pick a time."
- },
- {
-  "id": "ask",
-  "app": "Ask",
-  "shots": [
-   [
-    "ask",
-    1
-   ]
-  ],
-  "vo": "Ask a question across every meeting and doc, and the answer points back to its sources, so you can check it. Hotsauce also keeps a short brief for each person, of what they're working on, so your AI tools start already knowing the context. Claude, ChatGPT and others can connect to Hotsauce and work as you."
- },
- {
-  "id": "tasks",
-  "app": "Tasks",
-  "shots": [
-   [
-    "tasks",
-    1
-   ]
-  ],
-  "vo": "Action items land in Tasks. Type a task in plain words, and the date fills itself in. Tasks can repeat and remind you. Or press Ramble and just talk for a few seconds, and Hotsauce sorts what you said into a clean list."
- },
- {
-  "id": "notes",
-  "app": "Notes",
-  "shots": [
-   [
-    "notes",
-    1
-   ]
-  ],
-  "vo": "Notes hold the small stuff. Colour them, pin them, label them, or turn one into a checklist."
- },
- {
-  "id": "checkins",
-  "app": "Check-ins",
-  "shots": [
-   [
-    "checkins",
-    1
-   ]
-  ],
-  "vo": "Check-ins ask the team a question on a schedule, like what will you get done this week? Everyone's answers gather in one place, and a short summary posts to your team chat."
- },
- {
-  "id": "clips",
-  "app": "Clips",
-  "shots": [
-   [
-    "clipsRecorder",
-    0.3
-   ],
-   [
-    "clipsPlayer",
-    0.7
-   ]
-  ],
-  "vo": "Clips replaces the meeting you didn't need. Record your screen with your camera in the corner and talk it through. Trim the ends, and whoever watches gets a transcript, a summary and the action items, at whatever speed they like. Share a link with people outside the team."
- },
- {
-  "id": "dictate",
-  "app": "Dictate",
-  "shots": [
-   [
-    "dictateMac",
-    0.62
-   ],
-   [
-    "dictate",
-    0.38
-   ]
-  ],
-  "vo": "Dictate turns talking into clean text. On the Mac, hold a key, talk, and let go. The words land wherever your cursor is, in any app, with the ums taken out. Pick how much clean-up you want, and keep it all on your Mac if you'd rather. It even works with no internet connection."
- },
- {
-  "id": "mac",
-  "app": "Mac app",
-  "shots": [
-   [
-    "macSetup",
-    1
-   ]
-  ],
-  "vo": "The Mac app sets itself up in four steps: your workspace, signing in, a quick try of Dictate, and the permissions it needs, each with a plain reason. Once it's running, it notices when a call starts and offers to take notes, takes screenshots you can mark up and share, and updates itself with one click."
- },
- {
-  "id": "extension",
-  "app": "Chrome extension",
-  "shots": [
-   [
-    "extension",
-    1
-   ]
-  ],
-  "vo": "Not on a Mac? The Chrome extension takes notes on Google Meet calls right in the browser, without Chrome's share-your-tab dialog. It connects to your Hotsauce in one click, and its setup page walks you through pinning it and trying a test call. It also saves any page to Links in one click."
- },
- {
-  "id": "links",
-  "app": "Links",
-  "shots": [
-   [
-    "links",
-    1
-   ]
-  ],
-  "vo": "Links is your read-later list. Save from the extension, your phone or the app, and read a clean copy without the clutter. Highlight passages and add notes, and Hotsauce remembers where you stopped. Research papers come with their authors and abstract."
- },
- {
-  "id": "files",
-  "app": "Files and PDF tools",
-  "shots": [
-   [
-    "files",
-    0.4
-   ],
-   [
-    "pdfTools",
-    0.6
-   ]
-  ],
-  "vo": "Files holds the team's uploads, with previews and search. PDFs come with tools: combine and reorder pages, split, shrink for email, make a scanned page searchable, or black out a name for good. The original never changes. You get a new PDF beside it."
- },
- {
-  "id": "sign",
-  "app": "Sign",
-  "shots": [
-   [
-    "sign",
-    1
-   ]
-  ],
-  "vo": "Need a signature? Pick a PDF, list who signs, and place their fields. Each person gets their own link, no account needed. You can follow who has signed, and when the last one does, a sealed copy with its audit certificate lands in Files and goes to everyone."
- },
- {
-  "id": "formstables",
-  "app": "Forms and Tables",
-  "shots": [
-   [
-    "forms",
-    "Forms"
-   ],
-   [
-    "tables",
-    "Tables"
-   ]
-  ],
-  "vo": "Forms collect surveys, sign-ups and requests, from the team or anyone with the link. Tables are trackers with real spreadsheet formulas, kept as simple files you can open anywhere."
- },
- {
-  "id": "boardspeople",
-  "app": "Boards and People",
-  "shots": [
-   [
-    "boards",
-    "Boards"
-   ],
-   [
-    "people",
-    "People"
-   ]
-  ],
-  "vo": "Boards are hand-drawn whiteboards the whole team can sketch on at once. People is everyone you meet with, filled in from your calendar, with a short note about each."
- },
- {
-  "id": "briefcast",
-  "app": "Briefcast",
-  "shots": [
-   [
-    "briefcast",
-    1
-   ]
-  ],
-  "vo": "And Briefcast is a five-minute spoken briefing every weekday morning, from your meetings, tasks and reading, ready to play in any podcast app."
- },
- {
-  "id": "yours",
-  "app": "Make it yours",
-  "shots": [
-   [
-    "themes",
-    0.38
-   ],
-   [
-    "breaks",
-    0.32
-   ],
-   [
-    "feedback",
-    0.3
-   ]
-  ],
-  "vo": "Hotsauce bends to fit you. Describe a look, like a warm forest cabin, and the whole app previews it. Turn on soft background music while you work, or screen breaks that remind you to look away every twenty minutes. And if something's wrong or you have an idea, send feedback from any page, with a picture of what you were looking at."
- },
- {
-  "id": "close",
-  "app": "Hotsauce",
-  "shots": [],
-  "vo": "Hotsauce is free and open source. It deploys to Cloudflare or your own server in minutes, backs itself up every night, keeps working when the connection drops, and updates itself. Your work stays in plain files you own. Try the live demo, or get it at hotsauce dot work."
- }
+  {
+    "id": "hello",
+    "app": "Hotsauce",
+    "shots": [["overview", 1]],
+    "vo": "This is Hotsauce: a free, open source office suite for small teams, running on a server you own. Docs, meetings, tasks, recordings, files and a dozen more apps, all in one place, all saved as plain files in Git. Let's walk through what's in it today."
+  },
+  {
+    "id": "today",
+    "app": "Today",
+    "shots": [["today", 1]],
+    "vo": "Every day starts on Today. Your next meeting, your tasks, and to-dos pulled from your notes, on one page. The sky behind the greeting follows the real time of day, with the sun or moon in place. Click the weather for the next twelve hours. Every tile can be moved, added or hidden, so the page fits how you work."
+  },
+  {
+    "id": "rail",
+    "app": "The rail",
+    "shots": [["rail", 1]],
+    "vo": "The rail on the left holds your apps. Pin the ones you use, click the logo to see their names, and press Command K to jump anywhere or search everything at once."
+  },
+  {
+    "id": "docs",
+    "app": "Docs",
+    "shots": [["docs", 0.78], ["download", 0.22]],
+    "vo": "Docs are Markdown files, kept in Git. Type, and teammates editing beside you show up live. Link another doc with two square brackets, and the link keeps working even after a rename. History shows every version, who changed what, and lets you bring any of it back. Bring in Word, HTML or Markdown files, and download any doc as Word or PDF, in your team's own fonts, colours and logo."
+  },
+  {
+    "id": "slides",
+    "app": "Slides",
+    "shots": [["slides", 1]],
+    "vo": "Any doc can become a slide deck. Three dashes start a new slide, and a line that starts with Notes becomes your speaker notes. Present opens the slides full screen, with a laser pointer, and presenter view shows your notes, the next slide and a timer."
+  },
+  {
+    "id": "foryou",
+    "app": "Comments and For you",
+    "shots": [["comments", 0.55], ["forYou", 0.45]],
+    "vo": "Every doc, meeting note and task has a conversation under it. Type at and a name, and that teammate gets one notification. Everything you're mentioned in waits in For you, newest first. Mark it done, or put it off until tomorrow morning."
+  },
+  {
+    "id": "meetings",
+    "app": "Meetings",
+    "shots": [["meetings", 0.75], ["booking", 0.25]],
+    "vo": "Meetings takes the notes, and no bot joins your call. Hotsauce keeps a transcript of who said what, next to your own rough notes. When the call ends, it turns both into clean notes from a template you pick, with decisions and action items. Meetings come from your calendar, and booking links let people outside the team pick a time."
+  },
+  {
+    "id": "ask",
+    "app": "Ask",
+    "shots": [["ask", 1]],
+    "vo": "Ask a question across every meeting and doc, and the answer points back to its sources, so you can check it. Hotsauce also keeps a short brief for each person, of what they're working on, so your AI tools start already knowing the context. Claude, ChatGPT and others can connect to Hotsauce and work as you."
+  },
+  {
+    "id": "tasks",
+    "app": "Tasks",
+    "shots": [["tasks", 1]],
+    "vo": "Action items land in Tasks. Type a task in plain words, and the date fills itself in. Tasks can repeat and remind you. Or press Ramble and just talk for a few seconds, and Hotsauce sorts what you said into a clean list."
+  },
+  {
+    "id": "notes",
+    "app": "Notes",
+    "shots": [["notes", 1]],
+    "vo": "Notes hold the small stuff. Colour them, pin them, label them, or turn one into a checklist."
+  },
+  {
+    "id": "checkins",
+    "app": "Check-ins",
+    "shots": [["checkins", 1]],
+    "vo": "Check-ins ask the team a question on a schedule, like what will you get done this week? Everyone's answers gather in one place, and a short summary posts to your team chat."
+  },
+  {
+    "id": "clips",
+    "app": "Clips",
+    "shots": [["clipsRecorder", 0.3], ["clipsPlayer", 0.7]],
+    "vo": "Clips replaces the meeting you didn't need. Record your screen with your camera in the corner and talk it through. Trim the ends, and whoever watches gets a transcript, a summary and the action items, at whatever speed they like. Share a link with people outside the team."
+  },
+  {
+    "id": "dictate",
+    "app": "Dictate",
+    "shots": [["dictateMac", 0.62], ["dictate", 0.38]],
+    "vo": "Dictate turns talking into clean text. On the Mac, hold a key, talk, and let go. The words land wherever your cursor is, in any app, with the ums taken out. Pick how much clean-up you want, and keep it all on your Mac if you'd rather. It even works with no internet connection."
+  },
+  {
+    "id": "mac",
+    "app": "Mac app",
+    "shots": [["macSetup", 1]],
+    "vo": "The Mac app sets itself up in four steps: your workspace, signing in, a quick try of Dictate, and the permissions it needs, each with a plain reason. Once it's running, it notices when a call starts and offers to take notes, takes screenshots you can mark up and share, and updates itself with one click."
+  },
+  {
+    "id": "extension",
+    "app": "Chrome extension",
+    "shots": [["extension", 1]],
+    "vo": "Not on a Mac? The Chrome extension takes notes on Google Meet calls right in the browser, without Chrome's share-your-tab dialog. It connects to your Hotsauce in one click, and its setup page walks you through pinning it and trying a test call. It also saves any page to Links in one click."
+  },
+  {
+    "id": "links",
+    "app": "Links",
+    "shots": [["links", 1]],
+    "vo": "Links is your read-later list. Save from the extension, your phone or the app, and read a clean copy without the clutter. Highlight passages and add notes, and Hotsauce remembers where you stopped. Research papers come with their authors and abstract."
+  },
+  {
+    "id": "files",
+    "app": "Files and PDF tools",
+    "shots": [["files", 0.4], ["pdfTools", 0.6]],
+    "vo": "Files holds the team's uploads, with previews and search. PDFs come with tools: combine and reorder pages, split, shrink for email, make a scanned page searchable, or black out a name for good. The original never changes. You get a new PDF beside it."
+  },
+  {
+    "id": "sign",
+    "app": "Sign",
+    "shots": [["sign", 1]],
+    "vo": "Need a signature? Pick a PDF, list who signs, and place their fields. Each person gets their own link, no account needed. You can follow who has signed, and when the last one does, a sealed copy with its audit certificate lands in Files and goes to everyone."
+  },
+  {
+    "id": "formstables",
+    "app": "Forms and Tables",
+    "shots": [["forms", "Forms"], ["tables", "Tables"]],
+    "vo": "Forms collect surveys, sign-ups and requests, from the team or anyone with the link. Tables are trackers with real spreadsheet formulas, kept as simple files you can open anywhere."
+  },
+  {
+    "id": "boardspeople",
+    "app": "Boards and People",
+    "shots": [["boards", "Boards"], ["people", "People"]],
+    "vo": "Boards are hand-drawn whiteboards the whole team can sketch on at once. People is everyone you meet with, filled in from your calendar, with a short note about each."
+  },
+  {
+    "id": "briefcast",
+    "app": "Briefcast",
+    "shots": [["briefcast", 1]],
+    "vo": "And Briefcast is a five-minute spoken briefing every weekday morning, from your meetings, tasks and reading, ready to play in any podcast app."
+  },
+  {
+    "id": "yours",
+    "app": "Make it yours",
+    "shots": [["themes", 0.38], ["breaks", 0.32], ["feedback", 0.3]],
+    "vo": "Hotsauce bends to fit you. Describe a look, like a warm forest cabin, and the whole app previews it. Turn on soft background music while you work, or screen breaks that remind you to look away every twenty minutes. And if something's wrong or you have an idea, send feedback from any page, with a picture of what you were looking at."
+  },
+  {
+    "id": "close",
+    "app": "Hotsauce",
+    "shots": [],
+    "vo": "Hotsauce is free and open source. It deploys to Cloudflare or your own server in minutes, backs itself up every night, keeps working when the connection drops, and updates itself. Your work stays in plain files you own. Try the live demo, or get it at hotsauce dot work."
+  }
 ]
