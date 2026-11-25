@@ -2,10 +2,9 @@
 
 ## Status
 
-- 2026-11-24: planning. Decisions below are the recommendations put to Morgan; they become
-  settled when he answers. Slice 0 (the Android project and its GitHub build) is in progress and
+- 2026-11-25: decisions settled (Morgan: "yes to all"). Slice 0 (the Android project and its GitHub build) is in progress and
   touches no shared files. Slices 1+ wait for the phone-shortcuts work (web manifest) to ship.
-- Waiting on Morgan: a Google Play developer account (Haven ops `todo.md` item 25).
+- Google Play developer account: Morgan's personal account, verified 2026-11-24.
 
 ## Why
 
@@ -13,7 +12,7 @@ On Android, Hotsauce is the installed web app. It has long-press shortcuts and t
 but a web app can't put a live widget on the home screen. A small native app can: the next
 meeting with a Join button, today's tasks to tick off, quick capture, a voice note button.
 
-## Decisions (recommended 2026-11-24)
+## Decisions (Morgan, 2026-11-25)
 
 1. **A Chrome shell, not a built-in browser.** The app is a Trusted Web Activity: it opens the
    Hotsauce server in the phone's Chrome with no address bar. Sign-in (Google blocks it in
