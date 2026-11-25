@@ -3,11 +3,12 @@
 ## Status
 
 - 2026-11-25: decisions settled (Morgan: "yes to all"). Slice 0 merged (#238), slice 1 (server,
-  R4–R7) merged (#248). `GET /api/dictation/devices` lists Macs unless `?kind=phone|all`, so the
-  web's Mac checks keep reading it as "this member's Macs". Slice 2 in progress: /phone/connect,
-  Settings → Apps → Android app (phones listed, Disconnect), and the app's connect flow and Today
-  widget (R8–R11). No emulator in the cloud: the widget's logic is unit-tested, and its look is
-  checked on Morgan's phone after slice 3.
+  R4–R7) merged (#248), slice 2 (/phone/connect, Settings → Apps → Android app, the connect flow
+  and the Today widget, R5 and R8–R11) merged (#249). `GET /api/dictation/devices` lists Macs
+  unless `?kind=phone|all`. No emulator in the cloud: the widget's logic is unit-tested, and its
+  look is checked on Morgan's phone. Slice 3 in progress: the upload key
+  (`apps/android/scripts/create-upload-key.sh`, run once on Morgan's Mac), the bundle on the
+  prerelease `android-app-<version code>`, and `apps/android/scripts/play-upload.mjs` (R12).
 - Google Play developer account: Morgan's personal account, verified 2026-11-24.
 
 ## Why
@@ -87,5 +88,8 @@ Each maps to a test named for it.
 ## What Morgan does
 
 - Google Play developer account ($25; steps page https://claude.ai/artifact/G1xD6RbESmqZsrFWAyz49w).
-- After slice 3's first bundle: create the app entry in Play Console and let GitHub upload
-  (added to the same page then).
+- After slice 3's first signed bundle: create the app in Play Console, upload that bundle to
+  Internal testing by hand (Play only creates an app from a first upload), add testers, and send
+  back the app-signing SHA-256 from App integrity (public; it goes in `api/android.ts`). Later,
+  for automatic uploads: a Google Cloud service account invited in Play Console, its JSON key as
+  the `ANDROID_PLAY_SERVICE_ACCOUNT` secret.
