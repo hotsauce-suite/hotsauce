@@ -38,6 +38,7 @@ export {
   DictationStore,
   deviceTokenFrom,
   hashDeviceToken,
+  MAX_HEARD_AS_PER_WORD,
   MAX_WORD_LENGTH,
   MAX_WORDS_PER_LIST,
   macAppVersionFrom,

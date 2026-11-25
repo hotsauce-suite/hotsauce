@@ -142,7 +142,7 @@ tools can all read what you saved. [More in the help center](https://hotsauce.wo
 | **Check-ins** | A question the team answers on a schedule, like "What will you get done this week?". A reminder in each person's time zone, answers by typing or voice, replies, and one summary to your chat room. |
 | **Share pages** | Share a read-only link to a doc, note, meeting, clip or file with your team or someone outside, ending when you choose, or publish a page. |
 | **Clips** | Loom-style screen recordings with your camera in the video, a transcript with speaker names, trimming, one-click Summarize and Action items, speed control and a shared library. |
-| **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is; a warm glow around the window shows it’s listening. Team word lists keep names spelled right. With no connection, the Mac still types what you say, on the device (without the clean-up or word list). |
+| **Dictate** | Hold a key on your Mac, talk, and clean punctuated text lands wherever your cursor is; a warm glow around the window shows it’s listening. Team word lists keep names spelled right. Teach it how names get misheard ("Rajeev" is written "Rajiv"). With no connection, the Mac still types what you say, on the device (without the clean-up). |
 | **Screenshots** | One shortcut in the Mac app captures an area, a window or the whole screen. Add arrows, numbered steps and redactions, copy the text in the picture, and share a link that deletes itself after 30 days. |
 | **Briefcast** | A five-minute audio briefing each weekday morning: your meetings, what changed and what's due, in your podcast app. |
 

@@ -60,6 +60,29 @@ describe('Hotsauce Dictate page', () => {
   })
 })
 
+describe('also heard as (docs/PLAN-dictate-punctuation-and-fixes.md, H5)', () => {
+  it('adds and removes the ways a word gets misheard', async () => {
+    const user = userEvent.setup()
+    renderApp('/dictate')
+    const mine = await screen.findByTestId('dictate-words-mine')
+    await within(mine).findByText('None yet.')
+    await user.type(within(mine).getByRole('textbox'), 'Rajiv{Enter}')
+    await user.click(await within(mine).findByRole('button', { name: 'Rajiv: also heard as' }))
+    const editor = within(mine).getByTestId('dictate-heard-as-mine')
+    expect(editor).toHaveTextContent('When Dictate hears one of these, it writes Rajiv')
+    await user.type(within(editor).getByRole('textbox'), 'Rajeev, Rajeef{Enter}')
+    expect(await within(mine).findByText('← Rajeev, Rajeef')).toBeInTheDocument()
+    await user.click(within(editor).getByRole('button', { name: 'Remove Rajeef' }))
+    expect(await within(mine).findByText('← Rajeev')).toBeInTheDocument()
+  })
+
+  it('shows the team’s spellings next to the word', async () => {
+    renderApp('/dictate')
+    const team = await screen.findByTestId('dictate-words-team')
+    expect(await within(team).findByText('← Amber')).toBeInTheDocument()
+  })
+})
+
 describe('Dictate models (docs/PLAN-dictate-models.md)', () => {
   it('shows the models in use and saves my cleanup choice (R5)', async () => {
     const user = userEvent.setup()

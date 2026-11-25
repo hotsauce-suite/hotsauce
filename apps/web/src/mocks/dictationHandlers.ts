@@ -23,6 +23,8 @@ export function dictationHandlers(opts: {
 }): AnyHandler[] {
   const devices = new Map<string, Array<DictationDevice & { revoked?: boolean }>>()
   const words = new Map<string, string[]>([['team', [...TEAM_SEED]]])
+  // "Also heard as" spellings, by list then word (docs/PLAN-dictate-punctuation-and-fixes.md).
+  const heard = new Map<string, Record<string, string[]>>([['team', { Ember: ['Amber'] }]])
   const cleanup = new Map<string, CleanupChoice>()
   const speech = new Map<string, SpeechChoice>()
   let next = 1
@@ -125,8 +127,32 @@ export function dictationHandlers(opts: {
     http.get(
       '/api/dictation/words',
       authed(({ user }) =>
-        HttpResponse.json({ mine: words.get(user.email) ?? [], team: words.get('team') ?? [] }),
+        HttpResponse.json({
+          mine: words.get(user.email) ?? [],
+          team: words.get('team') ?? [],
+          heardAs: { mine: heard.get(user.email) ?? {}, team: heard.get('team') ?? {} },
+        }),
       ),
+    ),
+    http.put(
+      '/api/dictation/words/heard-as',
+      authed(async ({ request, user }) => {
+        const body = (await request.json()) as {
+          scope: 'mine' | 'team'
+          word: string
+          heard: string[]
+        }
+        const key = body.scope === 'team' ? 'team' : user.email
+        const seen = new Set<string>([body.word.toLowerCase()])
+        const list = body.heard
+          .map((w) => w.trim())
+          .filter((w) => w !== '' && !seen.has(w.toLowerCase()) && seen.add(w.toLowerCase()))
+        const lists = { ...(heard.get(key) ?? {}) }
+        if (list.length) lists[body.word] = list
+        else delete lists[body.word]
+        heard.set(key, lists)
+        return HttpResponse.json({ scope: body.scope, word: body.word, heard: list })
+      }),
     ),
     http.put(
       '/api/dictation/words',
