@@ -16,13 +16,16 @@ export const INK = [0x05, 0x0a, 0x1a] as const
 /** The Ink slider's default, between 0 (only the darkest strokes) and 1 (faint pencil too). */
 export const DEFAULT_STRENGTH = 0.5
 
-/**
- * Each pixel is compared with the paper around it (a local average, so a shadow across the page
- * stays paper), and kept as ink by how much darker it is. `strength` moves the cut-off.
- */
-export function cleanSignature(src: Pixels, strength = DEFAULT_STRENGTH): CleanResult {
+/** The slow part of cleaning, done once per picture: each pixel's brightness and its paper's. */
+export interface Prepared {
+  width: number
+  height: number
+  lum: Float64Array
+  bg: Float64Array
+}
+
+export function prepare(src: Pixels): Prepared {
   const { width, height, data } = src
-  if (width < 1 || height < 1) return { ok: false, reason: 'no-ink' }
   const n = width * height
   const lum = new Float64Array(n)
   for (let i = 0; i < n; i++) {
@@ -34,23 +37,38 @@ export function cleanSignature(src: Pixels, strength = DEFAULT_STRENGTH): CleanR
     // A see-through pixel counts as white paper.
     lum[i] = y * a + 255 * (1 - a)
   }
+  const r = Math.max(8, Math.round(Math.min(width, height) / 6))
+  return { width, height, lum, bg: localMean(lum, width, height, r) }
+}
 
-  const bg = localMean(lum, width, height, Math.max(8, Math.round(Math.min(width, height) / 6)))
+/**
+ * Each pixel is compared with the paper around it (a local average, so a shadow across the page
+ * stays paper), and kept as ink by how much darker it is. `strength` moves the cut-off. Ink that
+ * touches the picture's edge is a desk or table around the sheet, not the signature, and is
+ * dropped.
+ */
+export function cleanSignature(src: Pixels | Prepared, strength = DEFAULT_STRENGTH): CleanResult {
+  const p = 'lum' in src ? src : prepare(src)
+  const { width, height, lum, bg } = p
+  if (width < 1 || height < 1) return { ok: false, reason: 'no-ink' }
+  const n = width * height
   const s = Math.min(1, Math.max(0, strength))
   const low = 0.3 - 0.22 * s
   const high = low + 0.15
   const alpha = new Uint8ClampedArray(n)
-  let inked = 0
+  let dark = 0
   for (let i = 0; i < n; i++) {
     const paper = Math.max(bg[i] ?? 255, 1)
-    // Ink is darker than the paper around it; a pixel no darker than 30/255 overall always is.
-    const d = Math.max((paper - (lum[i] ?? 255)) / paper, (lum[i] ?? 255) < 30 ? 1 : 0)
+    const d = (paper - (lum[i] ?? 255)) / paper
     const a = d <= low ? 0 : d >= high ? 1 : (d - low) / (high - low)
     alpha[i] = Math.round(a * 255)
-    if (a >= 0.5) inked++
+    if ((lum[i] ?? 255) < 60) dark++
   }
+  if (dark > n * 0.6) return { ok: false, reason: 'too-dark' }
+  clearEdgeInk(alpha, width, height)
+  let inked = 0
+  for (let i = 0; i < n; i++) if ((alpha[i] ?? 0) >= 128) inked++
   if (inked < Math.max(4, n * 0.0002)) return { ok: false, reason: 'no-ink' }
-  if (inked > n * 0.5) return { ok: false, reason: 'too-dark' }
 
   const box = inkBox(alpha, width, height)
   if (!box) return { ok: false, reason: 'no-ink' }
@@ -74,6 +92,32 @@ export function cleanSignature(src: Pixels, strength = DEFAULT_STRENGTH): CleanR
     }
   }
   return { ok: true, image: { data: out, width: w, height: h } }
+}
+
+/** Clears every run of ink joined to the picture's edge (the desk around a photographed page). */
+function clearEdgeInk(alpha: Uint8ClampedArray, width: number, height: number): void {
+  const stack: number[] = []
+  const push = (i: number) => {
+    if ((alpha[i] ?? 0) === 0) return
+    alpha[i] = 0
+    stack.push(i)
+  }
+  for (let x = 0; x < width; x++) {
+    push(x)
+    push((height - 1) * width + x)
+  }
+  for (let y = 0; y < height; y++) {
+    push(y * width)
+    push(y * width + width - 1)
+  }
+  while (stack.length > 0) {
+    const i = stack.pop() as number
+    const x = i % width
+    if (x > 0) push(i - 1)
+    if (x < width - 1) push(i + 1)
+    if (i >= width) push(i - width)
+    if (i < width * (height - 1)) push(i + width)
+  }
 }
 
 /**

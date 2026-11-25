@@ -34,7 +34,9 @@ and save their signature and initials (typed, drawn or uploaded) to reuse with o
   (`sign-saved.test.ts`)
 - R4. The `signed` audit event carries `adoption`: for each signature and initials, how it was
   made and whether it equals the member's saved one, checked on the server. The certificate
-  lists it, e.g. "signature: uploaded image, their saved signature". (`sign-saved.test.ts`)
+  lists it, e.g. "signature: uploaded image, their saved signature". Drawn versus uploaded is what
+  the signer's app says (a PNG can't prove how it was made); "saved" is checked by the server.
+  (`sign-saved.test.ts`)
 - R5. `GET /api/sign-saved`, `PUT` and `DELETE /api/sign-saved/:kind` (`signature`,
   `initials`) read and change the member's saved marks in their personal space; another member
   never sees them; a non-PNG, an over-size PNG or empty text is refused; a hand-broken file

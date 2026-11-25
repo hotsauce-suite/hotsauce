@@ -1309,7 +1309,7 @@ function describeSignerEvidence(
 // Hotsauce: one row of a signed event's `adoption` list, in words.
 const ADOPTION_LABELS: Record<string, string> = {
   typed: "typed",
-  drawn: "drawn by hand",
+  drawn: "drawn",
   uploaded: "uploaded image",
 };
 

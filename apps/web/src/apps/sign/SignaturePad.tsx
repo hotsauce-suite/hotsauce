@@ -1,10 +1,10 @@
 import type { SavedMark } from '@hotsauce/format'
 import { MAX_DRAWN_SIGNATURE_CHARS } from '@hotsauce/format'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from '../../components/Dialog'
 import { inputClass } from '../../routes/org/fields'
 import { primaryButton, secondaryButton } from '../meetings/components/common'
-import { DEFAULT_STRENGTH, type Pixels } from './cleanSignature'
+import { DEFAULT_STRENGTH, type Prepared, prepare } from './cleanSignature'
 import {
   MAX_UPLOAD_BYTES,
   readPicture,
@@ -79,16 +79,26 @@ export function SignatureDialog({
   const label = kind === 'initials' ? 'initials' : 'signature'
 
   // Upload: the picture as read, the Ink slider, and the cleaned result.
-  const [picture, setPicture] = useState<Pixels | null>(null)
+  const [picture, setPicture] = useState<Prepared | null>(null)
   const [strength, setStrength] = useState(DEFAULT_STRENGTH)
   const [pickError, setPickError] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  // The slider moves at once; the cleanup catches up when the drag pauses.
+  const settled = useDeferredValue(strength)
   const uploaded = useMemo(
-    () => (picture ? signatureFromPicture(picture, strength, label) : null),
-    [picture, strength, label],
+    () => (picture ? signatureFromPicture(picture, settled, label) : null),
+    [picture, settled, label],
   )
+  // Only the picture picked last counts, whichever finishes reading first.
+  const picks = useRef(0)
+
+  // A saved one that loads after the box opened: show it, unless they already started.
+  const touched = useRef(false)
+  useEffect(() => {
+    if (saved && !touched.current) setMode('saved')
+  }, [saved])
 
   const pick = async (file: File | null | undefined) => {
     if (!file) return
@@ -97,8 +107,10 @@ export function SignatureDialog({
       setPickError('That file is over 25 MB. Pick a smaller picture.')
       return
     }
+    const mine = ++picks.current
     setReading(true)
     const px = await readPicture(file)
+    if (mine !== picks.current) return
     setReading(false)
     if (!px) {
       setPickError(
@@ -107,7 +119,7 @@ export function SignatureDialog({
       return
     }
     setStrength(DEFAULT_STRENGTH)
-    setPicture(px)
+    setPicture(prepare(px))
   }
 
   // Paste a picture while the Upload tab is open.
@@ -191,7 +203,10 @@ export function SignatureDialog({
               role="tab"
               aria-selected={mode === m}
               className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-ember text-paper-raised' : 'bg-paper-sunk text-ink'}`}
-              onClick={() => setMode(m)}
+              onClick={() => {
+                touched.current = true
+                setMode(m)
+              }}
               data-testid={`signature-${m}`}
             >
               {MODE_LABEL[m]}
@@ -215,7 +230,10 @@ export function SignatureDialog({
               className={inputClass}
               value={typed}
               maxLength={200}
-              onChange={(e) => setTyped(e.target.value)}
+              onChange={(e) => {
+                touched.current = true
+                setTyped(e.target.value)
+              }}
               data-testid="signature-typed"
             />
             <span className="sign-script mt-2 truncate rounded-lg border border-ash-strong bg-white px-3 py-3 text-4xl">

@@ -859,16 +859,19 @@ export class Sign {
     via: string | undefined,
   ): Promise<SavedSignatures> {
     const space = await this.#personalSpace(principal)
-    const { saved, blobOid } = await this.#readSaved(space)
-    const next = SavedSignatures.parse({ ...saved, [kind]: mark })
-    await this.#commit(space, principal, {
-      changes: [{ path: SAVED_SIGNATURE_PATH, content: `${JSON.stringify(next, null, 2)}\n` }],
-      verb: mark ? 'save' : 'remove',
-      title: kind === 'initials' ? 'saved initials' : 'saved signature',
-      via,
-      unchanged: { path: SAVED_SIGNATURE_PATH, blobOid },
+    // One change at a time, so saving a signature and then initials a moment later both land.
+    return this.#serial(space, SAVED_SIGNATURE_PATH, async () => {
+      const { saved, blobOid } = await this.#readSaved(space)
+      const next = SavedSignatures.parse({ ...saved, [kind]: mark })
+      await this.#commit(space, principal, {
+        changes: [{ path: SAVED_SIGNATURE_PATH, content: `${JSON.stringify(next, null, 2)}\n` }],
+        verb: mark ? 'save' : 'remove',
+        title: kind === 'initials' ? 'saved initials' : 'saved signature',
+        via,
+        unchanged: { path: SAVED_SIGNATURE_PATH, blobOid },
+      })
+      return next
     })
-    return next
   }
 
   async #readSaved(space: string): Promise<{ saved: SavedSignatures; blobOid: string | null }> {
@@ -1359,7 +1362,7 @@ export class Sign {
     const visible = await this.#deps.spaces.visibleSpaces(principal)
     const personal = visible.find((s) => s.kind === 'personal')?.name
     if (!personal)
-      throw new HotsauceError('conflict', 'You need a private space to keep envelopes in')
+      throw new HotsauceError('conflict', 'You need a private space for this; ask an admin')
     return personal
   }
 

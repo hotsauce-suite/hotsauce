@@ -2,7 +2,7 @@
 // picture, clean it with `cleanSignature`, and give back a PNG data URL small enough to sign with.
 
 import { MAX_DRAWN_SIGNATURE_CHARS } from '@hotsauce/format'
-import { cleanSignature, fitWithin, type Pixels } from './cleanSignature'
+import { cleanSignature, fitWithin, type Pixels, type Prepared } from './cleanSignature'
 
 /** Pictures are read at most this size; a phone photo is far bigger than a signature needs. */
 const READ_MAX = 1600
@@ -44,7 +44,7 @@ export async function readPicture(file: Blob): Promise<Pixels | null> {
 
 /** Cleans a picture at the Ink slider's `strength` and makes the PNG to sign with. */
 export function signatureFromPicture(
-  pixels: Pixels,
+  pixels: Prepared,
   strength: number,
   label: 'signature' | 'initials',
 ): Uploaded {

@@ -127,6 +127,17 @@ describe('a member’s saved signature and initials (R5)', () => {
     expect(JSON.parse(file.content)).toEqual(both)
   })
 
+  it('keeps both when the signature and initials are saved at the same moment', async () => {
+    await api('GET', '/api/sign-saved')
+    await Promise.all([
+      api('PUT', '/api/sign-saved/signature', { json: { input: 'drawn', image: DRAWN } }),
+      api('PUT', '/api/sign-saved/initials', { json: { input: 'typed', value: 'AL' } }),
+    ])
+    const both = await api('GET', '/api/sign-saved')
+    expect(both.signature).toMatchObject({ input: 'drawn' })
+    expect(both.initials).toMatchObject({ value: 'AL' })
+  })
+
   it('is private: another member sees only their own', async () => {
     await api('PUT', '/api/sign-saved/signature', { json: { input: 'drawn', image: DRAWN } })
     expect(await api('GET', '/api/sign-saved', { as: BOB })).toEqual({
@@ -228,6 +239,36 @@ describe('signing with an uploaded or saved signature (R3, R4)', () => {
     expect(await textOf(cert as Uint8Array)).toContain(
       'signature: uploaded image, their saved signature',
     )
+  })
+
+  it('takes an uploaded picture from someone signing with an emailed link', async () => {
+    const { env, space } = await ready()
+    const sent = await api('PUT', `/api/sign/${space}/${env.id}`, {
+      json: {
+        title: 'Offer for Maya',
+        signers: [{ id: 's1', name: 'Maya', email: 'maya@outside.test', order: 1 }],
+        fields: FIELDS3,
+        blobOid: env.blobOid,
+      },
+    })
+    const out = await api('POST', `/api/sign/${space}/${env.id}/send`, {
+      json: { blobOid: sent.blobOid },
+    })
+    const token = out.links[0].url.split('/signing/')[1]
+    const done = await api('POST', `/api/sign-link/${token}/sign`, {
+      json: {
+        consent: true,
+        values: [
+          { field: 'f1', image: DRAWN, input: 'uploaded' },
+          { field: 'f2', value: 'ML' },
+        ],
+      },
+    })
+    expect(done.status).toBe('completed')
+    const view = await api('GET', `/api/sign/${space}/${env.id}`)
+    expect(view.fields[0]).toMatchObject({ input: 'uploaded' })
+    const signed = view.audit.find((a: { event: string }) => a.event === 'signed')
+    expect(signed.meta.adoption[0]).toEqual({ type: 'signature', input: 'uploaded', saved: false })
   })
 
   it('calls an image with no input drawn, as before', async () => {

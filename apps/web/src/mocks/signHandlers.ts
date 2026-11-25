@@ -204,7 +204,15 @@ function signAs(
   }
   fm.audit[fm.audit.length - (done ? 2 : 1)] = {
     ...(fm.audit[fm.audit.length - (done ? 2 : 1)] as (typeof fm.audit)[number]),
-    meta: { method },
+    meta: {
+      method,
+      // As the server records it; the demo doesn't check against a saved signature.
+      adoption: fields.flatMap((f) =>
+        f.signer === signer.id && (f.type === 'signature' || f.type === 'initials')
+          ? [{ type: f.type, input: f.input ?? 'typed', saved: false }]
+          : [],
+      ),
+    },
   }
   s.fm = done ? { ...fm, result: finish(files, fm, signer.email) } : fm
   s.blobOid = newId().toLowerCase()

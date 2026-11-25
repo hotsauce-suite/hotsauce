@@ -68,6 +68,24 @@ describe('cleanSignature (R2)', () => {
   it('says when there is no signature, or the picture is too dark', () => {
     expect(cleanSignature(sheet(200, 100, 240, []))).toEqual({ ok: false, reason: 'no-ink' })
     expect(cleanSignature(sheet(200, 100, 10, []))).toEqual({ ok: false, reason: 'too-dark' })
+    // Paper with a signature away from the edges is fine.
+    expect(cleanSignature(sheet(200, 100, 240, [{ x: 50, y: 40, w: 100, h: 5 }])).ok).toBe(true)
+  })
+
+  it('drops a dark desk around the photographed page', () => {
+    // White paper in the middle, a near-black desk all round (30% of the frame).
+    const w = 400
+    const h = 300
+    const desk = [
+      { x: 0, y: 0, w, h: 40, ink: 15 },
+      { x: 0, y: h - 40, w, h: 40, ink: 15 },
+      { x: 0, y: 0, w: 40, h, ink: 15 },
+      { x: w - 40, y: 0, w: 40, h, ink: 15 },
+    ]
+    const r = cleanSignature(sheet(w, h, 240, [...desk, { x: 120, y: 140, w: 160, h: 6 }]))
+    if (!r.ok) throw new Error(r.reason)
+    expect(r.image.width).toBeLessThan(185)
+    expect(r.image.height).toBeLessThan(30)
   })
 
   it('keeps fainter strokes as the Ink slider goes up', () => {
