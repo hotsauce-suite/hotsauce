@@ -118,8 +118,9 @@
   with `context.serviceWorkers()[0].evaluate(...)` (`e2e/notification-click.spec.ts`).
 - Chrome's `clients.matchAll` also lists frames inside a page and server pages (an `/api/` PDF);
   pick a top-level app tab, preferring `focused`, then `visibilityState === 'visible'`.
-- Chrome allows one window action per click (focus or openWindow), so focus first and only open a
-  new tab when focus was refused. Never swallow a failed focus silently.
+- Chrome allows one window action per click (focus or openWindow): `focus()` spends it even when
+  it then fails, so "open a new tab if focus failed" never works. Post the in-app move first (always
+  safe), then focus; open a new tab only when there is no tab. Log the branch taken.
 - `Client.url` in Chrome does not follow `history.pushState`: the worker can't tell from it
   whether an SPA tab moved. Don't build fallbacks on it.
 - A headless browser can't click a system notification; the final check is a person clicking

@@ -2,13 +2,16 @@
 // imported into the service worker vite-plugin-pwa generates. The server sends
 // { title, body, url, tag }; a click opens that page (docs/PLAN-notification-clicks.md).
 //
-// A Hotsauce tab that's already open is brought to the front and moves there in-app
-// (src/lib/swNavigate.ts), never by a page load, which would end a meeting being recorded in it.
-// With no tab, or one Chrome won't bring forward, a new one opens.
+// A Hotsauce tab that's already open moves there in-app (src/lib/swNavigate.ts), never by a page
+// load, which would end a meeting being recorded in it, and is brought to the front. With no tab,
+// a new one opens. Chrome allows one window action (focus or open) per click, so there is no
+// second try. Each click logs what it did (chrome://serviceworker-internals).
 
 const NAVIGATE_MESSAGE = 'hearth:navigate'
 /** Addresses the server answers itself, never the app: a tab there can't move in-app. */
-const SERVER_PAGES = /^\/(api|ws|downloads|mcp|\.well-known)(\/|$)/
+const SERVER_PAGES = /^\/(api|ws|downloads|mcp|\.well-known|excalidraw|music|fonts)(\/|$)/
+/** A file the server sends as it is (an icon, a script), never an app screen. */
+const FILE_PAGE = /\.[a-z0-9]+$/i
 
 self.addEventListener('push', (event) => {
   let data = {}
@@ -52,7 +55,11 @@ function pickTab(windows) {
     if (w.frameType === 'nested' || w.frameType === 'auxiliary') return false
     try {
       const url = new URL(w.url)
-      return url.origin === self.location.origin && !SERVER_PAGES.test(url.pathname)
+      return (
+        url.origin === self.location.origin &&
+        !SERVER_PAGES.test(url.pathname) &&
+        !FILE_PAGE.test(url.pathname)
+      )
     } catch {
       return false
     }
@@ -69,18 +76,24 @@ async function openFromNotification(raw) {
   const url = pageFor(raw)
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
   const tab = pickTab(windows)
-  if (tab) {
-    // Focus first: Chrome lets a click bring one window forward, and only straight away.
-    const focused = await Promise.resolve()
-      .then(() => tab.focus())
-      .catch(() => null)
-    if (focused) {
-      focused.postMessage({ type: NAVIGATE_MESSAGE, url })
-      return
-    }
+  if (!tab) {
+    // No Hotsauce tab: a new one (Chrome allows one window action per click).
+    const opened = await Promise.resolve()
+      .then(() => self.clients.openWindow(url))
+      .then(() => true)
+      .catch(() => false)
+    console.info('hotsauce notification click:', { tabs: 0, opened })
+    return
   }
-  // No tab, or Chrome wouldn't bring it forward: a new one.
-  await Promise.resolve()
-    .then(() => self.clients.openWindow(url))
-    .catch(() => null)
+  // Move it in-app first, which is always safe, then bring it forward.
+  tab.postMessage({ type: NAVIGATE_MESSAGE, url })
+  const focused = await Promise.resolve()
+    .then(() => tab.focus())
+    .then(() => true)
+    .catch(() => false)
+  console.info('hotsauce notification click:', {
+    tabs: windows.length,
+    path: new URL(tab.url).pathname,
+    focused,
+  })
 }

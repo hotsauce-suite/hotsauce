@@ -138,11 +138,23 @@ describe('a click on a notification', () => {
     expect(w.opened).toEqual([`${ORIGIN}/briefcast`])
   })
 
-  it('opens a new tab when the open one can’t be brought forward', async () => {
+  it('still moves the open tab when Chrome won’t bring it forward', async () => {
     const hidden = tab('a', '/today', { focusFails: true })
     const w = worker([hidden])
     await w.click('/tasks/today')
-    expect(w.opened).toEqual([`${ORIGIN}/tasks/today`])
+    expect(hidden.postMessage).toHaveBeenCalledWith({
+      type: 'hearth:navigate',
+      url: `${ORIGIN}/tasks/today`,
+    })
+    expect(hidden.navigate).not.toHaveBeenCalled()
+  })
+
+  it('skips a tab showing a file, like an icon opened directly', async () => {
+    const icon = tab('a', '/icon-192.png', { focused: true })
+    const w = worker([icon])
+    await w.click('/briefcast')
+    expect(icon.focus).not.toHaveBeenCalled()
+    expect(w.opened).toEqual([`${ORIGIN}/briefcast`])
   })
 
   it('never leaves the site, and goes home without a page', async () => {

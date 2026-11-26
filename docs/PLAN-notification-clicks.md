@@ -12,7 +12,9 @@ Every server notification (meeting and task reminders, check-ins, mentions, Brie
 through `apps/web/public/push-sw.js`. Its click handler took the first Hotsauce window the browser
 listed, posted it a navigate message, and then tried to focus it, swallowing any failure. When the
 window it picked couldn't be brought forward (a frame inside a page, a server page like an
-`/api/` PDF, a tab Chrome refused to focus), the click did nothing, with no fallback.
+`/api/` PDF, a tab Chrome refused to focus), the click did nothing, with no fallback. This is the likeliest
+cause, not a reproduced one: each click now logs what it did, readable at
+`chrome://serviceworker-internals`.
 
 ## Requirements
 
@@ -22,7 +24,9 @@ window it picked couldn't be brought forward (a frame inside a page, a server pa
 3. Of several open tabs, the click uses the one in front, else one on screen, else the most
    recent. Frames inside a page and pages the server answers itself (`/api`, `/mcp`, …) are
    never used.
-4. When the tab can't be brought forward, a new tab opens instead.
+4. The tab moves in-app even when Chrome won't bring it forward (Chrome allows one window
+   action per click, so a second try at a new tab would be refused). Tabs showing a file the
+   server sends as is (an icon, `/music/…`) are never used.
 5. A click never leaves the site; a notification without a page opens Today.
 6. The screen-break notification (shown while Hotsauce is in the background) brings Hotsauce
    forward when clicked.
