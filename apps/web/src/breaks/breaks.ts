@@ -133,11 +133,16 @@ export function breaks(): BreakRunner {
     notifyHidden(settings) {
       try {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
-        new Notification('Time for a screen break', {
+        const note = new Notification('Time for a screen break', {
           body: `Look at something far away for ${lengthLabel(settings.lengthSeconds)}.`,
           tag: 'hotsauce-break',
           silent: true,
         })
+        // A click brings Hotsauce forward, where the break is showing.
+        note.onclick = () => {
+          window.focus()
+          note.close()
+        }
       } catch {
         // Notifications not offered here.
       }

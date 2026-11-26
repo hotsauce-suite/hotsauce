@@ -109,3 +109,18 @@
 - The Mac app (and any long-open tab) can show the server's new version number under Settings while still running the old web code: the number comes from `/api/health`, the code from the cached build. "Reload" under the version is the fix to give people; don't assume a new feature is missing just because the old screen is showing.
 - Giving a section its own Settings page touches five places: `pages.ts` (menu), `routes.tsx`, the page component, `searchIndex.ts` (its `to`), and `MOVED` for old `#section` addresses. The menu-order tests in `settingsPages.test.tsx` list every page, so they fail loudly when one is added.
 - Free outside services shared by every self-hosted copy (Nominatim, MET) block by User-Agent, so one busy instance can get all of them blocked. Throttle server-wide, share in-flight lookups, back off after a failure (longer after 403/429), and cap the queue so a stall answers at once instead of piling up.
+
+## Notification clicks (2026-11-26)
+
+- Every server notification shares one click handler, `apps/web/public/push-sw.js`. It is plain
+  JS loaded with `importScripts`, so its top-level functions are globals in the worker: unit-test it
+  by running the file in a fake `self` (`src/lib/pushSw.test.ts`), and drive it in a real browser
+  with `context.serviceWorkers()[0].evaluate(...)` (`e2e/notification-click.spec.ts`).
+- Chrome's `clients.matchAll` also lists frames inside a page and server pages (an `/api/` PDF);
+  pick a top-level app tab, preferring `focused`, then `visibilityState === 'visible'`.
+- Chrome allows one window action per click (focus or openWindow), so focus first and only open a
+  new tab when focus was refused. Never swallow a failed focus silently.
+- `Client.url` in Chrome does not follow `history.pushState`: the worker can't tell from it
+  whether an SPA tab moved. Don't build fallbacks on it.
+- A headless browser can't click a system notification; the final check is a person clicking
+  Settings → Notifications → Send test notification.
