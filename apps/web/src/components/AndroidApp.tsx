@@ -48,8 +48,8 @@ export function AndroidAppCard() {
           </h3>
           <span className="block text-sm text-ink-soft">
             {product()} on an Android home screen: a Today widget with your next meeting, a Join
-            button and the weather, and a Tasks widget to tick things off. It’s in testing; ask your
-            admin for the invite.
+            button and the weather, a Tasks widget to tick things off, and one-tap Quick capture and
+            Voice note buttons. It’s in testing; ask your admin for the invite.
           </span>
         </span>
       </div>

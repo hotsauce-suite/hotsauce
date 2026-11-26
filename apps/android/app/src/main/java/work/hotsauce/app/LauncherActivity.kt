@@ -31,7 +31,8 @@ class LauncherActivity : Activity() {
             store.offeredConnect = true
             "/phone/connect?state=${store.nonce.start()}"
         } else {
-            intent?.getStringExtra(EXTRA_PATH)?.takeIf { SAFE_PATH.matches(it) } ?: "/"
+            QuickActions.pathFor(intent?.getStringExtra(EXTRA_ACTION))
+                ?: intent?.getStringExtra(EXTRA_PATH)?.takeIf { SAFE_PATH.matches(it) } ?: "/"
         }
         if (connected) RefreshWorker.now(this)
         launcher = TwaLauncher(this).also { it.launch(Uri.parse(origin + path)) }
@@ -51,6 +52,8 @@ class LauncherActivity : Activity() {
     companion object {
         /** A path on the server to open instead of the start page, such as /tasks. */
         const val EXTRA_PATH = "path"
+        /** A quick action's id (QuickActions), such as voice-note, to open straight into it. */
+        const val EXTRA_ACTION = "action"
         /** Ask to connect the widgets even if the app asked before. */
         const val EXTRA_CONNECT = "connect"
         private val SAFE_PATH = Regex("^/[A-Za-z0-9/_-]*$")

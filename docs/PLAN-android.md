@@ -10,7 +10,10 @@
   (`apps/android/scripts/create-upload-key.sh`, run once on Morgan's Mac), the bundle on the
   prerelease `android-app-<version code>`, and `apps/android/scripts/play-upload.mjs` (R12),
   merged (#250); the key waits on Morgan (his Mac blocks the script for agents). Slice 4 (Tasks
-  widget, R13–R14) in progress.
+  widget, R13–R14) merged (#251). Slices 5 and 6 (Quick capture, Voice note, R15) in progress:
+  they open the app's existing quick actions in the signed-in Chrome shell rather than writing with
+  the phone's token, so the token's reach stays at reading the summary and ticking a task. Typing
+  a task straight into a widget would need a native screen and wider token; not planned.
 - Google Play developer account: Morgan's personal account, verified 2026-11-24.
 
 ## Why
@@ -78,6 +81,10 @@ Each maps to a test named for it.
   member can see; reopening, editing, moving, deleting or adding is refused with 401.
 - R14. The Tasks widget lists tasks due (2, or 6 when tall) with a tick each; a tick removes the
   task at once and tells the server, and the next refresh puts it back if the server refused.
+- R15. The Quick capture widget (a bar of Voice note, New task, Save link, Ask; two when narrow)
+  and the Voice note widget (one button) open the app straight into those quick actions, the same
+  list as the web app's (`apps/web/src/lib/phoneShortcuts.ts`, which checks the app's copy). A
+  widget button names an action by id; the app opens only a known action's address.
 - R12. GitHub uploads each release's bundle to Play internal testing when the Play secret exists,
   and skips that step (green) when it doesn't.
 
