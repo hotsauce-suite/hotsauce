@@ -1,7 +1,8 @@
 // The quick actions a phone or the Mac app opens straight into (docs/PLAN-phone-shortcuts.md).
 // One list feeds the web app manifest's shortcuts (Android: hold the icon; vite.config.ts), the
 // Phone shortcuts card in Settings → Apps (iPhone: Apple's Shortcuts app), and the Mac app's Dock
-// and menu bar menus (its own copy in apps/dictate-mac/Sources/DictateCore/QuickActions.swift, kept equal by phoneShortcuts.test.ts).
+// and menu bar menus (its own copy in apps/dictate-mac/Sources/DictateCore/QuickActions.swift), and the
+// Android app's Capture and Voice note widgets (apps/android/.../QuickActions.kt); phoneShortcuts.test.ts keeps both equal.
 // No imports: vite.config.ts loads this file too.
 
 export interface QuickAction {

@@ -75,10 +75,13 @@ class TodayWidgetReceiver : GlanceAppWidgetReceiver() {
     }
 }
 
-internal fun openApp(context: Context, path: String? = null, connect: Boolean = false) =
+internal fun openApp(context: Context, path: String? = null, connect: Boolean = false, action: String? = null) =
     Intent(context, LauncherActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        // Each action its own intent, so Android doesn't merge two buttons' pending intents.
+        .apply { if (action != null) data = android.net.Uri.parse("hotsauce-action:$action") }
         .apply {
+            if (action != null) putExtra(LauncherActivity.EXTRA_ACTION, action)
             if (path != null) putExtra(LauncherActivity.EXTRA_PATH, path)
             if (connect) putExtra(LauncherActivity.EXTRA_CONNECT, true)
         }
