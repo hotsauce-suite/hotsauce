@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "version": "0.71.7",
+      "date": "2026-11-26",
+      "notes": [
+        {
+          "text": "Clicking a Hotsauce notification in your browser now always opens Hotsauce at the right page."
+        },
+        {
+          "text": "Clicking the screen-break notification brings Hotsauce to the front."
+        }
+      ]
+    },
+    {
       "version": "0.71.3",
       "date": "2026-11-25",
       "notes": [
