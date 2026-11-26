@@ -24,6 +24,13 @@ data class TodaySummary(
     data class Task(val space: String, val id: String, val title: String, val due: String?)
     data class Weather(val place: String?, val temperature: Double, val symbol: String)
 
+    /** This summary with one task ticked off: gone from the list, one fewer due (R14). */
+    fun withoutTask(space: String, id: String): TodaySummary {
+        val left = tasks.filterNot { it.space == space && it.id == id }
+        return if (left.size == tasks.size) this
+        else copy(tasks = left, tasksDue = maxOf(tasksDue - 1, left.size))
+    }
+
     fun toJson(): String = JSONObject().apply {
         put("date", date)
         put("meetingsLeft", meetingsLeft)

@@ -6,7 +6,6 @@ import android.net.Uri
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -15,15 +14,11 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
-import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.currentState
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
-import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
@@ -55,7 +50,7 @@ class TodayWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
             // A redraw bumps the stamp, so a widget whose session is still open reads again.
-            val stamp = currentState(STAMP) ?: 0L
+            val stamp = currentState(Widgets.STAMP) ?: 0L
             val connected = remember(stamp) { TokenVault(context).token != null }
             val summary = remember(stamp) { if (connected) SummaryStore(context).summary else null }
             val use24h = remember(stamp) { DateFormat.is24HourFormat(context) }
@@ -64,17 +59,6 @@ class TodayWidget : GlanceAppWidget() {
     }
 
     companion object {
-        private val STAMP = longPreferencesKey("drawn")
-
-        /** Redraws every Today widget from the stored token and summary. */
-        suspend fun redraw(context: Context) {
-            val ids = GlanceAppWidgetManager(context).getGlanceIds(TodayWidget::class.java)
-            for (id in ids) {
-                updateAppWidgetState(context, id) { it[STAMP] = System.currentTimeMillis() }
-                TodayWidget().update(context, id)
-            }
-        }
-
         val SMALL = DpSize(110.dp, 110.dp)
         val WIDE = DpSize(250.dp, 110.dp)
         val TALL = DpSize(250.dp, 220.dp)
@@ -91,14 +75,7 @@ class TodayWidgetReceiver : GlanceAppWidgetReceiver() {
     }
 }
 
-/** The refresh mark: fetch now. */
-class RefreshAction : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        RefreshWorker.now(context)
-    }
-}
-
-private fun openApp(context: Context, path: String? = null, connect: Boolean = false) =
+internal fun openApp(context: Context, path: String? = null, connect: Boolean = false) =
     Intent(context, LauncherActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         .apply {
@@ -163,7 +140,7 @@ private fun Body(connected: Boolean, summary: TodaySummary?, use24h: Boolean) {
         }
         if (size.width >= TodayWidget.WIDE.width && today != null) {
             Spacer(GlanceModifier.height(8.dp))
-            val shown = if (size.height >= TodayWidget.TALL.height) today.tasks else today.tasks.take(2)
+            val shown = today.tasks.take(if (size.height >= TodayWidget.TALL.height) 5 else 2)
             if (shown.isEmpty()) Text("Nothing due today", style = soft)
             shown.forEach { t ->
                 Text(

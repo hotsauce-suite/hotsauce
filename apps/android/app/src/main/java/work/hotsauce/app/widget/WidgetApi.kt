@@ -36,6 +36,32 @@ object WidgetApi {
         }
     }
 
+    /** Ticks a task off from the Tasks widget (R13): `POST /api/tasks/:space/:id/complete`. */
+    fun completeTask(origin: String, token: String, space: String, id: String, tz: String): Result? {
+        fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20")
+        val conn = URL("$origin/api/tasks/${enc(space)}/${enc(id)}/complete").openConnection() as HttpURLConnection
+        return try {
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 15_000
+            conn.instanceFollowRedirects = false
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(org.json.JSONObject().put("tz", tz).toString().toByteArray()) }
+            when (val code = conn.responseCode) {
+                in 200..299 -> null
+                // A 401 here may only mean an older server that doesn't take ticks from phones
+                // yet; the next refresh's summary read decides whether the phone is disconnected.
+                else -> Result.Failed("HTTP $code")
+            }
+        } catch (e: IOException) {
+            Result.Failed(e.javaClass.simpleName)
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     /** Best effort: tell the old server this phone is gone (DELETE of its own device, R6). */
     fun disconnect(origin: String, token: String) {
         try {

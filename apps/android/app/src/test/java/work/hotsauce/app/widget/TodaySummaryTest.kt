@@ -75,4 +75,13 @@ class TodaySummaryTest {
         assertEquals("⛈️", weatherEmoji("rainandthunder"))
         assertEquals("☁️", weatherEmoji("cloudy"))
     }
+
+    @Test fun `R14 a ticked task leaves the list at once, and the count with it`() {
+        val s = TodaySummary.parse(answer, fetchedAt = 42)!!
+        val after = s.withoutTask("morgan", "t1")
+        assertEquals(emptyList<TodaySummary.Task>(), after.tasks)
+        assertEquals(3, after.tasksDue)
+        // Another space's task with the same id stays.
+        assertEquals(s, s.withoutTask("team", "t1"))
+    }
 }

@@ -47,8 +47,9 @@ export function AndroidAppCard() {
             Android app
           </h3>
           <span className="block text-sm text-ink-soft">
-            {product()} on an Android home screen: a widget with your next meeting and a Join
-            button, today’s tasks and the weather. It’s in testing; ask your admin for the invite.
+            {product()} on an Android home screen: a Today widget with your next meeting, a Join
+            button and the weather, and a Tasks widget to tick things off. It’s in testing; ask your
+            admin for the invite.
           </span>
         </span>
       </div>
