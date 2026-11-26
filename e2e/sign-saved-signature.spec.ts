@@ -88,6 +88,8 @@ async function finish(page: Page) {
 }
 
 test('sign with an uploaded photo, save it, reuse it, and delete it', async ({ page, member }) => {
+  // Two whole envelopes, each sealed: 26 s of the default 30 on a CI runner already.
+  test.setTimeout(90_000)
   const id = uid()
   await startSigning(page, member.personal, `photo-${id}.pdf`)
 
